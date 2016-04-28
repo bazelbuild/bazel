@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -25,10 +26,11 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Refers to the pair of a target and a configuration and certain additional information. Not the
- * same as {@link ConfiguredTarget} -- that also contains the result of the analysis phase.
+ * Refers to the pair of a target and a configuration. Not the same as {@link ConfiguredTarget} -
+ * that also contains the result of the analysis phase.
  */
-public class TargetAndConfiguration {
+@Immutable
+public final class TargetAndConfiguration {
   private final Target target;
   @Nullable private final BuildConfiguration configuration;
 
