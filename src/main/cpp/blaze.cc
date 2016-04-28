@@ -103,8 +103,13 @@ static string BuildServerRequest();
 // This object has two states: connected and disconnected. Most of the methods
 // can only be called in one of these states.
 class BlazeServer {
+ protected:
+  BlazeLock blaze_lock;
+
  public:
   virtual ~BlazeServer() {}
+
+  uint64_t AcquireLock();
 
   // Connect to the server. Returns if the connection was successful. Only
   // call this when this object is in disconnected state. If it returns true,
@@ -129,6 +134,29 @@ class BlazeServer {
   // running, the result is unspecified.
   virtual void Cancel() = 0;
 };
+
+////////////////////////////////////////////////////////////////////////
+// Global Variables
+static GlobalVariables *globals;
+static BlazeServer *blaze_server;
+
+static void InitGlobals() {
+  globals = new GlobalVariables;
+  globals->server_pid = -1;
+  globals->sigint_count = 0;
+  globals->received_signal = 0;
+  globals->startup_time = 0;
+  globals->extract_data_time = 0;
+  globals->command_wait_time = 0;
+  globals->restart_reason = NO_RESTART;
+}
+
+
+uint64_t BlazeServer::AcquireLock() {
+  return blaze::AcquireLock(
+      globals->options.output_base, globals->options.batch,
+      globals->options.block_for_lock, &blaze_lock);
+}
 
 class AfUnixBlazeServer : public BlazeServer {
  public:
@@ -178,22 +206,6 @@ class GrpcBlazeServer : public BlazeServer {
   void CancelThread();
 };
 
-
-////////////////////////////////////////////////////////////////////////
-// Global Variables
-static GlobalVariables *globals;
-static BlazeServer *blaze_server;
-
-static void InitGlobals() {
-  globals = new GlobalVariables;
-  globals->server_pid = -1;
-  globals->sigint_count = 0;
-  globals->received_signal = 0;
-  globals->startup_time = 0;
-  globals->extract_data_time = 0;
-  globals->command_wait_time = 0;
-  globals->restart_reason = NO_RESTART;
-}
 
 ////////////////////////////////////////////////////////////////////////
 // Logic
@@ -1631,85 +1643,6 @@ static void CheckEnvironment() {
   setenv("LC_CTYPE", "en_US.ISO-8859-1", 1);
 }
 
-// Create the lockfile and take an exclusive lock on a region within it.  This
-// lock is inherited with the file descriptor across execve(), but not fork().
-// So in the batch case, the JVM holds the lock until exit; otherwise, this
-// program holds it until exit.
-void AcquireLock() {
-  int lockfd = open(globals->lockfile.c_str(), O_CREAT|O_RDWR, 0644);
-
-  if (lockfd < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "cannot open lockfile '%s' for writing", globals->lockfile.c_str());
-  }
-
-  // Keep server from inheriting a useless fd if we are not in batch mode
-  if (!globals->options.batch) {
-    if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "fcntl(F_SETFD) failed for lockfile");
-    }
-  }
-
-  struct flock lock;
-  lock.l_type = F_WRLCK;
-  lock.l_whence = SEEK_SET;
-  lock.l_start = 0;
-  // This doesn't really matter now, but allows us to subdivide the lock
-  // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
-  lock.l_len = 4096;
-
-  // Try to take the lock, without blocking.
-  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
-    if (errno != EACCES && errno != EAGAIN) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_SETLK");
-    }
-
-    // We didn't get the lock.  Find out who has it.
-    struct flock probe = lock;
-    probe.l_pid = 0;
-    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_GETLK");
-    }
-    if (!globals->options.block_for_lock) {
-      die(blaze_exit_code::BAD_ARGV,
-          "Another %s command is running (pid=%d). Exiting immediately.",
-          globals->options.GetProductName().c_str(), probe.l_pid);
-    }
-    fprintf(stderr, "Another %s command is running (pid = %d).  "
-            "Waiting for it to complete...",
-            globals->options.GetProductName().c_str(), probe.l_pid);
-    fflush(stderr);
-
-    // Take a clock sample for that start of the waiting time
-    uint64_t st = MonotonicClock();
-    // Try to take the lock again (blocking).
-    int r;
-    do {
-      r = fcntl(lockfd, F_SETLKW, &lock);
-    } while (r == -1 && errno == EINTR);
-    fprintf(stderr, "\n");
-    if (r == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "couldn't acquire file lock");
-    }
-    // Take another clock sample, calculate elapsed
-    uint64_t et = MonotonicClock();
-    globals->command_wait_time = (et - st) / 1000000LL;
-  }
-
-  // Identify ourselves in the lockfile.
-  ftruncate(lockfd, 0);
-  const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
-  string msg = "owner=" + globals->options.GetProductName() + " launcher\npid="
-      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
-  // Don't bother checking for error, since it's unlikely and unimportant.
-  // The contents are currently meant only for debugging.
-  write(lockfd, msg.data(), msg.size());
-}
-
 static void SetupStreams() {
   // Line-buffer stderr, since we always flush at the end of a server
   // message.  This saves lots of single-char calls to write(2).
@@ -1838,11 +1771,7 @@ int main(int argc, const char *argv[]) {
       ? static_cast<BlazeServer *>(new GrpcBlazeServer())
       : static_cast<BlazeServer *>(new AfUnixBlazeServer());
 
-  if (globals->options.command_port < 0 || globals->options.batch) {
-    // The gRPC server can handle concurrent commands just fine. However, we
-    // need to be careful not to start two parallel instances in batch mode.
-    AcquireLock();
-  }
+  globals->command_wait_time = blaze_server->AcquireLock();
 
   WarnFilesystemType(globals->options.output_base);
   EnsureFiniteStackLimit();
@@ -2012,6 +1941,11 @@ unsigned int GrpcBlazeServer::Communicate() {
   command_server::RunResponse response;
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
+
+  // Release the server lock because the gRPC handles concurrent clients just
+  // fine. Note that this may result in two "waiting for other client" messages
+  // (one during server startup and one emitted by the server)
+  blaze::ReleaseLock(&blaze_lock);
 
   {
     std::unique_lock<std::recursive_mutex> lock(cancel_thread_mutex_);

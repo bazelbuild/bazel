@@ -343,4 +343,87 @@ bool CheckJavaVersionIsAtLeast(const string &jvm_version,
   return true;
 }
 
+uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
+                     BlazeLock* blaze_lock) {
+  string lockfile = output_base + "/lock";
+  int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
+
+  if (lockfd < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "cannot open lockfile '%s' for writing", lockfile.c_str());
+  }
+
+  // Keep server from inheriting a useless fd if we are not in batch mode
+  if (!batch_mode) {
+    if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "fcntl(F_SETFD) failed for lockfile");
+    }
+  }
+
+  struct flock lock;
+  lock.l_type = F_WRLCK;
+  lock.l_whence = SEEK_SET;
+  lock.l_start = 0;
+  // This doesn't really matter now, but allows us to subdivide the lock
+  // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
+  lock.l_len = 4096;
+
+  uint64_t wait_time = 0;
+  // Try to take the lock, without blocking.
+  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
+    if (errno != EACCES && errno != EAGAIN) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "unexpected result from F_SETLK");
+    }
+
+    // We didn't get the lock.  Find out who has it.
+    struct flock probe = lock;
+    probe.l_pid = 0;
+    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "unexpected result from F_GETLK");
+    }
+    if (!block) {
+      die(blaze_exit_code::BAD_ARGV,
+          "Another command is running (pid=%d). Exiting immediately.",
+          probe.l_pid);
+    }
+    fprintf(stderr, "Another command is running (pid = %d).  "
+            "Waiting for it to complete...", probe.l_pid);
+    fflush(stderr);
+
+    // Take a clock sample for that start of the waiting time
+    uint64_t st = MonotonicClock();
+    // Try to take the lock again (blocking).
+    int r;
+    do {
+      r = fcntl(lockfd, F_SETLKW, &lock);
+    } while (r == -1 && errno == EINTR);
+    fprintf(stderr, "\n");
+    if (r == -1) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "couldn't acquire file lock");
+    }
+    // Take another clock sample, calculate elapsed
+    uint64_t et = MonotonicClock();
+    wait_time = (et - st) / 1000000LL;
+  }
+
+  // Identify ourselves in the lockfile.
+  ftruncate(lockfd, 0);
+  const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
+  string msg = "owner=launcher\npid="
+      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
+  // Don't bother checking for error, since it's unlikely and unimportant.
+  // The contents are currently meant only for debugging.
+  write(lockfd, msg.data(), msg.size());
+  blaze_lock->lockfd = lockfd;
+  return wait_time;
+}
+
+void ReleaseLock(BlazeLock* blaze_lock) {
+  close(blaze_lock->lockfd);
+}
+
 }  // namespace blaze

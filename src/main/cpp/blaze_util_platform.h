@@ -96,6 +96,21 @@ bool ReadDirectorySymlink(const string &symlink, string *result);
 // (Windows-style) and "/c/foo/bar" (msys2 style). Returns if the paths are
 // equal.
 bool CompareAbsolutePaths(const string& a, const string& b);
+
+struct BlazeLock {
+  int lockfd;
+};
+
+// Acquires a lock on the output base. Exits if the lock cannot be acquired.
+// Sets ``lock`` to a value that can subsequently be passed to ReleaseLock().
+// Returns the number of milliseconds spent with waiting for the lock.
+uint64_t AcquireLock(const string& output_base, bool batch_mode,
+                     bool block, BlazeLock* blaze_lock);
+
+// Releases the lock on the output base. In case of an error, continues as
+// usual.
+void ReleaseLock(BlazeLock* blaze_lock);
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
