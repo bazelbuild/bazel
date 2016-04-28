@@ -431,6 +431,7 @@ java_library(
     deps = [
         ":concurrent",
         ":preconditions",
+        ":shell",
         "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
