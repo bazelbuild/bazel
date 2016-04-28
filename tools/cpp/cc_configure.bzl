@@ -178,6 +178,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       ] + _cplus_include_paths(repository_ctx),
       "linker_flag": [
           "-lstdc++",
+          "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
       ] + _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") +
       _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
