@@ -289,7 +289,7 @@ static bool DaemonizeOnWindows() {
 }
 
 int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                   const string& daemon_output, const string& pid_file) {
+                   const string& daemon_output, const string& server_dir) {
   if (DaemonizeOnWindows()) {
     // We are the client process
     // TODO(lberki): -1 is only an in-band signal that tells that there is no
@@ -364,7 +364,13 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   CloseHandle(pipe_write);
   CloseHandle(pipe_read);
 
-  WriteFile(ToString(GetProcessId(processInfo.hProcess)), pid_file);
+  string pid_string = ToString(getpid());
+  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
+  if (!WriteFile(pid_string, pid_file)) {
+    // Not a lot we can do if this fails
+    fprintf(stderr, "Cannot write PID file %s\n", pid_file.c_str());
+  }
+
   CloseHandle(processInfo.hProcess);
   CloseHandle(processInfo.hThread);
 

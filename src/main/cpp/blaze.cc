@@ -906,7 +906,8 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
     globals->server_pid = GetServerPid(server_dir);
     if (globals->server_pid == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "can't get server pid from connection");
+           "can't get PID of existing server (server dir=%s)",
+           server_dir.c_str());
     }
     return true;
   }
@@ -941,7 +942,8 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
         globals->server_pid = GetServerPid(server_dir);
         if (globals->server_pid == -1) {
           pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-               "can't get pid of fresh server from connection");
+               "can't get pid of fresh server from connection (dir=%s)",
+               server_dir.c_str());
         }
         return true;
       }
