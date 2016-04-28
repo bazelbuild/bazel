@@ -136,4 +136,20 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   pdie(0, "Cannot execute %s", exe.c_str());
 }
 
+bool ReadDirectorySymlink(const string &name, string* result) {
+  char buf[PATH_MAX + 1];
+  int len = readlink(name.c_str(), buf, PATH_MAX);
+  if (len < 0) {
+    return false;
+  }
+
+  buf[len] = 0;
+  *result = buf;
+  return true;
+}
+
+bool CompareAbsolutePaths(const string& a, const string& b) {
+  return a == b;
+}
+
 }   // namespace blaze.

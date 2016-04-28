@@ -1322,12 +1322,10 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
   // running servers. Lastly, symlink to our installation so others know which
   // installation is running.
   string installation_path = globals->options.output_base + "/install";
-  char prev_installation[PATH_MAX + 1] = "";  // NULs the whole array
-  // TODO(dslomov): On Windows, readlink always fails,
-  // so we do the linking every time.
-  if (readlink(installation_path.c_str(),
-               prev_installation, PATH_MAX) == -1 ||
-      prev_installation != globals->options.install_base) {
+  string prev_installation;
+  bool ok = ReadDirectorySymlink(installation_path.c_str(), &prev_installation);
+  if (!ok || !CompareAbsolutePaths(
+          prev_installation, globals->options.install_base)) {
     if (KillRunningServerIfAny(server)) {
       globals->restart_reason = NEW_VERSION;
     }

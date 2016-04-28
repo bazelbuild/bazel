@@ -39,6 +39,29 @@ using blaze_util::pdie;
 using std::string;
 using std::vector;
 
+static void PrintError(const string& op) {
+    DWORD last_error = ::GetLastError();
+    if (last_error == 0) {
+        return;
+    }
+
+    char* message_buffer;
+    size_t size = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER
+            | FORMAT_MESSAGE_FROM_SYSTEM
+            | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        last_error,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR) &message_buffer,
+        0,
+        NULL);
+
+    fprintf(stderr, "ERROR: %s: %s (%d)\n",
+            op.c_str(), message_buffer, last_error);
+    LocalFree(message_buffer);
+}
+
 void WarnFilesystemType(const string& output_base) {
 }
 
@@ -397,46 +420,197 @@ string ConvertPath(const string& path) {
   return result;
 }
 
-bool SymlinkDirectories(const string &target, const string &link) {
-  const string target_win = ConvertPath(target);
-  const string link_win = ConvertPath(link);
-  vector<string> args;
-  args.push_back("cmd");
-  args.push_back("/C");
-  args.push_back("mklink");
-  args.push_back("/J");
-  args.push_back(link_win);
-  args.push_back(target_win);
+string ConvertPathToPosix(const string& win_path) {
+  char* posix_path = static_cast<char*>(cygwin_create_path(
+      CCP_WIN_A_TO_POSIX, static_cast<const void*>(win_path.c_str())));
+  string result(posix_path);
+  free(posix_path);
+  return result;
+}
 
-  CmdLine cmdline;
-  CreateCommandLine(&cmdline, "cmd", args);
+// Cribbed from ntifs.h, not present in windows.h
 
-  STARTUPINFO startupInfo = {0};
-  PROCESS_INFORMATION processInfo = {0};
+#define REPARSE_MOUNTPOINT_HEADER_SIZE   8
 
-  bool success = CreateProcess(
-      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
-      //                 _Inout_opt_ LPTSTR                lpCommandLine,
-      cmdline.cmdline,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-      true,           // _In_        BOOL                  bInheritHandles,
-      0,              // _In_        DWORD                 dwCreationFlags,
-      NULL,           // _In_opt_    LPVOID                lpEnvironment,
-      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
-      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
-      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+typedef struct {
+  DWORD ReparseTag;
+  WORD ReparseDataLength;
+  WORD Reserved;
+  WORD SubstituteNameOffset;
+  WORD SubstituteNameLength;
+  WORD PrintNameOffset;
+  WORD PrintNameLength;
+  WCHAR PathBuffer[ANYSIZE_ARRAY];
+} REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
 
-  if (!success) {
-    pdie(255, "Error %u executing: %s\n", GetLastError(), cmdline);
+HANDLE OpenDirectory(const string& path, bool readWrite) {
+  HANDLE result = ::CreateFile(
+      path.c_str(),
+      readWrite ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ,
+      0,
+      NULL,
+      OPEN_EXISTING,
+      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+      NULL);
+  if (result == INVALID_HANDLE_VALUE) {
+    PrintError("CreateFile(" + path + ")");
   }
 
-  WaitForSingleObject(processInfo.hProcess, INFINITE);
-  DWORD exit_code;
-  GetExitCodeProcess(processInfo.hProcess, &exit_code);
-  CloseHandle(processInfo.hProcess);
-  CloseHandle(processInfo.hThread);
-  return exit_code == 0;
+  return result;
+}
+
+bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
+  string target = ConvertPath(posix_target);
+  string name = ConvertPath(posix_name);
+
+  // Junctions are directories, so create one
+  if (!::CreateDirectory(name.c_str(), NULL)) {
+    PrintError("CreateDirectory(" + name + ")");
+    return false;
+  }
+
+  HANDLE directory = OpenDirectory(name, true);
+  if (directory == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  char reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+  REPARSE_MOUNTPOINT_DATA_BUFFER* reparse_buffer =
+      reinterpret_cast<REPARSE_MOUNTPOINT_DATA_BUFFER *>(reparse_buffer_bytes);
+  memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+
+  // non-parsed path prefix. Required for junction targets.
+  string prefixed_target = "\\??\\" + target;
+  int prefixed_target_length = ::MultiByteToWideChar(
+      CP_ACP,
+      0,
+      prefixed_target.c_str(),
+      -1,
+      reparse_buffer->PathBuffer,
+      MAX_PATH);
+  if (prefixed_target_length == 0) {
+    PrintError("MultiByteToWideChar(" + prefixed_target + ")");
+    CloseHandle(directory);
+    return false;
+  }
+
+  // In addition to their target, junctions also have another string which
+  // tells which target to show to the user. mklink cuts of the \??\ part, so
+  // that's what we do, too.
+  int target_length = ::MultiByteToWideChar(
+      CP_UTF8,
+      0,
+      target.c_str(),
+      -1,
+      reparse_buffer->PathBuffer + prefixed_target_length,
+      MAX_PATH);
+  if (target_length == 0) {
+    PrintError("MultiByteToWideChar(" + target + ")");
+    CloseHandle(directory);
+    return false;
+  }
+
+  reparse_buffer->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+  reparse_buffer->PrintNameOffset = prefixed_target_length * sizeof(WCHAR);
+  reparse_buffer->PrintNameLength = (target_length - 1) * sizeof(WCHAR);
+  reparse_buffer->SubstituteNameLength =
+      (prefixed_target_length - 1) * sizeof(WCHAR);
+  reparse_buffer->SubstituteNameOffset = 0;
+  reparse_buffer->Reserved = 0;
+  reparse_buffer->ReparseDataLength =
+       reparse_buffer->SubstituteNameLength +
+       reparse_buffer->PrintNameLength + 12;
+
+  DWORD bytes_returned;
+  bool result = ::DeviceIoControl(
+      directory,
+      FSCTL_SET_REPARSE_POINT,
+      reparse_buffer,
+      reparse_buffer->ReparseDataLength + REPARSE_MOUNTPOINT_HEADER_SIZE,
+      NULL,
+      0,
+      &bytes_returned,
+      NULL);
+  if (!result) {
+    PrintError("DeviceIoControl(FSCTL_SET_REPARSE_POINT, " + name + ")");
+  }
+  CloseHandle(directory);
+  return result;
+}
+
+bool ReadDirectorySymlink(const string &posix_name, string* result) {
+  string name = ConvertPath(posix_name);
+  HANDLE directory = OpenDirectory(name, false);
+  if (directory == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  char reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+  REPARSE_MOUNTPOINT_DATA_BUFFER* reparse_buffer =
+      reinterpret_cast<REPARSE_MOUNTPOINT_DATA_BUFFER *>(reparse_buffer_bytes);
+  memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+
+  reparse_buffer->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+  DWORD bytes_returned;
+  bool ok = ::DeviceIoControl(
+      directory,
+      FSCTL_GET_REPARSE_POINT,
+      NULL,
+      0,
+      reparse_buffer,
+      MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
+      &bytes_returned,
+      NULL);
+  if (!ok) {
+    PrintError("DeviceIoControl(FSCTL_GET_REPARSE_POINT, " + name + ")");
+  }
+
+  CloseHandle(directory);
+  if (!ok) {
+    return false;
+  }
+
+  char print_name[MAX_PATH];
+  int count = ::WideCharToMultiByte(
+      CP_UTF8,
+      0,
+      reparse_buffer->PathBuffer +
+         (reparse_buffer->PrintNameOffset / sizeof(WCHAR)),
+      reparse_buffer->PrintNameLength,
+      print_name,
+      MAX_PATH,
+      NULL,
+      NULL);
+  if (count == 0) {
+    PrintError("WideCharToMultiByte()");
+    *result = "";
+    return false;
+  } else {
+    *result = ConvertPathToPosix(print_name);
+    return true;
+  }
+}
+
+static bool IsAbsoluteWindowsPath(const string& p) {
+  if (p.size() < 3) {
+    return false;
+  }
+
+  if (p.substr(1, 2) == ":/") {
+    return true;
+  }
+
+  if (p.substr(1, 2) == ":\\") {
+    return true;
+  }
+
+  return false;
+}
+
+bool CompareAbsolutePaths(const string& a, const string& b) {
+  string a_real = IsAbsoluteWindowsPath(a) ? ConvertPathToPosix(a) : a;
+  string b_real = IsAbsoluteWindowsPath(b) ? ConvertPathToPosix(b) : b;
+  return a_real == b_real;
 }
 
 }  // namespace blaze

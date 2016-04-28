@@ -82,10 +82,20 @@ std::string ConvertPath(const std::string& path);
 std::string ListSeparator();
 
 // Create a symlink to directory ``target`` at location ``link``.
-// Returns true on success, false on failure.
+// Returns true on success, false on failure. The target must be absolute.
 // Implemented via junctions on Windows.
 bool SymlinkDirectories(const string &target, const string &link);
 
+// Reads which directory a symlink points to. Puts the target of the symlink
+// in ``result`` and returns if the operation was successful. Will not work on
+// symlinks that don't point to directories on Windows.
+bool ReadDirectorySymlink(const string &symlink, string *result);
+
+// Compares two absolute paths. Necessary because the same path can have
+// multiple different names under msys2: "C:\foo\bar" or "C:/foo/bar"
+// (Windows-style) and "/c/foo/bar" (msys2 style). Returns if the paths are
+// equal.
+bool CompareAbsolutePaths(const string& a, const string& b);
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
