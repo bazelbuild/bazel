@@ -1870,7 +1870,8 @@ bool GrpcBlazeServer::Connect() {
   std::string server_dir = globals->options.output_base + "/server";
   std::string port;
   std::string ipv4_prefix = "127.0.0.1:";
-  std::string ipv6_prefix = "::1:";
+  std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
+  std::string ipv6_prefix_2 = "[::1]:";
 
   if (!ReadFile(server_dir + "/command_port", &port)) {
     return false;
@@ -1878,7 +1879,8 @@ bool GrpcBlazeServer::Connect() {
 
   // Make sure that we are being directed to localhost
   if (port.compare(0, ipv4_prefix.size(), ipv4_prefix)
-      && port.compare(0, ipv6_prefix.size(), ipv6_prefix)) {
+      && port.compare(0, ipv6_prefix_1.size(), ipv6_prefix_1)
+      && port.compare(0, ipv6_prefix_2.size(), ipv6_prefix_2)) {
     return false;
   }
 
