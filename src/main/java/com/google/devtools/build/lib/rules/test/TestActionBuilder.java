@@ -203,9 +203,8 @@ public final class TestActionBuilder {
     if (collectCodeCoverage) {
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
       // exec paths of all source files that should be included into the code coverage output.
-      ImmutableList<Artifact> metadataFiles =
-          ImmutableList.copyOf(instrumentedFiles.getInstrumentationMetadataFiles());
-      inputsBuilder.addTransitive(NestedSetBuilder.wrap(Order.STABLE_ORDER, metadataFiles));
+      NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
+      inputsBuilder.addTransitive(metadataFiles);
       for (TransitiveInfoCollection dep :
           ruleContext.getPrerequisites(":coverage_support", Mode.HOST)) {
         inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
@@ -216,8 +215,7 @@ public final class TestActionBuilder {
       }
       Artifact instrumentedFileManifest =
           InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
-              ImmutableList.copyOf(instrumentedFiles.getInstrumentedFiles()),
-              metadataFiles);
+              instrumentedFiles.getInstrumentedFiles(), metadataFiles);
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
           executable, instrumentedFileManifest, shards);
       inputsBuilder.add(instrumentedFileManifest);
