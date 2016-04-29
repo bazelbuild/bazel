@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -110,7 +112,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   protected WalkableGraph graph;
 
   private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
-  private ImmutableSet<PathFragment> blacklistPatterns;
+  private Supplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
 
   private final Map<String, Set<Label>> precomputedPatterns = new HashMap<>();
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
@@ -130,6 +132,21 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       return target.getLabel();
     }
   };
+
+  private static class BlacklistSupplier implements Supplier<ImmutableSet<PathFragment>> {
+    private final WalkableGraph graph;
+
+    BlacklistSupplier(WalkableGraph graph) {
+      this.graph = graph;
+    }
+
+    @Override
+    public ImmutableSet<PathFragment> get() {
+      return ((BlacklistedPackagePrefixesValue)
+              graph.getValue(BlacklistedPackagePrefixesValue.key()))
+          .getPatterns();
+    }
+  }
 
   public SkyQueryEnvironment(boolean keepGoing, boolean strictScope, int loadingPhaseThreads,
       Predicate<Label> labelFilter,
@@ -159,10 +176,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     }
     graph = result.getWalkableGraph();
 
-    blacklistPatterns = 
-        Preconditions.checkNotNull(
-            (BlacklistedPackagePrefixesValue) graph.getValue(BlacklistedPackagePrefixesValue.key()))
-        .getPatterns();
+    blacklistPatternsSupplier = Suppliers.memoize(new BlacklistSupplier(graph));
 
     SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
     universeTargetPatternKeys =
@@ -475,7 +489,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
                 provider, eventHandler, targetPatternKey.getPolicy(), threadPool);
         TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
         ImmutableSet<PathFragment> subdirectoriesToExclude =
-            targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatterns);
+            targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier.get());
         FilteringBatchingUniquifyingCallback wrapper =
             new FilteringBatchingUniquifyingCallback(callback);
         parsedPattern.eval(resolver, subdirectoriesToExclude, wrapper, QueryException.class);
