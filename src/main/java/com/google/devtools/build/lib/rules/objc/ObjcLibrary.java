@@ -89,7 +89,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .addDepCcHeaderProviders(
             ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-        .addDepCcLinkProviders(ruleContext)
+        .addDepCcLinkProviders(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(alwayslink)
         .setHasModuleMap()

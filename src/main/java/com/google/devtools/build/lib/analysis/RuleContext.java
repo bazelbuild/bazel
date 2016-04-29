@@ -696,8 +696,7 @@ public final class RuleContext extends TargetContext
     AnalysisUtils.checkProvider(classType);
     List<? extends TransitiveInfoCollection> transitiveInfoCollections =
         getPrerequisites(attributeName, mode);
-    
-    // Use an ImmutableListMultimap.Builder here to preserve ordering.
+
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (TransitiveInfoCollection prerequisite : transitiveInfoCollections) {
@@ -705,6 +704,24 @@ public final class RuleContext extends TargetContext
       if (prerequisiteProvider != null) {
         result.put(prerequisite.getConfiguration(), prerequisiteProvider);
       }
+    }
+    return result.build();
+  }
+
+  /**
+   * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets
+   * of that attribute. Each {@link TransitiveInfoCollection} is keyed by the
+   * {@link BuildConfiguration} under which the collection was created.
+   */
+  public ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection>
+      getPrerequisitesByConfiguration(String attributeName, Mode mode) {
+    List<? extends TransitiveInfoCollection> transitiveInfoCollections =
+        getPrerequisites(attributeName, mode);
+
+    ImmutableListMultimap.Builder<BuildConfiguration, TransitiveInfoCollection> result =
+        ImmutableListMultimap.builder();
+    for (TransitiveInfoCollection prerequisite : transitiveInfoCollections) {
+      result.put(prerequisite.getConfiguration(), prerequisite);
     }
     return result.build();
   }

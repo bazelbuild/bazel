@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -49,14 +50,11 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToObjcDepMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProvider.class);
-    ImmutableListMultimap<BuildConfiguration, CppCompilationContext>  configurationToCcDepMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT,
-            CppCompilationContext.class);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
         ruleContext.getPrerequisitesByConfiguration("non_propagated_deps", Mode.SPLIT,
             ObjcProvider.class);
+    ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
     
@@ -73,9 +71,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
       ObjcCommon common = common(ruleContext, childConfig, intermediateArtifacts,
-          nullToEmptyList(configurationToObjcDepMap.get(childConfig)),
-          nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
-          nullToEmptyList(configurationToCcDepMap.get(childConfig)));
+          nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
+          nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)));
       ObjcProvider objcProvider = common.getObjcProvider();
       if (!hasLibraryOrSources(objcProvider)) {
         ruleContext.ruleError(REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE);
@@ -116,8 +113,22 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   }
 
   private ObjcCommon common(RuleContext ruleContext, BuildConfiguration buildConfiguration,
-      IntermediateArtifacts intermediateArtifacts, List<ObjcProvider> propagatedObjcDeps,
-      List<ObjcProvider> nonPropagatedObjcDeps, List<CppCompilationContext> cppDeps) {
+      IntermediateArtifacts intermediateArtifacts,
+      List<TransitiveInfoCollection> propagatedDeps,
+      List<ObjcProvider> nonPropagatedObjcDeps) {
+    ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.<ObjcProvider>builder();
+    ImmutableList.Builder<CppCompilationContext> cppDeps =
+        ImmutableList.<CppCompilationContext>builder();
+    
+    for (TransitiveInfoCollection dep : propagatedDeps) {
+      if (dep.getProvider(ObjcProvider.class) != null) {
+        propagatedObjcDeps.add(dep.getProvider(ObjcProvider.class));
+      }
+      if (dep.getProvider(CppCompilationContext.class) != null) {
+        cppDeps.add(dep.getProvider(CppCompilationContext.class));
+      }
+    }
+
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
 
@@ -126,12 +137,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .setCompilationArtifacts(compilationArtifacts)
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-        .addDepObjcProviders(propagatedObjcDeps)
-        .addDepCcHeaderProviders(cppDeps)
-        // TODO(cparsons): The below call only gets CC link params from one child configuration,
-        // as it is accessed via Mode.TARGET. This poses a problem with multi-architecture
-        // builds with CC dependencies.
-        .addDepCcLinkProviders(ruleContext)
+        .addDepObjcProviders(propagatedObjcDeps.build())
+        .addDepCcHeaderProviders(cppDeps.build())
+        .addDepCcLinkProviders(propagatedDeps)
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
