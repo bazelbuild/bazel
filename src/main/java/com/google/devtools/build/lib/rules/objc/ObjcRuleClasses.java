@@ -848,7 +848,10 @@ public class ObjcRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist)[DEPRECATED] -->
            The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-           Blaze will perform variable substitution on the plist file for the following values:
+
+           <p>Blaze will perform variable substitution on the plist file for the following values
+           (if they are strings in the top-level <code>dict</code> of the plist):</p>
+
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
                 in the bundle by blaze, which can be used as the value for
@@ -857,6 +860,11 @@ public class ObjcRuleClasses {
                 in the form<code><var>name</var></code>.<code>suffix</code>.
              <li><code>${PRODUCT_NAME}</code>: This target's name.
           </ul>
+
+          <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
+          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Blaze will
+          replicate Xcode's behavior and replace non-RFC1034-compliant characters with
+          <code>-</code>.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(INFOPLIST_ATTR, LABEL).allowedFileTypes(PLIST_TYPE))
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplists) -->
@@ -864,7 +872,10 @@ public class ObjcRuleClasses {
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-           Blaze will perform variable substitution on the plist files for the following values:
+
+           <p>Blaze will perform variable substitution on the plist file for the following values
+           (if they are strings in the top-level <code>dict</code> of the plist):</p>
+
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
                 in the bundle by blaze, which can be used as the value for
@@ -873,6 +884,11 @@ public class ObjcRuleClasses {
                 in the form<code><var>name</var></code>.<code>suffix</code>.
              <li><code>${PRODUCT_NAME}</code>: This target's name.
           </ul>
+
+          <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
+          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Blaze will
+          replicate Xcode's behavior and replace non-RFC1034-compliant characters with 
+          <code>-</code>.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("infoplists", BuildType.LABEL_LIST).allowedFileTypes(PLIST_TYPE))
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(families) -->
