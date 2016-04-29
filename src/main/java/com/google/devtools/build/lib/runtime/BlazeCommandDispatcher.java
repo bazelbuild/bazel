@@ -18,12 +18,14 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.io.Flushables;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
@@ -40,8 +42,8 @@ import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionPriority;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
@@ -146,6 +148,17 @@ public class BlazeCommandDispatcher {
   private final Object commandLock;
   private String currentClientDescription = null;
   private OutputStream logOutputStream = null;
+  private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
+      CacheBuilder.newBuilder().build(
+          new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
+            @Override
+            public OpaqueOptionsData load(BlazeCommand command) {
+              return OptionsParser.getOptionsData(BlazeCommandUtils.getOptions(
+                  command.getClass(),
+                  runtime.getBlazeModules(),
+                  runtime.getRuleClassProvider()));
+            }
+          });
 
   /**
    * Create a Blaze dispatcher that uses the specified {@code BlazeRuntime} instance, but overrides
@@ -655,10 +668,7 @@ public class BlazeCommandDispatcher {
   protected OptionsParser createOptionsParser(BlazeCommand command)
       throws OptionsParsingException {
     Command annotation = command.getClass().getAnnotation(Command.class);
-    List<Class<? extends OptionsBase>> allOptions = Lists.newArrayList();
-    allOptions.addAll(BlazeCommandUtils.getOptions(
-        command.getClass(), getRuntime().getBlazeModules(), getRuntime().getRuleClassProvider()));
-    OptionsParser parser = OptionsParser.newOptionsParser(allOptions);
+    OptionsParser parser = OptionsParser.newOptionsParser(optionsDataCache.getUnchecked(command));
     parser.setAllowResidue(annotation.allowResidue());
     return parser;
   }

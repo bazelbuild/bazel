@@ -37,7 +37,7 @@ import javax.annotation.concurrent.Immutable;
  * Therefore this class can be used internally to cache the results.
  */
 @Immutable
-final class OptionsData {
+final class OptionsData extends OpaqueOptionsData {
 
   /**
    * These are the options-declaring classes which are annotated with

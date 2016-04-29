@@ -72,7 +72,20 @@ public class OptionsParser implements OptionsProvider {
   private static final Map<ImmutableList<Class<? extends OptionsBase>>, OptionsData> optionsData =
       Maps.newHashMap();
 
-  private static synchronized OptionsData getOptionsData(
+  /**
+   * Returns {@link OpaqueOptionsData} suitable for passing along to
+   * {@link #newOptionsParser(OpaqueOptionsData optionsData)}.
+   *
+   * This is useful when you want to do the work of analyzing the given {@code optionsClasses}
+   * exactly once, but you want to parse lots of different lists of strings (and thus need to
+   * construct lots of different {@link OptionsParser} instances). 
+   */
+  public static OpaqueOptionsData getOptionsData(
+      ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
+    return getOptionsDataInternal(optionsClasses);
+  }
+
+  private static synchronized OptionsData getOptionsDataInternal(
       ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
     OptionsData result = optionsData.get(optionsClasses);
     if (result == null) {
@@ -87,7 +100,8 @@ public class OptionsParser implements OptionsProvider {
    * ones.
    */
   static Collection<Field> getAllAnnotatedFields(Class<? extends OptionsBase> optionsClass) {
-    OptionsData data = getOptionsData(ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
+    OptionsData data = getOptionsDataInternal(
+        ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
     return data.getFieldsForClass(optionsClass);
   }
 
@@ -111,8 +125,16 @@ public class OptionsParser implements OptionsProvider {
    */
   public static OptionsParser newOptionsParser(
       Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
-    return new OptionsParser(
-        getOptionsData(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsClasses)));
+    return newOptionsParser(
+        getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsClasses)));
+  }
+
+  /**
+   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
+   * {@link #getOptionsData}.
+   */
+  public static OptionsParser newOptionsParser(OpaqueOptionsData optionsData) {
+    return new OptionsParser((OptionsData) optionsData);
   }
 
   private final OptionsParserImpl impl;
