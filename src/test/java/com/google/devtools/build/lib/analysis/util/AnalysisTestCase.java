@@ -185,6 +185,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     useConfiguration();
   }
 
+  /** To be overriden by sub classes if they want to disable loading. */
+  protected boolean isLoadingEnabled() {
+    return true;
+  }
+
   protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
     return ImmutableList.of();
   }

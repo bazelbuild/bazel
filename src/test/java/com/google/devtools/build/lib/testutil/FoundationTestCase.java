@@ -34,12 +34,8 @@ import java.util.Set;
  * A helper class for implementing tests of the "foundation" library.
  */
 public abstract class FoundationTestCase {
-
   protected Path rootDirectory;
-
   protected Path outputBase;
-
-  protected Path actionOutputBase;
 
   // May be overridden by subclasses:
   protected Reporter reporter;
@@ -70,7 +66,6 @@ public abstract class FoundationTestCase {
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratch.dir("/workspace");
     scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());
-    actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
   }
 
   @Before
@@ -84,11 +79,6 @@ public abstract class FoundationTestCase {
   public final void clearInterrupts() throws Exception {
     Thread.interrupted(); // Clear any interrupt pending against this thread,
                           // so that we don't cause later tests to fail.
-  }
-
-  // To be overriden by sub classes if they want to disable loading.
-  protected boolean isLoadingEnabled() {
-    return true;
   }
 
   /**

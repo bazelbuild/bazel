@@ -35,14 +35,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.InjectedStat;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -732,8 +729,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         SpecialArtifactType.TREE);
   }
 
-  private void buildArtifact(Artifact artifact)
-      throws InterruptedException, BuildFailedException, TestExecException, AbruptExitException {
+  private void buildArtifact(Artifact artifact) throws Exception {
     buildArtifacts(cachingBuilder(), artifact);
   }
 

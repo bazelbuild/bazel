@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.events.Event;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -102,13 +100,11 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     return Sets.newHashSet(elements);
   }
 
-  protected void buildArtifacts(Artifact... artifacts)
-      throws BuildFailedException, AbruptExitException,
-      InterruptedException, TestExecException {
+  protected void buildArtifacts(Artifact... artifacts) throws Exception {
     buildArtifacts(createBuilder(DEFAULT_NUM_JOBS, false), artifacts);
   }
 
-  private Builder createBuilder(int jobs, boolean keepGoing) {
+  private Builder createBuilder(int jobs, boolean keepGoing) throws Exception {
     return createBuilder(cache, jobs, keepGoing);
   }
 

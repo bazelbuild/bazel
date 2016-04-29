@@ -119,7 +119,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     return action;
   }
 
-  protected Builder createBuilder(ActionCache actionCache) {
+  protected Builder createBuilder(ActionCache actionCache) throws Exception {
     return createBuilder(actionCache, 1, /*keepGoing=*/ false);
   }
 
@@ -128,7 +128,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
    * specified ActionCache.
    */
   protected Builder createBuilder(
-      final ActionCache actionCache, final int threadCount, final boolean keepGoing) {
+      ActionCache actionCache, final int threadCount, final boolean keepGoing) throws Exception {
     return createBuilder(actionCache, threadCount, keepGoing, null);
   }
 
@@ -136,7 +136,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       final ActionCache actionCache,
       final int threadCount,
       final boolean keepGoing,
-      @Nullable EvaluationProgressReceiver evaluationProgressReceiver) {
+      @Nullable EvaluationProgressReceiver evaluationProgressReceiver) throws Exception {
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<TimestampGranularityMonitor> tsgmRef = new AtomicReference<>(tsgm);
@@ -151,6 +151,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new SkyframeActionExecutor(
             ResourceManager.instance(), eventBusRef, new AtomicReference<>(statusReporter));
 
+    Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
         new ActionLogBufferPathGenerator(actionOutputBase));
 
@@ -289,14 +290,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   /**
    * Creates and returns a new "amnesiac" builder based on the amnesiac cache.
    */
-  protected Builder amnesiacBuilder() {
+  protected Builder amnesiacBuilder() throws Exception {
     return createBuilder(AMNESIAC_CACHE);
   }
 
   /**
    * Creates and returns a new caching builder based on the inMemoryCache.
    */
-  protected Builder cachingBuilder() {
+  protected Builder cachingBuilder() throws Exception {
     return createBuilder(inMemoryCache);
   }
 

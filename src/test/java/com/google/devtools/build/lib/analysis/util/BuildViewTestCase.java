@@ -226,6 +226,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ResourceManager.instance().setAvailableResources(getStartingResources());
   }
 
+  /** To be overriden by sub classes if they want to disable loading. */
+  protected boolean isLoadingEnabled() {
+    return true;
+  }
+
   protected AnalysisMock getAnalysisMock() {
     try {
       Class<?> providerClass = Class.forName(TestConstants.TEST_ANALYSIS_MOCK);
