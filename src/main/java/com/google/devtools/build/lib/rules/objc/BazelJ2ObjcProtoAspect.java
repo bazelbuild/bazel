@@ -18,18 +18,14 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * An aspect that transpiles .proto dependencies using the J2ObjC proto plugin,
@@ -46,21 +42,17 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
   @Override
   protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {
     return builder
-        .add(attr("$protoc_darwin", LABEL)
+        .add(attr("$protoc", LABEL)
             .cfg(HOST)
             .exec()
+            .singleArtifact()
             .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/objc:compile_protos")))
-        .add(attr("$protoc_support_darwin", LABEL)
-            .cfg(HOST)
-            .exec()
-            .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/objc:proto_support")))
+                toolsRepository + "//tools/objc:standalone_protoc")))
         .add(attr("$j2objc_plugin", LABEL)
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//third_party/java/j2objc:proto_plugin")));
+                toolsRepository + "//third_party/java/j2objc:proto_plugin_osx")));
   }
 
   @Override
@@ -78,36 +70,30 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
       Iterable<Artifact> classMappingFiles,
       J2ObjcSource j2ObjcSource) {
     String genDir = ruleContext.getConfiguration().getGenfilesDirectory().getExecPathString();
-    Artifact compiler = ruleContext.getPrerequisiteArtifact("$protoc_darwin", Mode.HOST);
+    Artifact compiler = ruleContext.getPrerequisiteArtifact("$protoc", Mode.HOST);
     Artifact j2objcPlugin = ruleContext.getPrerequisiteArtifact("$j2objc_plugin", Mode.HOST);
 
+    String langPluginParameter = Joiner.on(',').join(J2OBJC_PLUGIN_PARAMS) + ":" + genDir;
+    String command = String.format(
+        "%s --plugin=protoc-gen-j2objc=%s --j2objc_out=%s --proto_path=%s --proto_path=. "
+            + "--absolute_paths %s",
+        compiler.getExecPathString(),
+        j2objcPlugin.getExecPathString(),
+        langPluginParameter,
+        genDir,
+        Joiner.on(" ").join(Artifact.toExecPaths(protoSources)));
+
     ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .setMnemonic("TranslatingJ2ObjcProtos")
+        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(command)
+            .setMnemonic("GeneratingJ2ObjcProtos")
             .addInput(compiler)
             .addInput(j2objcPlugin)
-            .addInputs(
-                ruleContext.getPrerequisiteArtifacts("$protoc_support_darwin", Mode.HOST).list())
             .addInputs(protoSources)
             .addTransitiveInputs(transitiveProtoSources)
             .addOutputs(j2ObjcSource.getObjcSrcs())
             .addOutputs(j2ObjcSource.getObjcHdrs())
             .addOutputs(headerMappingFiles)
             .addOutputs(classMappingFiles)
-            .setExecutable(new PathFragment("/usr/bin/python"))
-            .setCommandLine(
-                new CustomCommandLine.Builder()
-                    .add(compiler.getPath().toString())
-                    .add("-w")
-                    .add(".") // Actions are always run with the exec root as cwd
-                    .add("--generate-j2objc")
-                    .add("--generator-param=file_dir_mapping")
-                    .add("--generator-param=generate_class_mappings")
-                    .add("--j2objc-plugin=" + j2objcPlugin.getExecPathString())
-                    .add("--output-dir=" + genDir)
-                    .addExecPaths(protoSources)
-                    .build())
-            .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
             .build(ruleContext));
   }
 

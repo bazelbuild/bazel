@@ -49,10 +49,3 @@ objc_library(
     ],
     deps = ["@bazel_j2objc//:jre_emul_archive"],
 )
-
-# Proto support is a work in progress.
-# We put an empty filegroup here so Bazel analysis doesn't fail.
-filegroup(
-    name = "proto_runtime",
-    srcs = [],
-)
