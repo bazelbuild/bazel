@@ -69,6 +69,8 @@ public final class BlazeWorkspace {
   @Nullable
   private Range<Long> lastExecutionRange = null;
 
+  private final String outputBaseFilesystemTypeName;
+
   public BlazeWorkspace(BlazeRuntime runtime, BlazeDirectories directories,
       SkyframeExecutor skyframeExecutor, SubscriberExceptionHandler eventBusExceptionHandler,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory, BinTools binTools) {
@@ -85,6 +87,9 @@ public final class BlazeWorkspace {
       writeDoNotBuildHereFile(runtime.getStartupOptionsProvider());
     }
     setupExecRoot();
+    // Here we use outputBase instead of outputPath because we need a file system to create the
+    // latter.
+    this.outputBaseFilesystemTypeName = FileSystemUtils.getFileSystem(getOutputBase());
   }
 
   /**
@@ -123,6 +128,15 @@ public final class BlazeWorkspace {
    */
   public Path getOutputBase() {
     return directories.getOutputBase();
+  }
+
+  /**
+   * Returns the cached value of
+   * {@code getOutputBase().getFilesystem().getFileSystemType(getOutputBase())}, which is assumed
+   * to be constant for a fixed workspace for the life of the Blaze server.
+   */
+  public String getOutputBaseFilesystemTypeName() {
+    return outputBaseFilesystemTypeName;
   }
 
   /**
