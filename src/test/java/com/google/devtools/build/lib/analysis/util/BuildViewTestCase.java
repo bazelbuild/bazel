@@ -284,7 +284,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     InvocationPolicyEnforcer optionsPolicyEnforcer =
           new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
-    optionsPolicyEnforcer.enforce(optionsParser, "");
+    optionsPolicyEnforcer.enforce(optionsParser);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     ensureTargetsVisited(buildOptions.getAllLabels().values());

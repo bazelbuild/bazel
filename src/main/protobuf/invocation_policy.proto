@@ -43,12 +43,15 @@ message FlagPolicy {
   // the flag's full name and explicitly set it to true or false.
   optional string flag_name = 1;
 
-  // If set, this flag policy is applied only if one of the given commands is
-  // being run. If empty, this flag policy is applied for all commands.
-  // This allows the policy setter to add all policies to the proto without
-  // having to determine which Bazel command the user is actually running.
-  // Additionally, Bazel allows multiple flags to be defined by the same name,
-  // and the specific flag definition is determined by the command.
+  // If set, this flag policy is applied only if one of the given commands or a
+  // command that inherits from one of the given commands is being run. For
+  // instance, if "build" is one of the commands here, then this policy will
+  // apply to any command that inherits from build, such as info, coverage, or
+  // test. If empty, this flag policy is applied for all commands. This allows
+  // the policy setter to add all policies to the proto without having to
+  // determine which Bazel command the user is actually running. Additionally,
+  // Bazel allows multiple flags to be defined by the same name, and the
+  // specific flag definition is determined by the command.
   repeated string commands = 2;
 
   oneof operation {

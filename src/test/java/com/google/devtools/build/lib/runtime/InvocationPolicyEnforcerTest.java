@@ -20,7 +20,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.common.options.Option;
@@ -29,6 +31,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -122,6 +125,17 @@ public class InvocationPolicyEnforcerTest {
   @Before
   public final void setParser() throws Exception  {
     parser = OptionsParser.newOptionsParser(TestOptions.class);
+  }
+
+  @BeforeClass
+  public static void setCommandNameCache() throws Exception {
+    CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
+        new CommandNameCache() {
+          @Override
+          public ImmutableSet<String> get(String commandName) {
+            return ImmutableSet.of(commandName);
+          }
+        });
   }
 
   private TestOptions getTestOptions() {

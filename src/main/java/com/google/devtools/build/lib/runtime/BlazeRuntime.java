@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
+import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -185,6 +186,8 @@ public final class BlazeRuntime {
 
     this.defaultsPackageContent =
         ruleClassProvider.getDefaultsPackageContent(getInvocationPolicy());
+    CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
+        new CommandNameCacheImpl(getCommandMap()));
   }
 
   private static InvocationPolicy createInvocationPolicyFromModules(
