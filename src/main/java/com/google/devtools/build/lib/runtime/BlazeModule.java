@@ -177,7 +177,7 @@ public abstract class BlazeModule {
    * <p>vardef is a legacy mechanism: it needs explicit support in the rule implementations,
    * and cannot express conditional dependencies, only conditional attribute values. This
    * mechanism will be supplanted by configuration dependent attributes, and its effect can
-   * usually also be achieved with abi_deps.
+   * usually also be achieved with select().
    *
    * <p>This method will be called during Blaze startup (after #blazeStartup).
    */
