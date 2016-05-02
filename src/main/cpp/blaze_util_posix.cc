@@ -126,7 +126,10 @@ bool PipeBlazeServerStartup::IsStillAlive() {
   return read(this->pipe_fd, &c, 1) == -1 && errno == EAGAIN;
 }
 
-void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+void WriteSystemSpecificProcessIdentifier(const string& server_dir);
+
+void ExecuteDaemon(const string& exe,
+                   const std::vector<string>& args_vector,
                    const string& daemon_output, const string& server_dir,
                    BlazeServerStartup** server_startup) {
   int fds[2];
@@ -160,6 +163,8 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   if (symlink(pid_string.c_str(), pid_symlink_file.c_str()) < 0) {
     pdie(0, "Cannot write PID symlink");
   }
+
+  WriteSystemSpecificProcessIdentifier(server_dir);
 
   ExecuteProgram(exe, args_vector);
   pdie(0, "Cannot execute %s", exe.c_str());
@@ -207,12 +212,6 @@ bool ReadDirectorySymlink(const string &name, string* result) {
 
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
-}
-
-void KillServerProcess(int pid, const string& output_base) {
-  // TODO(lberki): This might accidentally kill an unrelated process if the
-  // server died and the PID got reused.
-  killpg(pid, SIGKILL);
 }
 
 }   // namespace blaze.

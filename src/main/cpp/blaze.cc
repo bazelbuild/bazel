@@ -971,7 +971,6 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
 static int GetServerPid(const string &server_dir) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
-
   char buf[33];
 
   // The server writes a file, but we need to handle old servers that still
@@ -1026,7 +1025,8 @@ static void StartServerAndConnect(BlazeServer *server) {
     fprintf(stderr,
             "Found non-responsive server process (pid=%d). Killing it.\n",
             server_pid);
-    KillServerProcess(server_pid, globals->options.output_base);
+    KillServerProcess(server_pid, globals->options.output_base,
+                      globals->options.install_base);
   }
 
   SetScheduling(globals->options.batch_cpu_scheduling,
@@ -2014,7 +2014,8 @@ void GrpcBlazeServer::KillRunningServer() {
   while (reader->Read(&response)) {}
 
   // Kill the server process for good measure.
-  KillServerProcess(globals->server_pid, globals->options.output_base);
+  KillServerProcess(globals->server_pid, globals->options.output_base,
+                    globals->options.install_base);
 
   connected_ = false;
 }

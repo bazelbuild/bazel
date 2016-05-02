@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <libproc.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -118,6 +119,16 @@ string GetDefaultHostJavabase() {
 
   // The output ends with a \n, trim it off.
   return javabase.substr(0, javabase.length()-1);
+}
+
+void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
+}
+
+void KillServerProcess(
+    int pid, const string& output_base, const string& install_base) {
+  // TODO(lberki): This might accidentally kill an unrelated process if the
+  // server died and the PID got reused.
+  killpg(pid, SIGKILL);
 }
 
 }   // namespace blaze.

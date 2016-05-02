@@ -628,7 +628,8 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
   return a_real == b_real;
 }
 
-void KillServerProcess(int pid, const string& output_base) {
+void KillServerProcess(
+    int pid, const string& output_base, const string& install_base) {
   // Not implemented yet. TerminateProcess should work.
 }
 
