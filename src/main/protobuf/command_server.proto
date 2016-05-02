@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file contains the protocol buffer representation of a build
-// file or 'blaze query --output=proto' call.
-
+// This file contains the protocol used to communicate between the Bazel client
+// and the server.
 syntax = "proto3";
 
 package command_server;

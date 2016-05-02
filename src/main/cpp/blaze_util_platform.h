@@ -59,14 +59,20 @@ std::string GetDefaultHostJavabase();
 // This function does not return on success.
 void ExecuteProgram(const string& exe, const std::vector<string>& args_vector);
 
+class BlazeServerStartup {
+ public:
+  virtual ~BlazeServerStartup() {}
+  virtual bool IsStillAlive() = 0;
+};
+
 // Starts a daemon process with its standard output and standard error
-// redirected to the file "daemon_output". Returns a file descriptor of a named
-// pipe whose other end is held by the daemon and which is closed if the daemon
-// exits or -1 if such a pipe cannot be created.. The PID of the daemon just
-// started is written into server_dir, both as a symlink (for legacy reasons)
-// and as a file.
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                  const string& daemon_output, const string& server_dir);
+// redirected to the file "daemon_output". Sets server_startup to an object
+// that can be used to query if the server is still alive. The PID of the
+// daemon started is written into server_dir, both as a symlink (for legacy
+// reasons) and as a file.
+void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                   const string& daemon_output, const string& server_dir,
+                   BlazeServerStartup** server_startup);
 
 // Executes a subprocess and returns its standard output and standard error.
 // If this fails, exits with the appropriate error code.
@@ -110,6 +116,9 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode,
 // Releases the lock on the output base. In case of an error, continues as
 // usual.
 void ReleaseLock(BlazeLock* blaze_lock);
+
+// Kills a server process based on its output base and PID.
+void KillServerProcess(int pid, const string& output_base);
 
 }  // namespace blaze
 

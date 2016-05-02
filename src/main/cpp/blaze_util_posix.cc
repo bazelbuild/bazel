@@ -99,8 +99,36 @@ static void Daemonize(const string& daemon_output) {
   dup(STDOUT_FILENO);  // stderr (2>&1)
 }
 
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                  const string& daemon_output, const string& server_dir) {
+class PipeBlazeServerStartup : public BlazeServerStartup {
+ public:
+  PipeBlazeServerStartup(int pipe_fd);
+  virtual ~PipeBlazeServerStartup();
+  bool IsStillAlive() override;
+
+ private:
+  int pipe_fd;
+};
+
+PipeBlazeServerStartup::PipeBlazeServerStartup(int pipe_fd) {
+  this->pipe_fd = pipe_fd;
+  if (fcntl(pipe_fd, F_SETFL, O_NONBLOCK | fcntl(pipe_fd, F_GETFL))) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "Failed: fcntl to enable O_NONBLOCK on pipe");
+  }
+}
+
+PipeBlazeServerStartup::~PipeBlazeServerStartup() {
+  close(pipe_fd);
+}
+
+bool PipeBlazeServerStartup::IsStillAlive() {
+  char c;
+  return read(this->pipe_fd, &c, 1) == -1 && errno == EAGAIN;
+}
+
+void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                   const string& daemon_output, const string& server_dir,
+                   BlazeServerStartup** server_startup) {
   int fds[2];
   if (pipe(fds)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
@@ -110,7 +138,8 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
   } else if (child > 0) {  // we're the parent
     close(fds[1]);  // parent keeps only the reading side
-    return fds[0];
+    *server_startup = new PipeBlazeServerStartup(fds[0]);
+    return;
   } else {
     close(fds[0]);  // child keeps only the writing side
   }
@@ -178,6 +207,12 @@ bool ReadDirectorySymlink(const string &name, string* result) {
 
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
+}
+
+void KillServerProcess(int pid, const string& output_base) {
+  // TODO(lberki): This might accidentally kill an unrelated process if the
+  // server died and the PID got reused.
+  killpg(pid, SIGKILL);
 }
 
 }   // namespace blaze.

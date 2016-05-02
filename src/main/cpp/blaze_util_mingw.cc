@@ -288,15 +288,23 @@ static bool DaemonizeOnWindows() {
   return false;
 }
 
-int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                   const string& daemon_output, const string& server_dir) {
+// Keeping an eye on the server process on Windows is not implemented yet.
+// TODO(lberki): Implement this, because otherwise if we can't start up a server
+// process, the client will hang until it times out.
+class DummyBlazeServerStartup : public BlazeServerStartup {
+ public:
+  DummyBlazeServerStartup() {}
+  virtual ~DummyBlazeServerStartup() {}
+  bool IsStillAlive() override { return true; }
+};
+
+void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                   const string& daemon_output, const string& server_dir,
+                   BlazeServerStartup** server_startup) {
   if (DaemonizeOnWindows()) {
     // We are the client process
-    // TODO(lberki): -1 is only an in-band signal that tells that there is no
-    // way we can tell if the server process is still alive. Fix this, because
-    // otherwise if any of the calls below fails, the client will hang until
-    // it times out.
-    return -1;
+    *server_startup = new DummyBlazeServerStartup();
+    return;
   }
 
   SECURITY_ATTRIBUTES sa;
@@ -408,6 +416,7 @@ void ExecuteProgram(
   if (!success) {
     pdie(255, "Error %u executing: %s\n", GetLastError(), cmdline);
   }
+  // The output base lock is held while waiting
   WaitForSingleObject(processInfo.hProcess, INFINITE);
   DWORD exit_code;
   GetExitCodeProcess(processInfo.hProcess, &exit_code);
@@ -617,6 +626,10 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
   string a_real = IsAbsoluteWindowsPath(a) ? ConvertPathToPosix(a) : a;
   string b_real = IsAbsoluteWindowsPath(b) ? ConvertPathToPosix(b) : b;
   return a_real == b_real;
+}
+
+void KillServerProcess(int pid, const string& output_base) {
+  // Not implemented yet. TerminateProcess should work.
 }
 
 }  // namespace blaze
