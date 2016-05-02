@@ -622,8 +622,8 @@ public final class ReleaseBundlingSupport {
       filesToBuild.add(linkmapFile);
     }
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
-      filesToBuild.addAll(getBreakpadFiles().values());
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
+        || ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
       filesToBuild.addAll(getDsymFiles(dsymOutputType).values());
 
       // TODO(bazel-team): Remove the 'if' when the objc_binary rule does not generate a bundle any
@@ -641,8 +641,15 @@ public final class ReleaseBundlingSupport {
       if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
         debugSymbolBuilder
             .add(intermediateArtifacts.dsymPlist(dsymOutputType))
-            .add(intermediateArtifacts.dsymSymbol(dsymOutputType))
-            .add(intermediateArtifacts.breakpadSym());
+            .add(intermediateArtifacts.dsymSymbol(dsymOutputType));
+      }
+    }
+
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
+      filesToBuild.addAll(getBreakpadFiles().values());
+
+      if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
+        debugSymbolBuilder.add(intermediateArtifacts.breakpadSym());
       }
     }
 

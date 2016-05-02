@@ -545,7 +545,7 @@ public final class CompilationSupport {
         .add("-enable-objc-interop")
         .add(objcConfiguration.getSwiftCoptsForCompilationMode());
 
-    if (objcConfiguration.generateDebugSymbols()) {
+    if (objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym()) {
       commandLine.add("-g");
     }
 
@@ -627,7 +627,7 @@ public final class CompilationSupport {
         .add("-target").add(swiftTarget(appleConfiguration))
         .add(objcConfiguration.getSwiftCoptsForCompilationMode());
 
-    if (objcConfiguration.generateDebugSymbols()) {
+    if (objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym()) {
       commandLine.add("-g");
     }
 
@@ -797,9 +797,13 @@ public final class CompilationSupport {
       DsymOutputType dsymOutputType) {
     Optional<Artifact> dsymBundleZip;
     Optional<Artifact> linkmap;
-    if (objcConfiguration.generateDebugSymbols()) {
+    if (objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym()) {
       registerDsymActions(dsymOutputType);
       dsymBundleZip = Optional.of(intermediateArtifacts.tempDsymBundleZip(dsymOutputType));
+
+      if (objcConfiguration.generateDebugSymbols()) {
+        registerBreakpadAction(intermediateArtifacts.dsymSymbol(dsymOutputType));
+      }
     } else {
       dsymBundleZip = Optional.absent();
     }
@@ -1346,6 +1350,10 @@ public final class CompilationSupport {
             .addOutput(debugSymbolFile)
             .build(ruleContext));
 
+    return this;
+  }
+
+  private void registerBreakpadAction(Artifact debugSymbolFile) {
     Artifact dumpsyms = ruleContext.getPrerequisiteArtifact("$dumpsyms", Mode.HOST);
     Artifact breakpadFile = intermediateArtifacts.breakpadSym();
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder()
@@ -1360,7 +1368,6 @@ public final class CompilationSupport {
             ShellUtils.shellEscape(breakpadFile.getExecPathString())))
         .addOutput(breakpadFile)
         .build(ruleContext));
-    return this;
   }
 
   private PathFragment removeSuffix(PathFragment path, String suffix) {
@@ -1433,7 +1440,7 @@ public final class CompilationSupport {
       builder.add("-miphoneos-version-min=" + objcConfiguration.getMinimumOs());
     }
 
-    if (objcConfiguration.generateDebugSymbols()) {
+    if (objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym()) {
       builder.add("-g");
     }
 

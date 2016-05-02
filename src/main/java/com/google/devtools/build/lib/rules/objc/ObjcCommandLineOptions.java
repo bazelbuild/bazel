@@ -54,10 +54,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "on the machine the simulator will be run on.")
   public String iosSimulatorDevice;
 
-  @Option(name = "objc_generate_debug_symbols",
-      defaultValue = "false",
-      category = "flags",
-      help = "Specifies whether to generate debug symbol(.dSYM) file.")
+  // TODO(b/28110492): Deprecate this.
+  @Option(
+    name = "objc_generate_debug_symbols",
+    defaultValue = "false",
+    category = "flags",
+    help = "Specifies whether to generate debug symbol(.dSYM) file."
+  )
   public boolean generateDebugSymbols;
 
   @Option(name = "objc_generate_linkmap",
@@ -127,6 +130,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "specified."
   )
   public boolean enableBinaryStripping;
+
+  @Option(
+    name = "apple_generate_dsym",
+    defaultValue = "false",
+    category = "flags",
+    help = "Whether to generate debug symbol(.dSYM) file(s)."
+  )
+  public boolean appleGenerateDsym;
 
   // This option exists because two configurations are not allowed to have the same cache key
   // (partially derived from options). Since we have multiple transitions (see

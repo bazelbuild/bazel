@@ -660,9 +660,12 @@ public final class ObjcCommon {
 
       if (dsymOutputType != null) {
         objcProvider
-            .add(BREAKPAD_FILE, intermediateArtifacts.breakpadSym())
             .add(DEBUG_SYMBOLS, intermediateArtifacts.dsymSymbol(dsymOutputType))
             .add(DEBUG_SYMBOLS_PLIST, intermediateArtifacts.dsymPlist(dsymOutputType));
+
+        if (ObjcRuleClasses.objcConfiguration(context).generateDebugSymbols()) {
+          objcProvider.add(BREAKPAD_FILE, intermediateArtifacts.breakpadSym());
+        }
       }
 
       return new ObjcCommon(objcProvider.build(), compilationArtifacts);

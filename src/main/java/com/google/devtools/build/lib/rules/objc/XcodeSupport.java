@@ -268,7 +268,8 @@ public final class XcodeSupport {
         this.appleCpus = multiCpus;
       }
       this.minimumOs = objcConfiguration.getMinimumOs().toString();
-      this.generateDebugSymbols = objcConfiguration.generateDebugSymbols();
+      this.generateDebugSymbols =
+          objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym();
     }
 
     @Override
