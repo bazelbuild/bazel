@@ -26,12 +26,12 @@
 
   <li class="sidebar-nav-heading">Skylark Rules</li>
   <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">Java AppEngine</a></li>
-  <li><a href="${bazelbuildGithub}/rules_closure" target="_blank">Closure Tools</a></li>
   <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank">C#</a></li>
   <li><a href="${bazelbuildGithub}/rules_d" target="_blank">D</a></li>
   <li><a href="${path}/docker.html">Docker</a></li>
   <li><a href="${bazelbuildGithub}/rules_groovy" target="_blank">Groovy</a></li>
   <li><a href="${bazelbuildGithub}/rules_go" target="_blank">Go</a></li>
+  <li><a href="${bazelbuildGithub}/rules_closure" target="_blank">JavaScript (Closure)</a></li>
   <li><a href="${bazelbuildGithub}/rules_jsonnet" target="_blank">Jsonnet</a></li>
   <li><a href="${path}/pkg.html">Packaging</a></li>
   <li><a href="${bazelbuildGithub}/rules_rust" target="_blank">Rust</a></li>
