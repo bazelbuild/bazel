@@ -70,13 +70,4 @@ EOF
   expect_not_log '^xxxxxxxxxxx'
 }
 
-function test_terminal_columns_default() {
-  setup_bazelrc
-  bazel test --curses=yes --color=yes pkg:xxxxxxxxxxxxxxxxxxxxxxxxxtrue \
-      2>$TEST_log || fail "bazel test failed"
-  # default terminal columns should be large enough to not wrap
-  # this short example
-  expect_not_log '^xxx'
-}
-
 run_suite "Integration tests for rc options handling"
