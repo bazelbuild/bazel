@@ -63,7 +63,9 @@ def Main():
       stub_filename = os.path.join(os.path.dirname(stub_filename), link)
       continue
 
-    runfiles_pattern = "(.*\.runfiles)\\.*" if IsWindows() else "(.*\.runfiles)/.*"
+    runfiles_pattern = "(.*\.runfiles)/.*"
+    if IsWindows():
+      runfiles_pattern = "(.*\.runfiles)\\.*"
     matchobj = re.match(runfiles_pattern, os.path.abspath(sys.argv[0]))
     if matchobj:
       module_space = matchobj.group(1)
@@ -87,7 +89,9 @@ def Main():
     python_path_entries += repositories
 
   old_python_path = os.environ.get('PYTHONPATH')
-  separator = ';' if IsWindows() else ':'
+  separator = ':'
+  if IsWindows():
+    separator = ';'
   python_path = separator.join(python_path_entries)
   if old_python_path:
     python_path += separator + old_python_path
