@@ -133,9 +133,7 @@ test_write "${bazelrc}"
 echo -n "Uncompressing."
 
 # Cleaning-up, with some guards.
-if [ -f "${bin}/bazel" ]; then
-  rm -f "${bin}/bazel"
-fi
+rm -f "${bin}/bazel"
 if [ -d "${base}" -a -x "${base}/bin/bazel" ]; then
   rm -fr "${base}"
 fi
