@@ -224,11 +224,15 @@ public class BaseRuleClasses {
         .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE))
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
+        )
         .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE));
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
+        );
   }
 
   /**
