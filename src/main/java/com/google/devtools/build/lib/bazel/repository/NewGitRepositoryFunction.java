@@ -39,7 +39,7 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
 
     createDirectory(outputDirectory, rule);
     GitCloner.clone(rule, outputDirectory, env.getListener());
-    createWorkspaceFile(outputDirectory, rule);
+    createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     buildFileHandler.finishBuildFile(outputDirectory);
 
     return RepositoryDirectoryValue.create(outputDirectory);

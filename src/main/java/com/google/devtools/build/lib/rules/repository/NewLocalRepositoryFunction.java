@@ -91,7 +91,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
         throw new RepositoryFunctionException(e, SkyFunctionException.Transience.TRANSIENT);
       }
     }
-    createWorkspaceFile(outputDirectory, rule);
+    createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
 
     return RepositoryDirectoryValue.createWithSourceDirectory(outputDirectory, directoryValue);
   }

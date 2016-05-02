@@ -140,7 +140,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     }
 
     if (!outputDirectory.getRelative("WORKSPACE").exists()) {
-      createWorkspaceFile(outputDirectory, rule);
+      createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 
     return RepositoryDirectoryValue.create(outputDirectory);

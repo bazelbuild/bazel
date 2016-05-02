@@ -139,7 +139,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
     // Add a WORKSPACE file & BUILD file to the Maven jar.
     Path result = DecompressorValue.decompress(DecompressorDescriptor.builder()
-        .setDecompressor(JarFunction.INSTANCE)
+        .setDecompressor(JarDecompressor.INSTANCE)
         .setTargetKind(MavenJarRule.NAME)
         .setTargetName(downloader.getName())
         .setArchivePath(repositoryJar)

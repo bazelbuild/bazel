@@ -175,17 +175,18 @@ public abstract class RepositoryFunction {
     }
 
     // Add x/WORKSPACE.
-    createWorkspaceFile(repositoryDirectory, rule);
+    createWorkspaceFile(repositoryDirectory, rule.getTargetKind(), rule.getName());
     return repositoryDirectory;
   }
 
-  protected void createWorkspaceFile(Path repositoryDirectory, Rule rule)
+  public static void createWorkspaceFile(
+      Path repositoryDirectory, String ruleKind, String ruleName)
       throws RepositoryFunctionException {
     try {
       Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
       FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
           String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
-              + "workspace(name = \"%s\")", rule, rule.getName()));
+              + "workspace(name = \"%s\")\n", ruleKind, ruleName));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

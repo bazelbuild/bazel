@@ -27,7 +27,7 @@ public class HttpJarFunction extends HttpArchiveFunction {
   protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)
       throws RepositoryFunctionException {
     return DecompressorDescriptor.builder()
-        .setDecompressor(JarFunction.INSTANCE)
+        .setDecompressor(JarDecompressor.INSTANCE)
         .setTargetKind(rule.getTargetKind())
         .setTargetName(rule.getName())
         .setArchivePath(downloadPath)

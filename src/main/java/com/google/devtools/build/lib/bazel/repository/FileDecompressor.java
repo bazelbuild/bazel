@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompre
 /**
  * Creates a repository for a random file.
  */
-public class FileFunction extends JarFunction {
-  public static final Decompressor INSTANCE = new FileFunction();
+public class FileDecompressor extends JarDecompressor {
+  public static final Decompressor INSTANCE = new FileDecompressor();
 
-  private FileFunction() {
+  private FileDecompressor() {
   }
 
   @Override

@@ -75,7 +75,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         .build());
 
     // Finally, write WORKSPACE and BUILD files.
-    createWorkspaceFile(decompressed, rule);
+    createWorkspaceFile(decompressed, rule.getTargetKind(), rule.getName());
     buildFileHandler.finishBuildFile(outputDirectory);
 
     return RepositoryDirectoryValue.create(outputDirectory);

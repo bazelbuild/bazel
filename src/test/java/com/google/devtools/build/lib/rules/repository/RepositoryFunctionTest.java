@@ -91,8 +91,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         "    name = 'abc',",
         "    path = '/a/b/c',",
         ")");
-    TestingRepositoryFunction repositoryFunction = new TestingRepositoryFunction();
-    repositoryFunction.createWorkspaceFile(rootDirectory, rule);
+    RepositoryFunction.createWorkspaceFile(rootDirectory, rule.getTargetKind(), rule.getName());
     String workspaceContent = new String(
         FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
     assertThat(workspaceContent).contains("workspace(name = \"abc\")");

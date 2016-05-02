@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -29,10 +30,10 @@ import javax.annotation.Nullable;
 /**
  * Creates a repository for a jar file.
  */
-public class JarFunction implements Decompressor {
-  public static final Decompressor INSTANCE = new JarFunction();
+public class JarDecompressor implements Decompressor {
+  public static final Decompressor INSTANCE = new JarDecompressor();
 
-  protected JarFunction() {
+  protected JarDecompressor() {
   }
 
   /**
@@ -50,10 +51,8 @@ public class JarFunction implements Decompressor {
     try {
       FileSystemUtils.createDirectoryAndParents(descriptor.repositoryPath());
       // external/some-name/WORKSPACE.
-      Path workspaceFile = descriptor.repositoryPath().getRelative("WORKSPACE");
-      FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"), String.format(
-          "# DO NOT EDIT: automatically generated WORKSPACE file for %s rule %s\n",
-          descriptor.targetKind(), descriptor.targetName()));
+      RepositoryFunction.createWorkspaceFile(
+          descriptor.repositoryPath(), descriptor.targetKind(), descriptor.targetName());
       // external/some-name/jar.
       Path jarDirectory = descriptor.repositoryPath().getRelative(getPackageName());
       FileSystemUtils.createDirectoryAndParents(jarDirectory);

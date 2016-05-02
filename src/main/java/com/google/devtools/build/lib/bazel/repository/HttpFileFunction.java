@@ -32,7 +32,7 @@ public class HttpFileFunction extends HttpArchiveFunction {
     boolean executable = (mapper.has("executable", Type.BOOLEAN)
         && mapper.get("executable", Type.BOOLEAN));
     return DecompressorDescriptor.builder()
-        .setDecompressor(FileFunction.INSTANCE)
+        .setDecompressor(FileDecompressor.INSTANCE)
         .setTargetKind(rule.getTargetKind())
         .setTargetName(rule.getName())
         .setArchivePath(downloadPath)
