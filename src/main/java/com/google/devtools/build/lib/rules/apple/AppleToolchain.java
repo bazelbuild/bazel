@@ -96,15 +96,6 @@ public class AppleToolchain {
     return platformDir(getPlatformPlistName(configuration));
   }
 
-  /**
-   * Returns the platform directory inside of Xcode for a given platform name (e.g. iphoneos).
-   */
-  @SkylarkCallable(
-    name = "platform_dir",
-    doc =
-        "Returns a placeholder for the platform directory inside of Xcode for a given platform "
-            + " name (e.g. iphoneos).  This placeholder is resolved by xcrunwrapper."
-  )
   public static String platformDir(String platformName) {
     return DEVELOPER_DIR + "/Platforms/" + platformName + ".platform";
   }
@@ -123,6 +114,10 @@ public class AppleToolchain {
   /**
    * Returns the platform frameworks directory inside of Xcode for a given configuration.
    */
+  @SkylarkCallable(
+    name = "platform_developer_framework_dir",
+    doc = "Returns the platform frameworks directory inside of Xcode for a given configuration."
+  )
   public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
     return platformDir(configuration) + "/Developer/Library/Frameworks";
   }
