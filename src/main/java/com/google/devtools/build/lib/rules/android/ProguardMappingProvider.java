@@ -24,18 +24,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class ProguardMappingProvider implements TransitiveInfoProvider {
 
   private final Artifact proguardMapping;
-  private final Artifact proguardProtoMapping;
 
-  public ProguardMappingProvider(Artifact proguardMapping, Artifact proguardProtoMapping) {
+  public ProguardMappingProvider(Artifact proguardMapping) {
     this.proguardMapping = proguardMapping;
-    this.proguardProtoMapping = proguardProtoMapping;
   }
 
   public Artifact getProguardMapping() {
     return proguardMapping;
-  }
-
-  public Artifact getProguardProtoMapping() {
-    return proguardProtoMapping;
   }
 }

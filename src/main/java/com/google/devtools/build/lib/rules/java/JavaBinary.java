@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
-import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -232,7 +231,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
     boolean runProguard = applyProguardIfRequested(
-        ruleContext, deployJar, common.getBootClasspath(), mainClass, semantics, filesBuilder);
+        ruleContext, deployJar, common.getBootClasspath(), mainClass, filesBuilder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
@@ -471,15 +470,15 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    * {@link ProguardHelper#applyProguardIfRequested}.
    */
   private static boolean applyProguardIfRequested(RuleContext ruleContext, Artifact deployJar,
-      ImmutableList<Artifact> bootclasspath, String mainClassName, JavaSemantics semantics,
+      ImmutableList<Artifact> bootclasspath, String mainClassName,
       NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException {
     // We only support proguarding tests so Proguard doesn't try to proguard itself.
     if (!ruleContext.getRule().getRuleClass().endsWith("_test")) {
       return false;
     }
-    ProguardOutput output =
+    ProguardHelper.ProguardOutput output =
         JavaBinaryProguardHelper.INSTANCE.applyProguardIfRequested(
-            ruleContext, deployJar, bootclasspath, mainClassName, semantics);
+            ruleContext, deployJar, bootclasspath, mainClassName);
     if (output == null) {
       return false;
     }
