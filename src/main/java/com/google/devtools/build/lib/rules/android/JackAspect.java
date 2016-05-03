@@ -75,6 +75,9 @@ public final class JackAspect extends NativeAspectClass implements ConfiguredAsp
   @Override
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters params) {
+    if (base.getProvider(JackLibraryProvider.class) != null) {
+      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
+    }
     JavaSourceInfoProvider sourceProvider = base.getProvider(JavaSourceInfoProvider.class);
     PathFragment rulePath = ruleContext.getLabel().toPathFragment();
     PathFragment jackLibraryPath = rulePath.replaceName("lib" + rulePath.getBaseName() + ".jack");
