@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
+import java.util.Map;
 
 /** Represents a AndroidManifest, that may have been merged from dependencies. */
 public final class ApplicationManifest {
@@ -78,6 +79,13 @@ public final class ApplicationManifest {
   private String getOverridePackage(RuleContext ruleContext) {
     // It seems that we sometimes rename the app for God-knows-what reason. If that is the case,
     // pass this information to the stubifier script.
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
+      Map<String, String> manifestValues =
+          ruleContext.attributes().get("manifest_values", Type.STRING_DICT);
+      if (manifestValues.containsKey("applicationId")) {
+        return manifestValues.get("applicationId");
+      }
+    }
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("application_id")) {
       return ruleContext.attributes().get("application_id", Type.STRING);
     }
