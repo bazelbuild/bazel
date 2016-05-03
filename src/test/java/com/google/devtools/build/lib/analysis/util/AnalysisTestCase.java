@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -406,4 +407,21 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected void clearAnalysisResult() {
     analysisResult = null;
   }
+
+  /**
+   * Makes {@code rules} available in tests, in addition to all the rules available to Blaze at 
+   * running time (e.g., java_library).
+   */
+  protected final void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    for (RuleDefinition rule : rules) {
+      builder.addRuleDefinition(rule);
+    }
+
+    useRuleClassProvider(builder.build());
+    update();
+  }
+
 }

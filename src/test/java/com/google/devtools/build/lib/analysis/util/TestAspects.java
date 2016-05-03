@@ -117,8 +117,10 @@ public class TestAspects {
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
     NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
     result.add(me);
-    for (AspectInfo dep : ruleContext.getPrerequisites("foo", Mode.TARGET, AspectInfo.class)) {
-      result.addTransitive(dep.getData());
+    if (ruleContext.attributes().has("foo", LABEL_LIST)) {
+      for (AspectInfo dep : ruleContext.getPrerequisites("foo", Mode.TARGET, AspectInfo.class)) {
+        result.addTransitive(dep.getData());
+      }
     }
 
     return result.build();
@@ -408,6 +410,29 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("aspect_requiring_provider")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines an {@link ExtraAttributeAspect} on one of its attributes.
+   */
+  public static class ExtraAttributeAspectRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(EXTRA_ATTRIBUTE_ASPECT))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_with_extra_deps_aspect")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();

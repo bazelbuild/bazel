@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -88,19 +87,6 @@ public class DependencyResolverTest extends AnalysisTestCase {
     scratch.file("" + name + "/BUILD", contents);
   }
 
-  @SafeVarargs
-  private final void setRules(RuleDefinition... rules) throws Exception {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    for (RuleDefinition rule : rules) {
-      builder.addRuleDefinition(rule);
-    }
-
-    useRuleClassProvider(builder.build());
-    update();
-  }
-
   private ListMultimap<Attribute, Dependency> dependentNodeMap(
       String targetName, NativeAspectClass aspect) throws Exception {
     Target target = packageManager.getTarget(reporter, Label.parseAbsolute(targetName));
@@ -140,7 +126,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAspectsRequiredByRule() throws Exception {
-    setRules(new AspectRequiringRule(), new TestAspects.BaseRule());
+    setRulesAvailableInTests(new AspectRequiringRule(), new TestAspects.BaseRule());
     pkg("a",
         "aspect(name='a', foo=[':b'])",
         "aspect(name='b', foo=[])");
@@ -152,7 +138,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAspectsRequiredByAspect() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.SimpleRule());
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.SimpleRule());
     pkg("a",
         "simple(name='a', foo=[':b'])",
         "simple(name='b', foo=[])");
@@ -165,7 +151,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   @Test
   public void hasAspectDependencies() throws Exception {
-    setRules(new TestAspects.BaseRule());
+    setRulesAvailableInTests(new TestAspects.BaseRule());
     pkg("a", "base(name='a')");
     pkg("extra", "base(name='extra')");
     ListMultimap<Attribute, Dependency> map =

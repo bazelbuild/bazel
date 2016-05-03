@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 
 import org.junit.Test;
@@ -56,25 +55,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AspectTest extends AnalysisTestCase {
 
-  private final void setRules(RuleDefinition... rules) throws Exception {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    for (RuleDefinition rule : rules) {
-      builder.addRuleDefinition(rule);
-    }
-
-    useRuleClassProvider(builder.build());
-    update();
-  }
-
   private void pkg(String name, String... contents) throws Exception {
     scratch.file("" + name + "/BUILD", contents);
   }
 
   @Test
   public void providersOfAspectAreMergedIntoDependency() throws Exception {
-    setRules(new TestAspects.BaseRule(), new AspectRequiringRule());
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new AspectRequiringRule());
     pkg("a",
         "aspect(name='a', foo=[':b'])",
         "aspect(name='b', foo=[])");
@@ -86,7 +73,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectIsNotCreatedIfAdvertisedProviderIsNotPresent() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.LiarRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.LiarRule(),
         new TestAspects.AspectRequiringProviderRule());
 
     pkg("a",
@@ -99,7 +86,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectCreationWorksThroughBind() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());
 
     pkg("a",
@@ -120,7 +107,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectCreatedIfAdvertisedProviderIsPresent() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());
 
     pkg("a",
@@ -134,7 +121,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectWithParametrizedDefinition() throws Exception {
-    setRules(
+    setRulesAvailableInTests(
         new TestAspects.BaseRule(),
         new TestAspects.HonestRule(),
         new TestAspects.ParametrizedDefinitionAspectRule());
@@ -156,7 +143,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectInError() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.ErrorAspectRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.ErrorAspectRule(),
         new TestAspects.SimpleRule());
 
     pkg("a",
@@ -178,7 +165,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void transitiveAspectInError() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.ErrorAspectRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.ErrorAspectRule(),
         new TestAspects.SimpleRule());
 
     pkg("a",
@@ -201,7 +188,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void sameTargetInDifferentAttributes() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.AspectRequiringRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.AspectRequiringRule(),
         new TestAspects.SimpleRule());
     pkg("a",
         "aspect(name='a', foo=[':b'], bar=[':b'])",
@@ -214,7 +201,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void informationFromBaseRulePassedToAspect() throws Exception {
-    setRules(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());
 
     pkg("a",
@@ -280,7 +267,7 @@ public class AspectTest extends AnalysisTestCase {
    */
   @Test
   public void emptyAspectAttributesAreAvailableInRuleContext() throws Exception {
-    setRules(new TestAspects.BaseRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
         new EmptyAspectAttributesAreAvailableInRuleContext.TestRule());
     pkg("a",
         "testrule(name='a', foo=[':b'])",
@@ -339,7 +326,7 @@ public class AspectTest extends AnalysisTestCase {
    */
   @Test
   public void extraActionsAreEmitted() throws Exception {
-    setRules(new TestAspects.BaseRule(),
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
         new ExtraActionsAreEmitted.TestRule());
     useConfiguration("--experimental_action_listener=//extra_actions:listener");
     scratch.file(
