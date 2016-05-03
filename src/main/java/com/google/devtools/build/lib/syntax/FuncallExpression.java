@@ -615,7 +615,6 @@ public final class FuncallExpression extends Expression {
         obj = value;
         objClass = value.getClass();
       }
-      MethodDescriptor methodDescriptor = call.findJavaMethod(objClass, method, positionalArgs);
       if (!keyWordArgs.isEmpty()) {
         throw new EvalException(
             call.func.getLocation(),
@@ -625,6 +624,7 @@ public final class FuncallExpression extends Expression {
                 method,
                 EvalUtils.getDataTypeNameFromClass(objClass)));
       }
+      MethodDescriptor methodDescriptor = call.findJavaMethod(objClass, method, positionalArgs);
       return callMethod(methodDescriptor, method, obj, positionalArgs.toArray(), location, env);
     }
   }
