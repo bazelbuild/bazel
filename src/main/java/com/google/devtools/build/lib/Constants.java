@@ -24,7 +24,4 @@ public final class Constants {
 
   // Google's internal name for Bazel is 'Blaze', and it will take some more time to change that.
   public static final String PRODUCT_NAME = "bazel";
-
-  // Native Java deps are all linked into a single file, which is named with this value + ".so".
-  public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 }

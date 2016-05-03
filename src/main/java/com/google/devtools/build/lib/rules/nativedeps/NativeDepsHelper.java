@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.nativedeps;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -69,63 +67,6 @@ public abstract class NativeDepsHelper {
       };
 
   private NativeDepsHelper() {}
-
-  /**
-   * Creates an Action to create a dynamic library by linking all native code
-   * (C/C++) libraries in the transitive dependency closure of a rule.
-   *
-   * <p>This is used for all native code in a rule's dependencies, regardless of type.
-   *
-   * <p>We link the native deps in the equivalent of linkstatic=1, linkshared=1
-   * mode.
-   *
-   * <p>linkstatic=1 means mostly-static mode, i.e. we select the ".a" (or
-   * ".pic.a") files, but we don't include "-static" in linkopts.
-   *
-   * <p>linkshared=1 means we prefer the ".pic.a" files to the ".a" files, and
-   * the LinkTargetType is set to DYNAMIC_LIBRARY which causes Link.java to
-   * include "-shared" in the linker options.
-   *
-   * @param ruleContext the rule context to determine the native library
-   * @param linkParams the {@link CcLinkParams} for the rule, collected with
-   *        linkstatic = 1 and linkshared = 1
-   * @param extraLinkOpts additional parameters to the linker
-   * @param includeMalloc whether or not to link in the rule's malloc dependency
-   * @param configuration the {@link BuildConfiguration} to run the link action under
-   * @return the native library runfiles. If the transitive deps closure of
-   *         the rule contains no native code libraries, its fields are null.
-   */
-  public static NativeDepsRunfiles maybeCreateNativeDepsAction(final RuleContext ruleContext,
-      CcLinkParams linkParams, Collection<String> extraLinkOpts, boolean includeMalloc,
-      final BuildConfiguration configuration) {
-    if (includeMalloc) {
-      // Add in the custom malloc dependency if it was requested.
-      CcLinkParams.Builder linkParamsBuilder = CcLinkParams.builder(true, true);
-      linkParamsBuilder.addTransitiveArgs(linkParams);
-      linkParamsBuilder.addTransitiveTarget(CppHelper.mallocForTarget(ruleContext));
-      linkParams = linkParamsBuilder.build();
-    }
-
-    if (linkParams.getLibraries().isEmpty()) {
-      return NativeDepsRunfiles.EMPTY;
-    }
-
-    PathFragment relativePath = new PathFragment(ruleContext.getLabel().getName());
-    PathFragment nativeDepsPath = relativePath.replaceName(
-        relativePath.getBaseName() + Constants.NATIVE_DEPS_LIB_SUFFIX + ".so");
-    Artifact nativeDeps = ruleContext.getPackageRelativeArtifact(nativeDepsPath,
-        configuration.getBinDirectory());
-
-    return createNativeDepsAction(
-        ruleContext,
-        linkParams,
-        extraLinkOpts,
-        configuration,
-        CppHelper.getToolchain(ruleContext),
-        nativeDeps,
-        ruleContext.getConfiguration().getBinDirectory(), /*useDynamicRuntime*/
-        true);
-  }
 
   private static final String ANDROID_UNIQUE_DIR = "nativedeps";
 
@@ -171,7 +112,7 @@ public abstract class NativeDepsHelper {
         .getLibrary();
   }
 
-  private static NativeDepsRunfiles createNativeDepsAction(
+  public static NativeDepsRunfiles createNativeDepsAction(
       final RuleContext ruleContext,
       CcLinkParams linkParams,
       Collection<String> extraLinkOpts,
