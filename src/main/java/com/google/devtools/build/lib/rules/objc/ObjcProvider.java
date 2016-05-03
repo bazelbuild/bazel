@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
@@ -44,29 +44,19 @@ import java.util.Map;
  * deps that are needed for building Objective-C rules.
  */
 @Immutable
-public final class ObjcProvider implements TransitiveInfoProvider {
+@SkylarkModule(name = "ObjcProvider", doc = "A provider for compilation and linking of objc.")
+public final class ObjcProvider extends SkylarkClassObject implements TransitiveInfoProvider {
 
   /**
-   * The name skylark dependents can use to access a Skylark provider containing information
-   * from a target's ObjcProvider.
+   * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String OBJC_SKYLARK_PROVIDER_NAME = "objc";
-
-  /**
-   * The name skylark dependents can use to export a native objc provider to depending native
-   * rules.
-   *
-   * <p>This constant must be different from OBJC_SKYLARK_PROVIDER_NAME to prevent skylark rules
-   * from automatically exporting the ObjcProvider provided to them by dependents.  This can
-   * lead to duplicate symbol linker errors.
-   */
-  public static final String OBJC_SKYLARK_PROVIDER_TO_EXPORT_NAME = "objc_export";
 
   /**
    * Represents one of the things this provider can provide transitively. Things are provided as
    * {@link NestedSet}s of type E.
    */
-  @SkylarkModule(name = "Key", doc = "An ObjcProvider key.")
+  @Immutable
   public static class Key<E> {
     private final Order order;
     private final String skylarkKeyName;
@@ -81,7 +71,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     /**
      * Returns the name of the collection represented by this key in the Skylark provider.
      */
-    @SkylarkCallable(name = "name", structField = true)
     public String getSkylarkKeyName() {
       return skylarkKeyName;
     }
@@ -95,6 +84,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   }
 
   public static final Key<Artifact> LIBRARY = new Key<>(LINK_ORDER, "library", Artifact.class);
+  
   public static final Key<Artifact> IMPORTED_LIBRARY =
       new Key<>(LINK_ORDER, "imported_library", Artifact.class);
 
@@ -339,6 +329,51 @@ public final class ObjcProvider implements TransitiveInfoProvider {
 
   // Items which should not be propagated to dependents.
   private final ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems;
+  /**
+   * All keys in ObjcProvider that will be passed in the corresponding Skylark provider.
+   */
+  // Only keys for Artifact or primitive types can be in the Skylark provider, as other types
+  // are not supported as Skylark types.
+  // Note: This list is only required to support objcprovider <-> skylarkprovider conversion, which
+  // will be removed in favor of native skylark ObjcProvider access once that is implemented.
+  static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
+      ImmutableList.<Key<?>>of(
+          LIBRARY,
+          IMPORTED_LIBRARY,
+          LINKED_BINARY,
+          FORCE_LOAD_LIBRARY,
+          HEADER,
+          SOURCE,
+          DEFINE,
+          ASSET_CATALOG,
+          SDK_DYLIB,
+          XCDATAMODEL,
+          MODULE_MAP,
+          MERGE_ZIP,
+          FRAMEWORK_FILE,
+          DEBUG_SYMBOLS,
+          DEBUG_SYMBOLS_PLIST,
+          BREAKPAD_FILE,
+          STORYBOARD,
+          XIB,
+          STRINGS,
+          LINKOPT,
+          J2OBJC_LIBRARY,
+          ROOT_MERGE_ZIP);
+
+  /**
+   * Returns the skylark key for the given string, or null if no such key exists or is available
+   * to Skylark.
+   */
+  static Key<?> getSkylarkKeyForString(String keyName) {
+    Key<?> result = null;
+    for (Key<?> candidateKey : KEYS_FOR_SKYLARK) {
+      if (candidateKey.getSkylarkKeyName().equals(keyName)) {
+        return candidateKey;
+      }
+    }
+    return null;
+  }
 
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
@@ -346,7 +381,9 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   private ObjcProvider(
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
-      ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
+      ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems,
+      ImmutableMap<String, Object> skylarkFields) {
+    super(skylarkFields, "ObjcProvider field %s could not be instantiated");
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
     this.strictDependencyItems = Preconditions.checkNotNull(strictDependencyItems);
@@ -384,35 +421,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    */
   public boolean hasAssetCatalogs() {
     return !get(XCASSETS_DIR).isEmpty();
-  }
-
-  /**
-   * Returns a {@code SkylarkClassObject} containing values from this provider that is suitable
-   * for a skylark provider.
-   */
-  public SkylarkClassObject toSkylarkProvider() {
-    ImmutableMap.Builder<String, Object> providerBuilder = ImmutableMap.<String, Object>builder();
-    for (Key<?> key : SkylarkKeyStore.KEYS_FOR_SKYLARK) {
-      providerBuilder.put(key.getSkylarkKeyName(), new SkylarkNestedSet(key.getType(), get(key)));
-    }
-    return new SkylarkClassObject(providerBuilder.build(), "No such attribute '%s'");
-  }
-
-  /**
-   * Returns an {@code ObjcProvider} from a given skylark provider.  For each candidate key
-   * in the ObjcProvider, will check the given skylark provider to see if that key is represented
-   * in the returned struct.
-   */
-  public static ObjcProvider fromSkylarkProvider(SkylarkClassObject skylarkProvider) {
-    Builder builder = new Builder();
-    for (Key<?> key : SkylarkKeyStore.KEYS_FOR_SKYLARK) {
-      SkylarkNestedSet skylarkSet =
-          (SkylarkNestedSet) skylarkProvider.getValue(key.getSkylarkKeyName());
-      if (skylarkSet != null) {
-        builder.uncheckedAddAll(key, skylarkSet.getSet(key.getType()), builder.items);
-      }
-    }
-    return builder.build();
   }
 
   /**
@@ -576,20 +584,83 @@ public final class ObjcProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    /**
+     * Add elements in toAdd with the given key from skylark.  An error is thrown if toAdd is not
+     * an appropriate SkylarkNestedSet.
+     */
+    void addElementsFromSkylark(Key<?> key, Object toAdd) {
+      if (!(toAdd instanceof SkylarkNestedSet)) {
+        throw new IllegalArgumentException(
+            String.format(
+                AppleSkylarkCommon.NOT_SET_ERROR, key.getSkylarkKeyName(), toAdd.getClass()));
+      } else if (!((SkylarkNestedSet) toAdd).getContentType().canBeCastTo(key.getType())) {
+        throw new IllegalArgumentException(
+            String.format(
+                AppleSkylarkCommon.BAD_SET_TYPE_ERROR,
+                key.getSkylarkKeyName(),
+                key.getType(),
+                ((SkylarkNestedSet) toAdd).getContentType().getType()));
+      } else {
+        uncheckedAddAll(key, (SkylarkNestedSet) toAdd, this.items);
+      }
+    }
+
+    /**
+     * Adds the given providers from skylark.  An error is thrown if toAdd is not an iterable of
+     * ObjcProvider instances.
+     */
+    @SuppressWarnings("unchecked")
+    void addProvidersFromSkylark(Object toAdd) {
+      if (!(toAdd instanceof Iterable)) {
+        throw new IllegalArgumentException(
+            String.format(AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, toAdd.getClass()));
+      } else {
+        Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
+        for (Object toAddObject : toAddIterable) {
+          if (!(toAddObject instanceof ObjcProvider)) {
+            throw new IllegalArgumentException(
+                String.format(AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR, toAddObject.getClass()));
+          } else {
+            this.addTransitiveAndPropagate((ObjcProvider) toAddObject);
+          }
+        }
+      }
+    }
+    
     public ObjcProvider build() {
-      ImmutableMap.Builder<Key<?>, NestedSet<?>> propagated = new ImmutableMap.Builder<>();
+      ImmutableMap.Builder<Key<?>, NestedSet<?>> propagatedBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : items.entrySet()) {
-        propagated.put(typeEntry.getKey(), typeEntry.getValue().build());
+        propagatedBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
-      ImmutableMap.Builder<Key<?>, NestedSet<?>> nonPropagated = new ImmutableMap.Builder<>();
+      ImmutableMap.Builder<Key<?>, NestedSet<?>> nonPropagatedBuilder =
+          new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : nonPropagatedItems.entrySet()) {
-        nonPropagated.put(typeEntry.getKey(), typeEntry.getValue().build());
+        nonPropagatedBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
-      ImmutableMap.Builder<Key<?>, NestedSet<?>> strictDependency = new ImmutableMap.Builder<>();
+      ImmutableMap.Builder<Key<?>, NestedSet<?>> strictDependencyBuilder =
+          new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : strictDependencyItems.entrySet()) {
-        strictDependency.put(typeEntry.getKey(), typeEntry.getValue().build());
+        strictDependencyBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
-      return new ObjcProvider(propagated.build(), nonPropagated.build(), strictDependency.build());
+
+      ImmutableMap<Key<?>, NestedSet<?>> propagated = propagatedBuilder.build();
+      ImmutableMap<Key<?>, NestedSet<?>> nonPropagated = nonPropagatedBuilder.build();
+      ImmutableMap<Key<?>, NestedSet<?>> strictDependency = strictDependencyBuilder.build();
+
+      ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
+      for (Key<?> key : KEYS_FOR_SKYLARK) {
+        SkylarkType type = SkylarkType.of(key.getType());
+        if (items.containsKey(key)) {
+          skylarkFields.put(
+              key.getSkylarkKeyName(), SkylarkNestedSet.of(type, propagated.get(key)));
+        }
+        if (strictDependency.containsKey(key)) {
+          skylarkFields.put(
+              key.getSkylarkKeyName(), SkylarkNestedSet.of(type, strictDependency.get(key)));
+        }
+      }
+
+      return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());
     }
   }
 }

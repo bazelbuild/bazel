@@ -221,15 +221,21 @@ public final class ConfiguredTargetFactory {
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     // Visibility computation and checking is done for every rule.
-    RuleContext ruleContext = new RuleContext.Builder(env, rule, null,
-        configuration, hostConfiguration,
-        ruleClassProvider.getPrerequisiteValidator(),
-        rule.getRuleClassObject().getConfigurationFragmentPolicy())
-        .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
-        .setPrerequisites(prerequisiteMap)
-        .setConfigConditions(configConditions)
-        .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-        .build();
+    RuleContext ruleContext =
+        new RuleContext.Builder(
+                env,
+                rule,
+                null,
+                configuration,
+                hostConfiguration,
+                ruleClassProvider.getPrerequisiteValidator(),
+                rule.getRuleClassObject().getConfigurationFragmentPolicy())
+            .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
+            .setPrerequisites(prerequisiteMap)
+            .setConfigConditions(configConditions)
+            .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+            .setSkylarkProvidersRegistry(ruleClassProvider.getRegisteredSkylarkProviders())
+            .build();
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -252,7 +258,9 @@ public final class ConfiguredTargetFactory {
     if (rule.getRuleClassObject().isSkylarkExecutable()) {
       // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
       return SkylarkRuleConfiguredTargetBuilder.buildRule(
-          ruleContext, rule.getRuleClassObject().getConfiguredTargetFunction());
+          ruleContext,
+          rule.getRuleClassObject().getConfiguredTargetFunction(),
+          ruleClassProvider.getRegisteredSkylarkProviders());
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
           rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
@@ -60,9 +61,14 @@ import java.util.Map;
 public final class SkylarkRuleConfiguredTargetBuilder {
 
   /**
-   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
+   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.  The
+   * registeredProviderTypes map indicates which keys in structs returned by skylark rules
+   * should be interpreted as native TransitiveInfoProvider instances of type (map value).
    */
-  public static ConfiguredTarget buildRule(RuleContext ruleContext, BaseFunction ruleImplementation)
+  public static ConfiguredTarget buildRule(
+      RuleContext ruleContext,
+      BaseFunction ruleImplementation,
+      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
       throws InterruptedException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     try (Mutability mutability = Mutability.create("configured target")) {
@@ -90,7 +96,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);
         return null;
       }
-      ConfiguredTarget configuredTarget = createTarget(ruleContext, target);
+      ConfiguredTarget configuredTarget =
+          createTarget(ruleContext, target, registeredProviderTypes);
       SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
       return configuredTarget;
     } catch (EvalException e) {
@@ -131,7 +138,10 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
   // TODO(bazel-team): this whole defaulting - overriding executable, runfiles and files_to_build
   // is getting out of hand. Clean this whole mess up.
-  private static ConfiguredTarget createTarget(RuleContext ruleContext, Object target)
+  private static ConfiguredTarget createTarget(
+      RuleContext ruleContext,
+      Object target,
+      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
       throws EvalException {
     Artifact executable = getExecutable(ruleContext, target);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
@@ -142,7 +152,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       filesToBuild.add(executable);
     }
     builder.setFilesToBuild(filesToBuild.build());
-    return addStructFields(ruleContext, builder, target, executable);
+    return addStructFields(ruleContext, builder, target, executable, registeredProviderTypes);
   }
 
   private static Artifact getExecutable(RuleContext ruleContext, Object target)
@@ -206,8 +216,12 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
-  private static ConfiguredTarget addStructFields(RuleContext ruleContext,
-      RuleConfiguredTargetBuilder builder, Object target, Artifact executable)
+  private static ConfiguredTarget addStructFields(
+      RuleContext ruleContext,
+      RuleConfiguredTargetBuilder builder,
+      Object target,
+      Artifact executable,
+      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
       throws EvalException {
     Location loc = null;
     Runfiles statelessRunfiles = null;
@@ -268,6 +282,10 @@ public final class SkylarkRuleConfiguredTargetBuilder {
                   InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
                   Collections.<Artifact>emptySet());
           builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
+        } else if (registeredProviderTypes.containsKey(key)) {
+          Class<? extends TransitiveInfoProvider> providerType = registeredProviderTypes.get(key);
+          TransitiveInfoProvider provider = cast(key, struct, providerType, loc);
+          builder.addProvider(providerType, provider);
         } else if (!key.equals("executable")) {
           // We handled executable already.
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);

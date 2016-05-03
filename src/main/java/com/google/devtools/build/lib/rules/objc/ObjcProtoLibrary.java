@@ -64,8 +64,6 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addSkylarkTransitiveInfo(
-            ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME, common.getObjcProvider().toSkylarkProvider())
         .build();
   }
 }

@@ -82,8 +82,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
             J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
         .addProvider(ObjcProvider.class, objcProvider)
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
-        .addSkylarkTransitiveInfo(
-            ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME, objcProvider.toSkylarkProvider())
         .build();
   }
 

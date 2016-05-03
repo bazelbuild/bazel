@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -151,7 +152,9 @@ public final class RuleContext extends TargetContext
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final Class<? extends BuildConfiguration.Fragment> universalFragment;
   private final ErrorReporter reporter;
-
+  private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
+      skylarkProviderRegistry;
+  
   private ActionOwner actionOwner;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
@@ -178,6 +181,7 @@ public final class RuleContext extends TargetContext
     this.features = getEnabledFeatures();
     this.ruleClassNameForLogging = ruleClassNameForLogging;
     this.aspectAttributes = aspectAttributes;
+    this.skylarkProviderRegistry = builder.skylarkProviderRegistry;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
   }
@@ -268,6 +272,15 @@ public final class RuleContext extends TargetContext
     return attributes;
   }
 
+  /**
+   * Returns a map that indicates which providers should be exported to skylark under the key
+   * (map key).  These provider types will also be exportable by skylark rules under (map key).
+   */
+  public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
+      getSkylarkProviderRegistry() {
+    return skylarkProviderRegistry;
+  }
+  
   /**
    * Returns whether this instance is known to have errors at this point during analysis. Do not
    * call this method after the initializationHook has returned.
@@ -1307,6 +1320,7 @@ public final class RuleContext extends TargetContext
     private Set<ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
+    private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry;
 
     Builder(
         AnalysisEnvironment env,
@@ -1390,6 +1404,16 @@ public final class RuleContext extends TargetContext
       // that we need RuleClassProvider to figure out what this fragment is, and not every
       // call state that creates ConfigurationFragmentPolicy has access to that.
       this.universalFragment = fragment;
+      return this;
+    }
+
+    /**
+     * Sets a map that indicates which providers should be exported to skylark under the key
+     * (map key).  These provider types will also be exportable by skylark rules under (map key).
+     */
+    Builder setSkylarkProvidersRegistry(
+        ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry) {
+      this.skylarkProviderRegistry = skylarkProviderRegistry;
       return this;
     }
 
