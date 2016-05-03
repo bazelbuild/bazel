@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -396,6 +397,8 @@ public final class Attribute implements Comparable<Attribute> {
     private PredicateWithMessage<Object> allowedValues = null;
     private ImmutableList<ImmutableSet<String>> mandatoryProvidersList =
         ImmutableList.<ImmutableSet<String>>of();
+    private ImmutableList<Class<? extends TransitiveInfoProvider>> mandatoryNativeProviders =
+        ImmutableList.of();
     private Set<RuleAspect> aspects = new LinkedHashSet<>();
 
     /**
@@ -803,6 +806,22 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
+     * Sets a list of mandatory native providers. Every configured target occurring in this label
+     * type attribute has to provide all the providers, otherwise an error is produced during the
+     * analysis phase.
+     */
+    @SafeVarargs
+    public final Builder<TYPE> mandatoryNativeProviders(
+        Class<? extends TransitiveInfoProvider>... providers) {
+      Preconditions.checkState(
+          (type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+          "must be a label-valued type");
+      this.mandatoryNativeProviders =
+          ImmutableList.<Class<? extends TransitiveInfoProvider>>copyOf(providers);
+      return this;
+    }
+
+    /**
      * Sets a list of sets of mandatory Skylark providers. Every configured target occurring in
      * this label type attribute has to provide all the providers from one of those sets,
      * otherwise an error is produced during the analysis phase.
@@ -939,6 +958,7 @@ public final class Attribute implements Comparable<Attribute> {
           condition,
           allowedValues,
           mandatoryProvidersList,
+          mandatoryNativeProviders,
           ImmutableSet.copyOf(aspects));
     }
   }
@@ -1224,6 +1244,8 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final ImmutableList<ImmutableSet<String>> mandatoryProvidersList;
 
+  private final ImmutableList<Class<? extends TransitiveInfoProvider>> mandatoryNativeProviders;
+
   private final ImmutableSet<RuleAspect> aspects;
 
   /**
@@ -1256,6 +1278,7 @@ public final class Attribute implements Comparable<Attribute> {
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
       ImmutableList<ImmutableSet<String>> mandatoryProvidersList,
+      ImmutableList<Class<? extends TransitiveInfoProvider>> mandatoryNativeProviders,
       ImmutableSet<RuleAspect> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
@@ -1290,6 +1313,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.condition = condition;
     this.allowedValues = allowedValues;
     this.mandatoryProvidersList = mandatoryProvidersList;
+    this.mandatoryNativeProviders = mandatoryNativeProviders;
     this.aspects = aspects;
   }
 
@@ -1486,6 +1510,11 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public ImmutableList<ImmutableSet<String>> getMandatoryProvidersList() {
     return mandatoryProvidersList;
+  }
+
+  /** Returns the list of mandatory native providers. */
+  public ImmutableList<Class<? extends TransitiveInfoProvider>> getMandatoryNativeProviders() {
+    return mandatoryNativeProviders;
   }
 
   public FileTypeSet getAllowedFileTypesPredicate() {

@@ -1710,6 +1710,32 @@ public final class RuleContext extends TargetContext
       return missingProviders.toString();
     }
 
+    private String getMissingMandatoryNativeProviders(
+        ConfiguredTarget prerequisite, Attribute attribute) {
+      List<Class<? extends TransitiveInfoProvider>> mandatoryProvidersList =
+          attribute.getMandatoryNativeProviders();
+      if (mandatoryProvidersList.isEmpty()) {
+        return null;
+      }
+      List<Class<? extends TransitiveInfoProvider>> missing = new ArrayList<>();
+      for (Class<? extends TransitiveInfoProvider> provider : mandatoryProvidersList) {
+        if (prerequisite.getProvider(provider) == null) {
+          missing.add(provider);
+        }
+      }
+      if (missing.isEmpty()) {
+        return null;
+      }
+      StringBuilder sb = new StringBuilder();
+      for (Class<? extends TransitiveInfoProvider> provider : missing) {
+        if (sb.length() > 0) {
+          sb.append(", ");
+        }
+        sb.append(provider.getSimpleName());
+      }
+      return sb.toString();
+    }
+
     /**
      * Because some rules still have to use allowedRuleClasses to do rule dependency validation.
      * We implemented the allowedRuleClasses OR mandatoryProvidersList mechanism. Either condition
@@ -1735,6 +1761,16 @@ public final class RuleContext extends TargetContext
         if (allowedWithWarning) {
           reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisiteLabel,
               "expected " + attribute.getAllowedRuleClassesPredicate(), true);
+          return;
+        }
+      }
+
+      if (!attribute.getMandatoryNativeProviders().isEmpty()) {
+        String missing = getMissingMandatoryNativeProviders(prerequisite, attribute);
+        if (missing != null) {
+          attributeError(
+              attribute.getName(),
+              "'" + prerequisite.getLabel() + "' does not have mandatory providers: " + missing);
           return;
         }
       }

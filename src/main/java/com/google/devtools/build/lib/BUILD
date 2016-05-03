@@ -405,6 +405,7 @@ java_library(
         ":events",
         ":skylarkinterface",
         ":syntax",
+        ":transitive-info-provider",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -449,6 +450,11 @@ java_library(
 )
 
 java_library(
+    name = "transitive-info-provider",
+    srcs = ["analysis/TransitiveInfoProvider.java"],
+)
+
+java_library(
     name = "build-base",
     srcs = glob(
         [
@@ -466,9 +472,15 @@ java_library(
             "rules/repository/*.java",
             "skyframe/*.java",
         ],
-        exclude = ["analysis/BuildInfo.java"],
+        exclude = [
+            "analysis/BuildInfo.java",
+            "analysis/TransitiveInfoProvider.java",
+        ],
     ) + [
         "runtime/BlazeServerStartupOptions.java",
+    ],
+    exports = [
+        ":transitive-info-provider",
     ],
     deps = [
         ":base-util",
@@ -485,6 +497,7 @@ java_library(
         ":packages-internal",
         ":shell",
         ":skylarkinterface",
+        ":transitive-info-provider",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
