@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -151,9 +150,11 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       CrosstoolRelease crosstool = crosstoolStlPair.crosstoolRelease;
 
       StringBuilder toolchainMap = new StringBuilder();
-      for (DefaultCpuToolchain defaultToolchain : crosstool.getDefaultToolchainList()) {
-        toolchainMap.append(String.format("      \"%s\": \":%s\",\n",
-            defaultToolchain.getCpu(), defaultToolchain.getToolchainIdentifier()));
+      for (CToolchain toolchain : crosstool.getToolchainList()) {
+        toolchainMap.append(String.format("      \"%s|%s\": \":%s\",\n",
+            toolchain.getTargetCpu(),
+            toolchain.getCompiler(),
+            toolchain.getToolchainIdentifier()));
       }
 
       String toolchainName = createToolchainName(crosstoolStlPair.stlImpl.getName());

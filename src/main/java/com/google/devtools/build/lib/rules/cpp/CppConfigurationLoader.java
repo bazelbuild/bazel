@@ -184,11 +184,11 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       Rule ccToolchainSuite = (Rule) crosstoolTop;
       ccToolchainLabel = NonconfigurableAttributeMapper.of(ccToolchainSuite)
           .get("toolchains", BuildType.LABEL_DICT_UNARY)
-          .get(toolchain.getTargetCpu());
+          .get(toolchain.getTargetCpu() + "|" + toolchain.getCompiler());
       if (ccToolchainLabel == null) {
         throw new InvalidConfigurationException(String.format(
-            "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s'",
-            crosstoolTopLabel, toolchain.getTargetCpu()));
+            "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s' and compiler '%s'",
+            crosstoolTopLabel, toolchain.getTargetCpu(), toolchain.getCompiler()));
       }
     } else {
       try {

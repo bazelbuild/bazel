@@ -19,8 +19,8 @@ filegroup(
 cc_toolchain_suite(
     name = "toolchain",
     toolchains = {
-        "%{name}": ":cc-compiler-%{name}",
-        "armeabi-v7a": ":cc-compiler-armeabi-v7a",
+        "%{name}|compiler": ":cc-compiler-%{name}",
+        "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
     },
 )
 

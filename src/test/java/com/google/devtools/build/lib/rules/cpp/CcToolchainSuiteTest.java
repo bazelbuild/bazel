@@ -33,7 +33,9 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "cc_toolchain_suite(",
         "    name = 'suite',",
         "    toolchains = { ",
-        "       'cpu': ':cc-toolchain', 'k8': ':cc-toolchain', 'darwin': ':cc-toolchain' ",
+        "       'cpu|cpu-compiler': ':cc-toolchain',",
+        "       'k8|k8-compiler': ':cc-toolchain',",
+        "       'darwin|cpu-compiler': ':cc-toolchain' ",
         "    },",
         "    proto = \"\"\"",
         "major_version: 'v1'",
@@ -116,5 +118,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
     CppConfiguration cppConfig = getTargetConfiguration().getFragment(CppConfiguration.class);
     assertThat(cppConfig.getTargetCpu()).isEqualTo("cpu");
     assertThat(cppConfig.getAbi()).isEqualTo("cpu-abi");
+    assertThat(cppConfig.getCompiler()).isEqualTo("cpu-compiler");
   }
 }
