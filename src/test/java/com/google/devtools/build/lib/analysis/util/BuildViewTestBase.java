@@ -136,8 +136,19 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration("--experimental_multi_cpu=" + badCpu + "," + goodCpu);
     scratch.file("multi/BUILD",
-        "cc_library(name='cpu', abi='$(TARGET_CPU)', abi_deps={'" + badCpu + "':[':fail']})",
-        "genrule(name='fail', outs=['file1', 'file2'], executable = 1, cmd='touch $@')");
+        "config_setting(",
+        "    name = 'config',",
+        "    values = {'cpu': '" + badCpu + "'})",
+        "cc_library(",
+        "    name = 'cpu',",
+        "    deps = select({",
+        "        ':config': [':fail'],",
+        "        '//conditions:default': []}))",
+        "genrule(",
+        "    name = 'fail',",
+        "    outs = ['file1', 'file2'],",
+        "    executable = 1,",
+        "    cmd = 'touch $@')");
     update(defaultFlags().with(Flag.KEEP_GOING), "//multi:cpu");
     AnalysisResult result = getAnalysisResult();
     assertThat(result.getTargetsToBuild()).hasSize(1);
