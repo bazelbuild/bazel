@@ -68,6 +68,32 @@ genrule(
           """,
 )
 
+# Create dummy tools so we can do select to prevent building iOS target on
+# Linux.
+OSX_DUMMY_TARGETS = [
+    "src/tools/xcode/actoolwrapper/actoolwrapper",
+    "src/tools/xcode/ibtoolwrapper/ibtoolwrapper",
+    "src/tools/xcode/momcwrapper/momcwrapper",
+    "src/tools/xcode/swiftstdlibtoolwrapper/swiftstdlibtoolwrapper",
+    "src/tools/xcode/environment/environment_plist",
+    "src/tools/xcode/xcrunwrapper/xcrunwrapper",
+    "src/objc_tools/bundlemerge/bundlemerge_deploy.jar",
+    "src/objc_tools/plmerge/plmerge_deploy.jar",
+    "src/objc_tools/xcodegen/xcodegen_deploy.jar",
+    "src/tools/xcode/realpath/realpath",
+    "src/tools/xcode/stdredirect/StdRedirect.dylib",
+]
+
+[
+    genrule(
+        name = "dummy_darwin_tool_" + name.replace("/", "_"),
+        srcs = [],
+        outs = ["dummy_darwin_tools/" + name],
+        cmd = "touch $@",
+    )
+    for name in OSX_DUMMY_TARGETS
+]
+
 filegroup(
     name = "darwin_tools",
     srcs = [
@@ -83,8 +109,16 @@ filegroup(
         "//src/tools/xcode/realpath:realpath",
     ] + select({
         ":iphonesdk": ["//src/tools/xcode/stdredirect:StdRedirect.dylib"],
-        "//conditions:default": [],
+        "//conditions:default": [":dummy_darwin_tool_src_tools_xcode_stdredirect_StdRedirect.dylib"],
     }),
+)
+
+filegroup(
+    name = "dummy_darwin_tools",
+    srcs = [
+        "dummy_darwin_tool_" + name.replace("/", "_")
+        for name in OSX_DUMMY_TARGETS
+    ],
 )
 
 genrule(
@@ -115,8 +149,12 @@ genrule(
             ":darwin_tools",
             "//third_party/ijar:zipper",
         ],
-        ":windows": [],  # Windows specifically exclude zipper for now.
-        "//conditions:default": ["//third_party/ijar:zipper"],
+        # Windows specifically exclude zipper for now.
+        ":windows": [":dummy_darwin_tools"],
+        "//conditions:default": [
+            ":dummy_darwin_tools",
+            "//third_party/ijar:zipper",
+        ],
     }),
     outs = ["embedded_tools.zip"],
     cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
