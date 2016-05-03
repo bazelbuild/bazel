@@ -23,13 +23,8 @@ option java_package = "com.google.devtools.build.android.proto";
 // See com.google.devtools.build.android.AndroidDataSerializer for details on
 // how these messages are used.
 message Header {
-  // The number of primary entries stored a serialized buffer.
-  optional int32 primary_entries = 1;
-  // The number of transitive entries stored a serialized buffer.
-  optional int32 transitive_entries = 2;
-  // The source information for the manifest associated with these resources.
-  // Required
-  optional ProtoSource manifest_path = 3;
+  // The number of entries stored in a serialized buffer.
+  optional int32 entry_count = 1;
 }
 
 // The serialized format for a DataKey.

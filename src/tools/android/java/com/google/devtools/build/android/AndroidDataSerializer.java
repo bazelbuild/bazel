@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
-import com.google.devtools.build.android.proto.SerializeFormat.ProtoSource;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.BufferedOutputStream;
@@ -36,19 +35,18 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 /**
- * Writes an {@link UnwrittenMergedAndroidData} to a binary file.
+ * Serializes {@link DataKey},{@link DataValue} entries to a binary file.
  */
 public class AndroidDataSerializer {
+  private static final Logger logger = Logger.getLogger(AndroidDataSerializer.class.getName());
 
-  // TODO(corysmith): We might need a more performant comparasion methodology than toString.
-  private final NavigableMap<DataKey, DataValue> primary =
+  // TODO(corysmith): We might need a more performant comparison methodology than toString.
+  private final NavigableMap<DataKey, DataValue> entries =
       new TreeMap<DataKey, DataValue>(Ordering.usingToString());
-
-  private final NavigableMap<DataKey, DataValue> deps =
-      new TreeMap<DataKey, DataValue>(Ordering.usingToString());
-  private Path manifest;
 
   public static AndroidDataSerializer create() {
     return new AndroidDataSerializer();
@@ -59,34 +57,34 @@ public class AndroidDataSerializer {
   /**
    * Writes all of the collected DataKey -> DataValue.
    *
-   * The binary format will be:
-   * <pre>
+   * The binary format will be: <pre>
    * {@link Header}
-   * {@link com.google.devtools.build.android.proto.SerializeFormat.DataKey} primary...
-   * {@link com.google.devtools.build.android.proto.SerializeFormat.DataValue} primary...
-   * {@link com.google.devtools.build.android.proto.SerializeFormat.DataKey} transitive...
-   * {@link com.google.devtools.build.android.proto.SerializeFormat.DataValue} transitive...
+   * {@link com.google.devtools.build.android.proto.SerializeFormat.DataKey} keys...
+   * {@link com.google.devtools.build.android.proto.SerializeFormat.DataValue} entries...
    * </pre>
    *
    * The key and values will be written in comparable order, allowing for the optimization of not
    * converting the DataValue from binary, only writing it into a merged serialized binary.
    */
   public void flushTo(Path out) throws IOException {
-    Preconditions.checkNotNull(manifest, "Manifest is required to serialize AndroidData.");
+    Stopwatch timer = Stopwatch.createStarted();
+    // Ensure the parent directory exists, if any.
+    if (out.getParent() != null) {
+      Files.createDirectories(out.getParent());
+    }
     try (OutputStream outStream =
         new BufferedOutputStream(
             Files.newOutputStream(out, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE))) {
       // Set the header for the deserialization process.
       Header.newBuilder()
-          .setPrimaryEntries(primary.size())
-          .setTransitiveEntries(deps.size())
-          .setManifestPath(ProtoSource.newBuilder().setFilename(manifest.toString()))
+          .setEntryCount(entries.size())
           .build()
           .writeDelimitedTo(outStream);
 
-      writeKeyValuesTo(primary, outStream);
-      writeKeyValuesTo(deps, outStream);
+      writeKeyValuesTo(entries, outStream);
     }
+    logger.fine(
+        String.format("Serialized merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }
 
   private void writeKeyValuesTo(NavigableMap<DataKey, DataValue> map, OutputStream outStream)
@@ -103,8 +101,8 @@ public class AndroidDataSerializer {
     }
     // Serialize all the keys in sorted order
     valueSizeIndex = 0;
-    for (DataKey key : map.navigableKeySet()) {
-      key.serializeTo(outStream, orderedValueSizes[valueSizeIndex]);
+    for (DataKey key : keys) {
+      key.serializeTo(outStream, orderedValueSizes[valueSizeIndex++]);
     }
     // write the values to the output stream.
     outStream.write(valuesOutputStream.toByteArray());
@@ -114,29 +112,25 @@ public class AndroidDataSerializer {
    * Reads the serialized {@link DataKey} and {@link DataValue} to the {@link KeyValueConsumers}.
    *
    * @param inPath The path to the serialized protocol buffer.
-   * @param primaryConsumers The {@link KeyValueConsumers} for the primary {@link DataKey} ->
-   * {@link DataValue} entries.
-   * @param transitiveConsumers The {@link KeyValueConsumers} for the transitive {@link DataKey} ->
-   * {@link DataValue} entries.
-   * @returns The manifest path for the serialized data.
-   * @throws IOException when io operations fail.
-   * @throws InvalidProtocolBufferException When the inPath is not a valid proto buffer -- e.g.
-   * legacy R.txts generated from android_resources.
+   * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt;
+   *    {@link DataValue}.
+   * @throws DeserializationException Raised for an IOException or when the inPath is not a valid
+   *    proto buffer.
    */
-  public Path read(
-      Path inPath, KeyValueConsumers primaryConsumers, KeyValueConsumers transitiveConsumers)
-      throws IOException, InvalidProtocolBufferException {
+  public void read(Path inPath, KeyValueConsumers consumers) throws DeserializationException {
+    Stopwatch timer = Stopwatch.createStarted();
     try (InputStream in = Files.newInputStream(inPath, StandardOpenOption.READ)) {
       FileSystem currentFileSystem = inPath.getFileSystem();
       Header header = Header.parseDelimitedFrom(in);
-      readEntriesSegment(primaryConsumers, in, currentFileSystem, header.getPrimaryEntries());
-      readEntriesSegment(transitiveConsumers, in, currentFileSystem, header.getTransitiveEntries());
-      // Assuming that the inPath will be the same filesystem as the manifest.
-      // It seems highly unlikely they would be different.
-      Path manifestPath = inPath.getFileSystem().getPath(header.getManifestPath().getFilename());
-      Preconditions.checkArgument(
-          Files.exists(manifestPath), "The manifest %s, does not exist.", manifestPath);
-      return manifestPath;
+      if (header == null) {
+        throw new DeserializationException("No Header found in " + inPath);
+      }
+      readEntriesSegment(consumers, in, currentFileSystem, header.getEntryCount());
+    } catch (IOException e) {
+      throw new DeserializationException(e);
+    } finally {
+      logger.fine(
+          String.format("Deserialized in merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     }
   }
 
@@ -185,17 +179,32 @@ public class AndroidDataSerializer {
   }
 
   /** Queues the manifest for serialization. */
-  public void serializeManifest(Path manifest) {
-    this.manifest = manifest;
+  @Deprecated
+  public void serializeManifest(@SuppressWarnings("unused") Path manifest) {
   }
 
   /** Queues the key and value for serialization as a primary entry. */
+  @Deprecated
   public void serializeToPrimary(DataKey key, DataValue value) {
-    primary.put(key, value);
+    queueForSerialization(key, value);
   }
 
   /** Queues the key and value for serialization as a transitive entry. */
+  @Deprecated
   public void serializeToTransitive(DataKey key, DataValue value) {
-    deps.put(key, value);
+    queueForSerialization(key, value);
+  }
+
+  @Deprecated
+  public void read(
+      Path inPath,
+      KeyValueConsumers consumers,
+      @SuppressWarnings("unused") KeyValueConsumers transitiveConsumers) {
+    read(inPath, consumers);
+  }
+  
+  /** Queues the key and value for serialization as a entries entry. */
+  public void queueForSerialization(DataKey key, DataValue value) {
+    entries.put(key, value);
   }
 }

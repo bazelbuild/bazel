@@ -16,6 +16,8 @@ package com.google.devtools.build.android;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 
+import com.android.ide.common.res2.MergingException;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map.Entry;
@@ -48,15 +50,17 @@ public class UnwrittenMergedAndroidData {
    * @param mergedDataWriter Destination writer.
    * @return A MergedAndroidData that is ready for further tool processing.
    * @throws IOException when something goes wrong while writing.
+   * @throws MergingException when something goes wrong with the merge.
    */
-  public MergedAndroidData write(AndroidDataWriter mergedDataWriter) throws IOException {
+  public MergedAndroidData write(AndroidDataWriter mergedDataWriter)
+      throws IOException, MergingException {
     try {
       writeParsedAndroidData(primary, mergedDataWriter);
       writeParsedAndroidData(transitive, mergedDataWriter);
       return new MergedAndroidData(
           mergedDataWriter.resourceDirectory(),
           mergedDataWriter.assetDirectory(),
-          mergedDataWriter.copyManifest(this.manifest));
+          this.manifest != null ? mergedDataWriter.copyManifest(this.manifest) : null);
     } finally {
       // Flush to make sure all writing is completed before returning a MergedAndroidData.
       // If resources aren't fully written, the MergedAndroidData might be invalid.
@@ -65,7 +69,8 @@ public class UnwrittenMergedAndroidData {
   }
 
   private void writeParsedAndroidData(
-      ParsedAndroidData resources, AndroidDataWritingVisitor mergedDataWriter) throws IOException {
+      ParsedAndroidData resources, AndroidDataWritingVisitor mergedDataWriter)
+      throws IOException, MergingException {
     for (Entry<DataKey, DataAsset> entry : resources.iterateAssetEntries()) {
       // TODO(corysmith): Resolve the nit of casting to a RelativeAssetPath by sorting
       // out the type structure and generics of DataKey, ParsedAndroidData, AndroidDataMerger and
@@ -124,19 +129,11 @@ public class UnwrittenMergedAndroidData {
   }
 
   public void serializeTo(AndroidDataSerializer serializer) {
-    serializer.serializeManifest(manifest);
     for (Entry<DataKey, DataAsset> entry : primary.iterateAssetEntries()) {
-      serializer.serializeToPrimary(entry.getKey(), entry.getValue());
+      serializer.queueForSerialization(entry.getKey(), entry.getValue());
     }
     for (Entry<DataKey, DataResource> entry : primary.iterateDataResourceEntries()) {
-      serializer.serializeToPrimary(entry.getKey(), entry.getValue());
-    }
-
-    for (Entry<DataKey, DataAsset> entry : transitive.iterateAssetEntries()) {
-      serializer.serializeToTransitive(entry.getKey(), entry.getValue());
-    }
-    for (Entry<DataKey, DataResource> entry : transitive.iterateDataResourceEntries()) {
-      serializer.serializeToTransitive(entry.getKey(), entry.getValue());
+      serializer.queueForSerialization(entry.getKey(), entry.getValue());
     }
   }
 }
