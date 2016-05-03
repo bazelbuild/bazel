@@ -15,8 +15,9 @@ package com.google.devtools.build.android;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.proto.SerializeFormat;
 
@@ -25,12 +26,14 @@ import com.android.resources.ResourceType;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -69,6 +72,33 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
         .toString();
   }
 
+  @Override
+  public String toPrettyString() {
+    // TODO(corysmith): Add package when we start tracking it.
+    return String.format(
+        "%s/%s",
+        DASH_JOINER.join(
+            ImmutableList.<String>builder().add(resourceType.getName()).addAll(qualifiers).build()),
+        resourceName);
+  }
+
+  /**
+   * Returns the string path representation of the values directory and qualifiers.
+   *
+   * Certain resource types live in the "values" directory. This will calculate the directory and
+   * ensure the qualifiers are represented.
+   */
+  // TODO(corysmith): Combine this with toPathString to clean up the interface of FullyQualifiedName
+  // logically, the FullyQualifiedName should just be able to provide the relative path string for
+  // the resource.
+  public String valuesPath() {
+    return Paths.get(
+            DASH_JOINER.join(
+                ImmutableList.<String>builder().add("values").addAll(qualifiers).build()),
+            "values.xml")
+        .toString();
+  }
+
   public String name() {
     return resourceName;
   }
@@ -77,11 +107,97 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
    * A factory for parsing an generating FullyQualified names with qualifiers and package.
    */
   public static class Factory {
+
+    /** Used to adjust the api number for indvidual qualifiers. */
+    private static final class QualifierApiAdjuster {
+      private final int minApi;
+      private final ImmutableSet<String> values;
+      private final Pattern pattern;
+
+      static QualifierApiAdjuster fromRegex(int minApi, String regex) {
+        return new QualifierApiAdjuster(minApi, ImmutableSet.<String>of(), Pattern.compile(regex));
+      }
+
+      static QualifierApiAdjuster fromValues(int minApi, String... values) {
+        return new QualifierApiAdjuster(minApi, ImmutableSet.copyOf(values), null);
+      }
+
+      private QualifierApiAdjuster(
+          int minApi, @Nullable ImmutableSet<String> values, @Nullable Pattern pattern) {
+        this.minApi = minApi;
+        this.values = ImmutableSet.copyOf(values);
+        this.pattern = pattern;
+      }
+
+      /** Checks to see if the qualifier string is this type of qualifier. */
+      boolean check(String qualifier) {
+        if (pattern != null) {
+          return pattern.matcher(qualifier).matches();
+        }
+        return values.contains(qualifier);
+      }
+
+      /** Takes the current api and returns a higher one if the qualifier requires it. */
+      int maxApi(int current) {
+        return current > minApi ? current : minApi;
+      }
+    }
+
+    /**
+     * An array used to calculate the api levels.
+     *
+     * See <a href="http://developer.android.com/guide/topics/resources/providing-resources.html">
+     * for api qualifier to level tables.</a>
+     */
+    private static final QualifierApiAdjuster[] QUALIFIER_API_ADJUSTERS = {
+      // LAYOUT DIRECTION implies api 17
+      QualifierApiAdjuster.fromValues(17, "ldrtl", "ldltr"),
+      // SMALLEST WIDTH implies api 13
+      QualifierApiAdjuster.fromRegex(13, "^sw\\d+dp$"),
+      // AVAILABLE WIDTH implies api 13
+      QualifierApiAdjuster.fromRegex(13, "^w\\d+dp$"),
+      // AVAILABLE HEIGHT implies api 13
+      QualifierApiAdjuster.fromRegex(13, "^h\\d+dp$"),
+      // SCREEN SIZE implies api 4
+      QualifierApiAdjuster.fromValues(4, "small", "normal", "large", "xlarge"),
+      // SCREEN ASPECT implies api 4
+      QualifierApiAdjuster.fromValues(4, "long", "notlong"),
+      // ROUND SCREEN implies api 23
+      QualifierApiAdjuster.fromValues(23, "round", "notround"),
+      // UI MODE implies api 8
+      QualifierApiAdjuster.fromValues(8, "car", "desk", "appliance"),
+      // UI MODE TELEVISION implies api 13
+      QualifierApiAdjuster.fromValues(13, "television"),
+      // UI MODE WATCH implies api 13
+      QualifierApiAdjuster.fromValues(13, "watch"),
+      // UI MODE NIGHT implies api 8
+      QualifierApiAdjuster.fromValues(8, "night", "notnight"),
+      // HDPI implies api 4
+      QualifierApiAdjuster.fromValues(4, "hdpi"),
+      // XHDPI implies api 8
+      QualifierApiAdjuster.fromValues(8, "xhdpi"),
+      // XXHDPI implies api 16
+      QualifierApiAdjuster.fromValues(16, "xxhdpi"),
+      // XXXHDPI implies api 18
+      QualifierApiAdjuster.fromValues(18, "xxxhdpi"),
+      // TVDPI implies api 13
+      QualifierApiAdjuster.fromValues(13, "tvdpi"),
+      // DPI280 implies api 4
+      QualifierApiAdjuster.fromValues(4, "280dpi")
+    };
+
+    private static final Pattern VERSION_QUALIFIER = Pattern.compile("^v\\d+$");
+
     private static final Pattern PARSING_REGEX =
-        Pattern.compile("(?:(?<package>[^:]+):){0,1}(?<type>[^/]+)/(?<name>\\w+)");
-    public static final String INVALID_QUALIFIED_NAME_MESSAGE =
+        Pattern.compile("(?:(?<package>[^:]+):){0,1}(?<type>[^-/]+)(?:[^/]*)/(?<name>.+)");
+    public static final String INVALID_QUALIFIED_NAME_MESSAGE_NO_MATCH =
         String.format(
             "%%s is not a valid qualified name. "
+                + "It should be in the pattern [package:]{%s}/resourcename",
+            Joiner.on(",").join(ResourceType.values()));
+    public static final String INVALID_QUALIFIED_NAME_MESSAGE_NO_TYPE_OR_NAME =
+        String.format(
+            "Could not find either resource type (%%s) or name (%%s) in %%s. "
                 + "It should be in the pattern [package:]{%s}/resourcename",
             Joiner.on(",").join(ResourceType.values()));
     private final List<String> qualifiers;
@@ -90,6 +206,57 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
     private Factory(List<String> qualifiers, String pkg) {
       this.qualifiers = qualifiers;
       this.pkg = pkg;
+    }
+
+    /** Creates a factory with default package from a directory name split on '-'. */
+    public static Factory fromDirectoryName(String[] dirNameAndQualifiers) {
+      return from(getQualifiers(dirNameAndQualifiers));
+    }
+
+    // TODO(bazel-team): Replace this with Folder Configuration from android-ide-common.
+    private static List<String> getQualifiers(String[] dirNameAndQualifiers) {
+      if (dirNameAndQualifiers.length == 1) {
+        return ImmutableList.of();
+      }
+      List<String> qualifiers =
+          Lists.newArrayList(
+              Arrays.copyOfRange(dirNameAndQualifiers, 1, dirNameAndQualifiers.length));
+      if (qualifiers.size() >= 2) {
+        // Replace the ll-r{3,4} regions as aapt doesn't support them yet.
+        if ("es".equalsIgnoreCase(qualifiers.get(0))
+            && "419".equalsIgnoreCase(qualifiers.get(1))) {
+          qualifiers.remove(0);
+          qualifiers.set(0, "b+es+419");
+        }
+        if ("sr".equalsIgnoreCase(qualifiers.get(0))
+            && "rlatn".equalsIgnoreCase(qualifiers.get(1))) {
+          qualifiers.remove(0);
+          qualifiers.set(0, "b+sr+Latn");
+        }
+      }
+      // Calculate minimum api version to add the appropriate version qualifier
+      int apiVersion = 0;
+      int lastQualifierMatch = 0;
+      for (String qualifier : qualifiers) {
+        for (int i = lastQualifierMatch; i < QUALIFIER_API_ADJUSTERS.length; i++) {
+          if (QUALIFIER_API_ADJUSTERS[i].check(qualifier)) {
+            lastQualifierMatch = i;
+            apiVersion = QUALIFIER_API_ADJUSTERS[i].maxApi(apiVersion);
+          }
+        }
+      }
+      // TODO(corysmith): Stop removing when robolectric supports anydpi.
+      qualifiers.remove("anydpi");
+      if (apiVersion > 0) {
+        // check for any version qualifier. The version qualifier is always the last qualifier.
+        String lastQualifier = qualifiers.get(qualifiers.size() - 1);
+        if (VERSION_QUALIFIER.matcher(lastQualifier).matches()) {
+          apiVersion = Math.max(apiVersion, Integer.parseInt(lastQualifier.substring(1)));
+          qualifiers.remove(qualifiers.size() - 1);
+        }
+        qualifiers.add("v" + apiVersion);
+      }
+      return Lists.newArrayList(Joiner.on("-").join(qualifiers));
     }
 
     public static Factory from(List<String> qualifiers, String pkg) {
@@ -112,22 +279,23 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
      * Parses a FullyQualifiedName from a string.
      *
      * @param raw A string in the expected format from
-     *     [&lt;package&gt;:]&lt;ResourceType.name&gt;/&lt;resource name&gt;.
+     *  [&lt;package&gt;:]&lt;ResourceType.name&gt;/&lt;resource name&gt;.
      * @throws IllegalArgumentException when the raw string is not valid qualified name.
      */
     public FullyQualifiedName parse(String raw) {
-      String[] typeAndName = raw.split("/");
-      Preconditions.checkArgument(typeAndName.length == 2, "Invalid type and name: %s", raw);
       Matcher matcher = PARSING_REGEX.matcher(raw);
       if (!matcher.matches()) {
-        throw new IllegalArgumentException(String.format(INVALID_QUALIFIED_NAME_MESSAGE, raw));
+        throw new IllegalArgumentException(
+            String.format(INVALID_QUALIFIED_NAME_MESSAGE_NO_MATCH, raw));
       }
       String parsedPackage = matcher.group("package");
       ResourceType resourceType = ResourceType.getEnum(matcher.group("type"));
       String resourceName = matcher.group("name");
 
       if (resourceType == null || resourceName == null) {
-        throw new IllegalArgumentException(String.format(INVALID_QUALIFIED_NAME_MESSAGE, raw));
+        throw new IllegalArgumentException(
+            String.format(
+                INVALID_QUALIFIED_NAME_MESSAGE_NO_TYPE_OR_NAME, resourceType, resourceName, raw));
       }
       return FullyQualifiedName.of(
           parsedPackage == null ? pkg : parsedPackage, qualifiers, resourceType, resourceName);

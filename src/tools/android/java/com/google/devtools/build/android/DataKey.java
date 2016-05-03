@@ -35,4 +35,9 @@ public interface DataKey {
    * be used for calculating offsets of the value in the stream.
    */
   void serializeTo(OutputStream output, int valueSize) throws IOException;
+
+  /**
+   * Returns a human readable string representation of the key.
+   */
+  String toPrettyString();
 }

@@ -115,4 +115,9 @@ public class RelativeAssetPath implements DataKey, Comparable<RelativeAssetPath>
         .build()
         .writeDelimitedTo(output);
   }
+
+  @Override
+  public String toPrettyString() {
+    return "asset:" + relativeAssetPath;
+  }
 }
