@@ -50,6 +50,16 @@ public class JarDecompressorTest {
   }
 
   @Test
+  public void testTargets() throws Exception {
+    Path outputDir = DecompressorValue.decompress(descriptorBuilder.build());
+    assertThat(outputDir.exists()).isTrue();
+    String buildContent =
+        new String(FileSystemUtils.readContentAsLatin1(outputDir.getRelative("jar/BUILD")));
+    assertThat(buildContent).contains("java_import");
+    assertThat(buildContent).contains("filegroup");
+  }
+
+  @Test
   public void testWorkspaceGen() throws Exception {
     Path outputDir = DecompressorValue.decompress(descriptorBuilder.build());
     assertThat(outputDir.exists()).isTrue();

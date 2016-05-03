@@ -93,6 +93,12 @@ public class JarDecompressor implements Decompressor {
             "    name = 'jar',",
             "    jars = ['" + baseName + "'],",
             "    visibility = ['//visibility:public']",
+            ")",
+            "",
+            "filegroup(",
+            "    name = 'file',",
+            "    srcs = ['" + baseName + "'],",
+            "    visibility = ['//visibility:public']",
             ")");
   }
 }
