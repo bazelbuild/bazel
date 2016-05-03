@@ -190,7 +190,7 @@ public class FileSystemUtilsTest {
     assertEquals("../../../file-4", relativePath(innerDir, file4).getPathString());
   }
 
-  private String longestPathPrefixStr(String path, String... prefixStrs) {
+  private static String longestPathPrefixStr(String path, String... prefixStrs) {
     Set<PathFragment> prefixes = new HashSet<>();
     for (String prefix : prefixStrs) {
       prefixes.add(new PathFragment(prefix));
@@ -207,6 +207,7 @@ public class FileSystemUtilsTest {
     assertNull(longestPathPrefixStr("C/b", "A", "B"));  // not found in other parents
     assertNull(longestPathPrefixStr("A", "A/B", "B"));  // not found in child
     assertEquals("A/B/C", longestPathPrefixStr("A/B/C/d/e/f.h", "A/B/C", "B/C/d"));
+    assertEquals("", longestPathPrefixStr("A/f.h", "", "B/C/d"));
   }
 
   @Test
