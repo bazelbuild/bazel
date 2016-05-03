@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -35,6 +33,7 @@ import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -251,34 +250,6 @@ public abstract class BlazeModule {
    */
   public Map<String, String> getOptionCategories() {
     return ImmutableMap.of();
-  }
-
-  /**
-   * A item that is returned by "blaze info".
-   */
-  public interface InfoItem {
-    /**
-     * The name of the info key.
-     */
-    String getName();
-
-    /**
-     * The help description of the info key.
-     */
-    String getDescription();
-
-    /**
-     * Whether the key is printed when "blaze info" is invoked without arguments.
-     *
-     * <p>This is usually true for info keys that take multiple lines, thus, cannot really be
-     * included in the output of argumentless "blaze info".
-     */
-    boolean isHidden();
-
-    /**
-     * Returns the value of the info key. The return value is directly printed to stdout.
-     */
-    byte[] get(Supplier<BuildConfiguration> configurationSupplier) throws AbruptExitException;
   }
 
   /**

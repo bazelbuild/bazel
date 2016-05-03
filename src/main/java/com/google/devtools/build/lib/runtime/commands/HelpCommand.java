@@ -159,7 +159,7 @@ public final class HelpCommand implements BlazeCommand {
       emitTargetSyntaxHelp(outErr, getOptionCategories(runtime));
       return ExitCode.SUCCESS;
     } else if (helpSubject.equals("info-keys")) {
-      emitInfoKeysHelp(runtime, outErr);
+      emitInfoKeysHelp(env, outErr);
       return ExitCode.SUCCESS;
     } else if (helpSubject.equals("completion")) {
       emitCompletionHelp(runtime, outErr);
@@ -218,8 +218,8 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commands) + "\"");
 
     outErr.printOutLn("BAZEL_INFO_KEYS=\"");
-    for (InfoKey key : InfoKey.values()) {
-        outErr.printOutLn(key.getName());
+    for (String name : InfoCommand.getHardwiredInfoItemNames(Constants.PRODUCT_NAME)) {
+        outErr.printOutLn(name);
     }
     outErr.printOutLn("\"");
 
@@ -253,8 +253,8 @@ public final class HelpCommand implements BlazeCommand {
                                     OptionsParser.HelpVerbosity.MEDIUM));
   }
 
-  private void emitInfoKeysHelp(BlazeRuntime runtime, OutErr outErr) {
-    for (BlazeModule.InfoItem item : InfoCommand.getInfoItemMap(runtime,
+  private void emitInfoKeysHelp(CommandEnvironment env, OutErr outErr) {
+    for (InfoItem item : InfoCommand.getInfoItemMap(env,
         OptionsParser.newOptionsParser(
             ImmutableList.<Class<? extends OptionsBase>>of())).values()) {
       outErr.printOut(String.format("%-23s %s\n", item.getName(), item.getDescription()));
