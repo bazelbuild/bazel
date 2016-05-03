@@ -253,7 +253,7 @@ public class BazelRuleClassProvider {
         .addBuildInfoFactory(new ObjcBuildInfoFactory())
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
         .setPrelude("//tools/build_rules:prelude_bazel")
-        .setRunfilesPrefix("")
+        .setRunfilesPrefix("__main__")
         .setToolsRepository(TOOLS_REPOSITORY)
         .setPrerequisiteValidator(new BazelPrerequisiteValidator())
         .setSkylarkAccessibleTopLevels(skylarkBuiltinJavaObects);

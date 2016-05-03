@@ -63,7 +63,7 @@ function test_extra_action() {
   # a program that parses the proto here.
   cat > mypkg/echoer.sh <<EOF
 #!/bin/bash
-if [[ ! -e \$0.runfiles/mypkg/runfile ]]; then
+if [[ ! -e \$0.runfiles/__main__/mypkg/runfile ]]; then
   echo "Runfile not found" >&2
   exit 1
 fi

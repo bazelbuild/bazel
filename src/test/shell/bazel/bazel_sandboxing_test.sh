@@ -164,7 +164,7 @@ EOF
 #!/bin/sh
 
 set -e
-cp $(dirname $0)/tool.runfiles/examples/genrule/datafile $1
+cp $(dirname $0)/tool.runfiles/__main__/examples/genrule/datafile $1
 echo "Tools work!"
 EOF
   chmod +x examples/genrule/tool.sh

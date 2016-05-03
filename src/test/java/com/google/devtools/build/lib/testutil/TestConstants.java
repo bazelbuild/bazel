@@ -43,7 +43,7 @@ public class TestConstants {
   /**
    * Default workspace name.
    */
-  public static final String WORKSPACE_NAME = "";
+  public static final String WORKSPACE_NAME = "__main__";
 
   /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
