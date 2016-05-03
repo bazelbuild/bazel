@@ -12,10 +12,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-if echo $0 | grep -sq /external/; then
-  PREFIX="external/$(echo $0 | sed 's_^.*external/\([^/]*\)/.*$_\1_')"
-else
-  PREFIX=""
-fi
 JAVA_PACKAGE=com/google/devtools/build/android/idlclass
-exec ${TEST_SRCDIR-$0.runfiles}/$PREFIX/src/tools/android/java/${JAVA_PACKAGE}/IdlClass "$@"
+exec ${TEST_SRCDIR-$0.runfiles}/bazel_tools/src/tools/android/java/${JAVA_PACKAGE}/IdlClass "$@"
