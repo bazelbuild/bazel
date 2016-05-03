@@ -82,7 +82,6 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
-
 /**
  * Generates ide-build information for Android Studio.
  */
@@ -94,13 +93,28 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
   public static final String IDE_INFO = "ide-info";
   public static final String IDE_INFO_TEXT = "ide-info-text";
   public static final String IDE_RESOLVE = "ide-resolve";
-  private final String toolsRepository;
 
-  public AndroidStudioInfoAspect(String toolsRepository) {
+  private final String toolsRepository;
+  private final AndroidStudioInfoSemantics androidStudioInfoSemantics;
+  private final ImmutableList<PrerequisiteAttr> prerequisiteAttrs;
+
+  public AndroidStudioInfoAspect(
+      String toolsRepository,
+      AndroidStudioInfoSemantics androidStudioInfoSemantics) {
     this.toolsRepository = toolsRepository;
+    this.androidStudioInfoSemantics = androidStudioInfoSemantics;
+    this.prerequisiteAttrs = buildPrerequisiteAttrs();
   }
 
-  private static class PrerequisiteAttr {
+  @Override
+  public String getName() {
+    return NAME;
+  }
+
+  /**
+   * Attribute to propagate dependencies along.
+   */
+  public static class PrerequisiteAttr {
     public final String name;
     public final Type<?> type;
     public PrerequisiteAttr(String name, Type<?> type) {
@@ -108,17 +122,20 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       this.type = type;
     }
   }
-  public static final PrerequisiteAttr[] PREREQUISITE_ATTRS = {
-      new PrerequisiteAttr("deps", BuildType.LABEL_LIST),
-      new PrerequisiteAttr("exports", BuildType.LABEL_LIST),
-      new PrerequisiteAttr("$robolectric", BuildType.LABEL_LIST), // From android_robolectric_test
-      new PrerequisiteAttr("$junit", BuildType.LABEL), // From android_robolectric_test
-      new PrerequisiteAttr("binary_under_test", BuildType.LABEL), // From android_test
-      new PrerequisiteAttr("java_lib", BuildType.LABEL), // From proto_library
-      new PrerequisiteAttr("$proto1_java_lib", BuildType.LABEL), // From proto_library
-      new PrerequisiteAttr(":cc_toolchain", BuildType.LABEL), // from cc_* rules
-      new PrerequisiteAttr("module_target", BuildType.LABEL)
-  };
+
+  private ImmutableList<PrerequisiteAttr> buildPrerequisiteAttrs() {
+    ImmutableList.Builder<PrerequisiteAttr> builder = ImmutableList.builder();
+    builder.add(new PrerequisiteAttr("deps", BuildType.LABEL_LIST));
+    builder.add(new PrerequisiteAttr("exports", BuildType.LABEL_LIST));
+    // From android_test
+    builder.add(new PrerequisiteAttr("binary_under_test", BuildType.LABEL));
+    // from cc_* rules
+    builder.add(new PrerequisiteAttr(":cc_toolchain", BuildType.LABEL));
+
+    androidStudioInfoSemantics.augmentPrerequisiteAttrs(builder);
+
+    return builder.build();
+  }
 
   // File suffixes.
   public static final String ASWB_BUILD_SUFFIX = ".aswb-build";
@@ -140,7 +157,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
             .value(Label.parseAbsoluteUnchecked(
                 toolsRepository + "//tools/android:PackageParser")));
 
-    for (PrerequisiteAttr prerequisiteAttr : PREREQUISITE_ATTRS) {
+    for (PrerequisiteAttr prerequisiteAttr : prerequisiteAttrs) {
       builder.attributeAspect(prerequisiteAttr.name, this);
     }
 
@@ -196,7 +213,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
     // Calculate direct dependencies
     ImmutableList.Builder<TransitiveInfoCollection> directDepsBuilder = ImmutableList.builder();
-    for (PrerequisiteAttr prerequisiteAttr : PREREQUISITE_ATTRS) {
+    for (PrerequisiteAttr prerequisiteAttr : prerequisiteAttrs) {
       if (ruleContext.attributes().has(prerequisiteAttr.name, prerequisiteAttr.type)) {
         directDepsBuilder.addAll(ruleContext.getPrerequisites(prerequisiteAttr.name, Mode.TARGET));
       }
@@ -325,7 +342,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     // C rules
     CppCompilationContext cppCompilationContext = base.getProvider(CppCompilationContext.class);
     if (cppCompilationContext != null) {
-      CRuleIdeInfo cRuleIdeInfo = makeCRuleIdeInfo(base, ruleContext, cppCompilationContext);
+      CRuleIdeInfo cRuleIdeInfo =
+          makeCRuleIdeInfo(base, ruleContext, cppCompilationContext, ideResolveArtifacts);
       outputBuilder.setCRuleIdeInfo(cRuleIdeInfo);
     }
 
@@ -491,7 +509,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         /*makeExecutable =*/ false);
   }
 
-  private static ArtifactLocation makeArtifactLocation(Artifact artifact) {
+  protected static ArtifactLocation makeArtifactLocation(Artifact artifact) {
     return makeArtifactLocation(artifact.getRoot(), artifact.getRootRelativePath());
   }
 
@@ -552,8 +570,11 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     return builder.build();
   }
 
-  private static CRuleIdeInfo makeCRuleIdeInfo(ConfiguredTarget base,
-      RuleContext ruleContext, CppCompilationContext cppCompilationContext) {
+  private CRuleIdeInfo makeCRuleIdeInfo(
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      CppCompilationContext cppCompilationContext,
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
     CRuleIdeInfo.Builder builder = CRuleIdeInfo.newBuilder();
 
     Collection<Artifact> sourceFiles = getSources(ruleContext);
@@ -590,6 +611,9 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     for (PathFragment pathFragment : transitiveSystemIncludeDirectories) {
       builder.addTransitiveSystemIncludeDirectory(pathFragment.getSafePathString());
     }
+
+    androidStudioInfoSemantics
+        .updateCppRuleInfo(builder, base, ruleContext, cppCompilationContext, ideResolveArtifacts);
 
     return builder.build();
   }

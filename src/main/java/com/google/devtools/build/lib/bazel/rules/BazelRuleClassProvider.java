@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect;
+import com.google.devtools.build.lib.ideinfo.BazelAndroidStudioInfoSemantics;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -268,7 +269,8 @@ public class BazelRuleClassProvider {
     JackAspect jackAspect = new JackAspect(TOOLS_REPOSITORY);
     BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect = new BazelJ2ObjcProtoAspect(TOOLS_REPOSITORY);
     J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(TOOLS_REPOSITORY, bazelJ2ObjcProtoAspect);
-    AndroidStudioInfoAspect androidStudioInfoAspect = new AndroidStudioInfoAspect(TOOLS_REPOSITORY);
+    AndroidStudioInfoAspect androidStudioInfoAspect =
+        new AndroidStudioInfoAspect(TOOLS_REPOSITORY, new BazelAndroidStudioInfoSemantics());
 
     builder.addNativeAspectClass(androidNeverlinkAspect);
     builder.addNativeAspectClass(dexArchiveAspect);

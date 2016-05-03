@@ -183,6 +183,8 @@ def c_rule_ide_info(target, ctx):
 
   cc_provider = target.cc
 
+  ide_resolve_files = set()
+
   return (struct_omit_none(
                   source = sources,
                   exported_header = exported_headers,
@@ -194,7 +196,7 @@ def c_rule_ide_info(target, ctx):
                   transitive_define = cc_provider.defines,
                   transitive_system_include_directory = cc_provider.system_include_directories
          ),
-         set())
+         ide_resolve_files)
 
 def c_toolchain_ide_info(target, ctx):
   """ Build CToolchainIdeInfo.
