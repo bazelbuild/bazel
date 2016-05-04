@@ -774,6 +774,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:android_deploy_info_java_proto",
         "//src/main/protobuf:apk_manifest_java_proto",
+        "//third_party:android_sdklib",
         "//third_party:jsr305",
         "//third_party/protobuf",
     ],

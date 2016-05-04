@@ -329,6 +329,7 @@ public class AndroidResourceProcessor {
       Path sourceOut,
       Path packageOut,
       Path proguardOut,
+      Path mainDexProguardOut,
       Path publicResourcesOut)
       throws IOException, InterruptedException, LoggedErrorException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
@@ -370,6 +371,7 @@ public class AndroidResourceProcessor {
         .maybeAdd("--output-text-symbols", prepareOutputPath(sourceOut), sourceOut != null)
         .add("-F", packageOut)
         .add("-G", proguardOut)
+        .maybeAdd("-D", mainDexProguardOut, new FullRevision(24))
         .add("-P", publicResourcesOut)
         .maybeAdd("--debug-mode", debug)
         .add("--custom-package", customPackageForR)
@@ -397,6 +399,9 @@ public class AndroidResourceProcessor {
     // Reset the output date stamps.
     if (proguardOut != null) {
       Files.setLastModifiedTime(proguardOut, FileTime.fromMillis(0L));
+    }
+    if (mainDexProguardOut != null) {
+      Files.setLastModifiedTime(mainDexProguardOut, FileTime.fromMillis(0L));
     }
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));

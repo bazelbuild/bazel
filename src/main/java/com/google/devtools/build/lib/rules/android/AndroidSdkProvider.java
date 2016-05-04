@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class AndroidSdkProvider implements TransitiveInfoProvider {
 
   private final String buildToolsVersion;
+  private final boolean aaptSupportsMainDexGeneration;
   private final Artifact frameworkAidl;
   private final Artifact androidJar;
   private final Artifact shrinkedAndroidJar;
@@ -50,6 +51,7 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
 
   public AndroidSdkProvider(
       String buildToolsVersion,
+      boolean aaptSupportsMainDexGeneration,
       Artifact frameworkAidl,
       Artifact androidJar,
       Artifact shrinkedAndroidJar,
@@ -70,6 +72,7 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
       FilesToRunProvider resourceExtractor) {
 
     this.buildToolsVersion = buildToolsVersion;
+    this.aaptSupportsMainDexGeneration = aaptSupportsMainDexGeneration;
     this.frameworkAidl = frameworkAidl;
     this.androidJar = androidJar;
     this.shrinkedAndroidJar = shrinkedAndroidJar;
@@ -122,7 +125,11 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
   public String getBuildToolsVersion() {
     return buildToolsVersion;
   }
-  
+
+  public boolean getAaptSupportsMainDexGeneration() {
+    return aaptSupportsMainDexGeneration;
+  }
+
   public Artifact getFrameworkAidl() {
     return frameworkAidl;
   }

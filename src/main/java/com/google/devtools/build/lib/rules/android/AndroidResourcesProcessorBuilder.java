@@ -58,6 +58,7 @@ public class AndroidResourcesProcessorBuilder {
   private ResourceContainer primary;
   private ResourceDependencies dependencies;
   private Artifact proguardOut;
+  private Artifact mainDexProguardOut;
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
   private boolean debug = false;
@@ -131,6 +132,11 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setProguardOut(Artifact proguardCfg) {
     this.proguardOut = proguardCfg;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setMainDexProguardOut(Artifact mainDexProguardCfg) {
+    this.mainDexProguardOut = mainDexProguardCfg;
     return this;
   }
 
@@ -306,6 +312,11 @@ public class AndroidResourcesProcessorBuilder {
     if (proguardOut != null) {
       builder.addExecPath("--proguardOutput", proguardOut);
       outs.add(proguardOut);
+    }
+
+    if (mainDexProguardOut != null) {
+      builder.addExecPath("--mainDexProguardOutput", mainDexProguardOut);
+      outs.add(mainDexProguardOut);
     }
 
     if (manifestOut != null) {

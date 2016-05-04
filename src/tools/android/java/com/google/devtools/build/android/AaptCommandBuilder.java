@@ -83,6 +83,13 @@ class AaptCommandBuilder {
     return this;
   }
 
+  AaptCommandBuilder maybeAdd(String flag, @Nullable Path path, FullRevision requiredVersion) {
+    if (buildToolsVersion == null || buildToolsVersion.compareTo(requiredVersion) >= 0) {
+      add(flag, path);
+    }
+    return this;
+  }
+
   AaptCommandBuilder maybeAdd(String flag, FullRevision requiredVersion) {
     if (buildToolsVersion == null || buildToolsVersion.compareTo(requiredVersion) >= 0) {
       add(flag);

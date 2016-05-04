@@ -96,6 +96,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           null /* versionName */,
           false,
           null /* proguardCfgOut */,
+          null, /* mainDexProguardCfg */
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST),
           null /* mergedResourcesOut */);
       if (ruleContext.hasErrors()) {

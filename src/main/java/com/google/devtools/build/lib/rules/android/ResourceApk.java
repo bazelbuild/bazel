@@ -26,15 +26,16 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class ResourceApk {
-  // TODO(bazel-team): The only field that is legitimately nullable is javaSrcJar. The rest is
-  // marked as such due to .fromTransitiveResources(). It seems like there should be a better way
-  // to do this.
+  // TODO(bazel-team): The only fields that are legitimately nullable are javaSrcJar and
+  // mainDexProguardConfig. The rest are marked as such due to .fromTransitiveResources().
+  // It seems like there should be a better way to do this.
   @Nullable private final Artifact resourceApk;  // The .ap_ file
   @Nullable private final Artifact resourceJavaSrcJar;  // Source jar containing R.java and friends
   private final ResourceDependencies resourceDeps;
   @Nullable private final ResourceContainer primaryResource;
   @Nullable private final Artifact manifest;  // The non-binary XML version of AndroidManifest.xml
   @Nullable private final Artifact resourceProguardConfig;
+  @Nullable private final Artifact mainDexProguardConfig;
   private final boolean legacy;
 
   public ResourceApk(
@@ -44,6 +45,7 @@ public final class ResourceApk {
       @Nullable ResourceContainer primaryResource,
       @Nullable Artifact manifest,
       @Nullable Artifact resourceProguardConfig,
+      @Nullable Artifact mainDexProguardConfig,
       boolean legacy) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
@@ -51,6 +53,7 @@ public final class ResourceApk {
     this.primaryResource = primaryResource;
     this.manifest = manifest;
     this.resourceProguardConfig = resourceProguardConfig;
+    this.mainDexProguardConfig = mainDexProguardConfig;
     this.legacy = legacy;
   }
 
@@ -76,11 +79,15 @@ public final class ResourceApk {
 
   public static ResourceApk fromTransitiveResources(
       ResourceDependencies resourceDeps) {
-    return new ResourceApk(null, null, resourceDeps, null, null, null, false);
+    return new ResourceApk(null, null, resourceDeps, null, null, null, null, false);
   }
 
   public Artifact getResourceProguardConfig() {
     return resourceProguardConfig;
+  }
+
+  public Artifact getMainDexProguardConfig() {
+    return mainDexProguardConfig;
   }
 
   public ResourceDependencies getResourceDependencies() {

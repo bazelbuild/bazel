@@ -217,6 +217,7 @@ public class ResourceShrinkerAction {
           null /* sourceOutputDir */,
           options.shrunkApk,
           null /* proguardOutput */,
+          null /* mainDexProguardOutput */,
           null /* publicResourcesOut */);
       if (options.shrunkResources != null) {
         resourceProcessor.createResourcesZip(shrunkResources, resourceFiles.resolve("assets"),

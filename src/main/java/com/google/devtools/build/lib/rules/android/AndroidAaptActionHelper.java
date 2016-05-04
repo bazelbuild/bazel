@@ -33,10 +33,12 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * Helper class to generate Android aapt actions.
@@ -173,6 +175,12 @@ public final class AndroidAaptActionHelper {
 
   private List<String> createAaptCommand(String actionKind, Artifact output,
       Artifact rTxtOutput, boolean inlineConstants, String... outputArgs) {
+    return createAaptCommand(
+        actionKind, output, rTxtOutput, inlineConstants, Arrays.asList(outputArgs));
+  }
+
+  private List<String> createAaptCommand(String actionKind, Artifact output,
+      Artifact rTxtOutput, boolean inlineConstants, Collection<String> outputArgs) {
     List<String> args = new ArrayList<>();
     args.addAll(getArgs(output, actionKind, ResourceType.RESOURCES));
     args.addAll(getArgs(output, actionKind, ResourceType.ASSETS));
@@ -181,7 +189,7 @@ public final class AndroidAaptActionHelper {
     args.add(
         AndroidSdkProvider.fromRuleContext(ruleContext).getAapt().getExecutable().getExecPathString());
     args.add("package");
-    Collections.addAll(args, outputArgs);
+    args.addAll(outputArgs);
     // Allow overlay in case the same resource appears in more than one target,
     // giving precedence to the order in which they are found. This is needed
     // in order to support android library projects.
@@ -266,13 +274,25 @@ public final class AndroidAaptActionHelper {
         "_" + resourceType.getAttribute() + "_" + actionKind));
   }
 
-  public void createGenerateProguardAction(Artifact outputSpec) {
-    List<String> aaptCommand = createAaptCommand("proguard", outputSpec, null, true,
-        "-G", outputSpec.getExecPathString());
+  public void createGenerateProguardAction(
+      Artifact outputSpec, @Nullable Artifact outputMainDexSpec) {
+    ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
+    ImmutableList.Builder<String> aaptArgs = ImmutableList.builder();
+
+    outputs.add(outputSpec);
+    aaptArgs.add("-G").add(outputSpec.getExecPathString());
+
+    if (outputMainDexSpec != null) {
+      aaptArgs.add("-D").add(outputMainDexSpec.getExecPathString());
+      outputs.add(outputMainDexSpec);
+    }
+
+    List<String> aaptCommand =
+        createAaptCommand("proguard", outputSpec, null, true, aaptArgs.build());
     ruleContext.registerAction(new SpawnAction.Builder()
         .addInputs(getInputs())
         .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .addOutput(outputSpec)
+        .addOutputs(outputs.build())
         .setExecutable(
             ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
         .setCommandLine(CommandLine.of(aaptCommand, false))

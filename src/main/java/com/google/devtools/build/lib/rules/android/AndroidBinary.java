@@ -232,6 +232,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           versionName,
           false, /* incremental */
           ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+          createMainDexProguardSpec(ruleContext),
           null, /* manifestOut */
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP));
       if (ruleContext.hasErrors()) {
@@ -254,6 +255,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               versionName,
               true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
+              null, /* mainDexProguardCfg */
               null, /* manifestOut */
               null /* mergedResourcesOut */);
       if (ruleContext.hasErrors()) {
@@ -276,6 +278,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               versionName,
               true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
+              null, /* mainDexProguardCfg */
               null, /* manifestOut */
               null /* mergedResourcesOut */);
       if (ruleContext.hasErrors()) {
@@ -302,10 +305,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             resourceDeps,
             true,
-            ProguardHelper.getProguardConfigArtifact(ruleContext, ""));
+            ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+            createMainDexProguardSpec(ruleContext));
       } else {
         resourceApk = applicationManifest.useCurrentResources(ruleContext,
-            ProguardHelper.getProguardConfigArtifact(ruleContext, ""));
+            ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+            createMainDexProguardSpec(ruleContext));
       }
       incrementalResourceApk = applicationManifest
           .addStubApplication(ruleContext)
@@ -315,7 +320,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext,
               resourceDeps,
               false,
-              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
+              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
+              null /* mainDexProguardConfig */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -326,7 +332,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             resourceDeps,
             false,
-            ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
+            ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
+            null /* mainDexProguardConfig */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -416,6 +423,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 jarToDex,
                 isBinaryJarFiltered,
                 androidCommon,
+                resourceApk.getMainDexProguardConfig(),
                 resourceClasses);
     if (dexingOutput == null) {
       return null;
@@ -1056,6 +1064,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact proguardedJar,
       boolean isBinaryJarFiltered,
       AndroidCommon common,
+      @Nullable Artifact mainDexProguardSpec,
       JavaTargetAttributes attributes)
       throws InterruptedException {
     boolean finalJarIsDerived = isBinaryJarFiltered || binaryJar != proguardedJar;
@@ -1114,7 +1123,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
       if (multidexMode == MultidexMode.LEGACY) {
         // For legacy multidex, we need to generate a list for the dexer's --main-dex-list flag.
-        mainDexList = createMainDexListAction(ruleContext, proguardedJar);
+        mainDexList = createMainDexListAction(ruleContext, proguardedJar, mainDexProguardSpec);
       }
 
       Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
@@ -1351,7 +1360,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * --main-dex-list flag (which specifies the classes that need to be directly in classes.dex).
    * Returns the file containing the list.
    */
-  static Artifact createMainDexListAction(RuleContext ruleContext, Artifact jar) {
+  static Artifact createMainDexListAction(
+      RuleContext ruleContext, Artifact jar, @Nullable Artifact mainDexProguardSpec) {
     // Process the input jar through Proguard into an intermediate, streamlined jar.
     Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -1373,10 +1383,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addArgument("-dontobfuscate")
         .addArgument("-dontpreverify");
 
-    List<Artifact> specs = ruleContext.getPrerequisiteArtifacts(
-        "main_dex_proguard_specs", Mode.TARGET).list();
+    List<Artifact> specs = new ArrayList<>();
+    specs.addAll(
+        ruleContext.getPrerequisiteArtifacts("main_dex_proguard_specs", Mode.TARGET).list());
     if (specs.isEmpty()) {
-      specs = ImmutableList.of(sdk.getMainDexClasses());
+      specs.add(sdk.getMainDexClasses());
+    }
+    if (mainDexProguardSpec != null) {
+      specs.add(mainDexProguardSpec);
     }
 
     for (Artifact spec : specs) {
@@ -1422,6 +1436,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .build(ruleContext));
 
     return splitResources;
+  }
+
+  @Nullable
+  private static Artifact createMainDexProguardSpec(RuleContext ruleContext) {
+    return AndroidSdkProvider.fromRuleContext(ruleContext).getAaptSupportsMainDexGeneration()
+        ? ProguardHelper.getProguardConfigArtifact(ruleContext, "main_dex")
+        : null;
   }
 
   /**
