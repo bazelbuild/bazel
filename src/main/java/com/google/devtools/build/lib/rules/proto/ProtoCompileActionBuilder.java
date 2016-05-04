@@ -76,7 +76,7 @@ public class ProtoCompileActionBuilder {
     return this;
   }
 
-  public ProtoCompileActionBuilder setHasServices(boolean hasServices) {
+  public ProtoCompileActionBuilder allowServices(boolean hasServices) {
     this.hasServices = hasServices;
     return this;
   }
