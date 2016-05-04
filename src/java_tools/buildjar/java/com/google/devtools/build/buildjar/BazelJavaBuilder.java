@@ -83,7 +83,7 @@ public abstract class BazelJavaBuilder {
     return 0;
   }
 
-  private static int processRequest(List<String> args, PrintWriter err) {
+  public static int processRequest(List<String> args, PrintWriter err) {
     try {
       JavaLibraryBuildRequest build = parse(args);
       AbstractJavaBuilder builder = build.getDependencyModule().reduceClasspath()
