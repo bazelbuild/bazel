@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.android.annotations.VisibleForTesting;
 import com.android.annotations.concurrency.Immutable;
 
-import java.nio.file.Path;
 import java.util.Objects;
 
 /**
@@ -29,23 +28,23 @@ import java.util.Objects;
  */
 @Immutable
 public class MergeConflict {
-  private static final String CONFLICT_MESSAGE = "%s is provided from %s and %s";
+  private static final String CONFLICT_MESSAGE = "\n\u001B[31mCONFLICT:\u001B[0m"
+          + " %s is provided with ambigious priority from: \n\t%s\n\t%s";
 
   private final DataKey dataKey;
-  private final Path first;
-  private final Path second;
+  private final DataValue first;
+  private final DataValue second;
 
-  private MergeConflict(DataKey dataKey, Path first, Path second) {
+  private MergeConflict(DataKey dataKey, DataValue sortedFirst, DataValue sortedSecond) {
     this.dataKey = dataKey;
-    this.first = first;
-    this.second = second;
+    this.first = sortedFirst;
+    this.second = sortedSecond;
   }
 
   /**
    * Creates a MergeConflict between two DataResources.
    *
-   * The {@link DataKey} must match the first.dataKey() and second
-   * .dataKey().
+   * The {@link DataKey} must match the first.dataKey() and second .dataKey().
    *
    * @param dataKey The dataKey name that both DataResources share.
    * @param first The first DataResource.
@@ -54,23 +53,32 @@ public class MergeConflict {
    */
   public static MergeConflict between(DataKey dataKey, DataValue first, DataValue second) {
     Preconditions.checkNotNull(dataKey);
-    return of(dataKey, first.source(), second.source());
+    return of(dataKey, first, second);
   }
 
   @VisibleForTesting
-  static MergeConflict of(DataKey key, Path first, Path second) {
+  static MergeConflict of(DataKey key, DataValue first, DataValue second) {
     // Make sure the paths are always ordered.
-    Path sortedFirst = first.compareTo(second) > 0 ? first : second;
-    Path sortedSecond = sortedFirst != first ? first : second;
+    DataValue sortedFirst = first.source().compareTo(second.source()) > 0 ? first : second;
+    DataValue sortedSecond = sortedFirst != first ? first : second;
     return new MergeConflict(key, sortedFirst, sortedSecond);
   }
 
   public String toConflictMessage() {
-    return String.format(CONFLICT_MESSAGE, dataKey, first, second);
+    return String.format(
+        CONFLICT_MESSAGE, dataKey.toPrettyString(), first.source(), second.source());
   }
 
   public DataKey dataKey() {
     return dataKey;
+  }
+
+  DataValue first() {
+    return first;
+  }
+
+  DataValue second() {
+    return second;
   }
 
   @Override

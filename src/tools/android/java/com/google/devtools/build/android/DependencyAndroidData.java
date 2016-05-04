@@ -139,8 +139,9 @@ class DependencyAndroidData {
   }
 
   /**
-   * Adds all the resource directories as ResourceSets. This acts a loose merge
-   * strategy as it does not test for overrides.
+   * Adds all the resource directories as ResourceSets. This acts a loose merge strategy as it does
+   * not test for overrides.
+   *
    * @param resourceSets A list of resource sets to append to.
    */
   void addAsResourceSets(List<ResourceSet> resourceSets) {
@@ -152,8 +153,9 @@ class DependencyAndroidData {
   }
 
   /**
-   * Adds all the asset directories as AssetSets. This acts a loose merge
-   * strategy as it does not test for overrides.
+   * Adds all the asset directories as AssetSets. This acts a loose merge strategy as it does not
+   * test for overrides.
+   *
    * @param assetSets A list of asset sets to append to.
    */
   void addAsAssetSets(List<AssetSet> assetSets) {
@@ -211,5 +213,16 @@ class DependencyAndroidData {
     for (Path path : assetDirs) {
       pathWalker.walkAssets(path);
     }
+  }
+
+  public void deserialize(
+      AndroidDataSerializer serializer,
+      KeyValueConsumers consumers)
+      throws DeserializationException {
+    // Missing symbolsTxt means the resources where provided via android_resources rules.
+    if (symbolsTxt == null) {
+      throw new DeserializationException(true);
+    }
+    serializer.read(symbolsTxt, consumers);
   }
 }
