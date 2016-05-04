@@ -215,6 +215,37 @@ java_import(
     jars = ["auto/auto-value-1.2.jar"],
 )
 
+java_library(
+    name = "dagger",
+    exported_plugins = [":dagger_plugin"],
+    exports = ["dagger_api"],
+)
+
+java_plugin(
+    name = "dagger_plugin",
+    processor_class = "dagger.internal.codegen.ComponentProcessor",
+    deps = [
+        ":dagger_api",
+        ":dagger_compiler",
+        ":dagger_producers",
+    ],
+)
+
+java_import(
+    name = "dagger_api",
+    jars = ["dagger/dagger-2.4.jar"],
+)
+
+java_import(
+    name = "dagger_compiler",
+    jars = ["dagger/dagger-compiler-2.4.jar"],
+)
+
+java_import(
+    name = "dagger_producers",
+    jars = ["dagger/dagger-producers-2.4.jar"],
+)
+
 java_import(
     name = "bytebuddy",
     jars = ["bytebuddy/byte-buddy-dep-0.7-rc6.jar"],
