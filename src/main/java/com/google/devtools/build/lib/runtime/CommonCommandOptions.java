@@ -212,10 +212,12 @@ public class CommonCommandOptions extends OptionsBase {
       help = "The time in ms the launcher spends before sending the request to the blaze server.")
   public long startupTime;
 
-  @Option(name = "extract_data_time",
-      defaultValue = "0",
-      category = "hidden",
-      help = "The time spend on extracting the new blaze version.")
+  @Option(
+    name = "extract_data_time",
+    defaultValue = "0",
+    category = "hidden",
+    help = "The time in ms spent on extracting the new blaze version."
+  )
   public long extractDataTime;
 
   @Option(name = "command_wait_time",

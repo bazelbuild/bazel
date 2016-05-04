@@ -31,7 +31,7 @@ using std::vector;
 namespace blaze {
 
 // The reason for a blaze server restart.
-// Keep in sync with logging.proto
+// Keep in sync with logging.proto.
 enum RestartReason {
   NO_RESTART = 0,
   NO_DAEMON,
@@ -68,23 +68,25 @@ struct GlobalVariables {
   // populated during GetInstallBase().
   vector<string> extracted_binaries;
 
-  // Parsed startup options
+  // Parsed startup options.
   BlazeStartupOptions options;
 
-  // The time in ms the launcher spends before sending the request to the Blaze
+  // The time in ms the launcher spends before sending the request to the blaze
+  // server.
   uint64_t startup_time;
 
-  // The time spent on extracting the new blaze version
-  // This is part of startup_time
+  // The time in ms spent on extracting the new blaze version.
+  // This is part of startup_time.
   uint64_t extract_data_time;
 
-  // The time in ms if a command had to wait on a busy Blaze server process
-  // This is part of startup_time
+  // The time in ms a command had to wait on a busy Blaze server process.
+  // This is part of startup_time.
   uint64_t command_wait_time;
 
+  // The reason for the server restart.
   RestartReason restart_reason;
 
-  // Absolute path of the blaze binary
+  // The absolute path of the blaze binary.
   string binary_path;
 
   // MD5 hash of the Blaze binary (includes deploy.jar, extracted binaries, and
