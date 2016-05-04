@@ -230,15 +230,14 @@ void KillServerProcess(
   }
 
   string recorded_start_time;
-  if (!ReadFile(blaze_util::JoinPath(output_base, "server/server.starttime"),
-                &recorded_start_time)) {
-    // start time file got deleted, but PID file didn't. This is strange. Let's
-    // not kill a random process. Note that this makes Blaze unable to kill
-    // hung servers that do not write a server.starttime file.
-    return;
-  }
+  bool file_present = ReadFile(
+      blaze_util::JoinPath(output_base, "server/server.starttime"),
+      &recorded_start_time);
 
-  if (recorded_start_time != start_time) {
+  // start time file got deleted, but PID file didn't. This is strange.
+  // Assume that this is an old Blaze process that doesn't know how to  write
+  // start time files yet.
+  if (file_present && recorded_start_time != start_time) {
     // This is a different process.
     fprintf(stderr, "PID %d got reused. Not killing the process.\n", pid);
     return;
