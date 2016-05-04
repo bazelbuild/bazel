@@ -449,8 +449,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         libContext.cppModuleMap,
         libContext.headerModule,
         libContext.picHeaderModule,
-        /*providesTransitiveModuleMaps=*/ false,
-        /*useHeaderModules=*/ false);
+        libContext.provideTransitiveModuleMaps,
+        libContext.useHeaderModules);
   }
 
   /**
