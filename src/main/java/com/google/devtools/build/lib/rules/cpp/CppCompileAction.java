@@ -168,7 +168,6 @@ public class CppCompileAction extends AbstractAction
   private final NestedSet<Artifact> mandatoryInputs;
   private final boolean shouldScanIncludes;
   private final CppCompilationContext context;
-  private final Collection<PathFragment> extraSystemIncludePrefixes;
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
@@ -251,9 +250,7 @@ public class CppCompileAction extends AbstractAction
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
-      ImmutableList<String> pluginOpts,
       Predicate<String> coptsFilter,
-      ImmutableList<PathFragment> extraSystemIncludePrefixes,
       @Nullable String fdoBuildStamp,
       SpecialInputsHandler specialInputsHandler,
       Iterable<IncludeScannable> lipoScannables,
@@ -277,7 +274,6 @@ public class CppCompileAction extends AbstractAction
     this.dwoFile = dwoFile;
     this.optionalSourceFile = optionalSourceFile;
     this.context = context;
-    this.extraSystemIncludePrefixes = extraSystemIncludePrefixes;
     this.specialInputsHandler = specialInputsHandler;
     this.cppConfiguration = cppConfiguration;
     // inputsKnown begins as the logical negation of shouldScanIncludes.
@@ -293,7 +289,6 @@ public class CppCompileAction extends AbstractAction
             dwoFile,
             copts,
             coptsFilter,
-            pluginOpts,
             features,
             featureConfiguration,
             variables,
@@ -494,15 +489,6 @@ public class CppCompileAction extends AbstractAction
 
   protected PathFragment getInternalOutputFile() {
     return outputFile.getExecPath();
-  }
-
-  @VisibleForTesting
-  public List<String> getPluginOpts() {
-    return cppCompileCommandLine.pluginOpts;
-  }
-
-  Collection<PathFragment> getExtraSystemIncludePrefixes() {
-    return extraSystemIncludePrefixes;
   }
 
   @Override
@@ -832,7 +818,7 @@ public class CppCompileAction extends AbstractAction
   private Iterable<PathFragment> getValidationIgnoredDirs() {
     List<PathFragment> cxxSystemIncludeDirs = cppConfiguration.getBuiltInIncludeDirectories();
     return Iterables.concat(
-        cxxSystemIncludeDirs, extraSystemIncludePrefixes, context.getSystemIncludeDirs());
+        cxxSystemIncludeDirs, context.getSystemIncludeDirs());
   }
 
   /**
@@ -962,7 +948,6 @@ public class CppCompileAction extends AbstractAction
           systemIncludePrefixes.add(includePath);
         }
       }
-      systemIncludePrefixes.addAll(extraSystemIncludePrefixes);
 
       // Check inclusions.
       IncludeProblems problems = new IncludeProblems();
@@ -1157,7 +1142,6 @@ public class CppCompileAction extends AbstractAction
     f.addPaths(context.getDeclaredIncludeDirs());
     f.addPaths(context.getDeclaredIncludeWarnDirs());
     f.addPaths(getDeclaredIncludeSrcsInStableOrder());
-    f.addPaths(getExtraSystemIncludePrefixes());
     f.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs()));
     return f.hexDigestAndReset();
   }
@@ -1273,11 +1257,6 @@ public class CppCompileAction extends AbstractAction
       message.append('\n');
     }
 
-    for (PathFragment path : getExtraSystemIncludePrefixes()) {
-      message.append("  Extra system include prefix: ");
-      message.append(ShellEscaper.escapeString(path.getPathString()));
-      message.append('\n');
-    }
     return message.toString();
   }
 
@@ -1290,7 +1269,6 @@ public class CppCompileAction extends AbstractAction
     @Nullable private final Artifact dwoFile;
     private final List<String> copts;
     private final Predicate<String> coptsFilter;
-    private final List<String> pluginOpts;
     private final Collection<String> features;
     private final FeatureConfiguration featureConfiguration;
     @VisibleForTesting public final CcToolchainFeatures.Variables variables;
@@ -1305,7 +1283,6 @@ public class CppCompileAction extends AbstractAction
         @Nullable Artifact dwoFile,
         ImmutableList<String> copts,
         Predicate<String> coptsFilter,
-        ImmutableList<String> pluginOpts,
         Collection<String> features,
         FeatureConfiguration featureConfiguration,
         CcToolchainFeatures.Variables variables,
@@ -1317,7 +1294,6 @@ public class CppCompileAction extends AbstractAction
       this.dwoFile = dwoFile;
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
-      this.pluginOpts = Preconditions.checkNotNull(pluginOpts);
       this.features = Preconditions.checkNotNull(features);
       this.featureConfiguration = featureConfiguration;
       this.variables = variables;
@@ -1356,8 +1332,6 @@ public class CppCompileAction extends AbstractAction
       List<String> options = new ArrayList<>();
       CppConfiguration toolchain = cppConfiguration;
 
-      // pluginOpts has to be added before defaultCopts because -fplugin must precede -plugin-arg.
-      options.addAll(pluginOpts);
       addFilteredOptions(options, toolchain.getCompilerOptions(features));
 
       String sourceFilename = sourceFile.getExecPathString();

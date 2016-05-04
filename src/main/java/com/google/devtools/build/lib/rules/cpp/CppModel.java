@@ -65,7 +65,6 @@ public final class CppModel {
   private CppCompilationContext interfaceContext;
   private final List<Pair<Artifact, Label>> sourceFiles = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
-  private final List<PathFragment> additionalIncludes = new ArrayList<>();
   @Nullable private Pattern nocopts;
   private boolean fake;
   private boolean maySaveTemps;
@@ -168,16 +167,6 @@ public final class CppModel {
    */
   public CppModel setNoCopts(@Nullable Pattern nocopts) {
     this.nocopts = nocopts;
-    return this;
-  }
-
-  /**
-   * This can be used to specify additional include directories, without modifying the compilation
-   * context.
-   */
-  public CppModel addAdditionalIncludes(Collection<PathFragment> additionalIncludes) {
-    // TODO(bazel-team): Maybe this could be handled by the compilation context instead?
-    this.additionalIncludes.addAll(additionalIncludes);
     return this;
   }
 
@@ -319,7 +308,6 @@ public final class CppModel {
       builder.addNocopts(nocopts);
     }
 
-    builder.setExtraSystemIncludePrefixes(additionalIncludes);
     builder.setFdoBuildStamp(CppHelper.getFdoBuildStamp(ruleContext));
     builder.setFeatureConfiguration(featureConfiguration);
     

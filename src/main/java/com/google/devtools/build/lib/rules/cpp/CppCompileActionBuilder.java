@@ -59,7 +59,6 @@ public class CppCompileActionBuilder {
   private final Artifact sourceFile;
   private final Label sourceLabel;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
-  private NestedSetBuilder<Artifact> pluginInputsBuilder;
   private Artifact optionalSourceFile;
   private Artifact outputFile;
   private PathFragment tempOutputFile;
@@ -96,7 +95,6 @@ public class CppCompileActionBuilder {
     this.sourceLabel = sourceLabel;
     this.configuration = ruleContext.getConfiguration();
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
-    this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
     this.lipoScannableMap = getLipoScannableMap(ruleContext);
     this.ruleContext = ruleContext;
 
@@ -118,28 +116,6 @@ public class CppCompileActionBuilder {
   }
 
   /**
-   * Creates a builder for an owner that is not required to be rule.
-   * 
-   * <p>If errors are found when creating the {@code CppCompileAction}, builders constructed
-   * this way will throw a runtime exception.
-   */
-  @VisibleForTesting
-  public CppCompileActionBuilder(
-      ActionOwner owner, AnalysisEnvironment analysisEnvironment, Artifact sourceFile,
-      Label sourceLabel, BuildConfiguration configuration) {
-    this.owner = owner;
-    this.actionContext = CppCompileActionContext.class;
-    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
-    this.analysisEnvironment = analysisEnvironment;
-    this.sourceFile = sourceFile;
-    this.sourceLabel = sourceLabel;
-    this.configuration = configuration;
-    this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
-    this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
-    this.lipoScannableMap = ImmutableMap.of();
-  }
-
-  /**
    * Creates a builder that is a copy of another builder.
    */
   public CppCompileActionBuilder(CppCompileActionBuilder other) {
@@ -150,8 +126,6 @@ public class CppCompileActionBuilder {
     this.sourceLabel = other.sourceLabel;
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(other.mandatoryInputsBuilder.build());
-    this.pluginInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(other.pluginInputsBuilder.build());
     this.optionalSourceFile = other.optionalSourceFile;
     this.outputFile = other.outputFile;
     this.tempOutputFile = other.tempOutputFile;
@@ -296,7 +270,6 @@ public class CppCompileActionBuilder {
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs(usePic));
 
-    realMandatoryInputsBuilder.addTransitive(pluginInputsBuilder.build());
     realMandatoryInputsBuilder.add(sourceFile);
     boolean fake = tempOutputFile != null;
 
@@ -315,8 +288,8 @@ public class CppCompileActionBuilder {
           variables, sourceFile, shouldScanIncludes, sourceLabel,
           realMandatoryInputsBuilder.build(), outputFile,
           tempOutputFile, dotdFile, configuration, cppConfiguration, context, actionContext,
-          ImmutableList.copyOf(copts), ImmutableList.copyOf(pluginOpts),
-          getNocoptPredicate(nocopts), extraSystemIncludePrefixes, fdoBuildStamp, ruleContext,
+          ImmutableList.copyOf(copts),
+          getNocoptPredicate(nocopts), fdoBuildStamp, ruleContext,
           usePic);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
@@ -340,9 +313,7 @@ public class CppCompileActionBuilder {
           context,
           actionContext,
           ImmutableList.copyOf(copts),
-          ImmutableList.copyOf(pluginOpts),
           getNocoptPredicate(nocopts),
-          extraSystemIncludePrefixes,
           fdoBuildStamp,
           specialInputsHandler,
           getLipoScannables(realMandatoryInputs),
@@ -390,22 +361,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setActionClassId(UUID uuid) {
     this.actionClassId = uuid;
-    return this;
-  }
-
-  public CppCompileActionBuilder setExtraSystemIncludePrefixes(
-      Collection<PathFragment> extraSystemIncludePrefixes) {
-    this.extraSystemIncludePrefixes = ImmutableList.copyOf(extraSystemIncludePrefixes);
-    return this;
-  }
-
-  public CppCompileActionBuilder addPluginInput(Artifact artifact) {
-    pluginInputsBuilder.add(artifact);
-    return this;
-  }
-
-  public CppCompileActionBuilder clearPluginInputs() {
-    pluginInputsBuilder = NestedSetBuilder.stableOrder();
     return this;
   }
 
@@ -478,16 +433,6 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder addCopt(String copt) {
     copts.add(copt);
-    return this;
-  }
-
-  public CppCompileActionBuilder addPluginOpt(String opt) {
-    pluginOpts.add(opt);
-    return this;
-  }
-
-  public CppCompileActionBuilder clearPluginOpts() {
-    pluginOpts.clear();
     return this;
   }
 
