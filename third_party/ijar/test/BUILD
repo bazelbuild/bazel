@@ -9,10 +9,10 @@ sh_test(
     size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
-        "$(JAVABASE)/bin/javac",
-        "$(JAVA)",
-        "$(JAVABASE)/bin/jar",
-        "$(JAVABASE)/bin/javap",
+        "../local_jdk/bin/javac",
+        "../local_jdk/bin/java",
+        "../local_jdk/bin/jar",
+        "../local_jdk/bin/javap",
         "io_bazel/$(location //third_party/ijar)",
         "io_bazel/$(location //tools/jdk:langtools)",
         # We assume unzip and zip to be on the path

@@ -72,7 +72,11 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public List<PathFragment> getImports(RuleContext ruleContext) {
     List<PathFragment> result = new ArrayList<>();
-    PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getPathFragment();
+    PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
+    // Python scripts start with x.runfiles/ as the module space, so everything must be manually
+    // adjusted to be relative to the workspace name.
+    packageFragment = new PathFragment(ruleContext.getWorkspaceName())
+        .getRelative(packageFragment);
     for (String importsAttr : ruleContext.attributes().get("imports", Type.STRING_LIST)) {
       importsAttr = ruleContext.expandMakeVariables("includes", importsAttr);
       if (importsAttr.startsWith("/")) {
@@ -83,7 +87,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       PathFragment importsPath = packageFragment.getRelative(importsAttr).normalize();
       if (!importsPath.isNormalized()) {
         ruleContext.attributeError("imports",
-            "Path references a path above the execution root.");
+            "Path " + importsAttr + " references a path above the execution root");
       }
       result.add(importsPath);
     }

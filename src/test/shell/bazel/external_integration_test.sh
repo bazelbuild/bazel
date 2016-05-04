@@ -139,7 +139,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/bash
-./external/endangered/fox/male
+../endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -422,10 +422,10 @@ EOF
   cat > test/test.sh <<EOF
 #!/bin/bash
 echo "symlink:"
-ls -l external/toto/file
+ls -l ../toto/file
 echo "dest:"
-ls -l \$(readlink -f external/toto/file/toto)
-external/toto/file/toto
+ls -l \$(readlink -f ../toto/file/toto)
+../toto/file/toto
 EOF
 
   chmod +x test/test.sh
@@ -459,7 +459,7 @@ EOF
 
   cat > test/test.sh <<EOF
 #!/bin/bash
-cat external/toto/file/toto
+cat ../toto/file/toto
 EOF
 
   chmod +x test/test.sh
@@ -581,7 +581,7 @@ EOF
 
   cat > zoo/female.sh <<EOF
 #!/bin/bash
-cat external/endangered/fox/male
+cat ../endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 

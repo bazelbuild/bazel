@@ -85,7 +85,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/bash
-cat external/pluto/info
+cat ../pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -171,7 +171,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/bash
-cat external/pluto/info
+cat ../pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -246,8 +246,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/bash
-cat external/outer_planets/neptune/info
-cat external/outer_planets/pluto/info
+cat ../outer_planets/neptune/info
+cat ../outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 

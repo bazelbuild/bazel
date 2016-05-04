@@ -33,7 +33,7 @@ bazel="${BAZEL_RUNFILES}/src/bazel"
 bazel_data="${BAZEL_RUNFILES}"
 
 # Java
-jdk_dir="${BAZEL_RUNFILES}/external/local_jdk"
+jdk_dir="${TEST_SRCDIR}/local_jdk"
 langtools="${BAZEL_RUNFILES}/src/test/shell/bazel/langtools.jar"
 
 # Tools directory location

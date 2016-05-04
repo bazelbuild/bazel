@@ -357,8 +357,8 @@ def Fib(n):
 EOF
 
  cat > module2/bez.py <<EOF
-from external.remote.module_a import foo
-from external.remote.module_b import bar
+from remote.module_a import foo
+from remote.module_b import bar
 from module1 import fib
 
 print "The number is %d" % foo.GetNumber()
