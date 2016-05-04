@@ -23,6 +23,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -85,24 +86,36 @@ public class StyleXmlResourceValue implements XmlResourceValue {
         FluentIterable.from(
                 ImmutableList.of(
                     String.format("<!-- %s -->", source),
-                    parent == null || parent.isEmpty()
-                        ? String.format("<style name='%s'>", key.name())
-                        : String.format("<style name='%s' parent='@%s'>", key.name(), parent)))
+                    String.format("<style name='%s' %s>", key.name(), parentAsXmlAttribute())))
             .append(FluentIterable.from(values.entrySet()).transform(ENTRY_TO_ITEM))
             .append("</style>"));
+  }
+
+  private String parentAsXmlAttribute() {
+    if (parent == null) {
+      return "";
+    }
+    if (parent.isEmpty()) {
+      return "parent=''";
+    }
+    if (parent.startsWith("style/")) {
+      return "parent='@" + parent + "'";
+    }
+    return "parent='@style/" + parent + "'";
   }
 
   @Override
   public int serializeTo(Path source, OutputStream output) throws IOException {
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder()
-            .setType(SerializeFormat.DataValueXml.XmlType.STYLE)
+            .setType(XmlType.STYLE)
             .putAllMappedStringValue(values);
-    if (parent != null && !parent.isEmpty()) {
+    if (parent != null) {
       xmlValueBuilder.setValue(parent);
     }
     return XmlResourceValues.serializeProtoDataValue(
-        output, XmlResourceValues.newProtoDataBuilder(source).setXmlValue(xmlValueBuilder));
+        output,
+        XmlResourceValues.newSerializableDataValueBuilder(source).setXmlValue(xmlValueBuilder));
   }
 
   @Override

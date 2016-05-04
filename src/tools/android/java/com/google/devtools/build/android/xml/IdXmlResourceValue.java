@@ -20,6 +20,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import com.google.protobuf.CodedOutputStream;
 
 import java.io.IOException;
@@ -60,10 +61,8 @@ public class IdXmlResourceValue implements XmlResourceValue {
   @Override
   public int serializeTo(Path source, OutputStream output) throws IOException {
     SerializeFormat.DataValue value =
-        XmlResourceValues.newProtoDataBuilder(source)
-            .setXmlValue(
-                SerializeFormat.DataValueXml.newBuilder()
-                    .setType(SerializeFormat.DataValueXml.XmlType.ID))
+        XmlResourceValues.newSerializableDataValueBuilder(source)
+            .setXmlValue(SerializeFormat.DataValueXml.newBuilder().setType(XmlType.ID))
             .build();
     value.writeDelimitedTo(output);
     return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())

@@ -17,6 +17,8 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.protobuf.CodedOutputStream;
 
+import com.android.ide.common.res2.MergingException;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.FileSystem;
@@ -80,7 +82,7 @@ public class DataValueFile implements DataResource, DataAsset {
 
   @Override
   public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
-      throws IOException {
+      throws IOException, MergingException {
     mergedDataWriter.copyResource(source, key.toPathString(getSourceExtension()));
   }
 
@@ -95,7 +97,7 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   private String getSourceExtension() {
-    // TODO(corysmith): Switch to a filename parser utility.
+    // TODO(corysmith): Find out if there is a filename parser utility.
     String fileName = source.getFileName().toString();
     int extensionStart = fileName.lastIndexOf('.');
     if (extensionStart > 0) {

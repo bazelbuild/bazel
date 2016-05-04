@@ -84,9 +84,9 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   private static final String COLOR = "color";
   private static final String REFERENCE = "reference";
   private static final String ENUM = "enum";
-  private static final String FLAG = "flag";
+  private static final String FLAGS = "flags";
   private static final QName TAG_ENUM = QName.valueOf(ENUM);
-  private static final QName TAG_FLAG = QName.valueOf(FLAG);
+  private static final QName TAG_FLAG = QName.valueOf("flag");
   private final ImmutableMap<String, ResourceXmlAttrValue> formats;
 
   private AttrXmlResourceValue(ImmutableMap<String, ResourceXmlAttrValue> formats) {
@@ -155,7 +155,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         ImmutableMap.<String, AttrXmlResourceValue.ResourceXmlAttrValue>builder();
     for (Entry<String, SerializeFormat.DataValueXml> entry : proto.getMappedXmlValue().entrySet()) {
       switch (entry.getKey()) {
-        case FLAG:
+        case FLAGS:
           formats.put(
               entry.getKey(), FlagResourceXmlAttrValue.of(entry.getValue().getMappedStringValue()));
           break;
@@ -194,6 +194,10 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     return of(formats.build());
   }
 
+  /**
+   * Creates a new {@link AttrXmlResourceValue}. Returns null if there are no formats.
+   */
+  @Nullable
   public static XmlResourceValue from(
       StartElement attr, @Nullable String format, XMLEventReader eventReader)
       throws XMLStreamException {
@@ -203,13 +207,18 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
     XMLEvent nextTag = XmlResourceValues.peekNextTag(eventReader);
     if (nextTag != null && nextTag.isStartElement()) {
-      formatNames.add(nextTag.asStartElement().getName().getLocalPart().toLowerCase());
+      QName tagName = nextTag.asStartElement().getName();
+      if (TAG_FLAG.equals(tagName)) {
+        formatNames.add(FLAGS);
+      } else {
+        formatNames.add(tagName.getLocalPart().toLowerCase());
+      }
     }
 
     Builder<String, ResourceXmlAttrValue> formats = ImmutableMap.builder();
     for (String formatName : formatNames) {
       switch (formatName) {
-        case FLAG:
+        case FLAGS:
           Map<String, String> flags = readSubValues(eventReader, TAG_FLAG);
           endAttrElement(eventReader);
           formats.put(formatName, FlagResourceXmlAttrValue.of(flags));
@@ -285,8 +294,12 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         FluentIterable.from(
             ImmutableList.of(
                 String.format("<!-- %s -->", source),
-                String.format(
-                    "<attr name='%s' format='%s'>", key.name(), Joiner.on('|').join(formatKeys))));
+                formatKeys.isEmpty()
+                    ? String.format("<attr name='%s'>", key.name())
+                    : String.format(
+                        "<attr name='%s' format='%s'>",
+                        key.name(),
+                        Joiner.on('|').join(formatKeys))));
     for (String formatKey : formatKeys) {
       iterable = formats.get(formatKey).appendTo(iterable);
     }
@@ -295,7 +308,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   @Override
   public int serializeTo(Path source, OutputStream output) throws IOException {
-    SerializeFormat.DataValue.Builder builder = XmlResourceValues.newProtoDataBuilder(source);
+    SerializeFormat.DataValue.Builder builder =
+        XmlResourceValues.newSerializableDataValueBuilder(source);
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder();
     xmlValueBuilder.setType(SerializeFormat.DataValueXml.XmlType.ATTR);
@@ -403,7 +417,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
       for (int i = 0; i < keyThenValue.length; i += 2) {
         builder.put(keyThenValue[i], keyThenValue[i + 1]);
       }
-      return new BuilderEntry(FLAG, of(builder.build()));
+      return new BuilderEntry(FLAGS, of(builder.build()));
     }
 
     @Override

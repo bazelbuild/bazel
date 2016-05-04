@@ -23,7 +23,6 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
-import com.google.devtools.build.android.proto.SerializeFormat.DataValue.Builder;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import com.google.protobuf.CodedOutputStream;
 
@@ -109,7 +108,8 @@ public class PluralXmlResourceValue implements XmlResourceValue {
 
   @Override
   public int serializeTo(Path source, OutputStream output) throws IOException {
-    Builder builder = XmlResourceValues.newProtoDataBuilder(source);
+    SerializeFormat.DataValue.Builder builder =
+        XmlResourceValues.newSerializableDataValueBuilder(source);
     SerializeFormat.DataValue value =
         builder
             .setXmlValue(

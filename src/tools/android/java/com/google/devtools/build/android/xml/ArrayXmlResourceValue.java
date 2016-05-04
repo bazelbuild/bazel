@@ -139,7 +139,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   public int serializeTo(Path source, OutputStream output) throws IOException {
     return XmlResourceValues.serializeProtoDataValue(
         output,
-        XmlResourceValues.newProtoDataBuilder(source)
+        XmlResourceValues.newSerializableDataValueBuilder(source)
             .setXmlValue(
                 SerializeFormat.DataValueXml.newBuilder()
                     .addAllListValue(values)
@@ -172,13 +172,23 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue parseArray(XMLEventReader eventReader, StartElement start)
       throws XMLStreamException {
     List<String> values = new ArrayList<>();
-    for (XMLEvent element = eventReader.nextTag();
+    for (XMLEvent element = XmlResourceValues.nextTag(eventReader);
         !XmlResourceValues.isEndTag(element, start.getName());
-        element = eventReader.nextTag()) {
+        element = XmlResourceValues.nextTag(eventReader)) {
       if (XmlResourceValues.isItem(element)) {
-        values.add(eventReader.getElementText());
+        if (!element.isStartElement()) {
+          throw new XMLStreamException(
+              String.format("Expected start element %s", element), element.getLocation());
+        }
+        String contents = XmlResourceValues.readContentsAsString(eventReader,
+            element.asStartElement().getName());
+        values.add(contents != null ? contents : "");
       }
     }
-    return of(ArrayType.fromTagName(start), values);
+    try {
+      return of(ArrayType.fromTagName(start), values);
+    } catch (IllegalArgumentException e) {
+      throw new XMLStreamException(e.getMessage(), start.getLocation());
+    }
   }
 }

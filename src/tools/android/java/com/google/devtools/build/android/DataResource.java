@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.ide.common.res2.MergingException;
+
 import java.io.IOException;
 
 /**
@@ -23,5 +25,5 @@ public interface DataResource extends DataValue {
    * Write as a resource using the supplied {@link MergeDataWriter}.
    */
   void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
-      throws IOException;
+      throws IOException, MergingException;
 }

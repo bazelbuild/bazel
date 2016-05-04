@@ -24,6 +24,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -101,10 +102,10 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   public int serializeTo(Path source, OutputStream output) throws IOException {
     return XmlResourceValues.serializeProtoDataValue(
         output,
-        XmlResourceValues.newProtoDataBuilder(source)
+        XmlResourceValues.newSerializableDataValueBuilder(source)
             .setXmlValue(
                 SerializeFormat.DataValueXml.newBuilder()
-                    .setType(SerializeFormat.DataValueXml.XmlType.STYLEABLE)
+                    .setType(XmlType.STYLEABLE)
                     .addAllListValue(attrs)));
   }
 

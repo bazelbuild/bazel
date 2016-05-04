@@ -15,11 +15,13 @@ package com.google.devtools.build.android.xml;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
 
 import com.android.resources.ResourceType;
 
@@ -27,8 +29,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Map.Entry;
 import java.util.Objects;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
 
@@ -46,19 +50,18 @@ import javax.xml.namespace.QName;
  */
 @Immutable
 public class SimpleXmlResourceValue implements XmlResourceValue {
-  static final QName TAG_STRING = QName.valueOf("string");
   static final QName TAG_BOOL = QName.valueOf("bool");
   static final QName TAG_COLOR = QName.valueOf("color");
   static final QName TAG_DIMEN = QName.valueOf("dimen");
+  static final QName TAG_DRAWABLE = QName.valueOf("drawable");
+  static final QName TAG_FRACTION = QName.valueOf("fraction");
+  static final QName TAG_INTEGER = QName.valueOf("integer");
+  static final QName TAG_ITEM = QName.valueOf("item");
+  static final QName TAG_PUBLIC = QName.valueOf("public");
+  static final QName TAG_STRING = QName.valueOf("string");
 
   /** Provides an enumeration resource type and simple value validation. */
   public enum Type {
-    STRING(TAG_STRING) {
-      @Override
-      public boolean validate(String value) {
-        return true;
-      }
-    },
     BOOL(TAG_BOOL) {
       @Override
       public boolean validate(String value) {
@@ -79,6 +82,47 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         // TODO(corysmith): Validate the dimension type.
         return true;
       }
+    },
+    DRAWABLE(TAG_DRAWABLE) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the drawable type.
+        return true;
+      }
+    },
+    FRACTION(TAG_FRACTION) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the fraction type.
+        return true;
+      }
+    },
+    INTEGER(TAG_INTEGER) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the integer type.
+        return true;
+      }
+    },
+    ITEM(TAG_ITEM) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the item type.
+        return true;
+      }
+    },
+    PUBLIC(TAG_PUBLIC) {
+      @Override
+      public boolean validate(String value) {
+        // TODO(corysmith): Validate the public type.
+        return true;
+      }
+    },
+    STRING(TAG_STRING) {
+      @Override
+      public boolean validate(String value) {
+        return true;
+      }
     };
     private QName tagName;
 
@@ -92,6 +136,8 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       for (Type valueType : values()) {
         if (valueType.tagName.getLocalPart().equals(resourceType.getName())) {
           return valueType;
+        } else if (resourceType.getName().equalsIgnoreCase(valueType.name())) {
+          return valueType;
         }
       }
       throw new IllegalArgumentException(
@@ -102,52 +148,109 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     }
   }
 
-  private final String value;
+  private final ImmutableMap<String, String> attributes;
+  @Nullable private final String value;
   private final Type valueType;
 
-  public static XmlResourceValue of(Type valueType, String value) {
-    return new SimpleXmlResourceValue(valueType, value);
+  public static XmlResourceValue createWithValue(Type valueType, String value) {
+    return of(valueType, ImmutableMap.<String, String>of(), value);
   }
 
-  private SimpleXmlResourceValue(Type valueType, String value) {
+  public static XmlResourceValue withAttributes(
+      Type valueType, ImmutableMap<String, String> attributes) {
+    return of(valueType, attributes, null);
+  }
+
+  public static XmlResourceValue itemWithFormattedValue(
+      ResourceType resourceType, String format, String value) {
+    return of(Type.ITEM, ImmutableMap.of("type", resourceType.getName(), "format", format), value);
+  }
+
+  public static XmlResourceValue itemWithValue(
+      ResourceType resourceType, String value) {
+    return of(Type.ITEM, ImmutableMap.of("type", resourceType.getName()), value);
+  }
+
+  public static XmlResourceValue itemPlaceHolderFor(ResourceType resourceType) {
+    return withAttributes(Type.ITEM, ImmutableMap.of("type", resourceType.getName()));
+  }
+
+  @Deprecated
+  public static XmlResourceValue of(Type valueType, @Nullable String value) {
+    return of(valueType, ImmutableMap.<String, String>of(), value);
+  }
+
+  public static XmlResourceValue of(
+      Type valueType, ImmutableMap<String, String> attributes, @Nullable String value) {
+    return new SimpleXmlResourceValue(valueType, attributes, value);
+  }
+
+  private SimpleXmlResourceValue(
+      Type valueType, ImmutableMap<String, String> attributes, String value) {
     this.valueType = valueType;
     this.value = value;
+    this.attributes = attributes;
   }
 
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    StringBuilder xmlString =
+        new StringBuilder("<")
+            .append(valueType.tagName.getLocalPart())
+            .append(" name=\"")
+            .append(key.name())
+            .append("\"");
+    for (Entry<String, String> entry : attributes.entrySet()) {
+      xmlString
+          .append(" ")
+          .append(entry.getKey())
+          .append("=\"")
+          .append(entry.getValue())
+          .append("\"");
+    }
+    if (value != null) {
+      xmlString
+          .append(">")
+          .append(value)
+          .append("</")
+          .append(valueType.tagName.getLocalPart())
+          .append(">");
+    } else {
+      xmlString.append("/>");
+    }
     mergedDataWriter.writeToValuesXml(
-        key,
-        ImmutableList.of(
-            String.format("<!-- %s -->", source),
-            String.format(
-                "<%s name='%s'>%s</%s>",
-                valueType.tagName.getLocalPart(),
-                key.name(),
-                value,
-                valueType.tagName.getLocalPart())));
+        key, ImmutableList.of(String.format("<!-- %s -->", source), xmlString.toString()));
   }
 
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
-    return of(Type.valueOf(proto.getValueType()), proto.getValue());
+    return of(
+        Type.valueOf(proto.getValueType()),
+        ImmutableMap.copyOf(proto.getMappedStringValue()),
+        proto.hasValue() ? proto.getValue() : null);
   }
 
   @Override
   public int serializeTo(Path source, OutputStream output) throws IOException {
-    SerializeFormat.DataValue.Builder builder = XmlResourceValues.newProtoDataBuilder(source);
-    builder.setXmlValue(
+    SerializeFormat.DataValue.Builder builder =
+        XmlResourceValues.newSerializableDataValueBuilder(source);
+    Builder xmlValueBuilder =
         builder
             .getXmlValueBuilder()
             .setType(SerializeFormat.DataValueXml.XmlType.SIMPLE)
-            .setValue(value)
-            .setValueType(valueType.name()));
+            // TODO(corysmith): Find a way to avoid writing strings to the serialized format
+            // it's inefficient use of space and costs more when deserializing.
+            .putAllMappedStringValue(attributes);
+    if (value != null) {
+      xmlValueBuilder.setValue(value);
+    }
+    builder.setXmlValue(xmlValueBuilder.setValueType(valueType.name()));
     return XmlResourceValues.serializeProtoDataValue(output, builder);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(valueType, value);
+    return Objects.hash(valueType, attributes, value);
   }
 
   @Override
@@ -156,13 +259,16 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       return false;
     }
     SimpleXmlResourceValue other = (SimpleXmlResourceValue) obj;
-    return Objects.equals(valueType, other.valueType) && Objects.equals(value, other.value);
+    return Objects.equals(valueType, other.valueType)
+        && Objects.equals(attributes, attributes)
+        && Objects.equals(value, other.value);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass())
         .add("valueType", valueType)
+        .add("attributes", attributes)
         .add("value", value)
         .toString();
   }
