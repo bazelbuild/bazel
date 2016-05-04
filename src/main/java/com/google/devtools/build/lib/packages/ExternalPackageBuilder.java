@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -44,19 +45,37 @@ public class ExternalPackageBuilder {
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule =
         RuleFactory.createRule(
-            pkg, ruleClass, attributeValues, eventHandler, ast, ast.getLocation(), /*env=*/ null);
+            pkg,
+            ruleClass,
+            attributeValues,
+            eventHandler,
+            ast,
+            ast.getLocation(),
+            /*env=*/ null,
+            new AttributeContainer(ruleClass));
     pkg.addEvents(eventHandler.getEvents());
     overwriteRule(pkg, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
       Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey());
-      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), rule.getLocation());
+      addBindRule(
+          pkg,
+          bindRuleClass,
+          nameLabel,
+          entry.getValue(),
+          rule.getLocation(),
+          new AttributeContainer(ruleClass));
     }
     return rule;
   }
 
-  public void addBindRule(
-      Package.Builder pkg, RuleClass bindRuleClass, Label virtual, Label actual, Location location)
+  void addBindRule(
+      Builder pkg,
+      RuleClass bindRuleClass,
+      Label virtual,
+      Label actual,
+      Location location,
+      AttributeContainer attributeContainer)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
 
     Map<String, Object> attributes = Maps.newHashMap();
@@ -71,7 +90,14 @@ public class ExternalPackageBuilder {
         new BuildLangTypedAttributeValuesMap(attributes);
     Rule rule =
         RuleFactory.createRule(
-            pkg, bindRuleClass, attributeValues, handler, /*ast=*/ null, location, /*env=*/ null);
+            pkg,
+            bindRuleClass,
+            attributeValues,
+            handler,
+            /*ast=*/ null,
+            location,
+            /*env=*/ null,
+            attributeContainer);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }

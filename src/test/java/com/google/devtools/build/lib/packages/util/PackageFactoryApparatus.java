@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
@@ -50,8 +51,13 @@ public class PackageFactoryApparatus {
       EventHandler eventHandler, PackageFactory.EnvironmentExtension... environmentExtensions) {
     this.eventHandler = eventHandler;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    factory = new PackageFactory(ruleClassProvider, null,
-        ImmutableList.copyOf(environmentExtensions), "test");
+    factory =
+        new PackageFactory(
+            ruleClassProvider,
+            null,
+            AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
+            ImmutableList.copyOf(environmentExtensions),
+            "test");
   }
 
   /**

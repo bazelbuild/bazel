@@ -37,8 +37,10 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.flags.CommandNameCache;
+import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -1217,6 +1219,23 @@ public final class BlazeRuntime {
         }
       }
 
+      Function<RuleClass, AttributeContainer> attributeContainerFactory = null;
+      for (BlazeModule module : blazeModules) {
+        Function<RuleClass, AttributeContainer> attrContainerFactory =
+            module.getAttributeContainerSupplier();
+        if (attrContainerFactory != null) {
+          Preconditions.checkState(
+              attributeContainerFactory == null,
+              "At most one attribute container supplier supported. But found two: %s and %s",
+              attrContainerFactory,
+              attributeContainerFactory);
+          attributeContainerFactory = attrContainerFactory;
+        }
+      }
+      if (attributeContainerFactory == null) {
+        attributeContainerFactory = AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY;
+      }
+
       ConfiguredRuleClassProvider ruleClassProvider = ruleClassBuilder.build();
 
       List<PackageFactory.EnvironmentExtension> extensions = new ArrayList<>();
@@ -1224,8 +1243,13 @@ public final class BlazeRuntime {
         extensions.add(module.getPackageEnvironmentExtension());
       }
 
-      PackageFactory packageFactory = new PackageFactory(
-          ruleClassProvider, platformRegexps, extensions, BlazeVersionInfo.instance().getVersion());
+      PackageFactory packageFactory =
+          new PackageFactory(
+              ruleClassProvider,
+              platformRegexps,
+              attributeContainerFactory,
+              extensions,
+              BlazeVersionInfo.instance().getVersion());
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(
