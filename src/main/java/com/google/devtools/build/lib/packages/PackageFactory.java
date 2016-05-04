@@ -613,8 +613,8 @@ public final class PackageFactory {
    * parameters are mandatory.
    */
   @SkylarkSignature(name = "environment_group", returnType = Runtime.NoneType.class,
-      doc = "Defines a cc_library, by wrapping around the usual library "
-      + "and also defining a headers target.",
+      doc = "Defines a set of related environments that can be tagged onto rules to prevent"
+      + "incompatible rules from depending on each other.",
       mandatoryNamedOnly = {
         @Param(name = "name", type = String.class,
             doc = "The name of the rule."),
