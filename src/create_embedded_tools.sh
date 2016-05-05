@@ -30,6 +30,7 @@ for i in $*; do
   case "$i" in
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
     *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
+    *turbine_deploy.jar) OUTPUT_PATH=tools/jdk/turbine_deploy.jar ;;
     *javac.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac.jar ;;
     *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;

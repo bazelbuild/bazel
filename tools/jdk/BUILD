@@ -120,6 +120,7 @@ java_toolchain(
     encoding = "UTF-8",
     extclasspath = [":extdir"],
     genclass = ["//tools/jdk:GenClass_deploy.jar"],
+    header_compiler = ["//tools/jdk:turbine_deploy.jar"],
     ijar = ["@bazel_tools//tools/jdk:ijar"],
     javabuilder = ["//tools/jdk:JavaBuilder_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
