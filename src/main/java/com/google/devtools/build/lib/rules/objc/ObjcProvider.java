@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -420,6 +421,20 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   public boolean hasAssetCatalogs() {
     return !get(XCASSETS_DIR).isEmpty();
+  }
+
+  @SkylarkCallable(
+    name = "include",
+    structField = true,
+    doc = "Returns a set of include search paths."
+  )
+  public SkylarkNestedSet getIncludeDirs() {
+    // TODO(b/28615250): Generalize this conversion.
+    NestedSetBuilder<String> includes = NestedSetBuilder.stableOrder();
+    for (PathFragment path : get(INCLUDE)) {
+      includes.add(path.getSafePathString());
+    }
+    return SkylarkNestedSet.of(String.class, includes.build());
   }
 
   /**
