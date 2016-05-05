@@ -366,7 +366,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    * to Skylark.
    */
   static Key<?> getSkylarkKeyForString(String keyName) {
-    Key<?> result = null;
     for (Key<?> candidateKey : KEYS_FOR_SKYLARK) {
       if (candidateKey.getSkylarkKeyName().equals(keyName)) {
         return candidateKey;
