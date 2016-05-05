@@ -626,7 +626,8 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
         }
       }
     }
-    
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public ObjcProvider build() {
       ImmutableMap.Builder<Key<?>, NestedSet<?>> propagatedBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : items.entrySet()) {
@@ -650,13 +651,22 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
       for (Key<?> key : KEYS_FOR_SKYLARK) {
         SkylarkType type = SkylarkType.of(key.getType());
-        if (items.containsKey(key)) {
+        if (propagated.containsKey(key) && strictDependency.containsKey(key)) {
+          NestedSet<?> union = new NestedSetBuilder(STABLE_ORDER)
+              .addTransitive(propagated.get(key))
+              .addTransitive(strictDependency.get(key))
+              .build();
+          skylarkFields.put(key.getSkylarkKeyName(), SkylarkNestedSet.of(type, union));
+        } else if (items.containsKey(key)) {
           skylarkFields.put(
-              key.getSkylarkKeyName(), SkylarkNestedSet.of(type, propagated.get(key)));
-        }
-        if (strictDependency.containsKey(key)) {
+            key.getSkylarkKeyName(), SkylarkNestedSet.of(type, propagated.get(key)));
+        } else if (strictDependency.containsKey(key)) {
           skylarkFields.put(
               key.getSkylarkKeyName(), SkylarkNestedSet.of(type, strictDependency.get(key)));
+        } else {
+           skylarkFields.put(
+              key.getSkylarkKeyName(),
+              SkylarkNestedSet.of(type, new NestedSetBuilder(STABLE_ORDER).build()));          
         }
       }
 
