@@ -17,7 +17,7 @@ java_library(
     name = "testutil",
     srcs = TESTUTIL_FILES,
     visibility = [
-        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:collect",

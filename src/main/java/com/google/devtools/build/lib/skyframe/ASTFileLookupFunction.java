@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -60,7 +61,15 @@ public class ASTFileLookupFunction implements SkyFunction {
     //
     SkyKey pkgSkyKey = PackageLookupValue.key(fileLabel.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = null;
-    pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
+    try {
+      pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(
+          pkgSkyKey, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException e) {
+      throw new ASTLookupFunctionException(
+          new ErrorReadingSkylarkExtensionException(e), Transience.PERSISTENT);
+    } catch (InconsistentFilesystemException e) {
+      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
+    }
     if (pkgLookupValue == null) {
       return null;
     }
