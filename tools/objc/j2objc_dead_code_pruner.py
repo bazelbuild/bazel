@@ -30,6 +30,7 @@ from collections import OrderedDict
 import multiprocessing
 import os
 import Queue
+import re
 import shutil
 import subprocess
 import threading
@@ -295,10 +296,34 @@ def PruneSourceFiles(input_files, output_files, dependency_mapping_files,
              file_shutil)
 
 
+def MatchObjectNamesInArchive(xcrunwrapper, archive, object_names):
+  """Returns object names matching their identity in an archive file.
+
+  The linker that blaze uses appends an md5 hash to object file
+  names prior to inclusion in the archive file. Thus, object names
+  such as 'foo.o' need to be matched to their appropriate name in
+  the archive file, such as 'foo_<hash>.o'.
+
+  Args:
+    xcrunwrapper: A wrapper script over xcrun.
+    archive: The location of the archive file.
+    object_names: The expected basenames of object files to match,
+        sans extension. For example 'foo' (not 'foo.o').
+  Returns:
+    A list of basenames of matching members of the given archive
+  """
+  ar_contents_cmd = '%s ar -t %s' % (xcrunwrapper, archive)
+  real_object_names = subprocess.check_output(ar_contents_cmd, shell=True)
+  expected_object_name_regex = '^(?:%s)_[0-9a-f]{32}.o' % (
+      '|'.join([re.escape(name) for name in object_names]))
+  return re.findall(expected_object_name_regex, real_object_names,
+                    flags=re.MULTILINE)
+
+
 def PruneArchiveFile(input_archive, output_archive, dummy_archive,
                      dependency_mapping_files, header_mapping_files,
                      archive_source_mapping_files, entry_classes, xcrunwrapper,
-                     file_open=open, proc_exe=subprocess.check_call):
+                     file_open=open):
   """Remove unreachable objects from archive file.
 
   Args:
@@ -315,7 +340,6 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
     xcrunwrapper: A wrapper script over xcrun.
     file_open: Reference to the builtin open function so it may be
         overridden for testing.
-    proc_exe: Object that can execute a command line process.
   """
   reachability_file_mapping = BuildReachabilityTree(
       dependency_mapping_files, file_open)
@@ -335,7 +359,7 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
     for source_file in source_files:
       if os.path.splitext(source_file)[0] not in reachable_files_set:
         unreachable_object_names.append(
-            os.path.basename(os.path.splitext(source_file)[0]) + '.o')
+            os.path.basename(os.path.splitext(source_file)[0]))
 
     # There are unreachable objects in the archive to prune
     if unreachable_object_names:
@@ -350,6 +374,8 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
         # Make the output archive editable
         j2objc_cmd += 'chmod +w %s;' % (output_archive)
         # Remove the unreachable objects from the archive
+        unreachable_object_names = MatchObjectNamesInArchive(
+            xcrunwrapper, input_archive, unreachable_object_names)
         j2objc_cmd += '%s ar -d -s %s %s;' % (
             xcrunwrapper, output_archive, ' '.join(unreachable_object_names))
         # Update the table of content of the archive file
@@ -362,7 +388,7 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
   else:
     j2objc_cmd = 'cp %s %s' % (input_archive, output_archive)
 
-  proc_exe(j2objc_cmd, stderr=subprocess.STDOUT, shell=True)
+  subprocess.check_output(j2objc_cmd, stderr=subprocess.STDOUT, shell=True)
 
 
 if __name__ == '__main__':
