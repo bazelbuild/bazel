@@ -178,31 +178,6 @@ public class AndroidDataSerializer {
     }
   }
 
-  /** Queues the manifest for serialization. */
-  @Deprecated
-  public void serializeManifest(@SuppressWarnings("unused") Path manifest) {
-  }
-
-  /** Queues the key and value for serialization as a primary entry. */
-  @Deprecated
-  public void serializeToPrimary(DataKey key, DataValue value) {
-    queueForSerialization(key, value);
-  }
-
-  /** Queues the key and value for serialization as a transitive entry. */
-  @Deprecated
-  public void serializeToTransitive(DataKey key, DataValue value) {
-    queueForSerialization(key, value);
-  }
-
-  @Deprecated
-  public void read(
-      Path inPath,
-      KeyValueConsumers consumers,
-      @SuppressWarnings("unused") KeyValueConsumers transitiveConsumers) {
-    read(inPath, consumers);
-  }
-  
   /** Queues the key and value for serialization as a entries entry. */
   public void queueForSerialization(DataKey key, DataValue value) {
     entries.put(key, value);

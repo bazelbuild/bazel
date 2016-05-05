@@ -279,7 +279,7 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
      * Parses a FullyQualifiedName from a string.
      *
      * @param raw A string in the expected format from
-     *  [&lt;package&gt;:]&lt;ResourceType.name&gt;/&lt;resource name&gt;.
+     *     [&lt;package&gt;:]&lt;ResourceType.name&gt;/&lt;resource name&gt;.
      * @throws IllegalArgumentException when the raw string is not valid qualified name.
      */
     public FullyQualifiedName parse(String raw) {

@@ -24,6 +24,7 @@ import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.res2.MergingException;
 
 import java.io.File;
 import java.io.Flushable;
@@ -136,7 +137,7 @@ public class AndroidDataWriter implements Flushable, AndroidDataWritingVisitor {
 
   @Override
   public void copyResource(Path source, String relativeDestinationPath)
-      throws IOException {
+      throws IOException, MergingException {
     Path destinationPath = resourceDirectory.resolve(relativeDestinationPath);
     if (source.getParent().getFileName().toString().startsWith(SdkConstants.DRAWABLE_FOLDER)
         && source.getFileName().toString().endsWith(SdkConstants.DOT_PNG)) {
@@ -144,8 +145,7 @@ public class AndroidDataWriter implements Flushable, AndroidDataWritingVisitor {
         Files.createDirectories(destinationPath.getParent());
         cruncher.crunchPng(source.toFile(), destinationPath.toFile());
       } catch (InterruptedException | LoggedErrorException e) {
-        // TODO(corysmith): Change to a MergingException
-        throw new RuntimeException(e);
+        throw new MergingException(e);
       }
     } else {
       copy(source, destinationPath);
