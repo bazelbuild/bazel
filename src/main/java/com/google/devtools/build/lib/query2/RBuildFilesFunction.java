@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * An "rbuildfiles" query expression, which computes the set of packages (as represented by their
@@ -76,8 +76,8 @@ public class RBuildFilesFunction implements QueryFunction {
     for (Argument arg : args) {
       fileNames.add(arg.getWord());
     }
-    callback.process((Set<T>)
-        ((SkyQueryEnvironment) env)
-            .getRBuildFiles(Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT)));
+    ((SkyQueryEnvironment) env)
+        .getRBuildFiles(
+            Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT), (Callback<Target>) callback);
   }
 }

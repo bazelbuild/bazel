@@ -864,12 +864,42 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     return result;
   }
 
+  private static final Function<SkyValue, Package> EXTRACT_PACKAGE =
+      new Function<SkyValue, Package>() {
+        @Override
+        public Package apply(SkyValue skyValue) {
+          return ((PackageValue) skyValue).getPackage();
+        }
+      };
+
+  private static final Predicate<Package> ERROR_FREE_PACKAGE =
+      new Predicate<Package>() {
+        @Override
+        public boolean apply(Package pkg) {
+          return !pkg.containsErrors();
+        }
+      };
+
+  private static final Function<Package, Target> GET_BUILD_FILE =
+      new Function<Package, Target>() {
+        @Override
+        public Target apply(Package pkg) {
+          return pkg.getBuildFile();
+        }
+      };
+
+  private static Iterable<Target> getBuildFilesForPackageValues(Iterable<SkyValue> packageValues) {
+    return Iterables.transform(
+        Iterables.filter(Iterables.transform(packageValues, EXTRACT_PACKAGE), ERROR_FREE_PACKAGE),
+        GET_BUILD_FILE);
+  }
+
   /**
    * Calculates the set of {@link Package} objects, represented as source file targets, that depend
    * on the given list of BUILD files and subincludes (other files are filtered out).
    */
-  @Nullable
-  Set<Target> getRBuildFiles(Collection<PathFragment> fileIdentifiers) {
+  void getRBuildFiles(Collection<PathFragment> fileIdentifiers, Callback<Target> callback)
+      throws QueryException, InterruptedException {
     Collection<SkyKey> files = getSkyKeysForFileFragments(fileIdentifiers);
     Collection<SkyKey> current = graph.getSuccessfulValues(files).keySet();
     Set<SkyKey> resultKeys = CompactHashSet.create();
@@ -889,16 +919,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
           current.add(rdep);
         }
       }
-    }
-    Map<SkyKey, SkyValue> packageValues = graph.getSuccessfulValues(resultKeys);
-    ImmutableSet.Builder<Target> result = ImmutableSet.builder();
-    for (SkyValue value : packageValues.values()) {
-      Package pkg = ((PackageValue) value).getPackage();
-      if (!pkg.containsErrors()) {
-        result.add(pkg.getBuildFile());
+      if (resultKeys.size() >= BATCH_CALLBACK_SIZE) {
+        callback.process(
+            getBuildFilesForPackageValues(graph.getSuccessfulValues(resultKeys).values()));
+        resultKeys.clear();
       }
     }
-    return result.build();
+    callback.process(getBuildFilesForPackageValues(graph.getSuccessfulValues(resultKeys).values()));
   }
 
   @Override
