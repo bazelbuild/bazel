@@ -358,7 +358,7 @@ public class SkylarkRepositoryContext {
             + "for downloaded file(default to False)."
   )
   public void download(String url, Object output, String sha256, Boolean executable)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath outputPath = getPath("download()", output);
     try {
       checkInOutputDirectory(outputPath);
@@ -374,19 +374,19 @@ public class SkylarkRepositoryContext {
 
   @SkylarkCallable(name = "download", documented = false)
   public void download(String url, Object output, String sha256)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     download(url, output, sha256, false);
   }
 
   @SkylarkCallable(name = "download", documented = false)
   public void download(String url, Object output, Boolean executable)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     download(url, output, "", executable);
   }
 
   @SkylarkCallable(name = "download", documented = false)
   public void download(String url, Object output)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     download(url, output, "", false);
   }
 

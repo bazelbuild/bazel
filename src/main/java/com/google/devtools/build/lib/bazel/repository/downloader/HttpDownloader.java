@@ -66,7 +66,7 @@ public class HttpDownloader {
 
   @Nullable
   public static Path download(Rule rule, Path outputDirectory, EventHandler eventHandler)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String url = mapper.get("url", Type.STRING);
     String sha256 = mapper.get("sha256", Type.STRING);
@@ -84,7 +84,7 @@ public class HttpDownloader {
   @Nullable
   public static Path download(
       String url, String sha256, String type, Path output, EventHandler eventHandler)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     try {
       return new HttpDownloader(eventHandler, url, sha256, output, type).download();
     } catch (IOException e) {
@@ -98,7 +98,7 @@ public class HttpDownloader {
   /**
    * Attempt to download a file from the repository's URL. Returns the path to the file downloaded.
    */
-  public Path download() throws IOException {
+  public Path download() throws IOException, InterruptedException {
     URL url = new URL(urlString);
     Path destination;
     if (type == null) {
@@ -136,6 +136,9 @@ public class HttpDownloader {
       while ((read = inputStream.read(buf)) > 0) {
         totalBytes.addAndGet(read);
         out.write(buf, 0, read);
+        if (Thread.interrupted()) {
+          throw new InterruptedException("Download interrupted");
+        }
       }
       if (connection.getContentLength() != -1
           && totalBytes.get() != connection.getContentLength()) {
