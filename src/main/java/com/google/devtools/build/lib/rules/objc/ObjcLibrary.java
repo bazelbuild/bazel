@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
@@ -82,14 +81,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addExtraSdkFrameworks(extraSdkFrameworks)
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .setCompilationArtifacts(compilationArtifacts)
-        .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
+        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .addNonPropagatedDepObjcProviders(
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
-        .addDepCcHeaderProviders(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-        .addDepCcLinkProviders(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(alwayslink)
         .setHasModuleMap()
@@ -130,13 +126,17 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
         .registerActions(xcodeProviderBuilder.build());
 
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
+        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
+        .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
+            J2ObjcEntryClassProvider.class)).build();
+
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addProvider(
-            J2ObjcEntryClassProvider.class, J2ObjcEntryClassProvider.buildFrom(ruleContext))
-        .addProvider(
-            J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
+        .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
+        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))

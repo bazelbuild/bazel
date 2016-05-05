@@ -784,6 +784,8 @@ public final class CompilationSupport {
    * {@code -dead_strip} and {@code -no_dead_strip_inits_and_terms}).
    *
    * @param objcProvider common information about this rule's attributes and its dependencies
+   * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation
+   * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
    * @param extraLinkInputs any additional input artifacts to pass to the link action
    * @param dsymOutputType the file type of the dSYM bundle to be generated
@@ -792,6 +794,8 @@ public final class CompilationSupport {
    */
   CompilationSupport registerLinkActions(
       ObjcProvider objcProvider,
+      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
+      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       DsymOutputType dsymOutputType) {
@@ -809,9 +813,9 @@ public final class CompilationSupport {
     }
 
     Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
-    if (stripJ2ObjcDeadCode()) {
-      J2ObjcEntryClassProvider provider = J2ObjcEntryClassProvider.buildFrom(ruleContext);
-      registerJ2ObjcDeadCodeRemovalActions(objcProvider, provider.getEntryClasses());
+    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
+      registerJ2ObjcDeadCodeRemovalActions(objcProvider, j2ObjcMappingFileProvider,
+          j2ObjcEntryClassProvider);
       prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
     }
 
@@ -831,13 +835,13 @@ public final class CompilationSupport {
     return this;
   }
 
-  private boolean stripJ2ObjcDeadCode() {
-    J2ObjcEntryClassProvider provider = J2ObjcEntryClassProvider.buildFrom(ruleContext);
+  private boolean stripJ2ObjcDeadCode(J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
     J2ObjcConfiguration j2objcConfiguration =
         buildConfiguration.getFragment(J2ObjcConfiguration.class);
     // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
     // users have specified entry classes.
-    return j2objcConfiguration.removeDeadCode() && !provider.getEntryClasses().isEmpty();
+    return j2objcConfiguration.removeDeadCode()
+        && !j2ObjcEntryClassProvider.getEntryClasses().isEmpty();
   }
 
   /**
@@ -1175,12 +1179,16 @@ public final class CompilationSupport {
   }
 
   private void registerJ2ObjcDeadCodeRemovalActions(ObjcProvider objcProvider,
-      Iterable<String> entryClasses) {
+      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
+      J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+    NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
     Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", Mode.HOST);
-    J2ObjcMappingFileProvider provider = ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext);
-    NestedSet<Artifact> j2ObjcDependencyMappingFiles = provider.getDependencyMappingFiles();
-    NestedSet<Artifact> j2ObjcHeaderMappingFiles = provider.getHeaderMappingFiles();
-    NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles = provider.getArchiveSourceMappingFiles();
+    NestedSet<Artifact> j2ObjcDependencyMappingFiles =
+        j2ObjcMappingFileProvider.getDependencyMappingFiles();
+    NestedSet<Artifact> j2ObjcHeaderMappingFiles =
+        j2ObjcMappingFileProvider.getHeaderMappingFiles();
+    NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles =
+        j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
 
     for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
       PathFragment paramFilePath = FileSystemUtils.replaceExtension(

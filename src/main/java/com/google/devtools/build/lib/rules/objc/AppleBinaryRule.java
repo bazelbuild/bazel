@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -43,24 +42,12 @@ public class AppleBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(ObjcConfiguration.class, J2ObjcConfiguration.class,
-            AppleConfiguration.class)
+        .requiresConfigurationFragments(
+            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class)
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-        .override(attr("deps", LABEL_LIST)
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION)
-            .direct_compile_time_input()
-            .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_DEPS_RULE_CLASSES)
-            .allowedFileTypes())
-        .override(attr("non_propagated_deps", LABEL_LIST)
-            .direct_compile_time_input()
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION)
-            .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_DEPS_RULE_CLASSES)
-            .allowedFileTypes())
-        .override(attr("srcs", LABEL_LIST)
-            .direct_compile_time_input()
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION)
-            .allowedFileTypes(ObjcRuleClasses.SRCS_TYPE))
+        .override(builder.copy("deps").cfg(IosApplication.SPLIT_ARCH_TRANSITION))
+        .override(builder.copy("non_propagated_deps").cfg(IosApplication.SPLIT_ARCH_TRANSITION))
         // This is currently a hack to obtain all child configurations regardless of the attribute
         // values of this rule -- this rule does not currently use the actual info provided by
         // this attribute.

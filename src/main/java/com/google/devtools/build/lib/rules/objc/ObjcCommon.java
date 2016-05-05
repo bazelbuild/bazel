@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -375,6 +376,39 @@ public final class ObjcCommon {
       return this;
     }
 
+    Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
+      ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
+          ImmutableList.<ObjcProvider>builder();
+      ImmutableList.Builder<CppCompilationContext> cppDeps =
+          ImmutableList.<CppCompilationContext>builder();
+      ImmutableList.Builder<CcLinkParamsProvider> cppDepLinkParams =
+          ImmutableList.<CcLinkParamsProvider>builder();
+
+      for (TransitiveInfoCollection dep : deps) {
+        addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.class);
+        addAnyProviders(cppDeps, dep, CppCompilationContext.class);
+        // Hack to determine if dep is a cc target. Required so objc_library archives packed in
+        // CcLinkParamsProvider do not get consumed as cc targets.
+        if (dep.getProvider(CppRunfilesProvider.class) != null) {
+          cppDepLinkParams.add(dep.getProvider(CcLinkParamsProvider.class));
+        }
+      }
+      addDepObjcProviders(propagatedObjcDeps.build());
+      this.depCcHeaderProviders = Iterables.concat(this.depCcHeaderProviders, cppDeps.build());
+      this.depCcLinkProviders =
+          Iterables.concat(this.depCcLinkProviders, cppDepLinkParams.build());
+      return this;
+    }
+
+    private <T extends TransitiveInfoProvider> ImmutableList.Builder<T> addAnyProviders(
+        ImmutableList.Builder<T> listBuilder, TransitiveInfoCollection collection,
+        Class<T> providerClass) {
+      if (collection.getProvider(providerClass) != null) {
+        listBuilder.add(collection.getProvider(providerClass));
+      }
+      return listBuilder;
+    }
+
     /**
      * Add providers which will be exposed both to the declaring rule and to any dependers on the
      * declaring rule.
@@ -466,34 +500,6 @@ public final class ObjcCommon {
      */
     Builder setLinkmapFile(Artifact linkmapFile) {
       this.linkmapFile = Optional.of(linkmapFile);
-      return this;
-    }
-
-    /**
-     * Sets information from {@code cc_library} dependencies to be used during compilation.
-     */
-    public Builder addDepCcHeaderProviders(Iterable<CppCompilationContext> depCcHeaderProviders) {
-      this.depCcHeaderProviders = Iterables.concat(this.depCcHeaderProviders, depCcHeaderProviders);
-      return this;
-    }
-
-    /**
-     * Sets information from {@code cc_library} dependencies to be used during linking from
-     * the {@link TransitiveInfoCollection} objects which contain the relevant link providers
-     * (for example, from the current rule's "deps" attribute).
-     */
-    public Builder addDepCcLinkProviders(List<? extends TransitiveInfoCollection> deps) {
-      for (TransitiveInfoCollection dep : deps) {
-        // Hack to determine if dep is a cc target. Required so objc_library archives packed in
-        // CcLinkParamsProvider do not get consumed as cc targets.
-        if (dep.getProvider(CppRunfilesProvider.class) != null) {
-          CcLinkParamsProvider ccLinkParamsProvider = dep.getProvider(CcLinkParamsProvider.class);
-          this.depCcLinkProviders =
-              Iterables.concat(
-                  this.depCcLinkProviders,
-                  ImmutableList.<CcLinkParamsProvider>of(ccLinkParamsProvider));
-        }
-      }
       return this;
     }
 

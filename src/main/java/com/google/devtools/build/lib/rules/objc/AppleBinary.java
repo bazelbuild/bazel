@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
@@ -74,6 +73,23 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
           nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
           nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)));
       ObjcProvider objcProvider = common.getObjcProvider();
+      ImmutableList.Builder<J2ObjcMappingFileProvider> j2ObjcMappingFileProviders =
+          ImmutableList.builder();
+      J2ObjcEntryClassProvider.Builder j2ObjcEntryClassProviderBuilder =
+          new J2ObjcEntryClassProvider.Builder(); 
+      for (TransitiveInfoCollection dep : configToDepsCollectionMap.get(childConfig)) {
+        if (dep.getProvider(J2ObjcMappingFileProvider.class) != null) {
+          j2ObjcMappingFileProviders.add(dep.getProvider(J2ObjcMappingFileProvider.class));
+        }
+        if (dep.getProvider(J2ObjcEntryClassProvider.class) != null) {
+          j2ObjcEntryClassProviderBuilder.addTransitive(
+              dep.getProvider(J2ObjcEntryClassProvider.class));
+        }
+      }
+      J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+          J2ObjcMappingFileProvider.union(j2ObjcMappingFileProviders.build());
+      J2ObjcEntryClassProvider j2ObjcEntryClassProvider = j2ObjcEntryClassProviderBuilder.build();
+      
       if (!hasLibraryOrSources(objcProvider)) {
         ruleContext.ruleError(REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE);
         return null;
@@ -81,11 +97,13 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       if (ruleContext.hasErrors()) {
         return null;
       }
+
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
       new CompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
           .registerLinkActions(
-              objcProvider, new ExtraLinkArgs(), ImmutableList.<Artifact>of(),
+              common.getObjcProvider(), j2ObjcMappingFileProvider, j2ObjcEntryClassProvider,
+              new ExtraLinkArgs(), ImmutableList.<Artifact>of(),
               DsymOutputType.APP)
           .validateAttributes();
 
@@ -116,18 +134,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       IntermediateArtifacts intermediateArtifacts,
       List<TransitiveInfoCollection> propagatedDeps,
       List<ObjcProvider> nonPropagatedObjcDeps) {
-    ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.<ObjcProvider>builder();
-    ImmutableList.Builder<CppCompilationContext> cppDeps =
-        ImmutableList.<CppCompilationContext>builder();
-    
-    for (TransitiveInfoCollection dep : propagatedDeps) {
-      if (dep.getProvider(ObjcProvider.class) != null) {
-        propagatedObjcDeps.add(dep.getProvider(ObjcProvider.class));
-      }
-      if (dep.getProvider(CppCompilationContext.class) != null) {
-        cppDeps.add(dep.getProvider(CppCompilationContext.class));
-      }
-    }
 
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
@@ -137,9 +143,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .setCompilationArtifacts(compilationArtifacts)
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-        .addDepObjcProviders(propagatedObjcDeps.build())
-        .addDepCcHeaderProviders(cppDeps.build())
-        .addDepCcLinkProviders(propagatedDeps)
+        .addDeps(propagatedDeps)
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
@@ -149,7 +153,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary())
         .build();
   }
-  
+
   private <T> List<T> nullToEmptyList(List<T> inputList) {
     return inputList != null ? inputList : ImmutableList.<T>of();
   }

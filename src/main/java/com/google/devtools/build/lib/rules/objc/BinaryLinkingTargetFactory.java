@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
@@ -97,13 +96,20 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
       return null;
     }
 
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
+        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
+        .addTransitive(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
+        .build();
+
     CompilationSupport compilationSupport =
         new CompilationSupport(ruleContext)
             .registerCompileAndArchiveActions(common)
             .registerFullyLinkAction(common.getObjcProvider())
             .addXcodeSettings(xcodeProviderBuilder, common)
             .registerLinkActions(
-                objcProvider,
+                objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider,
                 getExtraLinkArgs(ruleContext),
                 ImmutableList.<Artifact>of(),
                 DsymOutputType.APP)
@@ -202,11 +208,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .setResourceAttributes(new ResourceAttributes(ruleContext))
             .setCompilationArtifacts(compilationArtifacts)
             .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-            .addDepObjcProviders(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
-            .addDepCcHeaderProviders(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-            .addDepCcLinkProviders(ruleContext.getPrerequisites("deps", Mode.TARGET))
+            .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
             .addDepObjcProviders(
                 ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
             .addNonPropagatedDepObjcProviders(

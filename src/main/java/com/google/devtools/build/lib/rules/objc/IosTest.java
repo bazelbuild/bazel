@@ -129,10 +129,18 @@ public final class IosTest implements RuleConfiguredTargetFactory {
 
       filesToBuild.add(testApp.getIpa());
     }
+    
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
+        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
+        .addTransitive(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
+        .build();
 
     new CompilationSupport(ruleContext)
         .registerLinkActions(
-            common.getObjcProvider(), extraLinkArgs, extraLinkInputs, DsymOutputType.TEST)
+            common.getObjcProvider(), j2ObjcMappingFileProvider, j2ObjcEntryClassProvider,
+            extraLinkArgs, extraLinkInputs, DsymOutputType.TEST)
         .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(common.getObjcProvider())
         .addXcodeSettings(xcodeProviderBuilder, common)

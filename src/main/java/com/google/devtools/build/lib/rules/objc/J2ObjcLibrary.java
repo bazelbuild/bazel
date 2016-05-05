@@ -74,12 +74,14 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     ObjcProvider objcProvider = objcProviderBuilder.build();
     xcodeSupport.addXcodeSettings(xcodeProviderBuilder, objcProvider, LIBRARY_STATIC);
 
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
+        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
-        .addProvider(
-            J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
+        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(ObjcProvider.class, objcProvider)
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();

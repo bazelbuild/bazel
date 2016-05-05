@@ -33,6 +33,20 @@ public final class J2ObjcMappingFileProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> archiveSourceMappingFiles;
 
   /**
+   * Returns a {@link J2ObjcMappingFileProvider} which combines all input
+   * {@link J2ObjcMappingFileProvider}s. All mapping files present in any of the input providers
+   * will be present in the output provider.
+   */
+  public static J2ObjcMappingFileProvider union(Iterable<J2ObjcMappingFileProvider> providers) {
+    J2ObjcMappingFileProvider.Builder builder = new J2ObjcMappingFileProvider.Builder();
+    for (J2ObjcMappingFileProvider provider : providers) {
+      builder.addTransitive(provider);
+    }
+
+    return builder.build();
+  }
+
+  /**
    * Constructs a {@link J2ObjcMappingFileProvider} with mapping files to export mappings required
    * by J2ObjC translation and proto compilation.
    *

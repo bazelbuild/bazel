@@ -54,6 +54,20 @@ public final class J2ObjcEntryClassProvider implements TransitiveInfoProvider {
     }
 
     /**
+     * Transitively adds the given {@link J2ObjcEntryClassProvider}s
+     * and all their properties to this builder.
+     *
+     * @param providers the J2ObjcEntryClassProviders to add
+     * @return this builder
+     */
+    public Builder addTransitive(Iterable<J2ObjcEntryClassProvider> providers) {
+      for (J2ObjcEntryClassProvider provider : providers) {
+        addTransitive(provider);
+      }
+      return this;
+    }
+
+    /**
      * Transitively adds all the J2ObjcEntryClassProviders and all their properties
      * that can be reached through the "deps" attribute.
      *
@@ -62,10 +76,8 @@ public final class J2ObjcEntryClassProvider implements TransitiveInfoProvider {
      */
     public Builder addTransitive(RuleContext ruleContext) {
       if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-        for (J2ObjcEntryClassProvider provider :
-            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class)) {
-          addTransitive(provider);
-        }
+        addTransitive(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class));
       }
 
       return this;
@@ -90,16 +102,6 @@ public final class J2ObjcEntryClassProvider implements TransitiveInfoProvider {
     public J2ObjcEntryClassProvider build() {
       return new J2ObjcEntryClassProvider(entryClassesBuilder.build());
     }
-  }
-
-  /**
-   * Constructs a new J2ObjcEntryClassProvider that contains all the information
-   * that can be transitively reached through the "deps" attribute of the given rule context.
-   *
-   * @param ruleContext the rule context in which to look for deps
-   */
-  public static J2ObjcEntryClassProvider buildFrom(RuleContext ruleContext) {
-    return new Builder().addTransitive(ruleContext).build();
   }
 
   /**

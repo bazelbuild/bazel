@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -105,25 +104,6 @@ public class ObjcRuleClasses {
     return new IntermediateArtifacts(
         ruleContext,
         /*archiveFileNameSuffix=*/"_j2objc");
-  }
-
-  /**
-   * Returns a {@link J2ObjcMappingFileProvider} containing J2ObjC mapping files from rules
-   * that can be reached transitively through the "deps" attribute.
-   *
-   * @param ruleContext the rule context of the current rule
-   * @return a {@link J2ObjcMappingFileProvider} containing J2ObjC mapping files information from
-   *     the transitive closure.
-   */
-  public static J2ObjcMappingFileProvider j2ObjcMappingFileProvider(RuleContext ruleContext) {
-    J2ObjcMappingFileProvider.Builder builder = new J2ObjcMappingFileProvider.Builder();
-    Iterable<J2ObjcMappingFileProvider> providers =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class);
-    for (J2ObjcMappingFileProvider provider : providers) {
-      builder.addTransitive(provider);
-    }
-
-    return builder.build();
   }
 
   public static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
