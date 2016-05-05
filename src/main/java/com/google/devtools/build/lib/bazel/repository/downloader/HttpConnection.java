@@ -28,6 +28,7 @@ import java.net.Proxy;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /**
  * Represents a connection over HTTP.
@@ -71,9 +72,10 @@ class HttpConnection implements Closeable {
     }
   }
 
-  public static HttpConnection createAndConnect(URL url) throws IOException {
+  public static HttpConnection createAndConnect(URL url, Map<String, String> clientEnv)
+      throws IOException {
     int retries = MAX_REDIRECTS;
-    Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString());
+    Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString(), clientEnv);
     do {
       HttpURLConnection connection = (HttpURLConnection) url.openConnection(proxy);
       try {

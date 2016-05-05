@@ -81,9 +81,10 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final SkylarkRepositoryFunction skylarkRepositoryFunction =
       new SkylarkRepositoryFunction();
+  private final RepositoryDelegatorFunction delegator;
 
   public BazelRepositoryModule() {
-    repositoryHandlers =
+    this.repositoryHandlers =
         ImmutableMap.<String, RepositoryFunction>builder()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
             .put(HttpArchiveRule.NAME, new HttpArchiveFunction())
@@ -98,6 +99,8 @@ public class BazelRepositoryModule extends BlazeModule {
             .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
             .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
             .build();
+    this.delegator = new RepositoryDelegatorFunction(
+        repositoryHandlers, skylarkRepositoryFunction, isFetch);
   }
 
   /**
@@ -167,16 +170,14 @@ public class BazelRepositoryModule extends BlazeModule {
     // Create the repository function everything flows through.
     builder.put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
 
-    builder.put(
-        SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryDelegatorFunction(
-            repositoryHandlers, skylarkRepositoryFunction, isFetch));
+    builder.put(SkyFunctions.REPOSITORY_DIRECTORY, delegator);
     builder.put(MavenServerFunction.NAME, new MavenServerFunction());
     return builder.build();
   }
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+    delegator.setClientEnvironment(env.getClientEnv());
     skylarkRepositoryFunction.setCommandEnvironment(env);
   }
 }

@@ -18,12 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.net.Proxy;
+import java.util.Map;
 
 /**
  * Tests for @{link ProxyHelper}.
@@ -32,11 +35,46 @@ import java.net.Proxy;
 public class ProxyHelperTest {
 
   @Test
+  public void testCreateIfNeededHttpLowerCase() throws Exception {
+    Map<String, String> env = ImmutableMap.<String, String>builder()
+        .put("http_proxy", "http://my.example.com").build();
+    Proxy proxy = ProxyHelper.createProxyIfNeeded("http://www.something.com", env);
+    assertThat(proxy.toString()).endsWith("my.example.com:80");
+  }
+
+  @Test
+  public void testCreateIfNeededHttpUpperCase() throws Exception {
+    Map<String, String> env = ImmutableMap.<String, String>builder()
+        .put("HTTP_PROXY", "http://my.example.com").build();
+    Proxy proxy = ProxyHelper.createProxyIfNeeded("http://www.something.com", env);
+    assertThat(proxy.toString()).endsWith("my.example.com:80");
+  }
+
+  @Test
+  public void testCreateIfNeededHttpsLowerCase() throws Exception {
+    Map<String, String> env = ImmutableMap.<String, String>builder()
+        .put("https_proxy", "https://my.example.com").build();
+    Proxy proxy = ProxyHelper.createProxyIfNeeded("https://www.something.com", env);
+    assertThat(proxy.toString()).endsWith("my.example.com:443");
+  }
+
+  @Test
+  public void testCreateIfNeededHttpsUpperCase() throws Exception {
+    Map<String, String> env = ImmutableMap.<String, String>builder()
+        .put("HTTPS_PROXY", "https://my.example.com").build();
+    Proxy proxy = ProxyHelper.createProxyIfNeeded("https://www.something.com", env);
+    assertThat(proxy.toString()).endsWith("my.example.com:443");
+  }
+
+  @Test
   public void testNoProxy() throws Exception {
     // Empty address.
     Proxy proxy = ProxyHelper.createProxy(null);
     assertEquals(Proxy.NO_PROXY, proxy);
     proxy = ProxyHelper.createProxy("");
+    assertEquals(Proxy.NO_PROXY, proxy);
+    Map<String, String> env = ImmutableMap.of();
+    proxy = ProxyHelper.createProxyIfNeeded("https://www.something.com", env);
     assertEquals(Proxy.NO_PROXY, proxy);
   }
 

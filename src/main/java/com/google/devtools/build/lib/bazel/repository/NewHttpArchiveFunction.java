@@ -56,7 +56,8 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     }
 
     // Download.
-    Path downloadedPath = HttpDownloader.download(rule, outputDirectory, env.getListener());
+    Path downloadedPath = HttpDownloader.download(
+        rule, outputDirectory, env.getListener(), clientEnvironment);
 
     // Decompress.
     Path decompressed;

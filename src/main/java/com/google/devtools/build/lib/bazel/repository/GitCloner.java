@@ -40,6 +40,7 @@ import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.NetRCCredentialsProvider;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -91,7 +92,9 @@ public class GitCloner {
     return false;
   }
 
-  public static SkyValue clone(Rule rule, Path outputDirectory, EventHandler eventHandler)
+  public static SkyValue clone(
+      Rule rule, Path outputDirectory, EventHandler eventHandler,
+      Map<String, String> clientEnvironment)
       throws RepositoryFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     if ((mapper.has("commit", Type.STRING) == mapper.has("tag", Type.STRING))
@@ -118,7 +121,7 @@ public class GitCloner {
     // Setup proxy if remote is http or https
     if (descriptor.remote != null && descriptor.remote.startsWith("http")) {
       try {
-        ProxyHelper.createProxyIfNeeded(descriptor.remote);
+        ProxyHelper.createProxyIfNeeded(descriptor.remote, clientEnvironment);
       } catch (IOException ie) {
         throw new RepositoryFunctionException(ie, Transience.TRANSIENT);
       }

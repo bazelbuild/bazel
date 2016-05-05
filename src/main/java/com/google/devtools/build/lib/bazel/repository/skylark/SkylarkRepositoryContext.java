@@ -363,7 +363,8 @@ public class SkylarkRepositoryContext {
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.path);
-      HttpDownloader.download(url, sha256, null, outputPath.getPath(), env.getListener());
+      HttpDownloader.download(
+          url, sha256, null, outputPath.getPath(), env.getListener(), osObject.getEnviron());
       if (executable) {
         outputPath.path.setExecutable(true);
       }
@@ -420,8 +421,8 @@ public class SkylarkRepositoryContext {
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory(outputPath);
-    Path downloadedPath =
-        HttpDownloader.download(url, sha256, type, outputPath.getPath(), env.getListener());
+    Path downloadedPath = HttpDownloader.download(
+        url, sha256, type, outputPath.getPath(), env.getListener(), osObject.getEnviron());
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())

@@ -35,6 +35,7 @@ import java.io.IOException;
  * Downloads a file over HTTP.
  */
 public class HttpArchiveFunction extends RepositoryFunction {
+
   @Override
   public boolean isLocal(Rule rule) {
     return false;
@@ -61,7 +62,8 @@ public class HttpArchiveFunction extends RepositoryFunction {
     //
     // This would download png.tar.gz to .external-repository/png/png.tar.gz.
     createDirectory(outputDirectory);
-    Path downloadedPath = HttpDownloader.download(rule, outputDirectory, env.getListener());
+    Path downloadedPath = HttpDownloader.download(
+        rule, outputDirectory, env.getListener(), clientEnvironment);
 
     DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));
     return RepositoryDirectoryValue.create(outputDirectory);

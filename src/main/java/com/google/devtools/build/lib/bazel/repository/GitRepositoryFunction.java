@@ -33,6 +33,7 @@ import java.io.IOException;
  * Clones a Git repository.
  */
 public class GitRepositoryFunction extends RepositoryFunction {
+
   @Override
   public boolean isLocal(Rule rule) {
     return false;
@@ -43,7 +44,7 @@ public class GitRepositoryFunction extends RepositoryFunction {
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
           throws SkyFunctionException {
     createDirectory(outputDirectory, rule);
-    GitCloner.clone(rule, outputDirectory, env.getListener());
+    GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment);
     return RepositoryDirectoryValue.create(outputDirectory);
   }
 

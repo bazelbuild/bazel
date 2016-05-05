@@ -50,6 +50,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -83,6 +84,8 @@ import javax.annotation.Nullable;
  */
 public abstract class RepositoryFunction {
 
+  protected Map<String, String> clientEnvironment;
+
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
@@ -107,6 +110,7 @@ public abstract class RepositoryFunction {
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
+
   }
 
   /**
@@ -414,6 +418,13 @@ public abstract class RepositoryFunction {
         throw new IOException(e.getMessage());
       }
     }
+  }
+
+  /**
+   * Sets up a mapping of environment variables to use.
+   */
+  public void setClientEnvironment(Map<String, String> clientEnvironment) {
+    this.clientEnvironment = clientEnvironment;
   }
 
   /**
