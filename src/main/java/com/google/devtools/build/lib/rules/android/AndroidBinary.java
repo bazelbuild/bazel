@@ -935,7 +935,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       return null;
     }
   }
-  
+
   private static ProguardOutput createEmptyProguardAction(RuleContext ruleContext,
       Artifact proguardOutputJar, Artifact deployJarArtifact) throws InterruptedException {
     ImmutableList.Builder<Artifact> failures = ImmutableList.<Artifact>builder()
@@ -1105,11 +1105,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       if (incrementalDexing.contains(AndroidBinaryType.MONODEX)) {
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
         Artifact jarToDex = getDxArtifact(ruleContext, "classes.jar");
-        Artifact javaResourceJar = createShuffleJarAction(ruleContext, true, (Artifact) null,
-            ImmutableList.of(jarToDex), common, attributes, (Artifact) null);
+        createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
+            common, attributes, (Artifact) null);
         createDexMergerAction(ruleContext, "off", jarToDex, classesDex, (Artifact) null,
             /* minimalMainDex */ false);
-        return new DexingOutput(classesDex, javaResourceJar, ImmutableList.of(classesDex));
+        return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
       } else {
         // By *not* writing a zip we get dx to drop resources on the floor.
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex");
@@ -1175,16 +1175,22 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addOutput(classesDex)
             .setCommandLine(mergeCommandLine)
             .build(ruleContext));
+        if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED)) {
+          // Using the deploy jar for java resources gives better "bazel mobile-install" performance
+          // with incremental dexing b/c bazel can create the "incremental" and "split resource"
+          // APKs earlier (b/c these APKs don't depend on code being dexed here).  This is also done
+          // for other multidex modes.
+          javaResourceJar = binaryJar;
+        }
         return new DexingOutput(classesDex, javaResourceJar, shardDexes);
       } else {
         if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_UNSHARDED)) {
           Artifact jarToDex = AndroidBinary.getDxArtifact(ruleContext, "classes.jar");
-          Artifact javaResourceJar = createShuffleJarAction(ruleContext, true, (Artifact) null,
-              ImmutableList.of(jarToDex), common, attributes, (Artifact) null);
+          createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
+              common, attributes, (Artifact) null);
           createDexMergerAction(ruleContext, "minimal", jarToDex, classesDex, mainDexList,
               // unlike dexopts.contains(), this works even for "--a --b" in one string
               Iterables.any(dexopts, FlagMatcher.MINIMAL_MAIN_DEX));
-          return new DexingOutput(classesDex, javaResourceJar, ImmutableList.of(classesDex));
         } else {
           // Because the dexer also places resources into this zip, we also need to create a cleanup
           // action that removes all non-.dex files before staging for apk building.
@@ -1196,8 +1202,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           AndroidCommon.createDexAction(ruleContext, proguardedJar,
               classesDexIntermediate, dexopts, /* multidex */ true, mainDexList);
           createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
-          return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
         }
+        return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
       }
     }
   }
