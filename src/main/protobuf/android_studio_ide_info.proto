@@ -84,6 +84,10 @@ message CToolchainIdeInfo {
   repeated string unfiltered_compiler_option = 9;
 }
 
+message TestInfo {
+  string size = 1;
+}
+
 message RuleIdeInfo {
   enum Kind {
     ANDROID_BINARY = 0;
@@ -125,4 +129,6 @@ message RuleIdeInfo {
   CToolchainIdeInfo c_toolchain_ide_info = 13;
 
   string kind_string = 14;
+
+  TestInfo test_info = 15;
 }

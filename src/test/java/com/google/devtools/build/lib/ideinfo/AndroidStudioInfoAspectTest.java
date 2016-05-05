@@ -468,6 +468,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "java_test(",
         "   name = 'FooBarTest',",
         "   srcs = ['FooBarTest.java'],",
+        "   size = 'large',",
         "   deps = [':foobar'],",
         ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(
@@ -493,6 +494,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     );
     assertThat(testInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
         .isEqualTo("java/com/google/example/FooBarTest.jdeps");
+
+    assertThat(testInfo.getTestInfo().getSize()).isEqualTo("large");
   }
 
   @Test

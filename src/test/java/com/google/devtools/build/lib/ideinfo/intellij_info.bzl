@@ -299,6 +299,18 @@ def android_rule_ide_info(target, ctx):
         ),
         ide_resolve_files)
 
+def test_info(target, ctx):
+  """ Build TestInfo """
+  if not is_test_rule(ctx):
+    return None
+  return struct_omit_none(
+           size = ctx.rule.attr.size,
+         )
+
+def is_test_rule(ctx):
+  kind_string = ctx.rule.kind
+  return kind_string.endswith("_test")
+
 def collect_labels(rule_attrs, attrs):
   """ Collect labels from attribute values.
 
@@ -370,6 +382,9 @@ def _aspect_impl(target, ctx):
   (android_rule_ide_info, android_ide_resolve_files) = android_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
+  # Collect test info
+  test_info = test_info(target, ctx)
+
   # Collect information about exports.
   export_deps = set()
   if hasattr(target, "java"):
@@ -392,6 +407,7 @@ def _aspect_impl(target, ctx):
       java_rule_ide_info = java_rule_ide_info,
       android_rule_ide_info = android_rule_ide_info,
       tags = ctx.rule.attr.tags,
+      test_info = test_info,
   )
 
   # Output the ide information file.

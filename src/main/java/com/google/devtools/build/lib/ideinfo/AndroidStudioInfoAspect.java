@@ -55,12 +55,15 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.TestInfo;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
@@ -361,6 +364,17 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     if (androidIdeInfoProvider != null) {
       outputBuilder.setAndroidRuleIdeInfo(makeAndroidRuleIdeInfo(base,
           androidIdeInfoProvider, dependenciesResult, ideResolveArtifacts));
+    }
+
+    // Test rules
+    if (TargetUtils.isTestRule(base.getTarget())) {
+      TestInfo.Builder builder = TestInfo.newBuilder();
+      String attr = NonconfigurableAttributeMapper.of(base.getTarget().getAssociatedRule())
+          .get("size", Type.STRING);
+      if (attr != null) {
+        builder.setSize(attr);
+      }
+      outputBuilder.setTestInfo(builder);
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
