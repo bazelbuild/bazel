@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -561,6 +563,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .setProductType(productType.getIdentifier())
             .addSupportFile(buildFilePath)
             .addAllImportedLibrary(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
+            .addAllImportedLibrary(Artifact.toExecPaths(ccLibraries(objcProvider)))
             .addAllUserHeaderSearchPath(userHeaderSearchPaths)
             .addAllHeaderSearchPath(headerSearchPaths)
             .addAllSupportFile(Artifact.toExecPaths(headers))
@@ -698,5 +701,13 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         }
       }
     });
+  }
+
+  private ImmutableList<Artifact> ccLibraries(ObjcProvider objcProvider) {
+    ImmutableList.Builder<Artifact> ccLibraryBuilder = ImmutableList.builder();
+    for (LinkerInputs.LibraryToLink libraryToLink : objcProvider.get(CC_LIBRARY)) {
+      ccLibraryBuilder.add(libraryToLink.getArtifact());
+    }
+    return ccLibraryBuilder.build();
   }
 }
