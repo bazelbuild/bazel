@@ -13,12 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-def create_android_sdk_rules(name, build_tools_version, api_level, workspace_name):
+def create_android_sdk_rules(
+    name,
+    build_tools_version,
+    build_tools_directory,
+    api_level,
+    workspace_name):
   """Generate the contents of the android_sdk_repository.
 
   Args:
     name: string, the name of the repository being generated.
-    build_tools: string, the version of Android's build tools to work with.
+    build_tools_version: string, the version of Android's build tools to use.
+    build_tools_directory: string, the directory name of the build tools in
+        sdk's build-tools directory.
     api_level: int, the API level from which to get android.jar et al.
     workspace_name: string, the local workspace's name.
   """
@@ -153,7 +160,7 @@ def create_android_sdk_rules(name, build_tools_version, api_level, workspace_nam
       android_jar = "platforms/android-%d/android.jar" % api_level,
       shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
       annotations_jar = "tools/support/annotations.jar",
-      main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_version,
+      main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
       apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
       zipalign = ":zipalign_binary",
       android_jack = ":empty",
@@ -176,9 +183,9 @@ def create_android_sdk_rules(name, build_tools_version, api_level, workspace_nam
   native.filegroup(
       name = "build_tools_libs",
       srcs = native.glob([
-          "build-tools/%s/lib/**" % build_tools_version,
+          "build-tools/%s/lib/**" % build_tools_directory,
           # Build tools version 24.0.0 added a lib64 folder.
-          "build-tools/%s/lib64/**" % build_tools_version,
+          "build-tools/%s/lib64/**" % build_tools_directory,
       ])
   )
 
@@ -192,7 +199,7 @@ def create_android_sdk_rules(name, build_tools_version, api_level, workspace_nam
            # so we can't simply depend on them as a file like we do with aapt.
            # TODO(kchodorow): change this to SDK=$${0}.runfiles/%s once runfiles are restructured.
            "SDK=$${0}.runfiles/%s/external/%s" % (workspace_name, name),
-           "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_version, tool),
+           "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
            "EOF\n"]),
   ) for tool in ["aapt", "aidl", "zipalign"]]
 
@@ -201,7 +208,7 @@ def create_android_sdk_rules(name, build_tools_version, api_level, workspace_nam
       srcs = [tool + "_runner.sh"],
       data = [
           ":build_tools_libs",
-          "build-tools/%s/%s" % (build_tools_version, tool)
+          "build-tools/%s/%s" % (build_tools_directory, tool)
       ],
   ) for tool in ["aapt", "aidl", "zipalign"]]
 
@@ -256,7 +263,7 @@ def create_android_sdk_rules(name, build_tools_version, api_level, workspace_nam
 
   native.filegroup(
       name = "dx_jar",
-      srcs = ["build-tools/%s/lib/dx.jar" % build_tools_version],
+      srcs = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
   )
 
   native.java_import(

@@ -20,15 +20,22 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.skyframe.FileSymlinkException;
+import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.Properties;
 
 /**
  * Implementation of the {@code android_sdk_repository} rule.
@@ -43,6 +50,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
           throws SkyFunctionException {
+
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
 
@@ -52,8 +60,28 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     }
 
     AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-    String buildToolsVersion = attributes.get("build_tools_version", Type.STRING);
+    String buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
     Integer apiLevel = attributes.get("api_level", Type.INTEGER);
+
+    // android_sdk_repository.build_tools_version is technically actually the name of the
+    // directory in $sdk/build-tools. Most of the time this is just the actual build tools
+    // version, but for preview build tools, the directory is something like 24.0.0-preview, and
+    // the actual version is something like "24 rc3". The android_sdk rule in the template needs
+    // the real version.
+    String buildToolsVersion;
+    if (buildToolsDirectory.contains("-preview")) {
+
+      Properties sourceProperties =
+          getBuildToolsSourceProperties(outputDirectory, buildToolsDirectory, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      buildToolsVersion = sourceProperties.getProperty("Pkg.Revision");
+
+    } else {
+      buildToolsVersion = buildToolsDirectory;
+    }
 
     String template = getStringResource("android_sdk_repository_template.txt");
 
@@ -61,6 +89,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
         .replaceAll("%workspace_name%", rule.getWorkspaceName())
         .replaceAll("%repository_name%", rule.getName())
         .replaceAll("%build_tools_version%", buildToolsVersion)
+        .replaceAll("%build_tools_directory%", buildToolsDirectory)
         .replaceAll("%api_level%", apiLevel.toString());
 
     writeBuildFile(outputDirectory, buildFile);
@@ -78,6 +107,33 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
           AndroidSdkRepositoryFunction.class, name);
     } catch (IOException e) {
       throw new IllegalStateException(e);
+    }
+  }
+
+  private static Properties getBuildToolsSourceProperties(
+      Path directory, String buildToolsDirectory, Environment env)
+          throws RepositoryFunctionException {
+
+    Path sourcePropertiesFilePath = directory.getRelative(
+        "build-tools/" + buildToolsDirectory + "/source.properties");
+
+    SkyKey releaseFileKey = FileValue.key(
+        RootedPath.toRootedPath(directory, sourcePropertiesFilePath));
+
+    try {
+      env.getValueOrThrow(releaseFileKey,
+          IOException.class,
+          FileSymlinkException.class,
+          InconsistentFilesystemException.class);
+
+      Properties properties = new Properties();
+      properties.load(sourcePropertiesFilePath.getInputStream());
+      return properties;
+
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      String error = String.format(
+          "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());
+      throw new RepositoryFunctionException(new IOException(error), Transience.PERSISTENT);
     }
   }
 }
