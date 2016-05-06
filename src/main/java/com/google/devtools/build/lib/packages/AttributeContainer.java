@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.events.Location;
 
 import java.util.BitSet;
@@ -47,7 +46,7 @@ public class AttributeContainer {
   /**
    * Create a container for a rule of the given rule class.
    */
-  public AttributeContainer(RuleClass ruleClass) {
+  AttributeContainer(RuleClass ruleClass) {
    this(ruleClass, new Location[ruleClass.getAttributeCount()]);
   }
   
@@ -118,12 +117,4 @@ public class AttributeContainer {
     Integer index = ruleClass.getAttributeIndex(attribute.getName());
     attributeLocations[index] = location;
   }
-
-  public static final Function<RuleClass, AttributeContainer> ATTRIBUTE_CONTAINER_FACTORY =
-      new Function<RuleClass, AttributeContainer>() {
-        @Override
-        public AttributeContainer apply(RuleClass ruleClass) {
-          return new AttributeContainer(ruleClass);
-        }
-      };
 }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -332,48 +331,31 @@ public final class PackageFactory {
    */
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider) {
-    this(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        ImmutableList.<EnvironmentExtension>of(),
-        "test");
+    this(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of(), "test");
   }
 
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider,
       EnvironmentExtension environmentExtension) {
-    this(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        ImmutableList.of(environmentExtension),
-        "test");
+    this(ruleClassProvider, null, ImmutableList.of(environmentExtension), "test");
   }
 
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider,
       Iterable<EnvironmentExtension> environmentExtensions) {
-    this(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        environmentExtensions,
-        "test");
+    this(ruleClassProvider, null, environmentExtensions, "test");
   }
 
   /**
    * Constructs a {@code PackageFactory} instance with a specific glob path translator
    * and rule factory.
    */
-  public PackageFactory(
-      RuleClassProvider ruleClassProvider,
+  public PackageFactory(RuleClassProvider ruleClassProvider,
       Map<String, String> platformSetRegexps,
-      Function<RuleClass, AttributeContainer> attributeContainerFactory,
       Iterable<EnvironmentExtension> environmentExtensions,
       String version) {
     this.platformSetRegexps = platformSetRegexps;
-    this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
+    this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
     threadPool = new ThreadPoolExecutor(100, 100, 15L, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>(),
@@ -1120,8 +1102,7 @@ public final class PackageFactory {
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
     RuleClass ruleClass = getBuiltInRuleClass(ruleClassName, ruleFactory);
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
-    AttributeContainer attributeContainer = ruleFactory.getAttributeContainer(ruleClass);
-    RuleFactory.createAndAddRule(context, ruleClass, attributeValues, ast, env, attributeContainer);
+    RuleFactory.createAndAddRule(context, ruleClass, attributeValues, ast, env);
   }
 
   private static RuleClass getBuiltInRuleClass(String ruleClassName, RuleFactory ruleFactory) {
@@ -1393,21 +1374,17 @@ public final class PackageFactory {
    * footprint when making changes here!
    */
   public static class PackageContext {
+
     final Package.LegacyBuilder pkgBuilder;
     final Globber globber;
     final EventHandler eventHandler;
-    private final Function<RuleClass, AttributeContainer> attributeContainerFactory;
 
     @VisibleForTesting
-    public PackageContext(
-        Package.LegacyBuilder pkgBuilder,
-        Globber globber,
-        EventHandler eventHandler,
-        Function<RuleClass, AttributeContainer> attributeContainerFactory) {
+    public PackageContext(Package.LegacyBuilder pkgBuilder, Globber globber,
+        EventHandler eventHandler) {
       this.pkgBuilder = pkgBuilder;
       this.eventHandler = eventHandler;
       this.globber = globber;
-      this.attributeContainerFactory = attributeContainerFactory;
     }
 
     /**
@@ -1429,10 +1406,6 @@ public final class PackageFactory {
      */
     public Package.Builder getBuilder() {
       return pkgBuilder;
-    }
-
-    public Function<RuleClass, AttributeContainer> getAttributeContainerFactory() {
-      return attributeContainerFactory;
     }
   }
 
@@ -1548,9 +1521,7 @@ public final class PackageFactory {
       Event.replayEventsOn(eventHandler, pastEvents);
 
       // Stuff that closes over the package context:
-      PackageContext context =
-          new PackageContext(
-              pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
+      PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
       buildPkgEnv(pkgEnv, context, ruleFactory);
       pkgEnv.setupDynamic(PKG_CONTEXT, context);
       pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.getPackageFragment().getPathString());
@@ -1622,12 +1593,7 @@ public final class PackageFactory {
           .setDefaultVisibilitySet(false);
 
       // Stuff that closes over the package context:
-      PackageContext context =
-          new PackageContext(
-              pkgBuilder,
-              globber,
-              NullEventHandler.INSTANCE,
-              ruleFactory.getAttributeContainerFactory());
+      PackageContext context = new PackageContext(pkgBuilder, globber, NullEventHandler.INSTANCE);
       buildPkgEnv(pkgEnv, context, ruleFactory);
       try {
         pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/true));

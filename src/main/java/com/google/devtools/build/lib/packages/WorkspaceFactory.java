@@ -329,11 +329,11 @@ public class WorkspaceFactory {
                     ruleClass,
                     nameLabel,
                     actual == null ? null : Label.parseAbsolute(actual),
-                    ast.getLocation(),
-                    ruleFactory.getAttributeContainer(ruleClass));
-          } catch (RuleFactory.InvalidRuleException
-              | Package.NameConflictException
-              | LabelSyntaxException e) {
+                    ast.getLocation());
+          } catch (
+              RuleFactory.InvalidRuleException | Package.NameConflictException
+                      | LabelSyntaxException
+                  e) {
             throw new EvalException(ast.getLocation(), e.getMessage());
           }
 
@@ -390,8 +390,7 @@ public class WorkspaceFactory {
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(
       RuleClassProvider ruleClassProvider, boolean allowOverride) {
     ImmutableMap.Builder<String, BaseFunction> mapBuilder = ImmutableMap.builder();
-    RuleFactory ruleFactory =
-        new RuleFactory(ruleClassProvider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     mapBuilder.put(BIND, newBindFunction(ruleFactory));
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       if (!ruleClass.equals(BIND)) {
@@ -422,8 +421,7 @@ public class WorkspaceFactory {
       }
       workspaceEnv.setupDynamic(
           PackageFactory.PKG_CONTEXT,
-          new PackageFactory.PackageContext(
-              builder, null, localReporter, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY));
+          new PackageFactory.PackageContext(builder, null, localReporter));
     } catch (EvalException e) {
       throw new AssertionError(e);
     }

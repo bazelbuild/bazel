@@ -531,13 +531,7 @@ public class SkylarkRuleClassFunctions {
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         BuildLangTypedAttributeValuesMap attributeValues =
             new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
-        return RuleFactory.createAndAddRule(
-            pkgContext,
-            ruleClass,
-            attributeValues,
-            ast,
-            env,
-            pkgContext.getAttributeContainerFactory().apply(ruleClass));
+        return RuleFactory.createAndAddRule(pkgContext, ruleClass, attributeValues, ast, env);
       } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
