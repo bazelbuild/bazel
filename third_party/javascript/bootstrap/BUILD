@@ -12,4 +12,5 @@ filegroup(
         "js/bootstrap.js",
         "js/bootstrap.min.js",
     ],
+    visibility = ["//site:__pkg__"],
 )

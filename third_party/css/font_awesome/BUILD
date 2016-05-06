@@ -12,9 +12,11 @@ filegroup(
         "css/font-awesome.css",
         "css/font-awesome.min.css",
     ],
+    visibility = ["//site:__pkg__"],
 )
 
 filegroup(
     name = "font_awesome_font",
     srcs = glob(["fonts/fontawesome-webfont.*"]),
+    visibility = ["//site:__pkg__"],
 )
