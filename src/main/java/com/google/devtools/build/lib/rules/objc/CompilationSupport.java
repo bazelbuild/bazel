@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
@@ -169,6 +170,17 @@ public final class CompilationSupport {
         @Override
         public boolean apply(Artifact artifact) {
           return !artifact.getFilename().endsWith(".inc");
+        }
+      };
+
+  /**
+   * Selects cc libraries that have alwayslink=1.
+   */
+  private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
+      new Predicate<Artifact>() {
+        @Override
+        public boolean apply(Artifact input) {
+          return LINK_LIBRARY_FILETYPES.matches(input.getFilename());
         }
       };
 
@@ -1071,9 +1083,13 @@ public final class CompilationSupport {
           .addExecPaths(ccLibraries);
     }
 
+    Iterable<Artifact> ccLibrariesToForceLoad =
+        Iterables.filter(ccLibraries, ALWAYS_LINKED_CC_LIBRARY);
+
     commandLine
         .addExecPath("-o", linkedBinary)
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
+        .addBeforeEach("-force_load", Artifact.toExecPaths(ccLibrariesToForceLoad))
         .add(extraLinkArgs)
         .add(objcProvider.get(ObjcProvider.LINKOPT));
 
