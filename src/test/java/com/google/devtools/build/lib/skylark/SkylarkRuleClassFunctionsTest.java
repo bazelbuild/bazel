@@ -32,17 +32,15 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
-import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.RuleFunction;
-import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Pair;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -237,21 +235,61 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   attrs = { '_extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
     SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
-    Pair<String, Descriptor> pair = Iterables.getOnlyElement(aspect.getAttributes());
-    assertThat(pair.first).isEqualTo("$extra_deps");
-    assertThat(pair.second.getAttributeBuilder().build("$extra_deps").getDefaultValue(null))
+    Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(attribute.getName()).isEqualTo("$extra_deps");
+    assertThat(attribute.getDefaultValue(null))
         .isEqualTo(Label.parseAbsolute("//foo/bar:baz", false));
   }
 
   @Test
-  public void testAspectNonImplicitAttribute() throws Exception {
-    checkErrorContains(
-        "Aspect attribute 'extra_deps' must be implicit (its name should start with '_')",
+  public void testAspectParameter() throws Exception {
+    evalAndExport(
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",
-        "   attrs = { 'extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
+        "   attrs = { 'param' : attr.string(values=['a', 'b']) }",
         ")");
+    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(attribute.getName()).isEqualTo("param");
+  }
+  
+  @Test
+  public void testAspectParameterRequiresValues() throws Exception {
+    checkErrorContains(
+        "Aspect parameter attribute 'param' must have type 'string' and use the 'values' "
+        + "restriction.",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(default = 'c') }",
+        ")");
+  }
+
+  @Test
+  public void testAspectParameterBadType() throws Exception {
+    checkErrorContains(
+        "Aspect parameter attribute 'param' must have type 'string' and use the 'values' "
+        + "restriction.",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.label(default = Label('//foo/bar:baz')) }",
+        ")");
+  }
+
+  @Test
+  public void testAspectParameterAndExtraDeps() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'param' : attr.string(values=['a', 'b']),",
+        "             '_extra' : attr.label(default = Label('//foo/bar:baz')) }",
+        ")");
+    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    assertThat(aspect.getAttributes()).hasSize(2);
+    assertThat(aspect.getParamAttributes()).containsExactly("param");
   }
 
   @Test

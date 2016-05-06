@@ -58,7 +58,7 @@ public final class AspectParameters {
   }
 
   /**
-   * Returns collection of values for specified key, or null if key is missing.
+   * Returns collection of values for specified key, or an empty collection if key is missing.
    */
   public ImmutableCollection<String> getAttribute(String key) {
     return attributes.get(key);

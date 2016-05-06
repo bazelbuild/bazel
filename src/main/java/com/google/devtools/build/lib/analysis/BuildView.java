@@ -560,11 +560,13 @@ public class BuildView {
     // Tests. This must come last, so that the exclusive tests are scheduled after everything else.
     scheduleTestsIfRequested(parallelTests, exclusiveTests, topLevelOptions, allTargetsToTest);
 
-    String error = loadingResult.hasLoadingError() || skyframeAnalysisResult.hasLoadingError()
-          ? "execution phase succeeded, but there were loading phase errors"
-          : skyframeAnalysisResult.hasAnalysisError()
-            ? "execution phase succeeded, but not all targets were analyzed"
-            : null;
+    String error = loadingResult.hasTargetPatternError()
+        ? "execution phase successful, but there were errors parsing the target pattern"
+        : loadingResult.hasLoadingError() || skyframeAnalysisResult.hasLoadingError()
+            ? "execution phase succeeded, but there were loading phase errors"
+            : skyframeAnalysisResult.hasAnalysisError()
+                ? "execution phase succeeded, but not all targets were analyzed"
+                : null;
 
     final WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
     final ActionGraph actionGraph = new ActionGraph() {

@@ -532,6 +532,215 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testAspectParametersUncovered() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectUncovered = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
+        ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (Exception e) {
+      // expect to fail.
+    }
+    assertContainsEvent(//"ERROR /workspace/test/aspect.bzl:9:11: "
+        "Aspect //test:aspect.bzl%MyAspectUncovered requires rule my_rule to specify attribute "
+        + "'my_attr' with type string.");
+  }
+
+  @Test
+  public void testAspectParametersTypeMismatch() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectMismatch = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),",
+        "              'my_attr' : attr.int() },",
+       ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx', my_attr = 4)");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (Exception e) {
+      // expect to fail.
+    }
+    assertContainsEvent(
+        "Aspect //test:aspect.bzl%MyAspectMismatch requires rule my_rule to specify attribute "
+        + "'my_attr' with type string.");
+  }
+
+  @Test
+  public void testAspectParametersBadDefault() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectBadDefault = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['a'], default='b') },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },",
+        ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (Exception e) {
+      // expect to fail.
+    }
+    assertContainsEvent("ERROR /workspace/test/aspect.bzl:5:22: "
+        + "Aspect parameter attribute 'my_attr' has a bad default value: has to be one of 'a' "
+        + "instead of 'b'");
+  }
+
+  @Test
+  public void testAspectParametersBadValue() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectBadValue = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['a']) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadValue]),",
+        "              'my_attr' : attr.string() },",
+        ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx', my_attr='b')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (Exception e) {
+      // expect to fail.
+    }
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: //test:xxx: invalid value in 'my_attr' "
+        + "attribute: has to be one of 'a' instead of 'b'");
+  }
+
+  @Test
+  public void testAspectParameters() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspect = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspect]),",
+        "              'my_attr' : attr.string() },",
+        ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx', my_attr = 'aaa')");
+
+    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testAspectParametersOptional() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectOptParam = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['aaa'], default='aaa') },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectOptParam]) },",
+        ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx')");
+
+    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testAspectParametersOptionalOverride() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   if (ctx.attr.my_attr == 'a'):",
+        "       fail('Rule is not overriding default, still has value ' + ctx.attr.my_attr)",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspectOptOverride = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { 'my_attr' : attr.string(values=['a', 'b'], default='a') },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectOptOverride]),",
+        "              'my_attr' : attr.string() },",
+        ")");
+    scratch.file("test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx', my_attr = 'b')");
+
+    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
   public void multipleExecutablesInTarget() throws Exception {
     scratch.file("foo/extension.bzl",
         "def _aspect_impl(target, ctx):",

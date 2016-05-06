@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImp
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
+import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -64,14 +64,12 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.packages.SkylarkAspectClass;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -82,7 +80,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -415,9 +412,12 @@ public class SkylarkRuleClassFunctions {
         + "It maps from an attribute name to an attribute object "
         + "(see <a href=\"attr.html\">attr</a> module). "
         + "Aspect attributes are available to implementation function as fields of ctx parameter. "
-        + "All aspect attributes must be private, so their names must start with <code>_</code>. "
-        + "All aspect attributes must be have default values, and be of type "
-        + "<code>label</code> or <code>label_list</code>"
+        + "Implicit attributes starting with <code>_</code> must have default values, and have "
+        + "type <code>label</code> or <code>label_list</code>."
+        + "Explicit attributes must have type <code>string</code>, and must use the "
+        + "<code>values</code> restriction. If explicit attributes are present, the aspect can "
+        + "only be used with rules that have attributes of the same name and type, with valid "
+        + "values. "
       ),
       @Param(
         name = "fragments",
@@ -465,31 +465,55 @@ public class SkylarkRuleClassFunctions {
             }
           }
 
-          ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
+          ImmutableList<Pair<String, SkylarkAttr.Descriptor>> descriptors =
               attrObjectToAttributesList(attrs, ast);
-          for (Pair<String, Descriptor> attribute : attributes) {
-            String nativeName = attribute.getFirst();
-            if (!Attribute.isImplicit(nativeName)) {
-              throw new EvalException(
-                  ast.getLocation(),
-                  String.format(
-                      "Aspect attribute '%s' must be implicit (its name should start with '_').",
-                      nativeName));
+          ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
+          ImmutableSet.Builder<String> requiredParams = ImmutableSet.<String>builder();
+          for (Pair<String, Descriptor> descriptor : descriptors) {
+            String nativeName = descriptor.getFirst();
+            boolean hasDefault = descriptor.getSecond().getAttributeBuilder().isValueSet();
+            Attribute attribute = descriptor.second.getAttributeBuilder().build(descriptor.first);
+            if (attribute.getType() == Type.STRING
+                && ((String) attribute.getDefaultValue(null)).isEmpty()) {
+              hasDefault = false;  // isValueSet() is always true for attr.string.
             }
-
-            String skylarkName = "_" + nativeName.substring(1);
-
-            if (!attribute.getSecond().getAttributeBuilder().isValueSet()) {
+            if (!Attribute.isImplicit(nativeName)) {
+              if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
+                throw new EvalException(
+                    ast.getLocation(),
+                    String.format(
+                        "Aspect parameter attribute '%s' must have type 'string' and use the "
+                        + "'values' restriction.",
+                        nativeName));
+              }
+              if (!hasDefault) {
+                requiredParams.add(nativeName);
+              } else {
+                PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
+                Object defaultVal = attribute.getDefaultValue(null);
+                if (!allowed.apply(defaultVal)) {
+                  throw new EvalException(
+                      ast.getLocation(),
+                      String.format(
+                          "Aspect parameter attribute '%s' has a bad default value: %s",
+                          nativeName,
+                          allowed.getErrorReason(defaultVal)));
+                }
+              }
+            } else if (!hasDefault) {  // Implicit attribute
+              String skylarkName = "_" + nativeName.substring(1);
               throw new EvalException(
                   ast.getLocation(),
                   String.format("Aspect attribute '%s' has no default value.", skylarkName));
             }
+            attributes.add(attribute);
           }
 
           return new SkylarkAspect(
               implementation,
               attrAspects.build(),
-              attributes,
+              attributes.build(),
+              requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
               funcallEnv);
@@ -528,6 +552,24 @@ public class SkylarkRuleClassFunctions {
           throw new EvalException(ast.getLocation(),
               "Invalid rule class hasn't been exported by a Skylark file");
         }
+
+        for (Attribute attribute : ruleClass.getAttributes()) {
+          // TODO(dslomov): If a Skylark parameter extractor is specified for this aspect, its
+          // attributes may not be required.
+          for (Map.Entry<String, ImmutableSet<String>> attrRequirements :
+               attribute.getRequiredAspectParameters().entrySet()) {
+            for (String required : attrRequirements.getValue()) {
+              if (!ruleClass.hasAttr(required, Type.STRING)) {
+                throw new EvalException(definitionLocation, String.format(
+                    "Aspect %s requires rule %s to specify attribute '%s' with type string.",
+                    attrRequirements.getKey(),
+                    ruleClass.getName(),
+                    required));
+              }
+            }
+          }
+        }
+
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         BuildLangTypedAttributeValuesMap attributeValues =
             new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
@@ -555,7 +597,7 @@ public class SkylarkRuleClassFunctions {
             throw new EvalException(definitionLocation,
                 "All aspects applied to rule dependencies must be top-level values");
           }
-          attributeBuilder.aspect(skylarkAspect.getAspectClass(), skylarkAspect.getDefinition());
+          attributeBuilder.aspect(skylarkAspect);
         }
 
         addAttribute(definitionLocation, builder,
@@ -847,92 +889,5 @@ public class SkylarkRuleClassFunctions {
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
-  }
-
-  /**
-   * A Skylark value that is a result of 'aspect(..)' function call.
-   */
-  @SkylarkModule(name = "aspect", doc = "", documented = false)
-  public static final class SkylarkAspect implements SkylarkValue {
-    private final BaseFunction implementation;
-    private final ImmutableList<String> attributeAspects;
-    private final ImmutableList<Pair<String, Descriptor>> attributes;
-    private final ImmutableSet<String> fragments;
-    private final ImmutableSet<String> hostFragments;
-    private final Environment funcallEnv;
-    private SkylarkAspectClass aspectClass;
-
-    public SkylarkAspect(
-        BaseFunction implementation,
-        ImmutableList<String> attributeAspects,
-        ImmutableList<Pair<String, Descriptor>> attributes,
-        ImmutableSet<String> fragments,
-        ImmutableSet<String> hostFragments,
-        Environment funcallEnv) {
-      this.implementation = implementation;
-      this.attributeAspects = attributeAspects;
-      this.attributes = attributes;
-      this.fragments = fragments;
-      this.hostFragments = hostFragments;
-      this.funcallEnv = funcallEnv;
-    }
-
-    public BaseFunction getImplementation() {
-      return implementation;
-    }
-
-    public ImmutableList<String> getAttributeAspects() {
-      return attributeAspects;
-    }
-
-    public Environment getFuncallEnv() {
-      return funcallEnv;
-    }
-
-    public ImmutableList<Pair<String, Descriptor>> getAttributes() {
-      return attributes;
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return implementation.isImmutable();
-    }
-
-    @Override
-    public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "Aspect:");
-      implementation.write(buffer, quotationMark);
-    }
-
-    public String getName() {
-      return getAspectClass().getName();
-    }
-
-    public SkylarkAspectClass getAspectClass() {
-      Preconditions.checkState(isExported());
-      return aspectClass;
-    }
-
-    void export(Label extensionLabel, String name) {
-      Preconditions.checkArgument(!isExported());
-      this.aspectClass = new SkylarkAspectClass(extensionLabel, name);
-    }
-
-    public boolean isExported() {
-      return aspectClass != null;
-    }
-
-    public AspectDefinition getDefinition() {
-      AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
-      for (String attributeAspect : attributeAspects) {
-        builder.attributeAspect(attributeAspect, aspectClass);
-      }
-      for (Pair<String, Descriptor> attribute : attributes) {
-        builder.add(attribute.second.getAttributeBuilder().build(attribute.first));
-      }
-      builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
-      builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
-      return builder.build();
-    }
   }
 }

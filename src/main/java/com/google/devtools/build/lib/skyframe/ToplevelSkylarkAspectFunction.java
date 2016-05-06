@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectLoadingKey;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
@@ -66,11 +66,15 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     try {
       skylarkAspect = AspectFunction.loadSkylarkAspect(
           env, labelLookupMap.get(extensionFile), skylarkValueName);
+      if (skylarkAspect == null) {
+        return null;
+      }
+      if (!skylarkAspect.getParamAttributes().isEmpty()) {
+        throw new AspectCreationException("Cannot instantiate parameterized aspect "
+            + skylarkAspect.getName() + " at the top level.", labelLookupMap.get(extensionFile));
+      }
     } catch (AspectCreationException e) {
       throw new LoadSkylarkAspectFunctionException(e);
-    }
-    if (skylarkAspect == null) {
-      return null;
     }
     SkyKey aspectKey =
         AspectValue.key(

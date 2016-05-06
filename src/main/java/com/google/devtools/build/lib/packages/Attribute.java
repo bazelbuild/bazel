@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -61,6 +62,9 @@ public final class Attribute implements Comparable<Attribute> {
 
   public static final Predicate<RuleClass> NO_RULE = Predicates.alwaysFalse();
 
+  /**
+   * Wraps the information necessary to construct an Aspect.
+   */
   private abstract static class RuleAspect<C extends AspectClass> {
     protected final C aspectClass;
     protected final Function<Rule, AspectParameters> parametersExtractor;
@@ -68,6 +72,14 @@ public final class Attribute implements Comparable<Attribute> {
     protected RuleAspect(C aspectClass, Function<Rule, AspectParameters> parametersExtractor) {
       this.aspectClass = aspectClass;
       this.parametersExtractor = parametersExtractor;
+    }
+
+    public String getName() {
+      return this.aspectClass.getName();
+    }
+
+    public ImmutableSet<String> getRequiredParameters() {
+      return ImmutableSet.<String>of();
     }
 
     public abstract Aspect getAspect(Rule rule);
@@ -86,19 +98,40 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   private static class SkylarkRuleAspect extends RuleAspect<SkylarkAspectClass> {
-    private final AspectDefinition definition;
+    private final SkylarkAspect aspect;
 
-    public SkylarkRuleAspect(SkylarkAspectClass aspectClass, AspectDefinition definition) {
-      super(aspectClass, NO_PARAMETERS);
-      this.definition = definition;
+    public SkylarkRuleAspect(SkylarkAspect aspect) {
+      super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor());
+      this.aspect = aspect;
+    }
+
+    @Override
+    public ImmutableSet<String> getRequiredParameters() {
+      return aspect.getParamAttributes();
     }
 
     @Override
     public Aspect getAspect(Rule rule) {
-      return Aspect.forSkylark(
-          aspectClass,
-          definition,
-          parametersExtractor.apply(rule));
+      AspectParameters parameters = parametersExtractor.apply(rule);
+      return Aspect.forSkylark(aspectClass, aspect.getDefinition(parameters), parameters);
+    }
+  }
+
+  /**
+   * A RuleAspect that just wraps a pre-existing Aspect that doesn't vary with the Rule.
+   * For instance, this may come from a DeserializedSkylarkAspect.
+   */
+  private static class PredefinedRuleAspect extends RuleAspect<AspectClass> {
+    private Aspect aspect;
+
+    public PredefinedRuleAspect(Aspect aspect) {
+      super(aspect.getAspectClass(), null);
+      this.aspect = aspect;
+    }
+
+    @Override
+    public Aspect getAspect(Rule rule) {
+      return aspect;
     }
   }
 
@@ -351,14 +384,13 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  private static final Function<Rule, AspectParameters> NO_PARAMETERS =
-      new Function<Rule, AspectParameters>() {
-        @Override
-        public AspectParameters apply(Rule input) {
-          return AspectParameters.EMPTY;
-        }
-      };
-
+  public ImmutableMap<String, ImmutableSet<String>> getRequiredAspectParameters() {
+    ImmutableMap.Builder<String, ImmutableSet<String>> paramBuilder = ImmutableMap.builder();
+    for (RuleAspect<?> aspect : aspects) {
+      paramBuilder.put(aspect.getName(), aspect.getRequiredParameters());
+    }
+    return paramBuilder.build();
+  }
 
   /**
    * Creates a new attribute builder.
@@ -871,8 +903,13 @@ public final class Attribute implements Comparable<Attribute> {
       return this.aspect(aspect, noParameters);
     }
 
-    public Builder<TYPE> aspect(SkylarkAspectClass aspectClass, AspectDefinition definition) {
-      this.aspects.add(new SkylarkRuleAspect(aspectClass, definition));
+    public Builder<TYPE> aspect(SkylarkAspect skylarkAspect) {
+      this.aspects.add(new SkylarkRuleAspect(skylarkAspect));
+      return this;
+    }
+
+    public Builder<TYPE> aspect(final Aspect aspect) {
+      this.aspects.add(new PredefinedRuleAspect(aspect));
       return this;
     }
 
@@ -1637,8 +1674,9 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns a replica builder of this Attribute.
    */
-  public Attribute.Builder<?> cloneBuilder() {
-    Builder<?> builder = new Builder<>(name, this.type);
+  public <TYPE> Attribute.Builder<TYPE> cloneBuilder(Type<TYPE> tp) {
+    Preconditions.checkArgument(tp == this.type);
+    Builder<TYPE> builder = new Builder<TYPE>(name, tp);
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
@@ -1654,5 +1692,9 @@ public final class Attribute implements Comparable<Attribute> {
     builder.aspects = new LinkedHashSet<>(aspects);
 
     return builder;
+  }
+
+  public Attribute.Builder<?> cloneBuilder() {
+    return cloneBuilder(this.type);
   }
 }

@@ -41,10 +41,10 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
@@ -144,7 +144,7 @@ public final class AspectFunction implements SkyFunction {
       aspectFactory = new SkylarkAspectFactory(skylarkAspect);
       aspect = Aspect.forSkylark(
           skylarkAspect.getAspectClass(),
-          skylarkAspect.getDefinition(),
+          skylarkAspect.getDefinition(key.getParameters()),
           key.getParameters());
     } else {
       throw new IllegalStateException();

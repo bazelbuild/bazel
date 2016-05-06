@@ -55,7 +55,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       SkylarkAspectClass skylarkAspectClass,
       AspectDefinition definition,
       AspectParameters parameters) {
-    return new Aspect(skylarkAspectClass,  definition, parameters);
+    return new Aspect(skylarkAspectClass, definition, parameters);
   }
 
   /**

@@ -178,9 +178,12 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       }
     }
 
-    if (!keepGoing && result.hasError()) {
+    if (result.hasError()) {
       Preconditions.checkState(errorMessage != null, "unexpected errors: %s", result.errorMap());
-      throw new TargetParsingException(errorMessage);
+      finalTargetSetEvaluator.setError();
+      if (!keepGoing) {
+        throw new TargetParsingException(errorMessage);
+      }
     }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
     return finalTargetSetEvaluator.build(walkableGraph);

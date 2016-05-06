@@ -1343,6 +1343,7 @@ public final class RuleClass {
       throws LabelSyntaxException, InterruptedException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
+    checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
     if (ast != null) {
       populateAttributeLocations(rule, ast);
@@ -1736,6 +1737,30 @@ public final class RuleClass {
                   attribute.getName(),
                   allowedValues.getErrorReason(value)),
               eventHandler);
+        }
+      }
+    }
+  }
+
+  private static void checkAspectAllowedValues(
+      Rule rule, EventHandler eventHandler) {
+    for (Attribute attrOfRule : rule.getAttributes()) {
+      for (Aspect aspect : attrOfRule.getAspects(rule)) {
+        for (Attribute attrOfAspect : aspect.getDefinition().getAttributes().values()) {
+          // By this point the AspectDefinition has been created and values assigned.
+          if (attrOfAspect.checkAllowedValues()) {
+            PredicateWithMessage<Object> allowedValues = attrOfAspect.getAllowedValues();
+            Object value = attrOfAspect.getDefaultValue(rule);
+            if (!allowedValues.apply(value)) {
+              rule.reportError(
+                  String.format(
+                      "%s: invalid value in '%s' attribute: %s",
+                      rule.getLabel(),
+                      attrOfAspect.getName(),
+                      allowedValues.getErrorReason(value)),
+                  eventHandler);
+            }
+          }
         }
       }
     }

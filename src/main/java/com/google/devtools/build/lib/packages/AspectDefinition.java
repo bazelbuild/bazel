@@ -23,6 +23,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -289,7 +290,9 @@ public final class AspectDefinition {
      * configuration is available, starting with ':')
      */
     public Builder add(Attribute attribute) {
-      Preconditions.checkArgument(attribute.isImplicit() || attribute.isLateBound());
+      Preconditions.checkArgument(attribute.isImplicit() || attribute.isLateBound()
+          || (attribute.getType() == Type.STRING && attribute.checkAllowedValues()),
+          "Invalid attribute '%s' (%s)", attribute.getName(), attribute.getType());
       Preconditions.checkArgument(!attributes.containsKey(attribute.getName()),
           "An attribute with the name '%s' already exists.", attribute.getName());
       attributes.put(attribute.getName(), attribute);
