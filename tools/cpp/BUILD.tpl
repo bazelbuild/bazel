@@ -13,11 +13,6 @@ filegroup(
     srcs = [],
 )
 
-filegroup(
-    name = "cc_wrapper",
-    srcs = ["cc_wrapper.sh"],
-)
-
 # This is the entry point for --crosstool_top.  Toolchains are found
 # by lopping off the name of --crosstool_top and searching for
 # the "${CPU}" entry in the toolchains attribute.
@@ -32,11 +27,11 @@ cc_toolchain_suite(
 cc_toolchain(
     name = "cc-compiler-%{name}",
     all_files = ":empty",
-    compiler_files = ":cc_wrapper",
+    compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
-    linker_files = ":cc_wrapper",
+    linker_files = ":empty",
     objcopy_files = ":empty",
     static_runtime_libs = [":empty"],
     strip_files = ":empty",

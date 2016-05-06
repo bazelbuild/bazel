@@ -50,7 +50,7 @@ def _which(repository_ctx, cmd, default):
   return default if result == None else str(result)
 
 
-def _get_tool_paths(repository_ctx, darwin):
+def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools."""
   return {k: _which(repository_ctx, k, "/usr/bin/" + k)
           for k in [
@@ -63,7 +63,7 @@ def _get_tool_paths(repository_ctx, darwin):
               "objdump",
               "strip",
           ]} + {
-              "gcc": "cc_wrapper.sh",
+              "gcc": cc,
               "ar": "/usr/bin/libtool"
                     if darwin else _which(repository_ctx, "ar", "/usr/bin/ar")
           }
@@ -289,23 +289,12 @@ def _find_cc(repository_ctx):
   return cc
 
 
-def _tpl(repository_ctx, tpl, substitutions={}, out=None):
-  if not out:
-    out = tpl
+def _tpl(repository_ctx, tpl, substitutions={}):
   repository_ctx.template(
-      out,
+      tpl,
       Label("@bazel_tools//tools/cpp:%s.tpl" % tpl),
       substitutions)
 
-
-def _get_env(repository_ctx):
-  """Convert the environment in a list of export."""
-  env = repository_ctx.os.environ
-  return "\n".join([
-      "export %s='%s'" % (k, env[k].replace("'", "'\\''"))
-      for k in env
-      if k != "_" and k.find(".") == -1
-  ])
 
 def _impl(repository_ctx):
   repository_ctx.file("tools/cpp/empty.cc")
@@ -322,8 +311,9 @@ def _impl(repository_ctx):
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
+    crosstool_cc = "osx_cc_wrapper.sh" if darwin else str(cc)
     darwin = cpu_value == "darwin"
-    tool_paths = _get_tool_paths(repository_ctx, darwin)
+    tool_paths = _get_tool_paths(repository_ctx, darwin, crosstool_cc)
     crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
     opt_content = _opt_content(darwin)
     dbg_content = _dbg_content()
@@ -331,10 +321,7 @@ def _impl(repository_ctx):
         "%{name}": cpu_value,
         "%{supports_param_files}": "0" if darwin else "1"
     })
-    _tpl(repository_ctx,
-        "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
-        {"%{cc}": str(cc), "%{env}": _get_env(repository_ctx)},
-        "cc_wrapper.sh")
+    _tpl(repository_ctx, "osx_cc_wrapper.sh", {"%{cc}": str(cc)})
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
         "%{content}": _build_crosstool(crosstool_content) + "\n" +
