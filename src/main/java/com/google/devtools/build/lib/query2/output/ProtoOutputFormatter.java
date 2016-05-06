@@ -126,7 +126,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   /**
-   * Converts a logical Target object into a Target protobuffer.
+   * Converts a logical {@link Target} object into a {@link Build.Target} protobuffer.
    */
   protected Build.Target toTargetProtoBuffer(Target target)
       throws InterruptedException {
