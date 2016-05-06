@@ -239,9 +239,12 @@ java_binary(
         </td>
         <td>
                     <p><code>Boolean; optional; default is 1</code></p>
-                              Whether to build the executable wrapper script or not.
-          If this option is present, no executable wrapper script is built around the
-          <code>.jar</code> file. Incompatible with <code>main_class</code> attribute.
+                              Whether the binary is executable. Non-executable binaries collect transitive
+          runtime Java dependencies into a deploy jar, but cannot be executed directly.
+
+          No wrapper script is created if this attribute is set. It is an error to set
+          this to 0 if the <code>launcher</code> or <code>main_class</code> attributes
+          are set.
 
         </td>
       </tr>
@@ -1031,9 +1034,12 @@ java_test(
         </td>
         <td>
                     <p><code>Boolean; optional; default is 1</code></p>
-                              Whether to build the executable wrapper script or not.
-          If this option is present, no executable wrapper script is built around the
-          <code>.jar</code> file. Incompatible with <code>main_class</code> attribute.
+                              Whether the binary is executable. Non-executable binaries collect transitive
+          runtime Java dependencies into a deploy jar, but cannot be executed directly.
+
+          No wrapper script is created if this attribute is set. It is an error to set
+          this to 0 if the <code>launcher</code> or <code>main_class</code> attributes
+          are set.
 
         </td>
       </tr>
