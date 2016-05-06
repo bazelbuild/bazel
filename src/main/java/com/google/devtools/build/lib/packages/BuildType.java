@@ -63,6 +63,7 @@ public final class BuildType {
   /**
    * The type of a dictionary of {@linkplain #LABEL_LIST label lists}.
    */
+  // TODO(gregce): remove after abi_deps is removed.
   public static final DictType<String, List<Label>> LABEL_LIST_DICT =
       DictType.create(Type.STRING, LABEL_LIST);
   /**

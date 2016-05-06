@@ -1512,13 +1512,6 @@ public final class RuleContext extends TargetContext
           }
         }
       }
-
-      // Handle abi_deps+deps error.
-      Attribute abiDepsAttr = rule.getAttributeDefinition("abi_deps");
-      if ((abiDepsAttr != null) && rule.isAttributeValueExplicitlySpecified("abi_deps")
-          && rule.isAttributeValueExplicitlySpecified("deps")) {
-        attributeError("deps", "Only one of deps and abi_deps should be provided");
-      }
       return mapBuilder.build();
     }
 

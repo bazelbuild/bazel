@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
@@ -291,73 +290,6 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(abi)[DEPRECATED] -->
-           Platform-specific information string which is used in combination
-            with <code>abi_deps</code>.
-            Subject to <a href="make-variables.html">"Make" variable</a> substitution.
-            <p>
-              This string typically includes references to one or more "Make" variables of the form
-              <code>"$(VAR)"</code>. The default value is <code>"$(ABI)"</code>.
-            </p>
-            <p>
-              With <code>abi_deps</code>, the regular expression <code>patterns</code> will be
-              matched against this string.
-            </p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          // Deprecated in favor of configurable attributes.
-          .add(attr("abi", STRING).value("$(ABI)"))
-          /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(abi_deps)[DEPRECATED] -->
-          The list of architecture-specific dependencies that are processed to create the target.
-          <i>(Dictionary mapping strings to lists of
-             <a href="../build-ref.html#labels">labels</a>; optional)</i>
-          <p><i><a href="common-definitions.html#configurable-attributes">
-            Configurable attributes</a> is a generalization
-            of the same concept that works for most rules and attributes. It deprecates
-            <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
-            attributes over <code>abi_deps</code> whenever possible. When not possible, let
-            us know why.</i>
-          </p>
-          <p>Each entry in this dictionary follows the form of
-             <code>'pattern' : ['label1', 'label2', ...]</code>.  If the library's
-             <code>abi</code> attribute is an unanchored match for the regular
-             expression defined in <code>pattern</code>, the corresponding
-             labels are used as dependencies as if they had appeared in the
-             <code>deps</code> list.
-          </p>
-          <p>All pairs with a matching <code>pattern</code> will have their labels
-             used.  If no matches are found, no dependencies will be used.  The
-             ordering is irrelevant.
-          </p>
-          <p>If you want a <code>pattern</code> to not match a particular
-             <code>abi</code>, for example adding a dep on all non-k8 platforms, you
-             can use a negative lookahead pattern.  This would look like
-             <code>(?!k8).*</code>.
-          </p>
-          <p>If using <code>abi_deps</code>, do not provide <code>deps</code>.
-             Instead, use an entry with a <code>pattern</code> of <code>'.*'</code>
-             because that matches everything.  This is also how to share
-             dependencies across multiple different <code>abi</code> values.
-          </p>
-          <p>Typically, this mechanism is used to specify the appropriate set of
-             paths to pre-compiled libraries for the target architecture of the
-             current build.  Such paths are parameterized over "Make" variables
-             such as <code>$(ABI)</code>, <code>$(TARGET_CPU)</code>,
-             <code>$(C_COMPILER)</code>, etc, but since "Make" variables are not
-             allowed in <a href="../build-ref.html#labels">labels</a>, the
-             architecture-specific files cannot be specified via the normal
-             <code>srcs</code> attribute. Instead, this mechanism can be used
-             to declare architecture-specific dependent rules for the current
-             target that can specify the correct libraries in their own
-             <code>srcs</code>.
-          </p>
-          <p>This mechanism is also used to specify the appropriate set of
-             dependencies when some targets can't compile for the target architecture
-             of the current build.  In most cases, uses an <code>#ifdef</code>.
-             Only use <code>abi_deps</code> for more significant dependency changes.
-          </p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          // Deprecated in favor of configurable attributes.
-          .add(attr("abi_deps", LABEL_LIST_DICT))
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(defines) -->
           List of defines to add to the compile line.
           Subject to <a href="make-variables.html">"Make" variable</a> substitution and
