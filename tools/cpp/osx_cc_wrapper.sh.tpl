@@ -52,6 +52,9 @@ for i in "$@"; do
     fi
 done
 
+# Set-up the environment
+%{env}
+
 # Call the C++ compiler
 %{cc} "$@"
 
