@@ -178,7 +178,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
     new AarGeneratorBuilder(ruleContext)
       .withPrimary(primaryResources)
-      .withManifest(primaryResources.getManifest())
+      .withManifest(aar != null ? aar.getManifest() : primaryResources.getManifest())
       .withRtxt(primaryResources.getRTxt())
       .withClasses(classesJar)
       .setAAROut(aarOut)
