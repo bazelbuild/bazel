@@ -319,9 +319,12 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_class", STRING))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(create_executable) -->
-          Whether to build the executable wrapper script or not.
-          If this option is present, no executable wrapper script is built around the
-          <code>.jar</code> file. Incompatible with <code>main_class</code> attribute.
+          Whether the binary is executable. Non-executable binaries collect transitive
+          runtime Java dependencies into a deploy jar, but cannot be executed directly.
+
+          No wrapper script is created if this attribute is set. It is an error to set
+          this to 0 if the <code>launcher</code> or <code>main_class</code> attributes
+          are set.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("create_executable", BOOLEAN)
               .nonconfigurable("internal")
