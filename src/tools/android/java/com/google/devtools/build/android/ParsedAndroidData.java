@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 
 import com.android.ide.common.res2.MergingException;
 
@@ -54,28 +55,28 @@ public class ParsedAndroidData {
 
   static class Builder {
     private final Map<DataKey, DataResource> overwritingResources;
-    private final Map<DataKey, DataResource> nonOverwritingResources;
+    private final Map<DataKey, DataResource> combiningResources;
     private final Map<DataKey, DataAsset> assets;
     private final Set<MergeConflict> conflicts;
     private final List<Exception> errors = new ArrayList<>();
 
     public Builder(
         Map<DataKey, DataResource> overwritingResources,
-        Map<DataKey, DataResource> nonOverwritingResources,
+        Map<DataKey, DataResource> combiningResources,
         Map<DataKey, DataAsset> assets,
         Set<MergeConflict> conflicts) {
       this.overwritingResources = overwritingResources;
-      this.nonOverwritingResources = nonOverwritingResources;
+      this.combiningResources = combiningResources;
       this.assets = assets;
       this.conflicts = conflicts;
     }
 
     static Builder newBuilder() {
       final Map<DataKey, DataResource> overwritingResources = new LinkedHashMap<>();
-      final Map<DataKey, DataResource> nonOverwritingResources = new LinkedHashMap<>();
+      final Map<DataKey, DataResource> combiningResources = new LinkedHashMap<>();
       final Map<DataKey, DataAsset> assets = new LinkedHashMap<>();
       final Set<MergeConflict> conflicts = new LinkedHashSet<>();
-      return new Builder(overwritingResources, nonOverwritingResources, assets, conflicts);
+      return new Builder(overwritingResources, combiningResources, assets, conflicts);
     }
 
     private void checkForErrors() throws MergingException {
@@ -93,14 +94,14 @@ public class ParsedAndroidData {
       return ParsedAndroidData.of(
           ImmutableSet.copyOf(conflicts),
           ImmutableMap.copyOf(overwritingResources),
-          ImmutableMap.copyOf(nonOverwritingResources),
+          ImmutableMap.copyOf(combiningResources),
           ImmutableMap.copyOf(assets));
     }
 
     ResourceFileVisitor resourceVisitor() {
       return new ResourceFileVisitor(
           new OverwritableConsumer<>(overwritingResources, conflicts),
-          new CombiningConsumer(nonOverwritingResources),
+          new CombiningConsumer(combiningResources),
           errors);
     }
 
@@ -112,7 +113,7 @@ public class ParsedAndroidData {
     public KeyValueConsumers consumers() {
       return KeyValueConsumers.of(
           new OverwritableConsumer<>(overwritingResources, conflicts),
-          new CombiningConsumer(nonOverwritingResources),
+          new CombiningConsumer(combiningResources),
           new OverwritableConsumer<>(assets, conflicts));
     }
   }
@@ -223,7 +224,7 @@ public class ParsedAndroidData {
    */
   private static class ResourceFileVisitor extends SimpleFileVisitor<Path> {
     private final KeyValueConsumer<DataKey, DataResource> overwritingConsumer;
-    private final KeyValueConsumer<DataKey, DataResource> nonOverwritingConsumer;
+    private final KeyValueConsumer<DataKey, DataResource> combiningResources;
     private final List<Exception> errors;
     private boolean inValuesSubtree;
     private FullyQualifiedName.Factory fqnFactory;
@@ -231,10 +232,10 @@ public class ParsedAndroidData {
 
     ResourceFileVisitor(
         KeyValueConsumer<DataKey, DataResource> overwritingConsumer,
-        KeyValueConsumer<DataKey, DataResource> nonOverwritingConsumer,
+        KeyValueConsumer<DataKey, DataResource> combiningResources,
         List<Exception> errors) {
       this.overwritingConsumer = overwritingConsumer;
-      this.nonOverwritingConsumer = nonOverwritingConsumer;
+      this.combiningResources = combiningResources;
       this.errors = errors;
     }
 
@@ -270,7 +271,7 @@ public class ParsedAndroidData {
         if (!Files.isDirectory(path) && !path.getFileName().toString().startsWith(".")) {
           if (inValuesSubtree) {
             DataResourceXml.parse(
-                xmlInputFactory, path, fqnFactory, overwritingConsumer, nonOverwritingConsumer);
+                xmlInputFactory, path, fqnFactory, overwritingConsumer, combiningResources);
           } else {
             String rawFqn = deriveRawFullyQualifiedName(path);
             FullyQualifiedName key = fqnFactory.parse(rawFqn);
@@ -284,13 +285,13 @@ public class ParsedAndroidData {
     }
   }
 
-  /** Creates ParsedAndroidData of conflicts, assets overwriting and nonOverwriting resources. */
+  /** Creates ParsedAndroidData of conflicts, assets overwriting and combining resources. */
   public static ParsedAndroidData of(
       ImmutableSet<MergeConflict> conflicts,
       ImmutableMap<DataKey, DataResource> overwritingResources,
-      ImmutableMap<DataKey, DataResource> nonOverwritingResources,
+      ImmutableMap<DataKey, DataResource> combiningResources,
       ImmutableMap<DataKey, DataAsset> assets) {
-    return new ParsedAndroidData(conflicts, overwritingResources, nonOverwritingResources, assets);
+    return new ParsedAndroidData(conflicts, overwritingResources, combiningResources, assets);
   }
 
   /**
@@ -334,17 +335,17 @@ public class ParsedAndroidData {
 
   private final ImmutableSet<MergeConflict> conflicts;
   private final ImmutableMap<DataKey, DataResource> overwritingResources;
-  private final ImmutableMap<DataKey, DataResource> nonOverwritingResources;
+  private final ImmutableMap<DataKey, DataResource> combiningResources;
   private final ImmutableMap<DataKey, DataAsset> assets;
 
   private ParsedAndroidData(
       ImmutableSet<MergeConflict> conflicts,
       ImmutableMap<DataKey, DataResource> overwritingResources,
-      ImmutableMap<DataKey, DataResource> nonOverwritingResources,
+      ImmutableMap<DataKey, DataResource> combiningResources,
       ImmutableMap<DataKey, DataAsset> assets) {
     this.conflicts = conflicts;
     this.overwritingResources = overwritingResources;
-    this.nonOverwritingResources = nonOverwritingResources;
+    this.combiningResources = combiningResources;
     this.assets = assets;
   }
 
@@ -352,7 +353,7 @@ public class ParsedAndroidData {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("overwritingResources", overwritingResources)
-        .add("nonOverwritingResources", nonOverwritingResources)
+        .add("combiningResources", combiningResources)
         .add("assets", assets)
         .toString();
   }
@@ -367,14 +368,14 @@ public class ParsedAndroidData {
     }
     ParsedAndroidData that = (ParsedAndroidData) other;
     return Objects.equals(overwritingResources, that.overwritingResources)
-        && Objects.equals(nonOverwritingResources, that.nonOverwritingResources)
+        && Objects.equals(combiningResources, that.combiningResources)
         && Objects.equals(conflicts, that.conflicts)
         && Objects.equals(assets, that.assets);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(conflicts, overwritingResources, nonOverwritingResources, assets);
+    return Objects.hash(conflicts, overwritingResources, combiningResources, assets);
   }
 
   /**
@@ -393,18 +394,20 @@ public class ParsedAndroidData {
   }
 
   /**
-   * Returns a list of resources that would not overwrite other values when defined.
+   * Returns a list of resources are combined with other values that have the same key.
    *
    * <p>
    * Example:
    *
-   * A id resource (id.Foo) could be redefined at id.Foo with no adverse effects.
+   * A id resource (id.Foo) combined id.Foo with no adverse effects, whereas two stylable.Bar
+   * resources would be combined, resulting in a Styleable containing a union of the attributes.
+   * See {@link StyleableXmlResourceValue} for more information.
    *
-   * @return A map of key -&gt; non-overwriting resources.
+   * @return A map of key -&gt; combing resources.
    */
   @VisibleForTesting
-  Map<DataKey, DataResource> getNonOverwritingResources() {
-    return nonOverwritingResources;
+  Map<DataKey, DataResource> getCombiningResources() {
+    return combiningResources;
   }
 
   /**
@@ -432,7 +435,7 @@ public class ParsedAndroidData {
   }
 
   Iterable<Entry<DataKey, DataResource>> iterateDataResourceEntries() {
-    return Iterables.concat(overwritingResources.entrySet(), nonOverwritingResources.entrySet());
+    return Iterables.concat(overwritingResources.entrySet(), combiningResources.entrySet());
   }
 
   boolean containsAsset(DataKey name) {
@@ -451,12 +454,12 @@ public class ParsedAndroidData {
     return MergeConflict.between(key, assets.get(key), value);
   }
 
-  ImmutableMap<DataKey, DataResource> mergeNonOverwritable(ParsedAndroidData other) {
+  ImmutableMap<DataKey, DataResource> mergeCombining(ParsedAndroidData other) {
     Map<DataKey, DataResource> merged = new HashMap<>();
     CombiningConsumer consumer = new CombiningConsumer(merged);
     for (Entry<DataKey, DataResource> entry :
         Iterables.concat(
-            nonOverwritingResources.entrySet(), other.nonOverwritingResources.entrySet())) {
+            combiningResources.entrySet(), other.combiningResources.entrySet())) {
       consumer.consume(entry.getKey(), entry.getValue());
     }
     return ImmutableMap.copyOf(merged);

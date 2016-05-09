@@ -111,7 +111,7 @@ public class XmlResourceValues {
       FullyQualifiedName.Factory fqnFactory,
       Path path,
       KeyValueConsumer<DataKey, DataResource> overwritingConsumer,
-      KeyValueConsumer<DataKey, DataResource> nonOverwritingConsumer,
+      KeyValueConsumer<DataKey, DataResource> combiningConsumer,
       XMLEventReader eventReader,
       StartElement start)
       throws XMLStreamException {
@@ -134,7 +134,7 @@ public class XmlResourceValues {
         }
       }
     }
-    nonOverwritingConsumer.consume(
+    combiningConsumer.consume(
         fqnFactory.create(ResourceType.STYLEABLE, getElementName(start)),
         DataResourceXml.of(path, StyleableXmlResourceValue.of(members)));
   }

@@ -149,7 +149,7 @@ public class AndroidDataSerializer {
             resourceName,
             FullyQualifiedName.isOverwritable(resourceName)
                 ? consumers.overwritingConsumer
-                : consumers.nonOverwritingConsumer);
+                : consumers.combiningConsumer);
       } else {
         keys.put(RelativeAssetPath.fromProto(protoKey, currentFileSystem), consumers.assetConsumer);
       }

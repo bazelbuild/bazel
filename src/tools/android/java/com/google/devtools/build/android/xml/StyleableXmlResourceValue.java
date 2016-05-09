@@ -140,8 +140,8 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
    * {@link FullyQualifiedName} results in a single Styleable containing a union of all the
    * attribute references.
    *
-   * @param value Another {@link StyleableXmlResourceValue} with the same {@link FullyQualifiedName}
-   * .
+   * @param value Another {@link StyleableXmlResourceValue} with the same
+   *     {@link FullyQualifiedName}.
    * @return {@link StyleableXmlResourceValue} containing a sorted union of the attribute
    *     references.
    * @throws IllegalArgumentException if value is not an {@link StyleableXmlResourceValue}.
