@@ -177,6 +177,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  public boolean isFilePathCaseSensitive() {
+    return true;
+  }
+
+  @Override
   protected boolean createDirectory(Path path) throws IOException {
 
     // We always synchronize on the current path before doing it on the parent path and file system

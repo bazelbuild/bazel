@@ -57,6 +57,10 @@ public class UnionFileSystem extends FileSystem {
   // will throw UnsupportedOperationExceptions.
   private final boolean readOnly;
 
+  // True if the file path is case-sensitive on all the FileSystem
+  // or False if they are all case-insensitive, otherwise error.
+  private final boolean isCaseSensitive;
+
   /**
    * Creates a new modifiable UnionFileSystem with prefix mappings
    * specified by a map.
@@ -89,9 +93,13 @@ public class UnionFileSystem extends FileSystem {
 
     this.readOnly = readOnly;
     this.pathDelegate = new StringTrie<>();
+    this.isCaseSensitive = rootFileSystem.isFilePathCaseSensitive();
 
     for (Map.Entry<PathFragment, FileSystem> prefix : prefixMapping.entrySet()) {
       FileSystem delegate = prefix.getValue();
+      Preconditions.checkArgument(
+          delegate.isFilePathCaseSensitive() == this.isCaseSensitive,
+          "The case sensitiveness of FileSystem are different in UnionFileSystem");
       PathFragment prefixPath = prefix.getKey();
 
       // Extra slash prevents within-directory mappings, which Path can't handle.
@@ -162,6 +170,11 @@ public class UnionFileSystem extends FileSystem {
   @Override
   public boolean supportsSymbolicLinksNatively() {
     return true;
+  }
+
+  @Override
+  public boolean isFilePathCaseSensitive() {
+    return this.isCaseSensitive;
   }
 
   @Override

@@ -942,18 +942,19 @@ public class CppCompileAction extends AbstractAction
 
       // Determine prefixes of allowed absolute inclusions.
       CppConfiguration toolchain = cppConfiguration;
-      List<PathFragment> systemIncludePrefixes = new ArrayList<>();
+      List<Path> systemIncludePrefixes = new ArrayList<>();
       for (PathFragment includePath : toolchain.getBuiltInIncludeDirectories()) {
         if (includePath.isAbsolute()) {
-          systemIncludePrefixes.add(includePath);
+          systemIncludePrefixes.add(execRoot.getFileSystem().getPath(includePath));
         }
       }
 
       // Check inclusions.
       IncludeProblems problems = new IncludeProblems();
       Map<PathFragment, Artifact> allowedDerivedInputsMap = getAllowedDerivedInputsMap();
-      for (PathFragment execPath : depSet.getDependencies()) {
-        if (execPath.isAbsolute()) {
+      for (Path execPath : depSet.getDependencies()) {
+        PathFragment execPathFragment = execPath.asFragment();
+        if (execPathFragment.isAbsolute()) {
           // Absolute includes from system paths are ignored.
           if (FileSystemUtils.startsWithAny(execPath, systemIncludePrefixes)) {
             continue;
@@ -962,16 +963,16 @@ public class CppCompileAction extends AbstractAction
           // non-system include paths here should never be absolute. If they
           // are, it's probably due to a non-hermetic #include, & we should stop
           // the build with an error.
-          if (execPath.startsWith(execRoot.asFragment())) {
-            execPath = execPath.relativeTo(execRoot.asFragment()); // funky but tolerable path
+          if (execPath.startsWith(execRoot)) {
+            execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
           } else {
-            problems.add(execPath.getPathString());
+            problems.add(execPathFragment.getPathString());
             continue;
           }
         }
-        Artifact artifact = allowedDerivedInputsMap.get(execPath);
+        Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
         if (artifact == null) {
-          artifact = artifactResolver.resolveSourceArtifact(execPath);
+          artifact = artifactResolver.resolveSourceArtifact(execPathFragment);
         }
         if (artifact != null) {
           inputs.add(artifact);
@@ -981,7 +982,7 @@ public class CppCompileAction extends AbstractAction
         } else {
           // Abort if we see files that we can't resolve, likely caused by
           // undeclared includes or illegal include constructs.
-          problems.add(execPath.getPathString());
+          problems.add(execPathFragment.getPathString());
         }
       }
       problems.assertProblemFree(this, getSourceFile());

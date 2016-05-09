@@ -82,6 +82,11 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
       return true;
     }
 
+    @Override
+    public boolean isFilePathCaseSensitive() {
+      return true;
+    }
+
     private static RuntimeException re() {
       return new RuntimeException("This method should not be called in this context");
     }

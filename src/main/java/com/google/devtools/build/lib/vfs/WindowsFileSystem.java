@@ -58,6 +58,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return false;
   }
 
+  @Override
+  public boolean isFilePathCaseSensitive() {
+    return false;
+  }
+
   private void createDirectoryJunction(File sourceDirectory, File targetPath) throws IOException {
     StringBuilder cl = new StringBuilder("cmd.exe /c ");
     cl.append("mklink /J ");

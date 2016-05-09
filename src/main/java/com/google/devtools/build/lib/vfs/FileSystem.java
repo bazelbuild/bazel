@@ -128,6 +128,11 @@ public abstract class FileSystem {
    */
   public abstract boolean supportsSymbolicLinksNatively();
 
+  /***
+   * Returns true if file path is case-sensitive on this file system. Default is true.
+   */
+  public abstract boolean isFilePathCaseSensitive();
+
   /**
    * Returns the type of the file system path belongs to.
    *

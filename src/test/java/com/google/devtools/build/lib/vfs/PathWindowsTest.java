@@ -95,4 +95,20 @@ public class PathWindowsTest {
     assertSame(root.getRelative("dots"),
                root.getRelative("broken/../../dots"));
   }
+
+  @Test
+  public void testStartsWithWorksOnWindows() {
+    assertStartsWithReturnsOnWindows(true, "C:/first/x", "C:/first/x/y");
+    assertStartsWithReturnsOnWindows(true, "c:/first/x", "C:/FIRST/X/Y");
+    assertStartsWithReturnsOnWindows(true, "C:/FIRST/X", "c:/first/x/y");
+  }
+
+  private void assertStartsWithReturnsOnWindows(boolean expected,
+      String ancestor,
+      String descendant) {
+    FileSystem windowsFileSystem = new WindowsFileSystem();
+    Path parent = windowsFileSystem.getPath(ancestor);
+    Path child = windowsFileSystem.getPath(descendant);
+    assertEquals(expected, child.startsWith(parent));
+  }
 }
