@@ -975,7 +975,10 @@ genrule(
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
     ],
-    visibility = ["//site:__pkg__"],
+    visibility = [
+        "//site:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 # The skylark repository classes are passed as parameter of the Skylark documentation generator.
