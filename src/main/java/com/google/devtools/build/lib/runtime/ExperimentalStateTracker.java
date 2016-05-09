@@ -97,8 +97,12 @@ class ExperimentalStateTracker {
   void loadingComplete(LoadingPhaseCompleteEvent event) {
     loadingProgressReceiver = null;
     int count = event.getTargets().size();
-    status = "Analysing";
-    additionalMessage = "" + count + " targets";
+    status = "Analyzing";
+    if (count == 1) {
+      additionalMessage = "target " + event.getTargets().asList().get(0).getLabel();
+    } else {
+      additionalMessage = "" + count + " targets";
+    }
   }
 
   void analysisComplete(AnalysisPhaseCompleteEvent event) {

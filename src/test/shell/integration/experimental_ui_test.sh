@@ -75,6 +75,9 @@ function test_basic_progress() {
   expect_log '\[[0-9,]* / [0-9,]*\]'
   # curses are used to delete at least one line
   expect_log $'\x1b\[1A\x1b\[K'
+  # As precisely one target is specified, it should be reported during
+  # analysis phase.
+  expect_log 'Analy.*pkg:true'
 }
 
 function test_basic_progress_no_curses() {
