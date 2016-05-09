@@ -314,7 +314,6 @@ public final class AndroidRuleClasses {
           if (LocalResourceContainer.definesAndroidResources(attributes)) {
             implicitOutputs.add(
                 AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR,
-                AndroidRuleClasses.ANDROID_RESOURCES_APK,
                 AndroidRuleClasses.ANDROID_R_TXT);
           }
 

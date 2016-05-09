@@ -389,9 +389,9 @@ public class AndroidResourcesProcessorBuilder {
         primary.getRenameManifestPackage(),
         primary.getConstantsInlined(),
         // If there is no apk to be generated, use the apk from the primary resources.
-        // All ResourceContainers have to have an apk, but if a new one is not requested to be built
-        // for this resource processing action (in case of just creating an R.txt or
-        // proguard merging), reuse the primary resource from the dependencies.
+        // All android_binary ResourceContainers have to have an apk, but if a new one is not
+        // requested to be built for this resource processing action (in case of just creating an
+        // R.txt or proguard merging), reuse the primary resource from the dependencies.
         apkOut != null ? apkOut : primary.getApk(),
         manifestOut != null ? manifestOut : primary.getManifest(),
         sourceJarOut,

@@ -55,19 +55,20 @@ public final class AndroidResourceContainerBuilder {
 
   /** Creates a {@link ResourceContainer} from a {@link RuleContext}. 
    * @throws InterruptedException */
-  public ResourceContainer buildFromRule(RuleContext ruleContext, Artifact apk)
+  public ResourceContainer buildFromRule(RuleContext ruleContext, @Nullable Artifact apk)
       throws InterruptedException {
     Preconditions.checkNotNull(this.manifest);
     Preconditions.checkNotNull(this.data);
+    Artifact rJavaSrcJar = ruleContext.getImplicitOutputArtifact(
+        AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR);
     return new AndroidResourcesProvider.ResourceContainer(
             ruleContext.getLabel(),
-            getJavaPackage(ruleContext, apk),
+            getJavaPackage(ruleContext, rJavaSrcJar),
             getRenameManifestPackage(ruleContext),
             inlineConstants,
             apk,
             manifest,
-            ruleContext.getImplicitOutputArtifact(
-                AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR),
+            rJavaSrcJar,
             data.getAssets(),
             data.getResources(),
             data.getAssetRoots(),
@@ -77,18 +78,18 @@ public final class AndroidResourceContainerBuilder {
             symbolsFile);
   }
 
-  private String getJavaPackage(RuleContext ruleContext, Artifact apk) {
+  private String getJavaPackage(RuleContext ruleContext, Artifact rJavaSrcJar) {
     if (hasCustomPackage(ruleContext)) {
       return ruleContext.attributes().get("custom_package", Type.STRING);
     }
     // TODO(bazel-team): JavaUtil.getJavaPackageName does not check to see if the path is valid.
     // So we need to check for the JavaRoot.
-    if (JavaUtil.getJavaRoot(apk.getExecPath()) == null) {
+    if (JavaUtil.getJavaRoot(rJavaSrcJar.getExecPath()) == null) {
       ruleContext.ruleError("You must place your code under a directory named 'java' or "
           + "'javatests' for blaze to work. That directory (java,javatests) will be treated as "
           + "your java source root. Alternatively, you can set the 'custom_package' attribute.");
     }
-    return JavaUtil.getJavaPackageName(apk.getExecPath());
+    return JavaUtil.getJavaPackageName(rJavaSrcJar.getExecPath());
   }
 
   private boolean hasCustomPackage(RuleContext ruleContext) {

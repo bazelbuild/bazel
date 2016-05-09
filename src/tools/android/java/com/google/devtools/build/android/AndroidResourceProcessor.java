@@ -369,7 +369,7 @@ public class AndroidResourceProcessor {
         .maybeAdd("-m", sourceOut != null)
         .maybeAdd("-J", prepareOutputPath(sourceOut), sourceOut != null)
         .maybeAdd("--output-text-symbols", prepareOutputPath(sourceOut), sourceOut != null)
-        .add("-F", packageOut)
+        .maybeAdd("-F", packageOut, packageOut != null)
         .add("-G", proguardOut)
         .maybeAdd("-D", mainDexProguardOut, new FullRevision(24))
         .add("-P", publicResourcesOut)

@@ -108,8 +108,10 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
     public ResourceContainer(Label label,
         String javaPackage,
         @Nullable String renameManifestPackage,
-        boolean constantsInlined, Artifact apk,
-        Artifact manifest, Artifact javaSourceJar,
+        boolean constantsInlined,
+        @Nullable Artifact apk,
+        Artifact manifest,
+        Artifact javaSourceJar,
         ImmutableList<Artifact> assets,
         ImmutableList<Artifact> resources,
         ImmutableList<PathFragment> assetsRoots,
@@ -123,7 +125,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
       this.javaPackage = Preconditions.checkNotNull(javaPackage);
       this.renameManifestPackage = renameManifestPackage;
       this.constantsInlined = constantsInlined;
-      this.apk = Preconditions.checkNotNull(apk);
+      this.apk = apk;
       this.manifest = Preconditions.checkNotNull(manifest);
       this.assets = Preconditions.checkNotNull(assets);
       this.resources = Preconditions.checkNotNull(resources);
