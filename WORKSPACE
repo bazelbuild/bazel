@@ -1,11 +1,5 @@
 workspace(name = "io_bazel")
 
-load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_repositories")
-load("/tools/build_rules/rust/rust", "rust_repositories")
-
-jsonnet_repositories()
-rust_repositories()
-
 # Protobuf expects an //external:python_headers label which would contain the
 # Python headers if fast Python protos is enabled. Since we are not using fast
 # Python protos, bind python_headers to a dummy target.
