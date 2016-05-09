@@ -385,6 +385,14 @@ $sidebar-hover-border-color: #66bb6a;
   }
 }
 
+// Build Encyclopedia and Skylark Library
+
+pre.rule-signature {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: normal;
+}
+
 colgroup {
   .col-param {
     width: 25%;

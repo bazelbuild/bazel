@@ -267,7 +267,7 @@ Objects, functions and modules registered in the global environment.
             </td>
             <td>
                           <p><code><a class="anchor" href="dict.html">dict</a></code></p>
-                          <p>dictionary to declare all the attributes of the aspect.  It maps from an attribute name to an attribute object (see <a href="attr.html">attr</a> module). Aspect attributes are available to implementation function as fields of ctx parameter. All aspect attributes must be private, so their names must start with <code>_</code>. All aspect attributes must be have default values, and be of type <code>label</code> or <code>label_list</code></p>
+                          <p>dictionary to declare all the attributes of the aspect.  It maps from an attribute name to an attribute object (see <a href="attr.html">attr</a> module). Aspect attributes are available to implementation function as fields of ctx parameter. Implicit attributes starting with <code>_</code> must have default values, and have type <code>label</code> or <code>label_list</code>.Explicit attributes must have type <code>string</code>, and must use the <code>values</code> restriction. If explicit attributes are present, the aspect can only be used with rules that have attributes of the same name and type, with valid values. </p>
             </td>
           </tr>
                   <tr>
