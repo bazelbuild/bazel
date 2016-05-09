@@ -255,10 +255,10 @@ public final class InvocationPolicyEnforcer {
               setValue.getFlagValueList()));
     } else {
 
-      // Clear the value in case the flag is a repeated flag (so that values don't accumulate), and
-      // in case the flag is an expansion flag or has implicit flags (so that the additional flags
-      // also get cleared).
-      parser.clearValue(flagName);
+      if (!setValue.getAppend()) {
+        // Clear the value in case the flag is a repeated flag so that values don't accumulate.
+        parser.clearValue(flagName);
+      }
 
       // Set all the flag values from the policy.
       for (String flagValue : setValue.getFlagValueList()) {

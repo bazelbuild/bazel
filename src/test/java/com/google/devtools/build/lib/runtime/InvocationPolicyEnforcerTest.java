@@ -215,7 +215,6 @@ public class InvocationPolicyEnforcerTest {
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testMultipleString)
         .containsExactly("user value 1", "user value 2").inOrder();
-    //assertEquals(, testOptions.test_multiple_string);
 
     enforcer.enforce(parser, "build");
 
@@ -272,6 +271,36 @@ public class InvocationPolicyEnforcerTest {
     }
   }
 
+  @Test
+  public void testSetValueAppendsToMultipleValuedFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder.addFlagPoliciesBuilder()
+        .setFlagName("test_multiple_string")
+        .getSetValueBuilder()
+            .addFlagValue("policy value 1")
+            .addFlagValue("policy value 2")
+            .setAppend(true);
+
+    InvocationPolicyEnforcer enforcer =  createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_multiple_string=user value 1", "--test_multiple_string=user value 2");
+
+    // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString)
+        .containsExactly("user value 1", "user value 2").inOrder();
+
+    enforcer.enforce(parser, "build");
+
+    // Get the options again after policy enforcement.
+    testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString)
+        .containsExactly(
+            "user value 1",
+            "user value 2",
+            "policy value 1",
+            "policy value 2").inOrder();
+  }
+  
   @Test
   public void testSetValueWithExpansionFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
@@ -334,7 +363,6 @@ public class InvocationPolicyEnforcerTest {
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--test_string=user value");
 
-    // Repeatable flags always default to the empty list.
     TestOptions testOptions = getTestOptions();
     assertEquals("user value", testOptions.testString);
 
@@ -356,7 +384,6 @@ public class InvocationPolicyEnforcerTest {
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--test_string=user value");
 
-    // Repeatable flags always default to the empty list.
     TestOptions testOptions = getTestOptions();
     assertEquals("user value", testOptions.testString);
 

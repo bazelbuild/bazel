@@ -64,14 +64,15 @@ message FlagPolicy {
 
 message SetValue {
   // Use this value for the specified flag, overriding any default or user-set
-  // value.
+  // value (unless append is set to true for repeatable flags).
   //
   // This field is repeated for repeatable flags. It is an error to set
   // multiple values for a flag that is not actually a repeatable flag.
   // This requires at least 1 value, if even the empty string.
   //
   // If the flag allows multiple values, all of its values are replaced with the
-  // value or values from the policy (i.e., no diffing or merging is performed).
+  // value or values from the policy (i.e., no diffing or merging is performed),
+  // unless the append field (see below) is set to true.
   //
   // Note that some flags are tricky. For example, some flags look like boolean
   // flags, but are actually Void expansion flags that expand into other flags.
@@ -106,6 +107,12 @@ message SetValue {
   // When set, if the user specified a value for this flag, use the value
   // from the user, otherwise use the value specified in this policy.
   optional bool overridable = 2;
+
+  // If true, and if the flag named in the policy is a repeatable flag, then
+  // the values listed in flag_value do not replace all the user-set or default
+  // values of the flag, but instead append to them. If the flag is not
+  // repeatable, then this has no effect.
+  optional bool append = 3;
 }
 
 message UseDefault {
