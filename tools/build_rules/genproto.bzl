@@ -100,7 +100,7 @@ def cc_grpc_library(name, src):
       name = name,
       srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
       hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
-      deps = [str(Label("//third_party/grpc:grpc++"))],
+      deps = [str(Label("//third_party/grpc:grpc++_unsecure"))],
       includes = ["."])
 
 # TODO(bazel-team): support proto => proto dependencies too
