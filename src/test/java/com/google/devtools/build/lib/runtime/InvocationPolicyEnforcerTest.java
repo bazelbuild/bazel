@@ -43,7 +43,7 @@ import java.util.List;
 public class InvocationPolicyEnforcerTest {
 
   public static final String STRING_FLAG_DEFAULT = "test string default";
-  
+
   public static class TestOptions extends OptionsBase {
 
     /*
@@ -70,17 +70,52 @@ public class InvocationPolicyEnforcerTest {
     @Option(
         name = "test_expansion",
         defaultValue = "null",
-        expansion = {"--test_expansion_a", "--test_expansion_b", "--test_expansion_c"})
+        expansion = {
+            "--notest_expansion_a",
+            "--test_expansion_b=false",
+            "--test_expansion_c", "42",
+            "--test_expansion_d", "bar"
+        })
     public Void testExpansion;
 
-    @Option(name = "test_expansion_a", defaultValue = "false")
+    @Option(
+        name = "test_recursive_expansion_top_level",
+        defaultValue = "null",
+        expansion = {
+            "--test_recursive_expansion_middle1",
+            "--test_recursive_expansion_middle2",
+        })
+    public Void testRecursiveExpansionTopLevel;
+
+    @Option(
+        name = "test_recursive_expansion_middle1",
+        defaultValue = "null",
+        expansion = {
+            "--test_expansion_a=false",
+            "--test_expansion_c=56",
+        })
+    public Void testRecursiveExpansionMiddle1;
+
+    @Option(
+        name = "test_recursive_expansion_middle2",
+        defaultValue = "null",
+        expansion = {
+            "--test_expansion_b=false",
+            "--test_expansion_d=baz",
+        })
+    public Void testRecursiveExpansionMiddle2;
+
+    @Option(name = "test_expansion_a", defaultValue = "true")
     public boolean testExpansionA;
 
-    @Option(name = "test_expansion_b", defaultValue = "false")
+    @Option(name = "test_expansion_b", defaultValue = "true")
     public boolean testExpansionB;
 
-    @Option(name = "test_expansion_c", defaultValue = "false")
-    public boolean testExpansionC;
+    @Option(name = "test_expansion_c", defaultValue = "12")
+    public int testExpansionC;
+
+    @Option(name = "test_expansion_d", defaultValue = "foo")
+    public String testExpansionD;
 
     /*
      * Implicit requirement flags
@@ -96,6 +131,12 @@ public class InvocationPolicyEnforcerTest {
         name = "an_implicit_requirement",
         defaultValue = "implicit default")
     public String anImplicitRequirement;
+
+    @Option(
+        name = "test_recursive_implicit_requirement",
+        defaultValue = "test recursive implicit requirement default",
+        implicitRequirements = {"--test_implicit_requirement=bar"})
+    public String testRecursiveImplicitRequirement;
 
   }
 
@@ -305,27 +346,58 @@ public class InvocationPolicyEnforcerTest {
   public void testSetValueWithExpansionFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder.addFlagPoliciesBuilder()
-        .setFlagName("test_expansion_b")
+        .setFlagName("test_expansion")
         .getSetValueBuilder()
-            .addFlagValue("false");
+            .addFlagValue("true"); // this value is arbitrary, the value for a Void flag is ignored
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Unrelated flag, but --test_expansion is not set
+    parser.parse("--test_string=foo");
+
+    // The flags that --test_expansion expands into should still be their default values
+    TestOptions testOptions = getTestOptions();
+    assertTrue(testOptions.testExpansionA);
+    assertTrue(testOptions.testExpansionB);
+    assertEquals(12, testOptions.testExpansionC);
+    assertEquals("foo", testOptions.testExpansionD);
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, the flags should be the values from --test_expansion
+    testOptions = getTestOptions();
+    assertFalse(testOptions.testExpansionA);
+    assertFalse(testOptions.testExpansionB);
+    assertEquals(42, testOptions.testExpansionC);
+    assertEquals("bar", testOptions.testExpansionD);
+  }
+  
+  @Test
+  public void testSetValueWithExpandedFlags() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder.addFlagPoliciesBuilder()
+        .setFlagName("test_expansion_c")
+        .getSetValueBuilder()
+            .addFlagValue("64");
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--test_expansion");
 
-    // --test_expansion should turn on test_expansion a, b, and c
+    // --test_expansion should set the values from its expansion
     TestOptions testOptions = getTestOptions();
-    assertTrue(testOptions.testExpansionA);
-    assertTrue(testOptions.testExpansionB);
-    assertTrue(testOptions.testExpansionC);
+    assertFalse(testOptions.testExpansionA);
+    assertFalse(testOptions.testExpansionB);
+    assertEquals(42, testOptions.testExpansionC);
+    assertEquals("bar", testOptions.testExpansionD);
 
     enforcer.enforce(parser, "build");
 
-    // After policy enforcement, test_expansion_b should be set to false, but the
-    // other two should remain the same.
+    // After policy enforcement, test_expansion_c should be set to 64 from the policy, but the
+    // flags should remain the same from the expansion of --test_expansion.
     testOptions = getTestOptions();
-    assertTrue(testOptions.testExpansionA);
+    assertFalse(testOptions.testExpansionA);
     assertFalse(testOptions.testExpansionB);
-    assertTrue(testOptions.testExpansionC);
+    assertEquals(64, testOptions.testExpansionC);
+    assertEquals("bar", testOptions.testExpansionD);
   }
 
   @Test
@@ -448,30 +520,110 @@ public class InvocationPolicyEnforcerTest {
   public void testUseDefaultWithExpansionFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder.addFlagPoliciesBuilder()
+        .setFlagName("test_expansion")
+        .getUseDefaultBuilder();
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_expansion");
+
+    TestOptions testOptions = getTestOptions();
+    assertFalse(testOptions.testExpansionA);
+    assertFalse(testOptions.testExpansionB);
+    assertEquals(42, testOptions.testExpansionC);
+    assertEquals("bar", testOptions.testExpansionD);
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, all the flags that --test_expansion expanded into should be back
+    // to their default values.
+    testOptions = getTestOptions();
+    assertTrue(testOptions.testExpansionA);
+    assertTrue(testOptions.testExpansionB);
+    assertEquals(12, testOptions.testExpansionC);
+    assertEquals("foo", testOptions.testExpansionD);
+  }
+
+  @Test
+  public void testUseDefaultWithRecursiveExpansionFlags() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder.addFlagPoliciesBuilder()
+        .setFlagName("test_expansion")
+        .getUseDefaultBuilder();
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_recursive_expansion_top_level");
+
+    TestOptions testOptions = getTestOptions();
+    assertFalse(testOptions.testExpansionA);
+    assertFalse(testOptions.testExpansionB);
+    assertEquals(56, testOptions.testExpansionC);
+    assertEquals("baz", testOptions.testExpansionD);
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, all the flags that --test_recursive_expansion_top_level and its
+    // recursive expansions set should be back to their default values.
+    testOptions = getTestOptions();
+    assertTrue(testOptions.testExpansionA);
+    assertTrue(testOptions.testExpansionB);
+    assertEquals(12, testOptions.testExpansionC);
+    assertEquals("foo", testOptions.testExpansionD);
+  }
+
+  @Test
+  public void testUseDefaultWithExpandedFlags() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder.addFlagPoliciesBuilder()
         .setFlagName("test_expansion_b")
         .getUseDefaultBuilder();
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--test_expansion");
 
-    // --test_expansion should turn on test_expansion a, b, and c
+    // --test_expansion should turn set the values from its expansion
     TestOptions testOptions = getTestOptions();
-    assertTrue(testOptions.testExpansionA);
-    assertTrue(testOptions.testExpansionB);
-    assertTrue(testOptions.testExpansionC);
+    assertFalse(testOptions.testExpansionA);
+    assertFalse(testOptions.testExpansionB);
+    assertEquals(42, testOptions.testExpansionC);
+    assertEquals("bar", testOptions.testExpansionD);
 
     enforcer.enforce(parser, "build");
 
-    // After policy enforcement, test_expansion_b should be back to its default (false), but the
-    // other two should remain the same.
+    // After policy enforcement, test_expansion_b should be back to its default (true), but the
+    // rest should remain the same.
     testOptions = getTestOptions();
-    assertTrue(testOptions.testExpansionA);
-    assertFalse(testOptions.testExpansionB);
-    assertTrue(testOptions.testExpansionC);
+    assertFalse(testOptions.testExpansionA);
+    assertTrue(testOptions.testExpansionB);
+    assertEquals(42, testOptions.testExpansionC);
+    assertEquals("bar", testOptions.testExpansionD);
   }
 
   @Test
-  public void testUseDefaultWithImplicitlyRequiredFlags() throws Exception {
+  public void testUseDefaultWithFlagWithImplicitRequirements() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder.addFlagPoliciesBuilder()
+        .setFlagName("test_implicit_requirement")
+        .getUseDefaultBuilder();
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_implicit_requirement=user value");
+
+    // test_implicit_requirement sets an_implicit_requirement to "foo", which ignores the user's
+    // value because the parser processes implicit values last.
+    TestOptions testOptions = getTestOptions();
+    assertEquals("user value", testOptions.testImplicitRequirement);
+    assertEquals("foo", testOptions.anImplicitRequirement);
+
+    // Then policy puts test_implicit_requirement and its implicit requirements back to its default.
+    enforcer.enforce(parser, "build");
+
+    testOptions = getTestOptions();
+    assertEquals("test implicit requirement default", testOptions.testImplicitRequirement);
+    assertEquals("implicit default", testOptions.anImplicitRequirement);
+  }
+
+  @Test
+  public void testUseDefaultWithImplicitlyRequiredFlag() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder.addFlagPoliciesBuilder()
         .setFlagName("an_implicit_requirement")
@@ -494,7 +646,35 @@ public class InvocationPolicyEnforcerTest {
     assertEquals("user value", testOptions.testImplicitRequirement);
     assertEquals("implicit default", testOptions.anImplicitRequirement);
   }
-  
+
+  @Test
+  public void testUseDefaultWithFlagWithRecursiveImplicitRequirements() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder.addFlagPoliciesBuilder()
+        .setFlagName("test_recursive_implicit_requirement")
+        .getUseDefaultBuilder();
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_recursive_implicit_requirement=user value");
+
+    // test_recursive_implicit_requirement gets its value from the command line,
+    // test_implicit_requirement gets its value from test_recursive_implicit_requirement, and
+    // an_implicit_requirement gets its value from test_implicit_requirement.
+    TestOptions testOptions = getTestOptions();
+    assertEquals("user value", testOptions.testRecursiveImplicitRequirement);
+    assertEquals("bar", testOptions.testImplicitRequirement);
+    assertEquals("foo", testOptions.anImplicitRequirement);
+
+    enforcer.enforce(parser, "build");
+
+    // Policy enforcement should set everything back to its default value.
+    testOptions = getTestOptions();
+    assertEquals("test recursive implicit requirement default",
+        testOptions.testRecursiveImplicitRequirement);
+    assertEquals("test implicit requirement default", testOptions.testImplicitRequirement);
+    assertEquals("implicit default", testOptions.anImplicitRequirement);
+  }
+
   /*************************************************************************************************
    * Tests for AllowValues
    ************************************************************************************************/

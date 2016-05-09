@@ -285,7 +285,8 @@ public final class InvocationPolicyEnforcer {
     }
   }
 
-  private static void applyUseDefaultOperation(OptionsParser parser, String flagName) {
+  private static void applyUseDefaultOperation(OptionsParser parser, String flagName)
+      throws OptionsParsingException {
 
     Map<String, OptionValueDescription> clearedValues = parser.clearValue(flagName);
     for (Entry<String, OptionValueDescription> clearedValue : clearedValues.entrySet()) {

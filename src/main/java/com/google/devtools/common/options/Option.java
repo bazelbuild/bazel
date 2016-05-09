@@ -147,6 +147,11 @@ public @interface Option {
    * {@link Option#implicitRequirements()}, {@link Option#expansion()}, {@link Option#converter()}
    * attributes will not be processed. Wrapper options are implicitly repeatable (i.e., as though
    * {@link Option#allowMultiple()} is true regardless of its value in the annotation).
+   *
+   * <p>Wrapper options are provided only for transitioning flags which appear as values to other
+   * flags, to top-level flags. Wrapper options should not be used in Invocation Policy, as
+   * expansion flags to other flags, or as implicit requirements to other flags. Use the inner
+   * flags instead.  
    */
   boolean wrapperOption() default false;
 }
