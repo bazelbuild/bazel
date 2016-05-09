@@ -233,7 +233,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           false, /* incremental */
           ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
           createMainDexProguardSpec(ruleContext),
-          null, /* manifestOut */
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP));
       if (ruleContext.hasErrors()) {
         return null;

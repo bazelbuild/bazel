@@ -97,7 +97,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           false,
           null /* proguardCfgOut */,
           null, /* mainDexProguardCfg */
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST),
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
           null /* mergedResourcesOut */);
       if (ruleContext.hasErrors()) {
         return null;
@@ -167,7 +167,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           .setApkOut(apk)
           .setRTxtOut(resourceContainer.getRTxt())
           .setManifestOut(ruleContext.getImplicitOutputArtifact(
-              AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST))
+              AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
           .setSourceJarOut(resourceContainer.getJavaSourceJar())
           .setJavaPackage(resourceContainer.getJavaPackage())
           .withPrimary(resourceContainer)

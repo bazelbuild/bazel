@@ -120,8 +120,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/R.txt");
   public static final SafeImplicitOutputsFunction ANDROID_SYMBOLS_TXT =
       fromTemplates("%{name}_symbols/local-R.txt");
-  public static final ImplicitOutputsFunction ANDROID_LIBRARY_MANIFEST =
-      fromTemplates("%{name}_library_manifest/AndroidManifest.xml");
+  public static final ImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =
+      fromTemplates("%{name}_processed_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction STUB_APPLICATON_MANIFEST =
       fromTemplates("%{name}_files/stub/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction FULL_DEPLOY_MARKER =

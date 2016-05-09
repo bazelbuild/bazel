@@ -361,7 +361,7 @@ public final class ApplicationManifest {
     ResourceContainer processed = builder.build(ruleContext);
 
     return new ResourceApk(
-        resourceApk, processed.getJavaSourceJar(), resourceDeps, processed, manifest,
+        resourceApk, processed.getJavaSourceJar(), resourceDeps, processed, processed.getManifest(),
         proguardCfg, mainDexProguardCfg, false);
   }
 
