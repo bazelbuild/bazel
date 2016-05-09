@@ -70,7 +70,7 @@ public class IosFrameworkRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = ios_framework, TYPE = BINARY, FAMILY = Objective-C) -->
 
 <p>This rule produces a bundled binary for a framework from a compiled binary and bundle
-metadata. It is still in experimental stage.</p>
+metadata. It is still highly experimental and has significant outstanding issues.</p>
 
 <p>A framework is a bundle that contains a dynamic library (the "binary"), public headers (that
 clients of the framework can use) and any resources.</p>
@@ -84,5 +84,8 @@ in the app bundle, not for standalone distribution.</p>
 
 <p>Due to this, when built as a direct target, the resulting bundle will not have headers, only the
 dynamic library.</p>
+
+<p>Please also be aware that this rule currently does not work for use in multi-architecture
+application builds (for instance, using the <code>--ios_multi_cpus</code> flag).</p>
 
 <!-- #END_BLAZE_RULE -->*/
