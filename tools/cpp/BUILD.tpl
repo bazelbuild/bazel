@@ -31,12 +31,12 @@ cc_toolchain_suite(
 
 cc_toolchain(
     name = "cc-compiler-%{name}",
-    all_files = ":cc_wrapper",
-    compiler_files = ":cc_wrapper",
+    all_files = "%{cc_compiler_deps}",
+    compiler_files = "%{cc_compiler_deps}",
     cpu = "local",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
-    linker_files = ":cc_wrapper",
+    linker_files = "%{cc_compiler_deps}",
     objcopy_files = ":empty",
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
