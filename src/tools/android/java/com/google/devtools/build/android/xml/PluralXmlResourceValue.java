@@ -122,4 +122,9 @@ public class PluralXmlResourceValue implements XmlResourceValue {
     return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
         + value.getSerializedSize();
   }
+
+  @Override
+  public XmlResourceValue combineWith(XmlResourceValue value) {
+    throw new IllegalArgumentException(this + " is not a combinable resource.");
+  }
 }

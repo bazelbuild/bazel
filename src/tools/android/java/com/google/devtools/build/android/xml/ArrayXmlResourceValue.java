@@ -169,6 +169,11 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
         .toString();
   }
 
+  @Override
+  public XmlResourceValue combineWith(XmlResourceValue value) {
+    throw new IllegalArgumentException(this + " is not a combinable resource.");
+  }
+
   public static XmlResourceValue parseArray(XMLEventReader eventReader, StartElement start)
       throws XMLStreamException {
     List<String> values = new ArrayList<>();

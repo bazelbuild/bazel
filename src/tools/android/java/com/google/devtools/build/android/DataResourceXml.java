@@ -244,4 +244,16 @@ public class DataResourceXml implements DataResource {
   public int serializeTo(DataKey key, OutputStream outStream) throws IOException {
     return xml.serializeTo(source, outStream);
   }
+
+  // TODO(corysmith): Clean up all the casting. The type structure is unclean.
+  @Override
+  public DataResource combineWith(DataResource resource) {
+    if (!(resource instanceof DataResourceXml)) {
+      throw new IllegalArgumentException(resource + " is not a combinable with " + this);
+    }
+    DataResourceXml xmlResource = (DataResourceXml) resource;
+    // TODO(corysmith): Combine the sources so that we know both of the originating files.
+    // For right now, use the current source.
+    return of(source, xml.combineWith(xmlResource.xml));
+  }
 }

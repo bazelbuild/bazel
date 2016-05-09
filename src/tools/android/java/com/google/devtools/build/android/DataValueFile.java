@@ -105,4 +105,9 @@ public class DataValueFile implements DataResource, DataAsset {
     }
     return "";
   }
+
+  @Override
+  public DataResource combineWith(DataResource resource) {
+    throw new IllegalArgumentException(getClass() + " does not combine.");
+  }
 }

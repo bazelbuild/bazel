@@ -73,4 +73,12 @@ public class IdXmlResourceValue implements XmlResourceValue {
   public String toString() {
     return MoreObjects.toStringHelper(getClass()).toString();
   }
+
+  @Override
+  public XmlResourceValue combineWith(XmlResourceValue value) {
+    if (value != SINGLETON) {
+      throw new IllegalArgumentException(value + "is not combinable with " + this);
+    }
+    return this;
+  }
 }

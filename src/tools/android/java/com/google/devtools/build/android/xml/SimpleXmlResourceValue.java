@@ -272,4 +272,9 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         .add("value", value)
         .toString();
   }
+
+  @Override
+  public XmlResourceValue combineWith(XmlResourceValue value) {
+    throw new IllegalArgumentException(this + " is not a combinable resource.");
+  }
 }

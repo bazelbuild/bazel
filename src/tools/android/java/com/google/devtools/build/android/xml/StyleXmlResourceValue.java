@@ -139,4 +139,9 @@ public class StyleXmlResourceValue implements XmlResourceValue {
         .add("values", values)
         .toString();
   }
+
+  @Override
+  public XmlResourceValue combineWith(XmlResourceValue value) {
+    throw new IllegalArgumentException(this + " is not a combinable resource.");
+  }
 }

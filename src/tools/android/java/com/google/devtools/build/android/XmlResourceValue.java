@@ -34,4 +34,13 @@ public interface XmlResourceValue {
    * Serializes the resource value to the OutputStream and returns the bytes written.
    */
   int serializeTo(Path source, OutputStream out) throws IOException;
+  
+  /**
+   * Combines these xml values together and returns a single value.
+   * 
+   * @param value Another resource to be combined with this one.
+   * @return A union of the values of these two values.
+   * @throws IllegalArgumentException if either value cannot combine with the other.
+   */
+  XmlResourceValue combineWith(XmlResourceValue value);
 }

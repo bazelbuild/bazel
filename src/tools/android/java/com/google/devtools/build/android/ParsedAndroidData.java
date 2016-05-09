@@ -100,7 +100,7 @@ public class ParsedAndroidData {
     ResourceFileVisitor resourceVisitor() {
       return new ResourceFileVisitor(
           new OverwritableConsumer<>(overwritingResources, conflicts),
-          new NonOverwritableConsumer(nonOverwritingResources),
+          new CombiningConsumer(nonOverwritingResources),
           errors);
     }
 
@@ -112,7 +112,7 @@ public class ParsedAndroidData {
     public KeyValueConsumers consumers() {
       return KeyValueConsumers.of(
           new OverwritableConsumer<>(overwritingResources, conflicts),
-          new NonOverwritableConsumer(nonOverwritingResources),
+          new CombiningConsumer(nonOverwritingResources),
           new OverwritableConsumer<>(assets, conflicts));
     }
   }
@@ -123,17 +123,19 @@ public class ParsedAndroidData {
   }
 
   @VisibleForTesting
-  static class NonOverwritableConsumer implements KeyValueConsumer<DataKey, DataResource> {
+  static class CombiningConsumer implements KeyValueConsumer<DataKey, DataResource> {
 
     private Map<DataKey, DataResource> target;
 
-    NonOverwritableConsumer(Map<DataKey, DataResource> target) {
+    CombiningConsumer(Map<DataKey, DataResource> target) {
       this.target = target;
     }
 
     @Override
     public void consume(DataKey key, DataResource value) {
-      if (!target.containsKey(key)) {
+      if (target.containsKey(key)) {
+        target.put(key, target.get(key).combineWith(value));
+      } else {
         target.put(key, value);
       }
     }
@@ -450,8 +452,13 @@ public class ParsedAndroidData {
   }
 
   ImmutableMap<DataKey, DataResource> mergeNonOverwritable(ParsedAndroidData other) {
-    Map<DataKey, DataResource> merged = new HashMap<>(other.nonOverwritingResources);
-    merged.putAll(nonOverwritingResources);
+    Map<DataKey, DataResource> merged = new HashMap<>();
+    CombiningConsumer consumer = new CombiningConsumer(merged);
+    for (Entry<DataKey, DataResource> entry :
+        Iterables.concat(
+            nonOverwritingResources.entrySet(), other.nonOverwritingResources.entrySet())) {
+      consumer.consume(entry.getKey(), entry.getValue());
+    }
     return ImmutableMap.copyOf(merged);
   }
 

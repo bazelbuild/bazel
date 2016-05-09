@@ -26,4 +26,13 @@ public interface DataResource extends DataValue {
    */
   void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException, MergingException;
+
+  /**
+   * Combines these resource together and returns a single resource.
+   * 
+   * @param resource Another resource to be combined with this one.
+   * @return A union of the values of these two resources.
+   * @throws IllegalArgumentException if either resource cannot combine with the other.
+   */
+  DataResource combineWith(DataResource resource);
 }

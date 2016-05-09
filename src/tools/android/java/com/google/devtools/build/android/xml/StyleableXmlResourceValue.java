@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
@@ -130,5 +131,30 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass()).add("attrs", attrs).toString();
+  }
+
+  /**
+   * Combines this instance with another {@link StyleableXmlResourceValue}.
+   *
+   * Defining two Styleables (undocumented in the official Android Docs) with the same
+   * {@link FullyQualifiedName} results in a single Styleable containing a union of all the
+   * attribute references.
+   *
+   * @param value Another {@link StyleableXmlResourceValue} with the same {@link FullyQualifiedName}
+   * .
+   * @return {@link StyleableXmlResourceValue} containing a sorted union of the attribute
+   *     references.
+   * @throws IllegalArgumentException if value is not an {@link StyleableXmlResourceValue}.
+   */
+  @Override
+  public XmlResourceValue combineWith(XmlResourceValue value) {
+    if (!(value instanceof StyleableXmlResourceValue)) {
+      throw new IllegalArgumentException(value + "is not combinable with " + this);
+    }
+    StyleableXmlResourceValue styleable = (StyleableXmlResourceValue) value;
+    return of(
+        Ordering.natural()
+            .sortedCopy(
+                ImmutableSet.<String>builder().addAll(attrs).addAll(styleable.attrs).build()));
   }
 }

@@ -48,7 +48,7 @@ message DataValue {
   optional DataValueXml xml_value= 2;
 }
 
-// A container for all the source information to be persisited.
+// A container for all the source information to be persisted.
 message ProtoSource {
   // Required
   optional string filename = 1;
