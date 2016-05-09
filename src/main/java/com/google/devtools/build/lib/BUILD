@@ -975,6 +975,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
     ],
+    visibility = ["//site:__pkg__"],
 )
 
 # The skylark repository classes are passed as parameter of the Skylark documentation generator.
@@ -994,6 +995,7 @@ genrule(
           " ".join(SKYLARK_REPOSITORY_CLASSES) +
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
+    visibility = ["//site:__pkg__"],
 )
 
 # Bootstrapping SingleJar using Skylark rules

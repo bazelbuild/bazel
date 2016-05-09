@@ -64,7 +64,7 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "jekyll-tree",
+    name = "jekyll-base",
     deps = [
         ":bootstrap-css",
         ":bootstrap-images",
@@ -72,5 +72,33 @@ pkg_tar(
         ":font-awesome-css",
         ":font-awesome-font",
         ":jekyll-files",
+    ],
+)
+
+pkg_tar(
+    name = "skylark-rule-docs",
+    files = [
+        "//tools/build_defs/docker:README.md",
+        "//tools/build_defs/pkg:README.md",
+    ],
+    strip_prefix = "/tools/build_defs",
+)
+
+genrule(
+    name = "jekyll-tree",
+    srcs = [
+        ":jekyll-base",
+        ":skylark-rule-docs",
+        "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
+        "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
+    ],
+    outs = ["jekyll-tree.tar"],
+    cmd = ("$(location jekyll-tree.sh) $@ " +
+           "$(location :jekyll-base) " +
+           "$(location :skylark-rule-docs) " +
+           "$(location //src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia) " +
+           "$(location //src/main/java/com/google/devtools/build/lib:gen_skylarklibrary)"),
+    tools = [
+        "jekyll-tree.sh",
     ],
 )

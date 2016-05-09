@@ -6,6 +6,11 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
+exports_files(
+    ["README.md"],
+    visibility = ["//site:__pkg__"],
+)
+
 # Used by pkg_deb
 py_library(
     name = "archive",

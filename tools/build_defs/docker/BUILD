@@ -6,6 +6,11 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
+exports_files(
+    ["README.md"],
+    visibility = ["//site:__pkg__"],
+)
+
 TEST_TARGETS = [
     "base_with_entrypoint",
     "base_with_volume",
