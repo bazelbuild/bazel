@@ -776,6 +776,27 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Checks whether loading the given target results in the specified error message.
+   *
+   * @param target the name of the target.
+   * @param expectedErrorMessage the expected error message.
+   */
+  protected void checkLoadingPhaseError(String target, String expectedErrorMessage) {
+    reporter.removeHandler(failFastHandler);
+    try {
+      // The error happens during the loading of the Skylark file so checkError doesn't work here
+      getTarget(target);
+      fail(
+          String.format(
+              "checkLoadingPhaseError(): expected an error with '%s' when loading target '%s'.",
+              expectedErrorMessage,
+              target));
+    } catch (Exception e) {
+      assertContainsEvent(expectedErrorMessage);
+    }
+  }
+
+  /**
    * Check that configuration of the target named 'ruleName' in the
    * specified BUILD file reports a warning message ending in
    * 'expectedWarningMessage', and that no errors were reported.
