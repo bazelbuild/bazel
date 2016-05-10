@@ -260,14 +260,17 @@ class RunfilesCreator {
       }
 
       FileInfoMap::iterator expected_it = manifest_.find(entry_path);
-      // When windows_compatible is enabled, if the hard link already existing
-      // is still
-      // in the mainifest, no need to recreate it.
-      // Note: here we assume the content won't change, which might not be true
-      // in some rare cases.
       if (expected_it == manifest_.end() ||
-          (!windows_compatible_ && expected_it->second != actual_info)) {
+          expected_it->second != actual_info) {
+#if !defined(__CYGWIN__)
         DelTree(entry_path, actual_info.type);
+#else
+        // On Windows, if deleting failed, lamely assume that
+        // the link points to the right place.
+        if (!DelTree(entry_path, actual_info.type)) {
+          manifest_.erase(expected_it);
+        }
+#endif
       } else {
         manifest_.erase(expected_it);
         if (actual_info.type == FILE_TYPE_DIRECTORY) {
@@ -386,12 +389,15 @@ class RunfilesCreator {
     }
   }
 
-  void DelTree(const std::string &path, FileType file_type) {
+  bool DelTree(const std::string &path, FileType file_type) {
     if (file_type != FILE_TYPE_DIRECTORY) {
       if (unlink(path.c_str()) != 0) {
+#if !defined(__CYGWIN__)
         PDIE("unlinking '%s'", path.c_str());
+#endif
+        return false;
       }
-      return;
+      return true;
     }
 
     EnsureDirReadAndWritePerms(path);
@@ -416,6 +422,7 @@ class RunfilesCreator {
     if (rmdir(path.c_str()) != 0) {
       PDIE("rmdir '%s'", path.c_str());
     }
+    return true;
   }
 
  private:
