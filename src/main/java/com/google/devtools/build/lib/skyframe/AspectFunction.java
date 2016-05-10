@@ -173,6 +173,10 @@ public final class AspectFunction implements SkyFunction {
     }
     
     if (!(target instanceof Rule)) {
+      env.getListener().handle(Event.error(
+          target.getLocation(),
+          String.format("%s is attached to %s %s but aspects must be attached to rules",
+              aspect.getAspectClass().getName(), target.getTargetKind(), target.getName())));
       throw new AspectFunctionException(new AspectCreationException(
           "aspects must be attached to rules"));
     }

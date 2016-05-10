@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -356,6 +357,42 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
               }
             }))
         .containsExactly("//test:yyy");
+  }
+
+  @Test
+  public void testAspectsDoNotAttachToFiles() throws Exception {
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "bind(name = 'yyy', actual = '//test:zzz.jar')");
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=['deps'],",
+        ")");
+    scratch.file("test/zzz.jar");
+    scratch.file(
+        "test/BUILD",
+        "exports_files(['zzz.jar'])",
+        "java_library(",
+        "     name = 'xxx',",
+        "     srcs = ['A.java'],",
+        "     deps = ['//external:yyy'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (ViewCreationFailedException expected) {
+      assertThat(expected.getMessage())
+          .contains("Analysis of aspect '/test/aspect.bzl%MyAspect of //test:xxx' failed");
+    }
+    assertContainsEvent("//test:aspect.bzl%MyAspect is attached to source file zzz.jar but "
+        + "aspects must be attached to rules");
   }
 
   @Test
