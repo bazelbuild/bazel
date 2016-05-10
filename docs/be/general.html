@@ -27,6 +27,10 @@ title: General Rules
         test_suite      </a>
     </li>
     <li>
+      <a href="#alias">
+        alias      </a>
+    </li>
+    <li>
       <a href="#config_setting">
         config_setting      </a>
     </li>
@@ -420,6 +424,87 @@ test_suite(
         </td>
       </tr>
                         </tbody>
+  </table>
+    <h2 id="alias">
+    alias
+  </h2>
+
+  <pre class="rule-signature">alias(<a href="#alias.name">name</a>, <a href="#alias.actual">actual</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+
+
+<p>
+  The <code>alias</code> rule creates another name a rule can be referred to as.
+</p>
+
+<p>
+  Aliasing only works for "regular" targets. In particular, <code>package_group</code>,
+    <code>config_setting</code> and <code>test_suite</code> rules cannot be aliased.
+</p>
+
+<p>
+  The alias rule has its own visibility and license declaration. In all other respects, it behaves
+  like the rule it references with some minor exceptions:
+
+  <ul>
+    <li>
+      Tests are not run if their alias is mentioned on the command line
+    </li>
+    <li>
+      When defining environment groups, the aliases to <code>environment</code> rules are not
+      supported. They are not supported in the <code>--target_environment</code> command line
+      option, either.
+    </li>
+  </ul>
+</p>
+
+<h4 id="alias_example">Examples</h4>
+
+<pre class="code">
+filegroup(
+    name = "data",
+    srcs = ["data.txt"],
+)
+
+alias(
+    name = 'other',
+    actual = ':data',
+)
+</pre>
+
+
+
+  <h3 id="alias_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="alias.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+
+        </td>
+      </tr>
+                <tr>
+        <td id="alias.actual">
+          <code>actual</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; required</code></p>
+                              The target this alias refers to. It does not need to be a rule, it can also be an input
+          file.
+
+        </td>
+      </tr>
+                                                                                                        </tbody>
   </table>
     <h2 id="config_setting">
     config_setting
