@@ -159,7 +159,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batch;
 
   @Option(name = "deep_execroot",
-      defaultValue = "false", // NOTE: purely decorative!  See class docstring.
+      defaultValue = "true", // NOTE: purely decorative!  See class docstring.
       category = "server startup",
       help = "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
           + "$OUTPUT_BASE")

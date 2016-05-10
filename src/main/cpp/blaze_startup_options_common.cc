@@ -38,7 +38,7 @@ void BlazeStartupOptions::Init() {
   blaze_util::ToLower(&product);
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product + "_" + GetUserName());
-  deep_execroot = false;
+  deep_execroot = true;
   block_for_lock = true;
   host_jvm_debug = false;
   host_javabase = "";
