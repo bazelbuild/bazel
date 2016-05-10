@@ -278,6 +278,15 @@ public class JavaOptions extends FragmentOptions {
   )
   public String javacExtdir;
 
+  @Option(
+    name = "host_java_launcher",
+    defaultValue = "null",
+    converter = LabelConverter.class,
+    category = "semantics",
+    help = "The Java launcher used by tools that are executed during a build."
+  )
+  public Label hostJavaLauncher;
+
   @Option(name = "java_launcher",
       defaultValue = "null",
       converter = LabelConverter.class,
@@ -352,6 +361,8 @@ public class JavaOptions extends FragmentOptions {
 
     host.javacOpts = javacOpts;
     host.javaToolchain = hostJavaToolchain;
+
+    host.javaLauncher = hostJavaLauncher;
 
     // Java builds often contain complicated code generators for which
     // incremental build performance is important.
