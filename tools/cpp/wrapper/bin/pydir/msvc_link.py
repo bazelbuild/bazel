@@ -15,6 +15,7 @@
 """Wrapper script for executing the Microsoft Linker."""
 
 import os
+import shutil
 import sys
 import msvc_tools
 
@@ -28,6 +29,7 @@ LINKPATTERNS = [
     (('rcs.*', '(.+)'), ['/OUT:$PATH0']),
     (('-o', '(.+)'), ['/OUT:$PATH0']),
     ('-B(.+)', []),
+    ('-lpthread', []),
     ('-l(.+)', ['lib$0.so']),
     ('-L(.+)', ['/LIBPATH:$PATH0']),
     ('-static', []),
@@ -68,9 +70,14 @@ class MsvcLinker(msvc_tools.WindowsRunner):
 
     # Find the output file name.
     name = ''
+    self.output_dll_file = None
     for arg in parser.options:
       if '/OUT:' in arg:
         name = arg[5:]
+        # if output file ends with .so.exe, we generate dll library.
+        if name.endswith('.so.exe'):
+          default_args.append('/DLL')
+          self.output_dll_file = os.path.normpath(name[0:-7])
         break
     if not name:
       raise msvc_tools.Error('No output file name specified!')
@@ -116,8 +123,12 @@ class MsvcLinker(msvc_tools.WindowsRunner):
           else:
             default_args.insert(0, 'libcmt.lib')
 
-      return self.RunBinary(tool, default_args + parser.options,
-                            parser.target_arch, parser)
+      ret_code = self.RunBinary(tool, default_args + parser.options,
+                                parser.target_arch, parser)
+      if not ret_code and self.output_dll_file:
+        shutil.copyfile(self.output_dll_file + '.so.exe',
+                        self.output_dll_file + '.dll')
+      return ret_code
 
 
 def main(argv):

@@ -563,7 +563,10 @@ toolchain {
   target_libc: "msvcrt140"
   default_python_version: "python2.7"
   cxx_builtin_include_directory: "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/INCLUDE"
-  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/10/include/10.0.10240.0/ucrt"
+  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/10/include/"
+  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/8.1/include/"
+  cxx_builtin_include_directory: "C:/Program Files (x86)/GnuWin32/include/"
+  cxx_builtin_include_directory: "C:/python_27_amd64/files/include"
   tool_path {
     name: "ar"
     path: "wrapper/bin/msvc_link.bat"
@@ -609,7 +612,7 @@ toolchain {
   needsPic: false
 
   compiler_flag: "-m64"
-
+  compiler_flag: "/D__inline__=__inline"
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
   compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
@@ -620,26 +623,17 @@ toolchain {
   compiler_flag: "/DNOMINMAX"
   compiler_flag: "/DPRAGMA_SUPPORTED"
   # Platform defines.
-  compiler_flag: "/D_WIN32"
-  compiler_flag: "/DWIN32"
-  compiler_flag: "/D_WIN32_WINNT=0x0502"
-  compiler_flag: "/DWINVER=0x0502"
-  compiler_flag: "/D_MSC_VER=1900"
-  compiler_flag: "/D_WINDOWS"
+  compiler_flag: "/D_WIN32_WINNT=0x0600"
   # Turn off warning messages.
   compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
   compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
   compiler_flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
   # Use math constants (M_PI, etc.) from the math library
   compiler_flag: "/D_USE_MATH_DEFINES"
-  # Don't bloat namespace with incompatible winsock versions.
-  compiler_flag: "/DWIN32_LEAN_AND_MEAN"
 
   # Useful options to have on for compilation.
   # Suppress startup banner.
   compiler_flag: "/nologo"
-  # Treat warnings as errors.
-  compiler_flag: "/WX"
   # Increase the capacity of object files to 2^32 sections.
   compiler_flag: "/bigobj"
   # Allocate 500MB for precomputed headers.

@@ -32,6 +32,8 @@ VC_VERSION = '140'
 PLATFORM_SDK_PATH = 'C:\\Program Files (x86)\\Windows Kits'
 PLATFORM_SDK_VERSION = '10.0.10240.0'
 TMP_PATH = 'C:\\Windows\\Temp'
+PYTHON_PATH = 'C:\\python_27_amd64\\files'
+GNU_PATH = 'C:\\Program Files (x86)\\GnuWin32'
 
 
 class Error(Exception):
@@ -339,6 +341,8 @@ class WindowsRunner(object):
     path = x86_paths if build_arch == 'x86' else x64_paths
 
     include = [
+        os.path.join(GNU_PATH, 'include'),
+        os.path.join(PYTHON_PATH, 'include'),
         os.path.join(VC_PATH, 'VC\\INCLUDE'),
         os.path.join(VC_PATH, 'VC\\ATLMFC\\INCLUDE'),
         os.path.join(PLATFORM_SDK_PATH, '10\\include', PLATFORM_SDK_VERSION,
@@ -350,29 +354,39 @@ class WindowsRunner(object):
         os.path.join(PLATFORM_SDK_PATH, 'NETFXSDK\\4.6.1\\include\\um'),
     ]
 
+    common_lib_paths = [
+        os.path.join(GNU_PATH, 'bin'),
+        os.path.join(GNU_PATH, 'lib'),
+        os.path.join(PYTHON_PATH, 'libs'),
+    ]
+
     x86_lib_path = [
         os.path.join(VC_PATH, 'VC\\bin'),
         os.path.join(VC_PATH, 'VC\\LIB'),
         os.path.join(VC_PATH, 'VC\\ATLMFC\\LIB'),
-        os.path.join(VC_PATH,
-                     'VC\\redist\\x86\\Microsoft.VC' + VC_VERSION + '.CRT'),
+        os.path.join(VC_PATH, 'VC\\redist\\x86\\Microsoft.VC' + VC_VERSION +
+                     '.CRT'),
         os.path.join(PLATFORM_SDK_PATH, '10\\lib', PLATFORM_SDK_VERSION,
                      'ucrt\\x86'),
         os.path.join(PLATFORM_SDK_PATH, '8.1\\lib\\winv6.3\\um\\x86'),
         os.path.join(PLATFORM_SDK_PATH, 'NETFXSDK\\4.6.1\\lib\\um\\x86'),
-    ]
+        os.path.join(GNU_PATH, 'bin\\x86'),
+        os.path.join(GNU_PATH, 'lib\\x86'),
+    ] + common_lib_paths
 
     x64_lib_path = [
         os.path.join(VC_PATH, 'VC\\bin\\x86_amd64'),
         os.path.join(VC_PATH, 'VC\\LIB\\amd64'),
         os.path.join(VC_PATH, 'VC\\ATLMFC\\LIB\\amd64'),
-        os.path.join(VC_PATH,
-                     'VC\\redist\\x64\\Microsoft.VC' + VC_VERSION + '.CRT'),
+        os.path.join(VC_PATH, 'VC\\redist\\x64\\Microsoft.VC' + VC_VERSION +
+                     '.CRT'),
         os.path.join(PLATFORM_SDK_PATH, '10\\lib', PLATFORM_SDK_VERSION,
                      'ucrt\\x64'),
         os.path.join(PLATFORM_SDK_PATH, '8.1\\lib\\winv6.3\\um\\x64'),
         os.path.join(PLATFORM_SDK_PATH, 'NETFXSDK\\4.6.1\\lib\\um\\x64'),
-    ]
+        os.path.join(GNU_PATH, 'bin\\x64'),
+        os.path.join(GNU_PATH, 'lib\\x64'),
+    ] + common_lib_paths
 
     lib = x86_lib_path if build_arch == 'x86' else x64_lib_path
 
@@ -403,6 +417,8 @@ class WindowsRunner(object):
         '.*warning LNK4044: unrecognized option \'/link\'; ignored.*\n',
         '.*warning LNK4221: This object file does not define any '
         'previously.*\n',
+        # Comment the following line if you want to see warning messages
+        '.*warning C.*\n',
         '\r\n',
         '\n\r',
     ]
@@ -443,6 +459,8 @@ class WindowsRunner(object):
     else:
       cmd = [binary] + args
     # Save stderr output to a temporary in case we need it.
+    # Unconmment the following line to see what exact command is executed.
+    # print "Running: " + " ".join(cmd)
     proc = subprocess.Popen(cmd,
                             env=build_env,
                             stdout=subprocess.PIPE,
