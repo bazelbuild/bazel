@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIS
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -217,16 +216,6 @@ public class AttributeSerializer {
                 .setKey(dictEntry.getKey())
                 .setValue(dictEntry.getValue().toString());
         builder.addLabelDictUnaryValue(entry);
-      }
-    } else if (type == LABEL_LIST_DICT) {
-      Map<String, List<Label>> dict = (Map<String, List<Label>>) value;
-      for (Map.Entry<String, List<Label>> dictEntry : dict.entrySet()) {
-        LabelListDictEntry.Builder entry =
-            LabelListDictEntry.newBuilder().setKey(dictEntry.getKey());
-        for (Object dictEntryValue : dictEntry.getValue()) {
-          entry.addValue(dictEntryValue.toString());
-        }
-        builder.addLabelListDictValue(entry);
       }
     } else if (type == FILESET_ENTRY_LIST) {
       List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;

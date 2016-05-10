@@ -49,8 +49,6 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
       .put(BuildType.LABEL_LIST, "List of <a href=\"../build-ref.html#labels\">labels</a>")
       .put(BuildType.LABEL_DICT_UNARY,
           "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
-      .put(BuildType.LABEL_LIST_DICT,
-          "Dictionary mapping strings to lists of <a href=\"../build-ref.html#labels\">labels</a>")
       .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
       .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
       .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")

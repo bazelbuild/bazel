@@ -61,12 +61,6 @@ public final class BuildType {
    */
   public static final ListType<Label> LABEL_LIST = ListType.create(LABEL);
   /**
-   * The type of a dictionary of {@linkplain #LABEL_LIST label lists}.
-   */
-  // TODO(gregce): remove after abi_deps is removed.
-  public static final DictType<String, List<Label>> LABEL_LIST_DICT =
-      DictType.create(Type.STRING, LABEL_LIST);
-  /**
    * This is a label type that does not cause dependencies. It is needed because
    * certain rules want to verify the type of a target referenced by one of their attributes, but
    * if there was a dependency edge there, it would be a circular dependency.
@@ -147,8 +141,7 @@ public final class BuildType {
    */
   public static boolean isLabelType(Type<?> type) {
     return type == LABEL || type == LABEL_LIST || type == LABEL_DICT_UNARY
-        || type == NODEP_LABEL || type == NODEP_LABEL_LIST
-        || type == LABEL_LIST_DICT || type == FILESET_ENTRY_LIST;
+        || type == NODEP_LABEL || type == NODEP_LABEL_LIST || type == FILESET_ENTRY_LIST;
   }
 
   /**

@@ -783,13 +783,6 @@ public class ConstraintSemantics {
       for (List<Label> labels : ((BuildType.Selector<List<Label>>) select).getEntries().values()) {
         set.addAll(labels);
       }
-    } else if (type == BuildType.LABEL_LIST_DICT) {
-      for (Map<String, List<Label>> mapEntry :
-          ((BuildType.Selector<Map<String, List<Label>>>) select).getEntries().values()) {
-        for (List<Label> labels : mapEntry.values()) {
-          set.addAll(labels);
-        }
-      }
     } else if (type == BuildType.LABEL_DICT_UNARY) {
       for (Map<String, Label> mapEntry :
           ((BuildType.Selector<Map<String, Label>>) select).getEntries().values()) {

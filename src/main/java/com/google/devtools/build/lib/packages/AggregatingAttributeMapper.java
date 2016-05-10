@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIS
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -289,8 +288,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     if (attrType == STRING_DICT
         || attrType == STRING_DICT_UNARY
         || attrType == STRING_LIST_DICT
-        || attrType == LABEL_DICT_UNARY
-        || attrType == LABEL_LIST_DICT) {
+        || attrType == LABEL_DICT_UNARY) {
       Map<Object, Object> mergedDict = new HashMap<>();
       for (Object possibleValue : possibleValues) {
         Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;
