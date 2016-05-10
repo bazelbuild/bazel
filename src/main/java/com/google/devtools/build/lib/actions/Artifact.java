@@ -512,6 +512,18 @@ public class Artifact
     return relativePath;
   }
 
+  @SkylarkCallable(
+      name = "short_path",
+      structField = true,
+      doc =
+          "The path of this file relative to its root. This excludes the aforementioned "
+              + "<i>root</i>, i.e. configuration-specific fragments of the path. This is also the "
+              + "path under which the file is mapped if it's in the runfiles of a binary."
+  )
+  public final String getRunfilesPathString() {
+    return getRunfilesPath().getPathString();
+  }
+
   /**
    * Returns this.getExecPath().getPathString().
    */
@@ -541,14 +553,6 @@ public class Artifact
     return ShellUtils.shellEscape(getExecPathString());
   }
 
-  @SkylarkCallable(
-    name = "short_path",
-    structField = true,
-    doc =
-        "The path of this file relative to its root. This excludes the aforementioned "
-            + "<i>root</i>, i.e. configuration-specific fragments of the path. This is also the "
-            + "path under which the file is mapped if it's in the runfiles of a binary."
-  )
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
   }

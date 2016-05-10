@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Before;
@@ -968,5 +969,29 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(noEmptyFilenames).isInstanceOf(SkylarkList.class);
     SkylarkList noEmptyFilenamesList = (SkylarkList) noEmptyFilenames;
     assertThat(noEmptyFilenamesList).containsExactly().inOrder();
+  }
+
+  @Test
+  public void testExternalShortPath() throws Exception {
+    scratch.file("/bar/WORKSPACE");
+    scratch.file("/bar/bar.txt");
+    scratch.file("/bar/BUILD", "exports_files(['bar.txt'])");
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'foo', path = '/bar')");
+    scratch.file(
+        "test/BUILD",
+        "genrule(",
+        "    name = 'lib',",
+        "    srcs = ['@foo//:bar.txt'],",
+        "    cmd = 'echo $(SRCS) $@',",
+        "    outs = ['lib.out'],",
+        "    executable = 1,",
+        ")");
+    invalidatePackages();
+    SkylarkRuleContext ruleContext = createRuleContext("//test:lib");
+    String filename = evalRuleContextCode(ruleContext, "ruleContext.files.srcs[0].short_path")
+        .toString();
+    assertThat(filename).isEqualTo("../foo/bar.txt");
   }
 }
