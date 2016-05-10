@@ -1264,6 +1264,47 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void breakCycle() throws Exception {
+    initializeTester();
+    SkyKey aKey = GraphTester.toSkyKey("a");
+    SkyKey bKey = GraphTester.toSkyKey("b");
+    // When aKey and bKey depend on each other,
+    tester.getOrCreate(aKey).addDependency(bKey);
+    tester.getOrCreate(bKey).addDependency(aKey);
+    // And they are evaluated,
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, aKey, bKey);
+    // Then the evaluation is in error,
+    assertThatEvaluationResult(result).hasError();
+    // And each node has the expected cycle.
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(aKey)
+        .hasCycleInfoThat()
+        .isNotEmpty();
+    CycleInfo aCycleInfo = Iterables.getOnlyElement(result.getError(aKey).getCycleInfo());
+    assertThat(aCycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
+    assertThat(aCycleInfo.getPathToCycle()).isEmpty();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(bKey)
+        .hasCycleInfoThat()
+        .isNotEmpty();
+    CycleInfo bCycleInfo = Iterables.getOnlyElement(result.getError(bKey).getCycleInfo());
+    assertThat(bCycleInfo.getCycle()).containsExactly(bKey, aKey).inOrder();
+    assertThat(bCycleInfo.getPathToCycle()).isEmpty();
+
+    // When both dependencies are broken,
+    tester.getOrCreate(bKey).removeDependency(aKey);
+    tester.set(bKey, new StringValue("bValue"));
+    tester.getOrCreate(aKey).removeDependency(bKey);
+    tester.set(aKey, new StringValue("aValue"));
+    tester.invalidate();
+    // And the nodes are re-evaluated,
+    result = tester.eval(/*keepGoing=*/ true, aKey, bKey);
+    // Then evaluation is successful and the nodes have the expected values.
+    assertThatEvaluationResult(result).hasEntryThat(aKey).isEqualTo(new StringValue("aValue"));
+    assertThatEvaluationResult(result).hasEntryThat(bKey).isEqualTo(new StringValue("bValue"));
+  }
+
+  @Test
   public void limitEvaluatorThreads() throws Exception {
     initializeTester();
 
