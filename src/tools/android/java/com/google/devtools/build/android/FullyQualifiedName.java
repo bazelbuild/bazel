@@ -172,8 +172,8 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       QualifierApiAdjuster.fromValues(13, "watch"),
       // UI MODE NIGHT implies api 8
       QualifierApiAdjuster.fromValues(8, "night", "notnight"),
-      // HDPI implies api 4
-      QualifierApiAdjuster.fromValues(4, "hdpi"),
+      // HDPI, MDPI, LDPI implies api 4
+      QualifierApiAdjuster.fromValues(4, "hdpi", "mdpi", "ldpi"),
       // XHDPI implies api 8
       QualifierApiAdjuster.fromValues(8, "xhdpi"),
       // XXHDPI implies api 16
