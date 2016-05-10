@@ -127,24 +127,20 @@ public class TestSummaryPrinter {
       }
     }
 
-    if (printFailedTestCases) {
-      // In this mode, test output and coverage files would just clutter up
-      // the output.
-      return;
-    }
+    if (!printFailedTestCases) {
+      for (String warning : summary.getWarnings()) {
+        terminalPrinter.print("  " + AnsiTerminalPrinter.Mode.WARNING + "WARNING: "
+            + AnsiTerminalPrinter.Mode.DEFAULT + warning + "\n");
+      }
 
-    for (String warning : summary.getWarnings()) {
-      terminalPrinter.print("  " + AnsiTerminalPrinter.Mode.WARNING + "WARNING: "
-          + AnsiTerminalPrinter.Mode.DEFAULT + warning + "\n");
-    }
-
-    for (Path path : summary.getFailedLogs()) {
-      if (path.exists()) {
-        // Don't use getPrettyPath() here - we want to print the absolute path,
-        // so that it cut and paste into a different terminal, and we don't
-        // want to use the blaze-bin etc. symbolic links because they could be changed
-        // by a subsequent build with different options.
-        terminalPrinter.print("  " + path.getPathString() + "\n");
+      for (Path path : summary.getFailedLogs()) {
+        if (path.exists()) {
+          // Don't use getPrettyPath() here - we want to print the absolute path,
+          // so that it cut and paste into a different terminal, and we don't
+          // want to use the blaze-bin etc. symbolic links because they could be changed
+          // by a subsequent build with different options.
+          terminalPrinter.print("  " + path.getPathString() + "\n");
+        }
       }
     }
     for (Path path : summary.getCoverageFiles()) {
