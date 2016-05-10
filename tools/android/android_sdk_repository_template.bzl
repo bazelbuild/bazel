@@ -163,7 +163,6 @@ def create_android_sdk_rules(
       main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
       apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
       zipalign = ":zipalign_binary",
-      android_jack = ":empty",
       jack = ":fail",
       jill = ":fail",
       resource_extractor = ":fail"

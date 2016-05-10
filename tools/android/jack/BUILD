@@ -7,11 +7,6 @@ sh_binary(
     srcs = ["fail.sh"],
 )
 
-filegroup(
-    name = "android_jack",
-    srcs = ["empty"],
-)
-
 sh_binary(
     name = "jill",
     srcs = ["fail.sh"],
