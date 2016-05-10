@@ -43,11 +43,13 @@ public final class SelectorValue implements SkylarkValue {
   // operators, which is a non-trivial problem.
   private final ImmutableMap<?, ?> dictionary;
   private final Class<?> type;
+  private final String noMatchError;
 
-  public SelectorValue(Map<?, ?> dictionary) {
+  public SelectorValue(Map<?, ?> dictionary, String noMatchError) {
     // Put the dict through a sorting to avoid depending on insertion order.
     this.dictionary = ImmutableMap.copyOf(new TreeMap<>(dictionary));
     this.type = dictionary.isEmpty() ? null : Iterables.get(dictionary.values(), 0).getClass();
+    this.noMatchError = noMatchError;
   }
 
   /**
@@ -60,6 +62,14 @@ public final class SelectorValue implements SkylarkValue {
 
   Class<?> getType() {
     return type;
+  }
+
+  /**
+   * Returns a custom error message for this select when no condition matches, or an empty
+   * string if no such message is declared.
+   */
+  public String getNoMatchError() {
+    return noMatchError;
   }
 
   @Override

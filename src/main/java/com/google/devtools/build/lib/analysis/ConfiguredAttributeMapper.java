@@ -180,10 +180,15 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // If nothing matched, choose the default condition.
     if (matchingCondition == null) {
       if (!selector.hasDefault()) {
-        throw new EvalException(rule.getAttributeLocation(attributeName),
-            "Configurable attribute \"" + attributeName + "\" doesn't match this "
-            + "configuration (would a default condition help?).\nConditions checked:\n "
-            + Joiner.on("\n ").join(conditionLabels));
+        String noMatchMessage =
+            "Configurable attribute \"" + attributeName + "\" doesn't match this configuration";
+        if (!selector.getNoMatchError().isEmpty()) {
+          noMatchMessage += ": " + selector.getNoMatchError();
+        } else {
+          noMatchMessage += " (would a default condition help?).\nConditions checked:\n "
+              + Joiner.on("\n ").join(conditionLabels);
+        }
+        throw new EvalException(rule.getAttributeLocation(attributeName), noMatchMessage);
       }
       matchingResult = selector.hasDefault()
           ? new ConfigKeyAndValue<>(Selector.DEFAULT_CONDITION_LABEL, selector.getDefault())

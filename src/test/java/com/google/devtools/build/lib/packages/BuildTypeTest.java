@@ -163,9 +163,9 @@ public class BuildTypeTest {
   @Test
   public void testSelectorList() throws Exception {
     Object selector1 = new SelectorValue(ImmutableMap.of("//conditions:a",
-        ImmutableList.of("//a:a"), "//conditions:b", ImmutableList.of("//b:b")));
+        ImmutableList.of("//a:a"), "//conditions:b", ImmutableList.of("//b:b")), "");
     Object selector2 = new SelectorValue(ImmutableMap.of("//conditions:c",
-        ImmutableList.of("//c:c"), "//conditions:d", ImmutableList.of("//d:d")));
+        ImmutableList.of("//c:c"), "//conditions:d", ImmutableList.of("//d:d")), "");
     BuildType.SelectorList<List<Label>> selectorList = new BuildType.SelectorList<>(
         ImmutableList.of(selector1, selector2), null, currentRule, BuildType.LABEL_LIST);
 
@@ -194,9 +194,9 @@ public class BuildTypeTest {
   @Test
   public void testSelectorListMixedTypes() throws Exception {
     Object selector1 =
-        new SelectorValue(ImmutableMap.of("//conditions:a", ImmutableList.of("//a:a")));
+        new SelectorValue(ImmutableMap.of("//conditions:a", ImmutableList.of("//a:a")), "");
     Object selector2 =
-        new SelectorValue(ImmutableMap.of("//conditions:b", "//b:b"));
+        new SelectorValue(ImmutableMap.of("//conditions:b", "//b:b"), "");
     try {
       new BuildType.SelectorList<>(ImmutableList.of(selector1, selector2), null, currentRule,
           BuildType.LABEL_LIST);
@@ -217,7 +217,7 @@ public class BuildTypeTest {
     Object selectableInput =
         SelectorList.of(new SelectorValue(ImmutableMap.of(
             "//conditions:a", nativeInput,
-            BuildType.Selector.DEFAULT_CONDITION_KEY, nativeInput)));
+            BuildType.Selector.DEFAULT_CONDITION_KEY, nativeInput), ""));
     List<Label> expectedLabels =
         ImmutableList.of(Label.create("@//a", "a1"), Label.create("@//a", "a2"));
 
@@ -247,7 +247,8 @@ public class BuildTypeTest {
   @Test
   public void testConvertDoesNotAcceptSelectables() throws Exception {
     Object selectableInput = SelectorList.of(
-        new SelectorValue(ImmutableMap.of("//conditions:a", Arrays.asList("//a:a1", "//a:a2"))));
+        new SelectorValue(
+            ImmutableMap.of("//conditions:a", Arrays.asList("//a:a1", "//a:a2")), ""));
     try {
       BuildType.LABEL_LIST.convert(selectableInput, null, currentRule);
       fail("Expected conversion to fail on a selectable input");

@@ -382,7 +382,7 @@ public final class BuildType {
       for (Object elem : x) {
         if (elem instanceof SelectorValue) {
           builder.add(new Selector<T>(((SelectorValue) elem).getDictionary(), what,
-              context, originalType));
+              context, originalType, ((SelectorValue) elem).getNoMatchError()));
         } else {
           T directValue = originalType.convert(elem, what, context);
           builder.add(new Selector<T>(ImmutableMap.of(Selector.DEFAULT_CONDITION_KEY, directValue),
@@ -445,11 +445,24 @@ public final class BuildType {
     private final Type<T> originalType;
     private final Map<Label, T> map; // Can hold null values.
     private final Set<Label> conditionsWithDefaultValues;
+    private final String noMatchError;
     private final boolean hasDefaultCondition;
 
+    /**
+     * Creates a new Selector using the default error message when no conditions match.
+     */
     @VisibleForTesting
     Selector(ImmutableMap<?, ?> x, String what, @Nullable Label context, Type<T> originalType)
         throws ConversionException {
+      this(x, what, context, originalType, "");
+
+    }
+
+    /**
+     * Creates a new Selector with a custom error message for when no conditions match.
+     */
+    Selector(ImmutableMap<?, ?> x, String what, @Nullable Label context, Type<T> originalType,
+        String noMatchError) throws ConversionException {
       this.originalType = originalType;
       Map<Label, T> result = new LinkedHashMap<>();
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
@@ -468,6 +481,7 @@ public final class BuildType {
         }
       }
       map = Collections.unmodifiableMap(result);
+      this.noMatchError = noMatchError;
       conditionsWithDefaultValues = defaultValuesBuilder.build();
       hasDefaultCondition = foundDefaultCondition;
     }
@@ -518,6 +532,14 @@ public final class BuildType {
      */
     public boolean isValueSet(Label condition) {
       return !conditionsWithDefaultValues.contains(condition);
+    }
+
+    /**
+     * Returns a custom error message for this select when no condition matches, or an empty
+     * string if no such message is declared.
+     */
+    public String getNoMatchError() {
+      return noMatchError;
     }
 
     /**
