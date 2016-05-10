@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
-import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -234,11 +234,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
+  @SuppressWarnings("unchecked")
   @Override
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-    return ImmutableList.of(
-        IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-        AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION);
+    return ImmutableList.<SplitTransition<BuildOptions>>builder().add(
+            IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
+            AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION)
+        .addAll(AppleBinary.SPLIT_TRANSITION_PROVIDER.getPotentialSplitTransitions())
+        .build();
   }
 
   /** Converter for the iOS configuration distinguisher. */

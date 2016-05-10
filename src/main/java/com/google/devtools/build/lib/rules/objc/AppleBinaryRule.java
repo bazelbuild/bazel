@@ -46,13 +46,13 @@ public class AppleBinaryRule implements RuleDefinition {
             ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class)
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-        .override(builder.copy("deps").cfg(IosApplication.SPLIT_ARCH_TRANSITION))
-        .override(builder.copy("non_propagated_deps").cfg(IosApplication.SPLIT_ARCH_TRANSITION))
+        .override(builder.copy("deps").cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER))
+        .override(builder.copy("non_propagated_deps").cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER))
         // This is currently a hack to obtain all child configurations regardless of the attribute
         // values of this rule -- this rule does not currently use the actual info provided by
         // this attribute.
         .add(attr(":cc_toolchain", LABEL)
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION)
+            .cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER)
             .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(LIPOBIN))

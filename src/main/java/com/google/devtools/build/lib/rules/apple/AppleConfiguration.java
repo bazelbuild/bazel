@@ -359,4 +359,22 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           xcodeVersionCommandLineFlag, "xcode_version_config");
     }
   }
+
+  /**
+   * Value used to avoid multiple configurations from conflicting. No two instances of this
+   * transition may exist with the same value in a single Bazel invocation.
+   */
+  public enum ConfigurationDistinguisher {
+    UNKNOWN,
+    /** Split transition distinguisher for {@code ios_extension} rule. */
+    IOS_EXTENSION,
+    /** Split transition distinguisher for {@code ios_application} rule. */
+    IOS_APPLICATION,
+    /** Split transition distinguisher for {@code ios_framework} rule. */
+    FRAMEWORK,
+    /** Split transition distinguisher for {@code apple_watch1_extension} rule. */
+    WATCH_OS1_EXTENSION,
+    /** Split transition distinguisher for {@code apple_binary} rule. */
+    APPLEBIN_IOS
+  }
 }

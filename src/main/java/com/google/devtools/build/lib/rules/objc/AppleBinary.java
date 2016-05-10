@@ -28,9 +28,15 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
@@ -43,6 +49,14 @@ import java.util.Set;
  * Implementation for the "apple_binary" rule.
  */
 public class AppleBinary implements RuleConfiguredTargetFactory {
+  
+  /**
+   * {@link SplitTransitionProvider} instance for the apple binary rule. (This is exposed for
+   * convenience as a single static instance as it possesses no internal state.)
+   */
+  public static final AppleBinaryTransitionProvider SPLIT_TRANSITION_PROVIDER =
+      new AppleBinaryTransitionProvider();
+
   @VisibleForTesting
   static final String REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE =
       "At least one library dependency or source file is required.";
@@ -167,5 +181,61 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             CcToolchainProvider.class);
     
     return configToProvider.keySet();
+  }
+  
+  /**
+   * {@link SplitTransitionProvider} implementation for the apple binary rule.
+   */
+  public static class AppleBinaryTransitionProvider implements SplitTransitionProvider {
+
+    private static final IosMultiCpusTransition IOS_MULTI_CPUS_SPLIT_TRANSITION =
+        new IosMultiCpusTransition();
+
+    @Override
+    public SplitTransition<?> apply(Rule fromRule) {
+      // TODO(cparsons): Support different split transitions based on rule attribute.
+      return IOS_MULTI_CPUS_SPLIT_TRANSITION;
+    }
+    
+    public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
+      return ImmutableList.<SplitTransition<BuildOptions>>of(IOS_MULTI_CPUS_SPLIT_TRANSITION);
+    }
+  }
+
+  /**
+   * Transition that results in one configured target per architecture specified in {@code
+   * --ios_multi_cpus}.
+   */
+  protected static class IosMultiCpusTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public final List<BuildOptions> split(BuildOptions buildOptions) {
+      List<String> iosMultiCpus = buildOptions.get(AppleCommandLineOptions.class).iosMultiCpus;
+
+      ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+      for (String iosCpu : iosMultiCpus) {
+        BuildOptions splitOptions = buildOptions.clone();
+
+        splitOptions.get(AppleCommandLineOptions.class).iosMultiCpus = ImmutableList.of();
+        splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
+        splitOptions.get(AppleCommandLineOptions.class).iosCpu = iosCpu;
+        if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
+          // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
+          // This helps users of the iOS rules who do not depend on CC rules as these CPU values
+          // require additional flags to work (e.g. a custom crosstool) which now only need to be
+          // set if this feature is explicitly requested.
+          splitOptions.get(BuildConfiguration.Options.class).cpu = "ios_" + iosCpu;
+        }
+        splitOptions.get(ObjcCommandLineOptions.class).configurationDistinguisher =
+            ConfigurationDistinguisher.APPLEBIN_IOS;
+        splitBuildOptions.add(splitOptions);
+      }
+      return splitBuildOptions.build();
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
   }
 }

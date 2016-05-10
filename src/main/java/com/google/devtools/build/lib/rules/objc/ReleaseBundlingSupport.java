@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -1360,14 +1361,6 @@ public final class ReleaseBundlingSupport {
     /** Returns the configuration distinguisher for this transition instance. */
     protected ConfigurationDistinguisher getConfigurationDistinguisher() {
       return ConfigurationDistinguisher.IOS_APPLICATION;
-    }
-
-    /**
-     * Value used to avoid multiple configurations from conflicting. No two instances of this
-     * transition may exist with the same value in a single Bazel invocation.
-     */
-    enum ConfigurationDistinguisher {
-      IOS_EXTENSION, IOS_APPLICATION, FRAMEWORK, UNKNOWN, WATCH_OS1_EXTENSION
     }
   }
 }
