@@ -1,4 +1,0 @@
-# This file is used by gcl to get repository specific information.
-GERRIT_HOST: True
-GERRIT_PORT: True
-CODE_REVIEW_SERVER: https://boringssl-review.googlesource.com
