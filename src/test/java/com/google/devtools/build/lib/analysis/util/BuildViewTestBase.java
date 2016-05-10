@@ -38,8 +38,9 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.DeterministicGraph;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph;
+import com.google.devtools.build.skyframe.NotifyingGraph.Listener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -126,10 +127,11 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     assertContainsEvent("circular symlinks detected");
   }
 
-  protected void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
+  protected void injectGraphListenerForTesting(Listener listener, boolean deterministic) {
     InMemoryMemoizingEvaluator memoizingEvaluator =
         (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting();
-    memoizingEvaluator.setGraphForTesting(notifyingInMemoryGraph);
+    memoizingEvaluator.injectGraphTransformerForTesting(
+        DeterministicGraph.makeTransformer(listener, deterministic));
   }
 
   protected void runTestForMultiCpuAnalysisFailure(String badCpu, String goodCpu) throws Exception {

@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,74 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.Iterables;
-
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
-/** {@link NotifyingInMemoryGraph} that returns reverse deps ordered alphabetically. */
-public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
-  private static final Comparator<SkyKey> ALPHABETICAL_SKYKEY_COMPARATOR =
-      new Comparator<SkyKey>() {
-    @Override
-    public int compare(SkyKey o1, SkyKey o2) {
-      return o1.toString().compareTo(o2.toString());
-    }
-  };
+/**
+ * {@link DeterministicGraph} that implements the {@link InMemoryGraph} interface. Sadly, cannot be
+ * a {@link NotifyingInMemoryGraph} due to Java's forbidding multiple inheritance.
+ */
+class DeterministicInMemoryGraph extends DeterministicGraph<InMemoryGraph>
+    implements InMemoryGraph {
 
-  public DeterministicInMemoryGraph(Listener listener) {
-    super(listener);
+  DeterministicInMemoryGraph(InMemoryGraph delegate, Listener graphListener) {
+    super(delegate, graphListener);
   }
 
-  public DeterministicInMemoryGraph() {
-    super(Listener.NULL_LISTENER);
+  DeterministicInMemoryGraph(InMemoryGraph delegate) {
+    super(delegate);
   }
 
   @Override
-  protected DeterministicValueEntry getEntry(SkyKey key) {
-    return new DeterministicValueEntry(key);
+  public Map<SkyKey, SkyValue> getValues() {
+    return delegate.getValues();
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-    Map<SkyKey, NodeEntry> result = new TreeMap<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-    result.putAll(super.getBatch(keys));
-    return result;
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return delegate.getDoneValues();
   }
 
-  /**
-   * This class uses TreeSet to store reverse dependencies of NodeEntry. As a result all values are
-   * lexicographically sorted.
-   */
-  private class DeterministicValueEntry extends NotifyingNodeEntry {
-    private DeterministicValueEntry(SkyKey myKey) {
-      super(myKey);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public synchronized Collection<SkyKey> getReverseDeps() {
-      TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      Iterables.addAll(result, super.getReverseDeps());
-      return result;
-    }
-
-    @Override
-    public synchronized Set<SkyKey> getInProgressReverseDeps() {
-      TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      result.addAll(buildingState.getReverseDepsToSignal());
-      return result;
-    }
-
-    @Override
-    public synchronized Set<SkyKey> getTemporaryDirectDeps() {
-      TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      result.addAll(super.getTemporaryDirectDeps());
-      return result;
-    }
+  @Override
+  public Map<SkyKey, NodeEntry> getAllValues() {
+    return delegate.getAllValues();
   }
 }

@@ -100,7 +100,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = invalidationReceiver;
-    this.graph = new InMemoryGraph(keepEdges);
+    this.graph = new InMemoryGraphImpl(keepEdges);
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
   }
@@ -261,22 +261,35 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     return graph.getDoneValues();
   }
 
+  private static boolean isDone(@Nullable NodeEntry entry) {
+    return entry != null && entry.isDone();
+  }
+
   @Override
   @Nullable public SkyValue getExistingValueForTesting(SkyKey key) {
-    return graph.getValue(key);
+    NodeEntry entry = getExistingEntryForTesting(key);
+    return isDone(entry) ? entry.getValue() : null;
   }
 
   @Override
   @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = graph.get(key);
-    return (entry == null || !entry.isDone()) ? null : entry.getErrorInfo();
+    NodeEntry entry = getExistingEntryForTesting(key);
+    return isDone(entry) ? entry.getErrorInfo() : null;
   }
 
-  public void setGraphForTesting(InMemoryGraph graph) {
-    this.graph = graph;
+  @Nullable
+  @Override
+  public NodeEntry getExistingEntryForTesting(SkyKey key) {
+    return graph.get(key);
   }
 
-  public InMemoryGraph getGraphForTesting() {
+  @Override
+  public void injectGraphTransformerForTesting(
+      Function<ThinNodeQueryableGraph, ProcessableGraph> transformer) {
+    this.graph = (InMemoryGraph) transformer.apply(this.graph);
+  }
+
+  public ProcessableGraph getGraphForTesting() {
     return graph;
   }
 

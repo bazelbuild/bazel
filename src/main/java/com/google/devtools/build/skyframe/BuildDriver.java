@@ -20,9 +20,7 @@ import com.google.devtools.common.options.OptionsClassProvider;
 
 import javax.annotation.Nullable;
 
-/**
- * A BuildDriver wraps a MemoizingEvaluator, passing along the proper Version.
- */
+/** A BuildDriver wraps a MemoizingEvaluator, passing along the proper Version. */
 public interface BuildDriver {
   /**
    * See {@link MemoizingEvaluator#evaluate}, which has the same semantics except for the
@@ -48,4 +46,6 @@ public interface BuildDriver {
   @Nullable
   ErrorInfo getExistingErrorForTesting(SkyKey key);
 
+  @Nullable
+  NodeEntry getEntryForTesting(SkyKey key);
 }

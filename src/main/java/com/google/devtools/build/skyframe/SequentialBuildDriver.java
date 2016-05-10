@@ -63,4 +63,10 @@ public class SequentialBuildDriver implements BuildDriver {
   public ErrorInfo getExistingErrorForTesting(SkyKey key) {
     return memoizingEvaluator.getExistingErrorForTesting(key);
   }
+
+  @Nullable
+  @Override
+  public NodeEntry getEntryForTesting(SkyKey key) {
+    return memoizingEvaluator.getExistingEntryForTesting(key);
+  }
 }

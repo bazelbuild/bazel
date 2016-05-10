@@ -51,9 +51,9 @@ import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.NotifyingGraph.EventType;
+import com.google.devtools.build.skyframe.NotifyingGraph.Listener;
+import com.google.devtools.build.skyframe.NotifyingGraph.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
@@ -78,9 +78,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
-/**
- * Tests for {@link MemoizingEvaluator}.
- */
+/** Tests for {@link MemoizingEvaluator}.*/
 @RunWith(JUnit4.class)
 public class MemoizingEvaluatorTest {
 
@@ -701,33 +699,32 @@ public class MemoizingEvaluatorTest {
   // should be notified that mid has been built.
   @Test
   public void alreadyAnalyzedBadTarget() throws Exception {
-    final SkyKey mid = GraphTester.toSkyKey("mid");
+    final SkyKey mid = GraphTester.toSkyKey("zzmid");
     final CountDownLatch valueSet = new CountDownLatch(1);
-    setGraphForTesting(
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!key.equals(mid)) {
-                  return;
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!key.equals(mid)) {
+              return;
+            }
+            switch (type) {
+              case ADD_REVERSE_DEP:
+                if (context == null) {
+                  // Context is null when we are enqueuing this value as a top-level job.
+                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(valueSet, "value not set");
                 }
-                switch (type) {
-                  case ADD_REVERSE_DEP:
-                    if (context == null) {
-                      // Context is null when we are enqueuing this value as a top-level job.
-                      TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                          valueSet, "value not set");
-                    }
-                    break;
-                  case SET_VALUE:
-                    valueSet.countDown();
-                    break;
-                  default:
-                    break;
-                }
-              }
-            }));
-    SkyKey top = GraphTester.skyKey("top");
+                break;
+              case SET_VALUE:
+                valueSet.countDown();
+                break;
+              default:
+                break;
+            }
+          }
+        },
+        /*deterministic=*/ true);
+    SkyKey top = GraphTester.skyKey("aatop");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(CONCATENATE);
     tester.getOrCreate(mid).setHasError(true);
     tester.eval(/*keepGoing=*/false, top, mid);
@@ -1050,7 +1047,7 @@ public class MemoizingEvaluatorTest {
 
   @Test
   public void cycleAndSelfEdgeWithDirtyValueInSameGroup() throws Exception {
-    setGraphForTesting(new DeterministicInMemoryGraph());
+    makeGraphDeterministic();
     final SkyKey cycleKey1 = GraphTester.toSkyKey("zcycleKey1");
     final SkyKey cycleKey2 = GraphTester.toSkyKey("acycleKey2");
     tester.getOrCreate(cycleKey2).addDependency(cycleKey2).setComputedValue(CONCATENATE);
@@ -1187,25 +1184,25 @@ public class MemoizingEvaluatorTest {
     final CountDownLatch errorThrown = new CountDownLatch(1);
     // We don't do anything on the first build.
     final AtomicBoolean secondBuild = new AtomicBoolean(false);
-    setGraphForTesting(
-        new DeterministicInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!secondBuild.get()) {
-                  return;
-                }
-                if (key.equals(otherTop) && type == EventType.SIGNAL) {
-                  // otherTop is being signaled that dep1 is done. Tell the error value that it is
-                  // ready, then wait until the error is thrown, so that otherTop's builder is not
-                  // re-entered.
-                  valuesReady.countDown();
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      errorThrown, "error not thrown");
-                  return;
-                }
-              }
-            }));
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!secondBuild.get()) {
+              return;
+            }
+            if (key.equals(otherTop) && type == EventType.SIGNAL) {
+              // otherTop is being signaled that dep1 is done. Tell the error value that it is
+              // ready, then wait until the error is thrown, so that otherTop's builder is not
+              // re-entered.
+              valuesReady.countDown();
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  errorThrown, "error not thrown");
+              return;
+            }
+          }
+        },
+        /*deterministic=*/ true);
     final SkyKey dep1 = GraphTester.toSkyKey("dep1");
     tester.set(dep1, new StringValue("dep1"));
     final SkyKey dep2 = GraphTester.toSkyKey("dep2");
@@ -1228,7 +1225,7 @@ public class MemoizingEvaluatorTest {
     // Mark dep1 changed, so otherTop will be dirty and request re-evaluation of dep1.
     tester.getOrCreate(dep1, /*markAsModified=*/true);
     SkyKey topKey = GraphTester.toSkyKey("top");
-    // Note that since DeterministicInMemoryGraph alphabetizes reverse deps, it is important that
+    // Note that since DeterministicGraph alphabetizes reverse deps, it is important that
     // "cycle2" comes before "top".
     final SkyKey cycle1Key = GraphTester.toSkyKey("cycle1");
     final SkyKey cycle2Key = GraphTester.toSkyKey("cycle2");
@@ -1773,12 +1770,10 @@ public class MemoizingEvaluatorTest {
    * We are checking here that we are resilient to a race condition in which a value that is
    * checking its children for dirtiness is signaled by all of its children, putting it in a ready
    * state, before the thread has terminated. Optionally, one of its children may throw an error,
-   * shutting down the threadpool. This is similar to
-   * {@link ParallelEvaluatorTest#slowChildCleanup}: a child about to throw signals its parent and
-   * the parent's builder restarts itself before the exception is thrown. Here, the signaling
-   * happens while dirty dependencies are being checked, as opposed to during actual evaluation, but
-   * the principle is the same. We control the timing by blocking "top"'s registering itself on its
-   * deps.
+   * shutting down the threadpool. The essential race is that a child about to throw signals its
+   * parent and the parent's builder restarts itself before the exception is thrown. Here, the
+   * signaling happens while dirty dependencies are being checked. We control the timing by blocking
+   * "top"'s registering itself on its deps.
    */
   private void dirtyChildEnqueuesParentDuringCheckDependencies(final boolean throwError)
       throws Exception {
@@ -1791,33 +1786,32 @@ public class MemoizingEvaluatorTest {
     final AtomicBoolean delayTopSignaling = new AtomicBoolean(false);
     final CountDownLatch topSignaled = new CountDownLatch(1);
     final CountDownLatch topRestartedBuild = new CountDownLatch(1);
-    setGraphForTesting(
-        new DeterministicInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(
-                  SkyKey key, EventType type, Order order, @Nullable Object context) {
-                if (!delayTopSignaling.get()) {
-                  return;
-                }
-                if (key.equals(top) && type == EventType.SIGNAL && order == Order.AFTER) {
-                  // top is signaled by firstKey (since slowAddingDep is blocking), so slowAddingDep
-                  // is now free to acknowledge top as a parent.
-                  topSignaled.countDown();
-                  return;
-                }
-                if (key.equals(slowAddingDep)
-                    && type == EventType.ADD_REVERSE_DEP
-                    && top.equals(context)
-                    && order == Order.BEFORE) {
-                  // If top is trying to declare a dep on slowAddingDep, wait until firstKey has
-                  // signaled top. Then this add dep will return DONE and top will be signaled,
-                  // making it ready, so it will be enqueued.
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      topSignaled, "first key didn't signal top in time");
-                }
-              }
-            }));
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, @Nullable Object context) {
+            if (!delayTopSignaling.get()) {
+              return;
+            }
+            if (key.equals(top) && type == EventType.SIGNAL && order == Order.AFTER) {
+              // top is signaled by firstKey (since slowAddingDep is blocking), so slowAddingDep
+              // is now free to acknowledge top as a parent.
+              topSignaled.countDown();
+              return;
+            }
+            if (key.equals(slowAddingDep)
+                && type == EventType.ADD_REVERSE_DEP
+                && top.equals(context)
+                && order == Order.BEFORE) {
+              // If top is trying to declare a dep on slowAddingDep, wait until firstKey has
+              // signaled top. Then this add dep will return DONE and top will be signaled,
+              // making it ready, so it will be enqueued.
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  topSignaled, "first key didn't signal top in time");
+            }
+          }
+        },
+        /*deterministic=*/ true);
     // Value that is modified on the second build. Its thread won't finish until it signals top,
     // which will wait for the signal before it enqueues its next dep. We prevent the thread from
     // finishing by having the listener to which it reports its warning block until top's builder
@@ -1907,27 +1901,25 @@ public class MemoizingEvaluatorTest {
     final CountDownLatch changedKeyStarted = new CountDownLatch(1);
     final CountDownLatch changedKeyCanFinish = new CountDownLatch(1);
     final AtomicBoolean controlTiming = new AtomicBoolean(false);
-    setGraphForTesting(
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!controlTiming.get()) {
-                  return;
-                }
-                if (key.equals(midKey)
-                    && type == EventType.CHECK_IF_DONE
-                    && order == Order.BEFORE) {
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      changedKeyStarted, "changed key didn't start");
-                } else if (key.equals(changedKey)
-                    && type == EventType.REMOVE_REVERSE_DEP
-                    && order == Order.AFTER
-                    && midKey.equals(context)) {
-                  changedKeyCanFinish.countDown();
-                }
-              }
-            }));
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!controlTiming.get()) {
+              return;
+            }
+            if (key.equals(midKey) && type == EventType.CHECK_IF_DONE && order == Order.BEFORE) {
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  changedKeyStarted, "changed key didn't start");
+            } else if (key.equals(changedKey)
+                && type == EventType.REMOVE_REVERSE_DEP
+                && order == Order.AFTER
+                && midKey.equals(context)) {
+              changedKeyCanFinish.countDown();
+            }
+          }
+        },
+        /*deterministic=*/ false);
     // Then top builds as expected.
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(new StringValue("first"));
     // When changed is modified,
@@ -1988,24 +1980,24 @@ public class MemoizingEvaluatorTest {
     // leaf4 should not built in the second build.
     final SkyKey leaf4 = GraphTester.toSkyKey("leaf4");
     final AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
-    setGraphForTesting(
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (shouldNotBuildLeaf4.get()
-                    && key.equals(leaf4)
-                    && type != EventType.REMOVE_REVERSE_DEP) {
-                  throw new IllegalStateException(
-                      "leaf4 should not have been considered this build: "
-                          + type
-                          + ", "
-                          + order
-                          + ", "
-                          + context);
-                }
-              }
-            }));
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (shouldNotBuildLeaf4.get()
+                && key.equals(leaf4)
+                && type != EventType.REMOVE_REVERSE_DEP) {
+              throw new IllegalStateException(
+                  "leaf4 should not have been considered this build: "
+                      + type
+                      + ", "
+                      + order
+                      + ", "
+                      + context);
+            }
+          }
+        },
+        /*deterministic=*/ false);
     tester.set(leaf4, new StringValue("leaf4"));
 
     // Create leaf0, leaf1 and leaf2 values with values "leaf2", "leaf3", "leaf4" respectively.
@@ -2097,39 +2089,39 @@ public class MemoizingEvaluatorTest {
     // changed thread checks value entry once (to see if it is changed). dirty thread checks twice,
     // to see if it is changed, and if it is dirty.
     final CountDownLatch threadsStarted = new CountDownLatch(3);
-    setGraphForTesting(
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!blockingEnabled.get()) {
-                  return;
-                }
-                if (!key.equals(parent)) {
-                  return;
-                }
-                if (type == EventType.IS_CHANGED && order == Order.BEFORE) {
-                  threadsStarted.countDown();
-                }
-                // Dirtiness only checked by dirty thread.
-                if (type == EventType.IS_DIRTY && order == Order.BEFORE) {
-                  threadsStarted.countDown();
-                }
-                if (type == EventType.MARK_DIRTY) {
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      threadsStarted, "Both threads did not query if value isChanged in time");
-                  boolean isChanged = (Boolean) context;
-                  if (order == Order.BEFORE && !isChanged) {
-                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                        waitForChanged, "'changed' thread did not mark value changed in time");
-                    return;
-                  }
-                  if (order == Order.AFTER && isChanged) {
-                    waitForChanged.countDown();
-                  }
-                }
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!blockingEnabled.get()) {
+              return;
+            }
+            if (!key.equals(parent)) {
+              return;
+            }
+            if (type == EventType.IS_CHANGED && order == Order.BEFORE) {
+              threadsStarted.countDown();
+            }
+            // Dirtiness only checked by dirty thread.
+            if (type == EventType.IS_DIRTY && order == Order.BEFORE) {
+              threadsStarted.countDown();
+            }
+            if (type == EventType.MARK_DIRTY) {
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  threadsStarted, "Both threads did not query if value isChanged in time");
+              boolean isChanged = (Boolean) context;
+              if (order == Order.BEFORE && !isChanged) {
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    waitForChanged, "'changed' thread did not mark value changed in time");
+                return;
               }
-            }));
+              if (order == Order.AFTER && isChanged) {
+                waitForChanged.countDown();
+              }
+            }
+          }
+        },
+        /*deterministic=*/ false);
     SkyKey leaf = GraphTester.toSkyKey("leaf");
     tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(parent).addDependency(leaf).setComputedValue(CONCATENATE);
@@ -2954,7 +2946,7 @@ public class MemoizingEvaluatorTest {
   @Test
   public void errorOnlyBubblesToRequestingParents() throws Exception {
     // We need control over the order of reverse deps, so use a deterministic graph.
-    setGraphForTesting(new DeterministicInMemoryGraph());
+    makeGraphDeterministic();
     SkyKey errorKey = GraphTester.toSkyKey("error");
     tester.set(errorKey, new StringValue("biding time"));
     SkyKey slowKey = GraphTester.toSkyKey("slow");
@@ -3079,42 +3071,43 @@ public class MemoizingEvaluatorTest {
    */
   @Test
   public void raceClearingIncompleteValues() throws Exception {
-    SkyKey topKey = GraphTester.toSkyKey("top");
-    final SkyKey midKey = GraphTester.toSkyKey("mid");
+    // Make sure top is enqueued before mid, to avoid a deadlock.
+    SkyKey topKey = GraphTester.toSkyKey("aatop");
+    final SkyKey midKey = GraphTester.toSkyKey("zzmid");
     SkyKey badKey = GraphTester.toSkyKey("bad");
     final AtomicBoolean waitForSecondCall = new AtomicBoolean(false);
     final CountDownLatch otherThreadWinning = new CountDownLatch(1);
     final AtomicReference<Thread> firstThread = new AtomicReference<>();
-    setGraphForTesting(
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!waitForSecondCall.get()) {
-                  return;
-                }
-                if (key.equals(midKey)) {
-                  if (type == EventType.CREATE_IF_ABSENT) {
-                    // The first thread to create midKey will not be the first thread to add a
-                    // reverse dep to it.
-                    firstThread.compareAndSet(null, Thread.currentThread());
-                    return;
-                  }
-                  if (type == EventType.ADD_REVERSE_DEP) {
-                    if (order == Order.BEFORE && Thread.currentThread().equals(firstThread.get())) {
-                      // If this thread created midKey, block until the other thread adds a dep on
-                      // it.
-                      TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                          otherThreadWinning, "other thread didn't pass this one");
-                    } else if (order == Order.AFTER
-                        && !Thread.currentThread().equals(firstThread.get())) {
-                      // This thread has added a dep. Allow the other thread to proceed.
-                      otherThreadWinning.countDown();
-                    }
-                  }
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!waitForSecondCall.get()) {
+              return;
+            }
+            if (key.equals(midKey)) {
+              if (type == EventType.CREATE_IF_ABSENT) {
+                // The first thread to create midKey will not be the first thread to add a
+                // reverse dep to it.
+                firstThread.compareAndSet(null, Thread.currentThread());
+                return;
+              }
+              if (type == EventType.ADD_REVERSE_DEP) {
+                if (order == Order.BEFORE && Thread.currentThread().equals(firstThread.get())) {
+                  // If this thread created midKey, block until the other thread adds a dep on
+                  // it.
+                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                      otherThreadWinning, "other thread didn't pass this one");
+                } else if (order == Order.AFTER
+                    && !Thread.currentThread().equals(firstThread.get())) {
+                  // This thread has added a dep. Allow the other thread to proceed.
+                  otherThreadWinning.countDown();
                 }
               }
-            }));
+            }
+          }
+        },
+        /*deterministic=*/ true);
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(midKey).addDependency(badKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
@@ -3124,8 +3117,16 @@ public class MemoizingEvaluatorTest {
     result = tester.eval(/*keepGoing=*/ true, topKey, midKey);
     assertNotNull(firstThread.get());
     assertEquals(0, otherThreadWinning.getCount());
-    assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
-    assertThat(result.getError(topKey).getRootCauses()).containsExactly(badKey);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(midKey).isNotNull();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(topKey).isNotNull();
+    if (rootCausesStored()) {
+      assertThatEvaluationResult(result)
+          .hasErrorEntryForKeyThat(midKey)
+          .rootCauseOfExceptionIs(badKey);
+      assertThatEvaluationResult(result)
+          .hasErrorEntryForKeyThat(topKey)
+          .rootCauseOfExceptionIs(badKey);
+    }
   }
 
   @Test
@@ -3220,18 +3221,18 @@ public class MemoizingEvaluatorTest {
                 return null;
               }
             });
-    setGraphForTesting(
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
-                  errorCommitted.countDown();
-                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                      otherDone, "otherErrorKey's SkyFunction didn't finish in time.");
-                }
-              }
-            }));
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
+              errorCommitted.countDown();
+              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                  otherDone, "otherErrorKey's SkyFunction didn't finish in time.");
+            }
+          }
+        },
+        /*deterministic=*/ false);
 
     // When the graph is evaluated in noKeepGoing mode,
     EvaluationResult<StringValue> result =
@@ -3735,39 +3736,39 @@ public class MemoizingEvaluatorTest {
     final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
     // We don't expect slow-set-value to actually be built, but if it is, we wait for it.
     final CountDownLatch slowBuilt = new CountDownLatch(1);
-    setGraphForTesting(
-        new DeterministicInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!synchronizeThreads.get()) {
-                  return;
-                }
-                if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
-                  // Wait for the build to abort or for the other node to incorrectly build.
-                  try {
-                    assertTrue(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-                  } catch (InterruptedException e) {
-                    // This is ok, because it indicates the build is shutting down.
-                    Thread.currentThread().interrupt();
-                  }
-                } else if (type == EventType.SET_VALUE
-                    && key.equals(fastToRequestSlowToSetValueKey)
-                    && order == Order.AFTER) {
-                  // This indicates a problem -- this parent shouldn't be built since it depends on
-                  // an error.
-                  slowBuilt.countDown();
-                  // Before this node actually sets its value (and then throws an exception) we wait
-                  // for the other node to throw an exception.
-                  try {
-                    Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-                    throw new IllegalStateException("uninterrupted in " + key);
-                  } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                  }
-                }
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!synchronizeThreads.get()) {
+              return;
+            }
+            if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
+              // Wait for the build to abort or for the other node to incorrectly build.
+              try {
+                assertTrue(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+              } catch (InterruptedException e) {
+                // This is ok, because it indicates the build is shutting down.
+                Thread.currentThread().interrupt();
               }
-            }));
+            } else if (type == EventType.SET_VALUE
+                && key.equals(fastToRequestSlowToSetValueKey)
+                && order == Order.AFTER) {
+              // This indicates a problem -- this parent shouldn't be built since it depends on
+              // an error.
+              slowBuilt.countDown();
+              // Before this node actually sets its value (and then throws an exception) we wait
+              // for the other node to throw an exception.
+              try {
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                throw new IllegalStateException("uninterrupted in " + key);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            }
+          }
+        },
+        /*deterministic=*/ true);
     // Initialize graph.
     tester.eval(/*keepGoing=*/true, errorKey);
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
@@ -3807,61 +3808,58 @@ public class MemoizingEvaluatorTest {
     // particular, we don't want to force anything during error bubbling.
     final AtomicBoolean synchronizeThreads = new AtomicBoolean(false);
     final CountDownLatch shutdownAwaiterStarted = new CountDownLatch(1);
-    setGraphForTesting(
-        new DeterministicInMemoryGraph(
-            new Listener() {
-              private final CountDownLatch cachedSignaled = new CountDownLatch(1);
+    injectGraphListenerForTesting(
+        new Listener() {
+          private final CountDownLatch cachedSignaled = new CountDownLatch(1);
 
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (!synchronizeThreads.get()
-                    || order != Order.BEFORE
-                    || type != EventType.SIGNAL) {
-                  return;
-                }
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    shutdownAwaiterStarted, "shutdown awaiter not started");
-                if (key.equals(uncachedParentKey)) {
-                  // When the uncached parent is first signaled by its changed dep, make sure that
-                  // we wait until the cached parent is signaled too.
-                  try {
-                    assertTrue(
-                        cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-                  } catch (InterruptedException e) {
-                    // Before the relevant bug was fixed, this code was not interrupted, and the
-                    // uncached parent got to build, yielding an inconsistent state at a later point
-                    // during evaluation. With the bugfix, the cached parent is never signaled
-                    // before the evaluator shuts down, and so the above code is interrupted.
-                    Thread.currentThread().interrupt();
-                  }
-                } else if (key.equals(cachedParentKey)) {
-                  // This branch should never be reached by a well-behaved evaluator, since when the
-                  // error node is reached, the evaluator should shut down. However, we don't test
-                  // for that behavior here because that would be brittle and we expect that such an
-                  // evaluator will crash hard later on in any case.
-                  cachedSignaled.countDown();
-                  try {
-                    // Sleep until we're interrupted by the evaluator, so we know it's shutting
-                    // down.
-                    Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-                    Thread currentThread = Thread.currentThread();
-                    throw new IllegalStateException(
-                        "no interruption in time in "
-                            + key
-                            + " for "
-                            + (currentThread.isInterrupted() ? "" : "un")
-                            + "interrupted "
-                            + currentThread
-                            + " with hash "
-                            + System.identityHashCode(currentThread)
-                            + " at "
-                            + System.currentTimeMillis());
-                  } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                  }
-                }
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (!synchronizeThreads.get() || order != Order.BEFORE || type != EventType.SIGNAL) {
+              return;
+            }
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                shutdownAwaiterStarted, "shutdown awaiter not started");
+            if (key.equals(uncachedParentKey)) {
+              // When the uncached parent is first signaled by its changed dep, make sure that
+              // we wait until the cached parent is signaled too.
+              try {
+                assertTrue(cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+              } catch (InterruptedException e) {
+                // Before the relevant bug was fixed, this code was not interrupted, and the
+                // uncached parent got to build, yielding an inconsistent state at a later point
+                // during evaluation. With the bugfix, the cached parent is never signaled
+                // before the evaluator shuts down, and so the above code is interrupted.
+                Thread.currentThread().interrupt();
               }
-            }));
+            } else if (key.equals(cachedParentKey)) {
+              // This branch should never be reached by a well-behaved evaluator, since when the
+              // error node is reached, the evaluator should shut down. However, we don't test
+              // for that behavior here because that would be brittle and we expect that such an
+              // evaluator will crash hard later on in any case.
+              cachedSignaled.countDown();
+              try {
+                // Sleep until we're interrupted by the evaluator, so we know it's shutting
+                // down.
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                Thread currentThread = Thread.currentThread();
+                throw new IllegalStateException(
+                    "no interruption in time in "
+                        + key
+                        + " for "
+                        + (currentThread.isInterrupted() ? "" : "un")
+                        + "interrupted "
+                        + currentThread
+                        + " with hash "
+                        + System.identityHashCode(currentThread)
+                        + " at "
+                        + System.currentTimeMillis());
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            }
+          }
+        },
+        /*deterministic=*/ true);
     // Initialize graph.
     tester.eval(/*keepGoing=*/true, cachedParentKey, uncachedParentKey);
     tester.getOrCreate(invalidatedKey, /*markAsModified=*/true);
@@ -3934,9 +3932,13 @@ public class MemoizingEvaluatorTest {
     tester.eval(/*keepGoing=*/false, parent2Key);
   }
 
-  private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
-    InMemoryMemoizingEvaluator memoizingEvaluator = (InMemoryMemoizingEvaluator) tester.evaluator;
-    memoizingEvaluator.setGraphForTesting(notifyingInMemoryGraph);
+  private void injectGraphListenerForTesting(Listener listener, boolean deterministic) {
+    tester.evaluator.injectGraphTransformerForTesting(
+        DeterministicGraph.makeTransformer(listener, deterministic));
+  }
+
+  private void makeGraphDeterministic() {
+    tester.evaluator.injectGraphTransformerForTesting(DeterministicGraph.MAKE_DETERMINISTIC);
   }
 
   private static final class PassThroughSelected implements ValueComputer {
@@ -4070,27 +4072,26 @@ public class MemoizingEvaluatorTest {
     SkyKey inactiveKey = GraphTester.skyKey("inactive");
     final Thread mainThread = Thread.currentThread();
     final AtomicBoolean shouldInterrupt = new AtomicBoolean(false);
-    NotifyingInMemoryGraph graph =
-        new NotifyingInMemoryGraph(
-            new Listener() {
-              @Override
-              public void accept(SkyKey key, EventType type, Order order, Object context) {
-                if (shouldInterrupt.get()
-                    && key.equals(topKey)
-                    && type == EventType.IS_READY
-                    && order == Order.BEFORE) {
-                  mainThread.interrupt();
-                  shouldInterrupt.set(false);
-                  try {
-                    // Make sure threadpool propagates interrupt.
-                    Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-                  } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                  }
-                }
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (shouldInterrupt.get()
+                && key.equals(topKey)
+                && type == EventType.IS_READY
+                && order == Order.BEFORE) {
+              mainThread.interrupt();
+              shouldInterrupt.set(false);
+              try {
+                // Make sure threadpool propagates interrupt.
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
               }
-            });
-    setGraphForTesting(graph);
+            }
+          }
+        },
+        /*deterministic=*/ false);
     // When top depends on inactive,
     tester.getOrCreate(topKey).addDependency(inactiveKey).setComputedValue(COPY);
     StringValue val = new StringValue("inactive");
@@ -4113,13 +4114,13 @@ public class MemoizingEvaluatorTest {
       // Expected.
     }
     // But inactive is still present,
-    assertThat(graph.get(inactiveKey)).isNotNull();
+    assertThat(tester.driver.getEntryForTesting(inactiveKey)).isNotNull();
     // And still dirty,
-    assertThat(graph.get(inactiveKey).isDirty()).isTrue();
+    assertThat(tester.driver.getEntryForTesting(inactiveKey).isDirty()).isTrue();
     // And re-evaluates successfully,
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, inactiveKey)).isEqualTo(val);
     // But top is gone from the graph,
-    assertThat(graph.get(topKey)).isNull();
+    assertThat(tester.driver.getEntryForTesting(topKey)).isNull();
     // And we can successfully invalidate and re-evaluate inactive again.
     tester.getOrCreate(inactiveKey, /*markAsModified=*/ true);
     tester.invalidate();

@@ -1,17 +1,12 @@
 TESTUTIL_FILES = [
-    "DeterministicInMemoryGraph.java",
-    "ErrorInfoSubject.java",
-    "ErrorInfoSubjectFactory.java",
-    "EvaluationResultSubject.java",
-    "EvaluationResultSubjectFactory.java",
-    "NotifyingInMemoryGraph.java",
     "TrackingAwaiter.java",
     "GraphTester.java",
     "GenericFunctionException.java",
     "SomeErrorException.java",
     "TrackingInvalidationReceiver.java",
     "WalkableGraphUtils.java",
-]
+    # Truth Subject, SubjectFactory, and Graph files.
+] + glob(["*Subject.java"]) + glob(["*SubjectFactory.java"]) + glob(["*Graph.java"])
 
 java_library(
     name = "testutil",

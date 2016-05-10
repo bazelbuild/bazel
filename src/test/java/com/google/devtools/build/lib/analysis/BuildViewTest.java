@@ -53,11 +53,9 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.DeterministicInMemoryGraph;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
-import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.NotifyingGraph.EventType;
+import com.google.devtools.build.skyframe.NotifyingGraph.Listener;
+import com.google.devtools.build.skyframe.NotifyingGraph.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 
@@ -826,8 +824,7 @@ public class BuildViewTest extends BuildViewTestBase {
             }
           }
         };
-    NotifyingInMemoryGraph graph = new DeterministicInMemoryGraph(listener);
-    setGraphForTesting(graph);
+    injectGraphListenerForTesting(listener, /*deterministic=*/ true);
     reporter.removeHandler(failFastHandler);
     try {
       update("//foo:query", "//foo:zquery");
@@ -837,7 +834,6 @@ public class BuildViewTest extends BuildViewTestBase {
           .contains("Analysis of target '//foo:query' failed; build aborted");
     }
     TrackingAwaiter.INSTANCE.assertNoErrors();
-    graph.assertNoExceptions();
   }
 
   /**

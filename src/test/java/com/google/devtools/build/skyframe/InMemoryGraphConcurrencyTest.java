@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Concurrency tests for {@link InMemoryGraph}. */
+/** Concurrency tests for {@link InMemoryGraphImpl}. */
 @RunWith(JUnit4.class)
 public class InMemoryGraphConcurrencyTest extends GraphConcurrencyTest {
   private ProcessableGraph graph;
@@ -36,7 +36,7 @@ public class InMemoryGraphConcurrencyTest extends GraphConcurrencyTest {
 
   @Override
   protected void makeGraph() {
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
   }
 
   @Override

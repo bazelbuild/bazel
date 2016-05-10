@@ -63,7 +63,7 @@ import javax.annotation.Nullable;
  */
 @RunWith(Enclosed.class)
 public class EagerInvalidatorTest {
-  protected InMemoryGraph graph;
+  protected InMemoryGraphImpl graph;
   protected GraphTester tester = new GraphTester();
   protected InvalidationState state = newInvalidationState();
   protected AtomicReference<InvalidatingNodeVisitor<?>> visitor = new AtomicReference<>();
@@ -211,7 +211,7 @@ public class EagerInvalidatorTest {
         throw new UnsupportedOperationException();
       }
     };
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     set("a", "a");
     set("b", "b");
     tester.getOrCreate("ab").addDependency("a").addDependency("b")
@@ -256,7 +256,7 @@ public class EagerInvalidatorTest {
 
     // Given a graph consisting of two nodes, "a" and "ab" such that "ab" depends on "a",
     // And given "ab" is in error,
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     set("a", "a");
     tester.getOrCreate("ab").addDependency("a").setHasError(true);
     eval(false, skyKey("ab"));
@@ -297,7 +297,7 @@ public class EagerInvalidatorTest {
         throw new UnsupportedOperationException();
       }
     };
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     invalidateWithoutError(receiver, skyKey("a"));
     assertThat(invalidated).isEmpty();
     set("a", "a");
@@ -313,7 +313,7 @@ public class EagerInvalidatorTest {
     WeakReference<HeavyValue> weakRef = new WeakReference<>(heavyValue);
     tester.set("a", heavyValue);
 
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     eval(false, key);
     invalidate(graph, null, key);
 
@@ -331,7 +331,7 @@ public class EagerInvalidatorTest {
 
   @Test
   public void reverseDepsConsistent() throws Exception {
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     set("a", "a");
     set("b", "b");
     set("c", "c");
@@ -371,7 +371,7 @@ public class EagerInvalidatorTest {
 
   @Test
   public void interruptChild() throws Exception {
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     int numValues = 50; // More values than the invalidator has threads.
     final SkyKey[] family = new SkyKey[numValues];
     final SkyKey child = GraphTester.skyKey("child");
@@ -435,8 +435,7 @@ public class EagerInvalidatorTest {
     assertFalse(state.isEmpty());
     final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     assertFalse(isInvalidated(parent));
-    SkyValue parentValue = graph.getValue(parent);
-    assertNotNull(parentValue);
+    assertNotNull(graph.get(parent).getValue());
     receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyKey skyKey, InvalidationState state) {
@@ -510,7 +509,7 @@ public class EagerInvalidatorTest {
     Random random = new Random(TestUtils.getRandomSeed());
     int graphSize = 1000;
     int tries = 5;
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     SkyKey[] values = constructLargeGraph(graphSize);
     eval(/*keepGoing=*/false, values);
     final Thread mainThread = Thread.currentThread();
@@ -579,7 +578,7 @@ public class EagerInvalidatorTest {
   }
 
   protected void setupInvalidatableGraph() throws Exception {
-    graph = new InMemoryGraph();
+    graph = new InMemoryGraphImpl();
     set("a", "a");
     set("b", "b");
     tester.getOrCreate("ab").addDependency("a").addDependency("b").setComputedValue(CONCATENATE);
