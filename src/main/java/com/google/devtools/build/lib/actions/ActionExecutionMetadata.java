@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+
 import javax.annotation.Nullable;
 
 /**
@@ -91,4 +93,30 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * </pre>
    */
   @Nullable String describeKey();
+
+  /**
+   * Get the {@link RunfilesSupplier} providing runfiles needed by this action.
+   */
+  RunfilesSupplier getRunfilesSupplier();
+
+  /**
+   * Returns true iff the getInputs set is known to be complete.
+   *
+   * <p>For most Actions, this always returns true, but in some cases (e.g. C++ compilation), inputs
+   * are dynamically discovered from the previous execution of the Action, and so before the initial
+   * execution, this method will return false in those cases.
+   *
+   * <p>Any builder <em>must</em> unconditionally execute an Action for which inputsKnown() returns
+   * false, regardless of all other inferences made by its dependency analysis. In addition, all
+   * prerequisites mentioned in the (possibly incomplete) value returned by getInputs must also be
+   * built first, as usual.
+   */
+  @ThreadSafe
+  boolean inputsKnown();
+
+  /**
+   * Returns true iff inputsKnown() may ever return false.
+   */
+  @ThreadSafe
+  boolean discoversInputs();
 }

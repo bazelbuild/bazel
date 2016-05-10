@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /**
  * An Analysis phase interface for an {@link Action} or Action-like object, containing only
@@ -46,27 +45,6 @@ public interface ActionAnalysisMetadata {
   String prettyPrint();
 
   /**
-   * Returns true iff the getInputs set is known to be complete.
-   *
-   * <p>For most Actions, this always returns true, but in some cases (e.g. C++ compilation), inputs
-   * are dynamically discovered from the previous execution of the Action, and so before the initial
-   * execution, this method will return false in those cases.
-   *
-   * <p>Any builder <em>must</em> unconditionally execute an Action for which inputsKnown() returns
-   * false, regardless of all other inferences made by its dependency analysis. In addition, all
-   * prerequisites mentioned in the (possibly incomplete) value returned by getInputs must also be
-   * built first, as usual.
-   */
-  @ThreadSafe
-  boolean inputsKnown();
-
-  /**
-   * Returns true iff inputsKnown() may ever return false.
-   */
-  @ThreadSafe
-  boolean discoversInputs();
-
-  /**
    * Returns the tool Artifacts that this Action depends upon. May be empty. This is a subset of
    * getInputs().
    *
@@ -91,11 +69,6 @@ public interface ActionAnalysisMetadata {
    * iterable.
    */
   Iterable<Artifact> getInputs();
-
-  /**
-   * Get the {@link RunfilesSupplier} providing runfiles needed by this action.
-   */
-  RunfilesSupplier getRunfilesSupplier();
 
   /**
    * Returns the (unordered, immutable) set of output Artifacts that
