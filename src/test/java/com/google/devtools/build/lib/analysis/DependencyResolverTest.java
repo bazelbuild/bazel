@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertNotNull;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -94,7 +94,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
         aspect != null ? Aspect.forNative(aspect) : null,
-        ImmutableSet.<ConfigMatchingProvider>of());
+        ImmutableMap.<Label, ConfigMatchingProvider>of());
   }
 
   @SafeVarargs

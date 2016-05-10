@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
@@ -45,7 +45,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, Object> providers;
-  private final Set<ConfigMatchingProvider> configConditions;
+  private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
   RuleConfiguredTarget(RuleContext ruleContext,
       ImmutableMap<String, Object> skylarkProviders,
@@ -93,7 +93,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**
    * The configuration conditions that trigger this rule's configurable attributes.
    */
-  Set<ConfigMatchingProvider> getConfigConditions() {
+  ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }
 

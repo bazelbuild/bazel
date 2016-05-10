@@ -473,7 +473,7 @@ public final class SkyframeBuildView {
   ConfiguredTarget createConfiguredTarget(Target target, BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);

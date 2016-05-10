@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -115,7 +116,7 @@ public final class CommandHelper {
     }
 
     for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
-      Label label = dep.getLabel();
+      Label label = AliasProvider.getDependencyLabel(dep);
       FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
       if (tool == null) {
         continue;

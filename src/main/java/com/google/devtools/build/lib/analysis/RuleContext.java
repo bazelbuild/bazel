@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -143,7 +144,7 @@ public final class RuleContext extends TargetContext
   private final Rule rule;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
-  private final Set<ConfigMatchingProvider> configConditions;
+  private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AttributeMap attributes;
   private final ImmutableSet<String> features;
   private final String ruleClassNameForLogging;
@@ -165,7 +166,7 @@ public final class RuleContext extends TargetContext
       AttributeMap attributes,
       ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      Set<ConfigMatchingProvider> configConditions,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       String ruleClassNameForLogging,
       ImmutableMap<String, Attribute> aspectAttributes) {
@@ -247,7 +248,7 @@ public final class RuleContext extends TargetContext
   /**
    * The configuration conditions that trigger this rule's configurable attributes.
    */
-  Set<ConfigMatchingProvider> getConfigConditions() {
+  ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }
 
@@ -1317,7 +1318,7 @@ public final class RuleContext extends TargetContext
     @Nullable private final String aspectName;
     private final ErrorReporter reporter;
     private ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
-    private Set<ConfigMatchingProvider> configConditions;
+    private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry;
@@ -1390,7 +1391,7 @@ public final class RuleContext extends TargetContext
      * Sets the configuration conditions needed to determine which paths to follow for this
      * rule's configurable attributes.
      */
-    Builder setConfigConditions(Set<ConfigMatchingProvider> configConditions) {
+    Builder setConfigConditions(ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
       return this;
     }
@@ -1447,7 +1448,7 @@ public final class RuleContext extends TargetContext
      * on a PrerequisiteMap instance.
      */
     private ListMultimap<String, ConfiguredFilesetEntry> createFilesetEntryMap(
-        final Rule rule, Set<ConfigMatchingProvider> configConditions) {
+        final Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
       final ImmutableSortedKeyListMultimap.Builder<String, ConfiguredFilesetEntry> mapBuilder =
           ImmutableSortedKeyListMultimap.builder();
       for (Attribute attr : rule.getAttributes()) {
@@ -1544,16 +1545,18 @@ public final class RuleContext extends TargetContext
     }
 
     private void reportBadPrerequisite(Attribute attribute, String targetKind,
-        Label prerequisiteLabel, String reason, boolean isWarning) {
+        ConfiguredTarget prerequisite, String reason, boolean isWarning) {
       String msgPrefix = targetKind != null ? targetKind + " " : "";
       String msgReason = reason != null ? " (" + reason + ")" : "";
       if (isWarning) {
         attributeWarning(attribute.getName(), String.format(
-            "%s'%s' is unexpected here%s; continuing anyway",
-            msgPrefix, prerequisiteLabel, msgReason));
+            "%s'%s'%s is unexpected here%s; continuing anyway",
+            msgPrefix, prerequisite.getLabel(), AliasProvider.printVisibilityChain(prerequisite),
+            msgReason));
       } else {
         attributeError(attribute.getName(), String.format(
-            "%s'%s' is misplaced here%s", msgPrefix, prerequisiteLabel, msgReason));
+            "%s'%s'%s is misplaced here%s", msgPrefix, prerequisite.getLabel(),
+            AliasProvider.printVisibilityChain(prerequisite), msgReason));
       }
     }
 
@@ -1568,7 +1571,7 @@ public final class RuleContext extends TargetContext
         String reason = attribute.getValidityPredicate().checkValid(rule, prerequisiteRule);
         if (reason != null) {
           reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(),
-              prerequisiteLabel, reason, false);
+              prerequisite, reason, false);
         }
       }
 
@@ -1593,7 +1596,7 @@ public final class RuleContext extends TargetContext
               }
             } else {
               // The file exists but has a bad extension
-              reportBadPrerequisite(attribute, "file", prerequisiteLabel,
+              reportBadPrerequisite(attribute, "file", prerequisite,
                   "expected " + attribute.getAllowedFileTypesPredicate(), false);
             }
           }
@@ -1752,7 +1755,7 @@ public final class RuleContext extends TargetContext
           != Predicates.<RuleClass>alwaysTrue()) {
         allowedWithWarning = attribute.getAllowedRuleClassesWarningPredicate().apply(ruleClass);
         if (allowedWithWarning) {
-          reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisiteLabel,
+          reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisite,
               "expected " + attribute.getAllowedRuleClassesPredicate(), true);
           return;
         }
@@ -1777,7 +1780,7 @@ public final class RuleContext extends TargetContext
                   + missingMandatoryProviders);
         }
       } else if (Boolean.FALSE.equals(allowed)) {
-        reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisiteLabel,
+        reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisite,
             "expected " + attribute.getAllowedRuleClassesPredicate(), false);
       }
     }

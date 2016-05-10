@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -90,7 +89,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     TargetAndConfiguration ctgValue =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
 
-    Set<ConfigMatchingProvider> configConditions =
+    ImmutableMap<Label, ConfigMatchingProvider> configConditions =
         getConfigurableAttributeConditions(ctgValue, env);
     if (configConditions == null) {
       return null;
@@ -131,10 +130,10 @@ public class PostConfiguredTargetFunction implements SkyFunction {
    * target, or null if not all dependencies have yet been SkyFrame-evaluated.
    */
   @Nullable
-  private Set<ConfigMatchingProvider> getConfigurableAttributeConditions(
+  private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeConditions(
       TargetAndConfiguration ctg, Environment env) {
     if (!(ctg.getTarget() instanceof Rule)) {
-      return ImmutableSet.of();
+      return ImmutableMap.of();
     }
     Rule rule = (Rule) ctg.getTarget();
     RawAttributeMapper mapper = RawAttributeMapper.of(rule);
@@ -150,10 +149,12 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet.Builder<ConfigMatchingProvider> conditions = ImmutableSet.builder();
-    for (SkyValue ctValue : cts.values()) {
-      ConfiguredTarget ct = ((ConfiguredTargetValue) ctValue).getConfiguredTarget();
-      conditions.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
+    ImmutableMap.Builder<Label, ConfigMatchingProvider> conditions = ImmutableMap.builder();
+    for (Map.Entry<SkyKey, SkyValue> entry : cts.entrySet()) {
+      Label label = ((ConfiguredTargetKey) entry.getKey().argument()).getLabel();
+      ConfiguredTarget ct = ((ConfiguredTargetValue) entry.getValue()).getConfiguredTarget();
+      conditions.put(label, Preconditions.checkNotNull(
+          ct.getProvider(ConfigMatchingProvider.class)));
     }
     return conditions.build();
   }

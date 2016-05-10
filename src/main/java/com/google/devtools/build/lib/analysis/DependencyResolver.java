@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
@@ -84,7 +85,7 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Aspect aspect,
-      Set<ConfigMatchingProvider> configConditions)
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
       throws EvalException, InterruptedException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
     ListMultimap<Attribute, Dependency> outgoingEdges =
@@ -118,7 +119,7 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Aspect aspect,
-      Set<ConfigMatchingProvider> configConditions,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Label> rootCauses)
       throws EvalException, InterruptedException {
     Target target = node.getTarget();
@@ -155,7 +156,8 @@ public abstract class DependencyResolver {
 
   private ListMultimap<Attribute, LabelAndConfiguration> resolveAttributes(
       Rule rule, AspectDefinition aspect, BuildConfiguration configuration,
-      BuildConfiguration hostConfiguration, Set<ConfigMatchingProvider> configConditions)
+      BuildConfiguration hostConfiguration,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
       throws EvalException, InterruptedException {
     ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
     attributeMap.validateAttributes();

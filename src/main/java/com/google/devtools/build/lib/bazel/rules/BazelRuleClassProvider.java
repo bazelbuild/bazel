@@ -76,6 +76,8 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.Alias.AliasRule;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
@@ -198,10 +200,12 @@ public class BazelRuleClassProvider {
         } else {
           // Oddly enough, we use reportError rather than ruleError here.
           context.reportError(rule.getLocation(),
-              String.format("Target '%s' is not visible from target '%s'. Check "
+              String.format("Target '%s' is not visible from target '%s'%s. Check "
                   + "the visibility declaration of the former target if you think "
                   + "the dependency is legitimate",
-                  prerequisiteLabel, rule.getLabel()));
+                  prerequisiteLabel,
+                  rule.getLabel(),
+                  AliasProvider.printVisibilityChain(prerequisite)));
         }
       }
 
@@ -305,6 +309,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
 
+    builder.addRuleDefinition(new AliasRule());
     builder.addRuleDefinition(new BazelFilegroupRule());
     builder.addRuleDefinition(new BazelTestSuiteRule());
     builder.addRuleDefinition(new BazelGenRuleRule());

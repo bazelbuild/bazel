@@ -372,7 +372,7 @@ public class SkylarkRuleImplementationFunctions {
 
     for (AbstractConfiguredTarget current : knownLabels) {
       builder.put(
-          current.getLabel(),
+          AliasProvider.getDependencyLabel(current),
           ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
     }
 

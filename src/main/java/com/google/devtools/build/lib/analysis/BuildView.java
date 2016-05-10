@@ -794,13 +794,13 @@ public class BuildView {
    * Returns ConfigMatchingProvider instances corresponding to the configurable attribute keys
    * present in this rule's attributes.
    */
-  private Set<ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
+  private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
       EventHandler eventHandler, TargetAndConfiguration ctg) {
     if (!(ctg.getTarget() instanceof Rule)) {
-      return ImmutableSet.of();
+      return ImmutableMap.of();
     }
     Rule rule = (Rule) ctg.getTarget();
-    ImmutableSet.Builder<ConfigMatchingProvider> keys = ImmutableSet.builder();
+    ImmutableMap.Builder<Label, ConfigMatchingProvider> keys = ImmutableMap.builder();
     RawAttributeMapper mapper = RawAttributeMapper.of(rule);
     for (Attribute attribute : rule.getAttributes()) {
       for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
@@ -809,7 +809,7 @@ public class BuildView {
         }
         ConfiguredTarget ct = getConfiguredTargetForTesting(
             eventHandler, label, ctg.getConfiguration());
-        keys.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
+        keys.put(label, Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
       }
     }
     return keys.build();
@@ -876,7 +876,7 @@ public class BuildView {
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
-            .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
+            .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
             .build();
   }

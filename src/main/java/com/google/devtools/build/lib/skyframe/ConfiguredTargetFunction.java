@@ -17,7 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -76,9 +75,9 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -92,8 +91,8 @@ import javax.annotation.Nullable;
 final class ConfiguredTargetFunction implements SkyFunction {
   // This construction is a bit funky, but guarantees that the Object reference here is globally
   // unique.
-  static final Set<ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
-      Collections.unmodifiableSet(ImmutableSet.<ConfigMatchingProvider>of());
+  static final ImmutableMap<Label, ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
+      ImmutableMap.<Label, ConfigMatchingProvider>of();
 
   /**
    * Exception class that signals an error during the evaluation of a dependency.
@@ -159,13 +158,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           new ConfiguredValueCreationException(e.getMessage()));
     }
     if (pkg.containsErrors()) {
-      if (target == null) {
-        throw new ConfiguredTargetFunctionException(new ConfiguredValueCreationException(
-            new BuildFileContainsErrorsException(
-                lc.getLabel().getPackageIdentifier()).getMessage()));
-      } else {
-        transitiveLoadingRootCauses.add(lc.getLabel());
-      }
+      transitiveLoadingRootCauses.add(lc.getLabel());
     }
     transitivePackages.add(pkg);
     // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
@@ -180,7 +173,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
-      Set<ConfigMatchingProvider> configConditions = getConfigConditions(
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions = getConfigConditions(
           ctgValue.getTarget(), env, resolver, ctgValue, transitivePackages,
           transitiveLoadingRootCauses);
       if (env.valuesMissing()) {
@@ -265,7 +258,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
       Aspect aspect,
-      Set<ConfigMatchingProvider> configConditions,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       NestedSetBuilder<Package> transitivePackages,
@@ -686,8 +679,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * dependency resolver, returns null.
    */
   @Nullable
-  static Set<ConfigMatchingProvider> getConfigConditions(Target target, Environment env,
-      SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue,
+  static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(Target target,
+      Environment env, SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue,
       NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Label> transitiveLoadingRootCauses)
       throws DependencyEvaluationException {
@@ -695,7 +688,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       return NO_CONFIG_CONDITIONS;
     }
 
-    ImmutableSet.Builder<ConfigMatchingProvider> configConditions = ImmutableSet.builder();
+    Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Collect the labels of the configured targets we need to resolve.
     ListMultimap<Attribute, LabelAndConfiguration> configLabelMap = ArrayListMultimap.create();
@@ -717,6 +710,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // been computed yet.
     Collection<Dependency> configValueNames = resolver.resolveRuleLabels(
         ctgValue, configLabelMap, transitiveLoadingRootCauses);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
 
     // No need to get new configs from Skyframe - config_setting rules always use the current
     // target's config.
@@ -744,7 +741,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       // The code above guarantees that value is non-null here.
       ConfigMatchingProvider provider = value.getProvider(ConfigMatchingProvider.class);
       if (provider != null) {
-        configConditions.add(provider);
+        configConditions.put(entry.getLabel(), provider);
       } else {
         // Not a valid provider for configuration conditions.
         String message =
@@ -755,7 +752,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
 
-    return configConditions.build();
+    return ImmutableMap.copyOf(configConditions);
   }
 
   /***
@@ -813,7 +810,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private ConfiguredTargetValue createConfiguredTarget(SkyframeBuildView view,
       Environment env, Target target, BuildConfiguration configuration,
       ListMultimap<Attribute, ConfiguredTarget> depValueMap,
-      Set<ConfigMatchingProvider> configConditions,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Package> transitivePackages)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();

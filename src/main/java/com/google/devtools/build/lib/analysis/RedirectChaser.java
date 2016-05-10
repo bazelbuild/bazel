@@ -86,9 +86,8 @@ public final class RedirectChaser {
         }
         Label newLabel = getFilegroupRedirect(possibleRedirect);
         if (newLabel == null) {
-          newLabel = getBindRedirect(possibleRedirect);
+          newLabel = getBindOrAliasRedirect(possibleRedirect);
         }
-
         if (newLabel == null) {
           return label;
         }
@@ -128,13 +127,14 @@ public final class RedirectChaser {
     return labels.get(0);
   }
 
-  private static Label getBindRedirect(Target target) throws InvalidConfigurationException {
+  private static Label getBindOrAliasRedirect(Target target)
+      throws InvalidConfigurationException {
     if (!(target instanceof Rule)) {
       return null;
     }
 
     Rule rule = (Rule) target;
-    if (!rule.getRuleClass().equals("bind")) {
+    if (!rule.getRuleClass().equals("bind") && !rule.getRuleClass().equals("alias")) {
       return null;
     }
 

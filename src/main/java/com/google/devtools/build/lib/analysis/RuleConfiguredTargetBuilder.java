@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
@@ -30,8 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -67,7 +63,7 @@ public final class RuleConfiguredTargetBuilder {
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    add(LicensesProvider.class, initializeLicensesProvider());
+    add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
@@ -213,35 +209,6 @@ public final class RuleConfiguredTargetBuilder {
     final ImmutableList<String> testTags =
         ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
     return new TestProvider(testParams, testTags);
-  }
-
-  private LicensesProvider initializeLicensesProvider() {
-    if (!ruleContext.getConfiguration().checkLicenses()) {
-      return LicensesProviderImpl.EMPTY;
-    }
-
-    NestedSetBuilder<TargetLicense> builder = NestedSetBuilder.linkOrder();
-    BuildConfiguration configuration = ruleContext.getConfiguration();
-    Rule rule = ruleContext.getRule();
-    License toolOutputLicense = rule.getToolOutputLicense(ruleContext.attributes());
-    if (configuration.isHostConfiguration() && toolOutputLicense != null) {
-      if (toolOutputLicense != License.NO_LICENSE) {
-        builder.add(new TargetLicense(rule.getLabel(), toolOutputLicense));
-      }
-    } else {
-      if (rule.getLicense() != License.NO_LICENSE) {
-        builder.add(new TargetLicense(rule.getLabel(), rule.getLicense()));
-      }
-
-      for (TransitiveInfoCollection dep : ruleContext.getConfiguredTargetMap().values()) {
-        LicensesProvider provider = dep.getProvider(LicensesProvider.class);
-        if (provider != null) {
-          builder.addTransitive(provider.getTransitiveLicenses());
-        }
-      }
-    }
-
-    return new LicensesProviderImpl(builder.build());
   }
 
   private <T extends TransitiveInfoProvider> T findProvider(Class<T> clazz) {

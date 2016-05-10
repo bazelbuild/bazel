@@ -59,14 +59,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private final Map<Label, ConfigMatchingProvider> configConditions;
   private Rule rule;
 
-  private ConfiguredAttributeMapper(Rule rule, Set<ConfigMatchingProvider> configConditions) {
+  private ConfiguredAttributeMapper(Rule rule,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
     super(Preconditions.checkNotNull(rule).getPackage(), rule.getRuleClassObject(), rule.getLabel(),
         rule.getAttributeContainer());
-    ImmutableMap.Builder<Label, ConfigMatchingProvider> builder = ImmutableMap.builder();
-    for (ConfigMatchingProvider configCondition : configConditions) {
-      builder.put(configCondition.label(), configCondition);
-    }
-    this.configConditions = builder.build();
+    this.configConditions = configConditions;
     this.rule = rule;
   }
 
@@ -86,7 +83,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    */
   @VisibleForTesting
   public static ConfiguredAttributeMapper of(
-      Rule rule, Set<ConfigMatchingProvider> configConditions) {
+      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
     return new ConfiguredAttributeMapper(rule, configConditions);
   }
 
@@ -154,8 +151,12 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      ConfigMatchingProvider curCondition = Verify.verifyNotNull(configConditions.get(
-          rule.getLabel().resolveRepositoryRelative(selectorKey)));
+      ConfigMatchingProvider curCondition = configConditions.get(
+          rule.getLabel().resolveRepositoryRelative(selectorKey));
+      if (curCondition == null) {
+        // This can happen if the rule is in error
+        continue;
+      }
       conditionLabels.add(curCondition.label());
 
       if (curCondition.matches()) {
