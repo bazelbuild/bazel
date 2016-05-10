@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * An abstract class that provides generic regex filter expression. Actual
  * expression are implemented by the subclasses.
  */
-abstract class RegexFilterExpression implements QueryFunction {
+public abstract class RegexFilterExpression implements QueryFunction {
   protected RegexFilterExpression() {
   }
 
