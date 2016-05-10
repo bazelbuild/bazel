@@ -253,6 +253,12 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(STABLE_ORDER, "debug_symbols_plist", Artifact.class);
 
   /**
+   * Debug artifacts that should be exported by the top-level target.
+   */
+  public static final Key<Artifact> EXPORTED_DEBUG_ARTIFACTS =
+      new Key<>(STABLE_ORDER, "exported_debug_artifacts", Artifact.class);
+
+  /**
    * Generated breakpad file containing debug information used by the breakpad crash reporting
    * system.
    */

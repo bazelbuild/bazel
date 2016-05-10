@@ -64,13 +64,17 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
   }
 
   @Override
-  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) throws InterruptedException {
-    // Nest this target's bundle under final IPA
-    return new ObjcProvider.Builder()
-        .add(MERGE_ZIP, ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))
-        .build();
-  }
+  protected ObjcProvider exposedObjcProvider(
+      RuleContext ruleContext, ReleaseBundlingSupport releaseBundlingSupport)
+      throws InterruptedException {
+    ObjcProvider.Builder builder =
+        new ObjcProvider.Builder()
+            // Nest this target's bundle under final IPA
+            .add(MERGE_ZIP, ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA));
 
+    releaseBundlingSupport.addExportedDebugArtifacts(builder, DsymOutputType.APP);
+    return builder.build();
+  }
 
   /**
    * Overrides (if necessary) any flag-set minimum iOS version for extensions only with given

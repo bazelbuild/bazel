@@ -108,7 +108,9 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
   }
 
   @Override
-  protected ObjcProvider exposedObjcProvider(RuleContext ruleContext) throws InterruptedException {
+  protected ObjcProvider exposedObjcProvider(
+      RuleContext ruleContext, ReleaseBundlingSupport releaseBundlingSupport)
+      throws InterruptedException {
     // Assemble framework binary and headers in the label-scoped location, so that it's possible to
     // pass -F X.framework to the compiler and -framework X to the linker. This mimics usage of
     // frameworks when built from Xcode.

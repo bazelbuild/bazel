@@ -654,9 +654,27 @@ public final class ReleaseBundlingSupport {
       }
     }
 
-    filesToBuild.add(releaseBundling.getIpaArtifact())
-        .addTransitive(debugSymbolBuilder.build());
+    filesToBuild
+        .add(releaseBundling.getIpaArtifact())
+        .addTransitive(debugSymbolBuilder.build())
+        .addTransitive(objcProvider.get(ObjcProvider.EXPORTED_DEBUG_ARTIFACTS));
+
     return this;
+  }
+
+  /**
+   * Adds dSYM artifacts (plist, arch-speficic binaries) to the {@link ObjcProvider} for export.
+   */
+  public void addExportedDebugArtifacts(
+      ObjcProvider.Builder objcBuilder, DsymOutputType dsymOutputType) {
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
+        || ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
+      objcBuilder
+          .addAll(ObjcProvider.EXPORTED_DEBUG_ARTIFACTS, getDsymFiles(dsymOutputType).values())
+          .add(
+              ObjcProvider.EXPORTED_DEBUG_ARTIFACTS,
+              intermediateArtifacts.dsymPlist(dsymOutputType));
+    }
   }
 
   /**
