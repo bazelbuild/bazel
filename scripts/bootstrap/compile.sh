@@ -195,7 +195,7 @@ mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 
 # Dummy build-runfiles
 cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
-#!/bin/bash
+#!/bin/sh
 win_arg='--windows_compatible'
 if [ $1 == $win_arg ];
 then
@@ -208,7 +208,7 @@ chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 
 log "Creating process-wrapper..."
 cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
-#!/bin/bash
+#!/bin/sh
 # Dummy process wrapper, does not support timeout
 shift 2
 stdout="$1"
