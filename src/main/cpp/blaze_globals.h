@@ -55,6 +55,9 @@ struct GlobalVariables {
   // the argument list passed on to the server.
   OptionProcessor option_processor;
 
+  // The path of the JVM executable that should be used to launch Blaze.
+  string jvm_path;
+
   pid_t server_pid;
 
   volatile sig_atomic_t sigint_count;

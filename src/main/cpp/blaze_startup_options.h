@@ -93,6 +93,20 @@ class BlazeStartupOptions {
   // the startup options.
   string GetJvm();
 
+  // Returns the executable used to start the Blaze server, typically the given
+  // JVM.
+  string GetExe(const string &jvm, const string &jar_path);
+
+  // Adds JVM prefix flags to be set. These will be added before all other
+  // JVM flags.
+  void AddJVMArgumentPrefix(const string &javabase,
+    std::vector<string> *result) const;
+
+  // Adds JVM suffix flags. These will be added after all other JVM flags, and
+  // just before the Blaze server startup flags.
+  void AddJVMArgumentSuffix(const string &real_install_dir,
+    const string &jar_path, std::vector<string> *result) const;
+
   // Adds JVM tuning flags for Blaze.
   //
   // Returns the exit code after this operation. "error" will be set to a

@@ -142,6 +142,22 @@ string BlazeStartupOptions::GetJvm() {
   exit(1);
 }
 
+string BlazeStartupOptions::GetExe(const string &jvm, const string &jar_path) {
+  return jvm;
+}
+
+void BlazeStartupOptions::AddJVMArgumentPrefix(const string &javabase,
+    std::vector<string> *result) const {
+}
+
+void BlazeStartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
+                                               const string &jar_path,
+    std::vector<string> *result) const {
+  result->push_back("-jar");
+  result->push_back(blaze::ConvertPath(
+      blaze_util::JoinPath(real_install_dir, jar_path)));
+}
+
 blaze_exit_code::ExitCode BlazeStartupOptions::AddJVMArguments(
     const string &host_javabase, vector<string> *result,
     const vector<string> &user_options, string *error) const {

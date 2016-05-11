@@ -99,6 +99,7 @@ namespace blaze {
 static void WriteFileToStreamOrDie(FILE *stream, const char *file_name);
 static string BuildServerRequest();
 static int GetServerPid(const string &server_dir);
+static void VerifyJavaVersionAndSetJvm();
 
 // The following is a treatise on how the interaction between the client and the
 // server works.
@@ -409,6 +410,9 @@ static vector<string> GetArgumentArray() {
   string product = globals->options.GetProductName();
   blaze_util::ToLower(&product);
   result.push_back(product + "(" + workspace + ")");
+  globals->options.AddJVMArgumentPrefix(
+      blaze_util::Dirname(blaze_util::Dirname(globals->jvm_path)),
+      &result);
   if (globals->options.batch) {
     result.push_back("-client");
     result.push_back("-Xms256m");
@@ -476,10 +480,11 @@ static vector<string> GetArgumentArray() {
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 
-  result.push_back("-jar");
-  result.push_back(blaze::ConvertPath(
-      blaze_util::JoinPath(real_install_dir, globals->extracted_binaries[0])));
+  globals->options.AddJVMArgumentSuffix(real_install_dir,
+                                        globals->extracted_binaries[0],
+                                        &result);
 
+  // JVM arguments are complete. Now pass in Blaze startup flags.
   if (!globals->options.batch) {
     result.push_back("--max_idle_secs");
     result.push_back(ToString(globals->options.max_idle_secs));
@@ -606,7 +611,7 @@ static void GoToWorkspace() {
 
 // Check the java version if a java version specification is bundled. On
 // success, returns the executable path of the java command.
-static string VerifyJavaVersionAndGetJvm() {
+static void VerifyJavaVersionAndSetJvm() {
   string exe = globals->options.GetJvm();
 
   string version_spec_file = blaze_util::JoinPath(
@@ -631,7 +636,7 @@ static string VerifyJavaVersionAndGetJvm() {
     }
   }
 
-  return exe;
+  globals->jvm_path = exe;
 }
 
 // Starts the Blaze server.  Returns a readable fd connected to the server.
@@ -652,9 +657,8 @@ static void StartServer(BlazeServerStartup** server_startup) {
     globals->restart_reason = NO_DAEMON;
   }
 
-  // Computing this path may report a fatal error, so do it before forking.
-  string exe = VerifyJavaVersionAndGetJvm();
-
+  string exe = globals->options.GetExe(globals->jvm_path,
+                                       globals->extracted_binaries[0]);
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
   GoToWorkspace();
@@ -707,7 +711,8 @@ static void StartStandalone(BlazeServer* server) {
 
   GoToWorkspace();
 
-  string exe = VerifyJavaVersionAndGetJvm();
+  string exe = globals->options.GetExe(globals->jvm_path,
+                                       globals->extracted_binaries[0]);
   ExecuteProgram(exe, jvm_args_vector);
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
 }
@@ -1861,6 +1866,7 @@ int main(int argc, const char *argv[]) {
   ExtractData(self_path);
   blaze_server->Connect();
   EnsureCorrectRunningVersion(blaze_server);
+  VerifyJavaVersionAndSetJvm();
   KillRunningServerIfDifferentStartupOptions(blaze_server);
 
   if (globals->options.batch) {
