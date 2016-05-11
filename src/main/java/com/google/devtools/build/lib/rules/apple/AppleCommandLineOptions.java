@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultL
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -91,6 +93,35 @@ public class AppleCommandLineOptions extends FragmentOptions {
       category = "build",
       help = "Specifies to target CPU of iOS compilation.")
   public String iosCpu;
+
+  @Option(name = "apple_platform_type",
+      defaultValue = "IOS",
+      category = "undocumented",
+      converter = PlatformTypeConverter.class,
+      help =
+          "Don't set this value from the command line - it is derived from other flags and "
+          + "configuration transitions derived from rule attributes")
+  public PlatformType applePlatformType;
+
+  @Option(name = "apple_split_cpu",
+      defaultValue = "",
+      category = "undocumented",
+      help =
+          "Don't set this value from the command line - it is derived from other flags and "
+          + "configuration transitions derived from rule attributes")
+  public String appleSplitCpu;
+
+  // This option exists because two configurations are not allowed to have the same cache key
+  // (partially derived from options). Since we have multiple transitions that may result in the
+  // same configuration values at runtime we need an artificial way to distinguish between them.
+  // This option must only be set by those transitions for this purpose.
+  // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
+  // configurations (e.g. by min os version) always use different output paths.
+  @Option(name = "apple configuration distinguisher",
+      defaultValue = "UNKNOWN",
+      converter = ConfigurationDistinguisherConverter.class,
+      category = "undocumented")
+  public ConfigurationDistinguisher configurationDistinguisher;
 
   @Option(name = "ios_multi_cpus",
       converter = CommaSeparatedOptionListConverter.class,
@@ -224,5 +255,21 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.appleBitcodeMode = appleBitcodeMode;
 
     return host;
+  }
+
+  /** Converter for the Apple configuration distinguisher. */
+  public static final class ConfigurationDistinguisherConverter
+      extends EnumConverter<ConfigurationDistinguisher> {
+    public ConfigurationDistinguisherConverter() {
+      super(ConfigurationDistinguisher.class, "Apple rule configuration distinguisher");
+    }
+  }
+
+  /** Flag converter for {@link PlatformType}. */
+  public static final class PlatformTypeConverter
+      extends EnumConverter<PlatformType> {
+    public PlatformTypeConverter() {
+      super(PlatformType.class, "Apple platform type");
+    }
   }
 }

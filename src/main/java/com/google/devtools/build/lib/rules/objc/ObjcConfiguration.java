@@ -15,23 +15,17 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
 
 import javax.annotation.Nullable;
 
@@ -64,11 +58,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean runMemleaks;
   private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
-  private final String iosSplitCpu;
   private final ImmutableList<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
-  private final ConfigurationDistinguisher configurationDistinguisher;
   @Nullable private final String signingCertName;
   @Nullable private final Path clientWorkspaceRoot;
   private final String xcodeOverrideWorkspaceRoot;
@@ -92,11 +84,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
-    this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
-    this.configurationDistinguisher = objcOptions.configurationDistinguisher;
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
@@ -219,33 +209,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean moduleMapsEnabled() {
     return moduleMapsEnabled;
-  }
-
-  /**
-   * Returns the unique identifier distinguishing configurations that are otherwise the same.
-   *
-   * <p>Use this value for situations in which two configurations create two outputs that are the
-   * same but are not collapsed due to their different configuration owners.
-   */
-  public ConfigurationDistinguisher getConfigurationDistinguisher() {
-    return configurationDistinguisher;
-  }
-
-  @Nullable
-  @Override
-  public String getOutputDirectoryName() {
-    List<String> components = new ArrayList<>();
-    if (!iosSplitCpu.isEmpty()) {
-      components.add("ios-" + iosSplitCpu);
-    }
-    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
-      components.add(configurationDistinguisher.toString().toLowerCase(Locale.US));
-    }
-
-    if (components.isEmpty()) {
-      return null;
-    }
-    return Joiner.on('-').join(components);
   }
 
   /**

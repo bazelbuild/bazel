@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,10 +28,14 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -65,6 +70,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion tvOsSdkVersion;
   private final DottedVersion macOsXSdkVersion;
   private final String iosCpu;
+  private final String appleSplitCpu;
+  private final PlatformType applePlatformType;
+  private final ConfigurationDistinguisher configurationDistinguisher;
   private final Optional<DottedVersion> xcodeVersion;
   private final ImmutableList<String> iosMultiCpus;
   private final AppleBitcodeMode bitcodeMode;
@@ -87,6 +95,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
     this.xcodeVersion = Preconditions.checkNotNull(xcodeVersionOverride);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
+    this.appleSplitCpu = Preconditions.checkNotNull(appleOptions.appleSplitCpu, "appleSplitCpu");
+    this.applePlatformType =
+        Preconditions.checkNotNull(appleOptions.applePlatformType, "applePlatformType");
+    this.configurationDistinguisher = appleOptions.configurationDistinguisher;
     this.iosMultiCpus = ImmutableList.copyOf(
         Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus"));
     this.bitcodeMode = appleOptions.appleBitcodeMode;
@@ -288,6 +300,35 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   public Label getXcodeConfigLabel() {
     return xcodeConfigLabel;
+  }
+
+  /**
+   * Returns the unique identifier distinguishing configurations that are otherwise the same.
+   *
+   * <p>Use this value for situations in which two configurations create two outputs that are the
+   * same but are not collapsed due to their different configuration owners.
+   */
+  public ConfigurationDistinguisher getConfigurationDistinguisher() {
+    return configurationDistinguisher;
+  }
+
+
+  @Nullable
+  @Override
+  public String getOutputDirectoryName() {
+    List<String> components = new ArrayList<>();
+    if (!appleSplitCpu.isEmpty()) {
+      components.add(applePlatformType.toString().toLowerCase());
+      components.add(appleSplitCpu);
+    }
+    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
+      components.add(configurationDistinguisher.toString().toLowerCase(Locale.US));
+    }
+
+    if (components.isEmpty()) {
+      return null;
+    }
+    return Joiner.on('-').join(components);
   }
 
   /**

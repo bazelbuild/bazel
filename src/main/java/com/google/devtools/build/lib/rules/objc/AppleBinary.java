@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
@@ -182,7 +183,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     
     return configToProvider.keySet();
   }
-  
+
   /**
    * {@link SplitTransitionProvider} implementation for the apple binary rule.
    */
@@ -196,7 +197,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       // TODO(cparsons): Support different split transitions based on rule attribute.
       return IOS_MULTI_CPUS_SPLIT_TRANSITION;
     }
-    
+
     public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
       return ImmutableList.<SplitTransition<BuildOptions>>of(IOS_MULTI_CPUS_SPLIT_TRANSITION);
     }
@@ -217,7 +218,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         BuildOptions splitOptions = buildOptions.clone();
 
         splitOptions.get(AppleCommandLineOptions.class).iosMultiCpus = ImmutableList.of();
-        splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
+        splitOptions.get(AppleCommandLineOptions.class).applePlatformType = PlatformType.IOS;
+        splitOptions.get(AppleCommandLineOptions.class).appleSplitCpu = iosCpu;
         splitOptions.get(AppleCommandLineOptions.class).iosCpu = iosCpu;
         if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
           // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
@@ -226,7 +228,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
           // set if this feature is explicitly requested.
           splitOptions.get(BuildConfiguration.Options.class).cpu = "ios_" + iosCpu;
         }
-        splitOptions.get(ObjcCommandLineOptions.class).configurationDistinguisher =
+        splitOptions.get(AppleCommandLineOptions.class).configurationDistinguisher =
             ConfigurationDistinguisher.APPLEBIN_IOS;
         splitBuildOptions.add(splitOptions);
       }

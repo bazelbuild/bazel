@@ -122,4 +122,16 @@ public enum Platform {
   public static boolean isApplePlatform(String targetCpu) {
     return forTargetCpuNullable(targetCpu) != null;
   }
+
+  /**
+   * Value used to describe Apple platform "type". A {@link Platform} is implied from a platform
+   * type (for example, watchOS) together with a cpu value (for example, armv7).
+   */
+  // TODO(cparsons): Use these values in static retrieval methods in this class.
+  public enum PlatformType {
+    IOS,
+    WATCHOS,
+    TVOS,
+    MACOSX
+  }
 }

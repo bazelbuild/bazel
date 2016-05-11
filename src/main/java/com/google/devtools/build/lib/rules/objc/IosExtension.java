@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
@@ -119,7 +120,7 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
 
       BuildOptions splitOptions = originalOptions.clone();
       setMinimumOsVersion(splitOptions, newMinimumVersion);
-      splitOptions.get(ObjcCommandLineOptions.class).configurationDistinguisher =
+      splitOptions.get(AppleCommandLineOptions.class).configurationDistinguisher =
           getConfigurationDistinguisher();
       return ImmutableList.of(splitOptions);
     }
