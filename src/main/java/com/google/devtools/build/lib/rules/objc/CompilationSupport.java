@@ -130,6 +130,13 @@ public final class CompilationSupport {
   static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
       ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
 
+  // These are added by Xcode when building, because the simulator is built on OSX
+  // frameworks so we aim compile to match the OSX objc runtime.
+  @VisibleForTesting
+  static final ImmutableList<String> IOS_SIMULATOR_COMPILE_FLAGS =
+      ImmutableList.of(
+          "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
+
   /**
    * Returns the location of the xcrunwrapper tool.
    */
@@ -1511,13 +1518,7 @@ public final class CompilationSupport {
       case IOS_DEVICE:
         return ImmutableList.of();
       case IOS_SIMULATOR:
-        // These are added by Xcode when building, because the simulator is built on OSX
-        // frameworks so we aim compile to match the OSX objc runtime.
-        return ImmutableList.of(
-            "-fexceptions",
-            "-fasm-blocks",
-            "-fobjc-abi-version=2",
-            "-fobjc-legacy-dispatch");
+        return IOS_SIMULATOR_COMPILE_FLAGS;
       default:
         throw new AssertionError();
     }

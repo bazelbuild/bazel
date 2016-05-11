@@ -38,6 +38,8 @@ import java.util.Collection;
 public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
   private static final String PCH_FILE_VARIABLE_NAME = "pch_file";
+  private static final Iterable<String> ACTIVATED_ACTIONS =
+      ImmutableList.of("objc-compile", "objc++-compile");
   
   private VariablesExtension variablesExtension(final RuleContext ruleContext) {
     return new VariablesExtension() {
@@ -66,13 +68,14 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .getPrerequisite(":cc_toolchain", Mode.TARGET)
             .getProvider(CcToolchainProvider.class);
 
-    ImmutableList.Builder<String> extraFeatures = ImmutableList.builder();
+    ImmutableList.Builder<String> activatedCrosstoolSelectables =
+        ImmutableList.<String>builder().addAll(ACTIVATED_ACTIONS);
     if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
-      extraFeatures.add("pch");
+      activatedCrosstoolSelectables.add("pch");
     }
 
     FeatureConfiguration featureConfiguration =
-        toolchain.getFeatures().getFeatureConfiguration(extraFeatures.build());
+        toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
    
     
     Collection<Artifact> sources = Sets.newHashSet(compilationArtifacts.getSrcs());
