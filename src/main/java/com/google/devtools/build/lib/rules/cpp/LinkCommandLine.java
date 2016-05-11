@@ -1021,6 +1021,7 @@ public final class LinkCommandLine extends CommandLine {
     @Nullable private Artifact paramFile;
     @Nullable private Artifact interfaceSoBuilder;
     @Nullable private CcToolchainProvider toolchain;
+    private FeatureConfiguration featureConfiguration;
 
     // This interface is needed to support tests that don't create a
     // ruleContext, in which case the configuration and action owner
@@ -1045,13 +1046,16 @@ public final class LinkCommandLine extends CommandLine {
             Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
       }
       CcToolchainFeatures.Variables variables = null;
-      FeatureConfiguration featureConfiguration = null;
       // The ruleContext can be null for some tests.
       if (ruleContext != null) {
-        if (toolchain != null) {
-          featureConfiguration = CcCommon.configureFeatures(ruleContext, toolchain);
-        } else {
-          featureConfiguration = CcCommon.configureFeatures(ruleContext);
+        if (featureConfiguration == null) {
+          if (toolchain != null) {
+            featureConfiguration =
+                CcCommon.configureFeatures(
+                    ruleContext, toolchain, CcLibraryHelper.SourceCategory.CC);
+          } else {
+            featureConfiguration = CcCommon.configureFeatures(ruleContext);
+          }
         }
         CcToolchainFeatures.Variables.Builder buildVariables =
             new CcToolchainFeatures.Variables.Builder();
@@ -1094,6 +1098,14 @@ public final class LinkCommandLine extends CommandLine {
       return this;
     }
 
+    /**
+     * Sets the feature configuration for this link action.
+     */
+    public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
+      this.featureConfiguration = featureConfiguration;
+      return this;
+    }
+    
     /**
      * Sets the type of the link. It is an error to try to set this to {@link
      * LinkTargetType#INTERFACE_DYNAMIC_LIBRARY}. Note that all the static target types (see {@link

@@ -585,7 +585,56 @@ public class CcToolchainFeaturesTest {
     assertThat(features.getFeatureConfiguration("b").getCommandLine(CppCompileAction.CPP_COMPILE,
         createVariables("v", "1"))).containsExactly("-f", "1");
   }
-  
+
+  @Test
+  public void testActivateActionConfigFromFeature() throws Exception {
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "action_config {",
+            "  config_name: 'action-a'",
+            "  action_name: 'action-a'",
+            "  tool {",
+            "    tool_path: 'toolchain/feature-a'",
+            "    with_feature: { feature: 'feature-a' }",
+            "  }",
+            "}",
+            "feature {",
+            "   name: 'activates-action-a'",
+            "   implies: 'action-a'",
+            "}");
+
+    FeatureConfiguration featureConfiguration =
+        toolchainFeatures.getFeatureConfiguration("activates-action-a");
+
+    assertThat(featureConfiguration.actionIsConfigured("action-a")).isTrue();
+  }
+
+  @Test
+  public void testFeatureCanRequireActionConfig() throws Exception {
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "action_config {",
+            "  config_name: 'action-a'",
+            "  action_name: 'action-a'",
+            "  tool {",
+            "    tool_path: 'toolchain/feature-a'",
+            "    with_feature: { feature: 'feature-a' }",
+            "  }",
+            "}",
+            "feature {",
+            "   name: 'requires-action-a'",
+            "   requires: { feature: 'action-a' }",
+            "}");
+
+    FeatureConfiguration featureConfigurationWithoutAction =
+        toolchainFeatures.getFeatureConfiguration("requires-action-a");
+    assertThat(featureConfigurationWithoutAction.isEnabled("requires-action-a")).isFalse();
+
+    FeatureConfiguration featureConfigurationWithAction =
+        toolchainFeatures.getFeatureConfiguration("action-a", "requires-action-a");
+    assertThat(featureConfigurationWithAction.isEnabled("requires-action-a")).isTrue();
+  }
+
   @Test
   public void testSimpleActionTool() throws Exception {
     FeatureConfiguration configuration =
@@ -715,6 +764,48 @@ public class CcToolchainFeaturesTest {
       assertThat(e.getMessage())
           .contains("Matching tool for action action-a not found for given feature configuration");
     }
+  }
+
+  @Test
+  public void testActivateActionConfigDirectly() throws Exception {
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "action_config {",
+            "  config_name: 'action-a'",
+            "  action_name: 'action-a'",
+            "  tool {",
+            "    tool_path: 'toolchain/feature-a'",
+            "    with_feature: { feature: 'feature-a' }",
+            "  }",
+            "}");
+
+    FeatureConfiguration featureConfiguration =
+        toolchainFeatures.getFeatureConfiguration("action-a");
+
+    assertThat(featureConfiguration.actionIsConfigured("action-a")).isTrue();
+  }
+
+  @Test
+  public void testActionConfigCanActivateFeature() throws Exception {
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "action_config {",
+            "  config_name: 'action-a'",
+            "  action_name: 'action-a'",
+            "  tool {",
+            "    tool_path: 'toolchain/feature-a'",
+            "    with_feature: { feature: 'feature-a' }",
+            "  }",
+            "  implies: 'activated-feature'",
+            "}",
+            "feature {",
+            "   name: 'activated-feature'",
+            "}");
+
+    FeatureConfiguration featureConfiguration =
+        toolchainFeatures.getFeatureConfiguration("action-a");
+
+    assertThat(featureConfiguration.isEnabled("activated-feature")).isTrue();
   }
 
   @Test

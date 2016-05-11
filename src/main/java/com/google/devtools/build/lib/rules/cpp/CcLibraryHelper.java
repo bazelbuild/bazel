@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -72,8 +73,9 @@ import javax.annotation.Nullable;
 public final class CcLibraryHelper {
 
   /**
-   * A group of source file types for builds controlled by CcLibraryHelper.  Determines what
-   * file types CcLibraryHelper considers sources.
+   * A group of source file types and action names for builds controlled by CcLibraryHelper.
+   * Determines what file types CcLibraryHelper considers sources and what action configs are
+   * configured in the CROSSTOOL.
    */
   public static enum SourceCategory {
     CC(
@@ -82,7 +84,15 @@ public final class CcLibraryHelper {
             CppFileTypes.CPP_HEADER,
             CppFileTypes.C_SOURCE,
             CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR)),
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
+        ImmutableSet.<String>of(
+            CppCompileAction.C_COMPILE,
+            CppCompileAction.CPP_COMPILE,
+            CppCompileAction.CPP_HEADER_PARSING,
+            CppCompileAction.CPP_HEADER_PREPROCESSING,
+            CppCompileAction.CPP_MODULE_COMPILE,
+            CppCompileAction.ASSEMBLE,
+            CppCompileAction.PREPROCESS_ASSEMBLE)),
     CC_AND_OBJC(
         FileTypeSet.of(
             CppFileTypes.CPP_SOURCE,
@@ -91,19 +101,39 @@ public final class CcLibraryHelper {
             CppFileTypes.OBJCPP_SOURCE,
             CppFileTypes.C_SOURCE,
             CppFileTypes.ASSEMBLER,
-            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR));
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
+        ImmutableSet.<String>of(
+            CppCompileAction.C_COMPILE,
+            CppCompileAction.CPP_COMPILE,
+            CppCompileAction.OBJC_COMPILE,
+            CppCompileAction.OBJCPP_COMPILE,
+            CppCompileAction.CPP_HEADER_PARSING,
+            CppCompileAction.CPP_HEADER_PREPROCESSING,
+            CppCompileAction.CPP_MODULE_COMPILE,
+            CppCompileAction.ASSEMBLE,
+            CppCompileAction.PREPROCESS_ASSEMBLE));
+            
 
     private final FileTypeSet sourceTypeSet;
+    private final Set<String> actionConfigSet;
 
-    private SourceCategory(FileTypeSet sourceTypeSet) {
+    private SourceCategory(FileTypeSet sourceTypeSet, Set<String> actionConfigSet) {
       this.sourceTypeSet = sourceTypeSet;
+      this.actionConfigSet = actionConfigSet;
     }
 
     /**
-     * Returns the set of file types that are valid for this catagory.
+     * Returns the set of file types that are valid for this category.
      */
     public FileTypeSet getSourceTypes() {
       return sourceTypeSet;
+    }
+    
+    /**
+     * Returns the set of enabled actions for this category.
+     */
+    public Set<String> getActionConfigSet() {
+      return actionConfigSet;
     }
   }
 
@@ -251,6 +281,15 @@ public final class CcLibraryHelper {
     this.sourceCatagory = Preconditions.checkNotNull(sourceCatagory);
   }
 
+  public CcLibraryHelper(
+      RuleContext ruleContext, CppSemantics semantics, SourceCategory sourceCategory) {
+    this(
+        ruleContext,
+        semantics,
+        CcCommon.configureFeatures(ruleContext, sourceCategory),
+        sourceCategory);
+  }
+  
   /**
    * Creates a CcLibraryHelper for cpp source files.
    *

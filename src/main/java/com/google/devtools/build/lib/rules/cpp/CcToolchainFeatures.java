@@ -1015,6 +1015,7 @@ public class CcToolchainFeatures implements Serializable {
   public static class FeatureConfiguration {
     private final ImmutableSet<String> enabledFeatureNames;
     private final Iterable<Feature> enabledFeatures;
+    private final ImmutableSet<String> enabledActionConfigActionNames;
     
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
     
@@ -1037,11 +1038,12 @@ public class CcToolchainFeatures implements Serializable {
         featureBuilder.add(feature.getName());
       }
       this.enabledFeatureNames = featureBuilder.build();
-
+      
       ImmutableSet.Builder<String> actionConfigBuilder = ImmutableSet.builder();
       for (ActionConfig actionConfig : enabledActionConfigs) {
-        actionConfigBuilder.add(actionConfig.getName());
+        actionConfigBuilder.add(actionConfig.getActionName());
       }
+      this.enabledActionConfigActionNames = actionConfigBuilder.build();
     }
     
     /**
@@ -1055,9 +1057,9 @@ public class CcToolchainFeatures implements Serializable {
      * @return whether an action config for the blaze action with the given name is enabled.
      */
     boolean actionIsConfigured(String actionName) {
-      return actionConfigByActionName.containsKey(actionName);
+      return enabledActionConfigActionNames.contains(actionName);
     }
-    
+
     /**
      * @return the command line for the given {@code action}.
      */
@@ -1166,7 +1168,7 @@ public class CcToolchainFeatures implements Serializable {
 
     // Also build a map from action -> action_config, for use in tool lookups
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
- 
+
     for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
       Feature feature = new Feature(toolchainFeature);
       selectablesBuilder.add(feature);
@@ -1198,7 +1200,7 @@ public class CcToolchainFeatures implements Serializable {
         ImmutableMultimap.builder();
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> requiredBy =
         ImmutableMultimap.builder();
-    
+
     for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
       String name = toolchainFeature.getName();
       CrosstoolSelectable selectable = selectablesByName.get(name);
@@ -1217,8 +1219,17 @@ public class CcToolchainFeatures implements Serializable {
         implies.put(selectable, implied);
       }
     }
-    
-    
+
+    for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
+      String name = toolchainActionConfig.getConfigName();
+      CrosstoolSelectable selectable = selectablesByName.get(name);
+      for (String impliedName : toolchainActionConfig.getImpliesList()) {
+        CrosstoolSelectable implied = getActivatableOrFail(impliedName, name);
+        impliedBy.put(implied, selectable);
+        implies.put(selectable, implied);
+      }
+    }
+
     this.implies = implies.build();
     this.requires = requires.build();
     this.impliedBy = impliedBy.build();
@@ -1342,28 +1353,26 @@ public class CcToolchainFeatures implements Serializable {
   private class FeatureSelection {
     
     /**
-     * The features Bazel would like to enable; either because they are supported and generally
-     * useful, or because the user required them (for example through the command line). 
+     * The selectables Bazel would like to enable; either because they are supported and generally
+     * useful, or because the user required them (for example through the command line).
      */
-    private final ImmutableSet<Feature> requestedFeatures;
+    private final ImmutableSet<CrosstoolSelectable> requestedSelectables;
     
     /**
-     * The currently enabled selectable; during feature selection, we first put all features
-     * reachable via an 'implies' edge into the enabled feature set, and than prune that set
-     * from features that have unmet requirements.
+     * The currently enabled selectable; during feature selection, we first put all selectables
+     * reachable via an 'implies' edge into the enabled selectable set, and than prune that set
+     * from selectables that have unmet requirements.
      */
     private final Set<CrosstoolSelectable> enabled = new HashSet<>();
     
-    private FeatureSelection(Collection<String> requestedFeatures) {
-      ImmutableSet.Builder<Feature> builder = ImmutableSet.builder();
-      for (String name : requestedFeatures) {
+    private FeatureSelection(Collection<String> requestedSelectables) {
+      ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
+      for (String name : requestedSelectables) {
         if (selectablesByName.containsKey(name)) {
-          if (selectablesByName.get(name) instanceof Feature) {
-            builder.add((Feature) selectablesByName.get(name));
-          }
+          builder.add(selectablesByName.get(name));
         }
       }
-      this.requestedFeatures = builder.build();
+      this.requestedSelectables = builder.build();
     }
 
     /**
@@ -1371,9 +1380,10 @@ public class CcToolchainFeatures implements Serializable {
      * action configs.
      */
     private FeatureConfiguration run() {
-      for (Feature feature : requestedFeatures) {
-        enableAllImpliedBy(feature);
+      for (CrosstoolSelectable selectable : requestedSelectables) {
+        enableAllImpliedBy(selectable);
       }
+
       disableUnsupportedActivatables();
       ImmutableList.Builder<CrosstoolSelectable> enabledActivatablesInOrderBuilder =
           ImmutableList.builder();
@@ -1450,17 +1460,18 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
-     * @return whether all requirements of the feature are met in the set of currently enabled
-     * features.
+     * @return whether all requirements of the selectable are met in the set of currently enabled
+     * selectables.
      */
     private boolean isSatisfied(CrosstoolSelectable selectable) {
-      return (requestedFeatures.contains(selectable) || isImpliedByEnabledActivatable(selectable))
+      return (requestedSelectables.contains(selectable)
+              || isImpliedByEnabledActivatable(selectable))
           && allImplicationsEnabled(selectable)
           && allRequirementsMet(selectable);
     }
     
     /**
-     * @return whether a currently enabled feature implies the given feature.
+     * @return whether a currently enabled selectable implies the given selectable.
      */
     private boolean isImpliedByEnabledActivatable(CrosstoolSelectable selectable) {
       return !Collections.disjoint(impliedBy.get(selectable), enabled);
