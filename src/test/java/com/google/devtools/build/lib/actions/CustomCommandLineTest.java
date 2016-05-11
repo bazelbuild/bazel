@@ -13,10 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
@@ -24,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -42,7 +47,7 @@ public class CustomCommandLineTest {
   private Artifact artifact2;
 
   @Before
-  public final void createArtifacts() throws Exception  {
+  public void createArtifacts() throws Exception  {
     scratch = new Scratch();
     rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
     artifact1 = new Artifact(scratch.file("/exec/root/dir/file1.txt"), rootDir);
@@ -164,5 +169,89 @@ public class CustomCommandLineTest {
         .addExecPath(null, null)
         .build();
     assertEquals(ImmutableList.of(), cl.arguments());
+  }
+
+  @Test
+  public void testTreeFileArtifactExecPathArgs() {
+    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
+    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+
+    CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
+        .addTreeFileArtifactExecPath("--argOne", treeArtifactOne)
+        .addTreeFileArtifactExecPath("--argTwo", treeArtifactTwo)
+        .build();
+
+    TreeFileArtifact treeFileArtifactOne = createTreeFileArtifact(
+        treeArtifactOne, "children/child1");
+    TreeFileArtifact treeFileArtifactTwo = createTreeFileArtifact(
+        treeArtifactTwo, "children/child2");
+
+    CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
+        ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
+
+    assertThat(commandLine.arguments())
+        .containsExactly(
+            "--argOne",
+            "myArtifact/treeArtifact1/children/child1",
+            "--argTwo",
+            "myArtifact/treeArtifact2/children/child2")
+        .inOrder();
+  }
+
+  @Test
+  public void testTreeFileArtifactExecPathWithTemplateArgs() {
+    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
+    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+
+    CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
+        .addTreeFileArtifactExecPaths("%s:%s", treeArtifactOne, treeArtifactTwo)
+        .build();
+
+    TreeFileArtifact treeFileArtifactOne = createTreeFileArtifact(
+        treeArtifactOne, "children/child1");
+    TreeFileArtifact treeFileArtifactTwo = createTreeFileArtifact(
+        treeArtifactTwo, "children/child2");
+
+    CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
+        ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
+
+    assertThat(commandLine.arguments()).containsExactly(
+        "myArtifact/treeArtifact1/children/child1:myArtifact/treeArtifact2/children/child2");
+  }
+
+  @Test
+  public void testTreeFileArtifactArgThrowWithoutSubstitution() {
+    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
+    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+
+    CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
+        .addTreeFileArtifactExecPath("--argOne", treeArtifactOne)
+        .addTreeFileArtifactExecPath("--argTwo", treeArtifactTwo)
+        .build();
+
+    try {
+      commandLineTemplate.arguments();
+      fail("No substitution map provided, expected NullPointerException");
+    } catch (NullPointerException e) {
+      // expected
+    }
+
+  }
+
+  private Artifact createTreeArtifact(String rootRelativePath) {
+    PathFragment relpath = new PathFragment(rootRelativePath);
+    return new SpecialArtifact(
+        rootDir.getPath().getRelative(relpath),
+        rootDir,
+        rootDir.getExecPath().getRelative(relpath),
+        ArtifactOwner.NULL_OWNER,
+        SpecialArtifactType.TREE);
+  }
+
+  private TreeFileArtifact createTreeFileArtifact(
+      Artifact inputTreeArtifact, String parentRelativePath) {
+    return ActionInputHelper.treeFileArtifact(
+        inputTreeArtifact,
+        new PathFragment(parentRelativePath));
   }
 }

@@ -29,6 +29,9 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.TreeMap;
+
+import javax.annotation.Nullable;
 
 /**
  * Helper class for actions.
@@ -77,6 +80,20 @@ public final class Actions {
     return true;
   }
 
+  /**
+   * Finds action conflicts. An action conflict happens if two actions generate the same output
+   * artifact. Shared actions are tolerated. See {@link #canBeShared} for details.
+   *
+   * @param actions a list of actions to check for action conflicts
+   * @return a map between generated artifacts and their associated generating actions. If there is
+   *     more than one action generating the same output artifact, only one action is chosen.
+   * @throws ActionConflictException iff there are two actions generate the same output
+   */
+  public static Map<Artifact, ActionAnalysisMetadata> findAndThrowActionConflict(
+      Iterable<ActionAnalysisMetadata> actions) throws ActionConflictException {
+    return Actions.maybeFilterSharedActionsAndThrowIfConflict(
+        actions, /*allowSharedAction=*/ false);
+  }
 
   /**
    * Finds action conflicts. An action conflict happens if two actions generate the same output
@@ -109,6 +126,27 @@ public final class Actions {
       }
     }
     return generatingActions;
+  }
+
+  /**
+   * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
+   * happens if one action generates an artifact whose path is a prefix of another artifact's path.
+   * Those two artifacts cannot exist simultaneously in the output tree.
+   *
+   * @param generatingActions a map between generated artifacts and their associated generating
+   *     actions.
+   * @return a map between actions that generated the conflicting artifacts and their associated
+   *     {@link ArtifactPrefixConflictException}.
+   */
+  public static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
+      findArtifactPrefixConflicts(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
+    TreeMap<PathFragment, Artifact> artifactPathMap = new TreeMap();
+    for (Artifact artifact : generatingActions.keySet()) {
+      artifactPathMap.put(artifact.getExecPath(), artifact);
+    }
+
+    return findArtifactPrefixConflicts(
+        new MapBasedImmutableActionGraph(generatingActions), artifactPathMap);
   }
 
   /**
@@ -184,5 +222,19 @@ public final class Actions {
    */
   public static String escapeLabel(Label label) {
     return PATH_ESCAPER.escape(label.getPackageName() + ":" + label.getName());
+  }
+
+  private static class MapBasedImmutableActionGraph implements ActionGraph {
+    private final Map<Artifact, ActionAnalysisMetadata> generatingActions;
+
+    MapBasedImmutableActionGraph(
+        Map<Artifact, ActionAnalysisMetadata> generatingActions) {
+      this.generatingActions = ImmutableMap.copyOf(generatingActions);
+    }
+
+    @Nullable
+    public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
+      return generatingActions.get(artifact);
+    }
   }
 }
