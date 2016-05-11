@@ -29,17 +29,86 @@ fi
 function set_up() {
   copy_examples
   setup_objc_test_support
+
+  # Allow access to //external:xcrunwrapper.
+  rm WORKSPACE
+  ln -sv ${workspace_file} WORKSPACE
+}
+
+function make_app() {
+  rm -rf ios
+  mkdir -p ios
+
+  touch ios/dummy.swift
+
+  cat >ios/app.swift <<EOF
+import UIKit
+
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate {
+  var window: UIWindow?
+  func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
+    NSLog("Hello, world")
+    return true
+  }
+}
+EOF
+
+  cat >ios/App-Info.plist <<EOF
+<plist version="1.0">
+<dict>
+        <key>CFBundleExecutable</key>
+        <string>app</string>
+        <key>CFBundleName</key>
+        <string>app</string>
+        <key>CFBundleDisplayName</key>
+        <string>app</string>
+        <key>CFBundlePackageType</key>
+        <string>APPL</string>
+        <key>CFBundleIdentifier</key>
+        <string>com.google.app</string>
+        <key>CFBundleSignature</key>
+        <string>????</string>
+        <key>CFBundleVersion</key>
+        <string>1.0</string>
+        <key>LSRequiresIPhoneOS</key>
+        <true/>
+</dict>
+</plist>
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "SwiftMain",
+              srcs = ["app.swift"])
+
+objc_binary(name = "bin",
+            # TODO(b/28723643): This dummy is only here to trigger the
+            # USES_SWIFT flag on ObjcProvider and should not be necessary.
+            srcs = ['dummy.swift'],
+            deps = [":SwiftMain"])
+
+ios_application(name = "app",
+                binary = ':bin',
+                infoplist = 'App-Info.plist')
+EOF
 }
 
 function test_swift_library() {
-  rm WORKSPACE
-  ln -sv ${workspace_file} WORKSPACE
-
   local swift_lib_pkg=examples/swift
   assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.a \
       ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
   assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.swiftmodule \
       ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
+}
+
+function test_build_app() {
+  make_app
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      //ios:app >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
 
 run_suite "apple_tests"
