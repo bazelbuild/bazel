@@ -35,8 +35,8 @@ public abstract class Statement extends ASTNode {
   final void exec(Environment env) throws EvalException, InterruptedException   {
     try {
       doExec(env);
-    } catch (EvalException | RuntimeException ex)  {
-      throw handleException(ex);
+    } catch (EvalException ex) {
+      throw maybeTransformException(ex);
     }
   }
 

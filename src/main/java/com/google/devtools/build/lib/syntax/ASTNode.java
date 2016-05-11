@@ -35,10 +35,8 @@ public abstract class ASTNode implements Serializable {
     return false;
   }
 
-  /**
-   * Returns an exception which should be thrown instead of the original one.
-   */
-  protected final EvalException handleException(Exception original) {
+  /** Returns an exception which should be thrown instead of the original one. */
+  protected final EvalException maybeTransformException(EvalException original) {
     // If there is already a non-empty stack trace, we only add this node iff it describes a
     // new scope (e.g. FuncallExpression).
     if (original instanceof EvalExceptionWithStackTrace) {
@@ -49,12 +47,11 @@ public abstract class ASTNode implements Serializable {
       return real;
     }
 
-    // Returns the original exception if it cannot be attached to a stack trace.
-    if (original instanceof EvalException && !((EvalException) original).canBeAddedToStackTrace()) {
-      return (EvalException) original;
+    if (original.canBeAddedToStackTrace()) {
+      return new EvalExceptionWithStackTrace(original, this);
+    } else {
+      return original;
     }
-
-    return new EvalExceptionWithStackTrace(original, this);
   }
 
   @VisibleForTesting  // productionVisibility = Visibility.PACKAGE_PRIVATE
