@@ -57,12 +57,12 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   }
 
   /**
-   * Skylark repository context functions can use this function to notify the
+   * Skylark repository context functions can throw the result of this function to notify the
    * SkylarkRepositoryFunction that a dependency was missing and the evaluation of the function must
    * be restarted.
    */
-  static void restart() throws EvalException {
-    throw new SkylarkRepositoryMissingDependencyException();
+  static EvalException restart() {
+    return new SkylarkRepositoryMissingDependencyException();
   }
 
   private CommandEnvironment commandEnvironment = null;

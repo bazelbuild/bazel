@@ -38,7 +38,7 @@ final class SkylarkOS {
   }
 
   @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
-  public ImmutableMap<String, String> getEnviron() {
+  public ImmutableMap<String, String> getEnvironmentVariables() {
     return environ;
   }
 

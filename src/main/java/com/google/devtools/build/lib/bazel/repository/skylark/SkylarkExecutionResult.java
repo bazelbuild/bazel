@@ -21,12 +21,16 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A Skylark structure
+ * A structure callable from Skylark that stores the result of repository_ctx.execute() method. It
+ * contains the standard output stream content, the standard error stream content and the execution
+ * return code.
  */
 @SkylarkModule(
   name = "exec_result",
@@ -35,7 +39,7 @@ import java.util.List;
           + " output stream content, the standard error stream content and the execution return"
           + " code."
 )
-public class SkylarkExecutionResult {
+final class SkylarkExecutionResult {
   private final int returnCode;
   private final String stdout;
   private final String stderr;
@@ -58,9 +62,10 @@ public class SkylarkExecutionResult {
   @SkylarkCallable(
     name = "return_code",
     structField = true,
-    doc = "The return code returned after the execution of the program."
+    doc = "The return code returned after the execution of the program. 256 if an error happened"
+        + " while executing the command."
   )
-  public int returnCode() {
+  public int getReturnCode() {
     return returnCode;
   }
 
@@ -69,7 +74,7 @@ public class SkylarkExecutionResult {
     structField = true,
     doc = "The content of the standard output returned by the execution."
   )
-  public String stdout() {
+  public String getStdout() {
     return stdout;
   }
 
@@ -78,32 +83,79 @@ public class SkylarkExecutionResult {
     structField = true,
     doc = "The content of the standard error output returned by the execution."
   )
-  public String stderr() {
+  public String getStderr() {
     return stderr;
   }
 
   /**
-   * Executes a command given by a list of arguments and returns a SkylarkExecutionResult with
-   * the output of the command.
+   * Returns a Builder that can be used to execute a command and build an execution result.
    */
-  static SkylarkExecutionResult execute(List<Object> args, long timeout) throws EvalException {
-    try {
-      String[] argsArray = new String[args.size()];
-      for (int i = 0; i < args.size(); i++) {
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * A Builder class to build a {@link SkylarkExecutionResult} object by executing a command.
+   */
+  static final class Builder {
+
+    private final List<String> args = new ArrayList<>();
+    private long timeout = -1;
+    private boolean executed = false;
+
+    /**
+     * Adds arguments to the list of arguments to pass to the command. The first argument is
+     * expected to be the binary to execute. The subsequent arguments are the arguments passed
+     * to the binary.
+     *
+     * <p>Each argument can be either a string or a {@link SkylarkPath}, passing another argument
+     * will fail when executing the command.
+     */
+    Builder addArguments(Iterable<Object> args) throws EvalException {
+      for (Object arg : args) {
         // We might have skylark path, do conversion.
-        Object arg = args.get(i);
         if (!(arg instanceof String || arg instanceof SkylarkPath)) {
           throw new EvalException(
-              Location.BUILTIN, "Argument " + i + " of execute is neither a path nor a string.");
+              Location.BUILTIN,
+              "Argument " + this.args.size() + " of execute is neither a path nor a string.");
         }
-        argsArray[i] = arg.toString();
+        this.args.add(arg.toString());
       }
-      CommandResult result = new Command(argsArray).execute(new byte[] {}, timeout, false);
-      return new SkylarkExecutionResult(result);
-    } catch (BadExitStatusException e) {
-      return new SkylarkExecutionResult(e.getResult());
-    } catch (CommandException e) {
-      return new SkylarkExecutionResult(256, "", e.getMessage());
+      return this;
+    }
+
+    /**
+     * Sets the timeout, in milliseconds, after which the executed command will be terminated.
+     */
+    Builder setTimeout(long timeout) {
+      Preconditions.checkArgument(timeout > 0, "Timeout must be a positive number.");
+      this.timeout = timeout;
+      return this;
+    }
+
+    /**
+     * Execute the command specified by {@link #addArguments(Iterable)}.
+     */
+    SkylarkExecutionResult execute() throws EvalException {
+      Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
+      Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
+      Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
+      executed = true;
+
+      try {
+        String[] argsArray = new String[args.size()];
+        for (int i = 0; i < args.size(); i++) {
+          argsArray[i] = args.get(i);
+        }
+        CommandResult result = new Command(argsArray).execute(new byte[]{}, timeout, false);
+        return new SkylarkExecutionResult(result);
+      } catch (BadExitStatusException e) {
+        return new SkylarkExecutionResult(e.getResult());
+      } catch (CommandException e) {
+        // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that
+        // on all system it would be outside of the standard range.
+        return new SkylarkExecutionResult(256, "", e.getMessage());
+      }
     }
   }
 }
