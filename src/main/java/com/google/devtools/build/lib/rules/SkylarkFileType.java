@@ -27,8 +27,8 @@ import java.util.List;
  * A wrapper class for FileType and FileTypeSet functionality in Skylark.
  */
 @SkylarkModule(name = "FileType",
-    doc = "File type for file filtering. Can be used to filter collections of labels for certain "
-    + "file types.")
+    doc = "Deprecated. File type for file filtering. Can be used to filter collections of labels "
+    + "for certain file types.")
 public class SkylarkFileType {
 
   private final FileType fileType;
