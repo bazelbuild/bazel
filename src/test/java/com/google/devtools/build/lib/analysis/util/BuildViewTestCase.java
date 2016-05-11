@@ -277,6 +277,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // TODO(dmarting): Add --stamp option only to test that requires it.
     configurationArgs.add("--stamp");  // Stamp is now defaulted to false.
     configurationArgs.add("--experimental_extended_sanity_checks");
+    configurationArgs.add("--features=cc_include_scanning");
     configurationArgs.addAll(getAnalysisMock().getOptionOverrides());
 
     optionsParser.parse(configurationArgs);
