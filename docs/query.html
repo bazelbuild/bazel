@@ -47,6 +47,7 @@ title: Query Language
 <code><!-- keep this alphabetically sorted -->
 <a href="#path-operators">allpaths</a><br/>
 <a href="#attr">attr</a><br/>
+
 <a href="#buildfiles">buildfiles</a><br/>
 
 <a href="#deps">deps</a><br/>
@@ -1129,11 +1130,6 @@ genrule(
   will select all rules among <code>//foo</code> dependencies that specify at
   least one value in the <code>data</code> attribute (every label is at least
   3 characters long due to the <code>//</code> and <code>:</code>).
-</p>
-<pre>attr("generator_function", "your_skylark_macro_name", //...)</pre>
-<p>
-  Rules created by a macro have an implicit field on them called "generator_function". If you want
-  to query for a macro, this is one way to achieve that.
 </p>
 
 <h3 id="visible">Rule visibility filtering: visible</h3>

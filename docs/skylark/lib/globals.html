@@ -1036,7 +1036,7 @@ range(3, 0, -1) == [3, 2, 1]</pre>
       </table>
 
         <h2 id="select">select</h2>
-        <p><pre>unknown select(x)
+        <p><pre>unknown select(x, *, no_match_error='')
 </pre></p>
 
     Creates a SelectorValue from the dict parameter.
@@ -1061,6 +1061,15 @@ range(3, 0, -1) == [3, 2, 1]</pre>
             <td>
                           <p><code><a class="anchor" href="dict.html">dict</a></code></p>
                           <p>The parameter to convert.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="select.no_match_error">
+              <code>no_match_error</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>Optional custom error to report if no condition matches.</p>
             </td>
           </tr>
                 </tbody>

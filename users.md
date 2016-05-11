@@ -33,6 +33,11 @@ Databricks provides cloud-based integrated workspaces based on Apache Spark™.
 InteraXon is a thought-controlled computing firm that creates hardware and
 software platforms to convert brainwaves into digital signals.
 
+## [Improbable.io](https://improbable.io/)
+
+Improbable.io develops SpatialOS, a distributed operating system that enables
+creating huge simulations inhabited by millions of complex entities.
+
 ## [Makani](https://www.google.com/makani)
 
 Makani, now a Google subsidiary, develops energy kites and uses
