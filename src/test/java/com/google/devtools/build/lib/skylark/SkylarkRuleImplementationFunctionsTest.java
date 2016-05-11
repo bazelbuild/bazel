@@ -375,14 +375,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testCreateFileAction() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.file_action(",
+        "  output = ruleContext.files.srcs[0],",
+        "  content = 'hello world',",
+        "  executable = False)");
     FileWriteAction action =
         (FileWriteAction)
-            evalRuleContextCode(
-                ruleContext,
-                "ruleContext.file_action(",
-                "  output = ruleContext.files.srcs[0],",
-                "  content = 'hello world',",
-                "  executable = False)");
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertEquals("foo/a.txt", Iterables.getOnlyElement(action.getOutputs()).getExecPathString());
     assertEquals("hello world", action.getFileContents());
     assertFalse(action.makeExecutable());
