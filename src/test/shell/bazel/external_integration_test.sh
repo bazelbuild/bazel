@@ -814,4 +814,21 @@ EOF
   expect_log "Expected 200B, got 4B"
 }
 
+
+function test_android_sdk_basic_load() {
+  cat >> WORKSPACE <<'EOF' || fail "Couldn't cat"
+android_sdk_repository(
+    name = "androidsdk",
+    path = "/fake/path",
+    api_level = 23,
+    build_tools_version="23.0.0"
+)
+EOF
+
+  bazel query "//external:androidsdk" 2> "$TEST_log" > "$TEST_TMPDIR/queryout" \
+      || fail "Expected success"
+  cat "$TEST_TMPDIR/queryout" > "$TEST_log"
+  expect_log "//external:androidsdk"
+}
+
 run_suite "external tests"

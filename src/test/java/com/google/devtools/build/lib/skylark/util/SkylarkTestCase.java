@@ -64,7 +64,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                 PackageFactory.PKG_CONTEXT,
                 // This dummy pkgContext works because no Skylark unit test attempts to actually
                 // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
-                new PackageContext(null, null, getEventHandler()));
+                new PackageContext(null, null, getEventHandler(), null));
       }
     };
   }
