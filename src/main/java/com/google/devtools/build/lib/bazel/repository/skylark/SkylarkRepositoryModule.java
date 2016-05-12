@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
-import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -109,11 +109,8 @@ public class SkylarkRepositoryModule {
             for (Map.Entry<String, Descriptor> attr :
                 castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
               Descriptor attrDescriptor = attr.getValue();
-              String attrName =
-                  SkylarkRuleClassFunctions.attributeToNative(
-                      attr.getKey(),
-                      ast.getLocation(),
-                      attrDescriptor.getAttributeBuilder().hasLateBoundValue());
+              AttributeValueSource source = attrDescriptor.getAttributeBuilder().getValueSource();
+              String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
               Attribute.Builder<?> attrBuilder = attrDescriptor.getAttributeBuilder();
               builder.addOrOverrideAttribute(attrBuilder.build(attrName));
             }

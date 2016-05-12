@@ -423,6 +423,7 @@ public final class Attribute implements Comparable<Attribute> {
     private FileTypeSet allowedFileTypesForLabels;
     private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
+    private AttributeValueSource valueSource = AttributeValueSource.DIRECT;
     private boolean valueSet;
     private Predicate<AttributeMap> condition;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
@@ -640,6 +641,7 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> value(ComputedDefault defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
+      valueSource = AttributeValueSource.COMPUTED_DEFAULT;
       valueSet = true;
       return this;
     }
@@ -652,15 +654,16 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!valueSet, "the default value is already set");
       Preconditions.checkState(name.isEmpty() || isLateBound(name));
       value = defaultValue;
+      valueSource = AttributeValueSource.LATE_BOUND;
       valueSet = true;
       return this;
     }
 
     /**
-     * Returns true if a late-bound value has been set. Useful only for Skylark.
+     * Returns where the value of this attribute comes from. Useful only for Skylark.
      */
-    public boolean hasLateBoundValue() {
-      return value instanceof LateBoundDefault;
+    public AttributeValueSource getValueSource() {
+      return valueSource;
     }
 
     /**
