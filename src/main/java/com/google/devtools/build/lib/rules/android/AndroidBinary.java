@@ -370,6 +370,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         resourceApk,
         incrementalResourceApk,
         splitResourceApk,
+        /* shrinkResources */ true,
         resourceClasses,
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
@@ -391,6 +392,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ResourceApk resourceApk,
       ResourceApk incrementalResourceApk,
       ResourceApk splitResourceApk,
+      boolean shrinkResources,
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
@@ -399,12 +401,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
         ruleContext, ImmutableList.of(resourceApk.getResourceProguardConfig()));
 
-    Artifact resourceApkArtifact = shrinkResources(
-        ruleContext,
-        androidCommon,
-        resourceApk,
-        binaryJar,
-        proguardSpecs);
+    if (shrinkResources) {
+      resourceApk = shrinkResources(
+          ruleContext,
+          androidCommon,
+          resourceApk,
+          binaryJar,
+          proguardSpecs);
+    }
     ProguardOutput proguardOutput =
         applyProguard(
             ruleContext,
@@ -436,7 +440,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     ApkActionBuilder apkBuilder = new ApkActionBuilder(ruleContext, androidSemantics)
         .classesDex(dexingOutput.classesDexZip)
-        .resourceApk(resourceApkArtifact)
+        .resourceApk(resourceApk.getArtifact())
         .javaResourceZip(dexingOutput.javaResourceJar)
         .nativeLibs(nativeLibs);
 
@@ -956,7 +960,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return new ProguardOutput(deployJarArtifact, null);
   }
 
-  private static Artifact shrinkResources(
+  private static ResourceApk shrinkResources(
       RuleContext ruleContext,
       AndroidCommon androidCommon,
       ResourceApk resourceApk,
@@ -1007,7 +1011,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
       ruleContext.registerAction(builder.build(ruleContext));
 
-      return new ResourceShrinkerActionBuilder(ruleContext)
+      Artifact apk = new ResourceShrinkerActionBuilder(ruleContext)
           .setResourceApkOut(ruleContext.getImplicitOutputArtifact(
               AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
           .setShrunkResourcesOut(ruleContext.getImplicitOutputArtifact(
@@ -1022,8 +1026,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .setUncompressedExtensions(
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
           .build();
+      return new ResourceApk(apk,
+          resourceApk.getResourceJavaSrcJar(),
+          resourceApk.getResourceDependencies(),
+          resourceApk.getPrimaryResource(),
+          resourceApk.getManifest(),
+          resourceApk.getResourceProguardConfig(),
+          resourceApk.getMainDexProguardConfig(),
+          resourceApk.isLegacy());
     }
-    return resourceApk.getArtifact();
+    return resourceApk;
   }
 
   @Immutable
