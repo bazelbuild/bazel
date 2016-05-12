@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
@@ -785,12 +786,10 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     }
   }
 
-  @Nullable private static CppConfiguration getCppConfiguration(ConfiguredTarget base) {
-    BuildConfiguration configuration = base.getConfiguration();
-    if (configuration != null) {
-      return configuration.getFragment(CppConfiguration.class);
-    }
-    return null;
+  @Nullable
+  private static CppConfiguration getCppConfiguration(ConfiguredTarget base) {
+    CcToolchainProvider ccToolchainProvider = base.getProvider(CcToolchainProvider.class);
+    return ccToolchainProvider != null ? ccToolchainProvider.getCppConfiguration() : null;
   }
 
   @Deprecated

@@ -1477,6 +1477,37 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(result.getKindString()).isEqualTo("android_binary");
   }
 
+  @Test
+  public void testCcToolchainInfoIsOnlyPresentForToolchainRules() throws Exception {
+    Path buildFilePath =
+        scratch.file(
+            "com/google/example/BUILD",
+            "cc_library(",
+            "    name = 'simple',",
+            "    srcs = ['simple/simple.cc'],",
+            "    hdrs = ['simple/simple.h'],",
+            ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    assertThat(ruleIdeInfos.size()).isEqualTo(2);
+    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:simple",
+        ruleIdeInfos
+    );
+    Entry<String, RuleIdeInfo> toolchainEntry = getCcToolchainRuleAndVerifyThereIsOnlyOne(
+        ruleIdeInfos);
+    RuleIdeInfo toolchainInfo = toolchainEntry.getValue();
+    if (isNativeTest()) {
+      assertThat(ruleInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
+      ArtifactLocation location = ruleInfo.getBuildFileArtifactLocation();
+      assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
+          .isEqualTo(buildFilePath.toString());
+      assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    }
+
+    assertThat(ruleInfo.hasCToolchainIdeInfo()).isFalse();
+    assertThat(toolchainInfo.hasCToolchainIdeInfo()).isTrue();
+  }
+
   /**
    * Returns true if we are testing the native aspect, not the Skylark one.
    * Eventually Skylark aspect will be equivalent to a native one, and this method

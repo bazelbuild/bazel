@@ -63,7 +63,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    CppConfiguration cppConfiguration =
+        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     Path fdoZip = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT
         ? cppConfiguration.getFdoZip()
         : null;
@@ -179,7 +180,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
     CcToolchainProvider provider =
         new CcToolchainProvider(
-            Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class)),
+            cppConfiguration,
             crosstool,
             fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
             compile,
