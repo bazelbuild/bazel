@@ -38,6 +38,12 @@ public class AppleBinaryRule implements RuleDefinition {
    * multiple architectures).
    */
   private static final SafeImplicitOutputsFunction LIPOBIN = fromTemplates("%{name}_lipobin");
+  
+  /**
+   * Template for the fat archive output (using Apple's "lipo" tool to combine .a archive files of
+   * multiple architectures).
+   */
+  static final SafeImplicitOutputsFunction LIPO_ARCHIVE = fromTemplates("%{name}_lipo.a");
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -55,7 +61,7 @@ public class AppleBinaryRule implements RuleDefinition {
             .cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER)
             .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
         .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(LIPOBIN))
+            ImplicitOutputsFunction.fromFunctions(LIPOBIN, LIPO_ARCHIVE))
         .build();
   }
 

@@ -160,7 +160,12 @@ final class CompilationArtifacts {
   public Iterable<Artifact> getPrecompiledSrcs() {
     return precompiledSrcs;
   }
-  
+
+  /**
+   * Returns the output archive library (.a) file created by combining object files of the srcs,
+   * non arc srcs, and precompiled srcs of this artifact collection. Returns absent if there
+   * are no such source files for which to create an archive library.
+   */
   public Optional<Artifact> getArchive() {
     return archive;
   }
