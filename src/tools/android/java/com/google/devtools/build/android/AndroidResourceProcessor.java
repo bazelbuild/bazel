@@ -333,11 +333,9 @@ public class AndroidResourceProcessor {
       Path publicResourcesOut)
       throws IOException, InterruptedException, LoggedErrorException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
-    List<String> packages = new ArrayList<>();
     for (DependencyAndroidData dataDep : dependencyData) {
       SymbolFileProvider library = dataDep.asSymbolFileProvider();
       libraries.add(library);
-      packages.add(VariantConfiguration.getManifestPackage(library.getManifest()));
     }
 
     Path androidManifest = primaryData.getManifest();
@@ -377,9 +375,6 @@ public class AndroidResourceProcessor {
         .add("--custom-package", customPackageForR)
         // If it is a library, do not generate final java ids.
         .maybeAdd("--non-constant-id", VariantConfiguration.Type.LIBRARY)
-        // Generate the dependent R and Manifest files.
-        .maybeAdd("--extra-packages", Joiner.on(":").join(packages),
-            VariantConfiguration.Type.DEFAULT)
         .add("--ignore-assets", aaptOptions.getIgnoreAssets())
         .maybeAdd("--error-on-missing-config-entry", aaptOptions.getFailOnMissingConfigEntry())
         // Never compress apks.

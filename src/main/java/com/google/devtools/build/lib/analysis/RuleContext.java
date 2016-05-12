@@ -1739,10 +1739,8 @@ public final class RuleContext extends TargetContext
      */
     private void validateRuleDependency(ConfiguredTarget prerequisite, Attribute attribute) {
       Target prerequisiteTarget = prerequisite.getTarget();
-      Label prerequisiteLabel = prerequisiteTarget.getLabel();
       RuleClass ruleClass = ((Rule) prerequisiteTarget).getRuleClassObject();
       Boolean allowed = null;
-      Boolean allowedWithWarning = null;
 
       if (attribute.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
         allowed = attribute.getAllowedRuleClassesPredicate().apply(ruleClass);
@@ -1753,10 +1751,10 @@ public final class RuleContext extends TargetContext
 
       if (attribute.getAllowedRuleClassesWarningPredicate()
           != Predicates.<RuleClass>alwaysTrue()) {
-        allowedWithWarning = attribute.getAllowedRuleClassesWarningPredicate().apply(ruleClass);
-        if (allowedWithWarning) {
+        Predicate<RuleClass> warningPredicate = attribute.getAllowedRuleClassesWarningPredicate();
+        if (warningPredicate.apply(ruleClass)) {
           reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisite,
-              "expected " + attribute.getAllowedRuleClassesPredicate(), true);
+              "expected " + warningPredicate, true);
           return;
         }
       }
