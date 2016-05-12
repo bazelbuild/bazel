@@ -346,10 +346,6 @@ public final class AndroidRuleClasses {
           .add(attr("aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(JavaSemantics.JAR))
           .add(attr("shrinked_android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
-          .add(
-              attr("android_jack", LABEL)
-                  .cfg(HOST)
-                  .allowedFileTypes(ANY_FILE))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
