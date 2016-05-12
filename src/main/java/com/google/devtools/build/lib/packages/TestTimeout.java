@@ -35,7 +35,7 @@ public enum TestTimeout {
   SHORT(0, 60, 60),
   MODERATE(30, 300, 300),
   LONG(300, 900, 900),
-  ETERNAL(900, 365 * 24 * 60 /* One year */, 3600);
+  ETERNAL(900, 365 * 24 * 60 * 60 /* One year */, 3600);
 
   /**
    * Default --test_timeout flag, used when collecting code coverage.
