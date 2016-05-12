@@ -32,8 +32,10 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 function assert_unzip_same_as_zipper() {
   local folder1=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
   local folder2=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
-  (cd $folder1 && $UNZIP -q $1 || true)  # ignore CRC32 errors
-  (cd $folder2 && $ZIPPER x $1)
+  local zipfile=$1
+  shift
+  (cd $folder1 && $UNZIP -q $zipfile $@ || true)  # ignore CRC32 errors
+  (cd $folder2 && $ZIPPER x $zipfile $@)
   diff -r $folder1 $folder2 &> $TEST_log \
       || fail "Unzip and Zipper resulted in different output"
 }
@@ -91,6 +93,36 @@ function test_zipper() {
   expect_log "file"
   expect_log "other_file"
   expect_not_log "path"
+}
+
+function test_zipper_unzip_selective_files() {
+  mkdir -p ${TEST_TMPDIR}/test/path/to/some
+  mkdir -p ${TEST_TMPDIR}/test/some/other/path
+  touch ${TEST_TMPDIR}/test/path/to/some/empty_file
+  echo "toto" > ${TEST_TMPDIR}/test/path/to/some/file
+  echo "titi" > ${TEST_TMPDIR}/test/path/to/some/other_file
+  chmod +x ${TEST_TMPDIR}/test/path/to/some/other_file
+  echo "tata" > ${TEST_TMPDIR}/test/file
+  filelist="$(cd ${TEST_TMPDIR}/test && find . | sed 's|^./||' | grep -v '^.$')"
+
+  assert_zipper_same_after_unzip ${TEST_TMPDIR}/test ${filelist}
+  assert_unzip_same_as_zipper ${TEST_TMPDIR}/output.zip \
+      path/to/some/empty_file path/to/some/other_file
+}
+
+function test_zipper_unzip_to_optional_dir() {
+  mkdir -p ${TEST_TMPDIR}/test/path/to/some
+  mkdir -p ${TEST_TMPDIR}/test/some/other/path
+  touch ${TEST_TMPDIR}/test/path/to/some/empty_file
+  echo "toto" > ${TEST_TMPDIR}/test/path/to/some/file
+  echo "titi" > ${TEST_TMPDIR}/test/path/to/some/other_file
+  chmod +x ${TEST_TMPDIR}/test/path/to/some/other_file
+  echo "tata" > ${TEST_TMPDIR}/test/file
+  filelist="$(cd ${TEST_TMPDIR}/test && find . | sed 's|^./||' | grep -v '^.$')"
+
+  assert_zipper_same_after_unzip ${TEST_TMPDIR}/test ${filelist}
+  assert_unzip_same_as_zipper ${TEST_TMPDIR}/output.zip -d output_dir2 \
+      path/to/some/empty_file path/to/some/other_file
 }
 
 function test_zipper_compression() {
