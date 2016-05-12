@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
@@ -43,21 +43,11 @@ class ArmCrosstools {
     ImmutableList.Builder<CToolchain.Builder> toolchains = ImmutableList.builder();
 
     toolchains.add(createAarch64Toolchain());
-
-    // The flags for aarch64 clang 3.5 and 3.6 are the same, they differ only in the LLVM version
-    // given in their tool paths.
-    toolchains.add(createAarch64ClangToolchain("3.5"));
-    toolchains.add(createAarch64ClangToolchain("3.6"));
+    toolchains.add(createAarch64ClangToolchain());
 
     // The Android NDK Make files create several sets of flags base on
-    // arm vs armeabi-v7a vs armeabi-v7a-hard, and arm vs thumb mode, each for gcc 4.8 and 4.9,
+    // arm vs armeabi-v7a vs armeabi-v7a-hard, and arm vs thumb mode,
     // resulting in:
-    //    arm-linux-androideabi-4.8
-    //    arm-linux-androideabi-4.8-v7a
-    //    arm-linux-androideabi-4.8-v7a-hard
-    //    arm-linux-androideabi-4.8-thumb
-    //    arm-linux-androideabi-4.8-v7a-thumb
-    //    arm-linux-androideabi-4.8-v7a-hard-thumb
     //    arm-linux-androideabi-4.9
     //    arm-linux-androideabi-4.9-v7a
     //    arm-linux-androideabi-4.9-v7a-hard
@@ -67,17 +57,11 @@ class ArmCrosstools {
     //
     // and similar for the Clang toolchains.
 
-    // gcc-4.8 for arm doesn't have the gcov-tool.
-    CppConfiguration.Tool[] excludedTools = { CppConfiguration.Tool.GCOVTOOL };
-    toolchains.addAll(createArmeabiToolchains("4.8", "-fstack-protector", false, excludedTools));
-    toolchains.addAll(createArmeabiToolchains("4.8", "-fstack-protector", true, excludedTools));
-    toolchains.addAll(createArmeabiToolchains("4.9", "-fstack-protector-strong", false));
-    toolchains.addAll(createArmeabiToolchains("4.9", "-fstack-protector-strong", true));
+    toolchains.addAll(createArmeabiToolchains(false));
+    toolchains.addAll(createArmeabiToolchains(true));
 
-    toolchains.addAll(createArmeabiClangToolchain("3.5", false));
-    toolchains.addAll(createArmeabiClangToolchain("3.5", true));
-    toolchains.addAll(createArmeabiClangToolchain("3.6", false));
-    toolchains.addAll(createArmeabiClangToolchain("3.6", true));
+    toolchains.addAll(createArmeabiClangToolchain(false));
+    toolchains.addAll(createArmeabiClangToolchain(true));
 
     return toolchains.build();
   }
@@ -132,7 +116,7 @@ class ArmCrosstools {
     return toolchain;
   }
 
-  private CToolchain.Builder createAarch64ClangToolchain(String clangVersion) {
+  private CToolchain.Builder createAarch64ClangToolchain() {
 
     String toolchainName = "aarch64-linux-android-4.9";
     String targetPlatform = "aarch64-linux-android";
@@ -140,12 +124,12 @@ class ArmCrosstools {
     String llvmTriple = "aarch64-none-linux-android";
 
     CToolchain.Builder toolchain =  CToolchain.newBuilder()
-        .setToolchainIdentifier("aarch64-linux-android-clang" + clangVersion)
+        .setToolchainIdentifier("aarch64-linux-android-clang3.8")
         .setTargetSystemName("aarch64-linux-android")
         .setTargetCpu("arm64-v8a")
-        .setCompiler("clang" + clangVersion)
+        .setCompiler("clang3.8")
 
-        .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, clangVersion))
+        .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
 
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
 
@@ -161,7 +145,6 @@ class ArmCrosstools {
         .addCompilerFlag("-Wno-invalid-command-line-argument")
         .addCompilerFlag("-Wno-unused-command-line-argument")
         .addCompilerFlag("-no-canonical-prefixes")
-        .addCompilerFlag("-fno-canonical-system-headers")
 
         // Linker flags
         .addLinkerFlag("-gcc-toolchain")
@@ -192,23 +175,22 @@ class ArmCrosstools {
     return toolchain;
   }
 
-  private List<CToolchain.Builder> createArmeabiToolchains(
-      String gccVersion, String stackProtectorFlag, boolean thumb,
+  private List<CToolchain.Builder> createArmeabiToolchains(boolean thumb,
       CppConfiguration.Tool... excludedTools) {
 
-    ImmutableList<CToolchain.Builder> toolchains = ImmutableList.<CToolchain.Builder>builder()
-        .add(createBaseArmeabiToolchain(thumb, gccVersion, stackProtectorFlag, excludedTools)
+    ImmutableList<CToolchain.Builder> toolchains = ImmutableList.of(
+        createBaseArmeabiToolchain(thumb, excludedTools)
               .setToolchainIdentifier(
-                  createArmeabiName("arm-linux-androideabi-%s", gccVersion, thumb))
+                  createArmeabiName("arm-linux-androideabi-4.9", thumb))
               .setTargetCpu(createArmeabiCpuName("armeabi", thumb))
 
               .addCompilerFlag("-march=armv5te")
               .addCompilerFlag("-mtune=xscale")
-              .addCompilerFlag("-msoft-float"))
+              .addCompilerFlag("-msoft-float"),
     
-        .add(createBaseArmeabiToolchain(thumb, gccVersion, stackProtectorFlag, excludedTools)
+        createBaseArmeabiToolchain(thumb, excludedTools)
             .setToolchainIdentifier(
-                createArmeabiName("arm-linux-androideabi-%s-v7a", gccVersion, thumb))
+                createArmeabiName("arm-linux-androideabi-4.9-v7a", thumb))
             .setTargetCpu(createArmeabiCpuName("armeabi-v7a", thumb))
 
             .addCompilerFlag("-march=armv7-a") 
@@ -216,11 +198,11 @@ class ArmCrosstools {
             .addCompilerFlag("-mfloat-abi=softfp")
 
             .addLinkerFlag("-march=armv7-a")
-            .addLinkerFlag("-Wl,--fix-cortex-a8"))
+            .addLinkerFlag("-Wl,--fix-cortex-a8"),
 
-        .add(createBaseArmeabiToolchain(thumb, gccVersion, stackProtectorFlag, excludedTools)
+        createBaseArmeabiToolchain(thumb, excludedTools)
             .setToolchainIdentifier(
-                createArmeabiName("arm-linux-androideabi-%s-v7a-hard", gccVersion, thumb))
+                createArmeabiName("arm-linux-androideabi-4.9-v7a-hard", thumb))
             .setTargetCpu(createArmeabiCpuName("armeabi-v7a-hard", thumb))
     
             .addCompilerFlag("-march=armv7-a") 
@@ -231,11 +213,9 @@ class ArmCrosstools {
             .addLinkerFlag("-march=armv7-a")
             .addLinkerFlag("-Wl,--fix-cortex-a8")
             .addLinkerFlag("-Wl,--no-warn-mismatch")
-            .addLinkerFlag("-lm_hard"))
+            .addLinkerFlag("-lm_hard"));
 
-        .build();
-
-    stlImpl.addStlImpl(toolchains, gccVersion);
+    stlImpl.addStlImpl(toolchains, "4.9");
     return toolchains;
   }
 
@@ -243,22 +223,20 @@ class ArmCrosstools {
    * Flags common to arm-linux-androideabi*
    */
   private CToolchain.Builder createBaseArmeabiToolchain(
-      boolean thumb, String gccVersion, String stackProtectorFlag,
-      CppConfiguration.Tool... excludedTools) {
+      boolean thumb, CppConfiguration.Tool... excludedTools) {
 
-    String toolchainName = "arm-linux-androideabi-" + gccVersion;
+    String toolchainName = "arm-linux-androideabi-4.9";
     String targetPlatform = "arm-linux-androideabi";
 
     CToolchain.Builder toolchain = CToolchain.newBuilder()
         .setTargetSystemName(targetPlatform)
-        .setCompiler("gcc-" + gccVersion)
+        .setCompiler("gcc-4.9")
 
         .addAllToolPath(ndkPaths.createToolpaths(toolchainName, targetPlatform, excludedTools))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
-        .addCompilerFlag(stackProtectorFlag)
-
         // Compiler flags
+        .addCompilerFlag("-fstack-protector-strong")
         .addCompilerFlag("-fpic")
         .addCompilerFlag("-ffunction-sections")
         .addCompilerFlag("-funwind-tables")
@@ -310,16 +288,15 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
+    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     return toolchain;
   }
 
-  private List<CToolchain.Builder> createArmeabiClangToolchain(String clangVersion, boolean thumb) {
+  private List<CToolchain.Builder> createArmeabiClangToolchain(boolean thumb) {
 
-    ImmutableList<CToolchain.Builder> toolchains = ImmutableList.<CToolchain.Builder>builder()
-        .add(createBaseArmeabiClangToolchain(clangVersion, thumb)
-            .setToolchainIdentifier(
-                createArmeabiName("arm-linux-androideabi-clang%s", clangVersion, thumb))
+    ImmutableList<CToolchain.Builder> toolchains = ImmutableList.of(
+        createBaseArmeabiClangToolchain(thumb)
+            .setToolchainIdentifier(createArmeabiName("arm-linux-androideabi-clang3.8", thumb))
             .setTargetCpu(createArmeabiCpuName("armeabi", thumb))
     
             .addCompilerFlag("-target")
@@ -330,11 +307,10 @@ class ArmCrosstools {
     
             .addLinkerFlag("-target")
             // LLVM_TRIPLE
-            .addLinkerFlag("armv5te-none-linux-androideabi"))
+            .addLinkerFlag("armv5te-none-linux-androideabi"),
 
-      .add(createBaseArmeabiClangToolchain(clangVersion, thumb)
-          .setToolchainIdentifier(
-              createArmeabiName("arm-linux-androideabi-clang%s-v7a", clangVersion, thumb))
+      createBaseArmeabiClangToolchain(thumb)
+          .setToolchainIdentifier(createArmeabiName("arm-linux-androideabi-clang3.8-v7a", thumb))
           .setTargetCpu(createArmeabiCpuName("armeabi-v7a", thumb))
   
           .addCompilerFlag("-target")
@@ -345,11 +321,11 @@ class ArmCrosstools {
   
           .addLinkerFlag("-target")
           .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
-          .addLinkerFlag("-Wl,--fix-cortex-a8"))
+          .addLinkerFlag("-Wl,--fix-cortex-a8"),
   
-      .add(createBaseArmeabiClangToolchain(clangVersion, thumb)
+      createBaseArmeabiClangToolchain(thumb)
           .setToolchainIdentifier(
-              createArmeabiName("arm-linux-androideabi-clang%s-v7a-hard", clangVersion, thumb))
+              createArmeabiName("arm-linux-androideabi-clang3.8-v7a-hard", thumb))
           .setTargetCpu(createArmeabiCpuName("armeabi-v7a-hard", thumb))
   
           .addCompilerFlag("-target")
@@ -363,29 +339,23 @@ class ArmCrosstools {
           .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
           .addLinkerFlag("-Wl,--fix-cortex-a8")
           .addLinkerFlag("-Wl,--no-warn-mismatch")
-          .addLinkerFlag("-lm_hard"))
-      .build();
+          .addLinkerFlag("-lm_hard"));
 
     stlImpl.addStlImpl(toolchains, "4.9");
     return toolchains;
   }
 
-  private CToolchain.Builder createBaseArmeabiClangToolchain(String clangVersion, boolean thumb) {
+  private CToolchain.Builder createBaseArmeabiClangToolchain(boolean thumb) {
 
-    String toolchainName = "arm-linux-androideabi-4.8";
+    String toolchainName = "arm-linux-androideabi-4.9";
     String targetPlatform = "arm-linux-androideabi";
-    String gccToolchain = ndkPaths.createGccToolchainPath("arm-linux-androideabi-4.8");
+    String gccToolchain = ndkPaths.createGccToolchainPath("arm-linux-androideabi-4.9");
 
     CToolchain.Builder toolchain = CToolchain.newBuilder()
         .setTargetSystemName("arm-linux-androideabi")
-        .setCompiler("clang" + clangVersion)
+        .setCompiler("clang3.8")
 
-        .addAllToolPath(ndkPaths.createClangToolpaths(
-            toolchainName,
-            targetPlatform,
-            clangVersion,
-            // gcc-4.8 arm doesn't have gcov-tool
-            CppConfiguration.Tool.GCOVTOOL))
+        .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
 
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
@@ -399,7 +369,6 @@ class ArmCrosstools {
         .addCompilerFlag("-Wno-invalid-command-line-argument")
         .addCompilerFlag("-Wno-unused-command-line-argument")
         .addCompilerFlag("-no-canonical-prefixes")
-        .addCompilerFlag("-fno-canonical-system-headers")
         .addCompilerFlag("-fno-integrated-as")
 
         // Linker flags
@@ -447,8 +416,8 @@ class ArmCrosstools {
     return toolchain;
   }
 
-  private static String createArmeabiName(String base, String gccVersion, boolean thumb) {
-    return String.format(base, gccVersion) + (thumb ? "-thumb" : "");
+  private static String createArmeabiName(String base, boolean thumb) {
+    return base + (thumb ? "-thumb" : "");
   }
 
   private static String createArmeabiCpuName(String base, boolean thumb) {

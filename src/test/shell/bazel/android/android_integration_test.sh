@@ -18,10 +18,8 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
-function test_android_binary() {
-  create_new_workspace
-  setup_android_support
 
+function create_android_binary() {
   mkdir -p java/bazel
   cat > java/bazel/BUILD <<EOF
 android_library(
@@ -154,13 +152,48 @@ Java_bazel_Jni_hello(JNIEnv *env, jclass clazz) {
   return NewStringLatin1(env, (hello + " " + jni).c_str());
 }
 EOF
-
-  bazel build -s //java/bazel:bin || fail "build failed"
 }
 
+function test_android_binary() {
+  create_new_workspace
+  setup_android_support
+  create_android_binary
+
+  cpus="armeabi,armeabi-v7a,armeabi-v7a-hard,armeabi-thumb,armeabi-v7a-thumb,armeabi-v7a-hard-thumb,arm64-v8a,mips,mips64,x86,x86_64"
+
+  bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
+  num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l)
+  assert_equals "11" "$num_sos"
+}
+
+function test_android_binary_clang() {
+  # clang3.8 is only available on NDK r11
+  # TODO(ahumesky): This is only distinguishing between r10 and r11+.
+  if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+    return
+  fi
+  create_new_workspace
+  setup_android_support
+  create_android_binary
+
+  cpus="armeabi,armeabi-v7a,armeabi-v7a-hard,armeabi-thumb,armeabi-v7a-thumb,armeabi-v7a-hard-thumb,arm64-v8a,mips,mips64,x86,x86_64"
+
+  bazel build -s //java/bazel:bin \
+      --fat_apk_cpu="$cpus" \
+      --android_compiler=clang3.8 \
+      || fail "build failed"
+
+  num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l)
+  assert_equals "11" "$num_sos"
+}
+
+# ndk r10 and earlier
 if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/RELEASE.TXT" ]]; then
-  echo "Not running Android tests due to lack of an Android NDK."
-  exit 0
+  # ndk r11 and later
+  if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+    echo "Not running Android tests due to lack of an Android NDK."
+    exit 0
+  fi
 fi
 
 if [[ ! -r "${BAZEL_RUNFILES}/external/androidsdk/SDK Readme.txt" ]]; then

@@ -25,10 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.AndroidNdkCrosstoolsR10e;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevel;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.NdkPaths;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.StlImpl;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.StlImpls;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevelR10e;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -57,7 +54,7 @@ public class AndroidNdkCrosstoolsTest {
 
   private static final String REPOSITORY_NAME = "testrepository";
   private static final ApiLevel API_LEVEL =
-      new ApiLevel(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21");
+      new ApiLevelR10e(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21");
   private static final NdkRelease NDK_RELEASE = NdkRelease.create("r10e (64-bit)");
   private static final ImmutableList<CrosstoolRelease> CROSSTOOL_RELEASES;
   private static final ImmutableMap<String, String> STL_FILEGROUPS;
@@ -74,11 +71,9 @@ public class AndroidNdkCrosstoolsTest {
     ImmutableMap.Builder<String, String> stlFilegroups = ImmutableMap.builder();
     for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths)) {
       // Protos are immutable, so this can be shared between tests.
-      CrosstoolRelease crosstool = AndroidNdkCrosstoolsR10e.create(
-          NullEventHandler.INSTANCE,
-          ndkPaths,
-          REPOSITORY_NAME,
+      CrosstoolRelease crosstool = AndroidNdkCrosstools.create(
           NDK_RELEASE,
+          ndkPaths,
           ndkStlImpl,
           hostPlatform);
       crosstools.add(crosstool);

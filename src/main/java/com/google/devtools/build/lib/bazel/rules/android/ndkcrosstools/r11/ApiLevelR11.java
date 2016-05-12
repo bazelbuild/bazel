@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.ApiLevel;
 import com.google.devtools.build.lib.events.EventHandler;
 
 /**
  * Class which encodes information from the Android NDK makefiles about API levels. 
  */
-public class ApiLevel {
+public class ApiLevelR11 extends ApiLevel {
 
-  /**
-   * Maps an Android API level to the architectures that that level supports.
-   * Based on the directories in the "platforms" directory in the NDK.
-   */
   private static final ImmutableListMultimap<String, String> API_LEVEL_TO_ARCHITECTURES =
       ImmutableListMultimap.<String, String>builder()
           .putAll("3", "arm")
@@ -45,11 +40,11 @@ public class ApiLevel {
           .putAll("18", "arm", "mips", "x86")
           .putAll("19", "arm", "mips", "x86")
           .putAll("21", "arm", "mips", "x86", "arm64", "mips64", "x86_64")
+          .putAll("23", "arm", "mips", "x86", "arm64", "mips64", "x86_64")
+          .putAll("24", "arm", "mips", "x86", "arm64", "mips64", "x86_64")
           .build();
 
   /**
-   * Maps an API level to it's equivalent API level in the NDK.
-   *
    * <p>Per the "special cases" listed in build/core/add-application.mk:
    *
    * <pre>
@@ -102,53 +97,18 @@ public class ApiLevel {
           // Case 4
           .put("21", "21")
           .put("22", "21")
+
+          .put("23", "23")
+          .put("24", "24")
     
           .build();
 
-  private final String correctedApiLevel;
+  public ApiLevelR11(
+      EventHandler eventHandler,
+      String repositoryName,
+      String apiLevel) {
 
-  public ApiLevel(EventHandler eventHandler, String repositoryName, String apiLevel) {
-    this.correctedApiLevel = getCorrectedApiLevel(eventHandler, repositoryName, apiLevel);
+    super(API_LEVEL_TO_ARCHITECTURES, API_EQUIVALENCIES, eventHandler, repositoryName, apiLevel);
   }
-
-  /**
-   * Translates the given API level to the equivalent API level in the NDK.
-   */
-  private static String getCorrectedApiLevel(
-      EventHandler eventHandler, String repositoryName, String apiLevel) {
-
-    String correctedApiLevel = API_EQUIVALENCIES.get(apiLevel);
-    if (correctedApiLevel == null) {
-      // The user specified an API level we don't know about. Default to the most recent API level.
-      // This relies on the entries being added in sorted order.
-      String latestApiLevel = Iterables.getLast(API_EQUIVALENCIES.keySet());
-      correctedApiLevel = API_EQUIVALENCIES.get(latestApiLevel);
-
-      eventHandler.handle(Event.warn(String.format(
-          "API level %s specified by android_ndk_repository '%s' is not available. "
-          + "Using latest known API level %s",
-          apiLevel, repositoryName, latestApiLevel)));
-    }
-    return correctedApiLevel;
-  }
-
-  String getCpuCorrectedApiLevel(String targetCpu) {
-
-    // Check that this API level supports the given cpu architecture (eg 64 bit is supported on only
-    // 21+).
-    if (!API_LEVEL_TO_ARCHITECTURES.containsEntry(correctedApiLevel, targetCpu)) {
-      // If the given API level does not support the given architecture, find an API level that
-      // does support this architecture. A warning isn't printed because the crosstools for
-      // architectures that aren't supported by this API level are generated anyway, even if the
-      // user doesn't intend to use them (eg, if they're building for only 32 bit archs, the
-      // crosstools for the 64 bit toolchains are generated regardless).
-      // API_LEVEL_TO_ARCHITECTURES.inverse() returns a map of architectures to the APIs that
-      // support that architecture.
-      return Iterables.getLast(API_LEVEL_TO_ARCHITECTURES.inverse().get(targetCpu));
-    }
-
-    return correctedApiLevel;
-  }
-
 }
 

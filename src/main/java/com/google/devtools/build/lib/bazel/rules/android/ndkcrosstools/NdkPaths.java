@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -46,7 +46,7 @@ public class NdkPaths {
     this.apiLevel = apiLevel;
   }
 
-  ImmutableList<ToolPath> createToolpaths(String toolchainName, String targetPlatform,
+  public ImmutableList<ToolPath> createToolpaths(String toolchainName, String targetPlatform,
       CppConfiguration.Tool... excludedTools) {
 
     ImmutableList.Builder<ToolPath> toolPaths = ImmutableList.builder();
@@ -68,7 +68,7 @@ public class NdkPaths {
     return toolPaths.build();
   }
 
-  ImmutableList<ToolPath> createClangToolpaths(String toolchainName, String targetPlatform,
+  public ImmutableList<ToolPath> createClangToolpaths(String toolchainName, String targetPlatform,
       String llvmVersion, CppConfiguration.Tool... excludedTools) {
 
     // Add GCC to the list of excluded tools. It will be replaced by clang below.
@@ -84,7 +84,7 @@ public class NdkPaths {
 
         .add(ToolPath.newBuilder()
             .setName("gcc")
-            .setPath(createToolPath("llvm-" + llvmVersion, "clang"))
+            .setPath(createToolPath(llvmVersion == null ? "llvm" : "llvm-" + llvmVersion, "clang"))
             .build())
         .build();
   }
@@ -105,7 +105,7 @@ public class NdkPaths {
     return toolPath.split("/")[2];
   }
 
-  String createGccToolchainPath(String toolchainName) {
+  public String createGccToolchainPath(String toolchainName) {
 
     String gccToolchainPathTemplate =
         "external/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt/%hostPlatform%";
@@ -116,7 +116,7 @@ public class NdkPaths {
         .replace("%hostPlatform%", hostPlatform);
   }
 
-  void addToolchainIncludePaths(
+  public void addToolchainIncludePaths(
       List<CToolchain.Builder> toolchains,
       String toolchainName,
       String targetPlatform,
@@ -127,7 +127,7 @@ public class NdkPaths {
     }
   }
 
-  void addToolchainIncludePaths(
+  public void addToolchainIncludePaths(
       CToolchain.Builder toolchain,
       String toolchainName,
       String targetPlatform,
@@ -172,7 +172,7 @@ public class NdkPaths {
         .replace("%includeFolderName%", includeFolderName);
   }
 
-  String createBuiltinSysroot(String targetCpu) {
+  public String createBuiltinSysroot(String targetCpu) {
 
     String correctedApiLevel = apiLevel.getCpuCorrectedApiLevel(targetCpu);
 

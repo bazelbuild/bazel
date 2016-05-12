@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,9 +29,9 @@ import java.util.Map.Entry;
 /**
  * Generates a CrosstoolRelease proto for the Android NDK.
  */
-public class AndroidNdkCrosstoolsR10e {
+public class AndroidNdkCrosstoolsR11 {
 
-  private AndroidNdkCrosstoolsR10e() {}
+  private AndroidNdkCrosstoolsR11() {}
 
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
