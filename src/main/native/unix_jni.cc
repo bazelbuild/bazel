@@ -862,11 +862,11 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
     JNIEnv *env, jclass clazz, jstring name) {
   const char *name_chars = GetStringLatin1Chars(env, name);
-  jlong r;
+  long r;
   size_t len = sizeof(r);
   if (portable_sysctlbyname(name_chars, &r, &len) == -1) {
     ::PostSystemException(env, errno, "sysctlbyname", name_chars);
   }
   ReleaseStringLatin1Chars(name_chars);
-  return r;
+  return (jlong)r;
 }
