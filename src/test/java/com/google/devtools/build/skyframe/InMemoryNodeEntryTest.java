@@ -77,7 +77,7 @@ public class InMemoryNodeEntryTest {
     assertFalse(entry.isReady());
     assertTrue(entry.signalDep());
     assertTrue(entry.isReady());
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep1);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep1);
     SkyKey dep2 = key("dep2");
     SkyKey dep3 = key("dep3");
     addTemporaryDirectDep(entry, dep2);
@@ -197,7 +197,7 @@ public class InMemoryNodeEntryTest {
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     addTemporaryDirectDep(entry, dep);
     entry.signalDep();
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     assertTrue(entry.isReady());
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
     assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
@@ -414,7 +414,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -443,7 +443,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("cause"));
@@ -480,7 +480,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps())
         .containsExactly(dep1InGroup, dep2InGroup);
     addTemporaryDirectDeps(entry, dep2InGroup, dep1InGroup);
@@ -511,7 +511,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -588,7 +588,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     assertTrue(entry.signalDep(IntVersion.of(1L)));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
-    assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
+    assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
     addTemporaryDirectDep(entry, key("dep2"));
     assertTrue(entry.signalDep(IntVersion.of(1L)));

@@ -1047,9 +1047,8 @@ public class MemoizingEvaluatorTest {
 
   @Test
   public void cycleAndSelfEdgeWithDirtyValueInSameGroup() throws Exception {
-    makeGraphDeterministic();
-    final SkyKey cycleKey1 = GraphTester.toSkyKey("zcycleKey1");
-    final SkyKey cycleKey2 = GraphTester.toSkyKey("acycleKey2");
+    final SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
+    final SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
     tester.getOrCreate(cycleKey2).addDependency(cycleKey2).setComputedValue(CONCATENATE);
     tester
         .getOrCreate(cycleKey1)
@@ -1059,8 +1058,9 @@ public class MemoizingEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env)
                   throws SkyFunctionException, InterruptedException {
+                // The order here is important -- 2 before 1.
                 Map<SkyKey, SkyValue> result =
-                    env.getValues(ImmutableList.of(cycleKey1, cycleKey2));
+                    env.getValues(ImmutableList.of(cycleKey2, cycleKey1));
                 Preconditions.checkState(env.valuesMissing(), result);
                 return null;
               }

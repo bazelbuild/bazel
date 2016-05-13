@@ -13,21 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.collect.Iterables;
 import com.google.common.truth.DefaultSubject;
 import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
-import com.google.common.truth.Truth;
 
 /**
  * {@link Subject} for {@link NodeEntry}. Please add to this class if you need more
  * functionality!
  */
-public class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
-  public NodeEntrySubject(FailureStrategy failureStrategy, NodeEntry nodeEntry) {
+class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
+  NodeEntrySubject(FailureStrategy failureStrategy, NodeEntry nodeEntry) {
     super(failureStrategy, nodeEntry);
   }
 
   DefaultSubject hasVersionThat() {
-    return Truth.assertThat(getSubject().getVersion()).named("Version for " + getDisplaySubject());
+    return assertThat(getSubject().getVersion()).named(detail("Version"));
+  }
+
+  IterableSubject hasTemporaryDirectDepsThat() {
+    return assertThat(Iterables.concat(getSubject().getTemporaryDirectDeps()))
+        .named(detail("TemporaryDirectDeps"));
+  }
+
+  private String detail(String descriptor) {
+    return descriptor + " for" + getDisplaySubject();
   }
 }

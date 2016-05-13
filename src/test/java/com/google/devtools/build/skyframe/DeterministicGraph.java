@@ -121,12 +121,5 @@ public class DeterministicGraph<TGraph extends ThinNodeQueryableGraph>
       result.addAll(super.getInProgressReverseDeps());
       return result;
     }
-
-    @Override
-    public synchronized Set<SkyKey> getTemporaryDirectDeps() {
-      TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
-      result.addAll(super.getTemporaryDirectDeps());
-      return result;
-    }
   }
 }

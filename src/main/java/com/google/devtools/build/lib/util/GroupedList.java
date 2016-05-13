@@ -122,6 +122,23 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     return elements.isEmpty();
   }
 
+  /**
+   * Returns true if this list contains {@code needle}. Takes time proportional to list size. Call
+   * {@link #toSet} instead and use the result if doing multiple contains checks.
+   */
+  public boolean expensiveContains(T needle) {
+    for (Object obj : elements) {
+      if (obj instanceof List) {
+        if (((List) obj).contains(needle)) {
+          return true;
+        }
+      } else if (obj.equals(needle)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static final Object EMPTY_LIST = new Object();
 
   public Object compress() {

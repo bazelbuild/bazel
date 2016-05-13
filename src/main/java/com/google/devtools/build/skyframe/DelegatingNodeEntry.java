@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 
 import java.util.Collection;
@@ -120,7 +121,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> getTemporaryDirectDeps() {
+  public GroupedList<SkyKey> getTemporaryDirectDeps() {
     return getDelegate().getTemporaryDirectDeps();
   }
 

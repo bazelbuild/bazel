@@ -297,7 +297,9 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
                   // child -- because of our compact storage of rdeps, checking which list
                   // contains this parent could be expensive.
                   Set<SkyKey> signalingDeps =
-                      entry.isDone() ? ImmutableSet.<SkyKey>of() : entry.getTemporaryDirectDeps();
+                      entry.isDone()
+                          ? ImmutableSet.<SkyKey>of()
+                          : entry.getTemporaryDirectDeps().toSet();
                   Iterable<SkyKey> directDeps =
                       entry.isDone()
                           ? entry.getDirectDeps()

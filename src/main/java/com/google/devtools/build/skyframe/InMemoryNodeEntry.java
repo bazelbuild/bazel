@@ -415,10 +415,11 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode() {
     Preconditions.checkState(!isDone(), this);
     if (!isDirty()) {
-      return getTemporaryDirectDeps();
+      return Iterables.concat(getTemporaryDirectDeps());
     } else {
       return Iterables.concat(
-          getTemporaryDirectDeps(), buildingState.getAllRemainingDirtyDirectDeps());
+          Iterables.concat(getTemporaryDirectDeps()),
+          buildingState.getAllRemainingDirtyDirectDeps());
     }
   }
 
@@ -428,7 +429,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> getTemporaryDirectDeps() {
+  public synchronized GroupedList<SkyKey> getTemporaryDirectDeps() {
     Preconditions.checkState(!isDone(), "temporary shouldn't be done: %s", this);
     return buildingState.getDirectDepsForBuild();
   }
