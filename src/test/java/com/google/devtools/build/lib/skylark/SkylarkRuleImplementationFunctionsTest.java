@@ -1015,6 +1015,22 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testRuleFromBzlFile() throws Exception {
+    scratch.file("test/rule.bzl",
+        "def _impl(ctx): return",
+        "foo = rule(implementation = _impl)");
+    scratch.file("test/ext.bzl",
+        "load('//test:rule.bzl', 'foo')",
+        "a = 1",
+        "foo(name = 'x')");
+    scratch.file("test/BUILD",
+        "load('//test:ext.bzl', 'a')");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:x");
+    assertContainsEvent("Cannot instantiate a rule when loading a .bzl file");
+  }
+
+  @Test
   public void testImplicitOutputsFromGlob() throws Exception {
     scratch.file("test/glob.bzl",
         "def _impl(ctx):",

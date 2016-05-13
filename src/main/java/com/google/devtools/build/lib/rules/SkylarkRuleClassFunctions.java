@@ -525,32 +525,32 @@ public class SkylarkRuleClassFunctions {
     public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException, ConversionException {
       env.checkLoadingPhase(getName(), ast.getLocation());
-      try {
-        if (ruleClass == null) {
-          throw new EvalException(ast.getLocation(),
-              "Invalid rule class hasn't been exported by a Skylark file");
-        }
+      if (ruleClass == null) {
+        throw new EvalException(ast.getLocation(),
+            "Invalid rule class hasn't been exported by a Skylark file");
+      }
 
-        for (Attribute attribute : ruleClass.getAttributes()) {
-          // TODO(dslomov): If a Skylark parameter extractor is specified for this aspect, its
-          // attributes may not be required.
-          for (Map.Entry<String, ImmutableSet<String>> attrRequirements :
-               attribute.getRequiredAspectParameters().entrySet()) {
-            for (String required : attrRequirements.getValue()) {
-              if (!ruleClass.hasAttr(required, Type.STRING)) {
-                throw new EvalException(definitionLocation, String.format(
-                    "Aspect %s requires rule %s to specify attribute '%s' with type string.",
-                    attrRequirements.getKey(),
-                    ruleClass.getName(),
-                    required));
-              }
+      for (Attribute attribute : ruleClass.getAttributes()) {
+        // TODO(dslomov): If a Skylark parameter extractor is specified for this aspect, its
+        // attributes may not be required.
+        for (Map.Entry<String, ImmutableSet<String>> attrRequirements :
+             attribute.getRequiredAspectParameters().entrySet()) {
+          for (String required : attrRequirements.getValue()) {
+            if (!ruleClass.hasAttr(required, Type.STRING)) {
+              throw new EvalException(definitionLocation, String.format(
+                  "Aspect %s requires rule %s to specify attribute '%s' with type string.",
+                  attrRequirements.getKey(),
+                  ruleClass.getName(),
+                  required));
             }
           }
         }
+      }
 
+      BuildLangTypedAttributeValuesMap attributeValues =
+          new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
+      try {
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
-        BuildLangTypedAttributeValuesMap attributeValues =
-            new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
         return RuleFactory.createAndAddRule(
             pkgContext,
             ruleClass,
@@ -558,8 +558,13 @@ public class SkylarkRuleClassFunctions {
             ast,
             env,
             pkgContext.getAttributeContainerFactory().apply(ruleClass));
-      } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
+      } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
+      } catch (NoSuchVariableException e) {
+        // Thrown when trying to get PackageContext.
+        throw new EvalException(ast.getLocation(),
+            "Cannot instantiate a rule when loading a .bzl file. Rules can only called from "
+            + "a BUILD file (possibly via a macro).");
       }
     }
 
