@@ -96,6 +96,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             AppleConfiguration.class,
             J2ObjcConfiguration.class,
             ObjcConfiguration.class)
+        .requiresHostConfigurationFragments(Jvm.class)
         .add(attr("$j2objc", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
                 toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
@@ -230,8 +231,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       JavaCompilationArgsProvider compArgsProvider,
       J2ObjcSource j2ObjcSource) {
     CustomCommandLine.Builder argBuilder = CustomCommandLine.builder();
-    PathFragment javaExecutable = ruleContext.getHostConfiguration().getFragment(Jvm.class)
-        .getJavaExecutable();
+    PathFragment javaExecutable = ruleContext.getFragment(Jvm.class, HOST).getJavaExecutable();
     argBuilder.add("--java").add(javaExecutable.getPathString());
 
     Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", Mode.HOST);
