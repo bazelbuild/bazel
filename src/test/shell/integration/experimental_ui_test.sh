@@ -46,6 +46,14 @@ EOF
 exit 1
 EOF
   chmod 755 pkg/false.sh
+  cat > pkg/output.sh <<EOF
+#!/bin/sh
+`which echo` -n foo
+sleep 1
+`which echo` -n bar
+exit 0
+EOF
+  chmod 755 pkg/output.sh
   cat > pkg/BUILD <<EOF
 sh_test(
   name = "true",
@@ -58,6 +66,10 @@ sh_test(
 sh_test(
   name = "false",
   srcs = ["false.sh"],
+)
+sh_test(
+  name = "output",
+  srcs = ["output.sh"],
 )
 genrule(
   name = "gentext",
@@ -208,5 +220,11 @@ function test_failure_scrollback_buffer {
   expect_log '^'$'\x1b\[31m\x1b\[1mFAIL:'
 }
 
+function test_streamed {
+  bazel test --experimental_ui --curses=yes --color=yes \
+    --nocache_test_results --test_output=streamed pkg:output >$TEST_log \
+    || fail "expected success"
+  expect_log 'foobar'
+}
 
 run_suite "Integration tests for bazel's experimental UI"

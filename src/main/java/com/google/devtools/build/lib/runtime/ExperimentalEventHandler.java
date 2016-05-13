@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.common.primitives.Bytes;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -64,6 +66,8 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private boolean buildComplete;
   private boolean progressBarNeedsRefresh;
   private Thread updateThread;
+  private byte[] stdoutBuffer;
+  private byte[] stderrBuffer;
 
   public final int terminalWidth;
 
@@ -88,6 +92,8 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.numLinesProgressBar = 0;
     this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
     this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
+    this.stdoutBuffer = new byte[] {};
+    this.stderrBuffer = new byte[] {};
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -107,24 +113,39 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
         switch (event.getKind()) {
           case STDOUT:
           case STDERR:
-            if (!buildComplete) {
-              clearProgressBar();
-              terminal.flush();
-            }
             OutputStream stream =
                 event.getKind() == EventKind.STDOUT
                     ? outErr.getOutputStream()
                     : outErr.getErrorStream();
-            stream.write(event.getMessageBytes());
-            if (!buildComplete) {
-              stream.write(new byte[] {10, 13});
-            }
-            stream.flush();
-            if (!buildComplete) {
-              if (cursorControl) {
-                addProgressBar();
+            if (buildComplete) {
+              stream.write(event.getMessageBytes());
+              stream.flush();
+            } else {
+              byte[] message = event.getMessageBytes();
+              int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
+              if (eolIndex >= 0) {
+                clearProgressBar();
+                terminal.flush();
+                stream.write(event.getKind() == EventKind.STDOUT ? stdoutBuffer : stderrBuffer);
+                stream.write(Arrays.copyOf(message, eolIndex + 1));
+                byte[] restMessage = Arrays.copyOfRange(message, eolIndex + 1, message.length + 1);
+                if (event.getKind() == EventKind.STDOUT) {
+                  stdoutBuffer = restMessage;
+                } else {
+                  stderrBuffer = restMessage;
+                }
+                stream.flush();
+                if (cursorControl) {
+                  addProgressBar();
+                }
+                terminal.flush();
+              } else {
+                if (event.getKind() == EventKind.STDOUT) {
+                  stdoutBuffer = Bytes.concat(stdoutBuffer, message);
+                } else {
+                  stderrBuffer = Bytes.concat(stderrBuffer, message);
+                }
               }
-              terminal.flush();
             }
             break;
           case ERROR:
@@ -134,6 +155,13 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
             if (!buildComplete) {
               clearProgressBar();
             }
+            outErr.getOutputStream().write(stdoutBuffer);
+            outErr.getOutputStream().flush();
+            stdoutBuffer = new byte[] {};
+            outErr.getErrorStream().write(stderrBuffer);
+            outErr.getErrorStream().flush();
+            stderrBuffer = new byte[] {};
+            crlf();
             setEventKindColor(event.getKind());
             terminal.writeString(event.getKind() + ": ");
             terminal.resetTerminal();
