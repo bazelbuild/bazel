@@ -86,10 +86,6 @@ import javax.annotation.Nullable;
  * <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used
  * by new rule implementations.
  * </ul>
- * <p/>
- * This class implements {@link Artifact}, and is modeled as an Artifact "containing" itself
- * as an Artifact.
- * <p/>
  * <p>This class is "theoretically" final; it should not be subclassed except by
  * {@link SpecialArtifact}.
  */
