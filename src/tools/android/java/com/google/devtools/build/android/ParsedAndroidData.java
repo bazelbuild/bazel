@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.NotThreadSafe;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 
@@ -53,6 +54,7 @@ import javax.xml.stream.XMLStreamException;
 @Immutable
 public class ParsedAndroidData {
 
+  @NotThreadSafe
   static class Builder {
     private final Map<DataKey, DataResource> overwritingResources;
     private final Map<DataKey, DataResource> combiningResources;
@@ -96,6 +98,21 @@ public class ParsedAndroidData {
           ImmutableMap.copyOf(overwritingResources),
           ImmutableMap.copyOf(combiningResources),
           ImmutableMap.copyOf(assets));
+    }
+
+    /** Copies the data to the targetBuilder from the current builder. */
+   public void copyTo(Builder targetBuilder) {
+      KeyValueConsumers consumers = targetBuilder.consumers();
+      for (Entry<DataKey, DataResource> entry : overwritingResources.entrySet()) {
+        consumers.overwritingConsumer.consume(entry.getKey(), entry.getValue());
+      }
+      for (Entry<DataKey, DataResource> entry : combiningResources.entrySet()) {
+        consumers.combiningConsumer.consume(entry.getKey(), entry.getValue());
+      }
+      for (Entry<DataKey, DataAsset> entry : assets.entrySet()) {
+        consumers.assetConsumer.consume(entry.getKey(), entry.getValue());
+      }
+      targetBuilder.conflicts.addAll(conflicts);
     }
 
     ResourceFileVisitor resourceVisitor() {
