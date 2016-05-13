@@ -24,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Representation of a set of file dependencies for a given output file. There
@@ -47,6 +49,10 @@ import java.util.Collections;
  */
 public final class DependencySet {
 
+  private static final Pattern DOTD_MERGED_LINE_SEPARATOR = Pattern.compile("\\\\[\n\r]+");
+  private static final Pattern DOTD_LINE_SEPARATOR = Pattern.compile("[\n\r]+");
+  private static final Pattern DOTD_DEP = Pattern.compile("(?:[^\\s\\\\]++|\\\\ |\\\\)+");
+
   /**
    * The set of dependent files that this DependencySet embodies. They are all
    * Path with the same FileSystem  A tree set is used to ensure that we
@@ -67,7 +73,7 @@ public final class DependencySet {
   public void setOutputFileName(String outputFileName) {
     this.outputFileName = outputFileName;
   }
-
+  
   /**
    * Constructs a new empty DependencySet instance.
    */
@@ -124,57 +130,71 @@ public final class DependencySet {
     if (content.length > 0 && content[content.length - 1] != '\n') {
       throw new IOException("File does not end in a newline");
     }
-    int w = 0;
-    for (int r = 0; r < content.length; ++r) {
-      final byte c = content[r];
-      switch (c) {
-        case ' ':
-        case '\n':
-        case '\r':
-          if (w > 0) {
-            String s = new String(content, 0, w, StandardCharsets.UTF_8);
-            addDependency(new PathFragment(s).normalize());
-            w = 0;
-          }
-          break;
-        case ':':
-          // Normally this indicates the output file, but it might be part of a filename on Windows.
-          // Peek ahead at the next character.  This is in bounds because we checked for a
-          // terminating newline above.
-          switch (content[r + 1]) {
-            case ' ':
-            case '\n':
-            case '\r':
-              if (w > 0) {
-                outputFileName = new String(content, 0, w, StandardCharsets.UTF_8);
-                w = 0;
-              }
-              continue;
-            default:
-              content[w++] = c;  // copy to filename
-              continue;
-          }
-        case '\\':
-          // Peek ahead at the next character.  This is in bounds because we checked for a
-          // terminating newline above.
-          switch (content[r + 1]) {
-            // Backslashes are taken literally except when followed by whitespace.
-            // See the Windows tests for some of the nonsense we have to tolerate.
-            case ' ':
-              content[w++] = ' ';  // copy a space into the filename
-              ++r;  // skip the space in the input
-              continue;
-            case '\n':
-            case '\r':
-              // Let the newline act as a terminator.  Technically we could have an escaped newline
-              // with no adjacent space, but compilers don't seem to generate that.
-              continue;
-            default:
-              content[w++] = c;  // copy to filename
-              continue;
-          }
-        default:
-          content[w++] = c;
+    // true if there is a CR in the input.
+    boolean cr = content.length > 0 && content[0] == '\r';
+    // true if there is more than one line in the input, not counting \-wrapped lines.
+    boolean multiline = false;
+
+    byte prevByte = ' ';
+    for (int i = 1; i < content.length; i++) {
+      byte b = content[i];
+      if (cr || b == '\r') {
+        // CR found, abort since our little loop here does not deal with CR/LFs.
+        cr = true;
+        break;
+      }
+      if (b == '\n') {
+        // Merge lines wrapped using backslashes.
+        if (prevByte == '\\') {
+          content[i] = ' ';
+          content[i - 1] = ' ';
+        } else {
+          multiline = true;
+        }
+      }
+      prevByte = b;
+    }
+
+    if (!cr && content.length > 0 && content[content.length - 1] == '\n') {
+      content[content.length - 1] = ' ';
+    }
+
+    String s = new String(content, StandardCharsets.UTF_8);
+    if (cr) {
+      s = DOTD_MERGED_LINE_SEPARATOR.matcher(s).replaceAll(" ").trim();
+      multiline = true;
+    }
+    return process(s, multiline);
+  }
+
+  private DependencySet process(String contents, boolean multiline) {
+    String[] lines;
+    if (!multiline) {
+      // Microoptimization: skip the usually unnecessary expensive-ish splitting step if there is
+      // only one target. This saves about 20% of CPU time.
+      lines = new String[] { contents };
+    } else {
+      lines = DOTD_LINE_SEPARATOR.split(contents);
+    }
+
+    for (String line : lines) {
+      // Split off output file name.
+      int pos = line.indexOf(':');
+      if (pos == -1) {
+        continue;
+      }
+      outputFileName = line.substring(0, pos);
+      
+      String deps = line.substring(pos + 1);
+
+      Matcher m = DOTD_DEP.matcher(deps);
+      while (m.find()) {
+        String token = m.group();
+        // Process escaped spaces.
+        if (token.contains("\\ ")) {
+          token = token.replace("\\ ", " ");
+        }
+        addDependency(new PathFragment(token).normalize());
       }
     }
     return this;
