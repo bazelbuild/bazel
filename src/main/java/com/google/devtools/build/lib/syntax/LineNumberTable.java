@@ -26,6 +26,7 @@ import java.io.Serializable;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -233,8 +234,8 @@ public abstract class LineNumberTable implements Serializable {
       if (offset < 0) {
         throw new IllegalStateException("Illegal position: " + offset);
       }
-      int binarySearchIndex = hashOrdering.binarySearch(
-          table, new SingleHashLine(offset, -1, null));
+      int binarySearchIndex =
+          Collections.binarySearch(table, new SingleHashLine(offset, -1, null), hashOrdering);
       if (binarySearchIndex >= 0) {
         // An exact match in the binary search. Return it.
         return table.get(binarySearchIndex);
