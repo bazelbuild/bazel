@@ -584,7 +584,7 @@ public final class AndroidRuleClasses {
               .allowedRuleClasses(ALLOWED_DEPENDENCIES)
               .allowedFileTypes()
               .aspect(androidNeverlinkAspect)
-              .aspect(dexArchiveAspect)
+              .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
               .aspect(jackAspect))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
@@ -614,7 +614,9 @@ public final class AndroidRuleClasses {
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("dexopts", STRING_LIST))
+          .add(attr("dexopts", STRING_LIST)
+              // Read by DexArchiveAspect's attribute extractor
+              .nonconfigurable("AspectParameters don't support configurations."))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dex_shards) -->
           Number of shards dexing should be decomposed into.
           This is makes dexing much faster at the expense of app installation and startup time. The
