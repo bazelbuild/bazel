@@ -431,4 +431,5 @@ def _aspect_impl(target, ctx):
 intellij_info_aspect = aspect(
     implementation = _aspect_impl,
     attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list,
+    fragments = ["cpp"],
 )
