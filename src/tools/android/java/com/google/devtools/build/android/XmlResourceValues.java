@@ -56,6 +56,7 @@ import javax.xml.stream.events.XMLEvent;
  * declared inside the &lt;resources&gt; tag.
  */
 public class XmlResourceValues {
+
   private static final Logger logger = Logger.getLogger(XmlResourceValues.class.getCanonicalName());
 
   private static final QName TAG_EAT_COMMENT = QName.valueOf("eat-comment");
@@ -72,6 +73,9 @@ public class XmlResourceValues {
   private static final QName ATTR_VALUE = QName.valueOf("value");
   private static final QName ATTR_PARENT = QName.valueOf("parent");
   private static final QName ATTR_TYPE = QName.valueOf("type");
+
+  static final String XLIFF_NAMESPACE = "urn:oasis:names:tc:xliff:document:1.2";
+  private static final String XLIFF_PREFIX = "xliff";
 
   static XmlResourceValue parsePlurals(XMLEventReader eventReader) throws XMLStreamException {
     ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
@@ -170,10 +174,14 @@ public class XmlResourceValues {
       }
       String value = escapeXmlValues(attribute.getValue()).replace("\"", "&quot;");
       if (!name.getNamespaceURI().isEmpty()) {
-        // Declare the xmlns here, so that the written xml will be semantically correct,
-        // if a bit verbose. This allows the resource keys to be written into a generic <resources>
-        // tag.
-        attributeMap.put("xmlns:" + name.getPrefix(), name.getNamespaceURI());
+        // xliff is always provided on resources to help with file size
+        if (!(XLIFF_NAMESPACE.equals(name.getNamespaceURI())
+            && XLIFF_PREFIX.equals(name.getPrefix()))) {
+          // Declare the xmlns here, so that the written xml will be semantically correct,
+          // if a bit verbose. This allows the resource keys to be written into a <resources>
+          // tag without a global namespace.
+          attributeMap.put("xmlns:" + name.getPrefix(), name.getNamespaceURI());
+        }
         attributeMap.put(name.getPrefix() + ":" + attribute.getName().getLocalPart(), value);
       } else {
         attributeMap.put(attribute.getName().getLocalPart(), value);
