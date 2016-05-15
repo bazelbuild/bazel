@@ -41,11 +41,13 @@ linux)
   JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
   if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
     PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_64.exe}
+    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.13.2-linux-x86_64.exe}
   else
     if [ "${MACHINE_IS_ARM}" = 'yes' ]; then
       PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-arm32.exe}
     else
       PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
+      GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.13.2-linux-x86_32.exe}
     fi
   fi
   ;;
@@ -57,6 +59,7 @@ freebsd)
   # We choose the 32-bit version for maximum compatiblity since 64-bit
   # linux binaries are only supported in FreeBSD-11.
   PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
+  GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.13.2-linux-x86_32.exe}
   ;;
 
 darwin)
@@ -66,6 +69,7 @@ darwin)
   fi
   if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
     PROTOC=${PROTOC:-third_party/protobuf/protoc-osx-x86_64.exe}
+    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.13.2-osx-x86_64.exe}
   else
     PROTOC=${PROTOC:-third_party/protobuf/protoc-osx-x86_32.exe}
   fi
@@ -80,13 +84,18 @@ msys*|mingw*)
   # We do not use the JNI library on Windows.
   if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
     PROTOC=${PROTOC:-third_party/protobuf/protoc-windows-x86_64.exe}
+    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.13.2-windows-x86_64.exe}
   else
     PROTOC=${PROTOC:-third_party/protobuf/protoc-windows-x86_32.exe}
+    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.13.2-windows-x86_32.exe}
   fi
 esac
 
 [[ -x "${PROTOC-}" ]] \
     || fail "Protobuf compiler not found in ${PROTOC-}"
+
+[[ -x "${GRPC_JAVA_PLUGIN-}" ]] \
+    || fail "gRPC Java plugin not found in ${GRPC_JAVA_PLUGIN-}"
 
 # Check that javac -version returns a upper version than $JAVA_VERSION.
 get_java_version
@@ -168,7 +177,9 @@ function create_deploy_jar() {
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   log "Compiling Java stubs for protocol buffers..."
   for f in $PROTO_FILES ; do
-    run "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src "$f"
+    run "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src \
+        --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
+        --grpc_out=${OUTPUT_DIR}/src "$f"
   done
 
   java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"

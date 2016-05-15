@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
-/**
- * An exception that indicates the work is too large to run remotely.
- */
+/** An exception that indicates the work is too large to run remotely. */
 final class WorkTooLargeException extends RuntimeException {
   WorkTooLargeException() {
     super();

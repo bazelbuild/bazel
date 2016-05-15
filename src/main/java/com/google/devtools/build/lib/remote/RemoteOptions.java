@@ -30,10 +30,12 @@ public final class RemoteOptions extends OptionsBase {
   public String hazelcastNode;
 
   @Option(
-    name = "rest_worker_url",
+    name = "remote_worker",
     defaultValue = "null",
     category = "remote",
-    help = "URL for the REST worker."
+    help =
+        "Hostname and port number of remote worker in the form of host:port. "
+            + "For client mode only."
   )
-  public String restWorkerUrl;
+  public String remoteWorker;
 }

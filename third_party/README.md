@@ -295,3 +295,9 @@ a minimal set of extra dependencies.
 
 * Version: 1.5
 * License: Public Domain
+
+## [netty](http://netty.io/)
+
+* Version: 4.1.0.CR4
+* License: Apache License 2.0
+

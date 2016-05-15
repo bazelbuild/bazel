@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.remote.RemoteProtocol.RemoteWorkResponse;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
@@ -28,41 +29,7 @@ import java.util.Collection;
  * Interface for exeucting work remotely.
  */
 @ThreadCompatible
-interface RemoteWorkExecutor {
-
-  /**
-   * The response of running a remote work.
-   */
-  class Response {
-    private final boolean success;
-    private final String out;
-    private final String err;
-    private final String exception;
-
-    boolean success() {
-      return success;
-    }
-
-    String getOut() {
-      return out;
-    }
-
-    String getErr() {
-      return err;
-    }
-
-    String getException() {
-      return exception;
-    }
-
-    Response(boolean success, String out, String err, String exception) {
-      this.success = success;
-      this.out = out;
-      this.err = err;
-      this.exception = exception;
-    }
-  }
-
+public interface RemoteWorkExecutor {
   /**
    * Submit the work to this work executor.
    * The output of running this action should be written to {@link RemoteActionCache} indexed
@@ -70,7 +37,7 @@ interface RemoteWorkExecutor {
    *
    * Returns a future for the response of this work request.
    */
-  ListenableFuture<Response> submit(
+  ListenableFuture<RemoteWorkResponse> executeRemotely(
       Path execRoot,
       ActionInputFileCache cache,
       String actionOutputKey,

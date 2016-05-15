@@ -86,3 +86,9 @@ message RemoteWorkResponse {
   // String for the exception when running this work.
   string exception = 4;
 }
+
+service RemoteWork {
+  // Perform work synchronously.
+  rpc ExecuteSynchronously(RemoteWorkRequest) returns (RemoteWorkResponse) {
+  }
+}

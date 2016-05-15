@@ -326,6 +326,16 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "remote_execution_test",
+    size = "large",
+    srcs = ["remote_execution_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/tools/remote_worker",
+    ],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

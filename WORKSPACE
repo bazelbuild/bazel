@@ -19,6 +19,25 @@ bind(
     actual = "//:dummy",
 )
 
+# Protobuf code generation for GRPC requires three external labels:
+# //external:grpc-java_plugin
+# //external:grpc-jar
+# //external:guava
+bind(
+    name = "grpc-java-plugin",
+    actual = "//third_party/grpc:grpc-java-plugin",
+)
+
+bind(
+    name = "grpc-jar",
+    actual = "//third_party/grpc:grpc-jar",
+)
+
+bind(
+    name = "guava",
+    actual = "//third_party:guava",
+)
+
 # For tools/cpp/test/...
 load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
 docker_repository()

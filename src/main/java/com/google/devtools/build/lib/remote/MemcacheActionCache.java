@@ -39,7 +39,7 @@ import java.util.concurrent.Semaphore;
  * The thread satefy is guaranteed by the underlying memcache client.
  */
 @ThreadSafe
-final class MemcacheActionCache implements RemoteActionCache {
+public final class MemcacheActionCache implements RemoteActionCache {
   private final Path execRoot;
   private final ConcurrentMap<String, byte[]> cache;
   private static final int MAX_MEMORY_KBYTES = 512 * 1024;
@@ -48,7 +48,7 @@ final class MemcacheActionCache implements RemoteActionCache {
   /**
    * Construct an action cache using JCache API.
    */
-  MemcacheActionCache(
+  public MemcacheActionCache(
       Path execRoot, RemoteOptions options, ConcurrentMap<String, byte[]> cache) {
     this.execRoot = execRoot;
     this.cache = cache;

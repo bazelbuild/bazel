@@ -18,7 +18,6 @@ FILES = [
     "xcodegen",
     "worker_protocol",
     "invocation_policy",
-    "remote_protocol",
     "android_deploy_info",
     "apk_manifest",
 ]
@@ -37,6 +36,12 @@ java_proto_library(
 cc_grpc_library(
     name = "command_server_cc_proto",
     src = "command_server.proto",
+)
+
+java_proto_library(
+    name = "remote_protocol_java_proto",
+    src = "remote_protocol.proto",
+    use_grpc_plugin = True,
 )
 
 py_proto_library(

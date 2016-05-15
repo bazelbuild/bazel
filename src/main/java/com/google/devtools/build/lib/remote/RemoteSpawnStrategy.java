@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.remote.RemoteProtocol.RemoteWorkResponse;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -87,6 +88,14 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
     ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
     EventHandler eventHandler = executor.getEventHandler();
+
+    if (remoteActionCache == null) {
+      eventHandler.handle(
+          Event.warn(
+              spawn.getMnemonic() + " Cannot instantiate remote action cache. Running locally."));
+      standaloneStrategy.exec(spawn, actionExecutionContext);
+      return;
+    }
 
     // Compute a hash code to uniquely identify the action plus the action inputs.
     Hasher hasher = Hashing.sha256().newHasher();
@@ -183,8 +192,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       return false;
     }
     try {
-      ListenableFuture<RemoteWorkExecutor.Response> future =
-          remoteWorkExecutor.submit(
+      ListenableFuture<RemoteWorkResponse> future =
+          remoteWorkExecutor.executeRemotely(
               execRoot,
               actionCache,
               actionOutputKey,
@@ -193,8 +202,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
               environment,
               outputs,
               timeout);
-      RemoteWorkExecutor.Response response = future.get(timeout, TimeUnit.SECONDS);
-      if (!response.success()) {
+      RemoteWorkResponse response = future.get(timeout, TimeUnit.SECONDS);
+      if (!response.getSuccess()) {
         String exception = "";
         if (!response.getException().isEmpty()) {
           exception = " (" + response.getException() + ")";
@@ -204,12 +213,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
                 mnemonic + " failed to execute work remotely" + exception + ", running locally"));
         return false;
       }
-      if (response.getOut() != null) {
-        outErr.printOut(response.getOut());
-      }
-      if (response.getErr() != null) {
-        outErr.printErr(response.getErr());
-      }
+      outErr.printOut(response.getOut());
+      outErr.printErr(response.getErr());
     } catch (ExecutionException e) {
       eventHandler.handle(
           Event.warn(mnemonic + " failed to execute work remotely (" + e + "), running locally"));

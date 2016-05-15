@@ -14,6 +14,7 @@ filegroup(
     visibility = [
         "//src/test/java:__pkg__",
         "//src/tools/generate_workspace:__pkg__",
+        "//src/tools/remote_worker:__subpackages__",
     ],
 )
 
