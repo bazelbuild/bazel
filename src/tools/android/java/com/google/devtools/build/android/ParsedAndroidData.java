@@ -30,7 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -447,12 +446,20 @@ public class ParsedAndroidData {
     return overwritingResources.containsKey(name);
   }
 
+  public boolean containsCombineable(DataKey key) {
+    return combiningResources.containsKey(key);
+  }
+
   Iterable<Entry<DataKey, DataResource>> iterateOverwritableEntries() {
     return overwritingResources.entrySet();
   }
 
   Iterable<Entry<DataKey, DataResource>> iterateDataResourceEntries() {
     return Iterables.concat(overwritingResources.entrySet(), combiningResources.entrySet());
+  }
+
+  public Iterable<Entry<DataKey, DataResource>> iterateCombiningEntries() {
+    return combiningResources.entrySet();
   }
 
   boolean containsAsset(DataKey name) {
@@ -471,16 +478,6 @@ public class ParsedAndroidData {
     return MergeConflict.between(key, assets.get(key), value);
   }
 
-  ImmutableMap<DataKey, DataResource> mergeCombining(ParsedAndroidData other) {
-    Map<DataKey, DataResource> merged = new HashMap<>();
-    CombiningConsumer consumer = new CombiningConsumer(merged);
-    for (Entry<DataKey, DataResource> entry :
-        Iterables.concat(
-            combiningResources.entrySet(), other.combiningResources.entrySet())) {
-      consumer.consume(entry.getKey(), entry.getValue());
-    }
-    return ImmutableMap.copyOf(merged);
-  }
 
   ImmutableSet<MergeConflict> conflicts() {
     return conflicts;
