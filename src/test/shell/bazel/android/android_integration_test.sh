@@ -154,6 +154,11 @@ Java_bazel_Jni_hello(JNIEnv *env, jclass clazz) {
 EOF
 }
 
+function check_num_sos() {
+  num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l | sed -e 's/[[:space:]]//g')
+  assert_equals "11" "$num_sos"
+}
+
 function test_android_binary() {
   create_new_workspace
   setup_android_support
@@ -162,8 +167,7 @@ function test_android_binary() {
   cpus="armeabi,armeabi-v7a,armeabi-v7a-hard,armeabi-thumb,armeabi-v7a-thumb,armeabi-v7a-hard-thumb,arm64-v8a,mips,mips64,x86,x86_64"
 
   bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
-  num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l)
-  assert_equals "11" "$num_sos"
+  check_num_sos
 }
 
 function test_android_binary_clang() {
@@ -182,9 +186,7 @@ function test_android_binary_clang() {
       --fat_apk_cpu="$cpus" \
       --android_compiler=clang3.8 \
       || fail "build failed"
-
-  num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l)
-  assert_equals "11" "$num_sos"
+  check_num_sos
 }
 
 # ndk r10 and earlier
