@@ -1079,7 +1079,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact mainDexProguardSpec,
       JavaTargetAttributes attributes)
       throws InterruptedException {
-    boolean finalJarIsDerived = isBinaryJarFiltered || binaryJar != proguardedJar;
+    boolean isFinalJarDerived = isBinaryJarFiltered || binaryJar != proguardedJar;
     List<String> dexopts = ruleContext.getTokenizedStringListAttr("dexopts");
     MultidexMode multidexMode = getMultidexMode(ruleContext);
     if (!supportsMultidexMode(ruleContext, multidexMode)) {
@@ -1111,7 +1111,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // Always OFF if finalJarIsDerived
     ImmutableSet<AndroidBinaryType> incrementalDexing =
-        getEffectiveIncrementalDexing(ruleContext, dexopts, finalJarIsDerived);
+        getEffectiveIncrementalDexing(ruleContext, dexopts, isFinalJarDerived, isBinaryJarFiltered);
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
       if (incrementalDexing.contains(AndroidBinaryType.MONODEX)) {
@@ -1148,7 +1148,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             createShuffleJarAction(
                 ruleContext,
                 incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED),
-                finalJarIsDerived ? proguardedJar : null,
+                isFinalJarDerived ? proguardedJar : null,
                 shards,
                 common,
                 dexopts,
@@ -1219,18 +1219,43 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static ImmutableSet<AndroidBinaryType> getEffectiveIncrementalDexing(
-      RuleContext ruleContext, List<String> dexopts, boolean finalJarIsDerived) {
-    if (finalJarIsDerived) {
+      RuleContext ruleContext, List<String> dexopts, boolean isFinalJarDerived,
+      boolean isBinaryJarFiltered) {
+    TriState override = ruleContext.attributes().get("incremental_dexing", BuildType.TRISTATE);
+    // Ignore --incremental_dexing_binary_types if the incremental_dexing attribute is set, but
+    // raise an error if proguard is enabled (b/c incompatible with incremental dexing ATM).
+    if (isFinalJarDerived && override == TriState.YES) {
+      ruleContext.attributeError("incremental_dexing",
+          "target cannot be incrementally dexed because "
+          + (isBinaryJarFiltered ? "it builds a partial APK" : "the target uses Proguard"));
+      return ImmutableSet.of();
+    }
+    if (isFinalJarDerived || override == TriState.NO) {
       return ImmutableSet.of();
     }
     ImmutableSet<AndroidBinaryType> result =
-        AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexingBinaries();
-    if (!result.isEmpty()
-        && Iterables.any(dexopts,
-            new DexArchiveAspect.FlagMatcher(AndroidCommon
-                .getAndroidConfig(ruleContext)
-                .getTargetDexoptsThatPreventIncrementalDexing()))) {
-      result = ImmutableSet.of();
+        override == TriState.YES
+            ? ImmutableSet.copyOf(AndroidBinaryType.values())
+            : AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexingBinaries();
+    if (!result.isEmpty()) {
+      Iterable<String> blacklistedDexopts =
+          Iterables.filter(
+              dexopts,
+              new DexArchiveAspect.FlagMatcher(AndroidCommon
+                  .getAndroidConfig(ruleContext)
+                  .getTargetDexoptsThatPreventIncrementalDexing()));
+      if (!Iterables.isEmpty(blacklistedDexopts)) {
+        // target's dexopts include flags blacklisted with --non_incremental_per_target_dexopts. If
+        // incremental_dexing attribute is explicitly set for this target then we'll warn and
+        // incrementally dex anyway.  Otherwise, just don't incrementally dex.
+        if (override == TriState.YES) {
+          ruleContext.attributeWarning("incremental_dexing",
+              "Using incremental dexing even though the following dexopts indicate this target "
+              + "may be unsuitable for incremental dexing for the moment: " + blacklistedDexopts);
+        } else {
+          result = ImmutableSet.of();
+        }
+      }
     }
     return result;
   }
