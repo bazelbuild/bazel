@@ -48,15 +48,48 @@ message AndroidSdk {
   string build_tools_version = 17; // assume latest if not set
 }
 
+// Information about a resource referenced from AndroidManifest.xml.
+message AndroidManifestResource {
+
+  message ValueHash {
+
+    // The qualifier for the value of the resource, e.g. for localization or
+    // device properties like hdpi, xhdpi, etc.
+    string qualifier = 1;
+
+    // A hash of the value of the resource (e.g. the hash of the string value
+    // of a resource if it's a string), or if the resource points to a file, a
+    // hash of the file (e.g. if the resource is an image, then a hash of the
+    // image file).
+    bytes hash = 2;
+  }
+
+  // The name of the resource, e.g. "app_name" in "@string/app_name".
+  string name = 1;
+
+  // The type of the resource, e.g. "string" in "@string/app_name".
+  string type = 2;
+
+  repeated ValueHash value_hashes = 3;
+}
+
 message ApkManifest {
+
   // Information about the AndroidSdk
   AndroidSdk android_sdk = 1;
+
   // All the jars containing the classes that would be dex and go into the APK
   repeated Artifact jars = 2;
+
   // The .ap_ that contains the resources that go into the APK
   Artifact resource_apk = 3;
+
   // The native library files that go into the APK
   repeated NativeLib native_lib = 4;
+
   // The final merged AndroidManifest.xml file (in text, i.e. non-binary, XML)
   Artifact android_manifest = 5;
+
+  // Information about resources referenced from AndroidManifest.xml.
+  repeated AndroidManifestResource android_manifest_resources = 6;
 }
