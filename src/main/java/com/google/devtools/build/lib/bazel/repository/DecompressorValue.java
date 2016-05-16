@@ -54,7 +54,7 @@ public class DecompressorValue implements SkyValue {
       throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
     if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
-      return ZipFunction.INSTANCE;
+      return ZipDecompressor.INSTANCE;
     } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
       return TarGzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.xz")) {

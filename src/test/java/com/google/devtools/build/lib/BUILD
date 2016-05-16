@@ -871,40 +871,6 @@ java_test(
 )
 
 java_test(
-    name = "repository_test",
-    srcs = glob([
-        "bazel/repository/**/*.java",
-    ]),
-    tags = ["rules"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":analysis_testutil",
-        ":foundations_testutil",
-        ":packages_testutil",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "runtime-tests",
     srcs = glob(["runtime/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
