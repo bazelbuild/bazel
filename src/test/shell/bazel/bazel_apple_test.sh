@@ -97,9 +97,9 @@ EOF
 
 function test_swift_library() {
   local swift_lib_pkg=examples/swift
-  assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.a \
+  assert_build_output ./bazel-genfiles/${swift_lib_pkg}/swift_lib.a \
       ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
-  assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.swiftmodule \
+  assert_build_output ./bazel-genfiles/${swift_lib_pkg}/swift_lib.swiftmodule \
       ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
 }
 
@@ -109,6 +109,49 @@ function test_build_app() {
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
+}
+
+function test_objc_depends_on_swift() {
+  rm -rf ios
+  mkdir -p ios
+
+  touch ios/dummy.swift
+
+  cat >ios/main.swift <<EOF
+import Foundation
+
+@objc public class Foo: NSObject {
+  public func bar() -> Int { return 42; }
+}
+EOF
+
+  cat >ios/app.m <<EOF
+#import <UIKit/UIKit.h>
+#import "ios/SwiftMain-Swift.h"
+
+int main(int argc, char *argv[]) {
+  @autoreleasepool {
+    NSLog(@"%d", [[[Foo alloc] init] bar]);
+    return UIApplicationMain(argc, argv, nil, nil);
+  }
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "SwiftMain",
+              srcs = ["main.swift"])
+
+objc_binary(name = "bin",
+            # TODO(b/28723643): This dummy is only here to trigger the
+            # USES_SWIFT flag on ObjcProvider and should not be necessary.
+            srcs = ['app.m', 'dummy.swift'],
+            deps = [":SwiftMain"])
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      //ios:bin >$TEST_log 2>&1 || fail "should build"
 }
 
 run_suite "apple_tests"

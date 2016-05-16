@@ -43,6 +43,7 @@ def _swift_library_impl(ctx):
   # call.
   output_lib = ctx.outputs.swift_lib
   output_module = ctx.outputs.swift_module
+  output_header = ctx.outputs.swift_header
 
   srcs_args = [f.path for f in ctx.files.srcs]
 
@@ -57,29 +58,32 @@ def _swift_library_impl(ctx):
       "-emit-object",
       "-emit-module-path", output_module.path,
       "-module-name", ctx.label.name,
+      "-emit-objc-header-path", output_header.path,
       "-parse-as-library",
       "-target", target,
       "-sdk", apple_common.apple_toolchain().sdk_dir(),
       "-o", output_lib.path,
       ] + srcs_args + include_args
 
-  xcrun_action(ctx,
+  xcrun_action(
+      ctx,
       inputs = ctx.files.srcs + dep_modules + dep_libs,
-      outputs = (output_lib, output_module),
-      mnemonic = 'SwiftCompile',
+      outputs = (output_lib, output_module, output_header),
+      mnemonic = "SwiftCompile",
       arguments = args,
       use_default_shell_env = False,
       progress_message = ("Compiling Swift module %s (%d files)"
                           % (ctx.label.name, len(ctx.files.srcs))))
 
   struct_kw = {}
-  if hasattr(apple_common, 'new_objc_provider'):
-    struct_kw['objc'] = apple_common.new_objc_provider(
-        library=set([output_lib] + dep_libs))
-
+  if hasattr(apple_common, "new_objc_provider"):
+    struct_kw["objc"] = apple_common.new_objc_provider(
+        library=set([output_lib] + dep_libs),
+        header=set([output_header]))
   else:
     # TODO(cl/121390911): Remove when this is released.
-    struct_kw['objc_export'] = struct(library=set([output_lib] + dep_libs))
+    struct_kw["objc_export"] = struct(library=set([output_lib] + dep_libs),
+                                      header=set([output_header]))
 
   return struct(
       swift=struct(
@@ -97,9 +101,11 @@ swift_library = rule(
             executable=True,
             default=Label(XCRUNWRAPPER_LABEL))},
     fragments = ["apple"],
+    output_to_genfiles=True,
     outputs = {
         "swift_lib": "%{name}.a",
         "swift_module": "%{name}.swiftmodule",
+        "swift_header": "%{name}-Swift.h",
     },
 )
 """
