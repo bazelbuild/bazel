@@ -116,6 +116,7 @@ maven_jar(
 )
 </pre>
 
-<p>Targets can specify <code>@guava//jar</code> as a dependency to depend on this jar.</p>
+<p>Targets can specify <code>@com_google_guava_guava//jar</code> as a dependency to depend on this
+jar.</p>
 
 <!-- #END_BLAZE_RULE -->*/
