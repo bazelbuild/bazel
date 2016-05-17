@@ -75,22 +75,17 @@ def _swift_library_impl(ctx):
       progress_message = ("Compiling Swift module %s (%d files)"
                           % (ctx.label.name, len(ctx.files.srcs))))
 
-  struct_kw = {}
-  if hasattr(apple_common, "new_objc_provider"):
-    struct_kw["objc"] = apple_common.new_objc_provider(
-        library=set([output_lib] + dep_libs),
-        header=set([output_header]))
-  else:
-    # TODO(cl/121390911): Remove when this is released.
-    struct_kw["objc_export"] = struct(library=set([output_lib] + dep_libs),
-                                      header=set([output_header]))
+  objc_provider = apple_common.new_objc_provider(
+      library=set([output_lib] + dep_libs),
+      header=set([output_header]))
 
   return struct(
       swift=struct(
           library=output_lib,
           module=output_module,
           transitive_libs=dep_libs,
-          transitive_modules=dep_modules), **struct_kw)
+          transitive_modules=dep_modules),
+      objc=objc_provider)
 
 swift_library = rule(
     _swift_library_impl,
