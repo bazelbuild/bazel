@@ -199,7 +199,7 @@ public class InMemoryNodeEntryTest {
     entry.signalDep();
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     assertTrue(entry.isReady());
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
+    entry.markRebuilding();
     assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
         /*graphVersion=*/1L)).containsExactly(parent);
   }
@@ -224,7 +224,7 @@ public class InMemoryNodeEntryTest {
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
     assertTrue(entry.isReady());
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).containsExactly(dep);
+    entry.markRebuilding();
     assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
         /*graphVersion=*/1L)).containsExactly(parent);
     assertEquals(IntVersion.of(1L), entry.getVersion());
@@ -415,7 +415,7 @@ public class InMemoryNodeEntryTest {
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
+    entry.markRebuilding();
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
     assertEquals(IntVersion.of(0L), entry.getVersion());
@@ -447,7 +447,7 @@ public class InMemoryNodeEntryTest {
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
         key("cause"));
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
+    entry.markRebuilding();
     setValue(entry, new IntegerValue(5), ErrorInfo.fromException(exception, false),
         /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -481,8 +481,7 @@ public class InMemoryNodeEntryTest {
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps())
-        .containsExactly(dep1InGroup, dep2InGroup);
+    entry.markRebuilding();
     addTemporaryDirectDeps(entry, dep2InGroup, dep1InGroup);
     assertFalse(entry.signalDep());
     assertTrue(entry.signalDep());
@@ -512,7 +511,7 @@ public class InMemoryNodeEntryTest {
     entry.signalDep(IntVersion.of(1L));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
+    entry.markRebuilding();
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
     // ErrorInfo is treated as a NotComparableSkyValue, so it is not pruned.
@@ -589,7 +588,7 @@ public class InMemoryNodeEntryTest {
     assertTrue(entry.signalDep(IntVersion.of(1L)));
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
+    entry.markRebuilding();
     addTemporaryDirectDep(entry, key("dep2"));
     assertTrue(entry.signalDep(IntVersion.of(1L)));
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
@@ -633,7 +632,7 @@ public class InMemoryNodeEntryTest {
     SkyKey newParent = key("new parent");
     entry.addReverseDepAndCheckIfDone(newParent);
     assertEquals(NodeEntry.DirtyState.NEEDS_REBUILDING, entry.getDirtyState());
-    assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
+    entry.markRebuilding();
     assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
         /*graphVersion=*/1L)).containsExactly(newParent);
   }
@@ -659,8 +658,7 @@ public class InMemoryNodeEntryTest {
     SkyKey newChild = key("newchild");
     addTemporaryDirectDep(clone2, newChild);
     clone2.signalDep();
-    assertThat(clone2.markRebuildingAndGetAllRemainingDirtyDirectDeps())
-        .containsExactly(originalChild);
+    clone2.markRebuilding();
     clone2.setValue(updatedValue, version.next());
 
     assertThat(entry.getVersion()).isEqualTo(version);

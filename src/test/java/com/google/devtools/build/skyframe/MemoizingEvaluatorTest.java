@@ -1936,7 +1936,11 @@ public class MemoizingEvaluatorTest {
                 new StringValue("second"),
                 ImmutableList.<SkyKey>of()));
     // And mid is independently marked as modified,
-    tester.getOrCreate(midKey, /*markAsModified=*/ true);
+    tester
+        .getOrCreate(midKey, /*markAsModified=*/ true)
+        .removeDependency(changedKey)
+        .setComputedValue(null)
+        .setConstantValue(new StringValue("mid"));
     tester.invalidate();
     SkyKey newTopKey = GraphTester.skyKey("newTop");
     // And changed will start rebuilding independently of midKey, because it's requested directly by
@@ -4125,6 +4129,16 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(inactiveKey, /*markAsModified=*/ true);
     tester.invalidate();
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, inactiveKey)).isEqualTo(val);
+  }
+
+  @Test
+  public void errorChanged() throws Exception {
+    SkyKey error = GraphTester.skyKey("error");
+    tester.getOrCreate(error).setHasTransientError(true);
+    assertThatErrorInfo(tester.evalAndGetError(error)).hasExceptionThat().isNotNull();
+    tester.getOrCreate(error, /*markAsModified=*/ true);
+    tester.invalidate();
+    assertThatErrorInfo(tester.evalAndGetError(error)).hasExceptionThat().isNotNull();
   }
 
   /** A graph tester that is specific to the memoizing evaluator, with some convenience methods. */

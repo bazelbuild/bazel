@@ -116,8 +116,13 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Collection<SkyKey> markRebuildingAndGetAllRemainingDirtyDirectDeps() {
-    return getDelegate().markRebuildingAndGetAllRemainingDirtyDirectDeps();
+  public Set<SkyKey> getAllRemainingDirtyDirectDeps() {
+    return getDelegate().getAllRemainingDirtyDirectDeps();
+  }
+
+  @Override
+  public void markRebuilding() {
+    getDelegate().markRebuilding();
   }
 
   @Override

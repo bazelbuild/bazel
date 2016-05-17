@@ -417,15 +417,30 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (!isDirty()) {
       return Iterables.concat(getTemporaryDirectDeps());
     } else {
-      return Iterables.concat(
-          Iterables.concat(getTemporaryDirectDeps()),
-          buildingState.getAllRemainingDirtyDirectDeps());
+      // There may be duplicates here. Make sure everything is unique.
+      ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
+      for (Iterable<SkyKey> group : getTemporaryDirectDeps()) {
+        result.addAll(group);
+      }
+      result.addAll(buildingState.getAllRemainingDirtyDirectDeps(/*preservePosition=*/ false));
+      return result.build();
     }
   }
 
   @Override
-  public synchronized Collection<SkyKey> markRebuildingAndGetAllRemainingDirtyDirectDeps() {
-    return buildingState.markRebuildingAndGetAllRemainingDirtyDirectDeps();
+  public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() {
+    if (isDirty()) {
+      Preconditions.checkState(buildingState.getDirtyState() == DirtyState.REBUILDING, this);
+      return buildingState.getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
+    } else {
+      Preconditions.checkState(buildingState.evaluating, this);
+      return ImmutableSet.of();
+    }
+  }
+
+  @Override
+  public synchronized void markRebuilding() {
+    buildingState.markRebuilding();
   }
 
   @Override

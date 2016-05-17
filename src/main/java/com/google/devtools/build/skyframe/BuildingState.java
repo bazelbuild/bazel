@@ -57,8 +57,8 @@ public class BuildingState {
    * <li>Done
    * </ol>
    *
-   * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsent} and
-   * {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to
+   * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsentBatch}
+   * and {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to
    * call both methods in that order if they want to create a node. The second method calls
    * {@link #startEvaluating}, which transitions the current node to the "evaluating" state and
    * returns true only the first time it was called. A caller that gets "true" back from that call
@@ -68,7 +68,7 @@ public class BuildingState {
    * node that is never actually built (for instance, a dirty node that is verified as clean) is
    * in the "evaluating" state until it is done.
    */
-  private boolean evaluating = false;
+  boolean evaluating = false;
 
   /**
    * The state of a dirty node. A node is marked dirty in the BuildingState constructor, and goes
@@ -358,20 +358,27 @@ public class BuildingState {
     return lastBuildDirectDeps.get(dirtyDirectDepIndex++);
   }
 
-  Collection<SkyKey> getAllRemainingDirtyDirectDeps() {
+  /**
+   * Returns the remaining direct deps that have not been checked. If {@code preservePosition} is
+   * true, this method is non-mutating. If {@code preservePosition} is false, the caller must
+   * process the returned set, and so subsequent calls to this method will return the empty set.
+   */
+  Set<SkyKey> getAllRemainingDirtyDirectDeps(boolean preservePosition) {
     Preconditions.checkState(isDirty(), this);
-    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
-    for (; dirtyDirectDepIndex < lastBuildDirectDeps.listSize(); dirtyDirectDepIndex++) {
-      result.addAll(lastBuildDirectDeps.get(dirtyDirectDepIndex));
+    ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
+
+    for (int ind = dirtyDirectDepIndex; ind < lastBuildDirectDeps.listSize(); ind++) {
+      result.addAll(lastBuildDirectDeps.get(ind));
+    }
+    if (!preservePosition) {
+      dirtyDirectDepIndex = lastBuildDirectDeps.listSize();
     }
     return result.build();
   }
 
-  protected Collection<SkyKey> markRebuildingAndGetAllRemainingDirtyDirectDeps() {
+  protected void markRebuilding() {
     Preconditions.checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
-    Collection<SkyKey> result = getAllRemainingDirtyDirectDeps();
     dirtyState = DirtyState.REBUILDING;
-    return result;
   }
 
   void addDirectDeps(GroupedListHelper<SkyKey> depsThisRun) {

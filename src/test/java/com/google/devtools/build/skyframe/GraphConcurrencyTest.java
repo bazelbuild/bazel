@@ -170,7 +170,7 @@ public abstract class GraphConcurrencyTest {
     // Mark the node as dirty again and check that the reverse deps have been preserved.
     sameEntry.markDirty(true);
     startEvaluation(sameEntry);
-    sameEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
+    sameEntry.markRebuilding();
     sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
     assertEquals(new StringValue("foo2"), graph.get(key).getValue());
     assertEquals(numKeys + 1, Iterables.size(graph.get(key).getReverseDeps()));
@@ -288,7 +288,7 @@ public abstract class GraphConcurrencyTest {
               entry.markDirty(true);
               // Make some changes, like adding a dep and rdep.
               entry.addReverseDepAndCheckIfDone(key("rdep"));
-              entry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
+              entry.markRebuilding();
               addTemporaryDirectDep(entry, key("dep"));
               entry.signalDep();
               // Move node from dirty back to done.

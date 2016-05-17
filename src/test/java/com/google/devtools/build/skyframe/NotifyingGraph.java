@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.GroupedList;
 
 import java.util.Map;
 import java.util.Set;
@@ -115,6 +116,7 @@ public class NotifyingGraph<TGraph extends ThinNodeQueryableGraph> implements Pr
     CREATE_IF_ABSENT,
     ADD_REVERSE_DEP,
     REMOVE_REVERSE_DEP,
+    GET_TEMPORARY_DIRECT_DEPS,
     SIGNAL,
     SET_VALUE,
     MARK_DIRTY,
@@ -201,6 +203,12 @@ public class NotifyingGraph<TGraph extends ThinNodeQueryableGraph> implements Pr
       graphListener.accept(myKey, EventType.REMOVE_REVERSE_DEP, Order.BEFORE, reverseDep);
       super.removeReverseDep(reverseDep);
       graphListener.accept(myKey, EventType.REMOVE_REVERSE_DEP, Order.AFTER, reverseDep);
+    }
+
+    @Override
+    public GroupedList<SkyKey> getTemporaryDirectDeps() {
+      graphListener.accept(myKey, EventType.GET_TEMPORARY_DIRECT_DEPS, Order.BEFORE, null);
+      return super.getTemporaryDirectDeps();
     }
 
     @Override

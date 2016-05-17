@@ -159,9 +159,9 @@ public interface NodeEntry extends ThinNodeEntry {
   /**
    * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@param reverseDep} must already
    * be a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
-   * checking its dependencies for changes. The caller must treat the return value just as they
-   * would the return value of {@link #addReverseDepAndCheckIfDone} by scheduling this node for
-   * evaluation if needed.
+   * checking its dependencies for changes or is rebuilding. The caller must treat the return value
+   * just as they would the return value of {@link #addReverseDepAndCheckIfDone} by scheduling this
+   * node for evaluation if needed.
    */
   @ThreadSafe
   DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep);
@@ -259,7 +259,8 @@ public interface NodeEntry extends ThinNodeEntry {
    * created, this is just any elements that were added using {@link #addTemporaryDirectDeps} (so it
    * is the same as {@link #getTemporaryDirectDeps}). If this node is marked dirty, this includes
    * all the elements that would have been returned by successive calls to
-   * {@link #getNextDirtyDirectDeps}.
+   * {@link #getNextDirtyDirectDeps} (or, equivalently, one call to
+   * {@link #getAllRemainingDirtyDirectDeps}).
    *
    * <p>This method should only be called when this node is about to be deleted after an aborted
    * evaluation. After such an evaluation, any nodes that did not finish evaluating are deleted, as
@@ -274,15 +275,28 @@ public interface NodeEntry extends ThinNodeEntry {
   Iterable<SkyKey> getAllDirectDepsForIncompleteNode();
 
   /**
-   * Notifies a node that it is about to be rebuilt. This method can only be called if the node
-   * {@link DirtyState#NEEDS_REBUILDING}. It returns the remaining deps of the node that had not
-   * yet been checked: all the keys that would be returned by successive calls to
-   * {@link #getNextDirtyDirectDeps}. It is the caller's responsibility to (uninterruptibly) remove
-   * the reverse deps those deps have on this node in order to keep the graph consistent. After this
-   * call, this node no longer has a dep on the nodes whose keys were returned by this call and
-   * is ready to be rebuilt (it will be in {@link DirtyState#REBUILDING}).
+   * If an entry {@link #isDirty}, returns all direct deps that were present last build, but have
+   * not yet been verified to be present during the current build. Implementations may lazily remove
+   * these deps, since in many cases they will be added back during this build, even though the node
+   * may have a changed value. However, any elements of this returned set that have not been added
+   * back by the end of evaluation <i>must</i> be removed from any done nodes, in order to preserve
+   * graph consistency.
+   *
+   * <p>Returns the empty set if an entry is not dirty. In either case, the entry must already have
+   * started evaluation.
+   *
+   * <p>This method does not mutate the entry. In particular, multiple calls to this method will
+   * always produce the same result until the entry finishes evaluation. Contrast with
+   * {@link #getAllDirectDepsForIncompleteNode}.
    */
-  Collection<SkyKey> markRebuildingAndGetAllRemainingDirtyDirectDeps();
+  Set<SkyKey> getAllRemainingDirtyDirectDeps();
+
+  /**
+   * Notifies a node that it is about to be rebuilt. This method can only be called if the node
+   * {@link DirtyState#NEEDS_REBUILDING}. After this call, this node is ready to be rebuilt (it will
+   * be in {@link DirtyState#REBUILDING}).
+   */
+  void markRebuilding();
 
   /**
    * Returns the {@link GroupedList} of direct dependencies. This may only be called while the node
