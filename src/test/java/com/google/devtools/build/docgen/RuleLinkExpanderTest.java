@@ -67,6 +67,12 @@ public class RuleLinkExpanderTest {
     assertEquals(expected, expander.expand(docs));
   }
 
+  @Test public void testRuleImplicitOutputsj() {
+    String docs = "<a href=\"${link cc_binary_implicit_outputs}\">args</a>";
+    String expected = "<a href=\"c-cpp.html#cc_binary_implicit_outputs\">args</a>";
+    assertEquals(expected, expander.expand(docs));
+  }
+
   @Test public void testStaticPageRef() {
     String docs = "<a href=\"${link common-definitions}\">Common Definitions</a>";
     String expected = "<a href=\"common-definitions.html\">Common Definitions</a>";
@@ -91,5 +97,19 @@ public class RuleLinkExpanderTest {
   public void testRefNotFound() {
     String docs = "<a href=\"${link foo.bar}\">bar</a>";
     expander.expand(docs);
+  }
+
+  @Test public void testRuleHeadingLink() {
+    String docs = "<a href=\"${link cc_library#alwayslink_lib_example}\">examples</a>";
+    String expected = "<a href=\"c-cpp.html#alwayslink_lib_example\">examples</a>";
+    assertEquals(expected, expander.expand(docs));
+  }
+
+  @Test public void testStaticPageHeadingLink() {
+    String docs =
+        "<a href=\"${link make-variables#predefined_variables.genrule.cmd}\">genrule cmd</a>";
+    String expected =
+        "<a href=\"make-variables.html#predefined_variables.genrule.cmd\">genrule cmd</a>";
+    assertEquals(expected, expander.expand(docs));
   }
 }
