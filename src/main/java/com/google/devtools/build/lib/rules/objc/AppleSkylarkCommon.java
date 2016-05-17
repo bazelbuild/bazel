@@ -71,6 +71,14 @@ public class AppleSkylarkCommon {
     mandatoryPositionals = {
       @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance.")
     },
+    optionalNamedOnly = {
+      @Param(
+        name = "uses_swift",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = "Whether this provider should enable Swift support."
+      )
+    },
     extraKeywords = {
       @Param(
         name = "kwargs",
@@ -84,8 +92,12 @@ public class AppleSkylarkCommon {
       new BuiltinFunction("new_objc_provider") {
         @SuppressWarnings("unused")
         // This method is registered statically for skylark, and never called directly.
-        public ObjcProvider invoke(AppleSkylarkCommon self, SkylarkDict<String, Object> kwargs) {
+        public ObjcProvider invoke(
+            AppleSkylarkCommon self, Boolean usesSwift, SkylarkDict<String, Object> kwargs) {
           ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder();
+          if (usesSwift) {
+            resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
+          }
           for (Entry<String, Object> entry : kwargs.entrySet()) {
             Key<?> key = ObjcProvider.getSkylarkKeyForString(entry.getKey());
             if (key != null) {
