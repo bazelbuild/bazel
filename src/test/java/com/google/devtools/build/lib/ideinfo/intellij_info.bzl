@@ -353,12 +353,14 @@ def _aspect_impl(target, ctx):
 
   ide_info_text = set()
   ide_resolve_files = set()
+  ide_infos = []
 
   for attr_name in ALL_DEPS.label_list:
     if hasattr(rule_attrs, attr_name):
       for dep in getattr(rule_attrs, attr_name):
         ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
         ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
+        ide_infos += dep.ide_infos
 
   for attr_name in ALL_DEPS.label:
     if hasattr(rule_attrs, attr_name):
@@ -414,6 +416,7 @@ def _aspect_impl(target, ctx):
   output = ctx.new_file(target.label.name + ".aswb-build.txt")
   ctx.file_action(output, info.to_proto())
   ide_info_text += set([output])
+  ide_infos += [info]
 
   # Return providers.
   return struct(
@@ -426,6 +429,7 @@ def _aspect_impl(target, ctx):
         ide_resolve_files = ide_resolve_files,
       ),
       export_deps = export_deps,
+      ide_infos = ide_infos,
     )
 
 intellij_info_aspect = aspect(
