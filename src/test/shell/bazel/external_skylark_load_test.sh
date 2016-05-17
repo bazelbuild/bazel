@@ -236,4 +236,61 @@ EOF
   expect_log "@r1//foo:bar"
 }
 
+function test_aspects_and_skylark_repositories() {
+cat > WORKSPACE <<EOF
+bind(name="x1", actual="//:x1")
+load("//:repo.bzl", "repo")
+bind(name="x2", actual="//:x2")
+EOF
+
+cat > BUILD <<EOF
+load("//:rule.bzl", "test_rule")
+
+filegroup(name = "x1")
+filegroup(name = "x2")
+test_rule(
+    name = "tr",
+    deps = ["//external:x1", "//external:x2"],
+)
+EOF
+
+cat > repo.bzl <<EOF
+def repo():
+  pass
+EOF
+
+cat > rule.bzl <<EOF
+def test_aspect_impl(target, ctx):
+  return struct()
+
+test_aspect = aspect(
+    attrs = {
+        "_x": attr.label_list(default = [
+            Label("//external:x1"),
+            Label("//external:x2"),
+        ]),
+    },
+    implementation = test_aspect_impl,
+)
+
+def test_rule_impl(ctx):
+  return struct()
+
+test_rule = rule(
+    attrs = {
+        "deps": attr.label_list(
+            allow_files = True,
+            allow_rules = [
+                "filegroup",
+            ],
+            aspects = [test_aspect],
+        ),
+    },
+    implementation = test_rule_impl,
+)
+EOF
+
+  bazel build //:tr || fail "build failed"
+}
+
 run_suite "Test Skylark loads from/in external repositories"

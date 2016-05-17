@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
@@ -247,7 +248,7 @@ public class WorkspaceFactory {
       Package aPackage,
       ImmutableMap<String, Extension> importMap,
       ImmutableMap<String, Object> bindings)
-      throws NameConflictException {
+      throws NameConflictException, InterruptedException {
     this.parentVariableBindings = bindings;
     this.parentImportMap = importMap;
     builder.setWorkspaceName(aPackage.getWorkspaceName());
@@ -256,8 +257,24 @@ public class WorkspaceFactory {
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
     }
-    for (Target target : aPackage.getTargets(Rule.class)) {
-      builder.addRule((Rule) target);
+    for (Rule rule : aPackage.getTargets(Rule.class)) {
+      try {
+        // The old rule references another Package instance and we wan't to keep the invariant that
+        // every Rule references the Package it is contained within
+        Rule newRule = builder.createRule(
+            rule.getLabel(),
+            rule.getRuleClassObject(),
+            rule.getLocation(),
+            rule.getAttributeContainer());
+        newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
+        if (rule.containsErrors()) {
+          newRule.setContainsErrors();
+        }
+        builder.addRule(newRule);
+      } catch (LabelSyntaxException e) {
+        // This rule has already been created once, so it should have worked the second time, too
+        throw new IllegalStateException(e);
+      }
     }
   }
 

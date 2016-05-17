@@ -159,6 +159,21 @@ function check_num_sos() {
   assert_equals "11" "$num_sos"
 }
 
+function test_sdk_library_deps() {
+  create_new_workspace
+  setup_android_support
+
+  mkdir -p java/a
+  cat > java/a/BUILD<<EOF
+android_library(
+    name = "a",
+    deps = ["//external:android/mediarouter_v7"],
+)
+EOF
+
+  bazel build --nobuild //java/a:a || fail "build failed"
+}
+
 function test_android_binary() {
   create_new_workspace
   setup_android_support

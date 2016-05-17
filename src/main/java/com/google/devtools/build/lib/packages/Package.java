@@ -1190,6 +1190,7 @@ public class Package {
     }
 
     void addRule(Rule rule) throws NameConflictException {
+      Preconditions.checkArgument(rule.getPackage() == pkg);
       checkForConflicts(rule);
       // Now, modify the package:
       for (OutputFile outputFile : rule.getOutputFiles()) {
