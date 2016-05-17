@@ -217,6 +217,7 @@ toolchain {
   linker_flag: "-lstdc++"
   linker_flag: "-undefined"
   linker_flag: "dynamic_lookup"
+  linker_flag: "-headerpad_max_install_names"
   # TODO(ulfjack): This is wrong on so many levels. Figure out a way to auto-detect the proper
   # setting from the local compiler, and also how to make incremental builds correct.
   cxx_builtin_include_directory: "/"
