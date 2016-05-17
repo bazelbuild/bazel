@@ -122,10 +122,6 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     return relativePathsForSources(ruleIdeInfo.getCRuleIdeInfo().getSourceList());
   }
 
-  protected static Iterable<String> relativePathsForExportedCHeadersOf(RuleIdeInfo ruleIdeInfo) {
-    return relativePathsForSources(ruleIdeInfo.getCRuleIdeInfo().getExportedHeaderList());
-  }
-
   private static Iterable<String> relativePathsForSources(List<ArtifactLocation> sourcesList) {
     return transform(sourcesList, ARTIFACT_TO_RELATIVE_PATH);
   }

@@ -34,4 +34,6 @@ public interface AndroidStudioInfoSemantics {
       NestedSetBuilder<Artifact> ideResolveArtifacts);
 
   void augmentPrerequisiteAttrs(Builder<PrerequisiteAttr> builder);
+
+  boolean checkForAdditionalCppRules(String ruleClass);
 }

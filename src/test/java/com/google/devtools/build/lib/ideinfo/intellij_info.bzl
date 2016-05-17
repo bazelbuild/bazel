@@ -164,13 +164,6 @@ def c_rule_ide_info(target, ctx):
 
   sources = getSourcesFromRule(ctx)
 
-  if hasattr(ctx.rule.attr, "hdrs"):
-    exported_headers = [artifact_location(file)
-                        for hdr in ctx.rule.attr.hdrs
-                        for file in hdr.files]
-  else:
-    exported_headers = []
-
   rule_includes = []
   if hasattr(ctx.rule.attr, "includes"):
     rule_includes = ctx.rule.attr.includes
@@ -187,7 +180,6 @@ def c_rule_ide_info(target, ctx):
 
   return (struct_omit_none(
                   source = sources,
-                  exported_header = exported_headers,
                   rule_include = rule_includes,
                   rule_define = rule_defines,
                   rule_copt = rule_copts,

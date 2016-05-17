@@ -48,7 +48,6 @@ message JavaRuleIdeInfo {
 
 message CRuleIdeInfo {
   repeated ArtifactLocation source = 1;
-  repeated ArtifactLocation exported_header = 2;
 
   repeated string transitive_include_directory = 3;
   repeated string transitive_quote_include_directory = 4;

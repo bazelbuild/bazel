@@ -39,4 +39,9 @@ public class BazelAndroidStudioInfoSemantics implements AndroidStudioInfoSemanti
   @Override
   public void augmentPrerequisiteAttrs(ImmutableList.Builder<PrerequisiteAttr> builder) {
   }
+
+  @Override
+  public boolean checkForAdditionalCppRules(String ruleClass) {
+    return false;
+  }
 }
