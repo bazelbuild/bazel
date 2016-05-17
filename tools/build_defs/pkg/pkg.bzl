@@ -16,46 +16,12 @@
 # Filetype to restrict inputs
 tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"])
 deb_filetype = FileType([".deb", ".udeb"])
-
-def _short_path_dirname(path):
-  """Returns the directory's name of the short path of an artifact."""
-  sp = path.short_path
-  return sp[:sp.rfind("/")]
-
-def _dest_path(f, strip_prefix):
-  """Returns the short path of f, stripped of strip_prefix."""
-  if strip_prefix == None:
-    # If no strip_prefix was specified, use the package of the
-    # given input as the strip_prefix.
-    strip_prefix = _short_path_dirname(f)
-  if not strip_prefix:
-    return f.short_path
-  if f.short_path.startswith(strip_prefix):
-    return f.short_path[len(strip_prefix):]
-  return f.short_path
-
-def _compute_data_path(out, data_path):
-  """Compute the relative data path prefix from the data_path attribute."""
-  if data_path:
-    # Strip ./ from the beginning if specified.
-    # There is no way to handle .// correctly (no function that would make
-    # that possible and Skylark is not turing complete) so just consider it
-    # as an absolute path.
-    if len(data_path) >= 2 and data_path[0:2] == "./":
-      data_path = data_path[2:]
-    if not data_path or data_path == ".":  # Relative to current package
-      return _short_path_dirname(out)
-    elif data_path[0] == "/":  # Absolute path
-      return data_path[1:]
-    else:  # Relative to a sub-directory
-      return _short_path_dirname(out) + "/" + data_path
-  else:
-    return None
+load(":path.bzl", "dest_path", "compute_data_path")
 
 def _pkg_tar_impl(ctx):
   """Implementation of the pkg_tar rule."""
   # Compute the relative path
-  data_path = _compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
+  data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
 
   build_tar = ctx.executable.build_tar
   args = [
@@ -63,7 +29,7 @@ def _pkg_tar_impl(ctx):
       "--directory=" + ctx.attr.package_dir,
       "--mode=" + ctx.attr.mode,
       ]
-  args += ["--file=%s=%s" % (f.path, _dest_path(f, data_path))
+  args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
            for f in ctx.files.files]
   if ctx.attr.modes:
     args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]

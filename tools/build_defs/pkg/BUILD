@@ -35,6 +35,12 @@ py_test(
     deps = [":archive"],
 )
 
+py_test(
+    name = "path_test",
+    srcs = ["path_test.py"],
+    data = ["path.bzl"],
+)
+
 py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
