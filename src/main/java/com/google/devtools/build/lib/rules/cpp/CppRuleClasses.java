@@ -165,14 +165,6 @@ public class CppRuleClasses {
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
 
   /**
-   * A string constant for the PIC feature.
-   *
-   * If this feature is active (currently it cannot be switched off) and PIC compilation is
-   * requested, the "pic" build variable will be defined with an empty string as its value.
-   */
-  public static final String PIC = "pic";
-
-  /**
    * A string constant for the include_paths feature.
    */
   public static final String INCLUDE_PATHS = "include_paths";
