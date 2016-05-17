@@ -13,18 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.android.proto.SerializeFormat;
 
+import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceType;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -60,85 +63,14 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
    */
   public static class Factory {
   
-    /** Used to adjust the api number for indvidual qualifiers. */
-    private static final class QualifierApiAdjuster {
-      private final int minApi;
-      private final ImmutableSet<String> values;
-      private final Pattern pattern;
-  
-      static QualifierApiAdjuster fromRegex(int minApi, String regex) {
-        return new QualifierApiAdjuster(minApi, ImmutableSet.<String>of(), Pattern.compile(regex));
+    private static final Function<ResourceQualifier, String> QUALIFIER_TO_STRING =  
+       new Function<ResourceQualifier, String>() {
+      @Override
+      @Nullable
+      public String apply(@Nullable ResourceQualifier qualifier) {
+        return qualifier.getFolderSegment();
       }
-  
-      static QualifierApiAdjuster fromValues(int minApi, String... values) {
-        return new QualifierApiAdjuster(minApi, ImmutableSet.copyOf(values), null);
-      }
-  
-      private QualifierApiAdjuster(
-          int minApi, @Nullable ImmutableSet<String> values, @Nullable Pattern pattern) {
-        this.minApi = minApi;
-        this.values = ImmutableSet.copyOf(values);
-        this.pattern = pattern;
-      }
-  
-      /** Checks to see if the qualifier string is this type of qualifier. */
-      boolean check(String qualifier) {
-        if (pattern != null) {
-          return pattern.matcher(qualifier).matches();
-        }
-        return values.contains(qualifier);
-      }
-  
-      /** Takes the current api and returns a higher one if the qualifier requires it. */
-      int maxApi(int current) {
-        return current > minApi ? current : minApi;
-      }
-    }
-  
-    /**
-     * An array used to calculate the api levels.
-     *
-     * See <a href="http://developer.android.com/guide/topics/resources/providing-resources.html">
-     * for api qualifier to level tables.</a>
-     */
-    private static final QualifierApiAdjuster[] QUALIFIER_API_ADJUSTERS = {
-      // LAYOUT DIRECTION implies api 17
-      QualifierApiAdjuster.fromValues(17, "ldrtl", "ldltr"),
-      // SMALLEST WIDTH implies api 13
-      QualifierApiAdjuster.fromRegex(13, "^sw\\d+dp$"),
-      // AVAILABLE WIDTH implies api 13
-      QualifierApiAdjuster.fromRegex(13, "^w\\d+dp$"),
-      // AVAILABLE HEIGHT implies api 13
-      QualifierApiAdjuster.fromRegex(13, "^h\\d+dp$"),
-      // SCREEN SIZE implies api 4
-      QualifierApiAdjuster.fromValues(4, "small", "normal", "large", "xlarge"),
-      // SCREEN ASPECT implies api 4
-      QualifierApiAdjuster.fromValues(4, "long", "notlong"),
-      // ROUND SCREEN implies api 23
-      QualifierApiAdjuster.fromValues(23, "round", "notround"),
-      // UI MODE implies api 8
-      QualifierApiAdjuster.fromValues(8, "car", "desk", "appliance"),
-      // UI MODE TELEVISION implies api 13
-      QualifierApiAdjuster.fromValues(13, "television"),
-      // UI MODE WATCH implies api 13
-      QualifierApiAdjuster.fromValues(13, "watch"),
-      // UI MODE NIGHT implies api 8
-      QualifierApiAdjuster.fromValues(8, "night", "notnight"),
-      // HDPI, MDPI, LDPI implies api 4
-      QualifierApiAdjuster.fromValues(4, "hdpi", "mdpi", "ldpi"),
-      // XHDPI implies api 8
-      QualifierApiAdjuster.fromValues(8, "xhdpi"),
-      // XXHDPI implies api 16
-      QualifierApiAdjuster.fromValues(16, "xxhdpi"),
-      // XXXHDPI implies api 18
-      QualifierApiAdjuster.fromValues(18, "xxxhdpi"),
-      // TVDPI implies api 13
-      QualifierApiAdjuster.fromValues(13, "tvdpi"),
-      // DPI280 implies api 4
-      QualifierApiAdjuster.fromValues(4, "280dpi")
     };
-
-    private static final Pattern VERSION_QUALIFIER = Pattern.compile("^v\\d+$");
 
     private static final Pattern PARSING_REGEX =
         Pattern.compile("(?:(?<package>[^:]+):){0,1}(?<type>[^-/]+)(?:[^/]*)/(?<name>.+)");
@@ -152,6 +84,7 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
             "Could not find either resource type (%%s) or name (%%s) in %%s. "
                 + "It should be in the pattern [package:]{%s}/resourcename",
             Joiner.on(",").join(ResourceType.values()));
+    public static final String INVALID_QUALIFIERS = "%s contains invalid qualifiers.";
     private final ImmutableList<String> qualifiers;
     private final String pkg;
 
@@ -165,50 +98,38 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       return from(getQualifiers(dirNameAndQualifiers));
     }
 
-    // TODO(bazel-team): Replace this with Folder Configuration from android-ide-common.
     private static List<String> getQualifiers(String[] dirNameAndQualifiers) {
-      if (dirNameAndQualifiers.length == 1) {
-        return ImmutableList.of();
-      }
-      List<String> qualifiers =
-          Lists.newArrayList(
-              Arrays.copyOfRange(dirNameAndQualifiers, 1, dirNameAndQualifiers.length));
-      if (qualifiers.size() >= 2) {
-        // Replace the ll-r{3,4} regions as aapt doesn't support them yet.
-        if ("es".equalsIgnoreCase(qualifiers.get(0))
-            && "419".equalsIgnoreCase(qualifiers.get(1))) {
-          qualifiers.remove(0);
-          qualifiers.set(0, "b+es+419");
-        }
-        if ("sr".equalsIgnoreCase(qualifiers.get(0))
-            && "rlatn".equalsIgnoreCase(qualifiers.get(1))) {
-          qualifiers.remove(0);
-          qualifiers.set(0, "b+sr+Latn");
+      // TODO(corysmith): Remove when FolderConficuration supports ll-r{3,4} regions.
+      List<String> unHandledQualifiers = new ArrayList<String>();
+      int startIndex = 1;
+      if (dirNameAndQualifiers.length >= 3) {
+        // Replace the ll-r{3,4} regions
+        if ("es".equalsIgnoreCase(dirNameAndQualifiers[1])
+            && "419".equalsIgnoreCase(dirNameAndQualifiers[2])) {
+          unHandledQualifiers.add("b+es+419");
+          startIndex = 3;
+        } else if ("sr".equalsIgnoreCase(dirNameAndQualifiers[1])
+            && "rlatn".equalsIgnoreCase(dirNameAndQualifiers[2])) {
+          unHandledQualifiers.add("b+sr+Latn");
+          startIndex = 3;
         }
       }
-      // Calculate minimum api version to add the appropriate version qualifier
-      int apiVersion = 0;
-      int lastQualifierMatch = 0;
-      for (String qualifier : qualifiers) {
-        for (int i = lastQualifierMatch; i < QUALIFIER_API_ADJUSTERS.length; i++) {
-          if (QUALIFIER_API_ADJUSTERS[i].check(qualifier)) {
-            lastQualifierMatch = i;
-            apiVersion = QUALIFIER_API_ADJUSTERS[i].maxApi(apiVersion);
-          }
-        }
+      // Create a configuration
+      FolderConfiguration config =
+          FolderConfiguration.getConfigFromQualifiers(
+              ImmutableList.copyOf(
+                  Arrays.copyOfRange(
+                      dirNameAndQualifiers, startIndex, dirNameAndQualifiers.length)));
+      // FolderConfiguration returns an unhelpful null when it considers the qualifiers to be
+      // invalid.
+      if (config == null) {
+        throw new IllegalArgumentException(
+            String.format(INVALID_QUALIFIERS, DASH_JOINER.join(dirNameAndQualifiers)));
       }
-      // TODO(corysmith): Stop removing when robolectric supports anydpi.
-      qualifiers.remove("anydpi");
-      if (apiVersion > 0) {
-        // check for any version qualifier. The version qualifier is always the last qualifier.
-        String lastQualifier = qualifiers.get(qualifiers.size() - 1);
-        if (VERSION_QUALIFIER.matcher(lastQualifier).matches()) {
-          apiVersion = Math.max(apiVersion, Integer.parseInt(lastQualifier.substring(1)));
-          qualifiers.remove(qualifiers.size() - 1);
-        }
-        qualifiers.add("v" + apiVersion);
-      }
-      return Lists.newArrayList(Joiner.on("-").join(qualifiers));
+      config.normalize();
+      return FluentIterable.from(unHandledQualifiers)
+          .append(FluentIterable.from(config.getQualifiers()).transform(QUALIFIER_TO_STRING))
+          .toList();
     }
 
     public static Factory from(List<String> qualifiers, String pkg) {
