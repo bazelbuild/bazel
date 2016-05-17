@@ -29,7 +29,7 @@ title: Android Rules
     android_binary
   </h2>
 
-  <pre class="rule-signature">android_binary(<a href="#android_binary.name">name</a>, <a href="#android_binary.deps">deps</a>, <a href="#android_binary.srcs">srcs</a>, <a href="#android_binary.assets">assets</a>, <a href="#android_binary.assets_dir">assets_dir</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#android_binary.crunch_png">crunch_png</a>, <a href="#android_binary.custom_package">custom_package</a>, <a href="#android_binary.densities">densities</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="#android_binary.dex_shards">dex_shards</a>, <a href="#android_binary.dexopts">dexopts</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#android_binary.exports_manifest">exports_manifest</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#android_binary.inline_constants">inline_constants</a>, <a href="#android_binary.javacopts">javacopts</a>, <a href="#android_binary.legacy_native_support">legacy_native_support</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#android_binary.main_dex_list">main_dex_list</a>, <a href="#android_binary.main_dex_list_opts">main_dex_list_opts</a>, <a href="#android_binary.main_dex_proguard_specs">main_dex_proguard_specs</a>, <a href="#android_binary.manifest">manifest</a>, <a href="#android_binary.multidex">multidex</a>, <a href="#android_binary.nocompress_extensions">nocompress_extensions</a>, <a href="#android_binary.plugins">plugins</a>, <a href="#android_binary.proguard_apply_mapping">proguard_apply_mapping</a>, <a href="#android_binary.proguard_generate_mapping">proguard_generate_mapping</a>, <a href="#android_binary.proguard_specs">proguard_specs</a>, <a href="#android_binary.resource_configuration_filters">resource_configuration_filters</a>, <a href="#android_binary.resource_files">resource_files</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">android_binary(<a href="#android_binary.name">name</a>, <a href="#android_binary.deps">deps</a>, <a href="#android_binary.srcs">srcs</a>, <a href="#android_binary.assets">assets</a>, <a href="#android_binary.assets_dir">assets_dir</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#android_binary.crunch_png">crunch_png</a>, <a href="#android_binary.custom_package">custom_package</a>, <a href="#android_binary.densities">densities</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="#android_binary.dex_shards">dex_shards</a>, <a href="#android_binary.dexopts">dexopts</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#android_binary.exports_manifest">exports_manifest</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#android_binary.incremental_dexing">incremental_dexing</a>, <a href="#android_binary.inline_constants">inline_constants</a>, <a href="#android_binary.javacopts">javacopts</a>, <a href="#android_binary.legacy_native_support">legacy_native_support</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#android_binary.main_dex_list">main_dex_list</a>, <a href="#android_binary.main_dex_list_opts">main_dex_list_opts</a>, <a href="#android_binary.main_dex_proguard_specs">main_dex_proguard_specs</a>, <a href="#android_binary.manifest">manifest</a>, <a href="#android_binary.multidex">multidex</a>, <a href="#android_binary.nocompress_extensions">nocompress_extensions</a>, <a href="#android_binary.plugins">plugins</a>, <a href="#android_binary.proguard_apply_mapping">proguard_apply_mapping</a>, <a href="#android_binary.proguard_generate_mapping">proguard_generate_mapping</a>, <a href="#android_binary.proguard_specs">proguard_specs</a>, <a href="#android_binary.resource_configuration_filters">resource_configuration_filters</a>, <a href="#android_binary.resource_files">resource_files</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -238,6 +238,22 @@ Bazel source tree.
         </td>
       </tr>
                                 <tr>
+        <td id="android_binary.incremental_dexing">
+          <code>incremental_dexing</code>
+        </td>
+        <td>
+                    <p><code>Integer; optional; default is -1</code></p>
+                              Force the target to be built with or without incremental dexing, overriding defaults and
+          --incremental_dexing flag. Users should set this attribute to 0 for release binaries
+          (e.g., to avoid accidental usage of --incremental_dexing), since incremental dexing can
+          produce slightly larger artifacts than dx. It is an error to set this attribute to 1 for
+          android_binary and android_test rules that have proguard enabled, as well as for
+          android_test rules with binary_under_test set. We are working on addressing these
+          shortcomings so please check with us if you run into these limitations.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="android_binary.inline_constants">
           <code>inline_constants</code>
         </td>
