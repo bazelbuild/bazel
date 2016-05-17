@@ -920,8 +920,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         }
       }
       if (resultKeys.size() >= BATCH_CALLBACK_SIZE) {
-        callback.process(
-            getBuildFilesForPackageValues(graph.getSuccessfulValues(resultKeys).values()));
+        for (Iterable<SkyKey> batch : Iterables.partition(resultKeys, BATCH_CALLBACK_SIZE)) {
+          callback.process(
+              getBuildFilesForPackageValues(graph.getSuccessfulValues(batch).values()));
+        }
         resultKeys.clear();
       }
     }
