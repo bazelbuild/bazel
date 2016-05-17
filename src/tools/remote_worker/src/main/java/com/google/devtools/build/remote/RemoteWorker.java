@@ -127,7 +127,7 @@ public class RemoteWorker implements RemoteWorkGrpc.RemoteWork {
     Path workPath = getFileSystem().getPath(remoteWorkerOptions.workPath);
     FileSystemUtils.createDirectoryAndParents(workPath);
     RemoteWorker worker = new RemoteWorker(workPath, remoteOptions, remoteWorkerOptions, cache);
-    Server server =
+    final Server server =
         ServerBuilder.forPort(remoteWorkerOptions.listenPort)
             .addService(RemoteWorkGrpc.bindService(worker))
             .build();
