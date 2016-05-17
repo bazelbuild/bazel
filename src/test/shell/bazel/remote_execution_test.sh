@@ -44,7 +44,7 @@ EOF
   local wait_seconds=0
   until [ -s "${pid_file}" ] || [ $wait_seconds -eq 30 ]; do
     sleep 1
-    ((wait_seconds++))
+    ((wait_seconds++)) || true
   done
   if [ ! -s "${pid_file}" ]; then
     fail "Timed out waiting for remote worker to start."
