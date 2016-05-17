@@ -692,6 +692,22 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return toolchain;
     }
     try {
+      if (!features.contains("pic")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'pic'"
+            + "  flag_set {"
+            + "    action: 'c-compile'"
+            + "    action: 'c++-compile'"
+            + "    action: 'c++-module-compile'"
+            + "    expand_if_all_available: 'pic'"
+            + "    flag_group {"
+            + "      flag: '-fPIC'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
       if (!features.contains("include_paths")) {
         TextFormat.merge(""
             + "feature {"

@@ -86,7 +86,8 @@ public final class CcCommon {
       CppRuleClasses.MODULE_MAPS,
       CppRuleClasses.MODULE_MAP_HOME_CWD,
       CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES,
-      CppRuleClasses.INCLUDE_PATHS);
+      CppRuleClasses.INCLUDE_PATHS,
+      CppRuleClasses.PIC);
 
   /** C++ configuration */
   private final CppConfiguration cppConfiguration;

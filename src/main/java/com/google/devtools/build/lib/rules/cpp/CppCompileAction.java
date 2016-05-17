@@ -1415,10 +1415,6 @@ public class CppCompileAction extends AbstractAction
         options.add("-E");
       }
 
-      if (usePic) {
-        options.add("-fPIC");
-      }
-
       return options;
     }
 
