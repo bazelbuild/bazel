@@ -1,3 +1,67 @@
+## Release 0.2.3 (2016-05-10)
+
+```
+Baseline: 5a2dd7a
+```
+
+Incompatible changes:
+
+  - All repositories are now directly under the x.runfiles directory
+    in the runfiles tree (previously, external repositories were at
+    x.runfiles/main-repo/external/other-repo. This simplifies
+    handling remote repository runfiles considerably, but will break
+    existing references to external repository runfiles.
+    Furthermore, if a Bazel project does not provide a workspace name
+    in the WORKSPACE file, Bazel will now default to using __main__
+    as the workspace name (instead of "", as previously). The
+    repository's runfiles will appear under x.runfiles/__main__/.
+  - Bazel does not embed protocol buffer-related rules anymore.
+  - It is now an error for a cc rule's includes attribute to point to
+    the workspace root.
+  - Bazel warns if a cc rule's includes attribute points out of
+    third_party.
+  - Removed cc_* attributes: abi / abi_deps. Use select() instead.
+
+New features:
+
+  - select({"//some:condition": None }) is now possible (this "unsets"
+    the attribute).
+
+Important changes:
+
+  - java_import now allows its 'jars' attribute to be empty.
+  - adds crunch_png attribute to android_binary
+  - Replace --java_langtools, --javabuilder_top, --singlejar_top,
+    --genclass_top, and --ijar_top with
+    java_toolchain.{javac,javabuilder,singlejar,genclass,ijar}
+  - External repository correctness fix: adding a new file/directory
+    as a child of a new_local_repository is now noticed.
+  - iOS apps are signed with get-task-allow=1 unless building with -c
+    opt.
+  - Generate debug symbols (-g) is enabled for all dbg builds of
+    objc_ rules.
+  - Bazel's workspace name is now io_bazel. If you are using Bazel's
+    source as an external repository, then you may want to update the
+    name you're referring to it as or you'll begin seeing warnings
+    about name mismatches in your code.
+  - Fixes integer overflow in J2ObjC sources to be Java-compatible.
+  - A FlagPolicy specified via the --invocation_policy flag will now
+    match the current command if any of its commands matches any of
+    the commands the current command inherits from, as opposed to
+    just the current command.
+  - The key for the map to cc_toolchain_suite.toolchains is now a
+    string of the form "cpu|compiler" (previously, it was just "cpu").
+  - Fix interaction between LIPO builds and C++ header modules.
+  - Ctrl-C will now interrupt a download, instead of waiting for it to
+    finish.
+  - Proxy settings can now be specified in http_proxy and https_proxy
+    environment variables (not just HTTP_PROXY and HTTPS_PROXY).
+  - Skylark targets can now read include directories from
+    ObjcProvider.
+  - Expose parameterized aspects to Skylark.
+  - Support alwayslink cc_library dependencies in objc binaries.
+  - Import cc_library dependencies in generated Xcode project.
+
 ## Release 0.2.2b (2016-04-22)
 
 ```
