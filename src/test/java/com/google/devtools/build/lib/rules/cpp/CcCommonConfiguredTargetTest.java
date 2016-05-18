@@ -397,6 +397,18 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getCppCompileAction("//a:nopiclib").getArgv()).doesNotContain("-fPIC");
   }
 
+  @Test
+  public void testPicModeAssembly() throws Exception {
+    CrosstoolConfigurationHelper.overwriteCrosstoolWithToolchain(
+        directories.getWorkspace(),
+        CrosstoolConfig.CToolchain.newBuilder().setNeedsPic(true).buildPartial());
+
+    scratch.file("a/BUILD",
+        "cc_library(name='preprocess', srcs=['preprocess.S'])");
+
+    assertThat(getCppCompileAction("//a:preprocess").getArgv()).contains("-fPIC");
+  }
+
   private CppCompileAction getCppCompileAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
     List<CppCompileAction> compilationSteps =

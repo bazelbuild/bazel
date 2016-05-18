@@ -673,10 +673,38 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPicNotAvailableError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig,
+            "feature { name: 'no_legacy_features' }");
+    useConfiguration();
+    writeSimpleCcLibrary();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//module:map");
+    assertContainsEvent("PIC compilation is requested but the toolchain does not support it");
+  }
+
+  @Test
+  public void testToolchainWithoutPicForNoPicCompilation() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig,
+            "needsPic: false",
+            "feature { name: 'no_legacy_features' }");
+    useConfiguration();
+    scratchConfiguredTarget("a", "a",
+        "cc_binary(name='a', srcs=['a.cc'], deps=[':b'])",
+        "cc_library(name='b', srcs=['b.cc'])");
+  }
+
+  @Test
   public void testNoCppModuleMap() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, "feature { name: 'no_legacy_features' }");
+        .setupCrosstool(mockToolsConfig,
+            "feature { name: 'no_legacy_features' }",
+            "feature { name: 'pic' }");
     useConfiguration();
     writeSimpleCcLibrary();
     assertNoCppModuleMapAction("//module:map");

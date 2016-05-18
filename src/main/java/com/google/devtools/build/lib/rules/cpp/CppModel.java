@@ -388,6 +388,13 @@ public final class CppModel {
           getSafePathStrings(context.getSystemIncludeDirs()));
     }
 
+    if (usePic) {
+      if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
+        ruleContext.ruleError("PIC compilation is requested but the toolchain does not support it");
+      }
+      buildVariables.addVariable("pic", "");
+    }
+
     if (ccRelativeName != null) {
       CppHelper.getFdoSupport(ruleContext).configureCompilation(builder, buildVariables,
           ruleContext, ccRelativeName, autoFdoImportPath, usePic, featureConfiguration);

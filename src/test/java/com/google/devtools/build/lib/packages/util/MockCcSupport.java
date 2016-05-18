@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -223,9 +224,10 @@ public abstract class MockCcSupport {
    * @param partialToolchain A string representation of a CToolchain protocol buffer; note that
    *        this is allowed to be a partial buffer (required fields may be omitted).
    */
-  public void setupCrosstool(MockToolsConfig config, String partialToolchain) throws IOException {
+  public void setupCrosstool(MockToolsConfig config, String... partialToolchain)
+      throws IOException {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(partialToolchain, toolchainBuilder);
+    TextFormat.merge(Joiner.on("\n").join(partialToolchain), toolchainBuilder);
     setupCrosstool(config, toolchainBuilder.buildPartial());
   }
 
