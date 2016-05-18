@@ -658,7 +658,9 @@ public class Path implements Comparable<Path>, Serializable {
       return this;
     } else if (path.equals("..")) {
       return parent == null ? this : parent;
-    } else if ((path.indexOf('/') != -1)) {
+    } else if (path.indexOf('/') != -1) {
+      return getRelative(new PathFragment(path));
+    } else if (path.indexOf(PathFragment.EXTRA_SEPARATOR_CHAR) != -1) {
       return getRelative(new PathFragment(path));
     } else {
       return getCachedChildPath(path);
