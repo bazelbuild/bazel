@@ -29,8 +29,8 @@ import com.google.devtools.common.options.OptionsParser;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -195,7 +195,8 @@ public class AarGeneratorAction {
   @VisibleForTesting
   static void writeAar(Path aar, final MergedAndroidData data, Path manifest, Path rtxt,
       Path classes) throws IOException {
-    try (final ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(aar.toFile()))) {
+    try (final ZipOutputStream zipOut = new ZipOutputStream(
+        new BufferedOutputStream(Files.newOutputStream(aar)))) {
       ZipEntry manifestEntry = new ZipEntry("AndroidManifest.xml");
       manifestEntry.setTime(EPOCH);
       zipOut.putNextEntry(manifestEntry);
