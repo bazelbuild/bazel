@@ -106,6 +106,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   @Override
   public ConfiguredAspect create(ConfiguredTarget base, RuleContext ruleContext,
       AspectParameters params) throws InterruptedException {
+    if (getAndroidConfig(ruleContext).getIncrementalDexingBinaries().isEmpty()) {
+      // Dex archives will never be used, so don't bother setting them up.
+      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
+    }
     checkState(base.getProvider(DexArchiveProvider.class) == null,
         "dex archive natively generated: %s", ruleContext.getLabel());
 
