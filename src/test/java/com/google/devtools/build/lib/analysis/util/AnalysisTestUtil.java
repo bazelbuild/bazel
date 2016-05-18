@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * Utilities for analysis phase tests.
@@ -387,6 +388,12 @@ public final class AnalysisTestUtil {
   };
 
   /**
+   * Matches the output path prefix contributed by a C++ configuration fragment.
+   */
+  public static final Pattern OUTPUT_PATH_CPP_PREFIX_PATTERN =
+      Pattern.compile("(?<=(blaze|bazel)-out/)gcc[^/]*-grte-\\w+-");
+
+  /**
    * Given a collection of Artifacts, returns a corresponding set of strings of
    * the form "{root} {relpath}", such as "bin x/libx.a".  Such strings make
    * assertions easier to write.
@@ -395,17 +402,32 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(BuildConfigurationCollection configurations,
       Iterable<Artifact> artifacts) {
-    Map<Root, String> rootMap = new HashMap<>();
+    Map<String, String> rootMap = new HashMap<>();
     BuildConfiguration targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
-    rootMap.put(targetConfiguration.getBinDirectory(), "bin");
-    rootMap.put(targetConfiguration.getGenfilesDirectory(), "genfiles");
-    rootMap.put(targetConfiguration.getMiddlemanDirectory(), "internal");
+    rootMap.put(targetConfiguration.getBinDirectory().getPath().toString(), "bin");
+    rootMap.put(targetConfiguration.getGenfilesDirectory().getPath().toString(), "genfiles");
+    rootMap.put(targetConfiguration.getMiddlemanDirectory().getPath().toString(), "internal");
 
     BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
-    rootMap.put(hostConfiguration.getBinDirectory(), "bin(host)");
-    rootMap.put(hostConfiguration.getGenfilesDirectory(), "genfiles(host)");
-    rootMap.put(hostConfiguration.getMiddlemanDirectory(), "internal(host)");
+    rootMap.put(hostConfiguration.getBinDirectory().getPath().toString(), "bin(host)");
+    rootMap.put(hostConfiguration.getGenfilesDirectory().getPath().toString(), "genfiles(host)");
+    rootMap.put(hostConfiguration.getMiddlemanDirectory().getPath().toString(), "internal(host)");
+
+    if (targetConfiguration.useDynamicConfigurations()) {
+      // With dynamic configurations, the output paths that bin, genfiles, etc. refer to may
+      // or may not include the C++-contributed pieces. e.g. they may be
+      // bazel-out/gcc-X-glibc-Y-k8-fastbuild/ or they may be bazel-out/fastbuild/. This code
+      // adds support for the non-C++ case, too.
+      Map<String, String> prunedRootMap = new HashMap<>();
+      for (Map.Entry<String, String> root : rootMap.entrySet()) {
+        prunedRootMap.put(
+            OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(root.getKey()).replaceFirst(""),
+            root.getValue()
+        );
+      }
+      rootMap.putAll(prunedRootMap);
+    }
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {
@@ -413,7 +435,7 @@ public final class AnalysisTestUtil {
       if (root.isSourceRoot()) {
         files.add("src " + artifact.getRootRelativePath());
       } else {
-        String name = rootMap.get(root);
+        String name = rootMap.get(root.getPath().toString());
         if (name == null) {
           name = "/";
         }

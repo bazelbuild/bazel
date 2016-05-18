@@ -1056,6 +1056,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Strips the C++-contributed prefix out of an output path when tests are run with dynamic
+   * configurations. e.g. turns "bazel-out/gcc-X-glibc-Y-k8-fastbuild/ to "bazel-out/fastbuild/".
+   *
+   * <p>This should be used for targets use configurations with C++ fragments.
+   */
+  protected String stripCppPrefixForDynamicConfigs(String outputPath) {
+    return targetConfig.useDynamicConfigurations()
+        ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
+        : outputPath;
+  }
+
+  /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
    * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
