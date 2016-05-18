@@ -596,6 +596,24 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void noKeepGoingErrorAfterKeepGoingError() throws Exception {
+    SkyKey topKey = GraphTester.skyKey("top");
+    SkyKey errorKey = GraphTester.skyKey("error");
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(topKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, topKey);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(topKey)
+        .rootCauseOfExceptionIs(errorKey);
+    tester.getOrCreate(topKey, /*markAsModified=*/ true);
+    tester.invalidate();
+    result = tester.eval(/*keepGoing=*/ false, topKey);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(topKey)
+        .rootCauseOfExceptionIs(errorKey);
+  }
+
+  @Test
   public void transientErrorValueInvalidation() throws Exception {
     // Verify that invalidating errors causes all transient error values to be rerun.
     tester.getOrCreate("error-value").setHasTransientError(true).setProgress(

@@ -1059,7 +1059,12 @@ public final class ParallelEvaluator implements Evaluator {
         Preconditions.checkState(
             newDirectDeps.contains(childErrorKey), "%s %s %s", state, childErrorKey, newDirectDeps);
         state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
-        DependencyState childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+        DependencyState childErrorState;
+        if (oldDeps.contains(childErrorKey)) {
+          childErrorState = childErrorEntry.checkIfDoneForDirtyReverseDep(skyKey);
+        } else {
+          childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+        }
         Preconditions.checkState(
             childErrorState == DependencyState.DONE,
             "skyKey: %s, state: %s childErrorKey: %s",

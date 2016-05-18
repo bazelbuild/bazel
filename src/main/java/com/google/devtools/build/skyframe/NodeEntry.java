@@ -152,6 +152,9 @@ public interface NodeEntry extends ThinNodeEntry {
    *
    * <p>If the parameter is {@code null}, then no reverse dependency is added, but we still check
    * if the node needs to be scheduled.
+   *
+   * <p>If {@code reverseDep} is a rebuilding dirty entry that was already a reverse dep of this
+   * entry, then {@link #checkIfDoneForDirtyReverseDep} must be called instead.
    */
   @ThreadSafe
   DependencyState addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep);
