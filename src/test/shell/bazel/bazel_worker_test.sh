@@ -27,7 +27,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 example_worker=$(find $BAZEL_RUNFILES -name ExampleWorker_deploy.jar)
 
 function set_up() {
-  bazel build --worker_quit_after_build
+  bazel build --worker_quit_after_build &> $TEST_log
   assert_workers_not_running
 }
 
@@ -90,7 +90,8 @@ function assert_workers_not_running() {
 function test_compiles_hello_library_using_persistent_javac() {
   write_hello_library_files
 
-  bazel build --strategy=Javac=worker //java/main:main || fail "build failed"
+  bazel build --strategy=Javac=worker //java/main:main &> $TEST_log \
+    || fail "build failed"
   bazel-bin/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
   assert_workers_running
@@ -99,7 +100,7 @@ function test_compiles_hello_library_using_persistent_javac() {
 function test_workers_quit_after_build() {
   write_hello_library_files
 
-  bazel build --worker_quit_after_build --strategy=Javac=worker //java/main:main \
+  bazel build --worker_quit_after_build --strategy=Javac=worker //java/main:main &> $TEST_log \
     || fail "build failed"
   assert_workers_not_running
 }
@@ -176,12 +177,12 @@ work(
 )
 EOF
 
-  bazel build --strategy=Work=worker :hello_world \
+  bazel build --strategy=Work=worker :hello_world &> $TEST_log \
     || fail "build failed"
   assert_equals "hello world" "$(cat bazel-bin/hello_world.out)"
   assert_workers_running
 
-  bazel build --worker_quit_after_build --strategy=Work=worker :hello_world_uppercase \
+  bazel build --worker_quit_after_build --strategy=Work=worker :hello_world_uppercase &> $TEST_log \
     || fail "build failed"
   assert_equals "HELLO WORLD" "$(cat bazel-bin/hello_world_uppercase.out)"
   assert_workers_not_running
@@ -198,14 +199,14 @@ function test_worker_restarts_after_exit() {
 ) for idx in range(10)]
 EOF
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 &> $TEST_log \
     || fail "build failed"
   worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
   assert_equals "1" $work_count
   assert_workers_running
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 &> $TEST_log \
     || fail "build failed"
   worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
@@ -215,7 +216,7 @@ EOF
   # Check that the same worker was used twice.
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 &> $TEST_log \
     || fail "build failed"
   worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
@@ -236,14 +237,14 @@ function test_worker_restarts_when_worker_binary_changes() {
 ) for idx in range(10)]
 EOF
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 &> $TEST_log \
     || fail "build failed"
   worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
   assert_equals "1" $work_count
   assert_workers_running
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 &> $TEST_log \
     || fail "build failed"
   worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
@@ -258,7 +259,7 @@ EOF
   zip worker_lib.jar dummy_file
   rm dummy_file
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 &> $TEST_log \
     || fail "build failed"
   worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
@@ -279,14 +280,14 @@ function test_worker_restarts_when_worker_runfiles_change() {
 ) for idx in range(10)]
 EOF
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 &> $TEST_log \
     || fail "build failed"
   worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
   assert_equals "1" $work_count
   assert_workers_running
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 &> $TEST_log \
     || fail "build failed"
   worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
@@ -298,7 +299,7 @@ EOF
 
   echo "changeddata" > worker_data.txt
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 &> $TEST_log \
     || fail "build failed"
   worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat bazel-bin/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
@@ -323,12 +324,12 @@ function test_bazel_recovers_from_worker_returning_junk() {
 ) for idx in range(10)]
 EOF
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 &> $TEST_log \
     || fail "build failed"
   worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
   assert_workers_running
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 &> $TEST_log \
     || fail "build failed"
   worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
   assert_workers_running
@@ -349,13 +350,13 @@ function test_input_digests() {
 EOF
 
   echo "hello world" > input.txt
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 &> $TEST_log \
     || fail "build failed"
   worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
   hash1=$(fgrep "INPUT input.txt " bazel-bin/hello_world_1.out | cut -d' ' -f3)
   assert_workers_running
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 &> $TEST_log \
     || fail "build failed"
   worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
   hash2=$(fgrep "INPUT input.txt " bazel-bin/hello_world_2.out | cut -d' ' -f3)
@@ -366,7 +367,7 @@ EOF
 
   echo "changeddata" > input.txt
 
-  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 \
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 &> $TEST_log \
     || fail "build failed"
   worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
   hash3=$(fgrep "INPUT input.txt " bazel-bin/hello_world_3.out | cut -d' ' -f3)
@@ -374,6 +375,23 @@ EOF
 
   assert_equals "$worker_uuid_2" "$worker_uuid_3"
   assert_not_equals "$hash2" "$hash3"
+}
+
+function test_worker_verbose() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 --worker_verbose --worker_quit_after_build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  expect_log "Created new Work worker (id [0-9]\+)"
+  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Build completed, shutting down worker pool..."
 }
 
 run_suite "Worker integration tests"

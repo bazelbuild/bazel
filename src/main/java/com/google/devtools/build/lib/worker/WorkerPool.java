@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.vfs.Path;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
@@ -32,23 +30,9 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 final class WorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
-  final WorkerFactory workerFactory;
 
   public WorkerPool(WorkerFactory factory, GenericKeyedObjectPoolConfig config) {
     super(factory, config);
-    this.workerFactory = factory;
-  }
-
-  public void setLogDirectory(Path logDir) {
-    this.workerFactory.setLogDirectory(logDir);
-  }
-
-  public void setReporter(Reporter reporter) {
-    this.workerFactory.setReporter(reporter);
-  }
-
-  public void setVerbose(boolean verbose) {
-    this.workerFactory.setVerbose(verbose);
   }
 
   @Override

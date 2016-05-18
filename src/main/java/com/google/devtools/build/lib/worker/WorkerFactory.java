@@ -25,11 +25,12 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
  * Factory used by the pool to create / destroy / validate worker processes.
  */
 final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
-  private Path logDir;
+  private final Path logDir;
   private Reporter reporter;
   private boolean verbose;
 
-  public void setLogDirectory(Path logDir) {
+  public WorkerFactory(Path logDir) {
+    super();
     this.logDir = logDir;
   }
 

@@ -37,7 +37,8 @@ import java.io.IOException;
  * A module that adds the WorkerActionContextProvider to the available action context providers.
  */
 public class WorkerModule extends BlazeModule {
-  private WorkerPool workers;
+  private WorkerFactory workerFactory;
+  private WorkerPool workerPool;
 
   private CommandEnvironment env;
   private BuildRequest buildRequest;
@@ -55,7 +56,7 @@ public class WorkerModule extends BlazeModule {
     this.env = env;
     env.getEventBus().register(this);
 
-    if (workers == null) {
+    if (workerFactory == null) {
       Path logDir = env.getOutputBase().getRelative("worker-logs");
       try {
         logDir.createDirectory();
@@ -65,6 +66,12 @@ public class WorkerModule extends BlazeModule {
             .handle(Event.error("Could not create directory for worker logs: " + logDir));
       }
 
+      workerFactory = new WorkerFactory(logDir);
+    }
+
+    workerFactory.setReporter(env.getReporter());
+
+    if (workerPool == null) {
       GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
 
       // It's better to re-use a worker as often as possible and keep it hot, in order to profit
@@ -85,23 +92,21 @@ public class WorkerModule extends BlazeModule {
       // worker.
       config.setMaxTotal(-1);
 
-      workers = new WorkerPool(new WorkerFactory(), config);
-      workers.setReporter(env.getReporter());
-      workers.setLogDirectory(logDir);
+      workerPool = new WorkerPool(workerFactory, config);
     }
   }
 
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    Preconditions.checkNotNull(workers);
+    Preconditions.checkNotNull(workerPool);
 
     this.buildRequest = event.getRequest();
 
     WorkerOptions options = buildRequest.getOptions(WorkerOptions.class);
-    workers.setMaxTotalPerKey(options.workerMaxInstances);
-    workers.setMaxIdlePerKey(options.workerMaxInstances);
-    workers.setMinIdlePerKey(options.workerMaxInstances);
-    workers.setVerbose(options.workerVerbose);
+    workerPool.setMaxTotalPerKey(options.workerMaxInstances);
+    workerPool.setMaxIdlePerKey(options.workerMaxInstances);
+    workerPool.setMinIdlePerKey(options.workerMaxInstances);
+    workerFactory.setVerbose(options.workerVerbose);
     this.verbose = options.workerVerbose;
   }
 
@@ -109,10 +114,10 @@ public class WorkerModule extends BlazeModule {
   public Iterable<ActionContextProvider> getActionContextProviders() {
     Preconditions.checkNotNull(env);
     Preconditions.checkNotNull(buildRequest);
-    Preconditions.checkNotNull(workers);
+    Preconditions.checkNotNull(workerPool);
 
     return ImmutableList.<ActionContextProvider>of(
-        new WorkerActionContextProvider(env, buildRequest, workers));
+        new WorkerActionContextProvider(env, buildRequest, workerPool));
   }
 
   @Override
@@ -122,7 +127,7 @@ public class WorkerModule extends BlazeModule {
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    if (workers != null && buildRequest != null
+    if (workerPool != null && buildRequest != null
         && buildRequest.getOptions(WorkerOptions.class) != null
         && buildRequest.getOptions(WorkerOptions.class).workerQuitAfterBuild) {
       if (verbose) {
@@ -130,8 +135,8 @@ public class WorkerModule extends BlazeModule {
             .getReporter()
             .handle(Event.info("Build completed, shutting down worker pool..."));
       }
-      workers.close();
-      workers = null;
+      workerPool.close();
+      workerPool = null;
     }
   }
 
@@ -140,14 +145,14 @@ public class WorkerModule extends BlazeModule {
   // for them to finish.
   @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
-    if (workers != null) {
+    if (workerPool != null) {
       if (verbose) {
         env
             .getReporter()
             .handle(Event.info("Build interrupted, shutting down worker pool..."));
       }
-      workers.close();
-      workers = null;
+      workerPool.close();
+      workerPool = null;
     }
   }
 
