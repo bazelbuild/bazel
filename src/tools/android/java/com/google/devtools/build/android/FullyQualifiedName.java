@@ -16,11 +16,15 @@ package com.google.devtools.build.android;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
 
+import com.android.ide.common.resources.configuration.CountryCodeQualifier;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.NetworkCodeQualifier;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceType;
 
@@ -28,7 +32,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,7 +42,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckReturnValue;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -62,16 +64,14 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
    * A factory for parsing an generating FullyQualified names with qualifiers and package.
    */
   public static class Factory {
-  
-    private static final Function<ResourceQualifier, String> QUALIFIER_TO_STRING =  
-       new Function<ResourceQualifier, String>() {
-      @Override
-      @Nullable
-      public String apply(@Nullable ResourceQualifier qualifier) {
-        return qualifier.getFolderSegment();
-      }
-    };
-
+    private static final String BCP_PREFIX = "b+";
+    private static final Function<ResourceQualifier, String> QUALIFIER_TO_STRING =
+        new Function<ResourceQualifier, String>() {
+          @Override
+          public String apply(ResourceQualifier qualifier) {
+            return qualifier.getFolderSegment();
+          }
+        };
     private static final Pattern PARSING_REGEX =
         Pattern.compile("(?:(?<package>[^:]+):){0,1}(?<type>[^-/]+)(?:[^/]*)/(?<name>.+)");
     public static final String INVALID_QUALIFIED_NAME_MESSAGE_NO_MATCH =
@@ -99,27 +99,45 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
     }
 
     private static List<String> getQualifiers(String[] dirNameAndQualifiers) {
-      // TODO(corysmith): Remove when FolderConficuration supports ll-r{3,4} regions.
-      List<String> unHandledQualifiers = new ArrayList<String>();
-      int startIndex = 1;
-      if (dirNameAndQualifiers.length >= 3) {
-        // Replace the ll-r{3,4} regions
-        if ("es".equalsIgnoreCase(dirNameAndQualifiers[1])
-            && "419".equalsIgnoreCase(dirNameAndQualifiers[2])) {
-          unHandledQualifiers.add("b+es+419");
-          startIndex = 3;
-        } else if ("sr".equalsIgnoreCase(dirNameAndQualifiers[1])
-            && "rlatn".equalsIgnoreCase(dirNameAndQualifiers[2])) {
-          unHandledQualifiers.add("b+sr+Latn");
-          startIndex = 3;
+      // TODO(corysmith): Remove when FolderConfiguration supports ll-r{3,4} regions.
+      PeekingIterator<String> rawQualifiers =
+          Iterators.peekingIterator(Iterators.forArray(dirNameAndQualifiers));
+      // Remove directory name
+      rawQualifiers.next();
+      List<String> unHandledLanguageRegionQualifiers = new ArrayList<>();
+      List<String> handledQualifiers = new ArrayList<>();
+      // The language/region qualifiers can be in the first 4 qualifier slots.
+      for (int qualifierSlot = 0; qualifierSlot < 4; qualifierSlot++) {
+        // qualifiers have been exhausted.
+        if (!rawQualifiers.hasNext()) {
+          break;
+        }
+        String qualifier = rawQualifiers.next();
+        if (qualifier.startsWith(BCP_PREFIX)) {
+          // The b+local+script/region can't be handled.
+          unHandledLanguageRegionQualifiers.add(qualifier);
+        } else if ("es".equalsIgnoreCase(qualifier)
+            && rawQualifiers.hasNext()
+            && "419".equalsIgnoreCase(rawQualifiers.peek())) {
+          // Replace the es-419.
+          unHandledLanguageRegionQualifiers.add("b+es+419");
+          // Consume the next value, as it's been replaced.
+          rawQualifiers.next();
+        } else if ("sr".equalsIgnoreCase(qualifier)
+            && rawQualifiers.hasNext()
+            && "rlatn".equalsIgnoreCase(rawQualifiers.peek())) {
+          // Replace the sr-rLatn.
+          unHandledLanguageRegionQualifiers.add("b+sr+Latn");
+          // Consume the next value, as it's been replaced.
+          rawQualifiers.next();
+        } else {
+          // This qualifier can probably be handled by FolderConfiguration.
+          handledQualifiers.add(qualifier);
         }
       }
+      Iterators.addAll(handledQualifiers, rawQualifiers);
       // Create a configuration
-      FolderConfiguration config =
-          FolderConfiguration.getConfigFromQualifiers(
-              ImmutableList.copyOf(
-                  Arrays.copyOfRange(
-                      dirNameAndQualifiers, startIndex, dirNameAndQualifiers.length)));
+      FolderConfiguration config = FolderConfiguration.getConfigFromQualifiers(handledQualifiers);
       // FolderConfiguration returns an unhelpful null when it considers the qualifiers to be
       // invalid.
       if (config == null) {
@@ -127,9 +145,29 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
             String.format(INVALID_QUALIFIERS, DASH_JOINER.join(dirNameAndQualifiers)));
       }
       config.normalize();
-      return FluentIterable.from(unHandledQualifiers)
-          .append(FluentIterable.from(config.getQualifiers()).transform(QUALIFIER_TO_STRING))
-          .toList();
+      PeekingIterator<ResourceQualifier> normalizedQualifiers =
+          Iterators.peekingIterator(Iterators.forArray(config.getQualifiers()));
+      // No qualifiers, just returns the language regions. Which may be empty, but an empty list is
+      // an empty list.
+      if (!normalizedQualifiers.hasNext()) {
+        return ImmutableList.copyOf(unHandledLanguageRegionQualifiers);
+      }
+      Builder<String> finalQualifiers = ImmutableList.<String>builder();
+      while (normalizedQualifiers.hasNext()) {
+        // The Mobile Country Code and Mobile Network Code will always come before the unhandled
+        // qualifiers.
+        if (normalizedQualifiers.peek() instanceof CountryCodeQualifier
+            || normalizedQualifiers.peek() instanceof NetworkCodeQualifier) {
+          finalQualifiers.add(QUALIFIER_TO_STRING.apply(normalizedQualifiers.next()));
+        } else {
+          // Exit the loop to add the rest of the qualifiers.
+          break;
+        }
+      }
+      finalQualifiers.addAll(unHandledLanguageRegionQualifiers);
+      // Consume the rest of the qualifers without care.
+      finalQualifiers.addAll(Iterators.transform(normalizedQualifiers, QUALIFIER_TO_STRING));
+      return finalQualifiers.build();
     }
 
     public static Factory from(List<String> qualifiers, String pkg) {
