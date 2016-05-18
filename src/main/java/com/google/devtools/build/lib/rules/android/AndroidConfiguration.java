@@ -262,20 +262,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         category = "semantics",
         help = "dx flags that that prevent incremental dexing for binary targets that list any of "
             + "the flags listed here in their 'dexopts' attribute, which are ignored with "
-            + "incremental dexing (superseding --dexopts_supported_in_incremental_dexing).  "
-            + "Defaults to --no-locals for safety but can in general be used "
+            + "incremental dexing.  Defaults to --no-locals for safety but can in general be used "
             + "to make sure the listed dx flags are honored, with additional build latency.  "
             + "Please notify us if you find yourself needing this flag.")
     public List<String> nonIncrementalPerTargetDexopts;
-
-    // Do not use on the command line.
-    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    @Option(name = "dexopts_supported_in_incremental_dexing",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "",
-        category = "hidden",
-        help = "dx flags supported in incremental dexing.")
-    public List<String> dexoptsSupportedInIncrementalDexing;
 
     @Option(name = "experimental_allow_android_library_deps_without_srcs",
         defaultValue = "true",
@@ -355,7 +345,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
   private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
-  private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
@@ -375,8 +364,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     } else {
       this.incrementalDexingBinaries = options.dexingStrategy.binaryTypes;
     }
-    this.dexoptsSupportedInIncrementalDexing =
-        ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
@@ -431,15 +418,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * dx flags supported in incremental dexing actions.
-   */
-  public ImmutableList<String> getDexoptsSupportedInIncrementalDexing() {
-    return dexoptsSupportedInIncrementalDexing;
-  }
-
-  /**
-   * Regardless of {@link #getIncrementalDexingBinaries}, incremental dexing must not be used for
-   * binaries that list any of these flags in their {@code dexopts} attribute.
+   * Regardless of {@link #getIncrementalDexing}, incremental dexing must not be used for binaries
+   * that list any of these flags in their {@code dexopts} attribute.
    */
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
