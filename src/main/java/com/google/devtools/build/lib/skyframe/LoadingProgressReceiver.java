@@ -68,7 +68,7 @@ public class LoadingProgressReceiver implements EvaluationProgressReceiver {
     if (enqueued > completed) {
       answer += " " + pending.peekFirst().toString();
       if (enqueued > completed + 1) {
-        answer += " ...";
+        answer += " ... (" + pending.size() + " currently loading)";
       }
     }
     return answer;
