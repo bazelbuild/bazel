@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * A class to identify a BUILD target. All targets belong to exactly one package.
@@ -242,6 +243,9 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   /** The name of the target within the package. Canonical. */
   private final String name;
 
+  /** Precomputed hash code. */
+  private final int hashCode;
+
   /**
    * Constructor from a package name, target name. Both are checked for validity
    * and a SyntaxException is thrown if either is invalid.
@@ -258,8 +262,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     Preconditions.checkNotNull(packageIdentifier);
     Preconditions.checkNotNull(name);
 
+    this.packageIdentifier = packageIdentifier;
     try {
-      this.packageIdentifier = packageIdentifier;
       this.name = canonicalizeTargetName(name);
     } catch (LabelSyntaxException e) {
       // This check is just for a more helpful error message
@@ -270,6 +274,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       }
       throw e;
     }
+    this.hashCode = Objects.hash(this.name, this.packageIdentifier);
   }
 
   private Object writeReplace() {
@@ -485,7 +490,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
 
   @Override
   public int hashCode() {
-    return name.hashCode() ^ packageIdentifier.hashCode();
+    return hashCode;
   }
 
   /**
@@ -497,7 +502,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       return false;
     }
     Label otherLabel = (Label) other;
-    return name.equals(otherLabel.name) // least likely one first
+    // Perform the equality comparisons in order from least likely to most likely.
+    return hashCode == otherLabel.hashCode && name.equals(otherLabel.name)
         && packageIdentifier.equals(otherLabel.packageIdentifier);
   }
 
