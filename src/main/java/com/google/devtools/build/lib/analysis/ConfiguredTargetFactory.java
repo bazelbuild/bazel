@@ -308,19 +308,13 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws InterruptedException {
-    ConfigurationFragmentPolicy aspectPolicy =
-        aspect.getDefinition().getConfigurationFragmentPolicy();
-    ConfigurationFragmentPolicy rulePolicy =
-        ((Rule) associatedTarget.getTarget()).getRuleClassObject().getConfigurationFragmentPolicy();
     RuleContext.Builder builder = new RuleContext.Builder(env,
         associatedTarget.getTarget(),
         aspect.getAspectClass().getName(),
         aspectConfiguration,
         hostConfiguration,
         ruleClassProvider.getPrerequisiteValidator(),
-        // TODO(mstaib): When AspectDefinition can no longer have null ConfigurationFragmentPolicy,
-        // remove this conditional.
-        aspectPolicy != null ? aspectPolicy : rulePolicy);
+        aspect.getDefinition().getConfigurationFragmentPolicy());
     RuleContext ruleContext =
         builder
             .setVisibility(

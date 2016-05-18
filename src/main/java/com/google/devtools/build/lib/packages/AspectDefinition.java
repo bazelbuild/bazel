@@ -125,13 +125,9 @@ public final class AspectDefinition {
   }
 
   /**
-   * Returns the set of configuration fragments required by this Aspect, or {@code null} if it has
-   * not set a configuration fragment policy, meaning it should inherit from the attached rule.
+   * Returns the set of configuration fragments required by this Aspect.
    */
-  @Nullable public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
-    // TODO(mstaib): When all existing aspects properly set their configuration fragment policy,
-    // this method and the associated member should no longer be nullable.
-    // "inherit from the attached rule" should go away.
+  public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;
   }
 
@@ -219,14 +215,6 @@ public final class AspectDefinition {
     private final Multimap<String, AspectClass> attributeAspects = LinkedHashMultimap.create();
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
-    // TODO(mstaib): When all existing aspects properly set their configuration fragment policy,
-    // remove this flag and the code that interacts with it.
-    /**
-     * True if the aspect definition has intentionally specified a configuration fragment policy by
-     * calling any of the methods which set up the policy, and thus needs the built AspectDefinition
-     * to retain the policy.
-     */
-    private boolean hasConfigurationFragmentPolicy = false;
 
     public Builder(String name) {
       this.name = name;
@@ -306,7 +294,6 @@ public final class AspectDefinition {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
-      hasConfigurationFragmentPolicy = true;
       configurationFragmentPolicy
           .requiresConfigurationFragments(ImmutableSet.copyOf(configurationFragments));
       return this;
@@ -319,7 +306,6 @@ public final class AspectDefinition {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresHostConfigurationFragments(Class<?>... configurationFragments) {
-      hasConfigurationFragmentPolicy = true;
       configurationFragmentPolicy
           .requiresHostConfigurationFragments(ImmutableSet.copyOf(configurationFragments));
       return this;
@@ -334,11 +320,6 @@ public final class AspectDefinition {
      */
     public Builder requiresConfigurationFragmentsBySkylarkModuleName(
         Collection<String> configurationFragmentNames) {
-      // This method is unconditionally called from Skylark code, so only consider the user to have
-      // specified a configuration policy if the collection actually has anything in it.
-      // TODO(mstaib): Stop caring about this as soon as all aspects have configuration policies.
-      hasConfigurationFragmentPolicy =
-          hasConfigurationFragmentPolicy || !configurationFragmentNames.isEmpty();
       configurationFragmentPolicy
           .requiresConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
       return this;
@@ -353,11 +334,6 @@ public final class AspectDefinition {
      */
     public Builder requiresHostConfigurationFragmentsBySkylarkModuleName(
         Collection<String> configurationFragmentNames) {
-      // This method is unconditionally called from Skylark code, so only consider the user to have
-      // specified a configuration policy if the collection actually has anything in it.
-      // TODO(mstaib): Stop caring about this as soon as all aspects have configuration policies.
-      hasConfigurationFragmentPolicy =
-          hasConfigurationFragmentPolicy || !configurationFragmentNames.isEmpty();
       configurationFragmentPolicy
           .requiresHostConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
       return this;
@@ -368,7 +344,6 @@ public final class AspectDefinition {
      * {@link #requiresConfigurationFragments}).
      */
     public Builder setMissingFragmentPolicy(MissingFragmentPolicy missingFragmentPolicy) {
-      hasConfigurationFragmentPolicy = true;
       configurationFragmentPolicy.setMissingFragmentPolicy(missingFragmentPolicy);
       return this;
     }
@@ -381,7 +356,7 @@ public final class AspectDefinition {
     public AspectDefinition build() {
       return new AspectDefinition(name, ImmutableSet.copyOf(requiredProviders),
           ImmutableMap.copyOf(attributes), ImmutableSetMultimap.copyOf(attributeAspects),
-          hasConfigurationFragmentPolicy ? configurationFragmentPolicy.build() : null);
+          configurationFragmentPolicy.build());
     }
   }
 }

@@ -138,10 +138,10 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testNoConfigurationFragmentPolicySetup_ReturnsNull() throws Exception {
+  public void testNoConfigurationFragmentPolicySetup_HasNonNullPolicy() throws Exception {
     AspectDefinition noPolicy = new AspectDefinition.Builder("no_policy")
         .build();
-    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNull();
+    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }
 
   @Test
@@ -205,12 +205,12 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testEmptySkylarkConfigurationFragmentPolicySetup_ReturnsNull() throws Exception {
+  public void testEmptySkylarkConfigurationFragmentPolicySetup_HasNonNullPolicy() throws Exception {
     AspectDefinition noPolicy = new AspectDefinition.Builder("no_policy")
         .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableList.<String>of())
         .requiresHostConfigurationFragmentsBySkylarkModuleName(ImmutableList.<String>of())
         .build();
-    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNull();
+    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }
 
   @SkylarkModule(name = "test_fragment", doc = "test fragment")

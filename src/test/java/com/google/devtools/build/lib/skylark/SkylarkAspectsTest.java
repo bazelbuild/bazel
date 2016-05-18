@@ -856,22 +856,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
             + "(for example: host_fragments = [\"cpp\"])");
   }
 
-  @Test
-  public void testAspectFragmentFallback() throws Exception {
-    // TODO(mstaib): Remove this test when rule fragment fallback is no longer permitted.
-    getConfiguredTargetForAspectFragment(
-        "ctx.fragments.cpp.compiler", "", "", "'cpp'", "");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testAspectHostFragmentFallback() throws Exception {
-    // TODO(mstaib): Remove this test when rule fragment fallback is no longer permitted.
-    getConfiguredTargetForAspectFragment(
-        "ctx.host_fragments.cpp.compiler", "", "", "", "'cpp'");
-    assertNoEvents();
-  }
-
   private ConfiguredTarget getConfiguredTargetForAspectFragment(
       String fullFieldName,
       String fragments,
