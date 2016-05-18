@@ -1010,57 +1010,6 @@ public final class RuleClass {
   private final boolean supportsConstraintChecking;
 
   /**
-   * Helper constructor that skips allowedConfigurationFragmentNames and fragmentNameResolver.
-   */
-  @VisibleForTesting
-  RuleClass(String name,
-      boolean skylarkExecutable,
-      boolean documented,
-      boolean publicByDefault,
-      boolean binaryOutput,
-      boolean workspaceOnly,
-      boolean outputsDefaultExecutable,
-      ImplicitOutputsFunction implicitOutputsFunction,
-      Configurator<?, ?> configurator,
-      ConfiguredTargetFactory<?, ?> configuredTargetFactory,
-      PredicateWithMessage<Rule> validityPredicate,
-      Predicate<String> preferredDependencyPredicate,
-      ImmutableSet<Class<?>> advertisedProviders,
-      boolean canHaveAnyProvider,
-      @Nullable BaseFunction configuredTargetFunction,
-      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable Environment ruleDefinitionEnvironment,
-      Set<Class<?>> allowedConfigurationFragments,
-      MissingFragmentPolicy missingFragmentPolicy,
-      boolean supportsConstraintChecking,
-      Attribute... attributes) {
-    this(name,
-        /*isSkylark=*/ skylarkExecutable,
-        skylarkExecutable,
-        documented,
-        publicByDefault,
-        binaryOutput,
-        workspaceOnly,
-        outputsDefaultExecutable,
-        implicitOutputsFunction,
-        configurator,
-        configuredTargetFactory,
-        validityPredicate,
-        preferredDependencyPredicate,
-        advertisedProviders,
-        canHaveAnyProvider,
-        configuredTargetFunction,
-        externalBindingsFunction,
-        ruleDefinitionEnvironment,
-        new ConfigurationFragmentPolicy.Builder()
-            .requiresConfigurationFragments(allowedConfigurationFragments)
-            .setMissingFragmentPolicy(missingFragmentPolicy)
-            .build(),
-        supportsConstraintChecking,
-        attributes);
-  }
-
-  /**
    * Constructs an instance of RuleClass whose name is 'name', attributes
    * are 'attributes'. The {@code srcsAllowedFiles} determines which types of
    * files are allowed as parameters to the "srcs" attribute; rules are always
