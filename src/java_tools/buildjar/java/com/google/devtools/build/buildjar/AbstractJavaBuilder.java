@@ -108,10 +108,10 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
       result = compileJavaLibrary(build, err);
       if (result.isOK()) {
         buildJar(build);
-        if (!build.getProcessors().isEmpty()) {
-          if (build.getGeneratedSourcesOutputJar() != null) {
-            buildGensrcJar(build);
-          }
+      }
+      if (!build.getProcessors().isEmpty()) {
+        if (build.getGeneratedSourcesOutputJar() != null) {
+          buildGensrcJar(build);
         }
       }
     } finally {
