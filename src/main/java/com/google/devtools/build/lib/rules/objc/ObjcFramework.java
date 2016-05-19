@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.objc.ObjcCommon.Builder;
 import com.google.devtools.build.lib.rules.objc.ObjcSdkFrameworks.Attributes;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Implementation for the {@code objc_framework} rule.
@@ -34,15 +36,19 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     Attributes sdkFrameworkAttributes = new Attributes(ruleContext);
 
+    ObjcCommon.Builder commonBuilder =
+        new Builder(ruleContext)
+            .addExtraSdkFrameworks(sdkFrameworkAttributes.sdkFrameworks())
+            .addExtraWeakSdkFrameworks(sdkFrameworkAttributes.weakSdkFrameworks())
+            .addExtraSdkDylibs(sdkFrameworkAttributes.sdkDylibs());
+
     ImmutableList<Artifact> frameworkImports =
         ruleContext.getPrerequisiteArtifacts("framework_imports", Mode.TARGET).list();
-    ObjcCommon common = new ObjcCommon.Builder(ruleContext)
-        .addFrameworkImports(
-            frameworkImports)
-        .addExtraSdkFrameworks(sdkFrameworkAttributes.sdkFrameworks())
-        .addExtraWeakSdkFrameworks(sdkFrameworkAttributes.weakSdkFrameworks())
-        .addExtraSdkDylibs(sdkFrameworkAttributes.sdkDylibs())
-        .build();
+    if (ruleContext.attributes().get("is_dynamic", Type.BOOLEAN)) {
+      commonBuilder.addDynamicFrameworkImports(frameworkImports);
+    } else {
+      commonBuilder.addStaticFrameworkImports(frameworkImports);
+    }
 
     Iterable<String> containerErrors =
         ObjcCommon.notInContainerErrors(frameworkImports, ObjcCommon.FRAMEWORK_CONTAINER_TYPE);
@@ -52,7 +58,7 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(STABLE_ORDER);
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild)
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addProvider(ObjcProvider.class, commonBuilder.build().getObjcProvider())
         .build();
   }
 }

@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_FRAMEWORKS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
@@ -31,6 +30,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
@@ -438,8 +438,7 @@ public final class CompilationSupport {
         .add(compileFlagsForClang(appleConfiguration))
         .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add(objcConfiguration.getCoptsForCompilationMode())
-        .addBeforeEachPath(
-            "-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
+        .addBeforeEachPath("-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
         .addBeforeEachExecPath("-include", compilationArtifacts.getPchFile().asSet())
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
         .addBeforeEachPath("-isystem", objcProvider.get(INCLUDE_SYSTEM))
@@ -480,22 +479,24 @@ public final class CompilationSupport {
     }
 
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getIosCpuPlatform())
-        .setMnemonic("ObjcCompile")
-        .setExecutable(xcrunwrapper(ruleContext))
-        .setCommandLine(commandLine.build())
-        .addInput(sourceFile)
-        .addInputs(additionalInputs.build())
-        .addOutput(objFile)
-        .addOutputs(gcnoFiles.build())
-        .addOutput(dotdFile)
-        .addTransitiveInputs(objcProvider.get(HEADER))
-        .addTransitiveInputs(objcProvider.get(MODULE_MAP))
-        .addInputs(compilationArtifacts.getPrivateHdrs())
-        .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
-        .addInputs(compilationArtifacts.getPchFile().asSet())
-        .build(ruleContext));
+    ruleContext.registerAction(
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                ruleContext, appleConfiguration.getIosCpuPlatform())
+            .setMnemonic("ObjcCompile")
+            .setExecutable(xcrunwrapper(ruleContext))
+            .setCommandLine(commandLine.build())
+            .addInput(sourceFile)
+            .addInputs(additionalInputs.build())
+            .addOutput(objFile)
+            .addOutputs(gcnoFiles.build())
+            .addOutput(dotdFile)
+            .addTransitiveInputs(objcProvider.get(HEADER))
+            .addTransitiveInputs(objcProvider.get(MODULE_MAP))
+            .addInputs(compilationArtifacts.getPrivateHdrs())
+            .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .addInputs(compilationArtifacts.getPchFile().asSet())
+            .build(ruleContext));
   }
 
   /**
@@ -957,7 +958,8 @@ public final class CompilationSupport {
             .addOutputs(linkmap.asSet())
             .addTransitiveInputs(bazelBuiltLibraries)
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
-            .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
+            .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .addInputs(ccLibraries)
             .addInputs(extraLinkInputs)
             .addInputs(prunedJ2ObjcArchives)
@@ -1077,6 +1079,12 @@ public final class CompilationSupport {
         .add("-objc_abi_version")
         .add("-Xlinker")
         .add("2")
+        // Set the rpath so that at runtime dylibs can be loaded from the bundle root's "Frameworks"
+        // directory.
+        .add("-Xlinker")
+        .add("-rpath")
+        .add("-Xlinker")
+        .add("@executable_path/Frameworks")
         .add("-fobjc-link-runtime")
         .add(DEFAULT_LINKER_FLAGS)
         .addBeforeEach("-framework", frameworkNames(objcProvider))
@@ -1106,13 +1114,6 @@ public final class CompilationSupport {
 
     if (objcProvider.is(USES_SWIFT)) {
       commandLine.add("-L").add(AppleToolchain.swiftLibDir(appleConfiguration));
-    }
-
-    if (objcProvider.is(USES_SWIFT) || objcProvider.is(USES_FRAMEWORKS)) {
-      // Enable loading bundled frameworks.
-      commandLine
-          .add("-Xlinker").add("-rpath")
-          .add("-Xlinker").add("@executable_path/Frameworks");
     }
 
     for (String linkopt : attributes.linkopts()) {

@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.rules.objc.ObjcCommon.uniqueContainers;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_FRAMEWORKS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -123,8 +121,13 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
     ObjcProvider frameworkProvider =
         new ObjcProvider.Builder()
             .add(MERGE_ZIP, ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))
-            .add(FLAG, USES_FRAMEWORKS)
-            .addAll(FRAMEWORK_FILE, frameworkImports)
+            // TODO(dmishe): The framework returned by this rule is dynamic, not static. But because
+            // this rule (incorrectly?) propagates its contents as a bundle (see "IPA" above) we
+            // cannot declare its files as dynamic framework files because they would then be copied
+            // into the final IPA, conflicting with the exported bundle. Instead we propagate using
+            // the static frameworks key which will see the files correctly added to compile and
+            // linker actions but not added to the final bundle.
+            .addAll(STATIC_FRAMEWORK_FILE, frameworkImports)
             .addAll(
                 FRAMEWORK_DIR,
                 uniqueContainers(frameworkImports, ObjcCommon.FRAMEWORK_CONTAINER_TYPE))

@@ -228,11 +228,19 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(LINK_ORDER, "framework_dir", PathFragment.class);
 
   /**
-   * Files in {@code .framework} directories that should be included as inputs when compiling and
-   * linking.
+   * Files in {@code .framework} directories belonging to a statically linked framework. They should
+   * be included as inputs when compiling and linking.
    */
-  public static final Key<Artifact> FRAMEWORK_FILE =
-      new Key<>(STABLE_ORDER, "framework_file", Artifact.class);
+  public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
+      new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
+
+  /**
+   * Files in {@code .framework} directories belonging to a dynamically linked framework. They
+   * should be included as inputs when compiling and linking as well as copied into the final
+   * application bundle.
+   */
+  public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
+      new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
 
   /**
    * Bundles which should be linked in as a nested bundle to the final application.
@@ -322,11 +330,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     USES_SWIFT,
 
     /**
-     * Indicates that the resulting bundle will have embedded frameworks. This affects linking step.
-     */
-    USES_FRAMEWORKS,
-
-    /**
      * Indicates that watch os 1 extension is present in the bundle.
      */
     HAS_WATCH1_EXTENSION,
@@ -357,7 +360,8 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           XCDATAMODEL,
           MODULE_MAP,
           MERGE_ZIP,
-          FRAMEWORK_FILE,
+          STATIC_FRAMEWORK_FILE,
+          DYNAMIC_FRAMEWORK_FILE,
           DEBUG_SYMBOLS,
           DEBUG_SYMBOLS_PLIST,
           BREAKPAD_FILE,

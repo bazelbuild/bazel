@@ -488,13 +488,14 @@ public final class ReleaseBundlingSupport {
   }
 
   private String signingCommandLine() {
-    ImmutableList.Builder<String> dirsToSign = new ImmutableList.Builder<>();
-
-    // Explicitly sign Swift dylibs. Unfortunately --deep option on codesign doesn't do this
-    // automatically.
     // The order here is important. The innermost code must singed first.
+    ImmutableList.Builder<String> dirsToSign = new ImmutableList.Builder<>();
     String bundleDir = ShellUtils.shellEscape(bundling.getBundleDir());
-    if (objcProvider.is(USES_SWIFT)) {
+
+    // Explicitly sign the frameworks (raw .dylib files and .framework directories in Frameworks/).
+    // Unfortunately the --deep option on codesign doesn't do this automatically.
+    if (objcProvider.is(USES_SWIFT)
+        || !objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_FILE).isEmpty()) {
       dirsToSign.add(bundleDir + "/Frameworks/*");
     }
     dirsToSign.add(bundleDir);
@@ -686,21 +687,25 @@ public final class ReleaseBundlingSupport {
     // We want access to #import-able things from our test rig's dependency graph, but we don't
     // want to link anything since that stuff is shared automatically by way of the
     // -bundle_loader linker flag.
-    ObjcProvider partialObjcProvider = new ObjcProvider.Builder()
-        .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.DEFINE, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.SOURCE, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.WEAK_SDK_FRAMEWORK, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_DIR, objcProvider)
-        .addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_FILE, objcProvider)
-        .build();
+    ObjcProvider partialObjcProvider =
+        new ObjcProvider.Builder()
+            .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.DEFINE, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.SOURCE, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.WEAK_SDK_FRAMEWORK, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_DIR, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, objcProvider)
+            .build();
     // TODO(bazel-team): Handle the FRAMEWORK_DIR key properly. We probably want to add it to
     // framework search paths, but not actually link it with the -framework flag.
-    return new XcTestAppProvider(intermediateArtifacts
-        .combinedArchitectureBinary(), releaseBundling.getIpaArtifact(), partialObjcProvider);
+    return new XcTestAppProvider(
+        intermediateArtifacts.combinedArchitectureBinary(),
+        releaseBundling.getIpaArtifact(),
+        partialObjcProvider);
   }
 
   /**

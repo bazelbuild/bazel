@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -36,10 +37,16 @@ public class ObjcFrameworkRule implements RuleDefinition {
         The list of files under a <code>.framework</code> directory which are
         provided to Objective-C targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("framework_imports", LABEL_LIST)
-            .allowedFileTypes(FileTypeSet.ANY_FILE)
-            .mandatory()
-            .nonEmpty())
+        .add(
+            attr("framework_imports", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .mandatory()
+                .nonEmpty())
+        /* <!-- #BLAZE_RULE(objc_framework).ATTRIBUTE(is_dynamic) -->
+        Indicates whether this framework is linked dynamically. If this attribute is set, the
+        framework will be copied into the final application bundle.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("is_dynamic", Type.BOOLEAN).value(false))
         .build();
   }
 

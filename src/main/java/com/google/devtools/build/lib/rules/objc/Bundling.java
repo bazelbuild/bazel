@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
@@ -54,6 +55,14 @@ import java.util.Set;
  */
 @Immutable
 final class Bundling {
+
+  /**
+   * Names of top-level directories in dynamic frameworks (i.e. directly under the
+   * {@code *.framework} directory) that should not be copied into the final bundle.
+   */
+  private static final ImmutableSet<String> STRIP_FRAMEWORK_DIRS =
+      ImmutableSet.of("Headers", "PrivateHeaders", "Modules");
+
   static final class Builder {
     private String name;
     private String bundleDirFormat;
@@ -259,6 +268,34 @@ final class Bundling {
       return binaryStringsBuilder.build();
     }
 
+    private NestedSet<BundleableFile> dynamicFrameworkFiles() {
+      NestedSetBuilder<BundleableFile> frameworkFilesBuilder = NestedSetBuilder.stableOrder();
+      for (Artifact frameworkFile : objcProvider.get(DYNAMIC_FRAMEWORK_FILE)) {
+        PathFragment frameworkDir =
+            ObjcCommon.nearestContainerMatching(ObjcCommon.FRAMEWORK_CONTAINER_TYPE, frameworkFile)
+                .get();
+        String frameworkName = frameworkDir.getBaseName();
+        PathFragment inFrameworkPath = frameworkFile.getExecPath().relativeTo(frameworkDir);
+        if (inFrameworkPath.getFirstSegment(STRIP_FRAMEWORK_DIRS) == 0) {
+          continue;
+        }
+        // If this is a top-level file in the framework set the executable bit (to make sure we set
+        // the bit on the actual dylib binary - other files may also get it but we have no way to
+        // distinguish them).
+        int permissions =
+            inFrameworkPath.segmentCount() == 1
+                ? BundleableFile.EXECUTABLE_EXTERNAL_FILE_ATTRIBUTE
+                : BundleableFile.DEFAULT_EXTERNAL_FILE_ATTRIBUTE;
+        BundleableFile bundleFile =
+            new BundleableFile(
+                frameworkFile,
+                "Frameworks/" + frameworkName + "/" + inFrameworkPath.getPathString(),
+                permissions);
+        frameworkFilesBuilder.add(bundleFile);
+      }
+      return frameworkFilesBuilder.build();
+    }
+
     /**
      * Filters files that would map to the same location in the bundle, adding only one copy to the
      * set of files returned.
@@ -289,12 +326,16 @@ final class Bundling {
       Optional<Artifact> actoolzipOutput = actoolzipOutput();
       Optional<Artifact> combinedArchitectureBinary = combinedArchitectureBinary();
       NestedSet<BundleableFile> binaryStringsFiles = binaryStringsFiles();
+      NestedSet<BundleableFile> dynamicFrameworks = dynamicFrameworkFiles();
       NestedSet<Artifact> mergeZips = mergeZips(actoolzipOutput);
       NestedSet<Artifact> rootMergeZips =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(objcProvider.get(ROOT_MERGE_ZIP)).build();
 
-      bundleFilesBuilder.addAll(binaryStringsFiles).addAll(objcProvider.get(BUNDLE_FILE));
+      bundleFilesBuilder
+          .addAll(binaryStringsFiles)
+          .addAll(dynamicFrameworks)
+          .addAll(objcProvider.get(BUNDLE_FILE));
       ImmutableList<BundleableFile> bundleFiles =
           deduplicateByBundlePaths(bundleFilesBuilder.build());
 
@@ -305,7 +346,6 @@ final class Bundling {
               .addAll(bundleInfoplist.asSet())
               .addTransitive(mergeZips)
               .addTransitive(rootMergeZips)
-              .addAll(BundleableFile.toArtifacts(binaryStringsFiles))
               .addAll(BundleableFile.toArtifacts(bundleFiles));
 
       return new Bundling(
