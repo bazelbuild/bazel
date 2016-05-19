@@ -94,7 +94,6 @@ public class DependencySetWindowsTest {
     Path file1 = fileSystem.getPath("C:/blah/blah/genhello/hello.cc");
     Path file2 = fileSystem.getPath("C:/blah/blah/genhello/hello.h");
     Path file2DiffCase = fileSystem.getPath("C:/Blah/blah/Genhello/hello.h");
-    System.out.println(file2.equals(file2DiffCase));
     String filename = "hello.o";
     Path dotd = scratch.file("/tmp/foo.d",
         filename + ": \\",

@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 /**
  * Representation of a set of file dependencies for a given output file. There
  * are generally one input dependency and a bunch of include dependencies. The
- * files are stored as {@code PathFragment}s and may be relative or absolute.
+ * files are stored as {@code Path}s and may be relative or absolute.
  * <p>
  * The serialized format read and written is equivalent and compatible with the
  * ".d" file produced by the -MM for a given out (.o) file.
@@ -82,7 +82,7 @@ public final class DependencySet {
   }
 
   /**
-   * Gets an unmodifiable view of the set of dependencies in PathFragment form
+   * Gets an unmodifiable view of the set of dependencies in {@link Path} form
    * from this DependencySet instance.
    */
   public Collection<Path> getDependencies() {
@@ -93,18 +93,19 @@ public final class DependencySet {
    * Adds a given collection of dependencies in Path form to this DependencySet
    * instance. Paths are converted to root-relative
    */
+  @VisibleForTesting // only called from DependencySetTest
   public void addDependencies(Collection<Path> deps) {
     for (Path d : deps) {
-      addDependency(d.relativeTo(root));
+      Preconditions.checkArgument(d.startsWith(root));
+      dependencies.add(d);
     }
   }
 
   /**
-   * Adds a given dependency in PathFragment form to this DependencySet
-   * instance.
+   * Adds a given dependency to this DependencySet instance.
    */
-  private void addDependency(PathFragment dep) {
-    Path depPath = root.getRelative(Preconditions.checkNotNull(dep));
+  private void addDependency(String dep) {
+    Path depPath = root.getRelative(dep);
     dependencies.add(depPath);
   }
 
@@ -194,7 +195,7 @@ public final class DependencySet {
         if (token.contains("\\ ")) {
           token = token.replace("\\ ", " ");
         }
-        addDependency(new PathFragment(token).normalize());
+        addDependency(token);
       }
     }
     return this;
