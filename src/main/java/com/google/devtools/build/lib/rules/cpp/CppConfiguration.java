@@ -328,7 +328,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableMap<String, String> commandLineDefines;
   private final String solibDirectory;
   private final CompilationMode compilationMode;
-  private final Path execRoot;
+
   /**
    *  If true, the ConfiguredTarget is only used to get the necessary cross-referenced
    *  CppCompilationContexts, but registering build actions is disabled.
@@ -349,7 +349,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.ccToolchainLabel = params.ccToolchainLabel;
     this.compilationMode = params.commonOptions.compilationMode;
     this.lipoContextCollector = cppOptions.lipoCollector;
-    this.execRoot = params.execRoot;
+
 
     this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getPathFragment();
 
