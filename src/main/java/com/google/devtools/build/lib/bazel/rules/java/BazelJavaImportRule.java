@@ -83,8 +83,9 @@ public final class BazelJavaImportRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = java_import, TYPE = LIBRARY, FAMILY = Java) -->
 
 <p>
-  This rule allows the use of precompiled JAR files as libraries for
-  <code><a href="#java_library">java_library</a></code> rules.
+  This rule allows the use of precompiled <code>.jar</code> files as
+  libraries for <code><a href="#java_library">java_library</a></code> and
+  <code><a href="#java_binary">java_binary</a></code> rules.
 </p>
 
 <h4 id="java_import_examples">Examples</h4>

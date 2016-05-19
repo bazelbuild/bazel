@@ -82,9 +82,3 @@ public class JavaImportBaseRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = $java_import_base, TYPE = LIBRARY, FAMILY = Java) -->
-
-  <p>This rule allows the use of precompiled JAR files as libraries for
-  <code><a href="#java_library">java_library</a></code> rules.</p>
-
-<!-- #END_BLAZE_RULE -->*/
