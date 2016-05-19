@@ -1108,8 +1108,9 @@ public class ObjcRuleClasses {
           <p>
           The tool is invoked with a single positional argument which represents the path to a
           directory containing the unzipped contents of the IPA. The only entry in this directory
-          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
-          must be made in this directory, whose contents will be (optionally) signed and then
+          will be the <code>Payload</code> root directory of the IPA (for an ios_application) or
+          the <code>PlugIns</code> root directory (for an ios_extension). Any changes made by the
+          tool must be made in this directory, whose contents will be (optionally) signed and then
           zipped up as the final IPA after the tool terminates.
           <p>
           The tool's execution must be hermetic given these inputs to ensure that its result can be
