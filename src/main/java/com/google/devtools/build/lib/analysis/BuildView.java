@@ -83,6 +83,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -800,7 +801,7 @@ public class BuildView {
       return ImmutableMap.of();
     }
     Rule rule = (Rule) ctg.getTarget();
-    ImmutableMap.Builder<Label, ConfigMatchingProvider> keys = ImmutableMap.builder();
+    Map<Label, ConfigMatchingProvider> keys = new LinkedHashMap<>();
     RawAttributeMapper mapper = RawAttributeMapper.of(rule);
     for (Attribute attribute : rule.getAttributes()) {
       for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
@@ -812,7 +813,7 @@ public class BuildView {
         keys.put(label, Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
       }
     }
-    return keys.build();
+    return ImmutableMap.copyOf(keys);
   }
 
   private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(

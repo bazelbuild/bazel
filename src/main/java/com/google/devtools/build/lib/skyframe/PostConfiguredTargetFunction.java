@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -149,14 +150,14 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableMap.Builder<Label, ConfigMatchingProvider> conditions = ImmutableMap.builder();
+    Map<Label, ConfigMatchingProvider> conditions = new LinkedHashMap<>();
     for (Map.Entry<SkyKey, SkyValue> entry : cts.entrySet()) {
       Label label = ((ConfiguredTargetKey) entry.getKey().argument()).getLabel();
       ConfiguredTarget ct = ((ConfiguredTargetValue) entry.getValue()).getConfiguredTarget();
       conditions.put(label, Preconditions.checkNotNull(
           ct.getProvider(ConfigMatchingProvider.class)));
     }
-    return conditions.build();
+    return ImmutableMap.copyOf(conditions);
   }
 
   @Nullable
