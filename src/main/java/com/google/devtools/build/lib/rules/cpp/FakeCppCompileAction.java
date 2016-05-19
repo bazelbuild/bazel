@@ -46,8 +46,6 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.logging.Logger;
 
-import javax.annotation.Nullable;
-
 /**
  * Action that represents a fake C++ compilation step.
  */
@@ -78,7 +76,6 @@ public class FakeCppCompileAction extends CppCompileAction {
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       Predicate<String> nocopts,
-      @Nullable String fdoBuildStamp,
       RuleContext ruleContext,
       boolean usePic) {
     super(
@@ -108,7 +105,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         actionContext,
         copts,
         nocopts,
-        fdoBuildStamp,
         VOID_SPECIAL_INPUTS_HANDLER,
         ImmutableList.<IncludeScannable>of(),
         GUID,
