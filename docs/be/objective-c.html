@@ -1132,8 +1132,9 @@ passed to the application.</p>
           <p>
           The tool is invoked with a single positional argument which represents the path to a
           directory containing the unzipped contents of the IPA. The only entry in this directory
-          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
-          must be made in this directory, whose contents will be (optionally) signed and then
+          will be the <code>Payload</code> root directory of the IPA (for an ios_application) or
+          the <code>PlugIns</code> root directory (for an ios_extension). Any changes made by the
+          tool must be made in this directory, whose contents will be (optionally) signed and then
           zipped up as the final IPA after the tool terminates.
           <p>
           The tool's execution must be hermetic given these inputs to ensure that its result can be
@@ -1605,8 +1606,9 @@ between how each thing is processed:
           <p>
           The tool is invoked with a single positional argument which represents the path to a
           directory containing the unzipped contents of the IPA. The only entry in this directory
-          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
-          must be made in this directory, whose contents will be (optionally) signed and then
+          will be the <code>Payload</code> root directory of the IPA (for an ios_application) or
+          the <code>PlugIns</code> root directory (for an ios_extension). Any changes made by the
+          tool must be made in this directory, whose contents will be (optionally) signed and then
           zipped up as the final IPA after the tool terminates.
           <p>
           The tool's execution must be hermetic given these inputs to ensure that its result can be
@@ -3926,7 +3928,7 @@ the final iOS application.
     objc_framework
   </h2>
 
-  <pre class="rule-signature">objc_framework(<a href="#objc_framework.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_framework.framework_imports">framework_imports</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_framework.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_framework.sdk_frameworks">sdk_frameworks</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_framework.weak_sdk_frameworks">weak_sdk_frameworks</a>)</pre>
+  <pre class="rule-signature">objc_framework(<a href="#objc_framework.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_framework.framework_imports">framework_imports</a>, <a href="#objc_framework.is_dynamic">is_dynamic</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_framework.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_framework.sdk_frameworks">sdk_frameworks</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_framework.weak_sdk_frameworks">weak_sdk_frameworks</a>)</pre>
 
 
 <p>This rule encapsulates an already-built framework. It is defined by a list
@@ -3962,6 +3964,17 @@ of files in one or more <code>.framework</code> directories.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; required</code></p>
                             The list of files under a <code>.framework</code> directory which are
         provided to Objective-C targets that depend on this target.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="objc_framework.is_dynamic">
+          <code>is_dynamic</code>
+        </td>
+        <td>
+                    <p><code>Boolean; optional; default is 0</code></p>
+                            Indicates whether this framework is linked dynamically. If this attribute is set, the
+        framework will be copied into the final application bundle.
 
         </td>
       </tr>
