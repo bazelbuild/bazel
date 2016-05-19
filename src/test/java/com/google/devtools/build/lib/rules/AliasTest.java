@@ -20,12 +20,16 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 
 import org.junit.Test;
+
+import java.util.Set;
 
 /**
  * Unit tests for the <code>alias</code> rule.
@@ -113,13 +117,43 @@ public class AliasTest extends BuildViewTestCase {
   @Test
   public void licensesAreCollected() throws Exception {
     scratch.file("a/BUILD",
-        "filegroup(name='a', licenses=['unencumbered'])",
-        "alias(name='b', actual=':a', licenses=['restricted'])",
-        "filegroup(name='c', srcs=[':b'])");
+        "filegroup(name='a', licenses=['restricted'], output_licenses=['unencumbered'])",
+        "alias(name='b', actual=':a')",
+        "filegroup(name='c', srcs=[':b'])",
+        "genrule(name='d', outs=['do'], tools=[':b'], cmd='cmd')",
+        "genrule(name='e', outs=['eo'], srcs=[':b'], cmd='cmd')");
     useConfiguration("--check_licenses");
+    assertThat(getLicenses("//a:d", "//a:a")).containsExactly(LicenseType.UNENCUMBERED);
+    assertThat(getLicenses("//a:e", "//a:a")).containsExactly(LicenseType.RESTRICTED);
+    assertThat(getLicenses("//a:b", "//a:a")).containsExactly(LicenseType.RESTRICTED);
     assertThat(
-        getConfiguredTarget("//a:c").getProvider(LicensesProvider.class).getTransitiveLicenses())
-        .hasSize(2);
+        getConfiguredTarget("//a:b").getProvider(LicensesProvider.class).getTransitiveLicenses())
+        .hasSize(1);
+  }
+
+  @Test
+  public void assertNoLicensesAttribute() throws Exception {
+    scratch.file("a/BUILD",
+        "filegroup(name='a')",
+        "alias(name='b', actual=':a', licenses=['unencumbered'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:b");
+    assertContainsEvent("no such attribute 'licenses' in 'alias' rule");
+  }
+
+  private Set<LicenseType> getLicenses(String topLevelTarget, String licenseTarget)
+      throws Exception {
+    LicensesProvider licenses =
+        getConfiguredTarget(topLevelTarget).getProvider(LicensesProvider.class);
+    for (TargetLicense license : licenses.getTransitiveLicenses()) {
+      if (license.getLabel().toString().equals(licenseTarget)) {
+        return license.getLicense().getLicenseTypes();
+      }
+    }
+
+    throw new IllegalStateException("License for '" + licenseTarget
+        + "' not found in the transitive closure of '" + topLevelTarget + "'");
   }
 
   @Test
