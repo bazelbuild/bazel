@@ -36,6 +36,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * An experimental state tracker for the new experimental UI.
@@ -70,6 +71,7 @@ class ExperimentalStateTracker {
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private LoadingProgressReceiver loadingProgressReceiver;
+  private AtomicInteger numPackagesLoaded;
 
   ExperimentalStateTracker(Clock clock, int targetWidth) {
     this.runningActions = new ArrayDeque<>();
@@ -92,6 +94,7 @@ class ExperimentalStateTracker {
   void loadingStarted(LoadingPhaseStartedEvent event) {
     status = null;
     loadingProgressReceiver = event.getLoadingProgressReceiver();
+    numPackagesLoaded = event.getNumPackagesLoaded();
   }
 
   void loadingComplete(LoadingPhaseCompleteEvent event) {
@@ -107,6 +110,7 @@ class ExperimentalStateTracker {
 
   void analysisComplete(AnalysisPhaseCompleteEvent event) {
     status = null;
+    numPackagesLoaded = null;
   }
 
   void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
@@ -263,6 +267,9 @@ class ExperimentalStateTracker {
    * bar shows time information relative to the current time.
    */
   boolean progressBarTimeDependent() {
+    if (numPackagesLoaded != null) {
+      return true;
+    }
     if (status != null) {
       return false;
     }
@@ -313,6 +320,9 @@ class ExperimentalStateTracker {
         terminalWriter.failStatus();
       }
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
+      if (numPackagesLoaded != null) {
+        terminalWriter.append(" (" + numPackagesLoaded.get() + " packages loaded)");
+      }
       return;
     }
     if (loadingProgressReceiver != null) {
