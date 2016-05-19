@@ -57,6 +57,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class LinkCommandLine extends CommandLine {
+  private final String actionName;
   private final BuildConfiguration configuration;
   private final CppConfiguration cppConfiguration;
   private final ActionOwner owner;
@@ -85,14 +86,8 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable private final Artifact paramFile;
   @Nullable private final Artifact interfaceSoBuilder;
 
-
-  /**
-   * A string constant for the c++ link action, used to access the feature
-   * configuration.
-   */
-  public static final String CPP_LINK = "c++-link";
-
   private LinkCommandLine(
+      String actionName,
       BuildConfiguration configuration,
       ActionOwner owner,
       Artifact output,
@@ -140,6 +135,7 @@ public final class LinkCommandLine extends CommandLine {
           "the need whole archive flag must be false for static links");
     }
 
+    this.actionName = actionName;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.variables = variables;
@@ -691,7 +687,7 @@ public final class LinkCommandLine extends CommandLine {
     argv.addAll(cppConfiguration.getLinkOptions());
     // The feature config can be null for tests.
     if (featureConfiguration != null) {
-      argv.addAll(featureConfiguration.getCommandLine(CPP_LINK, variables));
+      argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
     }
   }
 
@@ -1001,6 +997,7 @@ public final class LinkCommandLine extends CommandLine {
     private final ActionOwner owner;
     @Nullable private final RuleContext ruleContext;
 
+    private String actionName;
     @Nullable private Artifact output;
     @Nullable private Artifact interfaceOutput;
     @Nullable private Artifact symbolCountsOutput;
@@ -1063,6 +1060,7 @@ public final class LinkCommandLine extends CommandLine {
         variables = buildVariables.build();
       }
       return new LinkCommandLine(
+          actionName,
           configuration,
           owner,
           output,
@@ -1087,6 +1085,14 @@ public final class LinkCommandLine extends CommandLine {
           interfaceSoBuilder,
           variables,
           featureConfiguration);
+    }
+
+    /**
+     * Sets the name of the action for the purposes of querying the crosstool.
+     */
+    public Builder setActionName(String actionName) {
+      this.actionName = actionName;
+      return this;
     }
 
     /**
