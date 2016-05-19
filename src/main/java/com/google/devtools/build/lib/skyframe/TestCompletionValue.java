@@ -44,7 +44,7 @@ public class TestCompletionValue implements SkyValue {
           public SkyKey apply(ConfiguredTarget ct) {
             return SkyKey.create(
                 SkyFunctions.TEST_COMPLETION,
-                new TestCompletionKey(new LabelAndConfiguration(ct), exclusive));
+                new TestCompletionKey(LabelAndConfiguration.of(ct), exclusive));
           }
         });
   }

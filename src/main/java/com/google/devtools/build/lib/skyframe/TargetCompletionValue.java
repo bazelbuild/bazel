@@ -17,8 +17,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -48,12 +46,7 @@ public class TargetCompletionValue implements SkyValue {
         new Function<ConfiguredTarget, SkyKey>() {
           @Override
           public SkyKey apply(ConfiguredTarget ct) {
-            AliasProvider aliasProvider = ct.getProvider(AliasProvider.class);
-            Label label = aliasProvider != null
-                ? aliasProvider.getAliasChain().get(0)
-                : ct.getLabel();
-            return SkyKey.create(SkyFunctions.TARGET_COMPLETION,
-                LabelAndConfiguration.of(label, ct.getConfiguration()));
+            return SkyKey.create(SkyFunctions.TARGET_COMPLETION, LabelAndConfiguration.of(ct));
           }
         });
   }
