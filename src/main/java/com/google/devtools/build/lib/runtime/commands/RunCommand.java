@@ -497,7 +497,8 @@ public class RunCommand implements BlazeCommand  {
    * *_test rules, *_binary rules, generated outputs, and inputs.
    */
   private static boolean isExecutable(Target target) {
-    return isPlainFile(target) || isExecutableNonTestRule(target) || TargetUtils.isTestRule(target);
+    return isPlainFile(target) || isExecutableNonTestRule(target) || TargetUtils.isTestRule(target)
+        || isAliasRule(target);
   }
 
   /**
@@ -517,5 +518,14 @@ public class RunCommand implements BlazeCommand  {
 
   private static boolean isPlainFile(Target target) {
     return (target instanceof OutputFile) || (target instanceof InputFile);
+  }
+
+  private static boolean isAliasRule(Target target) {
+    if (!(target instanceof Rule)) {
+      return false;
+    }
+
+    Rule rule = (Rule) target;
+    return rule.getRuleClass().equals("alias") || rule.getRuleClass().equals("bind");
   }
 }
