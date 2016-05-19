@@ -509,8 +509,8 @@ public final class AndroidRuleClasses {
               .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(javacopts) -->
           Extra compiler options for this target.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
-          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           <p>
           These compiler options are passed to javac after the global compiler options.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -611,8 +611,8 @@ public final class AndroidRuleClasses {
               .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
-          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("dexopts", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dex_shards) -->

@@ -57,8 +57,8 @@ public class LocalRepositoryRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <p>Allows targets from a local directory to be bound. This means that the current repository can
-  use targets defined in this other directory. See the <a href="#bind_examples">bind section</a>
-  for more details.</p>
+  use targets defined in this other directory. See the <a href="${link bind_examples}">bind
+  section</a> for more details.</p>
 
 <h4 id="local_repository_examples">Examples</h4>
 

@@ -45,7 +45,7 @@ public final class BazelShTestRule implements RuleDefinition {
 
 <p>A <code>sh_test()</code> rule creates a test written as a Bourne shell script.</p>
 
-<p>See the <a href="common-definitions.html#common-attributes-tests">
+<p>See the <a href="${link common-definitions#common-attributes-tests}">
 attributes common to all test rules (*_test)</a>.</p>
 
 <h4 id="sh_test_examples">Examples</h4>

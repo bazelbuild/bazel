@@ -64,7 +64,7 @@ public final class BazelShLibraryRule implements RuleDefinition {
 </p>
 
 <p>
-  You can use the <a href="general.html#filegroup"><code>filegroup</code></a> rule to aggregate data
+  You can use the <a href="${link filegroup}"><code>filegroup</code></a> rule to aggregate data
   files.
 </p>
 

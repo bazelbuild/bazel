@@ -41,7 +41,7 @@ public final class BazelActionListenerRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("mnemonics", STRING_LIST).mandatory())
         /*<!-- #BLAZE_RULE(action_listener).ATTRIBUTE(extra_actions) -->
-        A list of <code><a href="#extra_action">extra_action</a></code> targets
+        A list of <code><a href="${link extra_action}">extra_action</a></code> targets
         this <code>action_listener</code> should add to the build graph.
         E.g. <code>[ "//my/tools:analyzer" ]</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -75,20 +75,21 @@ public final class BazelActionListenerRule implements RuleDefinition {
 <p>
   An <code>action_listener</code> rule doesn't produce any output itself.
   Instead, it allows tool developers to insert
-  <a href="#extra_action"><code>extra_action</code></a>s into the build system,
-  by providing a mapping from action to <a href="#extra_action"><code>extra_action</code></a>.
+  <a href="${link extra_action}"><code>extra_action</code></a>s into the build system,
+  by providing a mapping from action to <a href="${link extra_action}"><code>extra_action</code>
+  </a>.
 </p>
 
 <p>
   This rule's arguments map action mnemonics to
-  <a href="#extra_action"><code>extra_action</code></a> rules.
+  <a href="${link extra_action}"><code>extra_action</code></a> rules.
 </p>
 
 <p>
   By specifying the option <a href="../bazel-user-manual.html#flag--experimental_action_listener">
   <code>--experimental_action_listener=&lt;label&gt;</code></a>,
   the build will use the specified <code>action_listener</code> to insert
-  <a href="#extra_action"><code>extra_action</code></a>s into the build graph.
+  <a href="${link extra_action}"><code>extra_action</code></a>s into the build graph.
 </p>
 
 <h4 id="action_listener_example">Example</h4>

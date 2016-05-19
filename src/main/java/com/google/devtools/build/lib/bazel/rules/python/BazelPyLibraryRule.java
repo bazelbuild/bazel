@@ -34,7 +34,7 @@ public final class BazelPyLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(py_library).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the library target.
         See general comments about <code>deps</code> at
-        <a href="common-definitions.html#common-attributes">
+        <a href="${link common-definitions#common-attributes}">
         Attributes common to all build rules</a>.
         In practice, these arguments are treated like those in <code>srcs</code>;
         you may move items between these lists willy-nilly.  It's probably more
@@ -44,7 +44,7 @@ public final class BazelPyLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(py_library).ATTRIBUTE(data) -->
         The list of files needed by this library at runtime.
         See general comments about <code>data</code> at
-        <a href="common-definitions.html#common-attributes">
+        <a href="${link common-definitions#common-attributes}">
         Attributes common to all build rules</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 

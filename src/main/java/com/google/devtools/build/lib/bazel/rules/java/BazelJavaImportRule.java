@@ -43,7 +43,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the target.
-        See <a href="#java_library.deps">java_library.deps</a>.
+        See <a href="${link java_library.deps}">java_library.deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("deps", LABEL_LIST)
             .allowedRuleClasses(ALLOWED_DEPS)
@@ -51,7 +51,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
             .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
-        See <a href="#java_library.exports">java_library.exports</a>.
+        See <a href="${link java_library.exports}">java_library.exports</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
             .allowedRuleClasses(ALLOWED_DEPS)
@@ -59,7 +59,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
             .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
-        See <a href="#java_library.runtime_deps">java_library.runtime_deps</a>.
+        See <a href="${link java_library.runtime_deps}">java_library.runtime_deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtime_deps", LABEL_LIST)
             .allowedFileTypes(JavaSemantics.JAR)
@@ -84,8 +84,8 @@ public final class BazelJavaImportRule implements RuleDefinition {
 
 <p>
   This rule allows the use of precompiled <code>.jar</code> files as
-  libraries for <code><a href="#java_library">java_library</a></code> and
-  <code><a href="#java_binary">java_binary</a></code> rules.
+  libraries for <code><a href="${link java_library}">java_library</a></code> and
+  <code><a href="${link java_binary}">java_binary</a></code> rules.
 </p>
 
 <h4 id="java_import_examples">Examples</h4>

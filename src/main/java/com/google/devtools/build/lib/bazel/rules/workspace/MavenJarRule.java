@@ -40,7 +40,7 @@ public class MavenJarRule implements RuleDefinition {
         <a href="https://maven.apache.org/pom.html#Maven_Coordinates">Maven coordinates</a>.
 
         <p>These descriptions are of the form &lt;groupId&gt:&lt;artifactId&gt;:&lt;version&gt;,
-        see <a href="#maven_jar_examples">the documentation below</a> for an example.
+        see <a href="${link maven_jar_examples}">the documentation below</a> for an example.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("artifact", Type.STRING))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repository) -->

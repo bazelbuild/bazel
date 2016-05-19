@@ -72,14 +72,14 @@ public final class BazelJavaPluginRule implements RuleDefinition {
   <code>java_binary</code> rule can run plugins by depending on them via the <code>plugins</code>
   attribute. A <code>java_library</code> can also automatically export plugins to libraries that
   directly depend on it using
-  <code><a href="#java_library.exported_plugins">exported_plugins</a></code>.
+  <code><a href="${link java_library.exported_plugins}">exported_plugins</a></code>.
 </p>
 
 ${IMPLICIT_OUTPUTS}
 
 <p>
-  Arguments are identical to <a href="#java_library"><code>java_library</code></a>, except for the
-  addition of the <code>processor_class</code> argument.
+  Arguments are identical to <a href="${link java_library}"><code>java_library</code></a>, except 
+  for the addition of the <code>processor_class</code> argument.
 </p>
 
 <!-- #END_BLAZE_RULE -->*/

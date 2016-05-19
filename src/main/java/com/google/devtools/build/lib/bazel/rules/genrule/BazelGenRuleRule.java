@@ -50,7 +50,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
         A list of inputs for this rule, such as source files to process.
         <p>
           <em>This attributes is not suitable to list tools executed by the <code>cmd</code>; use
-          the <a href="#genrule.tools"><code>tools</code></a> attribute for them instead.</em>
+          the <a href="${link genrule.tools}"><code>tools</code></a> attribute for them instead.
+          </em>
         </p>
         <p>
           The build system ensures these prerequisites are built before running the genrule
@@ -98,13 +99,13 @@ public final class BazelGenRuleRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd) -->
         The command to run.
-        Subject to <a href="#location">$(location)</a> and <a href="make-variables.html">"Make"
-        variable</a> substitution.
+        Subject to <a href="${link make-variables#location}">$(location)</a> and
+        <a href="${link make-variables}">"Make" variable</a> substitution.
         <ol>
           <li>
-            First <a href="#location">$(location)</a> substitution is applied, replacing all
-            occurrences of <code>$(location <i>label</i>)</code> and of <code>$(locations
-            <i>label</i>)</code>.
+            First <a href="${link make-variables#location}">$(location)</a> substitution is
+            applied, replacing all occurrences of <code>$(location <i>label</i>)</code> and of
+            <code>$(locations <i>label</i>)</code>.
           </li>
           <li>
             <p>
@@ -115,7 +116,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
             </p>
           </li>
           <li>
-            Next, <a href="make-variables.html">"Make" variables</a> are expanded. Note that
+            Next, <a href="${link make-variables}">"Make" variables</a> are expanded. Note that
             predefined variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and
             <code>$(JAVABASE)</code> expand under the <i>host</i> configuration, so Java invocations
             that run as part of a build step can correctly load shared libraries and other
@@ -128,12 +129,12 @@ public final class BazelGenRuleRule implements RuleDefinition {
         </ol>
         <p>
           The command may refer to binaries that were declared as
-          <a href="#genrule.tools"><code>tools</code></a>; it should use a
+          <a href="${link genrule.tools}"><code>tools</code></a>; it should use a
           <a href="../build-ref.html#labels">label</a> and <code>$(location)</code> expansion for
           this.
-          The <a href="make-variables.html#predefined_variables">Predefined "Make" Variables</a> and
-          the <a href="make-variables.html#predefined_variables.genrule.cmd">genrule-specific "Make"
-          variables</a> are also available for <code>cmd</code>.
+          The <a href="${link make-variables#predefined_variables}">Predefined "Make" Variables</a>
+          and the <a href="${link make-variables#predefined_variables.genrule.cmd}">
+          genrule-specific "Make" variables</a> are also available for <code>cmd</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("cmd", STRING).mandatory())
@@ -229,7 +230,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
   results, including caching policies and environment variables. Tests generally need to be run
   after the build is complete and on the target architecture, whereas genrules are executed during
   the build and on the host architecture (the two may be different). If you need a general purpose
-  testing rule, use <a href="#sh_test"><code>sh_test</code></a>.
+  testing rule, use <a href="${link sh_test}"><code>sh_test</code></a>.
 </p>
 
 <h4>Cross-compilation Considerations</h4>
@@ -255,8 +256,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
   For genrules, the build system ensures that dependencies are built appropriately:
   <code>srcs</code> are built (if necessary) for the <em>target</em> configuration,
   <code>tools</code> are built for the <em>host</em> configuration, and the output is considered to
-  be for the <em>target</em> configuration. It also provides <a href="make-variables.html">"Make"
-  variables</a> that genrule commands can pass to the corresponding tools.
+  be for the <em>target</em> configuration. It also provides <a href="${link make-variables}">
+  "Make" variables</a> that genrule commands can pass to the corresponding tools.
 </p>
 <p>
   It is intentional that genrule defines no <code>deps</code> attribute: other built-in rules use
@@ -279,7 +280,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
 </p>
 <p>
   <i>JDK & C++ Tooling</i>: to use a tool from the JDK or the C++ compiler suite, the build system
-  provides a set of variables to use. See <a href="make-variables.html">"Make" variable</a> for
+  provides a set of variables to use. See <a href="${link make-variables}">"Make" variable</a> for
   details.
 </p>
 
@@ -343,7 +344,7 @@ genrule(
 </pre>
 
 <p>
-  The following example shows how to use a <a href="general.html#filegroup"><code>filegroup</code>
+  The following example shows how to use a <a href="${link filegroup}"><code>filegroup</code>
   </a> and the outputs of another <code>genrule</code>. Note that using <code>$(SRCS)</code> instead
   of explicit <code>$(location)</code> directives would also work; this example uses the latter for
   sake of demonstration.

@@ -35,7 +35,7 @@ public final class BazelExtraActionRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     /*<!-- #BLAZE_RULE(extra_action).NAME -->
     You may refer to this rule by <code>label</code> in the <code>extra_actions</code> argument
-    of <a href="#action_listener"><code> action_listener</code></a> rules.
+    of <a href="${link action_listener}"><code> action_listener</code></a> rules.
     <!-- #END_BLAZE_RULE.NAME -->*/
     return builder
         /*<!-- #BLAZE_RULE(extra_action).ATTRIBUTE(tools) -->
@@ -75,7 +75,7 @@ public final class BazelExtraActionRule implements RuleDefinition {
         /*<!-- #BLAZE_RULE(extra_action).ATTRIBUTE(cmd) -->
          The command to run.
          <p>
-           Like <a href="general.html#genrule.cmd">genrule cmd attribute</a> with the following
+           Like <a href="${link genrule.cmd}">genrule cmd attribute</a> with the following
            differences:
          </p>
          <ol>
@@ -136,7 +136,7 @@ public final class BazelExtraActionRule implements RuleDefinition {
 </p>
 
 <p>
-  See <a href="#action_listener"><code>action_listener</code></a> for details
+  See <a href="${link action_listener}"><code>action_listener</code></a> for details
   on how to enable <code>extra_action</code>s in Bazel.
 </p>
 

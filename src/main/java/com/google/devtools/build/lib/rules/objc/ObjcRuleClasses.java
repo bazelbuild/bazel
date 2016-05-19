@@ -258,8 +258,8 @@ public class ObjcRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(copts) -->
           Extra flags to pass to the compiler.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
-          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
           <p>
@@ -620,10 +620,10 @@ public class ObjcRuleClasses {
           and <code>blaze-out/pkg/includedir</code>) are included in addition to the
           actual client root.
           <p>
-          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          Unlike <a href="${link objc_library.copts}">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
           very careful, since this may have far-reaching effects.  When in doubt, add
-          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
+          "-I" flags to <a href="${link objc_library.copts}">COPTS</a> instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", Type.STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(sdk_includes) -->
@@ -724,8 +724,8 @@ public class ObjcRuleClasses {
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
            passed not only to the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
-           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
-           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
+           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+           <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(enable_modules) -->

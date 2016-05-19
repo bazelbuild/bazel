@@ -51,12 +51,12 @@ public final class BazelPyRuleClasses {
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           See general comments about <code>deps</code> at
-          <a href="common-definitions.html#common-attributes">
+          <a href="${link common-definitions#common-attributes}">
           Attributes common to all build rules</a>.
           These can be
-          <a href="#py_binary"><code>py_binary</code></a> rules,
-          <a href="#py_library"><code>py_library</code></a> rules or
-          <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
+          <a href="${link py_binary}"><code>py_binary</code></a> rules,
+          <a href="${link py_library}"><code>py_library</code></a> rules or
+          <a href="${link cc_library}"><code>cc_library</code></a> rules,
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
               .mandatoryProviders(ImmutableList.of(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME))
@@ -64,10 +64,10 @@ public final class BazelPyRuleClasses {
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
           <p>
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution. These import
           directories will be added for this rule and all rules that depend on it (note: not the
           rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
-          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          <a href="${link py_binary}"><code>py_binary</code></a> rules that depend on this rule.
           </p>
           <p>
           Absolute paths (paths that start with <code>/</code>) and paths that references a path
@@ -120,10 +120,10 @@ public final class BazelPyRuleClasses {
          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(data) -->
          The list of files needed by this binary at runtime.
          See general comments about <code>data</code> at
-         <a href="common-definitions.html#common-attributes">
+         <a href="${link common-definitions#common-attributes}">
          Attributes common to all build rules</a>.
-         Also see the <a href="#py_library.data"><code>data</code></a> argument of
-         the <a href="#py_library"><code>py_library</code></a> rule for details.
+         Also see the <a href="${link py_library.data}"><code>data</code></a> argument of
+         the <a href="${link py_library}"><code>py_library</code></a> rule for details.
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(main) -->

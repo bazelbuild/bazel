@@ -207,8 +207,8 @@ public class ConfigRuleClasses {
 
 <p>
   Matches an expected configuration state (expressed as Blaze flags) for the purpose of triggering
-  configurable attributes. See <a href="functions.html#select">select</a> for how to consume this
-  rule and <a href="common-definitions.html#configurable-attributes">
+  configurable attributes. See <a href="${link select}">select</a> for how to consume this
+  rule and <a href="${link common-definitions#configurable-attributes}">
   Configurable attributes</a> for an overview of the general feature.
 
 <h4 id="config_setting_examples">Examples</h4>
@@ -242,7 +242,7 @@ config_setting(
 
 <h4 id="config_setting_notes">Notes</h4>
 
-<p>See <a href="functions.html#select">select</a> for policies on what happens depending on how
+<p>See <a href="${link select}">select</a> for policies on what happens depending on how
    many rules match an invocation.
 </p>
 
@@ -254,7 +254,7 @@ config_setting(
 <p>The currently endorsed method for creating custom conditions that can't be expressed through
   dedicated build flags is through the --define flag. Use this flag with caution: it's not ideal
   and only endorsed for lack of a currently better workaround. See the
-  <a href="common-definitions.html#configurable-attributes">
+  <a href="${link common-definitions#configurable-attributes}">
   Configurable attributes</a> section for more discussion.
 </p>
 

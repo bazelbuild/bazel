@@ -119,8 +119,8 @@ test code. The test runner's main method is invoked instead of the main class be
 ${IMPLICIT_OUTPUTS}
 
 <p>
-See the section on <a href="#java_binary_args">java_binary()</a> arguments. This rule also
-supports all <a href="common-definitions.html#common-attributes-tests">attributes common
+See the section on <a href="${link java_binary_args}">java_binary()</a> arguments. This rule also
+supports all <a href="${link common-definitions#common-attributes-tests}">attributes common
 to all test rules (*_test)</a>.
 </p>
 

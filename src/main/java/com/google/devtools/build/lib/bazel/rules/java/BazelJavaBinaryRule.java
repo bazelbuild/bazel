@@ -54,8 +54,8 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
               creates a self-contained jar file with a manifest that allows it to be run with the
               <code>java -jar</code> command or with the wrapper script's <code>--singlejar</code>
               option. Using the wrapper script is preferred to <code>java -jar</code> because it
-              also passes the <a href="#java_binary.jvm_flags">JVM flags</a> and the options to load
-              native libraries.
+              also passes the <a href="${link java_binary.jvm_flags}">JVM flags</a> and the options
+              to load native libraries.
             </p>
             <p>
               The deploy jar contains all the classes that would be found by a classloader that
@@ -107,9 +107,9 @@ ${IMPLICIT_OUTPUTS}
 
 <p>
   A <code>deps</code> attribute is not allowed in a <code>java_binary</code> rule without
-  <a href="#java_binary.srcs"><code>srcs</code></a>; such a rule requires a
-  <a href="#java_binary.main_class"><code>main_class</code></a> provided by
-  <a href="#java_binary.runtime_deps"><code>runtime_deps</code></a>.
+  <a href="${link java_binary.srcs}"><code>srcs</code></a>; such a rule requires a
+  <a href="${link java_binary.main_class}"><code>main_class</code></a> provided by
+  <a href="${link java_binary.runtime_deps}"><code>runtime_deps</code></a>.
 </p>
 
 <p>The following code snippet illustrates a common mistake:</p>

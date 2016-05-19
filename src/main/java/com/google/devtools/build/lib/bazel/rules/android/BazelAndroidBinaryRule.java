@@ -67,15 +67,15 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             the result of running ProGuard on the
             <code><var>name</var>_deploy.jar</code>.
             This output is only produced if
-            <a href="#android_binary.proguard_specs">proguard_specs</a> attribute is
+            <a href="${link android_binary.proguard_specs}">proguard_specs</a> attribute is
             specified.
           </li>
           <li><code><var>name</var>_proguard.map</code>: A mapping file result of
             running ProGuard on the <code><var>name</var>_deploy.jar</code>.
             This output is only produced if
-            <a href="#android_binary.proguard_specs">proguard_specs</a> attribute is
+            <a href="${link android_binary.proguard_specs}">proguard_specs</a> attribute is
             specified and
-            <a href="#android_binary.proguard_generate_mapping">proguard_generate_mapping</a>
+            <a href="${link android_binary.proguard_generate_mapping}">proguard_generate_mapping</a>
             is set.
           </li>
         </ul>

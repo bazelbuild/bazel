@@ -38,7 +38,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .override(attr("testonly", BOOLEAN).value(true)
             .nonconfigurable("policy decision: should be consistent across configurations"))
         /* <!-- #BLAZE_RULE(py_test).ATTRIBUTE(stamp) -->
-        See the section on <a href="#py_binary_args">py_binary()</a> arguments, except
+        See the section on <a href="${link py_binary_args}">py_binary()</a> arguments, except
         that the stamp argument is set to 0 by default for tests.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .override(attr("stamp", TRISTATE).value(TriState.NO))

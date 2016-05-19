@@ -54,7 +54,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       higher number.
 //       This overrides the value declared in the manifest.
 //
-//       Subject to <a href="make-variables.html">"Make" variable</a> substitution.
+//       Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
 //       Suggested practice is to declare a varrdef and reference it here so that a particular build
 //       invocation will be used to generate apks for release.
 //       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -64,7 +64,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       users. The version_code attribute holds the significant version number used internally.
 //       This overrides the value declared in the manifest.
 //
-//       Subject to <a href="make-variables.html">"Make" variable</a> substitution.
+//       Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
 //       Suggested practice is to declare a varrdef and reference it here so that a particular build
 //       invocation will be used to generate apks for release.
 //       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -120,7 +120,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
           <li><code>manual_main_dex</code>: Split code into multiple dex files when the
             dex 64K index limit is exceeded. The content of the main dex file
             needs to be specified by providing a list of classes in a text file
-            using the <a href="#android_binary.main_dex_list">main_dex_list</a>.</li>
+            using the <a href="${link android_binary.main_dex_list}">main_dex_list</a>.</li>
           <li><code>off</code>: Compile all code to a single dex file, even if
             if exceeds the index limit.</li>
         </ul>
