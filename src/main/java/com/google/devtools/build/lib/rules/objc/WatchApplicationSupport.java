@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Builder;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.syntax.Type;
@@ -86,9 +85,12 @@ final class WatchApplicationSupport {
     this.configurationDistinguisher = configurationDistinguisher;
   }
 
-  void createBundle(XcodeProvider.Builder xcodeProviderBuilder,
-      ObjcProvider.Builder objcProviderBuilder, NestedSetBuilder<Artifact> filesToBuild)
-          throws InterruptedException {
+  void createBundle(
+      XcodeProvider.Builder xcodeProviderBuilder,
+      ObjcProvider.Builder objcProviderBuilder,
+      NestedSetBuilder<Artifact> filesToBuild,
+      ObjcProvider.Builder exposedObjcProviderBuilder)
+      throws InterruptedException {
     // Add common watch settings.
     WatchUtils.addXcodeSettings(ruleContext, xcodeProviderBuilder);
 
@@ -129,7 +131,8 @@ final class WatchApplicationSupport {
         .addXcodeSettings(xcodeProviderBuilder)
         .addFilesToBuild(filesToBuild, DsymOutputType.APP)
         .validateResources()
-        .validateAttributes();
+        .validateAttributes()
+        .addExportedDebugArtifacts(exposedObjcProviderBuilder, DsymOutputType.APP);
 
     XcodeSupport xcodeSupport = new XcodeSupport(ruleContext, intermediateArtifacts,
         labelForWatchApplication())
@@ -212,7 +215,7 @@ final class WatchApplicationSupport {
         .build(ruleContext));
   }
 
-  private ObjcProvider objcProvider(Builder objcProviderBuilder) {
+  private ObjcProvider objcProvider(ObjcProvider.Builder objcProviderBuilder) {
     // Add all resource files applicable to watch application from dependency providers.
     for (Attribute attribute : dependencyAttributes) {
       Iterable<ObjcProvider> dependencyObjcProviders = ruleContext.getPrerequisites(
