@@ -264,7 +264,7 @@ Can I build Docker images with Bazel?
 -------------------------------------
 
 Yes, you can use our
-[Docker rules](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/docker/README.md)
+[Docker rules](http://bazel.io/docs/be/docker.html)
 to build reproducible Docker images.
 
 Will Bazel make my builds reproducible automatically?
