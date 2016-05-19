@@ -15,9 +15,10 @@
 package com.google.devtools.build.lib.analysis;
 
 /**
- * This marker interface must be extended by every interface that represents
- * rolled-up data about the transitive closure of a configured target.
+ * Contains rolled-up data about the transitive closure of a configured target.
  *
+ * For more information about how analysis works, see
+ * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
  * TransitiveInfoProviders need to be serializable, and for that reason they must conform to
  * the following restrictions:
  *
@@ -49,13 +50,14 @@ package com.google.devtools.build.lib.analysis;
  * being O(n^2): in a long dependency chain, if every target adds one single artifact, storing the
  * transitive closures of every rule would take 1+2+3+...+n-1+n = O(n^2) memory.
  *
- * <p>In order to avoid this, we introduce the concept of nested sets, {@link com.google.devtools
- * .build.lib.collect.nestedset.NestedSet}. A nested set is an immutable
+ * <p>In order to avoid this, we introduce the concept of nested sets, {@link
+ * com.google.devtools.build.lib.collect.nestedset.NestedSet}. A nested set is an immutable
  * data structure that can contain direct members and other nested sets (recursively). Nested sets
  * are iterable and can be flattened into ordered sets, where the order depends on which
  * implementation of NestedSet you pick.
  *
  * @see TransitiveInfoCollection
+ * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
  */
 public interface TransitiveInfoProvider {
 }

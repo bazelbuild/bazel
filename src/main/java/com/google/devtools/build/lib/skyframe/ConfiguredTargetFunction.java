@@ -87,6 +87,11 @@ import javax.annotation.Nullable;
 
 /**
  * SkyFunction for {@link ConfiguredTargetValue}s.
+ *
+ * This class, together with {@link AspectFunction} drives the analysis phase. For more information,
+ * see {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ *
+ * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
  */
 final class ConfiguredTargetFunction implements SkyFunction {
   // This construction is a bit funky, but guarantees that the Object reference here is globally

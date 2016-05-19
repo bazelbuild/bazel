@@ -89,14 +89,14 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A helper class for rule implementations building and initialization. Objects of this
- * class are intended to be passed to the builder for the configured target, which then creates the
- * configured target.
+ * The totality of data available during the analysis of a rule.
  *
  * <p>These objects should not outlast the analysis phase. Do not pass them to {@link Action}
  * objects or other persistent objects. There are internal tests to ensure that RuleContext objects
  * are not persisted that check the name of this class, so update those tests if you change this
  * class's name.
+ *
+ * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {

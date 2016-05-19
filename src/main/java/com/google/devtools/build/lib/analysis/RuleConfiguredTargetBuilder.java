@@ -46,7 +46,13 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
- * Builder class for analyzed rule instances (i.e., instances of {@link ConfiguredTarget}).
+ * Builder class for analyzed rule instances.
+ *
+ * <p>This is used to tell Bazel which {@link TransitiveInfoProvider}s are produced by the analysis
+ * of a configured target. For more information about analysis, see
+ * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ *
+ * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
  */
 public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;

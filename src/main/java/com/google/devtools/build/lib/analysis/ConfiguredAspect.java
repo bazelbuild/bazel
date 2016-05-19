@@ -44,6 +44,12 @@ import javax.annotation.Nullable;
  * added.
  *
  * <p>Aspects are created alongside configured targets on request from dependents.
+ *
+ * <p>For more information about aspects, see
+ * {@link com.google.devtools.build.lib.packages.AspectClass}.
+ *
+ * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
 public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> {

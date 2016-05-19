@@ -28,8 +28,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
- * RuleConfiguredTargetBuilder} instead.
+ * A {@link ConfiguredTarget} that is produced by a rule.
+ *
+ * <p>Created by {@link RuleConfiguredTargetBuilder}. There is an instance of this class for every
+ * analyzed rule. For more information about how analysis works, see
+ * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
  */
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**

@@ -63,6 +63,9 @@ import javax.annotation.Nullable;
 /**
  * The Skyframe function that generates aspects.
  *
+ * This class, together with {@link ConfiguredTargetFunction} drives the analysis phase. For more
+ * information, see {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ *
  * {@link AspectFunction} takes a SkyKey containing an {@link AspectKey} [a tuple of
  * (target label, configurations, aspect class and aspect parameters)],
  * loads an {@link Aspect} from aspect class and aspect parameters,
@@ -71,6 +74,9 @@ import javax.annotation.Nullable;
  *
  * See {@link com.google.devtools.build.lib.packages.AspectClass} documentation
  * for an overview of aspect-related classes
+ *
+ * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
+ * @see com.google.devtools.build.lib.packages.AspectClass
  */
 public final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
