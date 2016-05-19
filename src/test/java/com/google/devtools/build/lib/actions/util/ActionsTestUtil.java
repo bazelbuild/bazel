@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -91,7 +92,7 @@ public final class ActionsTestUtil {
         metadataHandler,
         fileOutErr,
         actionGraph == null
-            ? null
+            ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
   }
 
@@ -108,7 +109,17 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(EventHandler eventHandler) {
     DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
-    return new ActionExecutionContext(dummyExecutor, null, null, null, null);
+    return new ActionExecutionContext(
+        dummyExecutor, null, null, null, createDummyArtifactExpander());
+  }
+
+  private static ArtifactExpander createDummyArtifactExpander() {
+    return new ArtifactExpander() {
+      @Override
+      public void expand(Artifact artifact, Collection<? super Artifact> output) {
+        return;
+      }
+    };
   }
 
 

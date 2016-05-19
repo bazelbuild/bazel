@@ -18,9 +18,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
@@ -34,6 +36,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.Collection;
 
 /**
  * Tests for CustomCommandLine.
@@ -236,6 +240,39 @@ public class CustomCommandLineTest {
       // expected
     }
 
+  }
+
+  @Test
+  public void testJoinExpandedTreeArtifactExecPath() {
+    Artifact treeArtifact = createTreeArtifact("myTreeArtifact");
+
+    CommandLine commandLine = CustomCommandLine.builder()
+        .add("hello")
+        .addJoinExpandedTreeArtifactExecPath(":", treeArtifact)
+        .build();
+
+    assertThat(commandLine.arguments()).containsExactly(
+        "hello",
+        "JoinExpandedTreeArtifactExecPathsArg{ delimiter: :, treeArtifact: myTreeArtifact}");
+
+    final Iterable<TreeFileArtifact> treeFileArtifacts = ImmutableList.of(
+        createTreeFileArtifact(treeArtifact, "children/child1"),
+        createTreeFileArtifact(treeArtifact, "children/child2"));
+
+    ArtifactExpander artifactExpander = new ArtifactExpander() {
+      @Override
+      public void expand(Artifact artifact, Collection<? super Artifact> output) {
+        for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
+          if (treeFileArtifact.getParent().equals(artifact)) {
+            output.add(treeFileArtifact);
+          }
+        }
+      }
+    };
+
+    assertThat(commandLine.arguments(artifactExpander)).containsExactly(
+        "hello",
+        "myTreeArtifact/children/child1:myTreeArtifact/children/child2");
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {

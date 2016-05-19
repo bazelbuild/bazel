@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -30,6 +31,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
+import javax.annotation.Nullable;
 
 /**
  * A customizable, serializable class for building memory efficient command lines.
@@ -40,7 +45,6 @@ public final class CustomCommandLine extends CommandLine {
   private abstract static class ArgvFragment {
     abstract void eval(ImmutableList.Builder<String> builder);
   }
-
 
   /**
    * A command line argument for {@link TreeFileArtifact}.
@@ -61,6 +65,43 @@ public final class CustomCommandLine extends CommandLine {
     abstract Object substituteTreeArtifact(Map<Artifact, TreeFileArtifact> substitutionMap);
   }
 
+  /**
+   * A command line argument that can expand enclosed TreeArtifacts into a list of child
+   * {@link TreeFileArtifact}s at execution time before argument evaluation.
+   *
+   * <p>The main difference between this class and {@link TreeFileArtifactArgvFragment} is that
+   * {@link TreeFileArtifactArgvFragment} is used in {@link SpawnActionTemplate} to substitutes a
+   * TreeArtifact with *one* of its child TreeFileArtifacts, while this class expands a TreeArtifact
+   * into *all* of its child TreeFileArtifacts.
+   *
+   */
+  private abstract static class TreeArtifactExpansionArgvFragment extends ArgvFragment {
+    /**
+     * Evaluates this argument fragment into an argument string and adds it into {@code builder}.
+     * The enclosed TreeArtifact will be expanded using {@code artifactExpander}.
+     */
+    abstract void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander);
+
+    /**
+     * Returns a string that describes this argument fragment. The string can be used as part of
+     * an action key for the command line at analysis time.
+     */
+    abstract String describe();
+
+    /**
+     * Evaluates this argument fragment by serializing it into a string. Note that the returned
+     * argument is not suitable to be used as part of an actual command line. The purpose of this
+     * method is to provide a unique command line argument string to be used as part of an action
+     * key at analysis time.
+     *
+     * <p>Internally this method just calls {@link #describe}.
+     */
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      builder.add(describe());
+    }
+  }
+
   // It's better to avoid anonymous classes if we want to serialize command lines
   private static final class JoinExecPathsArg extends ArgvFragment {
 
@@ -75,6 +116,40 @@ public final class CustomCommandLine extends CommandLine {
     @Override
     void eval(ImmutableList.Builder<String> builder) {
       builder.add(Artifact.joinExecPaths(delimiter, artifacts));
+    }
+  }
+
+  private static final class JoinExpandedTreeArtifactExecPathsArg
+      extends TreeArtifactExpansionArgvFragment {
+
+    private final String delimiter;
+    private final Artifact treeArtifact;
+
+    private JoinExpandedTreeArtifactExecPathsArg(String delimiter, Artifact treeArtifact) {
+      Preconditions.checkArgument(
+          treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
+      this.delimiter = delimiter;
+      this.treeArtifact = treeArtifact;
+    }
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
+      Set<Artifact> expandedArtifacts = new TreeSet<>();
+      artifactExpander.expand(treeArtifact, expandedArtifacts);
+      Preconditions.checkState(
+          !expandedArtifacts.isEmpty(),
+          "%s expanded into nothing, maybe it's not added as a input for the associated action?",
+          treeArtifact);
+
+      builder.add(Artifact.joinExecPaths(delimiter, expandedArtifacts));
+    }
+
+    @Override
+    public String describe() {
+      return String.format(
+          "JoinExpandedTreeArtifactExecPathsArg{ delimiter: %s, treeArtifact: %s}",
+          delimiter,
+          treeArtifact.getExecPathString());
     }
   }
 
@@ -424,6 +499,18 @@ public final class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    /**
+     * Adds a string joined together by the exec paths of all {@link TreeFileArtifact}s under
+     * {@code treeArtifact}.
+     *
+     * @param delimiter the delimiter used to join the artifact exec paths.
+     * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to join.
+     */
+    public Builder addJoinExpandedTreeArtifactExecPath(String delimiter, Artifact treeArtifact) {
+      arguments.add(new JoinExpandedTreeArtifactExecPathsArg(delimiter, treeArtifact));
+      return this;
+    }
+
     public Builder addBeforeEachPath(String repeated, Iterable<PathFragment> paths) {
       if (repeated != null && paths != null) {
         arguments.add(InterspersingArgs.fromStrings(paths, repeated, "%s"));
@@ -515,11 +602,27 @@ public final class CustomCommandLine extends CommandLine {
 
   @Override
   public Iterable<String> arguments() {
+    return argumentsInternal(null);
+  }
+
+  @Override
+  public Iterable<String> arguments(ArtifactExpander artifactExpander) {
+    return argumentsInternal(Preconditions.checkNotNull(artifactExpander));
+  }
+
+  private Iterable<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander) {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (Object arg : arguments) {
       Object substitutedArg = substituteTreeFileArtifactArgvFragment(arg);
       if (substitutedArg instanceof ArgvFragment) {
-        ((ArgvFragment) substitutedArg).eval(builder);
+        if (artifactExpander != null
+            && substitutedArg instanceof TreeArtifactExpansionArgvFragment) {
+          TreeArtifactExpansionArgvFragment expansionArg =
+              (TreeArtifactExpansionArgvFragment) substitutedArg;
+          expansionArg.eval(builder, artifactExpander);
+        } else {
+          ((ArgvFragment) substitutedArg).eval(builder);
+        }
       } else {
         builder.add(substitutedArg.toString());
       }
