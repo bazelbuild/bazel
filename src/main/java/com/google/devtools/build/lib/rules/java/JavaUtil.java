@@ -61,8 +61,11 @@ public final class JavaUtil {
   }
 
   /**
-   * Find the index of the "java" or "javatests" segment in a Java path fragment
-   * that precedes the source root.
+   * Finds the index of the segment in a Java path fragment that precedes the source root.
+   * Starts from the first "java" or "javatests" or "src" segment.
+   * If the found item was "src", check if this is followed by "main" or "test" and then "java".
+   * If the found item was at the first segment, check for a nested "src" directory, followed by
+   * either (main|test)/java or (com|org|net), to avoid false positives.
    *
    * @param path a Java source dir or file path
    * @return the index of the java segment or -1 iff no java segment was found.
@@ -71,7 +74,40 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    return path.getFirstSegment(ImmutableSet.of("java", "javatests"));
+    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src"));
+    if (rootIndex < 0) {
+      return rootIndex;
+    }
+    final boolean isSrc = "src".equals(path.getSegment(rootIndex));
+    int checkMavenIndex = isSrc ? rootIndex : -1;
+    if (rootIndex == 0) {
+      // Check for a nested "src" directory.
+      // Also, to support an existing case, "javatests" within "src".
+      for (int i = 1, max = path.segmentCount() - 2; i <= max; i++) {
+        String segment = path.getSegment(i);
+        if ("src".equals(segment) || (isSrc && "javatests".equals(segment))) {
+          String next = path.getSegment(i + 1);
+          if ("com".equals(next) || "org".equals(next) || "net".equals(next)) {
+            // Check for common first element of java package, to avoid false positives.
+            rootIndex = i;
+          } else if ("src".equals(segment)) {
+            // Also accept maven style src/(main|test)/java.
+            checkMavenIndex = i;
+          }
+          break;
+        }
+      }
+    }
+    // Check for (main|test)/java after /src/.
+    if (checkMavenIndex >= 0 && checkMavenIndex + 2 < path.segmentCount()) {
+      if ("java".equals(path.getSegment(checkMavenIndex + 2))) {
+        String next = path.getSegment(checkMavenIndex + 1);
+        if ("main".equals(next) || "test".equals(next)) {
+          rootIndex = checkMavenIndex + 2;
+        }
+      }
+    }
+    return rootIndex;
   }
 
   /**
