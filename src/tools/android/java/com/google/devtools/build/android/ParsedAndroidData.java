@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 
 import com.android.ide.common.res2.MergingException;
-import com.android.resources.ResourceFolderType;
 
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -38,7 +37,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.logging.Logger;
 
 import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -54,7 +52,6 @@ import javax.xml.stream.XMLStreamException;
  */
 @Immutable
 public class ParsedAndroidData {
-  private static final Logger logger = Logger.getLogger(ParsedAndroidData.class.getCanonicalName());
 
   @NotThreadSafe
   static class Builder {
@@ -245,7 +242,7 @@ public class ParsedAndroidData {
     private final KeyValueConsumer<DataKey, DataResource> overwritingConsumer;
     private final KeyValueConsumer<DataKey, DataResource> combiningResources;
     private final List<Exception> errors;
-    private ResourceFolderType folderType;
+    private boolean inValuesSubtree;
     private FullyQualifiedName.Factory fqnFactory;
     private final XMLInputFactory xmlInputFactory = XMLInputFactory.newFactory();
 
@@ -279,28 +276,19 @@ public class ParsedAndroidData {
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
       final String[] dirNameAndQualifiers = dir.getFileName().toString().split("-");
-      folderType = ResourceFolderType.getTypeByName(dirNameAndQualifiers[0]);
-      if (folderType == null) {
-        return FileVisitResult.CONTINUE;
-      }
-      try {
-        fqnFactory = FullyQualifiedName.Factory.fromDirectoryName(dirNameAndQualifiers);
-        return FileVisitResult.CONTINUE;
-      } catch (IllegalArgumentException e) {
-        logger.warning(
-            String.format("%s is an invalid resource directory due to %s", dir, e.getMessage()));
-        return FileVisitResult.SKIP_SUBTREE;
-      }
+      inValuesSubtree = "values".equals(dirNameAndQualifiers[0]);
+      fqnFactory = FullyQualifiedName.Factory.fromDirectoryName(dirNameAndQualifiers);
+      return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
       try {
         if (!Files.isDirectory(path) && !path.getFileName().toString().startsWith(".")) {
-          if (folderType == ResourceFolderType.VALUES) {
+          if (inValuesSubtree) {
             DataResourceXml.parse(
                 xmlInputFactory, path, fqnFactory, overwritingConsumer, combiningResources);
-          } else if (folderType != null) {
+          } else {
             String rawFqn = deriveRawFullyQualifiedName(path);
             FullyQualifiedName key = fqnFactory.parse(rawFqn);
             overwritingConsumer.consume(key, DataValueFile.of(path));
