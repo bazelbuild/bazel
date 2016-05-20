@@ -28,11 +28,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
@@ -342,10 +339,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   /**
    * All keys in ObjcProvider that will be passed in the corresponding Skylark provider.
    */
-  // Only keys for Artifact or primitive types can be in the Skylark provider, as other types
-  // are not supported as Skylark types.
-  // Note: This list is only required to support objcprovider <-> skylarkprovider conversion, which
-  // will be removed in favor of native skylark ObjcProvider access once that is implemented.
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
           LIBRARY,
@@ -370,7 +363,13 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           STRINGS,
           LINKOPT,
           J2OBJC_LIBRARY,
-          ROOT_MERGE_ZIP);
+          ROOT_MERGE_ZIP,
+          INCLUDE,
+          INCLUDE_SYSTEM,
+          GENERAL_RESOURCE_DIR,
+          BUNDLE_IMPORT_DIR,
+          XCASSETS_DIR,
+          FRAMEWORK_DIR);
 
   /**
    * Returns the skylark key for the given string, or null if no such key exists or is available
@@ -431,20 +430,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   public boolean hasAssetCatalogs() {
     return !get(XCASSETS_DIR).isEmpty();
-  }
-
-  @SkylarkCallable(
-    name = "include",
-    structField = true,
-    doc = "Returns a set of include search paths."
-  )
-  public SkylarkNestedSet getIncludeDirs() {
-    // TODO(b/28615250): Generalize this conversion.
-    NestedSetBuilder<String> includes = NestedSetBuilder.stableOrder();
-    for (PathFragment path : get(INCLUDE)) {
-      includes.add(path.getSafePathString());
-    }
-    return SkylarkNestedSet.of(String.class, includes.build());
   }
 
   /**
@@ -613,20 +598,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
      * an appropriate SkylarkNestedSet.
      */
     void addElementsFromSkylark(Key<?> key, Object toAdd) {
-      if (!(toAdd instanceof SkylarkNestedSet)) {
-        throw new IllegalArgumentException(
-            String.format(
-                AppleSkylarkCommon.NOT_SET_ERROR, key.getSkylarkKeyName(), toAdd.getClass()));
-      } else if (!((SkylarkNestedSet) toAdd).getContentType().canBeCastTo(key.getType())) {
-        throw new IllegalArgumentException(
-            String.format(
-                AppleSkylarkCommon.BAD_SET_TYPE_ERROR,
-                key.getSkylarkKeyName(),
-                key.getType(),
-                ((SkylarkNestedSet) toAdd).getContentType().getType()));
-      } else {
-        uncheckedAddAll(key, (SkylarkNestedSet) toAdd, this.items);
-      }
+      uncheckedAddAll(key, ObjcProviderSkylarkConverters.convertToJava(key, toAdd), this.items);
     }
 
     /**
@@ -674,23 +646,26 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
 
       ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
       for (Key<?> key : KEYS_FOR_SKYLARK) {
-        SkylarkType type = SkylarkType.of(key.getType());
         if (propagated.containsKey(key) && strictDependency.containsKey(key)) {
           NestedSet<?> union = new NestedSetBuilder(STABLE_ORDER)
               .addTransitive(propagated.get(key))
               .addTransitive(strictDependency.get(key))
               .build();
-          skylarkFields.put(key.getSkylarkKeyName(), SkylarkNestedSet.of(type, union));
+          skylarkFields.put(
+              key.getSkylarkKeyName(), ObjcProviderSkylarkConverters.convertToSkylark(key, union));
         } else if (items.containsKey(key)) {
           skylarkFields.put(
-            key.getSkylarkKeyName(), SkylarkNestedSet.of(type, propagated.get(key)));
+              key.getSkylarkKeyName(),
+              ObjcProviderSkylarkConverters.convertToSkylark(key, propagated.get(key)));
         } else if (strictDependency.containsKey(key)) {
           skylarkFields.put(
-              key.getSkylarkKeyName(), SkylarkNestedSet.of(type, strictDependency.get(key)));
-        } else {
-           skylarkFields.put(
               key.getSkylarkKeyName(),
-              SkylarkNestedSet.of(type, new NestedSetBuilder(STABLE_ORDER).build()));          
+              ObjcProviderSkylarkConverters.convertToSkylark(key, strictDependency.get(key)));
+        } else {
+          skylarkFields.put(
+              key.getSkylarkKeyName(),
+              ObjcProviderSkylarkConverters.convertToSkylark(
+                  key, new NestedSetBuilder(STABLE_ORDER).build()));
         }
       }
 
