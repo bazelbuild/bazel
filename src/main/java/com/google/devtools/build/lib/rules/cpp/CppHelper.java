@@ -424,8 +424,8 @@ public class CppHelper {
     Artifact mapFile = ruleContext.getPackageRelativeArtifact(
         ruleContext.getLabel().getName()
             + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()),
-        ruleContext.getConfiguration().getGenfilesDirectory());    CppModuleMap moduleMap =
-        new CppModuleMap(mapFile, ruleContext.getLabel().toString());
+        ruleContext.getConfiguration().getGenfilesDirectory());
+        CppModuleMap moduleMap = new CppModuleMap(mapFile, ruleContext.getLabel().toString());
     contextBuilder.setCppModuleMap(moduleMap);
     return moduleMap;
   }
