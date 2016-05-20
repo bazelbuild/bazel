@@ -383,6 +383,9 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       outputBuilder.setTestInfo(builder);
     }
 
+    androidStudioInfoSemantics.augmentRuleInfo(
+        outputBuilder, base, ruleContext, ideResolveArtifacts);
+
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
 
     outputBuilder.addAllDependencies(transform(dependenciesResult.deps, LABEL_TO_STRING));
@@ -542,7 +545,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         /*makeExecutable =*/ false);
   }
 
-  protected static ArtifactLocation makeArtifactLocation(Artifact artifact) {
+  public static ArtifactLocation makeArtifactLocation(Artifact artifact) {
     return makeArtifactLocation(artifact.getRoot(), artifact.getRootRelativePath());
   }
 
@@ -570,7 +573,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         .build();
   }
 
-  private static JavaRuleIdeInfo makeJavaRuleIdeInfo(
+  private JavaRuleIdeInfo makeJavaRuleIdeInfo(
       ConfiguredTarget base,
       RuleContext ruleContext,
       JavaRuleOutputJarsProvider outputJarsProvider,
@@ -640,8 +643,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       builder.addTransitiveSystemIncludeDirectory(pathFragment.getSafePathString());
     }
 
-    androidStudioInfoSemantics
-        .updateCppRuleInfo(builder, base, ruleContext, cppCompilationContext, ideResolveArtifacts);
+    androidStudioInfoSemantics.augmentCppRuleInfo(
+        builder, base, ruleContext, cppCompilationContext, ideResolveArtifacts);
 
     return builder.build();
   }

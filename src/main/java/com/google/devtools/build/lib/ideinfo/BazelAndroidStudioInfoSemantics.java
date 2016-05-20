@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect.PrerequisiteAttr;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CRuleIdeInfo.Builder;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 
 /**
@@ -28,7 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 public class BazelAndroidStudioInfoSemantics implements AndroidStudioInfoSemantics {
 
   @Override
-  public void updateCppRuleInfo(
+  public void augmentCppRuleInfo(
       Builder builder,
       ConfiguredTarget base,
       RuleContext ruleContext,
@@ -38,6 +39,12 @@ public class BazelAndroidStudioInfoSemantics implements AndroidStudioInfoSemanti
 
   @Override
   public void augmentPrerequisiteAttrs(ImmutableList.Builder<PrerequisiteAttr> builder) {
+  }
+
+  @Override
+  public void augmentRuleInfo(RuleIdeInfo.Builder builder, ConfiguredTarget base,
+      RuleContext ruleContext,
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
   }
 
   @Override

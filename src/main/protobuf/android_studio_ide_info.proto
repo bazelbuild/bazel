@@ -83,6 +83,21 @@ message CToolchainIdeInfo {
   repeated string unfiltered_compiler_option = 9;
 }
 
+message ProtoLibraryLegacyJavaIdeInfo {
+  enum ApiFlavor {
+    NONE = 0;
+    IMMUTABLE = 1;
+    MUTABLE = 2;
+    BOTH = 3;
+  }
+
+  int32 api_version = 1;
+  ApiFlavor api_flavor = 2;
+  repeated LibraryArtifact jars1 = 3;
+  repeated LibraryArtifact jars_mutable = 4;
+  repeated LibraryArtifact jars_immutable = 5;
+}
+
 message TestInfo {
   string size = 1;
 }
@@ -130,4 +145,6 @@ message RuleIdeInfo {
   string kind_string = 14;
 
   TestInfo test_info = 15;
+
+  ProtoLibraryLegacyJavaIdeInfo proto_library_legacy_java_ide_info = 16;
 }

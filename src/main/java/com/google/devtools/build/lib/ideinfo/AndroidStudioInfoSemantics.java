@@ -13,27 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.ideinfo;
 
-import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect.PrerequisiteAttr;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CRuleIdeInfo;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 
 /**
  * Methods to handle differences between blaze and bazel in the {@link AndroidStudioInfoAspect}.
  */
 public interface AndroidStudioInfoSemantics {
-  void updateCppRuleInfo(
+
+  void augmentPrerequisiteAttrs(ImmutableList.Builder<PrerequisiteAttr> builder);
+
+  void augmentRuleInfo(
+      RuleIdeInfo.Builder builder,
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      NestedSetBuilder<Artifact> ideResolveArtifacts);
+
+  void augmentCppRuleInfo(
       CRuleIdeInfo.Builder builder,
       ConfiguredTarget base,
       RuleContext ruleContext,
       CppCompilationContext cppCompilationContext,
       NestedSetBuilder<Artifact> ideResolveArtifacts);
-
-  void augmentPrerequisiteAttrs(Builder<PrerequisiteAttr> builder);
 
   boolean checkForAdditionalCppRules(String ruleClass);
 }

@@ -37,6 +37,14 @@ _kind_to_kind_id = {
   "java_wrap_cc": 17,
 }
 
+# A map to convert JavaApiFlavor to ProtoLibraryLegacyJavaIdeInfo.ApiFlavor
+_api_flavor_to_id = {
+  "FLAVOR_NONE": 0,
+  "FLAVOR_IMMUTABLE": 1,
+  "FLAVOR_MUTABLE": 2,
+  "FLAVOR_BOTH": 3,
+}
+
 _unrecognized_rule = -1;
 
 def get_kind_legacy(target, ctx):
@@ -242,7 +250,7 @@ def java_rule_ide_info(target, ctx):
   Returns a pair of (JavaRuleIdeInfo proto, a set of ide-resolve-files).
   (or (None, empty set) if the rule is not Java rule).
   """
-  if not hasattr(target, "java"):
+  if not hasattr(target, "java") or ctx.rule.kind == "proto_library":
     return (None, set())
 
   sources = getSourcesFromRule(ctx)
@@ -302,6 +310,19 @@ def test_info(target, ctx):
 def is_test_rule(ctx):
   kind_string = ctx.rule.kind
   return kind_string.endswith("_test")
+
+def proto_library_legacy_java_ide_info(target, ctx):
+  """ Build ProtoLibraryLegacyJavaIdeInfo."""
+  if not hasattr(target, 'proto_legacy_java'):
+    return None
+  proto_info = target.proto_legacy_java.legacy_info
+  return struct_omit_none(
+    api_version = proto_info.api_version,
+    api_flavor = _api_flavor_to_id[proto_info.api_flavor],
+    jars1 = [library_artifact(output) for output in proto_info.jars1],
+    jars_mutable = [library_artifact(output) for output in proto_info.jars_mutable],
+    jars_immutable = [library_artifact(output) for output in proto_info.jars_immutable],
+  )
 
 def collect_labels(rule_attrs, attrs):
   """ Collect labels from attribute values.
@@ -376,6 +397,8 @@ def _aspect_impl(target, ctx):
   (android_rule_ide_info, android_ide_resolve_files) = android_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
+  proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info(target, ctx)
+
   # Collect test info
   test_info = test_info(target, ctx)
 
@@ -402,6 +425,7 @@ def _aspect_impl(target, ctx):
       android_rule_ide_info = android_rule_ide_info,
       tags = ctx.rule.attr.tags,
       test_info = test_info,
+      proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info,
   )
 
   # Output the ide information file.
