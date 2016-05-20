@@ -189,6 +189,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return new Fingerprint()
         .addBytes(RuleSerializer.serializeRule(rule).build().toByteArray())
         .addBytes(ruleSpecificData)
+        // This is to make the fingerprint different after adding names to the generated
+        // WORKSPACE files so they will get re-created, because otherwise there are
+        // annoying warnings for all of them.
+        // TODO(bsilver16384@gmail.com): Remove this once everybody's upgraded to the
+        // new WORKSPACE files.
+        .addInt(1)
         .digestAndReset();
   }
 
