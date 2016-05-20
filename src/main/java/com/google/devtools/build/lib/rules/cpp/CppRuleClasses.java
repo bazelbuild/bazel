@@ -167,15 +167,10 @@ public class CppRuleClasses {
   /**
    * A string constant for the PIC feature.
    *
-   * <p>If this feature is active (currently it cannot be switched off) and PIC compilation is
+   * If this feature is active (currently it cannot be switched off) and PIC compilation is
    * requested, the "pic" build variable will be defined with an empty string as its value.
    */
   public static final String PIC = "pic";
-
-  /**
-   * A string constant for the feature the represents preprocessor defines.
-   */
-  public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";
 
   /**
    * A string constant for the include_paths feature.

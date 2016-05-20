@@ -71,7 +71,8 @@ public class CppCompileActionBuilder {
   private final List<Pattern> nocopts = new ArrayList<>();
   private AnalysisEnvironment analysisEnvironment;
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
-  private boolean usePic;
+  private String fdoBuildStamp;
+  private boolean usePic; 
   private SpecialInputsHandler specialInputsHandler = CppCompileAction.VOID_SPECIAL_INPUTS_HANDLER;
   private UUID actionClassId = GUID;
   private Class<? extends CppCompileActionContext> actionContext;
@@ -141,6 +142,7 @@ public class CppCompileActionBuilder {
     this.actionClassId = other.actionClassId;
     this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
+    this.fdoBuildStamp = other.fdoBuildStamp;
     this.usePic = other.usePic;
     this.lipoScannableMap = other.lipoScannableMap;
     this.ruleContext = other.ruleContext;
@@ -282,25 +284,12 @@ public class CppCompileActionBuilder {
     
     // Copying the collections is needed to make the builder reusable.
     if (fake) {
-      return new FakeCppCompileAction(
-          owner,
-          ImmutableList.copyOf(features),
-          featureConfiguration,
-          variables,
-          sourceFile,
-          shouldScanIncludes,
-          sourceLabel,
-          realMandatoryInputsBuilder.build(),
-          outputFile,
-          tempOutputFile,
-          dotdFile,
-          configuration,
-          cppConfiguration,
-          context,
-          actionContext,
+      return new FakeCppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
+          variables, sourceFile, shouldScanIncludes, sourceLabel,
+          realMandatoryInputsBuilder.build(), outputFile,
+          tempOutputFile, dotdFile, configuration, cppConfiguration, context, actionContext,
           ImmutableList.copyOf(copts),
-          getNocoptPredicate(nocopts),
-          ruleContext,
+          getNocoptPredicate(nocopts), fdoBuildStamp, ruleContext,
           usePic);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
@@ -325,6 +314,7 @@ public class CppCompileActionBuilder {
           actionContext,
           ImmutableList.copyOf(copts),
           getNocoptPredicate(nocopts),
+          fdoBuildStamp,
           specialInputsHandler,
           getLipoScannables(realMandatoryInputs),
           actionClassId,
@@ -463,6 +453,11 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setContext(CppCompilationContext context) {
     this.context = context;
+    return this;
+  }
+
+  public CppCompileActionBuilder setFdoBuildStamp(String fdoBuildStamp) {
+    this.fdoBuildStamp = fdoBuildStamp;
     return this;
   }
 

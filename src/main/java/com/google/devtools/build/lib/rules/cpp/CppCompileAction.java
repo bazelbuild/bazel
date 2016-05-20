@@ -251,6 +251,7 @@ public class CppCompileAction extends AbstractAction
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       Predicate<String> coptsFilter,
+      @Nullable String fdoBuildStamp,
       SpecialInputsHandler specialInputsHandler,
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
@@ -291,6 +292,7 @@ public class CppCompileAction extends AbstractAction
             features,
             featureConfiguration,
             variables,
+            fdoBuildStamp,
             actionName);
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
@@ -1265,6 +1267,9 @@ public class CppCompileAction extends AbstractAction
     @VisibleForTesting public final CcToolchainFeatures.Variables variables;
     private final String actionName;
 
+    // The value of the BUILD_FDO_TYPE macro to be defined on command line
+    @Nullable private final String fdoBuildStamp;
+
     public CppCompileCommandLine(
         Artifact sourceFile,
         DotdFile dotdFile,
@@ -1274,6 +1279,7 @@ public class CppCompileAction extends AbstractAction
         Collection<String> features,
         FeatureConfiguration featureConfiguration,
         CcToolchainFeatures.Variables variables,
+        @Nullable String fdoBuildStamp,
         String actionName) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
       this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
@@ -1284,6 +1290,7 @@ public class CppCompileAction extends AbstractAction
       this.features = Preconditions.checkNotNull(features);
       this.featureConfiguration = featureConfiguration;
       this.variables = variables;
+      this.fdoBuildStamp = fdoBuildStamp;
       this.actionName = actionName;
     }
 
@@ -1332,6 +1339,14 @@ public class CppCompileAction extends AbstractAction
 
       for (String warn : cppConfiguration.getCWarns()) {
         options.add("-W" + warn);
+      }
+      for (String define : context.getDefines()) {
+        options.add("-D" + define);
+      }
+
+      // Stamp FDO builds with FDO subtype string
+      if (fdoBuildStamp != null) {
+        options.add("-D" + CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
       }
 
       // TODO(bazel-team): This needs to be before adding getUnfilteredCompilerOptions() and after

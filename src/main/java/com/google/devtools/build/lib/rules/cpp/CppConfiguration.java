@@ -709,24 +709,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "}",
             toolchainBuilder);
       }
-      if (!features.contains("preprocessor_defines")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'preprocessor_defines'"
-            + "  flag_set {"
-            + "    action: 'preprocess-assemble'"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    action: 'c++-header-parsing'"
-            + "    action: 'c++-header-preprocessing'"
-            + "    action: 'c++-module-compile'"
-            + "    flag_group {"
-            + "      flag: '-D%{preprocessor_defines}'"
-            + "    }"
-            + "  }"
-            + "}",
-            toolchainBuilder);
-      }
       if (!features.contains("include_paths")) {
         TextFormat.merge(""
             + "feature {"
