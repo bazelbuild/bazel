@@ -308,7 +308,6 @@ public final class CppModel {
       builder.addNocopts(nocopts);
     }
 
-    builder.setFdoBuildStamp(CppHelper.getFdoBuildStamp(ruleContext));
     builder.setFeatureConfiguration(featureConfiguration);
     
     return builder;
@@ -362,7 +361,8 @@ public final class CppModel {
     
     // TODO(bazel-team): Pull out string constants for all build variables.
 
-    CppModuleMap cppModuleMap = context.getCppModuleMap();
+    CppCompilationContext builderContext = builder.getContext();
+    CppModuleMap cppModuleMap = builderContext.getCppModuleMap();
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
       // in any case, but don't crash.
@@ -371,7 +371,7 @@ public final class CppModel {
           cppModuleMap.getArtifact().getExecPathString());
       CcToolchainFeatures.Variables.ValueSequence.Builder sequence =
           new CcToolchainFeatures.Variables.ValueSequence.Builder();
-      for (Artifact artifact : context.getDirectModuleMaps()) {
+      for (Artifact artifact : builderContext.getDirectModuleMaps()) {
         sequence.addValue(artifact.getExecPathString());
       }
       buildVariables.addSequence("dependent_module_map_files", sequence.build());
@@ -381,11 +381,28 @@ public final class CppModel {
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
       buildVariables.addSequenceVariable("include_paths",
-          getSafePathStrings(context.getIncludeDirs()));
+          getSafePathStrings(builderContext.getIncludeDirs()));
       buildVariables.addSequenceVariable("quote_include_paths",
-          getSafePathStrings(context.getQuoteIncludeDirs()));
+          getSafePathStrings(builderContext.getQuoteIncludeDirs()));
       buildVariables.addSequenceVariable("system_include_paths",
-          getSafePathStrings(context.getSystemIncludeDirs()));
+          getSafePathStrings(builderContext.getSystemIncludeDirs()));
+    }
+
+    if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESSOR_DEFINES)) {
+      String fdoBuildStamp = CppHelper.getFdoBuildStamp(ruleContext);
+      ImmutableList<String> defines;
+      if (fdoBuildStamp != null) {
+        // Stamp FDO builds with FDO subtype string
+        defines = ImmutableList.<String>builder()
+            .addAll(builderContext.getDefines())
+            .add(CppConfiguration.FDO_STAMP_MACRO
+                + "=\"" + CppHelper.getFdoBuildStamp(ruleContext) + "\"")
+            .build();
+      } else {
+        defines = builderContext.getDefines();
+      }
+
+      buildVariables.addSequenceVariable("preprocessor_defines", defines);
     }
 
     if (usePic) {
@@ -491,6 +508,7 @@ public final class CppModel {
       builder.setContext(CppCompilationContext.mergeForLipo(lipoProvider.getLipoContext(),
           context));
     }
+
     boolean generatePicAction = getGeneratePicActions();
     // If we always need pic for everything, then don't bother to create a no-pic action.
     boolean generateNoPicAction = getGenerateNoPicActions();
