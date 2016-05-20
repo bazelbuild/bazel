@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
@@ -277,6 +278,37 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertTrue(
         "Label " + labelA.toString() + " should be present in progress bar: " + output,
         output.contains(labelA.toString()));
+  }
+
+  @Test
+  public void testSensibleShortening() throws Exception {
+    // Verify that in the typical case, we shorten the progress message by shortening
+    // the path implicit in it, that can also be extracted from the label. In particular,
+    // the parts
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 70);
+    Action action = mockAction(
+        "Building some/very/very/long/path/for/some/library/directory/foo.jar (42 source files)",
+        "/home/user/bazel/out/abcdef/some/very/very/long/path/for/some/library/directory/foo.jar");
+    Label label =
+        Label.parseAbsolute("//some/very/very/long/path/for/some/library/directory:libfoo");
+    ActionOwner owner = new ActionOwner(label, null, null, null, "fedcba", null);
+    when(action.getOwner()).thenReturn(owner);
+
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(3));
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(5));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Progress bar should contain 'Building ', but was:\n" + output,
+        output.contains("Building "));
+    assertTrue(
+        "Progress bar should contain 'foo.jar (42 source files)', but was:\n" + output,
+        output.contains("foo.jar (42 source files)"));
   }
 
   private void doTestOutputLength(boolean withTest, int actions) throws Exception {

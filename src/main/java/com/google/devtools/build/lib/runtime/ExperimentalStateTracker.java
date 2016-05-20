@@ -214,8 +214,30 @@ class ExperimentalStateTracker {
     if (message.length() + postfix.length() <= desiredWidth) {
       return message + postfix;
     }
+
+    // We have to shorten the message to fit into the line.
+
     if (action.getOwner() != null) {
       if (action.getOwner().getLabel() != null) {
+        // First attempt is to shorten the package path string in the messge, if it occurs there
+        String pathString = action.getOwner().getLabel().getPackageFragment().toString();
+        int pathIndex = message.indexOf(pathString);
+        if (pathIndex >= 0) {
+          String start = message.substring(0, pathIndex);
+          String end = message.substring(pathIndex + pathString.length());
+          int pathTargetLength = desiredWidth - start.length() - end.length() - postfix.length();
+          // This attempt of shortening is reasonable if what is left from the label
+          // is significantly longer (twice as long) as the ellipsis symbols introduced.
+          if (pathTargetLength >= 3 * ELLIPSIS.length()) {
+            String shortPath = suffix(pathString, pathTargetLength - ELLIPSIS.length());
+            int slashPos = shortPath.indexOf('/');
+            if (slashPos >= 0) {
+              return start + ELLIPSIS + shortPath.substring(slashPos) + end + postfix;
+            }
+          }
+        }
+
+        // Second attempt: just take a shortened version of the label.
         String shortLabel =
             shortenedLabelString(action.getOwner().getLabel(), desiredWidth - postfix.length());
         if (shortLabel.length() + postfix.length() <= desiredWidth) {
@@ -223,7 +245,7 @@ class ExperimentalStateTracker {
         }
       }
     }
-    if (3 * ELLIPSIS.length() <= desiredWidth) {
+    if (3 * ELLIPSIS.length() + postfix.length() <= desiredWidth) {
       message = ELLIPSIS + suffix(message, desiredWidth - ELLIPSIS.length() - postfix.length());
     }
     return message + postfix;
