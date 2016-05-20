@@ -37,9 +37,12 @@ int main() { std::cout << "Hello world!" << std::endl; return 0; }
 EOF
   work_path=$(mktemp -d ${TEST_TMPDIR}/remote.XXXXXXXX)
   pid_file=$(mktemp -u ${TEST_TMPDIR}/remote.XXXXXXXX)
+  worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
   ${bazel_data}/src/tools/remote_worker/remote_worker \
       --work_path=${work_path} \
-      --listen_port 8080 \
+      --listen_port=${worker_port} \
+      --hazelcast_standalone_listen_port=${hazelcast_port} \
       --pid_file=${pid_file} >& $TEST_log &
   local wait_seconds=0
   until [ -s "${pid_file}" ] || [ $wait_seconds -eq 30 ]; do
@@ -68,8 +71,8 @@ function test_cc_binary() {
 
   bazel build \
     --spawn_strategy=remote \
-    --hazelcast_node=localhost:5701 \
-    --remote_worker=localhost:8080 \
+    --hazelcast_node=localhost:${hazelcast_port} \
+    --remote_worker=localhost:${worker_port} \
     //a:test >& $TEST_log \
     || fail "Failed to build //a:test with remote execution"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \

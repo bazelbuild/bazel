@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.ClientNetworkConfig;
+import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 
@@ -38,6 +39,15 @@ public final class HazelcastCacheFactory {
       ClientNetworkConfig net = config.getNetworkConfig();
       net.addAddress(options.hazelcastNode.split(","));
       instance = HazelcastClient.newHazelcastClient(config);
+    } else if (options.hazelcastStandaloneListenPort != 0) {
+      Config config = new Config();
+      config
+          .getNetworkConfig()
+          .setPort(options.hazelcastStandaloneListenPort)
+          .getJoin()
+          .getMulticastConfig()
+          .setEnabled(false);
+      instance = Hazelcast.newHazelcastInstance(config);
     } else {
       // Otherwise create a default instance. This is going to look at
       // -Dhazelcast.config=some-hazelcast.xml for configuration.

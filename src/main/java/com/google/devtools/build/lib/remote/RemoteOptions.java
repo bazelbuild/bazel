@@ -30,6 +30,16 @@ public final class RemoteOptions extends OptionsBase {
   public String hazelcastNode;
 
   @Option(
+    name = "hazelcast_standalone_listen_port",
+    defaultValue = "0",
+    category = "build_worker",
+    help =
+        "Runs an embedded hazelcast server that listens to this port. The server does not join"
+            + " any cluster. This is useful for testing."
+  )
+  public int hazelcastStandaloneListenPort;
+
+  @Option(
     name = "remote_worker",
     defaultValue = "null",
     category = "remote",
