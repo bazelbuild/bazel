@@ -18,6 +18,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Type;
 
 import org.junit.Before;
@@ -31,9 +32,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperTest {
 
+  private Rule rule;
+
   @Before
   public final void createRule() throws Exception {
-    rule = createRule("x", "myrule",
+    rule = scratchRule("x", "myrule",
         "cc_binary(",
         "    name = 'myrule',",
         "    srcs = ['a', 'b', 'c'],",

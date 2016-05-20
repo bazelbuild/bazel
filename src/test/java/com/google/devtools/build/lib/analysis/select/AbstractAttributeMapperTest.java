@@ -20,10 +20,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeContainer;
@@ -32,11 +31,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Path;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -49,9 +44,8 @@ import java.util.List;
  * Unit tests for {@link AbstractAttributeMapper}.
  */
 @RunWith(JUnit4.class)
-public class AbstractAttributeMapperTest extends FoundationTestCase {
+public class AbstractAttributeMapperTest extends BuildViewTestCase {
 
-  private Package pkg;
   protected Rule rule;
   protected AbstractAttributeMapper mapper;
 
@@ -62,23 +56,14 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
     }
   }
 
-  protected Rule createRule(String pkgPath, String ruleName, String... ruleDef) throws Exception  {
-    Scratch scratch = new Scratch();
-    EventCollectionApparatus events = new EventCollectionApparatus();
-    PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
-
-    Path buildFile = scratch.file(pkgPath + "/BUILD", ruleDef);
-    pkg = packages.createPackage(pkgPath, buildFile);
-    return pkg.getRule(ruleName);
-  }
-
   @Before
   public final void initializeRuleAndMapper() throws Exception {
-    rule = createRule("x", "myrule",
+    rule = scratchRule("p", "myrule",
         "cc_binary(name = 'myrule',",
         "          srcs = ['a', 'b', 'c'])");
     RuleClass ruleClass = rule.getRuleClassObject();
-    mapper = new TestMapper(pkg, ruleClass, rule.getLabel(), rule.getAttributeContainer());
+    mapper =
+        new TestMapper(rule.getPackage(), ruleClass, rule.getLabel(), rule.getAttributeContainer());
   }
 
   @Test
@@ -89,6 +74,10 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
 
   @Test
   public void testPackageDefaultProperties() throws Exception {
+    rule = scratchRule("a", "myrule",
+        "cc_binary(name = 'myrule',",
+        "          srcs = ['a', 'b', 'c'])");
+    Package pkg = rule.getPackage();
     assertEquals(pkg.getDefaultHdrsCheck(), mapper.getPackageDefaultHdrsCheck());
     assertEquals(pkg.getDefaultTestOnly(), mapper.getPackageDefaultTestOnly());
     assertEquals(pkg.getDefaultDeprecation(), mapper.getPackageDefaultDeprecation());
@@ -155,8 +144,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
   public void testVisitation() throws Exception {
     VisitationRecorder recorder = new VisitationRecorder("srcs");
     mapper.visitLabels(recorder);
-    assertThat(recorder.labelsVisited)
-        .containsExactlyElementsIn(ImmutableList.of("//x:a", "//x:b", "//x:c"));
+    assertThat(recorder.labelsVisited).containsExactly("//p:a", "//p:b", "//p:c");
   }
 
   @Test

@@ -48,7 +48,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   }
 
   private Rule setupGenRule() throws Exception {
-    return createRule("x", "myrule",
+    return scratchRule("x", "myrule",
         "sh_binary(",
         "    name = 'myrule',",
         "    srcs = select({",
@@ -127,7 +127,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
 
   @Test
   public void testGetMergedValues() throws Exception {
-    Rule rule = createRule("x", "myrule",
+    Rule rule = scratchRule("x", "myrule",
         "sh_binary(",
         "    name = 'myrule',",
         "    srcs = select({",
@@ -144,7 +144,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
 
   @Test
   public void testMergedValuesWithConcatenatedSelects() throws Exception {
-    Rule rule = createRule("x", "myrule",
+    Rule rule = scratchRule("x", "myrule",
         "sh_binary(",
         "    name = 'myrule',",
         "    srcs = select({",
