@@ -873,6 +873,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
+    String ruleDefinitionEnvironmentHashCode =
+        ruleDefinitionEnvironment == null
+            ? null
+            : ruleDefinitionEnvironment.getTransitiveContentHashCode();
     return new RuleClass(
         name,
         /*isSkylark=*/ skylarkExecutable,
@@ -892,6 +896,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         ruleDefinitionEnvironment,
+        ruleDefinitionEnvironmentHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .setMissingFragmentPolicy(missingFragmentPolicy)

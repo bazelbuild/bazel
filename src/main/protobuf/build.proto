@@ -306,6 +306,10 @@ message Rule {
 
   // List of Skylark aspects that this rule applies.
   repeated AttributeAspect skylark_attribute_aspects = 11;
+
+  // Hash encapsulating the behavior of this Skylark rule. Any change to this
+  // rule's definition that could change its behavior will be reflected here.
+  optional string skylark_environment_hash_code = 12;
 }
 
 // A pairing of attribute name and a Skylark aspect that is applied to that attribute.

@@ -102,8 +102,8 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class RuleClass {
-  public static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
-        Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
+  static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
+      Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
 
   public static final PathFragment THIRD_PARTY_PREFIX = new PathFragment("third_party");
 
@@ -481,7 +481,8 @@ public final class RuleClass {
     private BaseFunction configuredTargetFunction = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
-    private Environment ruleDefinitionEnvironment = null;
+    @Nullable private Environment ruleDefinitionEnvironment = null;
+    @Nullable private String ruleDefinitionEnvironmentHashCode = null;
     private ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
 
@@ -503,6 +504,7 @@ public final class RuleClass {
       this.name = name;
       this.skylark = skylark;
       this.type = type;
+      Preconditions.checkState(skylark || type != RuleClassType.PLACEHOLDER, name);
       this.documented = type != RuleClassType.ABSTRACT;
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
@@ -569,12 +571,32 @@ public final class RuleClass {
         Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
         Preconditions.checkState(externalBindingsFunction == NO_EXTERNAL_BINDINGS);
       }
-      return new RuleClass(name, skylark, skylarkExecutable, documented, publicByDefault,
-          binaryOutput, workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction,
-          configurator, configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
-          ImmutableSet.copyOf(advertisedProviders), canHaveAnyProvider, configuredTargetFunction,
-          externalBindingsFunction, ruleDefinitionEnvironment, configurationFragmentPolicy.build(),
-          supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
+      if (type == RuleClassType.PLACEHOLDER) {
+        Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
+      }
+      return new RuleClass(
+          name,
+          skylark,
+          skylarkExecutable,
+          documented,
+          publicByDefault,
+          binaryOutput,
+          workspaceOnly,
+          outputsDefaultExecutable,
+          implicitOutputsFunction,
+          configurator,
+          configuredTargetFactory,
+          validityPredicate,
+          preferredDependencyPredicate,
+          ImmutableSet.copyOf(advertisedProviders),
+          canHaveAnyProvider,
+          configuredTargetFunction,
+          externalBindingsFunction,
+          ruleDefinitionEnvironment,
+          ruleDefinitionEnvironmentHashCode,
+          configurationFragmentPolicy.build(),
+          supportsConstraintChecking,
+          attributes.values().toArray(new Attribute[0]));
     }
 
     /**
@@ -814,11 +836,19 @@ public final class RuleClass {
       return this;
     }
 
-    /**
-     *  Sets the rule definition environment. Meant for Skylark usage.
-     */
+    /** Sets the rule definition environment. Meant for Skylark usage. */
     public Builder setRuleDefinitionEnvironment(Environment env) {
-      this.ruleDefinitionEnvironment = env;
+      this.ruleDefinitionEnvironment = Preconditions.checkNotNull(env, this.name);
+      this.ruleDefinitionEnvironmentHashCode =
+          this.ruleDefinitionEnvironment.getTransitiveContentHashCode();
+      return this;
+    }
+
+    /** Sets the rule definition environment hash code for deserialized rule classes. */
+    Builder setRuleDefinitionEnvironmentHashCode(String hashCode) {
+      Preconditions.checkState(ruleDefinitionEnvironment == null, ruleDefinitionEnvironment);
+      Preconditions.checkState(type == RuleClassType.PLACEHOLDER, type);
+      this.ruleDefinitionEnvironmentHashCode = Preconditions.checkNotNull(hashCode, this.name);
       return this;
     }
 
@@ -900,8 +930,8 @@ public final class RuleClass {
     }
   }
 
-  public static Builder createPlaceholderBuilder(final String name, final Location ruleLocation,
-      ImmutableList<RuleClass> parents) {
+  static Builder createPlaceholderBuilder(
+      final String name, final Location ruleLocation, ImmutableList<RuleClass> parents) {
     return new Builder(name, RuleClassType.PLACEHOLDER, /*skylark=*/true,
         parents.toArray(new RuleClass[parents.size()])).factory(
         new ConfiguredTargetFactory<Object, Object>() {
@@ -996,6 +1026,7 @@ public final class RuleClass {
    * Null for non Skylark executable RuleClasses.
    */
   @Nullable private final Environment ruleDefinitionEnvironment;
+  @Nullable private final String ruleDefinitionEnvironmentHashCode;
 
   /**
    * The set of configuration fragments which are legal for this rule's implementation to access.
@@ -1029,21 +1060,28 @@ public final class RuleClass {
    * <p>The {@code depsAllowedRules} predicate should have a {@code toString}
    * method which returns a plain English enumeration of the allowed rule class
    * names, if it does not allow all rule classes.
-   * @param workspaceOnly
    */
   @VisibleForTesting
-  RuleClass(String name,
-      boolean isSkylark, boolean skylarkExecutable, boolean documented, boolean publicByDefault,
-      boolean binaryOutput, boolean workspaceOnly, boolean outputsDefaultExecutable,
+  RuleClass(
+      String name,
+      boolean isSkylark,
+      boolean skylarkExecutable,
+      boolean documented,
+      boolean publicByDefault,
+      boolean binaryOutput,
+      boolean workspaceOnly,
+      boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
       ConfiguredTargetFactory<?, ?> configuredTargetFactory,
-      PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
+      PredicateWithMessage<Rule> validityPredicate,
+      Predicate<String> preferredDependencyPredicate,
       ImmutableSet<Class<?>> advertisedProviders,
       boolean canHaveAnyProvider,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       @Nullable Environment ruleDefinitionEnvironment,
+      String ruleDefinitionEnvironmentHashCode,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
@@ -1064,6 +1102,7 @@ public final class RuleClass {
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
     this.ruleDefinitionEnvironment = ruleDefinitionEnvironment;
+    this.ruleDefinitionEnvironmentHashCode = ruleDefinitionEnvironmentHashCode;
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
@@ -1756,10 +1795,23 @@ public final class RuleClass {
   }
 
   /**
-   * Returns this RuleClass's rule definition environment.
+   * Returns this RuleClass's rule definition environment. Is null for native rules' RuleClass
+   * objects and deserialized Skylark rules. Deserialized rules do provide a hash code encapsulating
+   * their behavior, available at {@link #getRuleDefinitionEnvironmentHashCode}.
    */
-  @Nullable public Environment getRuleDefinitionEnvironment() {
+  @Nullable
+  public Environment getRuleDefinitionEnvironment() {
     return ruleDefinitionEnvironment;
+  }
+
+  /**
+   * Returns the hash code for the RuleClass's rule definition environment. In deserialization,
+   * this RuleClass may not actually contain its environment, in which case the hash code is all
+   * that is available. Will be null for native rules' RuleClass objects.
+   */
+  @Nullable
+  public String getRuleDefinitionEnvironmentHashCode() {
+    return ruleDefinitionEnvironmentHashCode;
   }
 
   /** Returns true if this RuleClass is a skylark-defined RuleClass. */

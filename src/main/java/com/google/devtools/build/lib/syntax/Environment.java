@@ -176,7 +176,7 @@ public final class Environment implements Freezable {
      * This provides a O(n) way of extracting the list of all variables visible in an Environment.
      * @param vars the set of visible variables in the Environment, being computed.
      */
-    public void addVariableNamesTo(Set<String> vars) {
+    void addVariableNamesTo(Set<String> vars) {
       vars.addAll(bindings.keySet());
       if (parent != null) {
         parent.addVariableNamesTo(vars);
@@ -224,7 +224,6 @@ public final class Environment implements Freezable {
         FuncallExpression caller,
         Frame lexicalFrame,
         Frame globalFrame,
-        Set<String> knownGlobalVariables,
         boolean isSkylark) {
       this.continuation = continuation;
       this.function = function;
@@ -275,14 +274,7 @@ public final class Environment implements Freezable {
       this.transitiveContentHashCode = env.getTransitiveContentHashCode();
     }
 
-    // Hack to allow serialization.
-    private Extension() {
-      super();
-      this.transitiveContentHashCode = null;
-    }
-
-    @VisibleForTesting // This is only used in one test.
-    public String getTransitiveContentHashCode() {
+    String getTransitiveContentHashCode() {
       return transitiveContentHashCode;
     }
 
@@ -375,11 +367,11 @@ public final class Environment implements Freezable {
    * @param globals the global Frame that this function closes over from its definition Environment
    */
   void enterScope(BaseFunction function, FuncallExpression caller, Frame globals) {
-    continuation = new Continuation(
-        continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables, isSkylark);
+    continuation =
+        new Continuation(continuation, function, caller, lexicalFrame, globalFrame, isSkylark);
     lexicalFrame = new Frame(mutability(), null);
     globalFrame = globals;
-    knownGlobalVariables = new HashSet<String>();
+    knownGlobalVariables = new HashSet<>();
     isSkylark = true;
   }
 
@@ -395,10 +387,7 @@ public final class Environment implements Freezable {
     continuation = continuation.continuation;
   }
 
-  /**
-   * When evaluating code from a file, this contains a hash of the file.
-   */
-  @Nullable private String fileContentHashCode;
+  private final String transitiveHashCode;
 
   /**
    * Is this Environment being evaluated during the loading phase?
@@ -434,10 +423,8 @@ public final class Environment implements Freezable {
     return dynamicFrame.mutability();
   }
 
-  /**
-   * @return the current Frame, in which variable side-effects happen.
-   */
-  public Frame currentFrame() {
+  /** @return the current Frame, in which variable side-effects happen. */
+  private Frame currentFrame() {
     return isGlobal() ? globalFrame : lexicalFrame;
   }
 
@@ -457,10 +444,8 @@ public final class Environment implements Freezable {
     return eventHandler;
   }
 
-  /**
-   * @return the current stack trace as a list of functions.
-   */
-  public ImmutableList<BaseFunction> getStackTrace() {
+  /** @return the current stack trace as a list of functions. */
+  ImmutableList<BaseFunction> getStackTrace() {
     ImmutableList.Builder<BaseFunction> builder = new ImmutableList.Builder<>();
     for (Continuation k = continuation; k != null; k = k.continuation) {
       builder.add(k.function);
@@ -512,10 +497,11 @@ public final class Environment implements Freezable {
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
     this.isSkylark = isSkylark;
-    this.fileContentHashCode = fileContentHashCode;
     this.phase = phase;
     this.callerLabel = callerLabel;
     this.toolsRepository = toolsRepository;
+    this.transitiveHashCode =
+        computeTransitiveContentHashCode(fileContentHashCode, importedExtensions);
   }
 
   /**
@@ -783,7 +769,7 @@ public final class Environment implements Freezable {
     return knownGlobalVariables != null && knownGlobalVariables.contains(varname);
   }
 
-  public void handleEvent(Event event) {
+  void handleEvent(Event event) {
     eventHandler.handle(event);
   }
 
@@ -831,7 +817,7 @@ public final class Environment implements Freezable {
    * An Exception thrown when an attempt is made to import a symbol from a file
    * that was not properly loaded.
    */
-  public static class LoadFailedException extends Exception {
+  static class LoadFailedException extends Exception {
     LoadFailedException(String importString) {
       super(String.format("file '%s' was not correctly loaded. "
               + "Make sure the 'load' statement appears in the global scope in your file",
@@ -839,7 +825,7 @@ public final class Environment implements Freezable {
     }
   }
 
-  public void importSymbol(String importString, Identifier symbol, String nameInLoadedFile)
+  void importSymbol(String importString, Identifier symbol, String nameInLoadedFile)
       throws NoSuchVariableException, LoadFailedException {
     Preconditions.checkState(isGlobal()); // loading is only allowed at global scope.
 
@@ -864,14 +850,13 @@ public final class Environment implements Freezable {
     }
   }
 
-  /**
-   * Returns a hash code calculated from the hash code of this Environment and the
-   * transitive closure of other Environments it loads.
-   */
-  public String getTransitiveContentHashCode() {
+  private static String computeTransitiveContentHashCode(
+      @Nullable String baseHashCode, Map<String, Extension> importedExtensions) {
     // Calculate a new hash from the hash of the loaded Extension-s.
     Fingerprint fingerprint = new Fingerprint();
-    fingerprint.addString(Preconditions.checkNotNull(fileContentHashCode));
+    if (baseHashCode != null) {
+      fingerprint.addString(Preconditions.checkNotNull(baseHashCode));
+    }
     TreeSet<String> importStrings = new TreeSet<>(importedExtensions.keySet());
     for (String importString : importStrings) {
       fingerprint.addString(importedExtensions.get(importString).getTransitiveContentHashCode());
@@ -879,9 +864,16 @@ public final class Environment implements Freezable {
     return fingerprint.hexDigestAndReset();
   }
 
+  /**
+   * Returns a hash code calculated from the hash code of this Environment and the
+   * transitive closure of other Environments it loads.
+   */
+  public String getTransitiveContentHashCode() {
+    return transitiveHashCode;
+  }
 
   /** A read-only Environment.Frame with global constants in it only */
-  public static final Frame CONSTANTS_ONLY = createConstantsGlobals();
+  static final Frame CONSTANTS_ONLY = createConstantsGlobals();
 
   /** A read-only Environment.Frame with initial globals for the BUILD language */
   public static final Frame BUILD = createBuildGlobals();

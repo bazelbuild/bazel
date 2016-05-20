@@ -40,6 +40,14 @@ public class RuleSerializer {
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
     boolean isSkylark = rule.getRuleClassObject().isSkylark();
 
+    if (isSkylark) {
+      builder.setSkylarkEnvironmentHashCode(
+          Preconditions.checkNotNull(
+              rule.getRuleClassObject()
+                  .getRuleDefinitionEnvironment()
+                  .getTransitiveContentHashCode(),
+              rule));
+    }
     for (Attribute attr : rule.getAttributes()) {
       Object rawAttributeValue = rawAttributeMapper.getRawAttributeValue(rule, attr);
       boolean isExplicit = rule.isAttributeValueExplicitlySpecified(attr);
