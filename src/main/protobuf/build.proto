@@ -147,6 +147,11 @@ message Attribute {
     // config_setting rule, or the pseudo-label "//conditions:default".
     optional string label = 1;
 
+    // True if the entry's value is the default value for the type as a
+    // result of the condition value being specified as None (ie:
+    // {"//condition": None}).
+    optional bool is_default_value = 16;
+
     // Exactly one of the following fields (except for glob_criteria) must be
     // populated - note that the BOOLEAN and TRISTATE caveat in Attribute's
     // comment does not apply here. The type field in the SelectorList
@@ -175,6 +180,12 @@ message Attribute {
     // At this time, this cannot be empty, i.e. a selector has at least one
     // entry.
     repeated SelectorEntry entries = 1;
+
+    // Whether or not this has any default values.
+    optional bool has_default_value = 2;
+
+    // The error message when no condition matches.
+    optional string no_match_error = 3;
   }
 
   message SelectorList {

@@ -385,7 +385,7 @@ public final class BuildType {
               context, originalType, ((SelectorValue) elem).getNoMatchError()));
         } else {
           T directValue = originalType.convert(elem, what, context);
-          builder.add(new Selector<T>(ImmutableMap.of(Selector.DEFAULT_CONDITION_KEY, directValue),
+          builder.add(new Selector<>(ImmutableMap.of(Selector.DEFAULT_CONDITION_KEY, directValue),
               what, context, originalType));
         }
       }
@@ -443,7 +443,8 @@ public final class BuildType {
         Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
-    private final Map<Label, T> map; // Can hold null values.
+    // Can hold null values, underlying implementation should be ordered.
+    private final Map<Label, T> map;
     private final Set<Label> conditionsWithDefaultValues;
     private final String noMatchError;
     private final boolean hasDefaultCondition;
@@ -451,11 +452,9 @@ public final class BuildType {
     /**
      * Creates a new Selector using the default error message when no conditions match.
      */
-    @VisibleForTesting
     Selector(ImmutableMap<?, ?> x, String what, @Nullable Label context, Type<T> originalType)
         throws ConversionException {
       this(x, what, context, originalType, "");
-
     }
 
     /**
@@ -464,7 +463,7 @@ public final class BuildType {
     Selector(ImmutableMap<?, ?> x, String what, @Nullable Label context, Type<T> originalType,
         String noMatchError) throws ConversionException {
       this.originalType = originalType;
-      Map<Label, T> result = new LinkedHashMap<>();
+      LinkedHashMap<Label, T> result = new LinkedHashMap<>();
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
       boolean foundDefaultCondition = false;
       for (Entry<?, ?> entry : x.entrySet()) {
@@ -480,10 +479,27 @@ public final class BuildType {
           result.put(key, originalType.convert(entry.getValue(), what, context));
         }
       }
-      map = Collections.unmodifiableMap(result);
+      this.map = Collections.unmodifiableMap(result);
       this.noMatchError = noMatchError;
-      conditionsWithDefaultValues = defaultValuesBuilder.build();
-      hasDefaultCondition = foundDefaultCondition;
+      this.conditionsWithDefaultValues = defaultValuesBuilder.build();
+      this.hasDefaultCondition = foundDefaultCondition;
+    }
+
+    /**
+     * Create a new Selector from raw values. A defensive copy of the supplied map is <i>not</i>
+     * made, so it imperative that it is not modified following construction.
+     */
+    Selector(
+        LinkedHashMap<Label, T> map,
+        Type<T> originalType,
+        String noMatchError,
+        ImmutableSet<Label> conditionsWithDefaultValues,
+        boolean hasDefaultCondition) {
+      this.originalType = originalType;
+      this.map = Collections.unmodifiableMap(map);
+      this.noMatchError = noMatchError;
+      this.conditionsWithDefaultValues = conditionsWithDefaultValues;
+      this.hasDefaultCondition = hasDefaultCondition;
     }
 
     /**

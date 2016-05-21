@@ -127,20 +127,28 @@ public class AttributeSerializer {
         Build.Attribute.SelectorList.newBuilder();
     selectorListBuilder.setType(ProtoUtils.getDiscriminatorFromType(type));
     for (Selector<?> selector : selectorList.getSelectors()) {
-      Build.Attribute.Selector.Builder selectorBuilder = Build.Attribute.Selector.newBuilder();
+      Build.Attribute.Selector.Builder selectorBuilder = Build.Attribute.Selector.newBuilder()
+          .setNoMatchError(selector.getNoMatchError())
+          .setHasDefaultValue(selector.hasDefault());
+
       // Note that the order of entries returned by selector.getEntries is stable. The map's
       // entries' order is preserved from the sorting performed by the SelectorValue constructor.
       for (Entry<Label, ?> entry : selector.getEntries().entrySet()) {
-        Builder selectorEntryBuilder = SelectorEntry.newBuilder();
-        selectorEntryBuilder.setLabel(entry.getKey().toString());
-        writeAttributeValueToBuilder(
-            new SelectorEntryBuilderAdapter(selectorEntryBuilder),
-            type,
-            entry.getValue(),
-            includeGlobs);
+        Label condition = entry.getKey();
+        Builder selectorEntryBuilder = SelectorEntry.newBuilder()
+            .setLabel(condition.toString())
+            .setIsDefaultValue(!selector.isValueSet(condition));
+
+        Object conditionValue = entry.getValue();
+        if (conditionValue != null) {
+          writeAttributeValueToBuilder(
+              new SelectorEntryBuilderAdapter(selectorEntryBuilder),
+              type,
+              conditionValue,
+              includeGlobs);
+        }
         selectorBuilder.addEntries(selectorEntryBuilder);
       }
-
       selectorListBuilder.addElements(selectorBuilder);
     }
     attrPb.setSelectorList(selectorListBuilder);
