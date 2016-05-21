@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -22,14 +21,14 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
 
-import com.android.ide.common.resources.configuration.CountryCodeQualifier;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.NetworkCodeQualifier;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.resources.ResourceType;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,13 +64,6 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
    */
   public static class Factory {
     private static final String BCP_PREFIX = "b+";
-    private static final Function<ResourceQualifier, String> QUALIFIER_TO_STRING =
-        new Function<ResourceQualifier, String>() {
-          @Override
-          public String apply(ResourceQualifier qualifier) {
-            return qualifier.getFolderSegment();
-          }
-        };
     private static final Pattern PARSING_REGEX =
         Pattern.compile("(?:(?<package>[^:]+):){0,1}(?<type>[^-/]+)(?:[^/]*)/(?<name>.+)");
     public static final String INVALID_QUALIFIED_NAME_MESSAGE_NO_MATCH =
@@ -99,19 +91,18 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
     }
 
     private static List<String> getQualifiers(String[] dirNameAndQualifiers) {
-      // TODO(corysmith): Remove when FolderConfiguration supports ll-r{3,4} regions.
       PeekingIterator<String> rawQualifiers =
           Iterators.peekingIterator(Iterators.forArray(dirNameAndQualifiers));
       // Remove directory name
       rawQualifiers.next();
       List<String> unHandledLanguageRegionQualifiers = new ArrayList<>();
+      List<String> unHandledDensityQualifiers = new ArrayList<>();
+      List<String> unHandledUIModeQualifiers = new ArrayList<>();
       List<String> handledQualifiers = new ArrayList<>();
-      // The language/region qualifiers can be in the first 4 qualifier slots.
-      for (int qualifierSlot = 0; qualifierSlot < 4; qualifierSlot++) {
-        // qualifiers have been exhausted.
-        if (!rawQualifiers.hasNext()) {
-          break;
-        }
+      // TODO(corysmith): Remove when FolderConfiguration is updated to handle anydpi and
+      // BCP prefixes.
+      // The language/region qualifiers and anydpi cannot be currently handled.
+      while (rawQualifiers.hasNext()) {
         String qualifier = rawQualifiers.next();
         if (qualifier.startsWith(BCP_PREFIX)) {
           // The b+local+script/region can't be handled.
@@ -130,12 +121,15 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
           unHandledLanguageRegionQualifiers.add("b+sr+Latn");
           // Consume the next value, as it's been replaced.
           rawQualifiers.next();
+        } else if (qualifier.equals("anydpi")) {
+          unHandledDensityQualifiers.add(qualifier);
+        } else if (qualifier.equals("watch")) {
+          unHandledUIModeQualifiers.add(qualifier);
         } else {
           // This qualifier can probably be handled by FolderConfiguration.
           handledQualifiers.add(qualifier);
         }
       }
-      Iterators.addAll(handledQualifiers, rawQualifiers);
       // Create a configuration
       FolderConfiguration config = FolderConfiguration.getConfigFromQualifiers(handledQualifiers);
       // FolderConfiguration returns an unhelpful null when it considers the qualifiers to be
@@ -145,29 +139,70 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
             String.format(INVALID_QUALIFIERS, DASH_JOINER.join(dirNameAndQualifiers)));
       }
       config.normalize();
-      PeekingIterator<ResourceQualifier> normalizedQualifiers =
-          Iterators.peekingIterator(Iterators.forArray(config.getQualifiers()));
-      // No qualifiers, just returns the language regions. Which may be empty, but an empty list is
-      // an empty list.
-      if (!normalizedQualifiers.hasNext()) {
-        return ImmutableList.copyOf(unHandledLanguageRegionQualifiers);
+
+      // This is fragile but better than the Gradle scheme of just dropping
+      // entire subtrees. 
+      Builder<String> builder = ImmutableList.<String>builder();
+      addIfNotNull(config.getCountryCodeQualifier(), builder);
+      addIfNotNull(config.getNetworkCodeQualifier(), builder);
+      if (unHandledLanguageRegionQualifiers.isEmpty()) {
+        addIfNotNull(config.getLanguageQualifier(), builder);
+        addIfNotNull(config.getRegionQualifier(), builder);
+      } else {
+        builder.addAll(unHandledLanguageRegionQualifiers);
       }
-      Builder<String> finalQualifiers = ImmutableList.<String>builder();
-      while (normalizedQualifiers.hasNext()) {
-        // The Mobile Country Code and Mobile Network Code will always come before the unhandled
-        // qualifiers.
-        if (normalizedQualifiers.peek() instanceof CountryCodeQualifier
-            || normalizedQualifiers.peek() instanceof NetworkCodeQualifier) {
-          finalQualifiers.add(QUALIFIER_TO_STRING.apply(normalizedQualifiers.next()));
-        } else {
-          // Exit the loop to add the rest of the qualifiers.
-          break;
+      addIfNotNull(config.getLayoutDirectionQualifier(), builder);
+      addIfNotNull(config.getSmallestScreenWidthQualifier(), builder);
+      addIfNotNull(config.getScreenWidthQualifier(), builder);
+      addIfNotNull(config.getScreenHeightQualifier(), builder);
+      addIfNotNull(config.getScreenSizeQualifier(), builder);
+      addIfNotNull(config.getScreenRatioQualifier(), builder);
+      addIfNotNullAndExist(config, "getScreenRoundQualifier", builder);
+      addIfNotNull(config.getScreenOrientationQualifier(), builder);
+      if (unHandledUIModeQualifiers.isEmpty()) {
+        addIfNotNull(config.getUiModeQualifier(), builder);
+      } else {
+        builder.addAll(unHandledUIModeQualifiers);
+      }
+      addIfNotNull(config.getNightModeQualifier(), builder);
+      if (unHandledDensityQualifiers.isEmpty()) {
+        addIfNotNull(config.getDensityQualifier(), builder);
+      } else {
+        builder.addAll(unHandledDensityQualifiers);
+      }
+      addIfNotNull(config.getTouchTypeQualifier(), builder);
+      addIfNotNull(config.getKeyboardStateQualifier(), builder);
+      addIfNotNull(config.getTextInputMethodQualifier(), builder);
+      addIfNotNull(config.getNavigationStateQualifier(), builder);
+      addIfNotNull(config.getNavigationMethodQualifier(), builder);
+      addIfNotNull(config.getScreenDimensionQualifier(), builder);
+      addIfNotNull(config.getVersionQualifier(), builder);
+
+      return builder.build();
+    }
+
+    private static void addIfNotNullAndExist(
+        FolderConfiguration config, String methodName, Builder<String> builder) {
+      try {
+        Method method = config.getClass().getMethod(methodName);
+        ResourceQualifier qualifier = (ResourceQualifier) method.invoke(config);
+        if (qualifier != null) {
+          builder.add(qualifier.getFolderSegment());
         }
+      } catch (NoSuchMethodException
+          | IllegalAccessException
+          | IllegalArgumentException
+          | InvocationTargetException e) {
+        // Suppress the error and continue.
+        return;
       }
-      finalQualifiers.addAll(unHandledLanguageRegionQualifiers);
-      // Consume the rest of the qualifers without care.
-      finalQualifiers.addAll(Iterators.transform(normalizedQualifiers, QUALIFIER_TO_STRING));
-      return finalQualifiers.build();
+    }
+
+    private static void addIfNotNull(
+        ResourceQualifier qualifier, ImmutableList.Builder<String> builder) {
+      if (qualifier != null) {
+        builder.add(qualifier.getFolderSegment());
+      }
     }
 
     public static Factory from(List<String> qualifiers, String pkg) {
@@ -202,7 +237,7 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       String parsedPackage = matcher.group("package");
       ResourceType resourceType = ResourceType.getEnum(matcher.group("type"));
       String resourceName = matcher.group("name");
-  
+
       if (resourceType == null || resourceName == null) {
         throw new IllegalArgumentException(
             String.format(
