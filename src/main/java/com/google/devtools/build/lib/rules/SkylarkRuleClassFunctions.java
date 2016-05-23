@@ -287,7 +287,7 @@ public class SkylarkRuleClassFunctions {
         Object implicitOutputs, Boolean executable, Boolean outputToGenfiles, SkylarkList fragments,
         SkylarkList hostFragments, FuncallExpression ast, Environment funcallEnv)
         throws EvalException, ConversionException {
-      funcallEnv.checkLoadingPhase("rule", ast.getLocation());
+      funcallEnv.checkLoadingOrWorkspacePhase("rule", ast.getLocation());
       RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
       RuleClass parent = test ? getTestBaseRule(funcallEnv.getToolsRepository())
           : (executable ? binaryBaseRule : baseRule);

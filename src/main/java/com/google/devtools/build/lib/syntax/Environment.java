@@ -399,6 +399,16 @@ public final class Environment implements Freezable {
   }
 
   /**
+   * Checks that the current Environment is in the loading or the workspace phase.
+   * @param symbol name of the function being only authorized thus.
+   */
+  public void checkLoadingOrWorkspacePhase(String symbol, Location loc) throws EvalException {
+    if (phase == Phase.ANALYSIS) {
+      throw new EvalException(loc, symbol + "() cannot be called during the analysis phase");
+    }
+  }
+
+  /**
    * Checks that the current Environment is in the loading phase.
    * @param symbol name of the function being only authorized thus.
    */

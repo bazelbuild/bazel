@@ -111,7 +111,7 @@ public class SkylarkNativeModule {
       new BuiltinFunction("existing_rule") {
         public Object invoke(String name, FuncallExpression ast, Environment env)
             throws EvalException, InterruptedException {
-          env.checkLoadingPhase("native.existing_rule", ast.getLocation());
+          env.checkLoadingOrWorkspacePhase("native.existing_rule", ast.getLocation());
           SkylarkDict<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
           if (rule != null) {
             return rule;
@@ -142,7 +142,7 @@ public class SkylarkNativeModule {
         public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
             FuncallExpression ast, Environment env)
             throws EvalException, InterruptedException {
-          env.checkLoadingPhase("native.existing_rules", ast.getLocation());
+          env.checkLoadingOrWorkspacePhase("native.existing_rules", ast.getLocation());
           return PackageFactory.callGetRulesFunction(ast, env);
         }
       };

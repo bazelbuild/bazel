@@ -596,6 +596,42 @@ EOF
   expect_log ": ${version}."
 }
 
+
+# Test native.existing_rule(s), regression test for #1277
+function test_existing_rule() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  cat > BUILD
+  cat > WORKSPACE
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+local_repository(name = 'existing', path='$repo2')
+load('/test', 'macro')
+
+macro()
+EOF
+
+  # Empty package for the .bzl file
+  echo -n >BUILD
+
+  # Our macro
+  cat >test.bzl <<EOF
+def test(s):
+  print("%s = %s,%s" % (s,
+                        native.existing_rule(s) != None,
+                        s in native.existing_rules()))
+def macro():
+  test("existing")
+  test("non_existing")
+EOF
+
+  bazel query //... >& $TEST_log || fail "Failed to build"
+  expect_log "existing = True,True"
+  expect_log "non_existing = False,False"
+}
+
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then

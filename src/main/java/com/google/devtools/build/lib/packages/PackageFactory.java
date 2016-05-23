@@ -1158,7 +1158,7 @@ public final class PackageFactory {
       public Runtime.NoneType invoke(Map<String, Object> kwargs,
           FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
-        env.checkLoadingPhase(ruleClass, ast.getLocation());
+        env.checkLoadingOrWorkspacePhase(ruleClass, ast.getLocation());
         try {
           addRule(ruleFactory, ruleClass, getContext(env, ast), kwargs, ast, env);
         } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {

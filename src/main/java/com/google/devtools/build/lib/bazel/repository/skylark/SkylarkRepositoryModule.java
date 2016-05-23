@@ -101,7 +101,7 @@ public class SkylarkRepositoryModule {
             FuncallExpression ast,
             com.google.devtools.build.lib.syntax.Environment funcallEnv)
             throws EvalException {
-          funcallEnv.checkLoadingPhase("repository_rule", ast.getLocation());
+          funcallEnv.checkLoadingOrWorkspacePhase("repository_rule", ast.getLocation());
           // We'll set the name later, pass the empty string for now.
           Builder builder = new Builder("", RuleClassType.WORKSPACE, true);
 
