@@ -62,6 +62,47 @@ load("//pkg:extension.bzl", "macro")
 macro(name = "myrule")
 ```
 
+## <a name="macro_compound"></a>Macro combining Skylark and native rules
+
+There's currently no easy way to create a Skylark rule that directly uses the
+action of a native rule. You can work around this using Skylark macros:
+
+```python
+def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps)
+   cc_binary_name = "%s.cc_binary" % name
+
+   native.cc_binary(
+      name = cc_binary_name,
+      srcs = csrcs,
+      deps = cdeps
+  )
+
+  _cc_and_something_else_binary(
+    name = name,
+    srcs = srcs,
+    deps = deps,
+    # A label attribute so that this depends on the internal rule
+    cc_binary = cc_binary,
+    # Redundant labels attributes so that the rule with this target name knows
+    # about everything it would know about if cc_and_something_else_binary
+    # were an actual rule instead of a macro.
+    csrcs = csrcs,
+    cdeps = cdeps)
+
+def _impl(ctx):
+  return struct([...],
+                # When instrumenting this rule, again hide implementation from
+                # users.
+                instrumented_files(
+                  source_attributes = ["srcs", "csrcs"],
+                  dependency_attributes = ["deps", "cdeps"]))
+
+_cc_and_something_else_binary = rule(implementation=_impl)
+```
+
+In the future, Skylark will have access to the build actions of native rules
+through an API, and this sort of work-around will no longer be necessary.
+
 ## <a name="conditional-instantiation"></a>Conditional instantiation
 
 Macros can look at previously instantiated rules. This is done with
