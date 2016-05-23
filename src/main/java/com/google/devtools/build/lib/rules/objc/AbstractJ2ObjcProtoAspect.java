@@ -90,6 +90,9 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
         .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
                 toolsRepository + "//tools/objc:xcrunwrapper")))
+        .add(attr(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, LABEL).cfg(HOST).exec()
+              .value(Label.parseAbsoluteUnchecked(
+                toolsRepository + "//tools/objc:libtool")))
         .add(attr(":xcode_config", LABEL)
             .allowedRuleClasses("xcode_config")
             .checkConstraints()

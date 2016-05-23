@@ -24,6 +24,7 @@ filegroup(
             "//src/tools/xcode/actoolwrapper",
             "//src/tools/xcode/environment:environment_plist",
             "//src/tools/xcode/ibtoolwrapper",
+            "//src/tools/xcode/libtool",
             "//src/tools/xcode/momcwrapper",
             "//src/tools/xcode/realpath",
             "//src/tools/xcode/stdredirect:StdRedirect.dylib",

@@ -61,10 +61,15 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Shared rule classes and associated utility code for Objective-C rules.
  */
 public class ObjcRuleClasses {
+
+  /**
+   * Name of the attribute used for implicit dependency on the libtool wrapper.
+   */
+  public static final String LIBTOOL_ATTRIBUTE = "$libtool";
+
   static final String CLANG = "clang";
   static final String CLANG_PLUSPLUS = "clang++";
   static final String SWIFT = "swift";
-  static final String LIBTOOL = "libtool";
   static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
@@ -746,7 +751,29 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CompileDependencyRule.class,
               CoptsRule.class,
+              LibtoolRule.class,
               XcrunRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that need to call libtool.
+   */
+  public static class LibtoolRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr(LIBTOOL_ATTRIBUTE, LABEL).cfg(HOST).exec()
+              .value(env.getToolsLabel("//tools/objc:libtool")))
+          .build();
+    }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$objc_libtool_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(XcrunRule.class)
           .build();
     }
   }

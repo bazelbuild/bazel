@@ -38,7 +38,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLU
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIBTOOL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
@@ -143,7 +142,14 @@ public final class CompilationSupport {
    * Returns the location of the xcrunwrapper tool.
    */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
-   return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
+    return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
+  }
+
+  /**
+   * Returns the location of the libtool tool.
+   */
+  public static final FilesToRunProvider libtool(RuleContext ruleContext) {
+    return ruleContext.getExecutablePrerequisite(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, Mode.HOST);
   }
 
   /**
@@ -719,9 +725,8 @@ public final class CompilationSupport {
     actions.add(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             ruleContext, appleConfiguration.getIosCpuPlatform())
         .setMnemonic("ObjcLink")
-        .setExecutable(xcrunwrapper(ruleContext))
+        .setExecutable(libtool(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
-            .add(LIBTOOL)
             .add("-static")
             .add("-filelist").add(objList.getExecPathString())
             .add("-arch_only").add(appleConfiguration.getIosCpu())
@@ -750,9 +755,8 @@ public final class CompilationSupport {
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             ruleContext, appleConfiguration.getIosCpuPlatform())
         .setMnemonic("ObjcLink")
-        .setExecutable(xcrunwrapper(ruleContext))
+        .setExecutable(libtool(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
-            .add(LIBTOOL)
             .add("-static")
             .add("-arch_only").add(appleConfiguration.getIosCpu())
             .add("-syslibroot").add(AppleToolchain.sdkDir())

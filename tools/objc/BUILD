@@ -64,6 +64,14 @@ sh_binary(
 )
 
 sh_binary(
+    name = "libtool",
+    srcs = [":libtool.sh"],
+    data = [
+        ":xcrunwrapper",
+    ],
+)
+
+sh_binary(
     name = "actoolwrapper",
     srcs = [":actoolwrapper.sh"],
     data = [

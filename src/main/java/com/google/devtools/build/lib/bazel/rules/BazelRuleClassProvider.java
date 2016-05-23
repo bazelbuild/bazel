@@ -405,6 +405,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ResourceToolsRule());
     builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
+    builder.addRuleDefinition(new ObjcRuleClasses.LibtoolRule());
     builder.addRuleDefinition(new ObjcRuleClasses.IpaRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingToolsRule());
     builder.addRuleDefinition(new ObjcRuleClasses.WatchExtensionBundleRule());
