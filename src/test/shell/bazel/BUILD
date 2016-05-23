@@ -150,7 +150,7 @@ genrule(
         "//third_party:srcs",
     ],
     outs = ["doc-srcs.zip"],
-    cmd = "zip -q $@ $(SRCS)",
+    cmd = "echo $(SRCS) | tr ' ' '\n' | zip -q@ $@",
 )
 
 sh_test(
