@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
@@ -1509,6 +1510,11 @@ public final class CompilationSupport {
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
         .addAll(PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR))))
+        .addAll(
+            Interspersing.beforeEach(
+                "-F",
+                PathFragment.safePathStrings(
+                    uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY)))))
         .build();
   }
 

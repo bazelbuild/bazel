@@ -687,6 +687,8 @@ public final class ReleaseBundlingSupport {
     // We want access to #import-able things from our test rig's dependency graph, but we don't
     // want to link anything since that stuff is shared automatically by way of the
     // -bundle_loader linker flag.
+    // TODO(bazel-team): Handle the FRAMEWORK_DIR key properly. We probably want to add it to
+    // framework search paths, but not actually link it with the -framework flag.
     ObjcProvider partialObjcProvider =
         new ObjcProvider.Builder()
             .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
@@ -696,12 +698,12 @@ public final class ReleaseBundlingSupport {
             .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.SOURCE, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.WEAK_SDK_FRAMEWORK, objcProvider)
-            .addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_DIR, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, objcProvider)
+            .addTransitiveAndPropagate(
+                ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY,
+                objcProvider.get(ObjcProvider.FRAMEWORK_DIR))
             .build();
-    // TODO(bazel-team): Handle the FRAMEWORK_DIR key properly. We probably want to add it to
-    // framework search paths, but not actually link it with the -framework flag.
     return new XcTestAppProvider(
         intermediateArtifacts.combinedArchitectureBinary(),
         releaseBundling.getIpaArtifact(),

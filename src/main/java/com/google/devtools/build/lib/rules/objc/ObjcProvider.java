@@ -225,8 +225,17 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(LINK_ORDER, "framework_dir", PathFragment.class);
 
   /**
-   * Files in {@code .framework} directories belonging to a statically linked framework. They should
-   * be included as inputs when compiling and linking.
+   * Exec paths of {@code .framework} directories corresponding to frameworks to include in search
+   * paths, but not to link.  These cause -F arguments (framework search paths) to be added to
+   * each compile action, but do not cause -framework (link framework) arguments to be added to
+   * link actions.
+   */
+  public static final Key<PathFragment> FRAMEWORK_SEARCH_PATH_ONLY =
+      new Key<>(LINK_ORDER, "framework_search_paths", PathFragment.class);
+
+  /**
+   * Files in {@code .framework} directories that should be included as inputs when compiling and
+   * linking.
    */
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
