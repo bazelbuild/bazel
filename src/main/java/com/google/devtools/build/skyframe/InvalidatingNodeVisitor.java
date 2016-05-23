@@ -70,8 +70,6 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
   private static final int EXPECTED_PENDING_SET_SIZE = DEFAULT_THREAD_COUNT * 8;
   private static final int EXPECTED_VISITED_SET_SIZE = 1024;
 
-  private static final boolean MUST_EXIST = true;
-
   private static final ErrorClassifier errorClassifier =
       new ErrorClassifier() {
         @Override
@@ -141,15 +139,13 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     // started yet (the queueDirtying calls start them), this is thread-safe.
     for (final Pair<SkyKey, InvalidationType> visitData :
         ImmutableList.copyOf(pendingVisitations)) {
-      // The caller may have specified non-existent SkyKeys, or there may be stale SkyKeys in
-      // pendingVisitations that have already been deleted. In both these cases, the nodes will not
-      // exist in the graph, so we must be tolerant of that case.
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          visit(ImmutableList.of(visitData.first), visitData.second, !MUST_EXIST);
-        }
-      });
+      executor.execute(
+          new Runnable() {
+            @Override
+            public void run() {
+              visit(ImmutableList.of(visitData.first), visitData.second);
+            }
+          });
     }
     executor.awaitQuiescence(/*interruptWorkers=*/ true);
 
@@ -161,7 +157,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
   protected abstract boolean getSupportInterruptions();
 
   @VisibleForTesting
-  public CountDownLatch getInterruptionLatchForTestingOnly() {
+  CountDownLatch getInterruptionLatchForTestingOnly() {
     return executor.getInterruptionLatchForTestingOnly();
   }
 
@@ -172,9 +168,9 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     }
   }
 
-  /** Enqueues nodes for invalidation. */
+  /** Enqueues nodes for invalidation. Elements of {@code keys} may not exist in the graph. */
   @ThreadSafe
-  abstract void visit(Iterable<SkyKey> keys, InvalidationType second, boolean mustExist);
+  abstract void visit(Iterable<SkyKey> keys, InvalidationType invalidationType);
 
   @VisibleForTesting
   enum InvalidationType {
@@ -232,7 +228,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
   }
 
   static class DeletingInvalidationState extends InvalidationState {
-    public DeletingInvalidationState() {
+    DeletingInvalidationState() {
       super(InvalidationType.DELETED);
     }
   }
@@ -243,9 +239,12 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     private final Set<SkyKey> visited = Sets.newConcurrentHashSet();
     private final boolean traverseGraph;
 
-    protected DeletingNodeVisitor(DirtiableGraph graph,
-        EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
-        boolean traverseGraph, DirtyKeyTracker dirtyKeyTracker) {
+    DeletingNodeVisitor(
+        DirtiableGraph graph,
+        EvaluationProgressReceiver invalidationReceiver,
+        InvalidationState state,
+        boolean traverseGraph,
+        DirtyKeyTracker dirtyKeyTracker) {
       super(graph, invalidationReceiver, state, dirtyKeyTracker);
       this.traverseGraph = traverseGraph;
     }
@@ -256,7 +255,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     }
 
     @Override
-    public void visit(Iterable<SkyKey> keys, InvalidationType invalidationType, boolean mustExist) {
+    public void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
       Preconditions.checkState(invalidationType == InvalidationType.DELETED, keys);
       Builder<SkyKey> unvisitedKeysBuilder = ImmutableList.builder();
       for (SkyKey key : keys) {
@@ -284,7 +283,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
 
                 if (traverseGraph) {
                   // Propagate deletion upwards.
-                  visit(entry.getReverseDeps(), InvalidationType.DELETED, !MUST_EXIST);
+                  visit(entry.getReverseDeps(), InvalidationType.DELETED);
 
                   // Unregister this node as an rdep from its direct deps, since reverse dep
                   // edges cannot point to non-existent nodes. To know whether the child has this
@@ -379,6 +378,12 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       return supportInterruptions;
     }
 
+    @Override
+    void visit(Iterable<SkyKey> keys, InvalidationType invalidationType) {
+      Preconditions.checkState(invalidationType != InvalidationType.DELETED, keys);
+      visit(keys, invalidationType, null);
+    }
+
     /**
      * Queues a task to dirty the nodes named by {@param keys}. May be called from multiple threads.
      * It is possible that the same node is enqueued many times. However, we require that a node
@@ -405,11 +410,11 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
      * If either of the above tests shows that we have already started a task to mark this entry
      * dirty/changed, or that it is already marked dirty/changed, we do not continue this task.
      */
-    @Override
     @ThreadSafe
-    public void visit(
-        Iterable<SkyKey> keys, final InvalidationType invalidationType, final boolean mustExist) {
-      Preconditions.checkState(invalidationType != InvalidationType.DELETED, keys);
+    private void visit(
+        Iterable<SkyKey> keys,
+        final InvalidationType invalidationType,
+        @Nullable SkyKey enqueueingKeyForExistenceCheck) {
       final boolean isChanged = (invalidationType == InvalidationType.CHANGED);
       Set<SkyKey> setToCheck = isChanged ? changed : dirtied;
       int size = Iterables.size(keys);
@@ -425,6 +430,13 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
         }
       }
       final Map<SkyKey, ? extends ThinNodeEntry> entries = graph.getBatch(keysToGet);
+      if (enqueueingKeyForExistenceCheck != null && entries.size() != keysToGet.size()) {
+        Set<SkyKey> missingKeys = Sets.difference(ImmutableSet.copyOf(keysToGet), entries.keySet());
+        throw new IllegalStateException(
+            String.format(
+                "key(s) %s not in the graph, but enqueued for dirtying by %s",
+                Iterables.limit(missingKeys, 10), enqueueingKeyForExistenceCheck));
+      }
       for (final SkyKey key : keysToGet) {
         executor.execute(
             new Runnable() {
@@ -433,11 +445,6 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
                 ThinNodeEntry entry = entries.get(key);
 
                 if (entry == null) {
-                  Preconditions.checkState(
-                      !mustExist,
-                      "%s does not exist in the graph but was enqueued for dirtying by another "
-                          + "node",
-                      key);
                   if (supportInterruptions) {
                     pendingVisitations.remove(Pair.of(key, invalidationType));
                   }
@@ -467,8 +474,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
                 }
                 // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
                 // only be marked dirty (because only a dependency of theirs has changed).
-                visit(
-                    markedDirtyResult.getReverseDepsUnsafe(), InvalidationType.DIRTIED, MUST_EXIST);
+                visit(markedDirtyResult.getReverseDepsUnsafe(), InvalidationType.DIRTIED, key);
 
                 informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
                 dirtyKeyTracker.dirty(key);
