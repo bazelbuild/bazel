@@ -127,7 +127,11 @@ genrule(
     srcs = [
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
-        "//third_party:embedded_tools_srcs",
+        "//third_party/iossim:srcs",
+        "//third_party/java/jarjar:srcs",
+        "//third_party/java/jdk/langtools:srcs",
+        "//third_party/py/concurrent:srcs",
+        "//third_party/py/gflags:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",
