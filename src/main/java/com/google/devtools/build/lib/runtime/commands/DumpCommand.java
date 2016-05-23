@@ -135,7 +135,8 @@ public class DumpCommand implements BlazeCommand {
           getClass().getAnnotation(Command.class).name(),
           getClass().getAnnotation(Command.class).help(),
           getClass(),
-          optionList, categories, OptionsParser.HelpVerbosity.LONG));
+          optionList, categories, OptionsParser.HelpVerbosity.LONG,
+          runtime.getProductName()));
       return ExitCode.ANALYSIS_FAILURE;
     }
     PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());

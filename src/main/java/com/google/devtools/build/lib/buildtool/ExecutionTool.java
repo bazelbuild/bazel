@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
@@ -340,7 +339,7 @@ public class ExecutionTool {
       ImmutableMap<PathFragment, Path> packageRoots)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots, configurations);
+    prepare(packageRoots);
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
@@ -360,10 +359,11 @@ public class ExecutionTool {
     BuildConfiguration targetConfiguration = targetConfigurations.size() == 1
         ? targetConfigurations.get(0) : null;
     if (targetConfigurations.size() == 1) {
+      String productName = runtime.getProductName();
       OutputDirectoryLinksUtils.createOutputDirectoryLinks(
           env.getWorkspaceName(), env.getWorkspace(), getExecRoot(),
           env.getOutputPath(), getReporter(), targetConfiguration,
-          request.getBuildOptions().getSymlinkPrefix());
+          request.getBuildOptions().getSymlinkPrefix(productName), productName);
     }
 
     ActionCache actionCache = getActionCache();
@@ -496,8 +496,8 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(ImmutableMap<PathFragment, Path> packageRoots,
-      BuildConfigurationCollection configurations) throws ExecutorInitException {
+  private void prepare(ImmutableMap<PathFragment, Path> packageRoots)
+      throws ExecutorInitException {
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
@@ -505,7 +505,7 @@ public class ExecutionTool {
     createActionLogDirectory();
 
     // Plant the symlink forest.
-    plantSymlinkForest(packageRoots, configurations);
+    plantSymlinkForest(packageRoots);
   }
 
   private void createToolsSymlinks() throws ExecutorInitException {
@@ -516,12 +516,12 @@ public class ExecutionTool {
     }
   }
 
-  private void plantSymlinkForest(ImmutableMap<PathFragment, Path> packageRoots,
-      BuildConfigurationCollection configurations) throws ExecutorInitException {
+  private void plantSymlinkForest(ImmutableMap<PathFragment, Path> packageRoots)
+      throws ExecutorInitException {
     try {
       FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
-          new String[] { ".", "_", Constants.PRODUCT_NAME + "-"});
-      FileSystemUtils.plantLinkForest(packageRoots, getExecRoot());
+          new String[] { ".", "_", runtime.getProductName() + "-"});
+      FileSystemUtils.plantLinkForest(packageRoots, getExecRoot(), runtime.getProductName());
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
     }

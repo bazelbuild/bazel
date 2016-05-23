@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -425,9 +424,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // and also report the issue.
         String errorMessage =
             action.prettyPrint()
-                + " discovered unexpected inputs. This indicates a mismatch between "
-                + Constants.PRODUCT_NAME
-                + " and the action's compiler. Please report this issue. The ";
+                + " discovered unexpected inputs. This indicates a mismatch between the build"
+                + " system and the action's compiler. Please report this issue. The ";
         if (metadataFoundDuringActionExecution.size() > 10) {
           errorMessage += "first ten ";
         }

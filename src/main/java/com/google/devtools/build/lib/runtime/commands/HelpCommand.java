@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.BlazeRuleHelpPrinter;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -88,7 +87,7 @@ public final class HelpCommand implements BlazeCommand {
    */
   private ImmutableMap<String, String> getOptionCategories(BlazeRuntime runtime) {
     ImmutableMap.Builder<String, String> optionCategoriesBuilder = ImmutableMap.builder();
-    String name = Constants.PRODUCT_NAME;
+    String name = runtime.getProductName();
     optionCategoriesBuilder
         .put("checking", String.format(
              "Checking options, which control %s's error checking and/or warnings", name))
@@ -141,7 +140,7 @@ public final class HelpCommand implements BlazeCommand {
     OutErr outErr = env.getReporter().getOutErr();
     Options helpOptions = options.getOptions(Options.class);
     if (options.getResidue().isEmpty()) {
-      emitBlazeVersionInfo(outErr);
+      emitBlazeVersionInfo(outErr, runtime.getProductName());
       emitGenericHelp(runtime, outErr);
       return ExitCode.SUCCESS;
     }
@@ -151,12 +150,12 @@ public final class HelpCommand implements BlazeCommand {
     }
     String helpSubject = options.getResidue().get(0);
     if (helpSubject.equals("startup_options")) {
-      emitBlazeVersionInfo(outErr);
+      emitBlazeVersionInfo(outErr, runtime.getProductName());
       emitStartupOptions(outErr, helpOptions.helpVerbosity, runtime, getOptionCategories(runtime));
       return ExitCode.SUCCESS;
     } else if (helpSubject.equals("target-syntax")) {
-      emitBlazeVersionInfo(outErr);
-      emitTargetSyntaxHelp(outErr, getOptionCategories(runtime));
+      emitBlazeVersionInfo(outErr, runtime.getProductName());
+      emitTargetSyntaxHelp(outErr, getOptionCategories(runtime), runtime.getProductName());
       return ExitCode.SUCCESS;
     } else if (helpSubject.equals("info-keys")) {
       emitInfoKeysHelp(env, outErr);
@@ -180,19 +179,20 @@ public final class HelpCommand implements BlazeCommand {
         return ExitCode.COMMAND_LINE_ERROR;
       }
     }
-    emitBlazeVersionInfo(outErr);
+    emitBlazeVersionInfo(outErr, runtime.getProductName());
     outErr.printOut(BlazeCommandUtils.getUsage(
         command.getClass(),
         getOptionCategories(runtime),
         helpOptions.helpVerbosity,
         runtime.getBlazeModules(),
-        runtime.getRuleClassProvider()));
+        runtime.getRuleClassProvider(),
+        runtime.getProductName()));
     return ExitCode.SUCCESS;
   }
 
-  private void emitBlazeVersionInfo(OutErr outErr) {
+  private void emitBlazeVersionInfo(OutErr outErr, String productName) {
     String releaseInfo = BlazeVersionInfo.instance().getReleaseName();
-    String line = String.format("[%s %s]", Constants.PRODUCT_NAME, releaseInfo);
+    String line = String.format("[%s %s]", productName, releaseInfo);
     outErr.printOut(String.format("%80s\n", line));
   }
 
@@ -205,7 +205,8 @@ public final class HelpCommand implements BlazeCommand {
             getClass(),
             BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()),
             optionCategories,
-        helpVerbosity));
+            helpVerbosity,
+            runtime.getProductName()));
   }
 
   private void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
@@ -218,7 +219,7 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commands) + "\"");
 
     outErr.printOutLn("BAZEL_INFO_KEYS=\"");
-    for (String name : InfoCommand.getHardwiredInfoItemNames(Constants.PRODUCT_NAME)) {
+    for (String name : InfoCommand.getHardwiredInfoItemNames(runtime.getProductName())) {
         outErr.printOutLn(name);
     }
     outErr.printOutLn("\"");
@@ -244,13 +245,15 @@ public final class HelpCommand implements BlazeCommand {
     }
   }
 
-  private void emitTargetSyntaxHelp(OutErr outErr, ImmutableMap<String, String> optionCategories) {
+  private void emitTargetSyntaxHelp(OutErr outErr, ImmutableMap<String, String> optionCategories,
+      String productName) {
     outErr.printOut(BlazeCommandUtils.expandHelpTopic("target-syntax",
                                     "resource:target-syntax.txt",
                                     getClass(),
                                     ImmutableList.<Class<? extends OptionsBase>>of(),
                                     optionCategories,
-                                    OptionsParser.HelpVerbosity.MEDIUM));
+                                    OptionsParser.HelpVerbosity.MEDIUM,
+                                    productName));
   }
 
   private void emitInfoKeysHelp(CommandEnvironment env, OutErr outErr) {
@@ -263,7 +266,7 @@ public final class HelpCommand implements BlazeCommand {
 
   private void emitGenericHelp(BlazeRuntime runtime, OutErr outErr) {
     outErr.printOut(String.format("Usage: %s <command> <options> ...\n\n",
-            Constants.PRODUCT_NAME));
+            runtime.getProductName()));
 
     outErr.printOut("Available commands:\n");
 
@@ -279,20 +282,20 @@ public final class HelpCommand implements BlazeCommand {
       }
 
       String shortDescription = annotation.shortDescription().
-          replace("%{product}", Constants.PRODUCT_NAME);
+          replace("%{product}", runtime.getProductName());
       outErr.printOut(String.format("  %-19s %s\n", name, shortDescription));
     }
 
     outErr.printOut("\n");
     outErr.printOut("Getting more help:\n");
-    outErr.printOut(String.format("  %s help <command>\n", Constants.PRODUCT_NAME));
+    outErr.printOut(String.format("  %s help <command>\n", runtime.getProductName()));
     outErr.printOut("                   Prints help and options for <command>.\n");
-    outErr.printOut(String.format("  %s help startup_options\n", Constants.PRODUCT_NAME));
+    outErr.printOut(String.format("  %s help startup_options\n", runtime.getProductName()));
     outErr.printOut(String.format("                   Options for the JVM hosting %s.\n",
-            Constants.PRODUCT_NAME));
-    outErr.printOut(String.format("  %s help target-syntax\n", Constants.PRODUCT_NAME));
+        runtime.getProductName()));
+    outErr.printOut(String.format("  %s help target-syntax\n", runtime.getProductName()));
     outErr.printOut("                   Explains the syntax for specifying targets.\n");
-    outErr.printOut(String.format("  %s help info-keys\n", Constants.PRODUCT_NAME));
+    outErr.printOut(String.format("  %s help info-keys\n", runtime.getProductName()));
     outErr.printOut("                   Displays a list of keys used by the info command.\n");
   }
 }

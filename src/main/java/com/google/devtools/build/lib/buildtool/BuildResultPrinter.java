@@ -130,6 +130,7 @@ class BuildResultPrinter {
       // (ie, preprocessed and assembler files).
       OutputGroupProvider topLevelProvider =
           target.getProvider(OutputGroupProvider.class);
+      String productName = env.getRuntime().getProductName();
       if (topLevelProvider != null) {
         for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupProvider.TEMP_FILES)) {
           if (temp.getPath().exists()) {
@@ -137,7 +138,8 @@ class BuildResultPrinter {
                 + OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),
                     env.getWorkspaceName(),
                     env.getWorkspace(),
-                    request.getBuildOptions().getSymlinkPrefix()));
+                    request.getBuildOptions().getSymlinkPrefix(productName),
+                    productName));
           }
         }
       }
@@ -152,9 +154,10 @@ class BuildResultPrinter {
   }
 
   private String formatArtifactForShowResults(Artifact artifact, BuildRequest request) {
+    String productName = env.getRuntime().getProductName();
     return "  " + OutputDirectoryLinksUtils.getPrettyPath(artifact.getPath(),
         env.getWorkspaceName(), env.getWorkspace(),
-        request.getBuildOptions().getSymlinkPrefix());
+        request.getBuildOptions().getSymlinkPrefix(productName), productName);
   }
 
   /**

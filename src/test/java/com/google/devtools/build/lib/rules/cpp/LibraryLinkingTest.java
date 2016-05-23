@@ -17,11 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,9 +69,9 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
         linkAction,
         "-shared",
         "-o",
-        Constants.PRODUCT_NAME + "-out/.+/genrule/thebinary.so",
+        TestConstants.PRODUCT_NAME + "-out/.+/genrule/thebinary.so",
         "-Wl,-whole-archive",
-        Constants.PRODUCT_NAME + "-out/.+/genrule/genlib.a",
+        TestConstants.PRODUCT_NAME + "-out/.+/genrule/genlib.a",
         "-Wl,-no-whole-archive");
   }
 

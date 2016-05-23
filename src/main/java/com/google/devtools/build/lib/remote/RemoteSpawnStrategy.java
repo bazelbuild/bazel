@@ -66,9 +66,10 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       RemoteOptions options,
       boolean verboseFailures,
       RemoteActionCache actionCache,
-      RemoteWorkExecutor workExecutor) {
+      RemoteWorkExecutor workExecutor,
+      String productName) {
     this.execRoot = execRoot;
-    this.standaloneStrategy = new StandaloneSpawnStrategy(execRoot, verboseFailures);
+    this.standaloneStrategy = new StandaloneSpawnStrategy(execRoot, verboseFailures, productName);
     this.remoteActionCache = actionCache;
     this.remoteWorkExecutor = workExecutor;
   }

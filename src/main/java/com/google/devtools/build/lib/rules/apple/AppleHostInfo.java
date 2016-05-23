@@ -50,15 +50,17 @@ public class AppleHostInfo {
    * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of xcode
    * @param sdkVersion the sdk version, for example, "9.1"
    * @param appleSdkPlatform the sdk platform, for example, "iPhoneOS"
+   * @param productName the product name
    * @throws UserExecException if there is an issue with obtaining the root from the spawned
    *     process, either because the SDK platform/version pair doesn't exist, or there was an
    *     unexpected issue finding or running the tool
    */
   public static String getSdkRoot(Path execRoot, String developerDir,
-      String sdkVersion, String appleSdkPlatform) throws UserExecException {
+      String sdkVersion, String appleSdkPlatform, String productName) throws UserExecException {
     try {
       CacheManager cacheManager =
-          new CacheManager(execRoot.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH),
+          new CacheManager(execRoot.getRelative(
+              BlazeDirectories.getRelativeOutputPath(productName)),
               XCRUN_CACHE_FILENAME);
 
       String sdkString = appleSdkPlatform.toLowerCase() + sdkVersion;
@@ -101,7 +103,7 @@ public class AppleHostInfo {
       throw new UserExecException(e);
     }
   }
-  
+
   /**
    * Returns the absolute root path of the xcode developer directory on the host system for
    * the given xcode version. This may spawn a process and use the {@code xcode-locator} binary.
@@ -110,15 +112,16 @@ public class AppleHostInfo {
    *
    * @param execRoot the execution root path, used to locate the cache file
    * @param version the xcode version number to look up
+   * @param productName the product name
    * @throws UserExecException if there is an issue with obtaining the path from the spawned
    *     process, either because there is no installed xcode with the given version, or
    *     there was an unexpected issue finding or running the tool
    */
-  public static String getDeveloperDir(Path execRoot, DottedVersion version)
+  public static String getDeveloperDir(Path execRoot, DottedVersion version, String productName)
       throws UserExecException {
     try {
       CacheManager cacheManager =
-          new CacheManager(execRoot.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH),
+          new CacheManager(execRoot.getRelative(BlazeDirectories.getRelativeOutputPath(productName)),
               XCODE_LOCATOR_CACHE_FILENAME);
 
       String cacheResult = cacheManager.getValue(version.toString());

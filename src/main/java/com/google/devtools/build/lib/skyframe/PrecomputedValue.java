@@ -101,6 +101,9 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
+  public static final Precomputed<String> PRODUCT_NAME =
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "product_name"));
+
   static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>> BAD_ACTIONS =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "bad_actions"));
 

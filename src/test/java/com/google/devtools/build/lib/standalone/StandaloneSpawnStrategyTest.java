@@ -89,7 +89,8 @@ public class StandaloneSpawnStrategyTest {
     Path outputBase = testRoot.getRelative("outputBase");
     outputBase.createDirectory();
 
-    BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, workspaceDir);
+    BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, workspaceDir,
+        TestConstants.PRODUCT_NAME);
     BlazeTestUtils.getIntegrationBinTools(directories);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
@@ -106,7 +107,8 @@ public class StandaloneSpawnStrategyTest {
         /* showSubcommands */ false,
         ImmutableList.<ActionContext>of(),
         ImmutableMap.<String, SpawnActionContext>of("",
-            new StandaloneSpawnStrategy(directories.getExecRoot(), false)),
+            new StandaloneSpawnStrategy(directories.getExecRoot(), false,
+                TestConstants.PRODUCT_NAME)),
         ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectory();
@@ -199,7 +201,7 @@ public class StandaloneSpawnStrategyTest {
     assertThat(out()).isEmpty();
   }
 
-  // Test an action with environment variables set indicating an action running on a darwin host 
+  // Test an action with environment variables set indicating an action running on a darwin host
   // system. Such actions should fail given the fact that these tests run on a non darwin
   // architecture.
   @Test

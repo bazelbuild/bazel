@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -25,16 +24,19 @@ public class IncludeScanningUtil {
   }
 
   private static final String INCLUDES_SUFFIX = ".includes";
-  public static final PathFragment GREPPED_INCLUDES =
-      new PathFragment(Constants.PRODUCT_NAME + "-out/_grepped_includes");
+
+  public static PathFragment getGreppedIncludes(String productName) {
+    return new PathFragment(productName + "-out/_grepped_includes");
+  }
 
   /**
    * Returns the exec-root relative output path for grepped includes.
    *
    * @param srcExecPath the exec-root relative path of the source file.
    */
-  public static PathFragment getExecRootRelativeOutputPath(PathFragment srcExecPath) {
-    return GREPPED_INCLUDES.getRelative(getRootRelativeOutputPath(srcExecPath));
+  public static PathFragment getExecRootRelativeOutputPath(PathFragment srcExecPath,
+      String productName) {
+    return getGreppedIncludes(productName).getRelative(getRootRelativeOutputPath(srcExecPath));
   }
 
   /**

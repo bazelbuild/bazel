@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -391,7 +392,7 @@ public final class AnalysisTestUtil {
    * Matches the output path prefix contributed by a C++ configuration fragment.
    */
   public static final Pattern OUTPUT_PATH_CPP_PREFIX_PATTERN =
-      Pattern.compile("(?<=(blaze|bazel)-out/)gcc[^/]*-grte-\\w+-");
+      Pattern.compile("(?<=" + TestConstants.PRODUCT_NAME + "-out/)gcc[^/]*-grte-\\w+-");
 
   /**
    * Given a collection of Artifacts, returns a corresponding set of strings of

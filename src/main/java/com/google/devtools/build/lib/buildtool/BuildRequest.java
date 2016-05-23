@@ -20,7 +20,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -86,7 +85,7 @@ public class BuildRequest implements OptionsClassProvider {
             defaultValue = "null",
             category = "verbosity",
             converter = OptionsUtils.PathFragmentConverter.class,
-            help = "Causes " + Constants.PRODUCT_NAME + " to explain each executed step of the "
+            help = "Causes the build system to explain each executed step of the "
             + "build. The explanation is written to the specified log file.")
     public PathFragment explanationPath;
 
@@ -249,7 +248,7 @@ public class BuildRequest implements OptionsClassProvider {
             defaultValue = "false",
             category = "undocumented",
             help = "If set, tell the output service (if any) to track when files in the output "
-                + "tree have been modified externally (not by " + Constants.PRODUCT_NAME + "). "
+                + "tree have been modified externally (not by the build system). "
                 + "This should improve incremental build speed when an appropriate output service "
                 + "is enabled.")
     public boolean finalizeActions;
@@ -263,8 +262,8 @@ public class BuildRequest implements OptionsClassProvider {
     )
     public List<String> aspects;
 
-    public String getSymlinkPrefix() {
-      return symlinkPrefix == null ? Constants.PRODUCT_NAME + "-" : symlinkPrefix;
+    public String getSymlinkPrefix(String productName) {
+      return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
     }
   }
 

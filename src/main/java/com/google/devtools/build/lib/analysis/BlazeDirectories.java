@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -50,11 +49,6 @@ import javax.annotation.Nullable;
 @Immutable
 public final class BlazeDirectories {
 
-  // Output directory name, relative to the execRoot.
-  // TODO(bazel-team): (2011) make this private?
-  public static final String RELATIVE_OUTPUT_PATH = StringCanonicalizer.intern(
-      Constants.PRODUCT_NAME + "-out");
-
   // Include directory name, relative to execRoot/blaze-out/configuration.
   public static final String RELATIVE_INCLUDE_DIR = StringCanonicalizer.intern("include");
   @VisibleForTesting
@@ -72,7 +66,7 @@ public final class BlazeDirectories {
   private final Path localOutputPath;
 
   public BlazeDirectories(Path installBase, Path outputBase, Path workspace,
-      boolean deepExecRoot, @Nullable String installMD5) {
+      boolean deepExecRoot, @Nullable String installMD5, String productName) {
     this.installBase = installBase;
     this.workspace = workspace;
     this.outputBase = outputBase;
@@ -88,11 +82,13 @@ public final class BlazeDirectories {
     } else {
       this.execRoot = execRootBase.getChild(workspace.getBaseName());
     }
-    this.outputPath = execRoot.getRelative(RELATIVE_OUTPUT_PATH);
+    String relativeOutputPath = getRelativeOutputPath(productName);
+    this.outputPath = execRoot.getRelative(relativeOutputPath);
     Preconditions.checkState(useDefaultExecRootName || outputPath.asFragment().equals(
-        outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment(), deepExecRoot)));
+        outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment(), deepExecRoot,
+            productName)));
 
-    this.localOutputPath = outputBase.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH);
+    this.localOutputPath = outputBase.getRelative(relativeOutputPath);
   }
 
   private static HashCode checkMD5(HashCode hash) {
@@ -102,8 +98,8 @@ public final class BlazeDirectories {
   }
 
   @VisibleForTesting
-  public BlazeDirectories(Path installBase, Path outputBase, Path workspace) {
-    this(installBase, outputBase, workspace, false, null);
+  public BlazeDirectories(Path installBase, Path outputBase, Path workspace, String productName) {
+    this(installBase, outputBase, workspace, false, null, productName);
   }
 
   /**
@@ -165,13 +161,13 @@ public final class BlazeDirectories {
    * @return the outputPath as a path fragment, given the outputBase.
    */
   public static PathFragment outputPathFromOutputBase(
-      PathFragment outputBase, PathFragment workspace, boolean deepExecRoot) {
+      PathFragment outputBase, PathFragment workspace, boolean deepExecRoot, String productName) {
     PathFragment execRoot = deepExecRoot ? outputBase.getChild("execroot") : outputBase;
 
     if (workspace.equals(PathFragment.EMPTY_FRAGMENT)) {
       return execRoot;
     }
-    return execRoot.getRelative(workspace.getBaseName() + "/" + RELATIVE_OUTPUT_PATH);
+    return execRoot.getRelative(workspace.getBaseName() + "/" + getRelativeOutputPath(productName));
   }
 
   /**
@@ -213,4 +209,13 @@ public final class BlazeDirectories {
   public HashCode getInstallMD5() {
     return installMD5;
   }
+
+  /**
+   * Returns the output directory name, relative to the execRoot.
+   * TODO(bazel-team): (2011) make this private?
+   */
+  public static String getRelativeOutputPath(String productName) {
+    return StringCanonicalizer.intern(productName + "-out");
+  }
+
 }

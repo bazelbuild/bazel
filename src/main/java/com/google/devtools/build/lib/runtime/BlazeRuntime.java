@@ -302,7 +302,8 @@ public final class BlazeRuntime {
         preprocessorFactorySupplier,
         skyFunctions.build(),
         precomputedValues.build(),
-        customDirtinessCheckers.build());
+        customDirtinessCheckers.build(),
+        getProductName());
     this.workspace = new BlazeWorkspace(
         this, directories, skyframeExecutor, eventBusExceptionHandler, workspaceStatusActionFactory,
         binTools);
@@ -379,7 +380,7 @@ public final class BlazeRuntime {
       }
       if (profiledTasks != ProfiledTaskKinds.NONE) {
         Profiler.instance().start(profiledTasks, out,
-            Constants.PRODUCT_NAME + " profile for " + env.getOutputBase() + " at " + new Date()
+            getProductName() + " profile for " + env.getOutputBase() + " at " + new Date()
             + ", build ID: " + buildID,
             recordFullProfilerData, clock, execStartTimeNanos);
         return true;
@@ -1006,7 +1007,7 @@ public final class BlazeRuntime {
     }
 
     PathFragment outputPathFragment = BlazeDirectories.outputPathFromOutputBase(
-        outputBase, workspaceDirectory, startupOptions.deepExecRoot);
+        outputBase, workspaceDirectory, startupOptions.deepExecRoot, Constants.PRODUCT_NAME);
     FileSystem fs = null;
     for (BlazeModule module : blazeModules) {
       FileSystem moduleFs = module.getFileSystem(options, outputPathFragment);
@@ -1038,7 +1039,8 @@ public final class BlazeRuntime {
 
     BlazeDirectories directories =
         new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath,
-                             startupOptions.deepExecRoot, startupOptions.installMD5);
+                             startupOptions.deepExecRoot, startupOptions.installMD5,
+                             Constants.PRODUCT_NAME);
 
     Clock clock = BlazeClock.instance();
 
@@ -1150,6 +1152,10 @@ public final class BlazeRuntime {
         new ShutdownCommand(),
         new TestCommand(),
         new VersionCommand());
+  }
+
+  public String getProductName() {
+    return Constants.PRODUCT_NAME;
   }
 
   /**
@@ -1298,8 +1304,8 @@ public final class BlazeRuntime {
      * parameters.
      */
     public Builder setDirectories(Path installBase, Path outputBase,
-        Path workspace) {
-      this.directories = new BlazeDirectories(installBase, outputBase, workspace);
+        Path workspace, String productName) {
+      this.directories = new BlazeDirectories(installBase, outputBase, workspace, productName);
       return this;
     }
 

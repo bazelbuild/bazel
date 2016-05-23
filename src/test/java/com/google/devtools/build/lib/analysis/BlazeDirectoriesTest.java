@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -35,16 +36,19 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
     Path installBase = fs.getPath("/my/install");
     Path outputBase = fs.getPath("/my/output");
     Path workspace = fs.getPath("/my/ws");
-    BlazeDirectories directories = new BlazeDirectories(installBase, outputBase, workspace);
+    BlazeDirectories directories = new BlazeDirectories(installBase, outputBase, workspace,
+        TestConstants.PRODUCT_NAME);
     assertEquals(directories.getExecRoot(), outputBase.getChild("ws"));
 
     workspace = null;
-    directories = new BlazeDirectories(installBase, outputBase, workspace);
+    directories = new BlazeDirectories(installBase, outputBase, workspace,
+        TestConstants.PRODUCT_NAME);
     assertEquals(directories.getExecRoot(),
         outputBase.getChild(BlazeDirectories.DEFAULT_EXEC_ROOT));
 
     workspace = fs.getPath("/");
-    directories = new BlazeDirectories(installBase, outputBase, workspace);
+    directories = new BlazeDirectories(installBase, outputBase, workspace,
+        TestConstants.PRODUCT_NAME);
     assertEquals(directories.getExecRoot(),
         outputBase.getChild(BlazeDirectories.DEFAULT_EXEC_ROOT));
   }

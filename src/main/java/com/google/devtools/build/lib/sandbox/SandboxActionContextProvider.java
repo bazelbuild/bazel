@@ -55,7 +55,8 @@ public class SandboxActionContextProvider extends ActionContextProvider {
               verboseFailures,
               sandboxDebug,
               sandboxAddPath,
-              unblockNetwork));
+              unblockNetwork,
+              env.getRuntime().getProductName()));
     }
 
     this.strategies = strategies.build();

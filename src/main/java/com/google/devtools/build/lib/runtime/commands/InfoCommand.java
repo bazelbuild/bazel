@@ -17,7 +17,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -198,7 +197,7 @@ public class InfoCommand implements BlazeCommand {
     List<InfoItem> hardwiredInfoItems = ImmutableList.<InfoItem>of(
         new InfoItem.WorkspaceInfoItem(),
         new InfoItem.InstallBaseInfoItem(),
-        new InfoItem.OutputBaseInfoItem(),
+        new InfoItem.OutputBaseInfoItem(productName),
         new InfoItem.ExecutionRootInfoItem(),
         new InfoItem.OutputPathInfoItem(),
         new InfoItem.BlazeBinInfoItem(productName),
@@ -242,7 +241,7 @@ public class InfoCommand implements BlazeCommand {
         result.put(item.getName(), item);
       }
     }
-    result.putAll(getHardwiredInfoItemMap(commandOptions, Constants.PRODUCT_NAME));
+    result.putAll(getHardwiredInfoItemMap(commandOptions, env.getRuntime().getProductName()));
     return result;
   }
 }

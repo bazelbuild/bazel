@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -84,7 +85,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
-        pkgLocator, false, new BlazeDirectories(outputBase, outputBase, rootDirectory));
+        pkgLocator, false, new BlazeDirectories(outputBase, outputBase, rootDirectory,
+            TestConstants.PRODUCT_NAME));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 

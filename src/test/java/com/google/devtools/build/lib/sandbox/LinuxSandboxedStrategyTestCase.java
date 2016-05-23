@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -78,7 +79,8 @@ public class LinuxSandboxedStrategyTestCase {
     fakeSandboxDir = testRoot.getRelative("sandbox");
     fakeSandboxDir.createDirectory();
 
-    blazeDirs = new BlazeDirectories(outputBase, outputBase, workspaceDir);
+    blazeDirs = new BlazeDirectories(outputBase, outputBase, workspaceDir,
+        TestConstants.PRODUCT_NAME);
     BlazeTestUtils.getIntegrationBinTools(blazeDirs);
 
     OptionsParser optionsParser =
@@ -107,7 +109,8 @@ public class LinuxSandboxedStrategyTestCase {
                     true,
                     false,
                     ImmutableList.<String>of(),
-                    false)),
+                    false,
+                    TestConstants.PRODUCT_NAME)),
             ImmutableList.<ActionContextProvider>of());
   }
 

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -72,7 +71,7 @@ public abstract class BugReport {
   private static void logCrash(Throwable throwable, String... args) {
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
-    System.err.println(Constants.PRODUCT_NAME + " crash in async thread:");
+    System.err.println(runtime.getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
 
@@ -106,9 +105,9 @@ public abstract class BugReport {
     } catch (Throwable t) {
       System.err.println(
           "An crash occurred while "
-              + Constants.PRODUCT_NAME
+              + runtime.getProductName()
               + " was trying to handle a crash! Please file a bug against "
-              + Constants.PRODUCT_NAME
+              + runtime.getProductName()
               + " and include the information below.");
 
       System.err.println("Original uncaught exception:");
@@ -132,7 +131,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    LOG.log(Level.SEVERE, Constants.PRODUCT_NAME + " crashed", e);
+    LOG.log(Level.SEVERE, runtime.getProductName() + " crashed", e);
   }
 
   /**
@@ -144,7 +143,7 @@ public abstract class BugReport {
   public static void printBug(OutErr outErr, Throwable e) {
     if (e instanceof OutOfMemoryError) {
       outErr.printErr(
-          e.getMessage() + "\n\n" + Constants.PRODUCT_NAME + " ran out of memory and crashed.\n");
+          e.getMessage() + "\n\n" + runtime.getProductName() + " ran out of memory and crashed.\n");
     } else {
       printThrowableTo(outErr, e);
     }
@@ -175,7 +174,7 @@ public abstract class BugReport {
   private static void logException(Throwable exception, List<String> args, String... values) {
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
-    String preamble = Constants.PRODUCT_NAME
+    String preamble = runtime.getProductName()
         + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
 
     LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception,

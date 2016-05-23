@@ -42,7 +42,8 @@ final class RemoteActionContextProvider extends ActionContextProvider {
             buildRequest.getOptions(RemoteOptions.class),
             verboseFailures,
             actionCache,
-            workExecutor));
+            workExecutor,
+            env.getRuntime().getProductName()));
     this.strategies = strategiesBuilder.build();
   }
 

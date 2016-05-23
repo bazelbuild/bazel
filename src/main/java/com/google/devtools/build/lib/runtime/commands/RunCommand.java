@@ -233,6 +233,7 @@ public class RunCommand implements BlazeCommand  {
       }
     }
 
+    String productName = env.getRuntime().getProductName();
     //
     // We now have a unique executable ready to be run.
     //
@@ -242,7 +243,8 @@ public class RunCommand implements BlazeCommand  {
     PathFragment prettyExecutablePath =
         OutputDirectoryLinksUtils.getPrettyPath(executablePath,
             env.getWorkspaceName(), env.getWorkspace(),
-            options.getOptions(BuildRequestOptions.class).getSymlinkPrefix());
+            options.getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
+            productName);
     List<String> cmdLine = new ArrayList<>();
     if (runOptions.scriptPath == null) {
       PathFragment processWrapperPath =

@@ -43,7 +43,8 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      String productName) {
     return SequencedSkyframeExecutor.create(
         pkgFactory,
         directories,
@@ -55,6 +56,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         preprocessorFactorySupplier,
         extraSkyFunctions,
         extraPrecomputedValues,
-        customDirtinessCheckers);
+        customDirtinessCheckers,
+        productName);
   }
 }

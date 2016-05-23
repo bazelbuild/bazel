@@ -258,6 +258,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   private final ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues;
 
+  private final String productName;
+
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
@@ -281,7 +283,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       boolean errorOnExternalFiles,
-      PathFragment blacklistedPackagePrefixesFile) {
+      PathFragment blacklistedPackagePrefixesFile,
+      String productName) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -312,6 +315,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     this.externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, this.errorOnExternalFiles, directories);
+    this.productName = productName;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -648,6 +652,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected void maybeInjectPrecomputedValuesForAnalysis() {
     if (needToInjectPrecomputedValuesForAnalysis) {
       PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
+      PrecomputedValue.PRODUCT_NAME.set(injectable(), productName);
       injectBuildInfoFactories();
       injectExtraPrecomputedValues();
       needToInjectPrecomputedValuesForAnalysis = false;

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -71,7 +72,8 @@ abstract class ArtifactFunctionTestCase {
     setupRoot(new CustomInMemoryFs());
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         root.getFileSystem().getPath("/outputbase"), ImmutableList.of(root)));
-    BlazeDirectories directories = new BlazeDirectories(root, root, root);
+    BlazeDirectories directories = new BlazeDirectories(root, root, root,
+        TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, false, directories);
     differencer = new RecordingDifferencer();

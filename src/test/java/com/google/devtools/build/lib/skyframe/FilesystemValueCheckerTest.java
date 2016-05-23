@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -103,7 +104,8 @@ public class FilesystemValueCheckerTest {
 
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         fs.getPath("/output_base"), ImmutableList.of(pkgRoot)));
-    BlazeDirectories directories = new BlazeDirectories(pkgRoot, pkgRoot, pkgRoot);
+    BlazeDirectories directories = new BlazeDirectories(pkgRoot, pkgRoot, pkgRoot,
+        TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, false, directories);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(

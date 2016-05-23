@@ -20,13 +20,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +56,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
       if (statThrowsIoException
           && path.asFragment()
               .getPathString()
-              .equals("/workspace/tools/build_rules/prelude_" + Constants.PRODUCT_NAME)) {
+              .equals("/workspace/tools/build_rules/prelude_" + TestConstants.PRODUCT_NAME)) {
         throw new IOException("bork");
       }
       return super.stat(path, followSymlinks);

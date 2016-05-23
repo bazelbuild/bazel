@@ -22,7 +22,6 @@ import com.google.common.collect.Sets;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -683,7 +682,8 @@ public class FileSystemUtils {
    * files. Symlink are made at the highest dir possible, linking files directly
    * only when needed with nested packages.
    */
-  public static void plantLinkForest(ImmutableMap<PathFragment, Path> packageRootMap, Path linkRoot)
+  public static void plantLinkForest(ImmutableMap<PathFragment, Path> packageRootMap,
+      Path linkRoot, String productName)
       throws IOException {
     Path emptyPackagePath = null;
 
@@ -782,7 +782,7 @@ public class FileSystemUtils {
       for (Path target : emptyPackagePath.getDirectoryEntries()) {
         String baseName = target.getBaseName();
         // Create any links that don't exist yet and don't start with bazel-.
-        if (!baseName.startsWith(Constants.PRODUCT_NAME + "-")
+        if (!baseName.startsWith(productName + "-")
             && !linkRoot.getRelative(baseName).exists()) {
           linkRoot.getRelative(baseName).createSymbolicLink(target);
         }
@@ -935,7 +935,7 @@ public class FileSystemUtils {
   public static Iterable<String> readLines(Path inputFile, Charset charset) throws IOException {
     return asByteSource(inputFile).asCharSource(charset).readLines();
   }
-  
+
   /**
    * Returns the entirety of the specified file and returns it as a byte array.
    *

@@ -100,7 +100,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
             new PackageFactory(ruleClassProvider, environmentExtensions),
-            new BlazeDirectories(outputBase, outputBase, rootDirectory),
+            new BlazeDirectories(outputBase, outputBase, rootDirectory, TestConstants.PRODUCT_NAME),
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),
@@ -109,7 +109,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             preprocessorFactorySupplier,
             ImmutableMap.<SkyFunctionName, SkyFunction>of(),
             ImmutableList.<PrecomputedValue.Injected>of(),
-            ImmutableList.<SkyValueDirtinessChecker>of());
+            ImmutableList.<SkyValueDirtinessChecker>of(),
+            TestConstants.PRODUCT_NAME);
     return skyframeExecutor;
   }
 

@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -66,7 +65,7 @@ public final class FetchCommand implements BlazeCommand {
     if (options.getResidue().isEmpty()) {
       env.getReporter().handle(Event.error(String.format(
           "missing fetch expression. Type '%s help fetch' for syntax and help",
-          Constants.PRODUCT_NAME)));
+          env.getRuntime().getProductName())));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 

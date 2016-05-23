@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -257,7 +256,8 @@ public class FdoSupport {
     Root fdoRoot =
         (fdoProfile == null)
             ? null
-            : Root.asDerivedRoot(execRoot, execRoot.getRelative(Constants.PRODUCT_NAME + "-fdo"));
+            : Root.asDerivedRoot(execRoot, execRoot.getRelative(
+                PrecomputedValue.PRODUCT_NAME.get(env) + "-fdo"));
 
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null
@@ -282,7 +282,8 @@ public class FdoSupport {
     }
 
     FdoZipContents fdoZipContents = extractFdoZip(
-        fdoMode, lipoMode, execRoot, fdoProfile, fdoRootExecPath);
+        fdoMode, lipoMode, execRoot, fdoProfile, fdoRootExecPath,
+        PrecomputedValue.PRODUCT_NAME.get(env));
     return new FdoSupport(
         fdoMode, lipoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, fdoZipContents);
   }
@@ -308,7 +309,7 @@ public class FdoSupport {
    * @throws FdoException if the FDO ZIP contains a file of unknown type
    */
   private static FdoZipContents extractFdoZip(FdoMode fdoMode, LipoMode lipoMode, Path execRoot,
-      Path fdoProfile, PathFragment fdoRootExecPath)
+      Path fdoProfile, PathFragment fdoRootExecPath, String productName)
       throws IOException, FdoException {
     // The execRoot != null case is only there for testing. We cannot provide a real ZIP file in
     // tests because ZipFileSystem does not work with a ZIP on an in-memory file system.
@@ -333,7 +334,7 @@ public class FdoSupport {
             execRoot.getRelative(getLLVMProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
       } else {
         Path zipFilePath = new ZipFileSystem(fdoProfile).getRootDirectory();
-        String outputSymlinkName = Constants.PRODUCT_NAME + "-out";
+        String outputSymlinkName = productName + "-out";
         if (!zipFilePath.getRelative(outputSymlinkName).isDirectory()) {
           throw new ZipException(
               "FDO zip files must be zipped directly above '"

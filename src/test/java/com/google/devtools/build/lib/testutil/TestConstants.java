@@ -24,6 +24,8 @@ public class TestConstants {
   private TestConstants() {
   }
 
+  public static final String PRODUCT_NAME = "bazel";
+
   /**
    * A list of all embedded binaries that go into the regular Bazel binary.
    */
