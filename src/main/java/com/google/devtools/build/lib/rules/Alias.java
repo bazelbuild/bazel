@@ -38,6 +38,7 @@ public class Alias implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
     return new AliasConfiguredTarget(
+        ruleContext.getConfiguration(),
         actual,
         ImmutableMap.of(
             AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),

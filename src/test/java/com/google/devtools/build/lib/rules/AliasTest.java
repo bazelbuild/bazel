@@ -46,6 +46,16 @@ public class AliasTest extends BuildViewTestCase {
   }
 
   @Test
+  public void aliasToInputFile() throws Exception {
+    scratch.file("a/BUILD",
+        "exports_files(['a'])",
+        "alias(name='b', actual='a')");
+
+    ConfiguredTarget b = getConfiguredTarget("//a:b");
+    assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b))).containsExactly("a");
+  }
+
+  @Test
   public void visibilityIsOverriddenAndIsOkay() throws Exception {
     scratch.file("a/BUILD",
         "filegroup(name='a', visibility=['//b:__pkg__'])");

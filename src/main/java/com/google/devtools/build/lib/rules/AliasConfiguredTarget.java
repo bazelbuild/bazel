@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * This configured target pretends to be whatever type of target "actual" is, returning its
@@ -38,14 +39,16 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  */
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObject {
-  private final ConfiguredTarget configuredTarget;
+  private final BuildConfiguration configuration;
+  private final ConfiguredTarget actual;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       overrides;
 
-  public AliasConfiguredTarget(ConfiguredTarget actual,
+  public AliasConfiguredTarget(BuildConfiguration configuration, ConfiguredTarget actual,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
-    configuredTarget = actual;
-    this.overrides = overrides;
+    this.configuration = Preconditions.checkNotNull(configuration);
+    this.actual = Preconditions.checkNotNull(actual);
+    this.overrides = Preconditions.checkNotNull(overrides);
   }
 
   @Override
@@ -54,27 +57,30 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
       return provider.cast(overrides.get(provider));
     }
 
-    return configuredTarget == null ? null : configuredTarget.getProvider(provider);
+    return actual == null ? null : actual.getProvider(provider);
   }
 
   @Override
   public Label getLabel() {
-    return configuredTarget.getLabel();
+    return actual.getLabel();
   }
 
   @Override
   public Object get(String providerKey) {
-    return configuredTarget == null ? null : configuredTarget.get(providerKey);
+    return actual == null ? null : actual.get(providerKey);
   }
 
   @Override
   public Target getTarget() {
-    return configuredTarget == null ? null : configuredTarget.getTarget();
+    return actual == null ? null : actual.getTarget();
   }
 
   @Override
   public BuildConfiguration getConfiguration() {
-    return configuredTarget.getConfiguration();
+    // This does not return actual.getConfiguration() because actual might be an input file, in
+    // which case its configuration is null and we don't want to have rules that have a null
+    // configuration.
+    return configuration;
   }
 
   /* ClassObject methods */
@@ -87,18 +93,18 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
       // A shortcut for files to build in Skylark. FileConfiguredTarget and RunleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
       // accessible in Skylark.
-      return SkylarkNestedSet.of(Artifact.class, configuredTarget == null
+      return SkylarkNestedSet.of(Artifact.class, actual == null
           ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
           : getProvider(FileProvider.class).getFilesToBuild());
     }
-    return configuredTarget == null ? null : configuredTarget.get(name);
+    return actual == null ? null : actual.get(name);
   }
 
   @Override
   public ImmutableCollection<String> getKeys() {
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().add("label", "files");
-    if (configuredTarget != null) {
-        result.addAll(configuredTarget.getProvider(SkylarkProviders.class).getKeys());
+    if (actual != null) {
+        result.addAll(actual.getProvider(SkylarkProviders.class).getKeys());
     }
     return result.build();
   }

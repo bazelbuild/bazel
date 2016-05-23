@@ -37,7 +37,9 @@ public class Bind implements RuleConfiguredTargetFactory {
     }
 
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
-    return new AliasConfiguredTarget(actual,
+    return new AliasConfiguredTarget(
+        ruleContext.getConfiguration(),
+        actual,
         ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
             AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual)));
   }

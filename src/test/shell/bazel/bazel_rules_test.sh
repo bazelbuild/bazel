@@ -373,4 +373,15 @@ EOF
  expect_log "The number is 42"
 }
 
+function test_build_with_aliased_input_file() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+exports_files(['f'])
+alias(name='a', actual=':f')
+EOF
+
+  touch a/f
+  bazel build //a:a || fail "build failed"
+}
+
 run_suite "rules test"
