@@ -1784,4 +1784,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("' \\t\\n\\ra b c \\t\\n\\r'.strip()", "a b c")
         .testStatement("' a b c '.strip('')", " a b c ");
   }
+
+  @Test
+  public void testFail() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains("abc", "fail('abc')")
+        .testIfErrorContains("18", "fail(18)");
+  }
 }

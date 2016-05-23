@@ -2151,30 +2151,46 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "fail",
-      doc = "Raises an error that cannot be intercepted. It can be used anywhere, "
-          + "both in the loading phase and in the analysis phase.",
-      returnType = Runtime.NoneType.class,
-      mandatoryPositionals = {
-        @Param(name = "msg", type = String.class, doc = "Error message to display for the user")},
-      optionalPositionals = {
-        @Param(name = "attr", type = String.class, noneable = true,
-            defaultValue = "None",
-            doc = "The name of the attribute that caused the error. This is used only for "
-               + "error reporting.")},
-      useLocation = true)
-  private static final BuiltinFunction fail = new BuiltinFunction("fail") {
-    public Runtime.NoneType invoke(String msg, Object attr,
-        Location loc) throws EvalException, ConversionException {
-      if (attr != Runtime.NONE) {
-        msg = String.format("attribute %s: %s", attr, msg);
-      }
-      throw new EvalException(loc, msg);
-    }
-  };
+  @SkylarkSignature(
+    name = "fail",
+    doc =
+        "Raises an error that cannot be intercepted. It can be used anywhere, "
+            + "both in the loading phase and in the analysis phase.",
+    returnType = Runtime.NoneType.class,
+    mandatoryPositionals = {
+      @Param(
+        name = "msg",
+        type = Object.class,
+        doc = "Error to display for the user. The object is converted to a string."
+      )
+    },
+    optionalPositionals = {
+      @Param(
+        name = "attr",
+        type = String.class,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "The name of the attribute that caused the error. This is used only for "
+                + "error reporting."
+      )
+    },
+    useLocation = true
+  )
+  private static final BuiltinFunction fail =
+      new BuiltinFunction("fail") {
+        public Runtime.NoneType invoke(Object msg, Object attr, Location loc)
+            throws EvalException, ConversionException {
+          String str = Printer.str(msg);
+          if (attr != Runtime.NONE) {
+            str = String.format("attribute %s: %s", attr, str);
+          }
+          throw new EvalException(loc, str);
+        }
+      };
 
   @SkylarkSignature(name = "print", returnType = Runtime.NoneType.class,
-      doc = "Prints a warning with the text <code>msg</code>. It can be used for debugging or "
+      doc = "Prints <code>args</code> as a warning. It can be used for debugging or "
           + "for transition (before changing to an error). In other cases, warnings are "
           + "discouraged.",
       optionalNamedOnly = {
