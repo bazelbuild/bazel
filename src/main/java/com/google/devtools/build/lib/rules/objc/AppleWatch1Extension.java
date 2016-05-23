@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.IosExtension.ExtensionSplitArchTransition;
@@ -53,7 +54,8 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
       ImmutableSet.of(new Attribute(WATCH_APP_DEPS_ATTR, Mode.SPLIT));
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     ObjcProvider.Builder applicationObjcProviderBuilder = new ObjcProvider.Builder();
     ObjcProvider.Builder extensionObjcProviderBuilder = new ObjcProvider.Builder();
     ObjcProvider.Builder exposedObjcProviderBuilder = new ObjcProvider.Builder();

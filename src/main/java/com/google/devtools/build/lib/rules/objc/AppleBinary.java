@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -59,7 +60,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       "At least one source file is required (srcs, non_arc_srcs, or precompiled_srcs).";
 
   @Override
-  public final ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+  public final ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
         ruleContext.getPrerequisitesByConfiguration("non_propagated_deps", Mode.SPLIT,
             ObjcProvider.class);
@@ -103,11 +105,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider = j2ObjcEntryClassProviderBuilder.build();
       
       if (!common.getCompilationArtifacts().get().getArchive().isPresent()) {
-        ruleContext.ruleError(REQUIRES_AT_LEAST_ONE_SOURCE_FILE);
-        return null;
-      }
-      if (ruleContext.hasErrors()) {
-        return null;
+        ruleContext.throwWithRuleError(REQUIRES_AT_LEAST_ONE_SOURCE_FILE);
       }
 
       archivesToLipo.add(common.getCompilationArtifacts().get().getArchive().get());
@@ -119,10 +117,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
               new ExtraLinkArgs(), ImmutableList.<Artifact>of(),
               DsymOutputType.APP)
           .validateAttributes();
-
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
+      ruleContext.assertNoErrors();
     }
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);

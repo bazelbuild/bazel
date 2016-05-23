@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -43,7 +44,7 @@ import java.util.Iterator;
 public class Filegroup implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.wrap(Order.STABLE_ORDER,
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
     NestedSet<Artifact> middleman = CompilationHelper.getAggregatingMiddleman(

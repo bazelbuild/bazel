@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**
@@ -28,7 +29,8 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
  */
 public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
-  public ConfiguredTarget create(final RuleContext ruleContext) throws InterruptedException {
+  public ConfiguredTarget create(final RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     ProtoSupport protoSupport = new ProtoSupport(ruleContext);
 
     ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);

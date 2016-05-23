@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -67,7 +68,8 @@ public interface AndroidSemantics {
    * Returns the manifest to be used when compiling a given rule.
    * @throws InterruptedException 
    */
-  ApplicationManifest getManifestForRule(RuleContext ruleContext) throws InterruptedException;
+  ApplicationManifest getManifestForRule(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Returns the name of the file in which the file names of native dependencies are listed.

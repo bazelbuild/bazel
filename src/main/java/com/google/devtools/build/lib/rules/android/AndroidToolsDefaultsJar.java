@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 import java.util.regex.Pattern;
@@ -44,7 +45,8 @@ public class AndroidToolsDefaultsJar implements RuleConfiguredTargetFactory {
       Pattern.compile("android[a-zA-Z0-9_]*\\.jar$");
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     if (!ruleContext.getLabel().getPackageName().equals("tools/defaults")) {
       // Guard against extraordinarily inquisitive individuals.
       ruleContext.ruleError("The android_tools_defaults_jar rule should not be used in BUILD files."

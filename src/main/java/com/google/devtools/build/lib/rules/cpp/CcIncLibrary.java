@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.CreateIncSymlinkAction;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -57,7 +58,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
   }
   
   @Override
-  public ConfiguredTarget create(final RuleContext ruleContext) {
+  public ConfiguredTarget create(final RuleContext ruleContext) throws RuleErrorException {
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
     PathFragment packageFragment = ruleContext.getPackageDirectory();
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -64,60 +65,61 @@ public final class LocalResourceContainer {
 
   /**
    * Checks validity of a RuleContext to produce an AndroidData.
+   * 
+   * @throws RuleErrorException if the RuleContext is invalid. Accumulated errors will be available
+   *     via {@code ruleContext}
    */
-  public static boolean validateRuleContext(RuleContext ruleContext) {
-    boolean valid = validateAssetsAndAssetsDir(ruleContext);
-    valid = valid && validateNoResourcesAttribute(ruleContext);
-    valid = valid && validateNoAndroidResourcesInSources(ruleContext);
-    valid = valid && validateManifest(ruleContext);
-    return valid;
+  public static void validateRuleContext(RuleContext ruleContext) throws RuleErrorException {
+    validateAssetsAndAssetsDir(ruleContext);
+    validateNoResourcesAttribute(ruleContext);
+    validateNoAndroidResourcesInSources(ruleContext);
+    validateManifest(ruleContext);
   }
 
-  private static boolean validateAssetsAndAssetsDir(RuleContext ruleContext) {
+  private static void validateAssetsAndAssetsDir(RuleContext ruleContext)
+      throws RuleErrorException {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("assets")
         ^ ruleContext.attributes().isAttributeValueExplicitlySpecified("assets_dir")) {
       ruleContext.ruleError(
           "'assets' and 'assets_dir' should be either both empty or both non-empty");
-      return false;
+      throw new RuleErrorException();
     }
-    return true;
   }
 
   /**
    * Validates that there are no resources defined if there are resource attribute defined.
    */
-  private static boolean validateNoResourcesAttribute(RuleContext ruleContext) {
+  private static void validateNoResourcesAttribute(RuleContext ruleContext)
+      throws RuleErrorException {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")) {
       ruleContext.attributeError("resources",
           String.format("resources cannot be set when any of %s are defined.",
               Joiner.on(", ").join(RESOURCES_ATTRIBUTES)));
-      return false;
+      throw new RuleErrorException();
     }
-    return true;
   }
 
   /**
    * Validates that there are no android_resources srcjars in the srcs, as android_resource rules
    * should not be used with the Android data logic.
    */
-  private static boolean validateNoAndroidResourcesInSources(RuleContext ruleContext) {
+  private static void validateNoAndroidResourcesInSources(RuleContext ruleContext)
+      throws RuleErrorException {
     Iterable<AndroidResourcesProvider> resources =
         ruleContext.getPrerequisites("srcs", Mode.TARGET, AndroidResourcesProvider.class);
     for (AndroidResourcesProvider provider : resources) {
       ruleContext.attributeError("srcs",
           String.format("srcs should not contain android_resource label %s", provider.getLabel()));
-      return false;
+      throw new RuleErrorException();
     }
-    return true;
   }
 
-  private static boolean validateManifest(RuleContext ruleContext) {
+  private static void validateManifest(RuleContext ruleContext) throws RuleErrorException {
     if (ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET) == null) {
       ruleContext.attributeError("manifest",
           "manifest is required when resource_files or assets are defined.");
-      return false;
+      throw new RuleErrorException();
     }
-    return true;
   }
 
   public static class Builder {

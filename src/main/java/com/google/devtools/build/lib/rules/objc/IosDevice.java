@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -33,7 +34,8 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
  */
 public final class IosDevice implements RuleConfiguredTargetFactory {
   @Override
-  public ConfiguredTarget create(RuleContext context) throws InterruptedException {
+  public ConfiguredTarget create(RuleContext context)
+      throws InterruptedException, RuleErrorException {
     AppleConfiguration appleConfiguration = context.getFragment(AppleConfiguration.class);
     String iosVersionAttribute =
         context.attributes().get(IosDeviceRule.IOS_VERSION_ATTR_NAME, STRING);

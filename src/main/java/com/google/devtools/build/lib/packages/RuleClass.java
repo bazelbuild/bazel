@@ -183,8 +183,18 @@ public final class RuleClass {
   public interface ConfiguredTargetFactory<TConfiguredTarget, TContext> {
     /**
      * Returns a fully initialized configured target instance using the given context.
+     *
+     * @throws RuleErrorException if configured target creation could not be completed due to rule
+     *    errors
      */
-    TConfiguredTarget create(TContext ruleContext) throws InterruptedException;
+    TConfiguredTarget create(TContext ruleContext) throws InterruptedException, RuleErrorException;
+
+    /**
+     * Exception indicating that configured target creation could not be completed. Error messaging
+     * should be done via {@link RuleErrorConsumer}; this exception only interrupts configured
+     * target creation in cases where it can no longer continue.
+     */
+    public static final class RuleErrorException extends Exception {}
   }
 
   /**
