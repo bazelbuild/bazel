@@ -744,7 +744,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     Collection<Artifact> srcs = getSources(ruleContext);
     List<Artifact> javaSrcs = Lists.newArrayList();
     for (Artifact src : srcs) {
-      if (src.getRootRelativePathString().endsWith(".java")) {
+      if (src.isSourceArtifact() && src.getRootRelativePathString().endsWith(".java")) {
         javaSrcs.add(src);
       }
     }
