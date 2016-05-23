@@ -1487,20 +1487,25 @@ public final class CompilationSupport {
   /**
    * Returns a list of framework search path flags for clang/swift actions.
    */
-  private static Iterable<String> commonFrameworkFlags(
+  static Iterable<String> commonFrameworkFlags(
+      ObjcProvider provider, AppleConfiguration appleConfiguration) {
+    return Interspersing.beforeEach("-F", commonFrameworkNames(provider, appleConfiguration));
+  }
+
+  /**
+   * Returns a list of frameworks for clang/swift actions.
+   */
+  static Iterable<String> commonFrameworkNames(
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
     Platform platform = Platform.forIosArch(appleConfiguration.getIosCpu());
 
     return new ImmutableList.Builder<String>()
-        .add("-F", AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
+        .add(AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
         // As of sdk8.1, XCTest is in a base Framework dir
-        .add("-F", AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+        .add(AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
-        .addAll(
-            Interspersing.beforeEach(
-                "-F",
-                PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR)))))
+        .addAll(PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR))))
         .build();
   }
 

@@ -22,9 +22,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.ValueSequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
@@ -38,21 +40,48 @@ import java.util.Collection;
 public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
   private static final String PCH_FILE_VARIABLE_NAME = "pch_file";
+  private static final String FRAMEWORKS_VARIABLE_NAME = "framework_paths";
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of("objc-compile", "objc++-compile");
-  
-  private VariablesExtension variablesExtension(final RuleContext ruleContext) {
-    return new VariablesExtension() {
-      @Override
-      public void addVariables(Builder builder) {
-        if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
-          builder.addVariable(PCH_FILE_VARIABLE_NAME,
-              ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
-        }
+
+  /**
+   * Build variable extensions for templating a toolchain for objc builds.
+   */
+  private static class ObjcVariablesExtension implements VariablesExtension {
+
+    private final RuleContext ruleContext;
+    private final ObjcProvider objcProvider;
+
+    public ObjcVariablesExtension(RuleContext ruleContext, ObjcProvider objcProvider) {
+      this.ruleContext = ruleContext;
+      this.objcProvider = objcProvider;
+    }
+
+    @Override
+    public void addVariables(Builder builder) {
+      addPchVariables(builder);
+      addFrameworkVariables(builder);
+    }
+
+    private void addPchVariables(Builder builder) {
+       if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
+        builder.addVariable(
+            PCH_FILE_VARIABLE_NAME,
+            ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
       }
-    };
+    }
+
+    private void addFrameworkVariables(Builder builder) {
+       ValueSequence.Builder frameworkSequence = new ValueSequence.Builder();
+      for (String framework :
+          CompilationSupport.commonFrameworkNames(
+              objcProvider, ruleContext.getFragment(AppleConfiguration.class))) {
+        frameworkSequence.addValue(framework);
+      }
+      builder.addSequence(FRAMEWORKS_VARIABLE_NAME, frameworkSequence.build());      
+    }
   }
-  
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
 
@@ -76,8 +105,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     FeatureConfiguration featureConfiguration =
         toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
-   
-    
+
     Collection<Artifact> sources = Sets.newHashSet(compilationArtifacts.getSrcs());
     Collection<Artifact> privateHdrs = Sets.newHashSet(compilationArtifacts.getPrivateHdrs());
     Collection<Artifact> publicHdrs = Sets.newHashSet(compilationAttributes.hdrs());
@@ -85,7 +113,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     CcLibraryHelper helper =
         new CcLibraryHelper(
                 ruleContext,
-                ObjcCppSemantics.INSTANCE,
+                new ObjcCppSemantics(common.getObjcProvider()),
                 featureConfiguration,
                 CcLibraryHelper.SourceCategory.CC_AND_OBJC)
             .addSources(sources)
@@ -94,7 +122,8 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addPublicHeaders(publicHdrs)
             .addPrecompiledFiles(precompiledFiles)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .addVariableExtension(variablesExtension(ruleContext));
+            .addVariableExtension(
+                new ObjcVariablesExtension(ruleContext, common.getObjcProvider()));
 
     CcLibraryHelper.Info info = helper.build();
 
@@ -106,7 +135,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private ObjcCommon common(
+  private static ObjcCommon common(
       RuleContext ruleContext,
       CompilationAttributes compilationAttributes,
       CompilationArtifacts compilationArtifacts) {
