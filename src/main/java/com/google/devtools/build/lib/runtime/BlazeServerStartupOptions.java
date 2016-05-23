@@ -181,7 +181,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     defaultValue = "100", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
     help =
-        "If --experimental_oom_more_eagerly is set, Blaze will OOM if, after two full GC's, more "
+        "If this flag is set, Blaze will OOM if, after two full GC's, more "
             + "than this percentage of the (old gen) heap is still occupied."
   )
   public int oomMoreEagerlyThreshold;
