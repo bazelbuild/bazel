@@ -18,8 +18,6 @@
 
 # Installation and etc prefix can be overriden from command line
 install_prefix=${1:-"/usr/local"}
-# TODO(kchodorow): delete by April 2016.
-bazelrc=${2:-"/etc/bazel.bazelrc"}
 
 progname="$0"
 
@@ -36,16 +34,14 @@ function usage() {
   echo "  --prefix=/some/path set the prefix path (default=/usr/local)." >&2
   echo "  --bin= set the binary folder path (default=%prefix%/bin)." >&2
   echo "  --base= set the base install path (default=%prefix%/lib/bazel)." >&2
-  echo "  --bazelrc= set the path to bazelrc (default=/etc/bazelrc)." >&2
   echo "  --user configure for user install, expands to:" >&2
-  echo '      --bin=$HOME/bin --base=$HOME/.bazel --bazelrc=$HOME/.bazelrc' >&2
+  echo '      --bin=$HOME/bin --base=$HOME/.bazel' >&2
   exit 1
 }
 
 prefix="/usr/local"
 bin="%prefix%/bin"
 base="%prefix%/lib/bazel"
-bazelrc="/etc/bazel.bazelrc"
 
 for opt in "${@}"; do
   case $opt in
@@ -53,7 +49,8 @@ for opt in "${@}"; do
       prefix="$(echo "$opt" | cut -d '=' -f 2-)"
       ;;
     --bazelrc=*)
-      bazelrc="$(echo "$opt" | cut -d '=' -f 2-)"
+      # TODO(kchodorow): remove once everything we're testing on CI contains
+      # this comment.
       ;;
     --bin=*)
       bin="$(echo "$opt" | cut -d '=' -f 2-)"
@@ -64,7 +61,6 @@ for opt in "${@}"; do
     --user)
       bin="$HOME/bin"
       base="$HOME/.bazel"
-      bazelrc="$HOME/.bazelrc"
       ;;
     *)
       usage
@@ -74,7 +70,6 @@ done
 
 bin="${bin//%prefix%/${prefix}}"
 base="${base//%prefix%/${prefix}}"
-bazelrc="${bazelrc//%prefix%/${prefix}}"
 
 function test_write() {
   local file="$1"
@@ -127,7 +122,6 @@ fi
 # Test for write access
 test_write "${bin}"
 test_write "${base}"
-test_write "${bazelrc}"
 
 # Do the actual installation
 echo -n "Uncompressing."
@@ -153,17 +147,7 @@ echo -n .
 ln -s "${base}/bin/bazel" "${bin}/bazel"
 echo -n .
 
-if [ -f "${bazelrc}" ]; then
-  echo
-  echo "${bazelrc} already exists, moving it to ${bazelrc}.bak."
-  mv "${bazelrc}" "${bazelrc}.bak"
-fi
-
-# Not necessary, but this way it matches the Debian package.
-touch "${bazelrc}"
-if [ "${UID}" -eq 0 ]; then
-  chmod 0644 "${bazelrc}"
-else
+if [ "${UID}" -ne 0 ]; then
   # Uncompress the bazel base install for faster startup time
   "${bin}/bazel" help >/dev/null
 fi
