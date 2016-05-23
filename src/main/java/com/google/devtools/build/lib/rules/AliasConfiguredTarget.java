@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Preconditions;
 
+import javax.annotation.Nullable;
+
 /**
  * This configured target pretends to be whatever type of target "actual" is, returning its
  * transitive info providers and target, but returning its own label.
@@ -44,10 +46,12 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       overrides;
 
-  public AliasConfiguredTarget(BuildConfiguration configuration, ConfiguredTarget actual,
+  public AliasConfiguredTarget(
+      BuildConfiguration configuration,
+      @Nullable ConfiguredTarget actual,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
     this.configuration = Preconditions.checkNotNull(configuration);
-    this.actual = Preconditions.checkNotNull(actual);
+    this.actual = actual;
     this.overrides = Preconditions.checkNotNull(overrides);
   }
 
