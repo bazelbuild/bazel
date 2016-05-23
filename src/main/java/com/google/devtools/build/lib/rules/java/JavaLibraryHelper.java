@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcSpecificLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
@@ -56,17 +53,6 @@ import java.util.Map;
  */
 public final class JavaLibraryHelper {
   private static final String DEFAULT_SUFFIX_IS_EMPTY_STRING = "";
-
-  /**
-   * Function for extracting the {@link JavaCompilationArgs} - note that it also handles .jar files.
-   */
-  private static final Function<TransitiveInfoCollection, JavaCompilationArgsProvider>
-      TO_COMPILATION_ARGS = new Function<TransitiveInfoCollection, JavaCompilationArgsProvider>() {
-    @Override
-    public JavaCompilationArgsProvider apply(TransitiveInfoCollection target) {
-      return forTarget(target);
-    }
-  };
 
   /**
    * Contains the providers as well as the compilation outputs.
@@ -302,26 +288,15 @@ public final class JavaLibraryHelper {
   }
 
   private Iterable<JavaCompilationArgsProvider> transformDeps() {
-    return Iterables.transform(deps, TO_COMPILATION_ARGS);
-  }
-
-  private static JavaCompilationArgsProvider forTarget(TransitiveInfoCollection target) {
-    if (target.getProvider(JavaCompilationArgsProvider.class) != null) {
-      // If the target has JavaCompilationArgs, we use those.
-      return target.getProvider(JavaCompilationArgsProvider.class);
-    } else {
-      // Otherwise we look for any jar files. It would be good to remove this, and require
-      // intermediate java_import rules in these cases.
-      NestedSet<Artifact> filesToBuild =
-          target.getProvider(FileProvider.class).getFilesToBuild();
-      final List<Artifact> jars = new ArrayList<>();
-      Iterables.addAll(jars, FileType.filter(filesToBuild, JavaSemantics.JAR));
-      JavaCompilationArgs args = JavaCompilationArgs.builder()
-          .addCompileTimeJars(jars)
-          .addRuntimeJars(jars)
-          .build();
-      return new JavaCompilationArgsProvider(args, args);
+    ImmutableList.Builder<JavaCompilationArgsProvider> result = ImmutableList.builder();
+    for (TransitiveInfoCollection target : deps) {
+      JavaCompilationArgsProvider argsProvider =
+          target.getProvider(JavaCompilationArgsProvider.class);
+      if (argsProvider != null) {
+        result.add(argsProvider);
+      }
     }
+    return result.build();
   }
 
   private boolean isStrict() {
