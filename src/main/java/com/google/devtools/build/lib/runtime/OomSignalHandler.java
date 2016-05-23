@@ -30,6 +30,10 @@ import java.util.logging.Logger;
 class OomSignalHandler extends AbstractSignalHandler {
   private static final Logger LOG = Logger.getLogger(OomSignalHandler.class.getName());
   private static final Signal SIGUSR2 = new Signal("USR2");
+  private static final String MESSAGE = "SIGUSR2 received, presumably from JVM due to OOM";
+  // Pre-allocate memory for object that will be used during an OOM, because there may not be spare
+  // memory when we're OOMing. That's kind of the point of an OOM.
+  private static final OutOfMemoryError OUT_OF_MEMORY_ERROR = new OutOfMemoryError(MESSAGE);
 
   OomSignalHandler() {
     super(SIGUSR2);
@@ -37,10 +41,9 @@ class OomSignalHandler extends AbstractSignalHandler {
 
   @Override
   protected void onSignal() {
-    String message = "SIGUSR2 received, presumably from JVM due to OOM";
-    LOG.info(message);
+    LOG.info(MESSAGE);
     OutErr.SYSTEM_OUT_ERR.printErrLn(
         "Exiting as if we OOM'd because SIGUSR2 received, presumably from JVM");
-    BugReport.handleCrash(new OutOfMemoryError(message));
+    BugReport.handleCrash(OUT_OF_MEMORY_ERROR);
   }
 }

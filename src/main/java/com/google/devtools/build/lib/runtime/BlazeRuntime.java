@@ -141,6 +141,10 @@ public final class BlazeRuntime {
 
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
+  // Pre-allocate memory for this object in case of an OOM.
+  private static final CommandCompleteEvent OOM_COMMAND_COMPLETE_EVENT =
+      new CommandCompleteEvent(ExitCode.OOM_ERROR.getNumericExitCode());
+
   private final Iterable<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
   private final Clock clock;
@@ -505,14 +509,18 @@ public final class BlazeRuntime {
    * Posts the {@link CommandCompleteEvent}, so that listeners can tidy up. Called by {@link
    * #afterCommand}, and by BugReport when crashing from an exception in an async thread.
    */
-  public void notifyCommandComplete(int exitCode) {
+  void notifyCommandComplete(int exitCode) {
     if (!storedExitCode.compareAndSet(ExitCode.RESERVED.getNumericExitCode(), exitCode)) {
       // This command has already been called, presumably because there is a race between the main
       // thread and a worker thread that crashed. Don't try to arbitrate the dispute. If the main
       // thread won the race (unlikely, but possible), this may be incorrectly logged as a success.
       return;
     }
-    workspace.getSkyframeExecutor().getEventBus().post(new CommandCompleteEvent(exitCode));
+    CommandCompleteEvent commandCompleteEvent =
+        exitCode == ExitCode.OOM_ERROR.getNumericExitCode()
+            ? OOM_COMMAND_COMPLETE_EVENT
+            : new CommandCompleteEvent(exitCode);
+    workspace.getSkyframeExecutor().getEventBus().post(commandCompleteEvent);
   }
 
   /**
