@@ -222,18 +222,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertTrue(packageLookupValue.packageExists());
     assertEquals(rootDirectory, packageLookupValue.getRoot());
   }
-
-  // TODO(kchodorow): Clean this up (see TODOs in PackageLookupValue).
-  @Test
-  public void testExternalPackageLookupSemantics() {
-    PackageLookupValue existing = PackageLookupValue.workspace(rootDirectory);
-    assertTrue(existing.isExternalPackage());
-    assertTrue(existing.packageExists());
-    PackageLookupValue nonExistent = PackageLookupValue.workspace(rootDirectory.getRelative("x/y"));
-    assertTrue(nonExistent.isExternalPackage());
-    assertFalse(nonExistent.packageExists());
-  }
-
+  
   @Test
   public void testPackageLookupValueHashCodeAndEqualsContract() throws Exception {
     Path root1 = rootDirectory.getRelative("root1");
