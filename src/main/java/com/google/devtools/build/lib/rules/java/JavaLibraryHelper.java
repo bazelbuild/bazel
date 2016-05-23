@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.S
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -331,9 +330,11 @@ public final class JavaLibraryHelper {
     NestedSetBuilder<Artifact> transitiveJavaSourceJarBuilder =
         NestedSetBuilder.<Artifact>stableOrder();
     transitiveJavaSourceJarBuilder.addAll(sourceJars);
-    for (JavaSourceJarsProvider other : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, JavaSourceJarsProvider.class)) {
-      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    for (TransitiveInfoCollection dep : deps) {
+      JavaSourceJarsProvider provider = dep.getProvider(JavaSourceJarsProvider.class);
+      if (provider != null) {
+        transitiveJavaSourceJarBuilder.addTransitive(provider.getTransitiveSourceJars());
+      }
     }
     return transitiveJavaSourceJarBuilder.build();
   }
