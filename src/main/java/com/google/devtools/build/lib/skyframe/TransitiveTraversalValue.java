@@ -43,7 +43,7 @@ public class TransitiveTraversalValue implements SkyValue {
   @Nullable private final ImmutableSet<String> providers;
   @Nullable private final String firstErrorMessage;
 
-  private TransitiveTraversalValue(boolean canHaveAnyProvider,
+  public TransitiveTraversalValue(boolean canHaveAnyProvider,
       @Nullable Iterable<String> providers, @Nullable String firstErrorMessage) {
     this.canHaveAnyProvider = canHaveAnyProvider;
     this.providers = (providers == null) ? null : canonicalSet(providers);
