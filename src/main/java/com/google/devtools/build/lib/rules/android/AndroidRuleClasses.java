@@ -584,7 +584,7 @@ public final class AndroidRuleClasses {
               .allowedRuleClasses(ALLOWED_DEPENDENCIES)
               .allowedFileTypes()
               .aspect(androidNeverlinkAspect)
-              .aspect(dexArchiveAspect)
+              .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
               .aspect(jackAspect))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
@@ -634,7 +634,9 @@ public final class AndroidRuleClasses {
           android_test rules with binary_under_test set. We are working on addressing these
           shortcomings so please check with us if you run into these limitations.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("incremental_dexing", TRISTATE))
+          .add(attr("incremental_dexing", TRISTATE)
+              // Read by DexArchiveAspect's attribute extractor
+              .nonconfigurable("AspectParameters don't support configurations."))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
           Use this option to affect the classes included in the main dex list.

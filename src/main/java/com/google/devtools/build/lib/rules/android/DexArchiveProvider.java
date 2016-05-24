@@ -17,12 +17,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Function;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -36,7 +40,7 @@ import javax.annotation.Nullable;
  * available (returns the given Jar otherwise).
  */
 @Immutable
-public class DexArchiveProvider implements TransitiveInfoProvider, Function<Artifact, Artifact> {
+public class DexArchiveProvider implements TransitiveInfoProvider {
 
   /**
    * Provider that doesn't provide any dex archives, which is what any neverlink target should use.
@@ -50,7 +54,8 @@ public class DexArchiveProvider implements TransitiveInfoProvider, Function<Arti
    */
   public static class Builder {
 
-    private final BiMap<Artifact, Artifact> dexArchives = HashBiMap.create();
+    private final Table<ImmutableSet<String>, Artifact, Artifact> dexArchives =
+        HashBasedTable.create();
 
     public Builder() {
     }
@@ -68,17 +73,21 @@ public class DexArchiveProvider implements TransitiveInfoProvider, Function<Arti
 
     /**
      * Adds the given dex archive as a replacement for the given Jar.
+     * @param dexopts
      */
-    public Builder addDexArchive(Artifact dexArchive, Artifact dexedJar) {
+    public Builder addDexArchive(Set<String> dexopts, Artifact dexArchive, Artifact dexedJar) {
       checkArgument(dexArchive.getFilename().endsWith(".dex.zip"),
           "Doesn't look like a dex archive: %s", dexArchive);
       // Adding this artifact will fail iff dexArchive already appears as the value of another jar.
       // It's ok and expected to put the same pair multiple times. Note that ImmutableBiMap fails
       // in that situation, which is why we're not using it here.
       // It's weird to put a dexedJar that's already in the map with a different value so we fail.
-      Artifact old = dexArchives.put(checkNotNull(dexedJar, "dexedJar"), dexArchive);
+      Artifact old =
+          dexArchives.put(
+              ImmutableSet.copyOf(dexopts), checkNotNull(dexedJar, "dexedJar"), dexArchive);
       checkArgument(old == null || old.equals(dexedJar),
-          "We already had mapping %s-%s, so we don't also need %s", dexedJar, old, dexArchive);
+          "We already had mapping %s-%s for dexopts %s, so we don't also need %s",
+          dexedJar, old, dexopts, dexArchive);
       return this;
     }
 
@@ -86,23 +95,28 @@ public class DexArchiveProvider implements TransitiveInfoProvider, Function<Arti
      * Returns the finished {@link DexArchiveProvider}.
      */
     public DexArchiveProvider build() {
-      return new DexArchiveProvider(ImmutableMap.copyOf(dexArchives));
+      return new DexArchiveProvider(ImmutableTable.copyOf(dexArchives));
     }
   }
 
   /** Map from Jar artifacts to the corresponding dex archives. */
-  private final ImmutableMap<Artifact, Artifact> dexArchives;
+  private final ImmutableTable<ImmutableSet<String>, Artifact, Artifact> dexArchives;
 
-  private DexArchiveProvider(ImmutableMap<Artifact, Artifact> dexArchives) {
+  private DexArchiveProvider(ImmutableTable<ImmutableSet<String>, Artifact, Artifact> dexArchives) {
     this.dexArchives = dexArchives;
   }
 
-  /** Maps Jars to available dex archives and returns the given Jar otherwise. */
-  @Override
-  @Nullable
-  public Artifact apply(@Nullable Artifact jar) {
-    Artifact dexArchive = dexArchives.get(jar);
-    return dexArchive != null ? dexArchive : jar; // return null iff input == null
+  public Function<Artifact, Artifact> archivesForDexopts(ImmutableSet<String> dexopts) {
+    final ImmutableMap<Artifact, Artifact> dexArchivesForDexopts = dexArchives.row(dexopts);
+    return new Function<Artifact, Artifact>() {
+      /** Maps Jars to available dex archives and returns the given Jar otherwise. */
+      @Override
+      @Nullable
+      public Artifact apply(@Nullable Artifact jar) {
+        Artifact dexArchive = dexArchivesForDexopts.get(jar);
+        return dexArchive != null ? dexArchive : jar; // return null iff input == null
+      }
+    };
   }
 
   @Override
