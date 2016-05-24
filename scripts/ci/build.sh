@@ -139,6 +139,7 @@ function bazel_build() {
       --workspace_status_command=scripts/ci/build_status_command.sh \
       --define JAVA_VERSION=${JAVA_VERSION} \
       ${ARGS} \
+      //site:jekyll-tree \
       //scripts/packages/... || exit $?
 
   if [ -n "${1-}" ]; then
@@ -149,6 +150,7 @@ function bazel_build() {
     if [ "$PLATFORM" = "linux" ]; then
       cp bazel-bin/scripts/packages/bazel-debian.deb $1/bazel_${release_label}.deb
     fi
+    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.io.tar
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
   fi
 
@@ -431,4 +433,27 @@ function bazel_release() {
   export RELEASE_EMAIL_RECIPIENT="$(echo "${RELEASE_EMAIL}" | head -1)"
   export RELEASE_EMAIL_SUBJECT="$(echo "${RELEASE_EMAIL}" | head -2 | tail -1)"
   export RELEASE_EMAIL_CONTENT="$(echo "${RELEASE_EMAIL}" | tail -n +3)"
+}
+
+# Use jekyll build to build the site and then gsutil to copy it to GCS
+# Input: $1 tarball to the jekyll site
+#        $2 name of the bucket to deploy the site to
+# It requires to have gsutil installed. You can force the path to gsutil
+# by setting the GSUTIL environment variable
+function build_and_publish_site() {
+  tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
+  trap 'rm -fr ${tmpdir}' EXIT
+  local gs="$(get_gsutil)"
+  local site="$1"
+  local bucket="$2"
+
+  if [ ! -f "${site}" ] || [ -z "${bucket}" ]; then
+    echo "Usage: build_and_publish_site <site-tarball> <bucket>" >&2
+    return 1
+  fi
+  tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
+  jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
+  "${gs}" rsync -r "${tmpdir}/production" "gs://${bucket}"
+  "${gs}" web set -m index.html -e 404.html "gs://${bucket}"
+  "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
 }
