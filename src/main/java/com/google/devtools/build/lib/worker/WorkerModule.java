@@ -59,7 +59,16 @@ public class WorkerModule extends BlazeModule {
     if (workerFactory == null) {
       Path logDir = env.getOutputBase().getRelative("worker-logs");
       try {
-        logDir.createDirectory();
+        if (!logDir.createDirectory()) {
+          // Clean out old log files.
+          for (Path logFile : logDir.getDirectoryEntries()) {
+            try {
+              logFile.delete();
+            } catch (IOException e) {
+              env.getReporter().handle(Event.error("Could not delete old worker log: " + logFile));
+            }
+          }
+        }
       } catch (IOException e) {
         env
             .getReporter()

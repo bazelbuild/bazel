@@ -394,4 +394,32 @@ EOF
   expect_log "Build completed, shutting down worker pool..."
 }
 
+function test_logs_are_deleted_on_server_restart() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build -s --worker_verbose --strategy=Work=worker --worker_max_instances=1 --worker_quit_after_build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+
+  expect_log "Created new Work worker (id [0-9]\+)"
+
+  worker_log=$(egrep -o -- 'logging to .*/worker-logs/.*' "$TEST_log" | sed 's/^logging to //')
+
+  [ -e "$worker_log" ] \
+    || fail "Worker log was not found"
+
+  # Running a build after a server shutdown should trigger the removal of old worker log files.
+  bazel shutdown &> $TEST_log
+  bazel build &> $TEST_log
+
+  [ ! -e "$worker_log" ] \
+    || fail "Worker log was not deleted"
+}
+
 run_suite "Worker integration tests"
