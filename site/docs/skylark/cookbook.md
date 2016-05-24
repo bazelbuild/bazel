@@ -114,8 +114,8 @@ native.existing_rule("descriptor_proto")
 ```
 
 This is useful to avoid instantiating the same rule twice, which is an
-error. For example, the following rule will simulate a test suite, instantiating
-tests for diverse flavors of the same test.
+error. For example, the following macro will simulate a test suite,
+instantiating tests for diverse flavors of the same test.
 
 `extension.bzl`:
 
