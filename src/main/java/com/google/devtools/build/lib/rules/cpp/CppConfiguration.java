@@ -1574,13 +1574,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the extra warnings enabled for C compilation.
-   */
-  public ImmutableList<String> getCWarns() {
-    return ImmutableList.copyOf(cppOptions.cWarns);
-  }
-
-  /**
    * Returns true if mostly-static C++ binaries should be skipped.
    */
   public boolean skipStaticOutputs() {

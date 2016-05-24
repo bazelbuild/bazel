@@ -1216,12 +1216,6 @@ $ bazel fetch //...
   will be placed on the gcc command line <em>after</em> these options.
 </p>
 
-<h4 id='flag--cwarn'><code class='flag'>--cwarn <var>gcc-warning</var></code></h4>
-<p>
-  This option takes an argument which is a gcc warning to be enabled when
-  compiling C or C++ source files. This warning enabling will override any
-  other copt, cxxopt or copts that disable the given warning.
-</p>
 <p>
   This is similar to <code class='flag'>--copt</code> and <code class='flag'>--cxxopt</code>, but can only
   be used to enable warnings. The arguments to this option are appended to the

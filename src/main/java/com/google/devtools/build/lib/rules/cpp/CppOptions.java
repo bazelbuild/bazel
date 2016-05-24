@@ -47,24 +47,6 @@ import java.util.Set;
 public class CppOptions extends FragmentOptions {
 
   /**
-   * Converter for --cwarn flag
-   */
-  public static class GccWarnConverter implements Converter<String> {
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.startsWith("no-") || input.startsWith("-W")) {
-        throw new OptionsParsingException("Not a valid gcc warning to enable");
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "A gcc warning to enable";
-    }
-  }
-
-  /**
    * Converts a comma-separated list of compilation mode settings to a properly typed List.
    */
   public static class FissionOptionConverter implements Converter<List<CompilationMode>> {
@@ -310,16 +292,6 @@ public class CppOptions extends FragmentOptions {
     help = "Additional options to pass to gcc."
   )
   public List<String> coptList;
-
-  @Option(
-    name = "cwarn",
-    converter = GccWarnConverter.class,
-    defaultValue = "",
-    category = "flags",
-    allowMultiple = true,
-    help = "Additional warnings to enable when compiling C or C++ source files."
-  )
-  public List<String> cWarns;
 
   @Option(
     name = "cxxopt",

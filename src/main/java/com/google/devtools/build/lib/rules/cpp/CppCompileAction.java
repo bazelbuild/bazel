@@ -1327,10 +1327,6 @@ public class CppCompileAction extends AbstractAction
         addFilteredOptions(options, toolchain.getCxxOptions(features));
       }
 
-      for (String warn : cppConfiguration.getCWarns()) {
-        options.add("-W" + warn);
-      }
-
       // TODO(bazel-team): This needs to be before adding getUnfilteredCompilerOptions() and after
       // adding the warning flags until all toolchains are migrated; currently toolchains use the
       // unfiltered compiler options to inject include paths, which is superseded by the feature
