@@ -379,4 +379,60 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
       doTestOutputLength(false, i);
     }
   }
+
+  @Test
+  public void testAggregation() throws Exception {
+    // Assert that actions for the same test are aggregated so that an action afterwards
+    // is still shown.
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+
+    Label labelFooTest = Label.parseAbsolute("//foo/bar:footest");
+    ConfiguredTarget targetFooTest = Mockito.mock(ConfiguredTarget.class);
+    when(targetFooTest.getLabel()).thenReturn(labelFooTest);
+    ActionOwner fooOwner = new ActionOwner(labelFooTest, null, null, null, "abcdef", null);
+
+    Label labelBarTest = Label.parseAbsolute("//baz:bartest");
+    ConfiguredTarget targetBarTest = Mockito.mock(ConfiguredTarget.class);
+    when(targetBarTest.getLabel()).thenReturn(labelBarTest);
+    TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
+    when(filteringComplete.getTestTargets())
+        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest));
+    ActionOwner barOwner = new ActionOwner(labelBarTest, null, null, null, "fedcba", null);
+
+    stateTracker.testFilteringComplete(filteringComplete);
+
+    // First produce 10 actions for footest...
+    for (int i = 0; i < 10; i++) {
+      clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+      Action action = mockAction("Testing foo, shard " + i, "testlog_foo_" + i);
+      when(action.getOwner()).thenReturn(fooOwner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    }
+    // ...then produce 10 actions for bartest...
+    for (int i = 0; i < 10; i++) {
+      clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+      Action action = mockAction("Testing bar, shard " + i, "testlog_bar_" + i);
+      when(action.getOwner()).thenReturn(barOwner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    }
+    // ...and finally a completely unrelated action
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    stateTracker.actionStarted(
+        new ActionStartedEvent(mockAction("Other action", "other/action"), clock.nanoTime()));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Progress bar should contain ':footest', but was:\n" + output, output.contains(":footest"));
+    assertTrue(
+        "Progress bar should contain ':bartest', but was:\n" + output, output.contains(":bartest"));
+    assertTrue(
+        "Progress bar should contain 'Other action', but was:\n" + output,
+        output.contains("Other action"));
+  }
 }
