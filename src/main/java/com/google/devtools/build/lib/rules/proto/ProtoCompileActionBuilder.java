@@ -221,7 +221,7 @@ public class ProtoCompileActionBuilder {
   /**
    * Commandline generator for protoc invocations.
    */
-  public CustomCommandLine.Builder createProtoCompilerCommandLine() {
+  private CustomCommandLine.Builder createProtoCompilerCommandLine() {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPluginName == null) {
