@@ -234,7 +234,7 @@ public final class CcLibraryHelper {
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> implementationDeps = new ArrayList<>();
   private final List<TransitiveInfoCollection> interfaceDeps = new ArrayList<>();
-  private final List<Artifact> linkstamps = new ArrayList<>();
+  private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<Artifact> prerequisites = new ArrayList<>();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
@@ -601,8 +601,7 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addLinkstamps(Iterable<? extends TransitiveInfoCollection> linkstamps) {
     for (TransitiveInfoCollection linkstamp : linkstamps) {
-      Iterables.addAll(this.linkstamps,
-          linkstamp.getProvider(FileProvider.class).getFilesToBuild());
+      this.linkstamps.addTransitive(linkstamp.getProvider(FileProvider.class).getFilesToBuild());
     }
     return this;
   }
@@ -1120,14 +1119,17 @@ public final class CcLibraryHelper {
       final boolean forcePic) {
     return new CcLinkParamsStore() {
       @Override
-      protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
-          boolean linkShared) {
-        builder.addLinkstamps(linkstamps, cppCompilationContext);
-        builder.addTransitiveTargets(implementationDeps,
-            CcLinkParamsProvider.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+      protected void collect(
+          CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+        builder.addLinkstamps(linkstamps.build(), cppCompilationContext);
+        builder.addTransitiveTargets(
+            implementationDeps,
+            CcLinkParamsProvider.TO_LINK_PARAMS,
+            CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
-          builder.addLibraries(ccLinkingOutputs.getPreferredLibraries(linkingStatically,
-              /*preferPic=*/linkShared || forcePic));
+          builder.addLibraries(
+              ccLinkingOutputs.getPreferredLibraries(
+                  linkingStatically, /*preferPic=*/ linkShared || forcePic));
           builder.addLinkOpts(linkopts);
         }
       }

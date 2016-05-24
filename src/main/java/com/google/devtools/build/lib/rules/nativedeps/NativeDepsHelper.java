@@ -128,7 +128,7 @@ public abstract class NativeDepsHelper {
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
     linkopts.addAll(linkParams.flattenedLinkopts());
 
-    Map<Artifact, ImmutableList<Artifact>> linkstamps =
+    Map<Artifact, NestedSet<Artifact>> linkstamps =
         CppHelper.resolveLinkstamps(ruleContext, linkParams);
     List<Artifact> buildInfoArtifacts = linkstamps.isEmpty()
         ? ImmutableList.<Artifact>of()
