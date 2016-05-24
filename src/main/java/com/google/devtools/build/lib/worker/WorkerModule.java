@@ -29,20 +29,19 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 
-import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-
 import java.io.IOException;
 
 /**
  * A module that adds the WorkerActionContextProvider to the available action context providers.
  */
 public class WorkerModule extends BlazeModule {
-  private WorkerFactory workerFactory;
-  private WorkerPool workerPool;
-
   private CommandEnvironment env;
   private BuildRequest buildRequest;
   private boolean verbose;
+
+  private WorkerFactory workerFactory;
+  private WorkerPool workerPool;
+  private WorkerPoolConfig workerPoolConfig;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -55,6 +54,13 @@ public class WorkerModule extends BlazeModule {
   public void beforeCommand(Command command, CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
+  }
+
+  @Subscribe
+  public void buildStarting(BuildStartingEvent event) {
+    buildRequest = event.getRequest();
+    WorkerOptions options = buildRequest.getOptions(WorkerOptions.class);
+    verbose = options.workerVerbose;
 
     if (workerFactory == null) {
       Path logDir = env.getOutputBase().getRelative("worker-logs");
@@ -79,44 +85,50 @@ public class WorkerModule extends BlazeModule {
     }
 
     workerFactory.setReporter(env.getReporter());
+    workerFactory.setVerbose(options.workerVerbose);
+
+    WorkerPoolConfig newConfig = createWorkerPoolConfig(options);
+
+    // If the config changed compared to the last run, we have to create a new pool.
+    if (workerPoolConfig != null && !workerPoolConfig.equals(newConfig)) {
+      shutdownPool("Worker configuration has changed, restarting worker pool...");
+    }
 
     if (workerPool == null) {
-      GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
-
-      // It's better to re-use a worker as often as possible and keep it hot, in order to profit
-      // from JIT optimizations as much as possible.
-      config.setLifo(true);
-
-      // Check for & deal with idle workers every 5 seconds.
-      config.setTimeBetweenEvictionRunsMillis(5 * 1000);
-
-      // Always test the liveliness of worker processes.
-      config.setTestOnBorrow(true);
-      config.setTestOnCreate(true);
-      config.setTestOnReturn(true);
-      config.setTestWhileIdle(true);
-
-      // Don't limit the total number of worker processes, as otherwise the pool might be full of
-      // e.g. Java workers and could never accommodate another request for a different kind of
-      // worker.
-      config.setMaxTotal(-1);
-
-      workerPool = new WorkerPool(workerFactory, config);
+      workerPoolConfig = newConfig;
+      workerPool = new WorkerPool(workerFactory, workerPoolConfig);
     }
   }
 
-  @Subscribe
-  public void buildStarting(BuildStartingEvent event) {
-    Preconditions.checkNotNull(workerPool);
+  private WorkerPoolConfig createWorkerPoolConfig(WorkerOptions options) {
+    WorkerPoolConfig config = new WorkerPoolConfig();
 
-    this.buildRequest = event.getRequest();
+    // It's better to re-use a worker as often as possible and keep it hot, in order to profit
+    // from JIT optimizations as much as possible.
+    config.setLifo(true);
 
-    WorkerOptions options = buildRequest.getOptions(WorkerOptions.class);
-    workerPool.setMaxTotalPerKey(options.workerMaxInstances);
-    workerPool.setMaxIdlePerKey(options.workerMaxInstances);
-    workerPool.setMinIdlePerKey(options.workerMaxInstances);
-    workerFactory.setVerbose(options.workerVerbose);
-    this.verbose = options.workerVerbose;
+    // Keep a fixed number of workers running per key.
+    config.setMaxIdlePerKey(options.workerMaxInstances);
+    config.setMaxTotalPerKey(options.workerMaxInstances);
+    config.setMinIdlePerKey(options.workerMaxInstances);
+
+    // Don't limit the total number of worker processes, as otherwise the pool might be full of
+    // e.g. Java workers and could never accommodate another request for a different kind of
+    // worker.
+    config.setMaxTotal(-1);
+
+    // Wait for a worker to become ready when a thread needs one.
+    config.setBlockWhenExhausted(true);
+
+    // Always test the liveliness of worker processes.
+    config.setTestOnBorrow(true);
+    config.setTestOnCreate(true);
+    config.setTestOnReturn(true);
+
+    // No eviction of idle workers.
+    config.setTimeBetweenEvictionRunsMillis(-1);
+
+    return config;
   }
 
   @Override
@@ -136,16 +148,10 @@ public class WorkerModule extends BlazeModule {
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    if (workerPool != null && buildRequest != null
+    if (buildRequest != null
         && buildRequest.getOptions(WorkerOptions.class) != null
         && buildRequest.getOptions(WorkerOptions.class).workerQuitAfterBuild) {
-      if (verbose) {
-        env
-            .getReporter()
-            .handle(Event.info("Build completed, shutting down worker pool..."));
-      }
-      workerPool.close();
-      workerPool = null;
+      shutdownPool("Build completed, shutting down worker pool...");
     }
   }
 
@@ -154,11 +160,18 @@ public class WorkerModule extends BlazeModule {
   // for them to finish.
   @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
+    shutdownPool("Build interrupted, shutting down worker pool...");
+  }
+
+  /**
+   * Shuts down the worker pool and sets {#code workerPool} to null.
+   */
+  private void shutdownPool(String reason) {
+    Preconditions.checkArgument(!reason.isEmpty());
+
     if (workerPool != null) {
       if (verbose) {
-        env
-            .getReporter()
-            .handle(Event.info("Build interrupted, shutting down worker pool..."));
+        env.getReporter().handle(Event.info(reason));
       }
       workerPool.close();
       workerPool = null;
@@ -170,5 +183,9 @@ public class WorkerModule extends BlazeModule {
     this.env = null;
     this.buildRequest = null;
     this.verbose = false;
+
+    if (this.workerFactory != null) {
+      this.workerFactory.setReporter(null);
+    }
   }
 }
