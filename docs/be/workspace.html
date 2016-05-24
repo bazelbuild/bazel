@@ -317,7 +317,7 @@ git_repository(
 <p>Downloads a Bazel repository as a compressed archive file,
   decompresses it, and makes its targets available for binding. The
   repository should already contain a BUILD file. If it does not, use
-  <a href="#new_http_archive">new_http_archive</a> instead.</p>
+  <a href="workspace.html#new_http_archive">new_http_archive</a> instead.</p>
 
 <p>It supports Zip-formatted archives (with the .zip extension) and
 tarballs (.tar.gz and .tgz extensions).</p>
@@ -629,8 +629,8 @@ http_jar(
 
 
 <p>Allows targets from a local directory to be bound. This means that the current repository can
-  use targets defined in this other directory. See the <a href="#bind_examples">bind section</a>
-  for more details.</p>
+  use targets defined in this other directory. See the <a href="workspace.html#bind_examples">bind
+  section</a> for more details.</p>
 
 <h4 id="local_repository_examples">Examples</h4>
 
@@ -765,7 +765,7 @@ jar.</p>
         <a href="https://maven.apache.org/pom.html#Maven_Coordinates">Maven coordinates</a>.
 
         <p>These descriptions are of the form &lt;groupId&gt:&lt;artifactId&gt;:&lt;version&gt;,
-        see <a href="#maven_jar_examples">the documentation below</a> for an example.
+        see <a href="workspace.html#maven_jar_examples">the documentation below</a> for an example.
 
         </td>
       </tr>

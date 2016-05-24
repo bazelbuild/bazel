@@ -57,15 +57,15 @@ title: Android Rules
             the result of running ProGuard on the
             <code><var>name</var>_deploy.jar</code>.
             This output is only produced if
-            <a href="#android_binary.proguard_specs">proguard_specs</a> attribute is
+            <a href="android.html#android_binary.proguard_specs">proguard_specs</a> attribute is
             specified.
           </li>
           <li><code><var>name</var>_proguard.map</code>: A mapping file result of
             running ProGuard on the <code><var>name</var>_deploy.jar</code>.
             This output is only produced if
-            <a href="#android_binary.proguard_specs">proguard_specs</a> attribute is
+            <a href="android.html#android_binary.proguard_specs">proguard_specs</a> attribute is
             specified and
-            <a href="#android_binary.proguard_generate_mapping">proguard_generate_mapping</a>
+            <a href="android.html#android_binary.proguard_generate_mapping">proguard_generate_mapping</a>
             is set.
           </li>
         </ul>
@@ -381,7 +381,7 @@ com/google/common/base/Objects.class
           <li><code>manual_main_dex</code>: Split code into multiple dex files when the
             dex 64K index limit is exceeded. The content of the main dex file
             needs to be specified by providing a list of classes in a text file
-            using the <a href="#android_binary.main_dex_list">main_dex_list</a>.</li>
+            using the <a href="android.html#android_binary.main_dex_list">main_dex_list</a>.</li>
           <li><code>off</code>: Compile all code to a single dex file, even if
             if exceeds the index limit.</li>
         </ul>
@@ -730,7 +730,8 @@ android_library(
         they represent under <code>idl_import_root</code>. When <code>idl_import_root</code> is
         not specified, both <code>idl_parcelables</code> and <code>idl_srcs</code> must be at the
         path specified by their package under a Java root.</p>
-        <p>See <a href="#android_library_examples.idl_import_root">examples</a>.</p>
+        <p>See <a href="android.html#android_library_examples.idl_import_root">
+        examples</a>.</p>
 
         </td>
       </tr>
@@ -750,7 +751,7 @@ android_library(
         implementations of Parcelable), otherwise <code>idl_srcs</code> should be
         used.</p>
         <p>These files must be placed appropriately for the aidl compiler to find them.
-        See <a href="#android_library.idl_import_root">the description of idl_import_root</a>
+        See <a href="android.html#android_library.idl_import_root">the description of idl_import_root</a>
         for information about what this means.</p>
 
         </td>
@@ -768,7 +769,7 @@ android_library(
         <code>android_library</code> target that depends on this library, directly
         or via its transitive closure.</p>
         <p>These files must be placed appropriately for the aidl compiler to find them.
-        See <a href="#android_library.idl_import_root">the description of idl_import_root</a>
+        See <a href="android.html#android_library.idl_import_root">the description of idl_import_root</a>
         for information about what this means.</p>
 
         </td>

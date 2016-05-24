@@ -446,8 +446,7 @@ Objects, functions and modules registered in the global environment.
               <code>msg</code>
             </td>
             <td>
-                          <p><code><a class="anchor" href="string.html">string</a></code></p>
-                          <p>Error message to display for the user</p>
+                          <p>Error to display for the user. The object is converted to a string.</p>
             </td>
           </tr>
                   <tr>
@@ -706,7 +705,7 @@ list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
         <p><pre><a class="anchor" href="globals.html#None">None</a> print(*args, sep=' ')
 </pre></p>
 
-    Prints a warning with the text <code>msg</code>. It can be used for debugging or for transition (before changing to an error). In other cases, warnings are discouraged.
+    Prints <code>args</code> as a warning. It can be used for debugging or for transition (before changing to an error). In other cases, warnings are discouraged.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">

@@ -72,8 +72,8 @@ title: Java Rules
               creates a self-contained jar file with a manifest that allows it to be run with the
               <code>java -jar</code> command or with the wrapper script's <code>--singlejar</code>
               option. Using the wrapper script is preferred to <code>java -jar</code> because it
-              also passes the <a href="#java_binary.jvm_flags">JVM flags</a> and the options to load
-              native libraries.
+              also passes the <a href="java.html#java_binary.jvm_flags">JVM flags</a> and the options
+              to load native libraries.
             </p>
             <p>
               The deploy jar contains all the classes that would be found by a classloader that
@@ -90,9 +90,9 @@ title: Java Rules
 
 <p>
   A <code>deps</code> attribute is not allowed in a <code>java_binary</code> rule without
-  <a href="#java_binary.srcs"><code>srcs</code></a>; such a rule requires a
-  <a href="#java_binary.main_class"><code>main_class</code></a> provided by
-  <a href="#java_binary.runtime_deps"><code>runtime_deps</code></a>.
+  <a href="java.html#java_binary.srcs"><code>srcs</code></a>; such a rule requires a
+  <a href="java.html#java_binary.main_class"><code>main_class</code></a> provided by
+  <a href="java.html#java_binary.runtime_deps"><code>runtime_deps</code></a>.
 </p>
 
 <p>The following code snippet illustrates a common mistake:</p>
@@ -441,8 +441,9 @@ java_binary(
 
 
 <p>
-  This rule allows the use of precompiled JAR files as libraries for
-  <code><a href="#java_library">java_library</a></code> rules.
+  This rule allows the use of precompiled <code>.jar</code> files as
+  libraries for <code><a href="java.html#java_library">java_library</a></code> and
+  <code><a href="java.html#java_binary">java_binary</a></code> rules.
 </p>
 
 <h4 id="java_import_examples">Examples</h4>
@@ -487,7 +488,7 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of other libraries to be linked in to the target.
-        See <a href="#java_library.deps">java_library.deps</a>.
+        See <a href="java.html#java_library.deps">java_library.deps</a>.
 
         </td>
       </tr>
@@ -508,7 +509,7 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Targets to make available to users of this rule.
-        See <a href="#java_library.exports">java_library.exports</a>.
+        See <a href="java.html#java_library.exports">java_library.exports</a>.
 
         </td>
       </tr>
@@ -559,7 +560,7 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Libraries to make available to the final binary or test at runtime only.
-        See <a href="#java_library.runtime_deps">java_library.runtime_deps</a>.
+        See <a href="java.html#java_library.runtime_deps">java_library.runtime_deps</a>.
 
         </td>
       </tr>
@@ -721,12 +722,12 @@ java_binary(
         </td>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
-                            The list of <code><a href="#java_plugin">java_plugin</a></code>s (e.g. annotation
+                            The list of <code><a href="#java.html#java_plugin">java_plugin</a></code>s (e.g. annotation
         processors) to export to libraries that directly depend on this library.
         <p>
           The specified list of <code>java_plugin</code>s will be applied to any library which
           directly depends on this library, just as if that library had explicitly declared these
-          labels in <code><a href="#java_library.plugins">plugins</a></code>.
+          labels in <code><a href="java.html#java_library.plugins">plugins</a></code>.
         </p>
 
         </td>
@@ -891,7 +892,7 @@ test code. The test runner's main method is invoked instead of the main class be
 
 
 <p>
-See the section on <a href="#java_binary_args">java_binary()</a> arguments. This rule also
+See the section on <a href="java.html#java_binary_args">java_binary()</a> arguments. This rule also
 supports all <a href="common-definitions.html#common-attributes-tests">attributes common
 to all test rules (*_test)</a>.
 </p>
@@ -1280,7 +1281,7 @@ java_test(
   <code>java_binary</code> rule can run plugins by depending on them via the <code>plugins</code>
   attribute. A <code>java_library</code> can also automatically export plugins to libraries that
   directly depend on it using
-  <code><a href="#java_library.exported_plugins">exported_plugins</a></code>.
+  <code><a href="java.html#java_library.exported_plugins">exported_plugins</a></code>.
 </p>
 
 <h4 id="java_plugin_implicit_outputs">Implicit output targets</h4>
@@ -1290,8 +1291,8 @@ java_test(
 
 
 <p>
-  Arguments are identical to <a href="#java_library"><code>java_library</code></a>, except for the
-  addition of the <code>processor_class</code> argument.
+  Arguments are identical to <a href="java.html#java_library"><code>java_library</code></a>, except
+  for the addition of the <code>processor_class</code> argument.
 </p>
 
 

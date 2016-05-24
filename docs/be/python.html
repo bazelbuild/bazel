@@ -117,8 +117,8 @@ java_library(
           <a href="common-definitions.html#common-attributes">
           Attributes common to all build rules</a>.
           These can be
-          <a href="#py_binary"><code>py_binary</code></a> rules,
-          <a href="#py_library"><code>py_library</code></a> rules or
+          <a href="python.html#py_binary"><code>py_binary</code></a> rules,
+          <a href="python.html#py_library"><code>py_library</code></a> rules or
           <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
 
         </td>
@@ -148,8 +148,8 @@ java_library(
          See general comments about <code>data</code> at
          <a href="common-definitions.html#common-attributes">
          Attributes common to all build rules</a>.
-         Also see the <a href="#py_library.data"><code>data</code></a> argument of
-         the <a href="#py_library"><code>py_library</code></a> rule for details.
+         Also see the <a href="python.html#py_library.data"><code>data</code></a> argument of
+         the <a href="python.html#py_library"><code>py_library</code></a> rule for details.
 
         </td>
       </tr>
@@ -177,7 +177,7 @@ java_library(
           Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
           directories will be added for this rule and all rules that depend on it (note: not the
           rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
-          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          <a href="python.html#py_binary"><code>py_binary</code></a> rules that depend on this rule.
           </p>
           <p>
           Absolute paths (paths that start with <code>/</code>) and paths that references a path
@@ -325,7 +325,7 @@ java_library(
           Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
           directories will be added for this rule and all rules that depend on it (note: not the
           rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
-          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          <a href="python.html#py_binary"><code>py_binary</code></a> rules that depend on this rule.
           </p>
           <p>
           Absolute paths (paths that start with <code>/</code>) and paths that references a path
@@ -428,8 +428,8 @@ py_binary(
           <a href="common-definitions.html#common-attributes">
           Attributes common to all build rules</a>.
           These can be
-          <a href="#py_binary"><code>py_binary</code></a> rules,
-          <a href="#py_library"><code>py_library</code></a> rules or
+          <a href="python.html#py_binary"><code>py_binary</code></a> rules,
+          <a href="python.html#py_library"><code>py_library</code></a> rules or
           <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
 
         </td>
@@ -459,8 +459,8 @@ py_binary(
          See general comments about <code>data</code> at
          <a href="common-definitions.html#common-attributes">
          Attributes common to all build rules</a>.
-         Also see the <a href="#py_library.data"><code>data</code></a> argument of
-         the <a href="#py_library"><code>py_library</code></a> rule for details.
+         Also see the <a href="python.html#py_library.data"><code>data</code></a> argument of
+         the <a href="python.html#py_library"><code>py_library</code></a> rule for details.
 
         </td>
       </tr>
@@ -488,7 +488,7 @@ py_binary(
           Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
           directories will be added for this rule and all rules that depend on it (note: not the
           rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
-          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          <a href="python.html#py_binary"><code>py_binary</code></a> rules that depend on this rule.
           </p>
           <p>
           Absolute paths (paths that start with <code>/</code>) and paths that references a path
@@ -538,7 +538,7 @@ py_binary(
         </td>
         <td>
                     <p><code>Integer; optional; default is 0</code></p>
-                            See the section on <a href="#py_binary_args">py_binary()</a> arguments, except
+                            See the section on <a href="python.html#py_binary_args">py_binary()</a> arguments, except
         that the stamp argument is set to 0 by default for tests.
 
         </td>

@@ -657,7 +657,7 @@ config_setting(
   results, including caching policies and environment variables. Tests generally need to be run
   after the build is complete and on the target architecture, whereas genrules are executed during
   the build and on the host architecture (the two may be different). If you need a general purpose
-  testing rule, use <a href="#sh_test"><code>sh_test</code></a>.
+  testing rule, use <a href="shell.html#sh_test"><code>sh_test</code></a>.
 </p>
 
 <h4>Cross-compilation Considerations</h4>
@@ -683,8 +683,8 @@ config_setting(
   For genrules, the build system ensures that dependencies are built appropriately:
   <code>srcs</code> are built (if necessary) for the <em>target</em> configuration,
   <code>tools</code> are built for the <em>host</em> configuration, and the output is considered to
-  be for the <em>target</em> configuration. It also provides <a href="make-variables.html">"Make"
-  variables</a> that genrule commands can pass to the corresponding tools.
+  be for the <em>target</em> configuration. It also provides <a href="make-variables.html">
+  "Make" variables</a> that genrule commands can pass to the corresponding tools.
 </p>
 <p>
   It is intentional that genrule defines no <code>deps</code> attribute: other built-in rules use
@@ -822,7 +822,8 @@ genrule(
                             A list of inputs for this rule, such as source files to process.
         <p>
           <em>This attributes is not suitable to list tools executed by the <code>cmd</code>; use
-          the <a href="#genrule.tools"><code>tools</code></a> attribute for them instead.</em>
+          the <a href="general.html#genrule.tools"><code>tools</code></a> attribute for them instead.
+          </em>
         </p>
         <p>
           The build system ensures these prerequisites are built before running the genrule
@@ -861,13 +862,13 @@ genrule(
         <td>
                     <p><code>String; required</code></p>
                             The command to run.
-        Subject to <a href="#location">$(location)</a> and <a href="make-variables.html">"Make"
-        variable</a> substitution.
+        Subject to <a href="make-variables.html#location">$(location)</a> and
+        <a href="make-variables.html">"Make" variable</a> substitution.
         <ol>
           <li>
-            First <a href="#location">$(location)</a> substitution is applied, replacing all
-            occurrences of <code>$(location <i>label</i>)</code> and of <code>$(locations
-            <i>label</i>)</code>.
+            First <a href="make-variables.html#location">$(location)</a> substitution is
+            applied, replacing all occurrences of <code>$(location <i>label</i>)</code> and of
+            <code>$(locations <i>label</i>)</code>.
           </li>
           <li>
             <p>
@@ -891,12 +892,12 @@ genrule(
         </ol>
         <p>
           The command may refer to binaries that were declared as
-          <a href="#genrule.tools"><code>tools</code></a>; it should use a
+          <a href="general.html#genrule.tools"><code>tools</code></a>; it should use a
           <a href="../build-ref.html#labels">label</a> and <code>$(location)</code> expansion for
           this.
-          The <a href="make-variables.html#predefined_variables">Predefined "Make" Variables</a> and
-          the <a href="make-variables.html#predefined_variables.genrule.cmd">genrule-specific "Make"
-          variables</a> are also available for <code>cmd</code>.
+          The <a href="make-variables.html#predefined_variables">Predefined "Make" Variables</a>
+          and the <a href="make-variables.html#predefined_variables.genrule.cmd">
+          genrule-specific "Make" variables</a> are also available for <code>cmd</code>.
         </p>
 
         </td>

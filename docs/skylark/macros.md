@@ -31,6 +31,8 @@ macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
 
 * [Macro creating Skylark rules](cookbook.html#macro_skylark).
 
+* [Macro combining Skylark and native rules](cookbook.html#macro_compound).
+
 ## Debugging
 
 * `bazel query --output=build //my/path:all` will show you how the BUILD
