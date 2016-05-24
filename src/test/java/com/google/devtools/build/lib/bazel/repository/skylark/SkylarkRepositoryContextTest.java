@@ -79,8 +79,7 @@ public class SkylarkRepositoryContextTest {
 
   protected void setUpContextForRule(Map<String, Object> kwargs, Attribute... attributes)
       throws Exception {
-    Package.LegacyBuilder packageBuilder =
-        Package.newExternalPackageBuilder(workspaceFile, "runfiles");
+    Package.Builder packageBuilder = Package.newExternalPackageBuilder(workspaceFile, "runfiles");
     FuncallExpression ast =
         new FuncallExpression(new Identifier("test"), ImmutableList.<Passed>of());
     ast.setLocation(Location.BUILTIN);

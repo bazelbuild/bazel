@@ -81,7 +81,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
+import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
@@ -194,7 +194,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // package twice (first time loading to find subincludes and declare value dependencies).
   // TODO(bazel-team): remove this cache once we have skyframe-native package loading
   // [skyframe-loading]
-  private final Cache<PackageIdentifier, CacheEntryWithGlobDeps<Package.LegacyBuilder>>
+  private final Cache<PackageIdentifier, CacheEntryWithGlobDeps<Package.Builder>>
       packageFunctionCache = newPkgFunctionCache();
   private final Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache =
       newAstCache();
@@ -417,7 +417,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PackageFactory pkgFactory,
       PackageManager packageManager,
       AtomicBoolean showLoadingProgress,
-      Cache<PackageIdentifier, CacheEntryWithGlobDeps<LegacyBuilder>> packageFunctionCache,
+      Cache<PackageIdentifier, CacheEntryWithGlobDeps<Builder>> packageFunctionCache,
       Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache,
       AtomicInteger numPackagesLoaded,
       RuleClassProvider ruleClassProvider) {
@@ -665,7 +665,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  protected Cache<PackageIdentifier, CacheEntryWithGlobDeps<Package.LegacyBuilder>>
+  protected Cache<PackageIdentifier, CacheEntryWithGlobDeps<Package.Builder>>
       newPkgFunctionCache() {
     return CacheBuilder.newBuilder().build();
   }

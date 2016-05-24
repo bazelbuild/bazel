@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -68,7 +67,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
-    LegacyBuilder builder =
+    Package.Builder builder =
         Package.newExternalPackageBuilder(repoWorkspace, ruleClassProvider.getRunfilesPrefix());
 
     if (workspaceASTValue.getASTs().isEmpty()) {

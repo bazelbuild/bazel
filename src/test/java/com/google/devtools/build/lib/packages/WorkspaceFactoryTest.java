@@ -22,7 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
+import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -95,7 +95,7 @@ public class WorkspaceFactoryTest {
    * Parses a WORKSPACE file with the given content.
    */
   private class WorkspaceFactoryHelper {
-    private final LegacyBuilder builder;
+    private final Builder builder;
     private final WorkspaceFactory factory;
     private final Exception exception;
     private final ImmutableList<Event> events;

@@ -76,7 +76,7 @@ public class WorkspaceResolver {
    * Converts the WORKSPACE file content into an ExternalPackage.
    */
   public Package parse(Path workspacePath) {
-    Package.LegacyBuilder builder =
+    Package.Builder builder =
         Package.newExternalPackageBuilder(workspacePath, ruleClassProvider.getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
       new WorkspaceFactory(builder, ruleClassProvider, environmentExtensions, mutability)

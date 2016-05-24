@@ -108,7 +108,7 @@ public final class PackageFactory {
     }
 
     private void convertAndProcess(
-        Package.LegacyBuilder pkgBuilder, Location location, Object value)
+        Package.Builder pkgBuilder, Location location, Object value)
         throws EvalException {
       T typedValue = type.convert(value, "'package' argument", pkgBuilder.getBuildFileLabel());
       process(pkgBuilder, location, typedValue);
@@ -122,7 +122,7 @@ public final class PackageFactory {
      * @param value the value of the argument. Typically passed to {@link Type#convert}
      */
     protected abstract void process(
-        Package.LegacyBuilder pkgBuilder, Location location, T value)
+        Package.Builder pkgBuilder, Location location, T value)
         throws EvalException;
   }
 
@@ -160,7 +160,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
       pkgBuilder.setDefaultVisibility(getVisibility(pkgBuilder.getBuildFileLabel(), value));
     }
@@ -172,7 +172,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         Boolean value) {
       pkgBuilder.setDefaultTestonly(value);
     }
@@ -184,7 +184,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         String value) {
       pkgBuilder.setDefaultDeprecation(value);
     }
@@ -196,7 +196,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         List<String> value) {
       pkgBuilder.addFeatures(value);
     }
@@ -208,7 +208,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         License value) {
       pkgBuilder.setDefaultLicense(value);
     }
@@ -220,7 +220,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         Set<DistributionType> value) {
       pkgBuilder.setDefaultDistribs(value);
     }
@@ -236,7 +236,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
       pkgBuilder.setDefaultCompatibleWith(value, Package.DEFAULT_COMPATIBLE_WITH_ATTRIBUTE,
           location);
@@ -253,7 +253,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
+    protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
       pkgBuilder.setDefaultRestrictedTo(value, Package.DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
     }
@@ -687,7 +687,7 @@ public final class PackageFactory {
 
   static Runtime.NoneType callExportsFiles(Object srcs, Object visibilityO, Object licensesO,
       FuncallExpression ast, Environment env) throws EvalException, ConversionException {
-    Package.LegacyBuilder pkgBuilder = getContext(env, ast).pkgBuilder;
+    Package.Builder pkgBuilder = getContext(env, ast).pkgBuilder;
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility = EvalUtils.isNullOrNone(visibilityO)
@@ -1080,7 +1080,7 @@ public final class PackageFactory {
       public Object call(Object[] arguments, FuncallExpression ast, Environment env)
           throws EvalException {
 
-        Package.LegacyBuilder pkgBuilder = getContext(env, ast).pkgBuilder;
+        Package.Builder pkgBuilder = getContext(env, ast).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
@@ -1189,7 +1189,7 @@ public final class PackageFactory {
    * {@code globber.onInterrupt()} on an {@link InterruptedException}.
    */
   // Used outside of bazel!
-  public Package.LegacyBuilder createPackageFromPreprocessingResult(
+  public Package.Builder createPackageFromPreprocessingResult(
       Package externalPkg,
       PackageIdentifier packageId,
       Path buildFile,
@@ -1227,7 +1227,7 @@ public final class PackageFactory {
     return buildFileAST;
   }
 
-  public Package.LegacyBuilder createPackageFromPreprocessingAst(
+  public Package.Builder createPackageFromPreprocessingAst(
       Package externalPkg,
       PackageIdentifier packageId,
       Path buildFile,
@@ -1393,14 +1393,14 @@ public final class PackageFactory {
    * footprint when making changes here!
    */
   public static class PackageContext {
-    final Package.LegacyBuilder pkgBuilder;
+    final Package.Builder pkgBuilder;
     final Globber globber;
     final EventHandler eventHandler;
     private final Function<RuleClass, AttributeContainer> attributeContainerFactory;
 
     @VisibleForTesting
     public PackageContext(
-        Package.LegacyBuilder pkgBuilder,
+        Package.Builder pkgBuilder,
         Globber globber,
         EventHandler eventHandler,
         Function<RuleClass, AttributeContainer> attributeContainerFactory) {
@@ -1510,7 +1510,7 @@ public final class PackageFactory {
    * @see PackageFactory#PackageFactory
    */
   @VisibleForTesting // used by PackageFactoryApparatus
-  public Package.LegacyBuilder evaluateBuildFile(
+  public Package.Builder evaluateBuildFile(
       Package externalPkg,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
@@ -1523,7 +1523,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
-    Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(
+    Package.Builder pkgBuilder = new Package.Builder(
         packageId, ruleClassProvider.getRunfilesPrefix());
     StoredEventHandler eventHandler = new StoredEventHandler();
 
@@ -1611,7 +1611,7 @@ public final class PackageFactory {
           .setPhase(Phase.LOADING)
           .build();
 
-      Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(packageId,
+      Package.Builder pkgBuilder = new Package.Builder(packageId,
           ruleClassProvider.getRunfilesPrefix());
 
       pkgBuilder.setFilename(buildFilePath)

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
-import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -74,7 +73,7 @@ public class WorkspaceFactory {
           "DEFAULT_SERVER_JAVABASE", // serializable so optional
           PackageFactory.PKG_CONTEXT);
 
-  private final LegacyBuilder builder;
+  private final Builder builder;
 
   private final Path installDir;
   private final Path workspaceDir;
@@ -103,7 +102,7 @@ public class WorkspaceFactory {
    * @param mutability the Mutability for the current evaluation context
    */
   public WorkspaceFactory(
-      LegacyBuilder builder,
+      Builder builder,
       RuleClassProvider ruleClassProvider,
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability) {
@@ -120,7 +119,7 @@ public class WorkspaceFactory {
    * @param workspaceDir the workspace directory
    */
   public WorkspaceFactory(
-      LegacyBuilder builder,
+      Builder builder,
       RuleClassProvider ruleClassProvider,
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
@@ -337,7 +336,7 @@ public class WorkspaceFactory {
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
           try {
-            LegacyBuilder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+            Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
             builder
                 .externalPackageData()

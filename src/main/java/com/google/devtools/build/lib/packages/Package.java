@@ -666,41 +666,8 @@ public class Package {
     }
   }
 
-  /**
-   * Builder class for {@link Package} that does its own globbing.
-   *
-   * <p>Despite its name, this is the normal builder used when parsing BUILD files.
-   */
-  // TODO(bazel-team): This class is no longer needed and can be removed.
-  public static class LegacyBuilder extends Builder {
-    LegacyBuilder(PackageIdentifier packageId, String runfilesPrefix) {
-      super(packageId, runfilesPrefix);
-    }
-
-    /**
-     * Derive a LegacyBuilder from a normal Builder.
-     */
-    LegacyBuilder(Builder builder) {
-      super(builder.pkg);
-      if (builder.getFilename() != null) {
-        setFilename(builder.getFilename());
-      }
-    }
-
-    /**
-     * Removes a target from the {@link Package} under construction. Intended to be used only by
-     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose
-     * labels cross subpackage boundaries.
-     */
-    public void removeTarget(Target target) {
-      if (target.getPackage() == pkg) {
-        this.targets.remove(target.getName());
-      }
-    }
-  }
-
-  public static LegacyBuilder newExternalPackageBuilder(Path workspacePath, String runfilesPrefix) {
-    LegacyBuilder b = new LegacyBuilder(Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix);
+  public static Builder newExternalPackageBuilder(Path workspacePath, String runfilesPrefix) {
+    Builder b = new Builder(Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix);
     b.setFilename(workspacePath);
     b.setMakeEnv(new MakeEnvironment.Builder());
     return b;
@@ -1267,6 +1234,17 @@ public class Package {
         return this;
       }
       return beforeBuild();
+    }
+
+    /**
+     * Removes a target from the {@link Package} under construction. Intended to be used only by
+     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose
+     * labels cross subpackage boundaries.
+     */
+    public void removeTarget(Target target) {
+      if (target.getPackage() == pkg) {
+        this.targets.remove(target.getName());
+      }
     }
 
     /** Intended for use by {@link com.google.devtools.build.lib.skyframe.PackageFunction} only. */
