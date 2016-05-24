@@ -89,6 +89,7 @@ public final class CcCommon {
       CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES,
       CppRuleClasses.INCLUDE_PATHS,
       CppRuleClasses.PIC,
+      CppRuleClasses.PER_OBJECT_DEBUG_INFO,
       CppRuleClasses.PREPROCESSOR_DEFINES);
 
   /** C++ configuration */

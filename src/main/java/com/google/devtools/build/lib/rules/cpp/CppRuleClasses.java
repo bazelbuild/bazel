@@ -171,6 +171,11 @@ public class CppRuleClasses {
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
 
   /**
+   * A string constant for the feature that makes us build per-object debug info files.
+   */
+  public static final String PER_OBJECT_DEBUG_INFO = "per_object_debug_info";
+
+  /**
    * A string constant for the PIC feature.
    *
    * <p>If this feature is active (currently it cannot be switched off) and PIC compilation is

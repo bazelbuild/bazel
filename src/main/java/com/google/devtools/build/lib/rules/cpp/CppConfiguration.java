@@ -730,6 +730,25 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "}",
             toolchainBuilder);
       }
+
+      if (!features.contains("per_object_debug_info")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'per_object_debug_info'"
+            + "  flag_set {"
+            + "    action: 'c-compile'"
+            + "    action: 'c++-compile'"
+            + "    action: 'assemble'"
+            + "    action: 'preprocess-assemble'"
+            + "    expand_if_all_available: 'per_object_debug_info_file'"
+            + "    flag_group {"
+            + "      flag: '-gsplit-dwarf'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+
       if (!features.contains("preprocessor_defines")) {
         TextFormat.merge(""
             + "feature {"

@@ -61,6 +61,7 @@ public class CppCompileActionBuilder {
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact optionalSourceFile;
   private Artifact outputFile;
+  private Artifact dwoFile;
   private PathFragment tempOutputFile;
   private DotdFile dotdFile;
   private Artifact gcnoFile;
@@ -127,6 +128,7 @@ public class CppCompileActionBuilder {
         .addTransitive(other.mandatoryInputsBuilder.build());
     this.optionalSourceFile = other.optionalSourceFile;
     this.outputFile = other.outputFile;
+    this.dwoFile = other.dwoFile;
     this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
@@ -161,25 +163,6 @@ public class CppCompileActionBuilder {
 
   public NestedSet<Artifact> getMandatoryInputs() {
     return mandatoryInputsBuilder.build();
-  }
-
-  /**
-   * Returns the .dwo output file that matches the specified .o output file. If Fission mode
-   * isn't enabled for this build, this is null (we don't produce .dwo files in that case).
-   */
-  private static Artifact getDwoFile(RuleContext ruleContext, Artifact outputFile,
-      CppConfiguration cppConfiguration) {
-
-    // Only create .dwo's for .o compilations (i.e. not .ii or .S).
-    boolean isObjectOutput = CppFileTypes.OBJECT_FILE.matches(outputFile.getExecPath())
-        || CppFileTypes.PIC_OBJECT_FILE.matches(outputFile.getExecPath());
-
-    // Note configurations can be null for tests.
-    if (cppConfiguration != null && cppConfiguration.useFission() && isObjectOutput) {
-      return ruleContext.getRelatedArtifact(outputFile.getRootRelativePath(), ".dwo");
-    } else {
-      return null;
-    }
   }
 
   private static Predicate<String> getNocoptPredicate(Collection<Pattern> patterns) {
@@ -316,7 +299,7 @@ public class CppCompileActionBuilder {
           outputFile,
           dotdFile,
           gcnoFile,
-          getDwoFile(ruleContext, outputFile, cppConfiguration),
+          dwoFile,
           optionalSourceFile,
           configuration,
           cppConfiguration,
@@ -395,6 +378,11 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setOutputFile(Artifact outputFile) {
     this.outputFile = outputFile;
+    return this;
+  }
+
+  public CppCompileActionBuilder setDwoFile(Artifact dwoFile) {
+    this.dwoFile = dwoFile;
     return this;
   }
 

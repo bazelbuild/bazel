@@ -163,7 +163,6 @@ public class CppCompileAction extends AbstractAction
   private final BuildConfiguration configuration;
   protected final Artifact outputFile;
   private final Label sourceLabel;
-  private final Artifact dwoFile;
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final boolean shouldScanIncludes;
@@ -268,7 +267,6 @@ public class CppCompileAction extends AbstractAction
     this.configuration = configuration;
     this.sourceLabel = sourceLabel;
     this.outputFile = Preconditions.checkNotNull(outputFile);
-    this.dwoFile = dwoFile;
     this.optionalSourceFile = optionalSourceFile;
     this.context = context;
     this.specialInputsHandler = specialInputsHandler;
@@ -283,7 +281,6 @@ public class CppCompileAction extends AbstractAction
         new CppCompileCommandLine(
             sourceFile,
             dotdFile,
-            dwoFile,
             copts,
             coptsFilter,
             features,
@@ -471,15 +468,6 @@ public class CppCompileAction extends AbstractAction
    */
   public Artifact getOutputFile() {
     return outputFile;
-  }
-
-  /**
-   * Returns the path of the debug info output file (when debug info is
-   * spliced out of the .o file via fission).
-   */
-  @Nullable
-  Artifact getDwoFile() {
-    return dwoFile;
   }
 
   protected PathFragment getInternalOutputFile() {
@@ -1254,7 +1242,6 @@ public class CppCompileAction extends AbstractAction
   public final class CppCompileCommandLine {
     private final Artifact sourceFile;
     private final DotdFile dotdFile;
-    @Nullable private final Artifact dwoFile;
     private final List<String> copts;
     private final Predicate<String> coptsFilter;
     private final Collection<String> features;
@@ -1265,7 +1252,6 @@ public class CppCompileAction extends AbstractAction
     public CppCompileCommandLine(
         Artifact sourceFile,
         DotdFile dotdFile,
-        @Nullable Artifact dwoFile,
         ImmutableList<String> copts,
         Predicate<String> coptsFilter,
         Collection<String> features,
@@ -1275,7 +1261,6 @@ public class CppCompileAction extends AbstractAction
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
       this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
                       ? Preconditions.checkNotNull(dotdFile) : null;
-      this.dwoFile = dwoFile;
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
       this.features = Preconditions.checkNotNull(features);
@@ -1333,14 +1318,6 @@ public class CppCompileAction extends AbstractAction
       // configuration; on the other hand toolchains switch off warnings for the layering check
       // that will be re-added by the feature flags.
       addFilteredOptions(options, featureConfiguration.getCommandLine(actionName, variables));
-
-      // TODO(bazel-team): Move this into a feature; more specifically, create a feature for both
-      // the amount of debug information requested, and whether the debug info is written in a
-      // split out file. Until then, keep this before the user-provided copts so it can be
-      // overwritten.
-      if (dwoFile != null) {
-        options.add("-gsplit-dwarf");
-      }
 
       // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
       // Make sure these are added after the options from the feature configuration, so that
