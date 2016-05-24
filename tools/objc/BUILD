@@ -138,3 +138,23 @@ objc_library(
         "objc_dummy.mm",
     ],
 )
+
+filegroup(
+    name = "protobuf_compiler",
+    srcs = ["protobuf_compiler.py"],
+)
+
+objc_library(
+    name = "objc_protobuf_lib",
+    deps = [":dummy_lib"],
+)
+
+filegroup(
+    name = "protobuf_compiler_support",
+    srcs = ["protobuf_support"],
+)
+
+filegroup(
+    name = "protobuf_well_known_types",
+    srcs = ["dummy.proto"],
+)

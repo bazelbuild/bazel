@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -59,6 +60,8 @@ import javax.annotation.Nullable;
  * <p>Methods on this class can be called in any order without impacting the result.
  */
 final class ProtoSupport {
+  private static final PathFragment BAZEL_TOOLS_PREFIX = new PathFragment("external/bazel_tools/");
+
   private static final Function<Artifact, PathFragment> PARENT_PATHFRAGMENT =
       new Function<Artifact, PathFragment>() {
         @Override
@@ -66,6 +69,25 @@ final class ProtoSupport {
           return input.getExecPath().getParentDirectory();
         }
       };
+
+  /**
+   * Type of target that is generating the protos. There is a distinction because when generating
+   * the protos from an objc_proto_library, the attributes of the rule need to be considered, but
+   * when generating from a linking target (e.g. objc_binary), the attributes don't exist, but the
+   * ObjcProtoProviders need to be checked.
+   */
+  enum TargetType {
+    /**
+     * The generating rule is an objc_proto_library rule.
+     */
+    PROTO_TARGET,
+
+    /**
+     * The generating target is a linking rule, which generates, compiles and links all the protos
+     * in the transitive closure of dependencies.
+     */
+    LINKING_TARGET,
+  }
 
   @VisibleForTesting
   static final String NO_PROTOS_ERROR =
@@ -95,15 +117,18 @@ final class ProtoSupport {
 
   private final RuleContext ruleContext;
   private final Attributes attributes;
+  private final TargetType targetType;
 
   /**
    * Creates a new proto support.
    *
    * @param ruleContext context this proto library is constructed in
+   * @param targetType the type of target generating the protos
    */
-  public ProtoSupport(RuleContext ruleContext) {
+  public ProtoSupport(RuleContext ruleContext, TargetType targetType) {
     this.ruleContext = ruleContext;
     this.attributes = new Attributes(ruleContext);
+    this.targetType = targetType;
   }
 
   /**
@@ -123,7 +148,7 @@ final class ProtoSupport {
       ruleContext.ruleError(NO_PROTOS_ERROR);
     }
 
-    if (attributes.usesProtobufLibrary()) {
+    if (usesProtobufLibrary()) {
       if (attributes.getPortableProtoFilters().isEmpty()) {
         ruleContext.ruleError(PORTABLE_PROTO_FILTERS_EMPTY_ERROR);
       }
@@ -144,8 +169,8 @@ final class ProtoSupport {
    * @return this proto support
    */
   public ProtoSupport registerActions() {
-    registerProtoInputListFileAction();
-    if (!attributes.getProtoFiles().isEmpty()) {
+    if (!Iterables.isEmpty(getProtoSources())) {
+      registerProtoInputListFileAction();
       registerGenerateProtoFilesAction();
     }
     return this;
@@ -155,17 +180,25 @@ final class ProtoSupport {
    * Adds required configuration to the ObjcCommon support class for proto compilation.
    *
    * @param commonBuilder The builder for the ObjcCommon support class.
-   * @return this bundle support
+   * @return this proto support
    */
   public ProtoSupport addCommonOptions(ObjcCommon.Builder commonBuilder) {
     commonBuilder
-        .setCompilationArtifacts(getCompilationArtifacts())
-        .addUserHeaderSearchPaths(getSearchPathEntries())
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .addDepObjcProviders(
             ruleContext.getPrerequisites(
-                ObjcProtoLibraryRule.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
+                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
         .setHasModuleMap();
+
+    if (usesProtobufLibrary() && experimentalAutoUnion() && targetType == TargetType.PROTO_TARGET) {
+      commonBuilder
+          .addDirectDependencyHeaderSearchPaths(getUserHeaderSearchPaths())
+          .setCompilationArtifacts(getCompilationArtifacts());
+    } else {
+      commonBuilder
+          .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
+          .setCompilationArtifacts(getCompilationArtifacts());
+    }
     return this;
   }
 
@@ -173,11 +206,11 @@ final class ProtoSupport {
    * Adds required configuration to the XcodeProvider support class for proto compilation.
    *
    * @param xcodeProviderBuilder The builder for the XcodeProvider support class.
-   * @return this bundle support
+   * @return this proto support
    */
   public ProtoSupport addXcodeProviderOptions(XcodeProvider.Builder xcodeProviderBuilder) {
     xcodeProviderBuilder
-        .addUserHeaderSearchPaths(getSearchPathEntries())
+        .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
         .addCopts(ObjcRuleClasses.objcConfiguration(ruleContext).getCopts())
         .addHeaders(getGeneratedHeaders())
         .setCompilationArtifacts(getCompilationArtifacts());
@@ -188,11 +221,124 @@ final class ProtoSupport {
    * Adds the files needed to be built by the rule.
    *
    * @param filesToBuild An aggregated set of the files to be built by the rule.
-   * @return this bundle support
+   * @return this proto support
    */
   public ProtoSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
     filesToBuild.addAll(getGeneratedSources()).addAll(getGeneratedHeaders());
     return this;
+  }
+
+  /**
+   * Returns the proto compilation artifacts for the current rule.
+   */
+  public CompilationArtifacts getCompilationArtifacts() {
+    ImmutableList<Artifact> generatedSources = getGeneratedSources();
+    CompilationArtifacts.Builder builder =
+        new CompilationArtifacts.Builder()
+            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+            .setPchFile(Optional.<Artifact>absent())
+            .addAdditionalHdrs(getGeneratedHeaders())
+            .addAdditionalHdrs(generatedSources);
+
+    if (experimentalAutoUnion()) {
+      if (targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary()
+          || targetType == TargetType.LINKING_TARGET) {
+        builder.addNonArcSrcs(generatedSources);
+      }
+    } else {
+      if (targetType == TargetType.PROTO_TARGET) {
+        builder.addNonArcSrcs(generatedSources);
+      }
+    }
+
+    return builder.build();
+  }
+
+  /**
+   * Returns the include paths for the generated protos.
+   */
+  public ImmutableSet<PathFragment> getUserHeaderSearchPaths() {
+    PathFragment workspaceRelativeOutputDir = getWorkspaceRelativeOutputDir();
+
+    ImmutableSet.Builder<PathFragment> searchPathEntriesBuilder =
+        new ImmutableSet.Builder<PathFragment>().add(workspaceRelativeOutputDir);
+
+    if (attributes.needsPerProtoIncludes()) {
+      PathFragment generatedProtoDir =
+          new PathFragment(workspaceRelativeOutputDir, ruleContext.getLabel().getPackageFragment());
+
+      searchPathEntriesBuilder
+          .add(generatedProtoDir)
+          .addAll(Iterables.transform(getGeneratedHeaders(), PARENT_PATHFRAGMENT));
+    }
+
+    return searchPathEntriesBuilder.build();
+  }
+
+  /**
+   * Returns whether the rule is configured to use the protobuf library.
+   */
+  public boolean usesProtobufLibrary() {
+    return attributes.hasPortableProtoFilters() || targetType == TargetType.LINKING_TARGET;
+  }
+
+  private Iterable<Artifact> getProtoSources() {
+    NestedSetBuilder<Artifact> protos = NestedSetBuilder.stableOrder();
+
+    if (experimentalAutoUnion() && targetType == TargetType.LINKING_TARGET) {
+      Iterable<ObjcProtoProvider> objcProtoProviders =
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+      for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
+        protos.addTransitive(objcProtoProvider.getProtoSources());
+      }
+    }
+
+    protos.addTransitive(attributes.getProtoFiles());
+
+    // Transform the well known proto artifacts by removing the external/bazel_tools prefix if
+    // present. Otherwise the comparison for filtering out the well known types is not possible.
+    ImmutableSet.Builder<PathFragment> wellKnownProtoPathsBuilder = new ImmutableSet.Builder<>();
+    for (Artifact wellKnownProto : attributes.getWellKnownTypeProtos()) {
+      PathFragment execPath = wellKnownProto.getExecPath();
+      if (execPath.startsWith(BAZEL_TOOLS_PREFIX)) {
+        wellKnownProtoPathsBuilder.add(execPath.relativeTo(BAZEL_TOOLS_PREFIX));
+      } else {
+        wellKnownProtoPathsBuilder.add(execPath);
+      }
+    }
+
+    ImmutableSet<PathFragment> wellKnownProtoPaths = wellKnownProtoPathsBuilder.build();
+
+    // Filter out the well known types from being sent to be generated, as these protos have already
+    // been generated and linked in libprotobuf.a.
+    ImmutableSet.Builder<Artifact> filteredProtos = new ImmutableSet.Builder<>();
+    for (Artifact proto : protos.build()) {
+      if (!wellKnownProtoPaths.contains(proto.getExecPath())) {
+        filteredProtos.add(proto);
+      }
+    }
+
+    return filteredProtos.build();
+  }
+
+  private NestedSet<Artifact> getPortableProtoFilters() {
+    NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
+
+    if (experimentalAutoUnion() && targetType == TargetType.LINKING_TARGET) {
+      Iterable<ObjcProtoProvider> objcProtoProviders =
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+      for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
+        portableProtoFilters.addTransitive(objcProtoProvider.getPortableProtoFilters());
+      }
+    }
+
+    portableProtoFilters.addAll(attributes.getPortableProtoFilters());
+    return portableProtoFilters.build();
+  }
+
+  private boolean experimentalAutoUnion() {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    return objcConfiguration.experimentalAutoTopLevelUnionObjCProtos();
   }
 
   private void registerProtoInputListFileAction() {
@@ -215,6 +361,15 @@ final class ProtoSupport {
             .build(ruleContext));
   }
 
+  private Artifact getProtoInputListFile() {
+    return ruleContext.getUniqueDirectoryArtifact(
+        "_protos", "_proto_input_files", ruleContext.getConfiguration().getGenfilesDirectory());
+  }
+
+  private String getProtoInputListFileContents() {
+    return Artifact.joinExecPaths("\n", getProtoSources());
+  }
+
   private PathFragment getWorkspaceRelativeOutputDir() {
     // Generate sources in a package-and-rule-scoped directory; adds both the
     // package-and-rule-scoped directory and the header-containing-directory to the include path
@@ -225,19 +380,8 @@ final class ProtoSupport {
         ruleContext.getBinOrGenfilesDirectory().getExecPath(), rootRelativeOutputDir);
   }
 
-  private CompilationArtifacts getCompilationArtifacts() {
-    ImmutableList<Artifact> generatedSources = getGeneratedSources();
-    return new CompilationArtifacts.Builder()
-        .addNonArcSrcs(generatedSources)
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .setPchFile(Optional.<Artifact>absent())
-        .addAdditionalHdrs(getGeneratedHeaders())
-        .addAdditionalHdrs(generatedSources)
-        .build();
-  }
-
   private ImmutableList<Artifact> getGeneratedHeaders() {
-    boolean useObjcName = attributes.usesObjcHeaderNames() || attributes.usesProtobufLibrary();
+    boolean useObjcName = attributes.usesObjcHeaderNames() || usesProtobufLibrary();
     return generatedOutputArtifacts(FileType.of(".pb" + (useObjcName ? "objc.h" : ".h")));
   }
 
@@ -245,46 +389,18 @@ final class ProtoSupport {
     return generatedOutputArtifacts(
         FileType.of(
             ".pb"
-                + (attributes.usesProtobufLibrary() ? "objc" : "")
+                + (usesProtobufLibrary() ? "objc" : "")
                 + (attributes.outputsCpp() ? ".cc" : ".m")));
-  }
-
-  private ImmutableSet<PathFragment> getSearchPathEntries() {
-    PathFragment workspaceRelativeOutputDir = getWorkspaceRelativeOutputDir();
-
-    ImmutableSet.Builder<PathFragment> searchPathEntriesBuilder =
-        new ImmutableSet.Builder<PathFragment>().add(workspaceRelativeOutputDir);
-
-    if (attributes.needsPerProtoIncludes()) {
-      PathFragment generatedProtoDir =
-          new PathFragment(workspaceRelativeOutputDir, ruleContext.getLabel().getPackageFragment());
-
-      searchPathEntriesBuilder
-          .add(generatedProtoDir)
-          .addAll(Iterables.transform(getGeneratedHeaders(), PARENT_PATHFRAGMENT));
-    }
-
-    return searchPathEntriesBuilder.build();
-  }
-
-  private Artifact getProtoInputListFile() {
-    return ruleContext.getUniqueDirectoryArtifact(
-        "_protos", "_proto_input_files", ruleContext.getConfiguration().getGenfilesDirectory());
-  }
-
-  private String getProtoInputListFileContents() {
-    return Artifact.joinExecPaths("\n", getFilteredProtos());
   }
 
   private NestedSet<Artifact> getGenerateActionInputs() {
     NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(attributes.getProtoCompiler())
-            .addAll(attributes.getProtoFiles())
+            .addAll(getProtoSources())
             .add(getProtoInputListFile())
-            .addAll(attributes.getProtoLibrary())
             .addAll(attributes.getProtoCompilerSupport())
-            .addAll(attributes.getPortableProtoFilters());
+            .addAll(getPortableProtoFilters());
 
     Artifact optionsFile = attributes.getOptionsFile();
     if (optionsFile != null) {
@@ -299,7 +415,7 @@ final class ProtoSupport {
   }
 
   private CustomCommandLine getGenerateCommandLine() {
-    if (attributes.usesProtobufLibrary()) {
+    if (usesProtobufLibrary()) {
       return getProtobufCommandLine();
     } else {
       return getPb2CommandLine();
@@ -346,7 +462,7 @@ final class ProtoSupport {
             .add(".");
 
     boolean configAdded = false;
-    for (Artifact portableProtoFilter : attributes.getPortableProtoFilters()) {
+    for (Artifact portableProtoFilter : getPortableProtoFilters()) {
       String configFlag;
       if (!configAdded) {
         configFlag = "--config";
@@ -362,12 +478,12 @@ final class ProtoSupport {
 
   private ImmutableList<Artifact> generatedOutputArtifacts(FileType newFileType) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
-    for (Artifact protoFile : getFilteredProtos()) {
+    for (Artifact protoFile : getProtoSources()) {
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
       String generatedOutputName;
       if (attributes.outputsCpp()) {
         generatedOutputName = protoFileName;
-      } else if (attributes.usesProtobufLibrary()){
+      } else if (usesProtobufLibrary()) {
         // The protobuf library generates filenames with some slight modifications.
         generatedOutputName = generateProtobufFilename(protoFileName);
       } else {
@@ -457,14 +573,6 @@ final class ProtoSupport {
     return casedSegments.toString();
   }
 
-  private Iterable<Artifact> getFilteredProtos() {
-    // Filter the well known types from being sent to be generated, as these protos have already
-    // been generated and linked in libprotobuf.a.
-    return Iterables.filter(
-        attributes.getProtoFiles(),
-        Predicates.not(Predicates.in(attributes.getWellKnownTypeProtos())));
-  }
-
   /**
    * Common rule attributes used by an Objective C proto library.
    */
@@ -479,31 +587,44 @@ final class ProtoSupport {
      * Returns whether the generated files should be C++ or Objective C.
      */
     boolean outputsCpp() {
-      return ruleContext.attributes().get(ObjcProtoLibraryRule.OUTPUT_CPP_ATTR, Type.BOOLEAN);
+      if (ruleContext.attributes().has(ObjcProtoLibraryRule.OUTPUT_CPP_ATTR, Type.BOOLEAN)) {
+        return ruleContext.attributes().get(ObjcProtoLibraryRule.OUTPUT_CPP_ATTR, Type.BOOLEAN);
+      }
+      return false;
     }
 
     /**
      * Returns whether the generated header files should have be of type pb.h or pbobjc.h.
      */
     boolean usesObjcHeaderNames() {
-      return ruleContext
+      if (ruleContext
           .attributes()
-          .get(ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN);
+          .has(ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN)) {
+        return ruleContext
+            .attributes()
+            .get(ObjcProtoLibraryRule.USE_OBJC_HEADER_NAMES_ATTR, Type.BOOLEAN);
+      }
+      return false;
     }
 
     /**
      * Returns whether the includes should include each of the proto generated headers.
      */
     boolean needsPerProtoIncludes() {
-      return ruleContext
+      if (ruleContext
           .attributes()
-          .get(ObjcProtoLibraryRule.PER_PROTO_INCLUDES_ATTR, Type.BOOLEAN);
+          .has(ObjcProtoLibraryRule.PER_PROTO_INCLUDES_ATTR, Type.BOOLEAN)) {
+        return ruleContext
+            .attributes()
+            .get(ObjcProtoLibraryRule.PER_PROTO_INCLUDES_ATTR, Type.BOOLEAN);
+      }
+      return false;
     }
 
     /**
      * Returns whether to use the protobuf library instead of the PB2 library.
      */
-    boolean usesProtobufLibrary() {
+    boolean hasPortableProtoFilters() {
       return ruleContext
           .attributes()
           .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
@@ -513,9 +634,14 @@ final class ProtoSupport {
      * Returns the list of portable proto filters.
      */
     ImmutableList<Artifact> getPortableProtoFilters() {
-      return ruleContext
-          .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST)
-          .list();
+      if (ruleContext
+          .attributes()
+          .has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)) {
+        return ruleContext
+            .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST)
+            .list();
+      }
+      return ImmutableList.of();
     }
 
     /**
@@ -523,7 +649,7 @@ final class ProtoSupport {
      */
     ImmutableList<Artifact> getWellKnownTypeProtos() {
       return ruleContext
-          .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST)
+          .getPrerequisiteArtifacts(ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST)
           .list();
     }
 
@@ -532,15 +658,18 @@ final class ProtoSupport {
      */
     @Nullable
     Artifact getOptionsFile() {
-      return ruleContext.getPrerequisiteArtifact(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, Mode.HOST);
+      if (ruleContext.attributes().has(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, LABEL)) {
+        return ruleContext.getPrerequisiteArtifact(
+            ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, Mode.HOST);
+      }
+      return null;
     }
 
     /**
      * Returns the proto compiler to be used.
      */
     Artifact getProtoCompiler() {
-      return ruleContext.getPrerequisiteArtifact(
-          ObjcProtoLibraryRule.PROTO_COMPILER_ATTR, Mode.HOST);
+      return ruleContext.getPrerequisiteArtifact(ObjcRuleClasses.PROTO_COMPILER_ATTR, Mode.HOST);
     }
 
     /**
@@ -548,17 +677,7 @@ final class ProtoSupport {
      */
     ImmutableList<Artifact> getProtoCompilerSupport() {
       return ruleContext
-          .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTO_COMPILER_SUPPORT_ATTR, Mode.HOST)
-          .list();
-    }
-
-    /**
-     * Returns the list of files that compose the proto library. This is the implicit dependency
-     * added to the objc_proto_library target.
-     */
-    ImmutableList<Artifact> getProtoLibrary() {
-      return ruleContext
-          .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTO_LIB_ATTR, Mode.TARGET)
+          .getPrerequisiteArtifacts(ObjcRuleClasses.PROTO_COMPILER_SUPPORT_ATTR, Mode.HOST)
           .list();
     }
 

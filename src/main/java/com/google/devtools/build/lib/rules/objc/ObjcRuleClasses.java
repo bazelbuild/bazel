@@ -808,9 +808,24 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Protocol buffer related implicit attributes.
+   */
+  static final String PROTO_COMPILER_ATTR = "$googlemac_proto_compiler";
+  static final String PROTO_COMPILER_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
+  static final String PROTO_LIB_ATTR = "$lib_protobuf";
+  static final String PROTOBUF_WELL_KNOWN_TYPES = "$protobuf_well_known_types";
+
+  /**
    * Common attributes for {@code objc_*} rules that link sources and dependencies.
    */
   public static class LinkingRule implements RuleDefinition {
+
+    private final ObjcProtoAspect objcProtoAspect;
+
+    public LinkingRule(ObjcProtoAspect objcProtoAspect) {
+      this.objcProtoAspect = objcProtoAspect;
+    }
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -827,8 +842,24 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
+          .add(
+              attr(PROTO_COMPILER_ATTR, LABEL)
+                  .allowedFileTypes(FileType.of(".py"))
+                  .cfg(HOST)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler")))
+          .add(
+              attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
+                  .legacyAllowAnyFileType()
+                  .cfg(HOST)
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler_support")))
+          .add(
+              attr(PROTOBUF_WELL_KNOWN_TYPES, LABEL)
+                  .cfg(HOST)
+                  .value(env.getToolsLabel("//tools/objc:protobuf_well_known_types")))
+          .override(builder.copy("deps").aspect(objcProtoAspect))
           /* <!-- #BLAZE_RULE($objc_linking_rule).ATTRIBUTE(linkopts) -->
-          Extra flags to pass to the linker. 
+          Extra flags to pass to the linker.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("linkopts", STRING_LIST))
           .build();

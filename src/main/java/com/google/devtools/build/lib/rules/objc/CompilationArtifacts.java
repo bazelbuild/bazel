@@ -72,7 +72,7 @@ final class CompilationArtifacts {
       this.precompiledSrcs = Iterables.concat(this.precompiledSrcs, precompiledSrcs);
       return this;
     }
-    
+
     Builder setPchFile(Optional<Artifact> pchFile) {
       Preconditions.checkState(this.pchFile == null,
           "pchFile is already set to: %s", this.pchFile);
@@ -85,6 +85,14 @@ final class CompilationArtifacts {
           "intermediateArtifacts is already set to: %s", this.intermediateArtifacts);
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
+    }
+
+    Builder addAllSources(CompilationArtifacts otherArtifacts) {
+      return this.addNonArcSrcs(otherArtifacts.getNonArcSrcs())
+          .addSrcs(otherArtifacts.getSrcs())
+          .addPrecompiledSrcs(otherArtifacts.getPrecompiledSrcs())
+          .addPrivateHdrs(otherArtifacts.getPrivateHdrs())
+          .addAdditionalHdrs(otherArtifacts.getAdditionalHdrs());
     }
 
     CompilationArtifacts build() {

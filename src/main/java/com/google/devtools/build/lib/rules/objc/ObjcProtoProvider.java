@@ -55,7 +55,7 @@ public class ObjcProtoProvider implements TransitiveInfoProvider {
    * several transitive dependencies.
    */
   public static final class Builder {
-    private final NestedSetBuilder<Artifact> protoSources = NestedSetBuilder.linkOrder();
+    private final NestedSetBuilder<Artifact> protoSources = NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.linkOrder();
 
     /**
@@ -69,8 +69,8 @@ public class ObjcProtoProvider implements TransitiveInfoProvider {
     /**
      * Adds all the proto filters to the set of dependencies.
      */
-    public Builder addPortableProtoFilters(Iterable<Artifact> protoFilters) {
-      this.portableProtoFilters.addAll(protoFilters);
+    public Builder addPortableProtoFilters(NestedSet<Artifact> protoFilters) {
+      this.portableProtoFilters.addTransitive(protoFilters);
       return this;
     }
 

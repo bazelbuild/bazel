@@ -132,6 +132,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcFrameworkRule;
 import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcProtoAspect;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
@@ -288,6 +289,7 @@ public class BazelRuleClassProvider {
     J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(TOOLS_REPOSITORY, bazelJ2ObjcProtoAspect);
     AndroidStudioInfoAspect androidStudioInfoAspect =
         new AndroidStudioInfoAspect(TOOLS_REPOSITORY, new BazelAndroidStudioInfoSemantics());
+    ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
 
     builder.addNativeAspectClass(androidNeverlinkAspect);
     builder.addNativeAspectClass(dexArchiveAspect);
@@ -295,6 +297,7 @@ public class BazelRuleClassProvider {
     builder.addNativeAspectClass(bazelJ2ObjcProtoAspect);
     builder.addNativeAspectClass(j2ObjcAspect);
     builder.addNativeAspectClass(androidStudioInfoAspect);
+    builder.addNativeAspectClass(objcProtoAspect);
 
     builder.addRuleDefinition(new WorkspaceBaseRule());
 
@@ -397,7 +400,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SimulatorRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule());
+    builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
     builder.addRuleDefinition(new ObjcRuleClasses.ResourcesRule());
     builder.addRuleDefinition(new ObjcRuleClasses.XcodegenRule());
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());

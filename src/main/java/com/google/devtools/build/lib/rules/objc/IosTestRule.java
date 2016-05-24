@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -182,7 +182,6 @@ public class IosTestRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             BaseRuleClasses.TestBaseRule.class,
-            ObjcRuleClasses.CompilingRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
             ObjcRuleClasses.LinkingRule.class,
             ObjcRuleClasses.XcodegenRule.class,

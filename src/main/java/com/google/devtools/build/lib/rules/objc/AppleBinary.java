@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
 import java.util.Set;
@@ -47,7 +49,7 @@ import java.util.Set;
  * Implementation for the "apple_binary" rule.
  */
 public class AppleBinary implements RuleConfiguredTargetFactory {
-  
+
   /**
    * {@link SplitTransitionProvider} instance for the apple binary rule. (This is exposed for
    * convenience as a single static instance as it possesses no internal state.)
@@ -67,9 +69,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             ObjcProvider.class);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
-    
+
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
-    
+
     IntermediateArtifacts ruleIntermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
@@ -80,7 +82,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleIntermediateArtifacts.combinedArchitectureBinary());
-    
+
     for (BuildConfiguration childConfig : childConfigurations) {
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
@@ -90,7 +92,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       ImmutableList.Builder<J2ObjcMappingFileProvider> j2ObjcMappingFileProviders =
           ImmutableList.builder();
       J2ObjcEntryClassProvider.Builder j2ObjcEntryClassProviderBuilder =
-          new J2ObjcEntryClassProvider.Builder(); 
+          new J2ObjcEntryClassProvider.Builder();
       for (TransitiveInfoCollection dep : configToDepsCollectionMap.get(childConfig)) {
         if (dep.getProvider(J2ObjcMappingFileProvider.class) != null) {
           j2ObjcMappingFileProviders.add(dep.getProvider(J2ObjcMappingFileProvider.class));
@@ -103,18 +105,32 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
           J2ObjcMappingFileProvider.union(j2ObjcMappingFileProviders.build());
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider = j2ObjcEntryClassProviderBuilder.build();
-      
+
       if (!common.getCompilationArtifacts().get().getArchive().isPresent()) {
         ruleContext.throwWithRuleError(REQUIRES_AT_LEAST_ONE_SOURCE_FILE);
       }
 
       archivesToLipo.add(common.getCompilationArtifacts().get().getArchive().get());
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
+
+      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
+      Iterable<PathFragment> priorityHeaders;
+      ObjcConfiguration objcConfiguration = childConfig.getFragment(ObjcConfiguration.class);
+      if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
+        protoSupport.registerActions();
+        priorityHeaders = protoSupport.getUserHeaderSearchPaths();
+      } else {
+        priorityHeaders = ImmutableList.of();
+      }
+
       new CompilationSupport(ruleContext, childConfig)
-          .registerCompileAndArchiveActions(common)
+          .registerCompileAndArchiveActions(common, priorityHeaders)
           .registerLinkActions(
-              common.getObjcProvider(), j2ObjcMappingFileProvider, j2ObjcEntryClassProvider,
-              new ExtraLinkArgs(), ImmutableList.<Artifact>of(),
+              common.getObjcProvider(),
+              j2ObjcMappingFileProvider,
+              j2ObjcEntryClassProvider,
+              new ExtraLinkArgs(),
+              ImmutableList.<Artifact>of(),
               DsymOutputType.APP)
           .validateAttributes();
       ruleContext.assertNoErrors();
@@ -146,26 +162,38 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
 
+    ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
+    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
+      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
+      compilationArtifacts =
+          new CompilationArtifacts.Builder()
+              .setPchFile(compilationArtifacts.getPchFile())
+              .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+              .addAllSources(compilationArtifacts)
+              .addAllSources(protoSupport.getCompilationArtifacts())
+              .build();
+    }
+
     return new ObjcCommon.Builder(ruleContext, buildConfiguration)
-        .setCompilationAttributes(new CompilationAttributes(ruleContext))
-        .setResourceAttributes(new ResourceAttributes(ruleContext))
-        .setCompilationArtifacts(compilationArtifacts)
-        .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-        .addDeps(propagatedDeps)
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
-        .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .setAlwayslink(false)
-        .setHasModuleMap()
-        .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary())
-        .build();
+            .setCompilationAttributes(new CompilationAttributes(ruleContext))
+            .setCompilationArtifacts(compilationArtifacts)
+            .setResourceAttributes(new ResourceAttributes(ruleContext))
+            .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
+            .addDeps(propagatedDeps)
+            .addDepObjcProviders(
+                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
+            .setIntermediateArtifacts(intermediateArtifacts)
+            .setAlwayslink(false)
+            .setHasModuleMap()
+            .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary())
+            .build();
   }
 
   private <T> List<T> nullToEmptyList(List<T> inputList) {
     return inputList != null ? inputList : ImmutableList.<T>of();
   }
-  
+
   private Set<BuildConfiguration> getChildConfigurations(RuleContext ruleContext) {
     // This is currently a hack to obtain all child configurations regardless of the attribute
     // values of this rule -- this rule does not currently use the actual info provided by
@@ -173,7 +201,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(":cc_toolchain", Mode.SPLIT,
             CcToolchainProvider.class);
-    
+
     return configToProvider.keySet();
   }
 

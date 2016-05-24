@@ -305,7 +305,20 @@ public final class CompilationSupport {
    * @return this compilation support
    */
   CompilationSupport registerCompileAndArchiveActions(ObjcCommon common) {
-    return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE);
+    return registerCompileAndArchiveActions(
+        common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
+  }
+
+  /**
+   * Registers all actions necessary to compile this rule's sources and archive them.
+   *
+   * @param common common information about this rule and its dependencies
+   * @param priorityHeaders priority headers to be included before the dependency headers
+   * @return this compilation support
+   */
+  CompilationSupport registerCompileAndArchiveActions(
+      ObjcCommon common, Iterable<PathFragment> priorityHeaders) {
+    return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE, priorityHeaders);
   }
 
   /**
@@ -316,8 +329,23 @@ public final class CompilationSupport {
    * @return this compilation support
    */
   CompilationSupport registerCompileAndArchiveActions(
+      ObjcCommon common, ExtraCompileArgs extraCompileArgs) {
+    return registerCompileAndArchiveActions(
+        common, extraCompileArgs, ImmutableList.<PathFragment>of());
+  }
+
+  /**
+   * Registers all actions necessary to compile this rule's sources and archive them.
+   *
+   * @param common common information about this rule and its dependencies
+   * @param extraCompileArgs args to be added to compile actions
+   * @param priorityHeaders priority headers to be included before the dependency headers
+   * @return this compilation support
+   */
+  CompilationSupport registerCompileAndArchiveActions(
       ObjcCommon common,
-      ExtraCompileArgs extraCompileArgs) {
+      ExtraCompileArgs extraCompileArgs,
+      Iterable<PathFragment> priorityHeaders) {
     if (common.getCompilationArtifacts().isPresent()) {
       registerGenerateModuleMapAction(common.getCompilationArtifacts());
       Optional<CppModuleMap> moduleMap;
@@ -330,6 +358,7 @@ public final class CompilationSupport {
           common.getCompilationArtifacts().get(),
           common.getObjcProvider(),
           extraCompileArgs,
+          priorityHeaders,
           moduleMap,
           buildConfiguration.isCodeCoverageEnabled());
     }
@@ -344,6 +373,7 @@ public final class CompilationSupport {
       CompilationArtifacts compilationArtifacts,
       ObjcProvider objcProvider,
       ExtraCompileArgs extraCompileArgs,
+      Iterable<PathFragment> priorityHeaders,
       Optional<CppModuleMap> moduleMap,
       boolean isCodeCoverageEnabled) {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
@@ -357,6 +387,7 @@ public final class CompilationSupport {
             sourceFile,
             objFile,
             objcProvider,
+            priorityHeaders,
             moduleMap,
             compilationArtifacts,
             Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")),
@@ -370,6 +401,7 @@ public final class CompilationSupport {
           nonArcSourceFile,
           objFile,
           objcProvider,
+          priorityHeaders,
           moduleMap,
           compilationArtifacts,
           Iterables.concat(extraCompileArgs, ImmutableList.of("-fno-objc-arc")),
@@ -377,7 +409,7 @@ public final class CompilationSupport {
     }
 
     objFiles.addAll(compilationArtifacts.getPrecompiledSrcs());
-  
+
     if (compilationArtifacts.hasSwiftSources()) {
       registerSwiftModuleMergeAction(compilationArtifacts, objcProvider);
     }
@@ -411,6 +443,7 @@ public final class CompilationSupport {
       Artifact sourceFile,
       Artifact objFile,
       ObjcProvider objcProvider,
+      Iterable<PathFragment> priorityHeaders,
       Optional<CppModuleMap> moduleMap,
       CompilationArtifacts compilationArtifacts,
       Iterable<String> otherFlags,
@@ -448,6 +481,7 @@ public final class CompilationSupport {
         .add(objcConfiguration.getCoptsForCompilationMode())
         .addBeforeEachPath("-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
         .addBeforeEachExecPath("-include", compilationArtifacts.getPchFile().asSet())
+        .addBeforeEachPath("-I", priorityHeaders)
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
         .addBeforeEachPath("-isystem", objcProvider.get(INCLUDE_SYSTEM))
         .add(otherFlags)

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
 
 /**
  * Implementation for the "objc_proto_library" rule.
@@ -31,18 +32,17 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ProtoSupport protoSupport = new ProtoSupport(ruleContext);
-
     ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
-    protoSupport
-        .validate()
-        .addCommonOptions(commonBuilder)
-        .addXcodeProviderOptions(xcodeProviderBuilder)
-        .addFilesToBuild(filesToBuild)
-        .registerActions();
+    ProtoSupport protoSupport =
+        new ProtoSupport(ruleContext, TargetType.PROTO_TARGET)
+            .validate()
+            .addCommonOptions(commonBuilder)
+            .addXcodeProviderOptions(xcodeProviderBuilder)
+            .addFilesToBuild(filesToBuild)
+            .registerActions();
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -52,16 +52,25 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
 
     filesToBuild.addAll(common.getCompiledArchive().asSet());
 
-    new CompilationSupport(ruleContext)
-        .registerCompileAndArchiveActions(commonBuilder.build())
-        .registerFullyLinkAction(common.getObjcProvider());
-
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
         .addDependencies(
-            xcodeProviderBuilder, new Attribute(ObjcProtoLibraryRule.PROTO_LIB_ATTR, Mode.TARGET))
+            xcodeProviderBuilder, new Attribute(ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET))
         .registerActions(xcodeProviderBuilder.build());
+
+    boolean usesProtobufLibrary = protoSupport.usesProtobufLibrary();
+
+    boolean experimentalAutoUnion =
+        ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos();
+
+    // If the experimental flag is not set, or if it's set and doesn't use the protobuf library,
+    // register the compilation actions, as the output needs to be linked in the final binary.
+    if (!experimentalAutoUnion || !usesProtobufLibrary) {
+      new CompilationSupport(ruleContext)
+          .registerCompileAndArchiveActions(common)
+          .registerFullyLinkAction(common.getObjcProvider());
+    }
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())

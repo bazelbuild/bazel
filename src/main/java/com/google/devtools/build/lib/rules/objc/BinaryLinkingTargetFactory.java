@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for rules that link binaries.
@@ -79,10 +81,21 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     ObjcProvider objcProvider = common.getObjcProvider();
     assertLibraryOrSources(objcProvider, ruleContext);
 
+    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
+
+    ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
+    Iterable<PathFragment> priorityHeaders;
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
+      protoSupport.registerActions().addXcodeProviderOptions(xcodeProviderBuilder);
+      priorityHeaders = protoSupport.getUserHeaderSearchPaths();
+    } else {
+      priorityHeaders = ImmutableList.of();
+    }
+
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(intermediateArtifacts.strippedSingleArchitectureBinary());
@@ -102,11 +115,13 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     CompilationSupport compilationSupport =
         new CompilationSupport(ruleContext)
-            .registerCompileAndArchiveActions(common)
+            .registerCompileAndArchiveActions(common, priorityHeaders)
             .registerFullyLinkAction(common.getObjcProvider())
             .addXcodeSettings(xcodeProviderBuilder, common)
             .registerLinkActions(
-                objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider,
+                objcProvider,
+                j2ObjcMappingFileProvider,
+                j2ObjcEntryClassProvider,
                 getExtraLinkArgs(ruleContext),
                 ImmutableList.<Artifact>of(),
                 DsymOutputType.APP)
@@ -116,7 +131,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
     switch (hasReleaseBundlingSupport) {
       case YES:
-        ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
         AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
         // TODO(bazel-team): Remove once all bundle users are migrated to ios_application.
         ReleaseBundlingSupport releaseBundlingSupport =
@@ -198,15 +212,25 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
 
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos()) {
+      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
+      compilationArtifacts =
+          new CompilationArtifacts.Builder()
+              .setPchFile(compilationArtifacts.getPchFile())
+              .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+              .addAllSources(compilationArtifacts)
+              .addAllSources(protoSupport.getCompilationArtifacts())
+              .build();
+    }
+
     ObjcCommon.Builder builder =
         new ObjcCommon.Builder(ruleContext)
             .setCompilationAttributes(new CompilationAttributes(ruleContext))
-            .setResourceAttributes(new ResourceAttributes(ruleContext))
             .setCompilationArtifacts(compilationArtifacts)
+            .setResourceAttributes(new ResourceAttributes(ruleContext))
             .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .addDepObjcProviders(
-                ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+            .addDeps(ruleContext.getPrerequisites("bundles", Mode.TARGET))
             .addNonPropagatedDepObjcProviders(
                 ruleContext.getPrerequisites(
                     "non_propagated_deps", Mode.TARGET, ObjcProvider.class))

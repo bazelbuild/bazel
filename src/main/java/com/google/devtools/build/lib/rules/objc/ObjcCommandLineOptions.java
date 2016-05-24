@@ -193,6 +193,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public Label extraEntitlements;
 
+  // TODO(b/28451644): Make this option the default behavior.
   @Option(
     name = "experimental_auto_top_level_union_objc_protos",
     defaultValue = "false",
@@ -212,7 +213,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "when signing."
   )
   public boolean deviceDebugEntitlements;
-  
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @SuppressWarnings("unchecked")
