@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
@@ -581,9 +582,12 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .addAllBuildSetting(AppleToolchain.defaultWarningsForXcode())
             .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
             .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
+            .addAllFrameworkSearchPathOnly(
+                PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
             .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
-            .addAllXcdatamodel(PathFragment.safePathStrings(
-                Xcdatamodels.datamodelDirs(objcProvider.get(XCDATAMODEL))))
+            .addAllXcdatamodel(
+                PathFragment.safePathStrings(
+                    Xcdatamodels.datamodelDirs(objcProvider.get(XCDATAMODEL))))
             .addAllBundleImport(PathFragment.safePathStrings(objcProvider.get(BUNDLE_IMPORT_DIR)))
             .addAllSdkDylib(objcProvider.get(SDK_DYLIB))
             .addAllGeneralResourceFile(

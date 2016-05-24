@@ -500,11 +500,15 @@ public class XcodeprojGeneration {
       targetBuildConfigMap.put("USER_HEADER_SEARCH_PATHS",
           headerSearchPaths(
               plus(targetControl.getUserHeaderSearchPathList(), "$(WORKSPACE_ROOT)")));
-      targetBuildConfigMap.put("HEADER_SEARCH_PATHS",
-          headerSearchPaths(
-              plus(targetControl.getHeaderSearchPathList(), "$(inherited)")));
-      targetBuildConfigMap.put("FRAMEWORK_SEARCH_PATHS",
-          frameworkSearchPaths(targetControl.getFrameworkList()));
+      targetBuildConfigMap.put(
+          "HEADER_SEARCH_PATHS",
+          headerSearchPaths(plus(targetControl.getHeaderSearchPathList(), "$(inherited)")));
+      targetBuildConfigMap.put(
+          "FRAMEWORK_SEARCH_PATHS",
+          frameworkSearchPaths(
+              Iterables.concat(
+                  targetControl.getFrameworkList(),
+                  targetControl.getFrameworkSearchPathOnlyList())));
 
       targetBuildConfigMap.put("WORKSPACE_ROOT", workspaceRoot.toString());
 

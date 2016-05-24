@@ -55,7 +55,7 @@ message DependencyControl {
 }
 
 // Contains information specific to a single target in the project file.
-// Next ID: 23
+// Next ID: 24
 message TargetControl {
   // A short name for the target that need not be unique. For instance, for
   // binary targets this corresponds to the product name.
@@ -119,6 +119,12 @@ message TargetControl {
   // same path as every other path in the control file. This should be every
   // framework required by the targets in the transitive dependency tree.
   repeated string framework = 21;
+
+  // Paths to non-SDK frameworks relative to the same path as every other path
+  // in the control file.  These frameworks will be added to framework search
+  // paths for the target (with -F) but will not actually be linked (that is,
+  // there will be no -framework).
+  repeated string framework_search_path_only = 23;
 
   // Path to all .xcdatamodel directories required. All directories inside
   // a .xcdatamodeld directory are grouped into XCVersionGroups by the path of
