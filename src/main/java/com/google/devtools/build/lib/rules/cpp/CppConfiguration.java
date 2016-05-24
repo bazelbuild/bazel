@@ -692,6 +692,27 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return toolchain;
     }
     try {
+      if (!features.contains("random_seed")) {
+        // GCC and Clang give randomized names to symbols which are defined in
+        // an anonymous namespace but have external linkage.  To make
+        // computation of these deterministic, we want to override the
+        // default seed for the random number generator.  It's safe to use
+        // any value which differs for all translation units; we use the
+        // path to the object file.
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'random_seed'"
+            + "  flag_set {"
+            + "    action: 'c++-compile'"
+            + "    action: 'c++-module-compile'"
+            + "    flag_group {"
+            + "      flag: '-frandom-seed=%{output_file}'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+
       if (!features.contains("pic")) {
         TextFormat.merge(""
             + "feature {"

@@ -363,6 +363,8 @@ public final class CppModel {
 
     CppCompilationContext builderContext = builder.getContext();
     CppModuleMap cppModuleMap = builderContext.getCppModuleMap();
+    buildVariables.addVariable("output_file", builder.getOutputFile().getExecPathString());
+
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis
       // in any case, but don't crash.
@@ -831,24 +833,25 @@ public final class CppModel {
 
     String iExt = isCFile ? ".i" : ".ii";
     String picExt = usePic ? ".pic" : "";
-    CppCompileActionBuilder dBuilder = new CppCompileActionBuilder(builder);
-    setupBuildVariables(dBuilder, usePic, ccRelativeName, source.getExecPath(), null);
-    CppCompileActionBuilder sdBuilder = new CppCompileActionBuilder(builder);
-    setupBuildVariables(sdBuilder, usePic, ccRelativeName, source.getExecPath(), null);
 
+    CppCompileActionBuilder dBuilder = new CppCompileActionBuilder(builder);
     dBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + iExt))
         .setDotdFile(outputName, picExt + iExt + ".d");
+    setupBuildVariables(dBuilder, usePic, ccRelativeName, source.getExecPath(), null);
     semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
     CppCompileAction dAction = dBuilder.build();
     ruleContext.registerAction(dAction);
 
+    CppCompileActionBuilder sdBuilder = new CppCompileActionBuilder(builder);
     sdBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + ".s"))
         .setDotdFile(outputName, picExt + ".s.d");
+    setupBuildVariables(sdBuilder, usePic, ccRelativeName, source.getExecPath(), null);
     semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
     CppCompileAction sdAction = sdBuilder.build();
     ruleContext.registerAction(sdAction);
+
     return ImmutableList.of(
         dAction.getOutputFile(),
         sdAction.getOutputFile());

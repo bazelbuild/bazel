@@ -76,8 +76,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       Predicate<String> nocopts,
-      RuleContext ruleContext,
-      boolean usePic) {
+      RuleContext ruleContext) {
     super(
         owner,
         features,
@@ -108,7 +107,6 @@ public class FakeCppCompileAction extends CppCompileAction {
         VOID_SPECIAL_INPUTS_HANDLER,
         ImmutableList.<IncludeScannable>of(),
         GUID,
-        usePic,
         ImmutableSet.<String>of(),
         CppCompileAction.CPP_COMPILE,
         ruleContext);

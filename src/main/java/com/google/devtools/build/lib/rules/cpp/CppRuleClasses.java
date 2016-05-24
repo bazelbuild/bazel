@@ -96,6 +96,12 @@ public class CppRuleClasses {
   public static final String MODULE_MAPS = "module_maps";
 
   /**
+   * A string constant for the random_seed feature. This is used by gcc and Clangfor the
+   * randomization of symbol names that are in the anonymous namespace but have external linkage.
+   */
+  public static final String RANDOM_SEED = "random_seed";
+
+  /**
    * A string constant for the module_map_home_cwd feature.
    */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";

@@ -171,7 +171,6 @@ public class CppCompileAction extends AbstractAction
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
-  private final boolean usePic;
   private final ImmutableSet<String> executionRequirements;
 
   @VisibleForTesting
@@ -254,7 +253,6 @@ public class CppCompileAction extends AbstractAction
       SpecialInputsHandler specialInputsHandler,
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
-      boolean usePic,
       ImmutableSet<String> executionRequirements,
       String actionName,
       RuleContext ruleContext) {
@@ -295,7 +293,6 @@ public class CppCompileAction extends AbstractAction
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
-    this.usePic = usePic;
     this.executionRequirements = executionRequirements;
 
     // We do not need to include the middleman artifact since it is a generated
@@ -1358,14 +1355,6 @@ public class CppCompileAction extends AbstractAction
       // the user provided options, otherwise users adding include paths will not pick up their
       // own include paths first.
       options.addAll(toolchain.getUnfilteredCompilerOptions(features));
-
-      // GCC gives randomized names to symbols which are defined in
-      // an anonymous namespace but have external linkage.  To make
-      // computation of these deterministic, we want to override the
-      // default seed for the random number generator.  It's safe to use
-      // any value which differs for all translation units; we use the
-      // path to the object file.
-      options.add("-frandom-seed=" + outputFile.getExecPathString());
 
       // Add the options of --per_file_copt, if the label or the base name of the source file
       // matches the specified regular expression filter.
