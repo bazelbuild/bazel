@@ -169,6 +169,13 @@ public class LexerTest {
   }
 
   @Test
+  public void testCrLf() throws Exception {
+    assertEquals("NEWLINE EOF", names(tokens("\r\n\r\n")));
+    assertEquals("NEWLINE INT NEWLINE EOF", names(tokens("\r\n\r1\r\r\n")));
+    assertEquals("COMMENT NEWLINE COMMENT NEWLINE EOF", names(tokens("# foo\r\n# bar\r\n")));
+  }
+
+  @Test
   public void testIntegers() throws Exception {
     // Detection of MINUS immediately following integer constant proves we
     // don't consume too many chars.
@@ -335,6 +342,20 @@ public class LexerTest {
                  + "OUTDENT INT(4) NEWLINE OUTDENT INT(5) NEWLINE EOF",
                  values(tokens("1\n  2\n    3\n   4\n5")));
     assertEquals("/some/path.txt:4: indentation error", lastError.toString());
+  }
+
+  @Test
+  public void testIndentationWithCrLf() throws Exception {
+    assertEquals("INT(1) NEWLINE INDENT INT(2) NEWLINE OUTDENT NEWLINE EOF",
+        values(tokens("1\r\n  2\r\n")));
+    assertEquals("INT(1) NEWLINE INDENT INT(2) NEWLINE OUTDENT NEWLINE EOF",
+        values(tokens("1\r\n  2\r\n\r\n")));
+    assertEquals("INT(1) NEWLINE INDENT INT(2) NEWLINE INDENT INT(3) NEWLINE OUTDENT INT(4) "
+        + "NEWLINE OUTDENT INT(5) NEWLINE EOF",
+        values(tokens("1\r\n  2\r\n    3\r\n  4\r\n5")));
+    assertEquals(
+        "INT(1) NEWLINE INDENT INT(2) NEWLINE INT(3) NEWLINE OUTDENT INT(4) NEWLINE EOF",
+        values(tokens("1\r\n  2\r\n\r\n  3\r\n4")));
   }
 
   @Test
