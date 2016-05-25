@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 
@@ -56,16 +55,19 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     ObjcProtoProvider.Builder aspectObjcProtoProvider = new ObjcProtoProvider.Builder();
 
-    Iterable<ObjcProtoProvider> depObjcProtoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
-    aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
+    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
+      Iterable<ObjcProtoProvider> depObjcProtoProviders =
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+      aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
+    }
 
     // If the rule has the portable_proto_filters, it must be an objc_proto_library configured
     // to use the third party protobuf library, in contrast with the PB2 internal library. Only
     // the third party library is enabled to propagate the protos with this aspect.
+    // Validation for the correct target attributes is done in ProtoSupport.java.
     if (ruleContext
         .attributes()
-        .has(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)) {
+        .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR)) {
       aspectObjcProtoProvider.addPortableProtoFilters(
           PrerequisiteArtifacts.nestedSet(
               ruleContext, ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST));
