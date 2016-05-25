@@ -26,7 +26,7 @@ shift
 readonly SL_ZIP=${PWD}/$1
 
 # Create temporary directory that is removed when this script exits.
-readonly TMP=$(mktemp -d)
+readonly TMP=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXXXX")
 readonly OUT_DIR="$TMP/out"
 trap "rm -rf ${TMP}" EXIT
 
