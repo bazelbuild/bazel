@@ -47,9 +47,12 @@ import UIKit
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
-  func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
-    NSLog("Hello, world")
-    return true
+  func application(
+      application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?)
+      -> Bool {
+        NSLog("Hello, world")
+        return true
   }
 }
 EOF
@@ -152,6 +155,52 @@ EOF
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:bin >$TEST_log 2>&1 || fail "should build"
+}
+
+function test_swift_imports_objc() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.swift <<EOF
+import Foundation
+import ios_ObjcLib
+
+public class SwiftClass {
+  public func bar() -> String {
+    return ObjcClass().foo()
+  }
+}
+EOF
+
+  cat >ios/ObjcClass.h <<EOF
+#import <Foundation/Foundation.h>
+@interface ObjcClass : NSObject
+- (NSString *)foo;
+@end
+EOF
+
+  cat >ios/ObjcClass.m <<EOF
+#import "ObjcClass.h"
+@implementation ObjcClass
+- (NSString *)foo { return @"Hello ObjcClass"; }
+@end
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              deps = [":ObjcLib"])
+
+objc_library(name = "ObjcLib",
+             hdrs = ['ObjcClass.h'],
+             srcs = ['ObjcClass.m'])
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --experimental_objc_enable_module_maps \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
 run_suite "apple_tests"
