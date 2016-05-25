@@ -30,7 +30,6 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 : ${GCS_BASE_URL:=https://storage.googleapis.com}
 : ${GCS_BUCKET:=bucket-o-bazel}
 : ${GCS_APT_BUCKET:=bazel-apt}
-: ${APT_GPG_KEY_NAME:=apt-key.sec.gpg}
 
 : ${EMAIL_TEMPLATE_RC:=${SCRIPT_DIR}/rc_email.txt}
 : ${EMAIL_TEMPLATE_RELEASE:=${SCRIPT_DIR}/release_email.txt}
@@ -333,7 +332,7 @@ EOF
   touch conf/override.testing
 
   (gpg --list-keys | grep "${APT_GPG_KEY_ID}" > /dev/null) || \
-  gpg --allow-secret-key-import --import /opt/secrets/"${APT_GPG_KEY_NAME}"
+  gpg --allow-secret-key-import --import "${APT_GPG_KEY_PATH}"
 
   local distribution="$1"
   local deb_pkg_name_jdk8="$2"
