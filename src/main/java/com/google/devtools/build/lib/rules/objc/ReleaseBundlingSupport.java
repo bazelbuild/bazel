@@ -721,12 +721,12 @@ public final class ReleaseBundlingSupport {
         ShellUtils.shellEscape(objcConfiguration.getIosSimulatorVersion().toString());
     ImmutableList<Substitution> substitutions = ImmutableList.of(
         Substitution.of("%app_name%", ruleContext.getLabel().getName()),
-        Substitution.of("%ipa_file%", ipaInput.getRootRelativePath().getPathString()),
+        Substitution.of("%ipa_file%", ipaInput.getRunfilesPathString()),
         Substitution.of("%sim_device%", escapedSimDevice),
         Substitution.of("%sdk_version%", escapedSdkVersion),
-        Substitution.of("%iossim%", attributes.iossim().getRootRelativePath().getPathString()),
+        Substitution.of("%iossim%", attributes.iossim().getRunfilesPathString()),
         Substitution.of("%std_redirect_dylib_path%",
-            attributes.stdRedirectDylib().getRootRelativePath().getPathString()));
+            attributes.stdRedirectDylib().getRunfilesPathString()));
 
     ruleContext.registerAction(
         new TemplateExpansionAction(ruleContext.getActionOwner(), attributes.runnerScriptTemplate(),

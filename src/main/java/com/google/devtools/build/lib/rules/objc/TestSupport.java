@@ -127,15 +127,15 @@ public class TestSupport {
    */
   private ImmutableList<Substitution> substitutionsForSimulator() {
     ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
-        .add(Substitution.of("%(iossim_path)s", iossim().getRootRelativePath().getPathString()))
+        .add(Substitution.of("%(iossim_path)s", iossim().getRunfilesPathString()))
         .add(Substitution.of("%(std_redirect_dylib_path)s",
-            stdRedirectDylib().getRootRelativePath().getPathString()))
+            stdRedirectDylib().getRunfilesPathString()))
         .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
 
     Optional<Artifact> testRunner = testRunner();
     if (testRunner.isPresent()) {
       substitutions.add(
-          Substitution.of("%(testrunner_binary)s", testRunner.get().getRootRelativePathString()));
+          Substitution.of("%(testrunner_binary)s", testRunner.get().getRunfilesPathString()));
     }
     return substitutions.build();
   }
