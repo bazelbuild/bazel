@@ -195,7 +195,7 @@ sh_test(
 
 sh_test(
     name = "local_repository_test_jdk8",
-    size = "small",
+    size = "medium",
     srcs = ["local_repository_test_jdk8.sh"],
     data = [":test-deps"],
     tags = ["jdk8"],
