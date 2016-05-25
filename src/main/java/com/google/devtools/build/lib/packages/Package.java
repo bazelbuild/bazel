@@ -209,7 +209,7 @@ public class Package {
    * @precondition {@code name} must be a suffix of
    * {@code filename.getParentDirectory())}.
    */
-  private Package(PackageIdentifier packageId, String runfilesPrefix) {
+  protected Package(PackageIdentifier packageId, String runfilesPrefix) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
     this.nameFragment = Canonicalizer.fragments().intern(packageId.getPackageFragment());
@@ -531,13 +531,23 @@ public class Package {
       suffix = "";
     }
 
+    throw makeNoSuchTargetException(targetName, suffix);
+  }
+
+  protected NoSuchTargetException makeNoSuchTargetException(String targetName, String suffix) {
+    Label label;
     try {
-      throw new NoSuchTargetException(createLabel(targetName), "target '" + targetName
-          + "' not declared in package '" + name + "'" + suffix + " defined by "
-          + this.filename);
+      label = createLabel(targetName);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(targetName);
     }
+    String msg = String.format(
+        "target '%s' not declared in package '%s'%s defined by %s",
+        targetName,
+        name,
+        suffix,
+        filename);
+    return new NoSuchTargetException(label, msg);
   }
 
   /**
@@ -666,16 +676,36 @@ public class Package {
     }
   }
 
-  public static Builder newExternalPackageBuilder(Path workspacePath, String runfilesPrefix) {
-    Builder b = new Builder(Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix);
+  public static Builder newExternalPackageBuilder(Builder.Helper helper, Path workspacePath,
+      String runfilesPrefix) {
+    Builder b = new Builder(helper.createFreshPackage(
+        Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
     b.setFilename(workspacePath);
     b.setMakeEnv(new MakeEnvironment.Builder());
     return b;
   }
 
+  /** A builder for {@link Package} objects. Only intended to be used by {@link PackageFactory}. */
   public static class Builder {
-    protected static Package newPackage(PackageIdentifier packageId, String runfilesPrefix) {
-      return new Package(packageId, runfilesPrefix);
+    public static interface Helper {
+      /**
+       * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
+       * during package loading.
+       */
+      Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
+    }
+
+    /** {@link Helper} that simply calls the {@link Package} constructor. */
+    public static class DefaultHelper implements Helper {
+      public static final DefaultHelper INSTANCE = new DefaultHelper();
+
+      private DefaultHelper() {
+      }
+
+      @Override
+      public Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix) {
+        return new Package(packageId, runfilesPrefix);
+      }
     }
 
     /**
@@ -740,8 +770,8 @@ public class Package {
       }
     }
 
-    public Builder(PackageIdentifier id, String runfilesPrefix) {
-      this(newPackage(id, runfilesPrefix));
+    public Builder(Helper helper, PackageIdentifier id, String runfilesPrefix) {
+      this(helper.createFreshPackage(id, runfilesPrefix));
     }
 
     protected PackageIdentifier getPackageIdentifier() {

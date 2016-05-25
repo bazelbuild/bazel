@@ -331,6 +331,8 @@ public final class PackageFactory {
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final ImmutableMap<String, PackageArgument<?>> packageArguments;
 
+  private final Package.Builder.Helper packageBuilderHelper;
+
   /**
    * Constructs a {@code PackageFactory} instance with the given rule factory.
    */
@@ -341,7 +343,8 @@ public final class PackageFactory {
         null,
         AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
         ImmutableList.<EnvironmentExtension>of(),
-        "test");
+        "test",
+        Package.Builder.DefaultHelper.INSTANCE);
   }
 
   @VisibleForTesting
@@ -352,7 +355,8 @@ public final class PackageFactory {
         null,
         AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
         ImmutableList.of(environmentExtension),
-        "test");
+        "test",
+        Package.Builder.DefaultHelper.INSTANCE);
   }
 
   @VisibleForTesting
@@ -363,7 +367,8 @@ public final class PackageFactory {
         null,
         AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
         environmentExtensions,
-        "test");
+        "test",
+        Package.Builder.DefaultHelper.INSTANCE);
   }
 
   /**
@@ -375,7 +380,8 @@ public final class PackageFactory {
       Map<String, String> platformSetRegexps,
       Function<RuleClass, AttributeContainer> attributeContainerFactory,
       Iterable<EnvironmentExtension> environmentExtensions,
-      String version) {
+      String version,
+      Package.Builder.Helper packageBuilderHelper) {
     this.platformSetRegexps = platformSetRegexps;
     this.ruleFactory = new RuleFactory(ruleClassProvider, attributeContainerFactory);
     this.ruleClassProvider = ruleClassProvider;
@@ -388,6 +394,7 @@ public final class PackageFactory {
     this.packageArguments = createPackageArguments();
     this.nativeModule = newNativeModule();
     this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider, version);
+    this.packageBuilderHelper = packageBuilderHelper;
   }
 
   /**
@@ -1276,14 +1283,24 @@ public final class PackageFactory {
   }
 
   @VisibleForTesting
+  public Package.Builder newExternalPackageBuilder(Path workspacePath, String runfilesPrefix) {
+    return Package.newExternalPackageBuilder(packageBuilderHelper, workspacePath, runfilesPrefix);
+  }
+
+  @VisibleForTesting
+  public Package.Builder newPackageBuilder(PackageIdentifier packageId, String runfilesPrefix) {
+    return new Package.Builder(packageBuilderHelper, packageId, runfilesPrefix);
+  }
+
+  @VisibleForTesting
   public Package createPackageForTesting(
       PackageIdentifier packageId,
       Path buildFile,
       CachingPackageLocator locator,
       EventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
-    Package externalPkg =
-        Package.newExternalPackageBuilder(buildFile.getRelative("WORKSPACE"), "TESTING").build();
+    Package externalPkg = newExternalPackageBuilder(
+        buildFile.getRelative("WORKSPACE"), "TESTING").build();
     return createPackageForTesting(packageId, externalPkg, buildFile, locator, eventHandler);
   }
 
@@ -1533,8 +1550,8 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
-    Package.Builder pkgBuilder = new Package.Builder(
-        packageId, ruleClassProvider.getRunfilesPrefix());
+    Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
+        packageId, ruleClassProvider.getRunfilesPrefix()));
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
@@ -1621,8 +1638,8 @@ public final class PackageFactory {
           .setPhase(Phase.LOADING)
           .build();
 
-      Package.Builder pkgBuilder = new Package.Builder(packageId,
-          ruleClassProvider.getRunfilesPrefix());
+      Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
+          packageId, ruleClassProvider.getRunfilesPrefix()));
 
       pkgBuilder.setFilename(buildFilePath)
           .setMakeEnv(pkgMakeEnv)

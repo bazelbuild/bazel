@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Configurator;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
@@ -261,7 +260,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private Package.Builder createDummyPackageBuilder() {
-    return new Builder(PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
+    return packageFactory.newPackageBuilder(
+        PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
         .setFilename(testBuildfilePath)
         .setMakeEnv(new MakeEnvironment.Builder());
   }

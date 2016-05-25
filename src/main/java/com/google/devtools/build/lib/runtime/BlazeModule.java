@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -339,6 +340,15 @@ public abstract class BlazeModule {
    */
   public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
     return new PackageFactory.EmptyEnvironmentExtension();
+  }
+
+  /**
+   * Returns a helper that the {@link PackageFactory} will use during package loading. If the module
+   * does not provide any heloer, it should return null. Note that only one helper per Bazel/Blaze
+   * runtime is allowed.
+   */
+  public Package.Builder.Helper getPackageBuilderHelper() {
+    return null;
   }
 
   /**

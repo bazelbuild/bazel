@@ -69,6 +69,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   private static final int GLOBBING_THREADS = 7;
 
   protected ConfiguredRuleClassProvider ruleClassProvider;
+  protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
 
   @Before
@@ -84,8 +85,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     } else {
       ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     }
-    skyframeExecutor = createSkyframeExecutor(getEnvironmentExtensions(),
-        getPreprocessorFactorySupplier());
+    packageFactory = new PackageFactory(ruleClassProvider, getEnvironmentExtensions());
+    skyframeExecutor = createSkyframeExecutor(getPreprocessorFactorySupplier());
     setUpSkyframe(parsePackageCacheOptions());
   }
 
@@ -95,11 +96,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   private SkyframeExecutor createSkyframeExecutor(
-      Iterable<EnvironmentExtension> environmentExtensions,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            new PackageFactory(ruleClassProvider, environmentExtensions),
+            packageFactory,
             new BlazeDirectories(outputBase, outputBase, rootDirectory, TestConstants.PRODUCT_NAME),
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */

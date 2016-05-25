@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.packages.AttributeContainer;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -1260,13 +1261,27 @@ public final class BlazeRuntime {
         extensions.add(module.getPackageEnvironmentExtension());
       }
 
+      Package.Builder.Helper packageBuilderHelper = null;
+      for (BlazeModule module : blazeModules) {
+        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
+        if (candidateHelper != null) {
+          Preconditions.checkState(packageBuilderHelper == null,
+              "more than one module defines a package builder helper");
+          packageBuilderHelper = candidateHelper;
+        }
+      }
+      if (packageBuilderHelper == null) {
+        packageBuilderHelper = Package.Builder.DefaultHelper.INSTANCE;
+      }
+
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
               platformRegexps,
               attributeContainerFactory,
               extensions,
-              BlazeVersionInfo.instance().getVersion());
+              BlazeVersionInfo.instance().getVersion(),
+              packageBuilderHelper);
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(
