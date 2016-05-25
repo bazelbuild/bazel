@@ -138,18 +138,37 @@ public final class PyCommon {
   public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
       PythonSemantics semantics, NestedSet<Artifact> filesToBuild) {
 
-    SkylarkClassObject sourcesProvider =
-        new SkylarkClassObject(ImmutableMap.<String, Object>of(
-            TRANSITIVE_PYTHON_SRCS, SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
-            IS_USING_SHARED_LIBRARY, usesSharedLibraries()), "No such attribute '%s'");
     builder
-        .add(InstrumentedFilesProvider.class, InstrumentedFilesCollector.collect(ruleContext,
-            semantics.getCoverageInstrumentationSpec(), METADATA_COLLECTOR, filesToBuild))
-        .addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, sourcesProvider)
+        .add(
+            InstrumentedFilesProvider.class,
+            InstrumentedFilesCollector.collect(
+                ruleContext,
+                semantics.getCoverageInstrumentationSpec(),
+                METADATA_COLLECTOR,
+                filesToBuild))
+        .addSkylarkTransitiveInfo(
+            PYTHON_SKYLARK_PROVIDER_NAME,
+            createSourceProvider(this.transitivePythonSources, usesSharedLibraries()))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, transitivePythonSources)
         .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES, transitivePythonSources);
+  }
+
+  /**
+   * Returns a Skylark struct for exposing transitive Python sources:
+   *
+   *     addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
+   */
+  public static SkylarkClassObject createSourceProvider(
+      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary) {
+    return new SkylarkClassObject(
+        ImmutableMap.<String, Object>of(
+            TRANSITIVE_PYTHON_SRCS,
+            SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
+            IS_USING_SHARED_LIBRARY,
+            isUsingSharedLibrary),
+        "No such attribute '%s'");
   }
 
   public PythonVersion getDefaultPythonVersion() {
