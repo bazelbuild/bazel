@@ -86,7 +86,7 @@ function http_archive_helper() {
   local do_symlink
   [[ $# -gt 1 ]] && [[ "$2" = "do_symlink" ]] && do_symlink=1 || do_symlink=0
 
-  if [[ $write_workspace = 0 ]]; then
+  if [[ $write_workspace -eq 0 ]]; then
     # Create a zipped-up repository HTTP response.
     repo2=$TEST_TMPDIR/repo2
     rm -rf $repo2
@@ -106,8 +106,8 @@ EOF
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
+    ln -s male fox/male_relative
     if [[ $do_symlink = 1 ]]; then
-      ln -s male fox/male_relative
       ln -s /fox/male fox/male_absolute
     fi
     # Add some padding to the .zip to test that Bazel's download logic can
@@ -149,9 +149,9 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
+  base_external_path=bazel-out/../external/endangered/fox
+  assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   if [[ $do_symlink = 1 ]]; then
-    base_external_path=bazel-out/../external/endangered/fox
-    assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
     assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   fi
 }

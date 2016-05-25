@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -28,6 +29,7 @@ import com.google.devtools.build.zip.ZipReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
@@ -39,12 +41,14 @@ import javax.annotation.Nullable;
  */
 public class ZipDecompressor implements Decompressor {
   public static final Decompressor INSTANCE = new ZipDecompressor();
+  private static final long MAX_PATH_LENGTH = 256;
 
   private ZipDecompressor() {
   }
 
   private static final int S_IFDIR = 040000;
   private static final int S_IFREG = 0100000;
+  private static final int S_IFLNK = 0120000;
   private static final int EXECUTABLE_MASK = 0755;
   @VisibleForTesting
   static final int WINDOWS_DIRECTORY = 0x10;
@@ -112,9 +116,27 @@ public class ZipDecompressor implements Decompressor {
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
     int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
     FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
-    boolean isDirectory = (permissions & 040000) == 040000;
+    boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
+    boolean isSymlink = (permissions & S_IFLNK) == S_IFLNK;
     if (isDirectory) {
       FileSystemUtils.createDirectoryAndParents(outputPath);
+    } else if (isSymlink) {
+      Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
+      byte buffer[] = new byte[(int) entry.getSize()];
+      // For symlinks, the "compressed data" is actually the target name.
+      int read = reader.getInputStream(entry).read(buffer);
+      Preconditions.checkState(read == buffer.length);
+      PathFragment target = new PathFragment(new String(buffer, Charset.defaultCharset()))
+          .normalize();
+      if (!target.isNormalized()) {
+        throw new IOException("Zip entries cannot refer to files outside of their directory: "
+            + reader.getFilename() + " has a symlink to " + target);
+      }
+      if (target.isAbsolute()) {
+        throw new IOException("Zip entries cannot be symlinks to absolute paths: "
+            + reader.getFilename() + " has a symlink to " + target);
+      }
+      outputPath.createSymbolicLink(target);
     } else {
       // TODO(kchodorow): should be able to be removed when issue #236 is resolved, but for now
       // this delete+rewrite is required or the build will error out if outputPath exists here.
