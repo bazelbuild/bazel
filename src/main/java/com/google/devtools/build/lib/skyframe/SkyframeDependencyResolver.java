@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -95,8 +94,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
     try {
       Target target = pkg.getTarget(label.getName());
       if (pkg.containsErrors()) {
-        NoSuchPackageException e =
-            new BuildFileContainsErrorsException(label.getPackageIdentifier());
+        NoSuchTargetException e = new NoSuchTargetException(target);
         missingEdgeHook(from, label, e);
         if (target != null) {
           rootCauses.add(label);

@@ -1136,6 +1136,84 @@ public class BuildViewTest extends BuildViewTestBase {
     }
   }
 
+  @Test
+  public void testNonTopLevelErrorsPrintedExactlyOnce() throws Exception {
+    scratch.file("parent/BUILD",
+        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file("child/BUILD",
+        "sh_library(name = 'b')",
+        "undefined_symbol");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//parent:a");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+    }
+    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency(
+        "Target '//child:b' contains an error and its package is in error and referenced "
+        + "by '//parent:a'", 1);
+  }
+
+  @Test
+  public void testNonTopLevelErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+    scratch.file("parent/BUILD",
+        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file("child/BUILD",
+        "sh_library(name = 'b')",
+        "undefined_symbol");
+    reporter.removeHandler(failFastHandler);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//parent:a");
+    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency(
+        "Target '//child:b' contains an error and its package is in error and referenced "
+        + "by '//parent:a'", 1);
+  }
+
+  @Test
+  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener() throws Exception {
+    scratch.file("parent/BUILD",
+        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file("child/BUILD",
+        "sh_library(name = 'b')",
+        "undefined_symbol");
+    scratch.file("okay/BUILD",
+        "sh_binary(name = 'okay', srcs = ['okay.sh'])");
+    useConfiguration("--experimental_action_listener=//parent:a");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//okay");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException e) {
+    }
+    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency(
+        "Target '//child:b' contains an error and its package is in error and referenced "
+        + "by '//parent:a'", 1);
+  }
+
+  @Test
+  public void testNonTopLevelErrorsPrintedExactlyOnce_ActionListener_KeepGoing() throws Exception {
+    scratch.file("parent/BUILD",
+        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file("child/BUILD",
+        "sh_library(name = 'b')",
+        "undefined_symbol");
+    scratch.file("okay/BUILD",
+        "sh_binary(name = 'okay', srcs = ['okay.sh'])");
+    useConfiguration("--experimental_action_listener=//parent:a");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING), "//okay");
+    } catch (LoadingFailedException ignored) {
+      // In the legacy case, we get a loading exception even with keep going. Why?
+    }
+    assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+    assertContainsEventWithFrequency(
+        "Target '//child:b' contains an error and its package is in error and referenced "
+        + "by '//parent:a'", 1);
+  }
+
   /** Runs the same test with the reduced loading phase. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)

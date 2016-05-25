@@ -185,7 +185,7 @@ public class BuildView {
     public boolean extraActionTopLevelOnly;
 
     @Option(name = "experimental_interleave_loading_and_analysis",
-            defaultValue = "false",
+            defaultValue = "true",
             category = "experimental",
             help = "Interleave loading and analysis phases, so that one target may be analyzed at"
                 + " the same time as an unrelated target is loaded.")
