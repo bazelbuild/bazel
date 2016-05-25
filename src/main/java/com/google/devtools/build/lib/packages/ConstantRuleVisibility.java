@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
@@ -76,11 +77,20 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
    * @return The resulting visibility object, or null if the list of labels
    * could not be parsed.
    */
-  public static ConstantRuleVisibility tryParse(List<Label> labels) {
-    if (labels.size() != 1) {
-      return null;
+  public static ConstantRuleVisibility tryParse(List<Label> labels) throws EvalException {
+    if (labels.size() == 1) {
+      return tryParse(labels.get(0));
     }
-    return tryParse(labels.get(0));
+    ConstantRuleVisibility visibility;
+    for (Label label : labels) {
+      visibility = tryParse(label);
+      if (visibility != null) {
+        throw new EvalException(null,
+            "Public or private visibility labels (e.g. //visibility:public or" +
+            " //visibility:private) cannot be used in combination with other labels");
+      }
+    }
+    return null;
   }
 
   public static ConstantRuleVisibility tryParse(Label label) {

@@ -384,4 +384,20 @@ EOF
   bazel build //a:a || fail "build failed"
 }
 
+function test_visibility() {
+  mkdir visibility
+  cat > visibility/BUILD <<EOF
+cc_library(
+  name = "foo",
+  visibility = [
+    "//foo/bar:__pkg__",
+    "//visibility:public",
+  ],
+)
+EOF
+
+  bazel build //visibility:foo &> $TEST_log && fail "Expected failure" || true
+  expect_log "Public or private visibility labels (e.g. //visibility:public or //visibility:private) cannot be used in combination with other labels"
+}
+
 run_suite "rules test"

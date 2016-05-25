@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -1673,7 +1674,11 @@ public final class RuleClass {
             rule.getLabel() + ": //visibility:legacy_public only allowed in package declaration",
             eventHandler);
       }
-      rule.setVisibility(PackageFactory.getVisibility(rule.getLabel(), attrList));
+      try {
+        rule.setVisibility(PackageFactory.getVisibility(rule.getLabel(), attrList));
+      } catch (EvalException e) {
+         rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
+      }
     }
     rule.setAttributeValue(attr, nativeAttrVal, explicit);
     checkAllowedValues(rule, attr, eventHandler);

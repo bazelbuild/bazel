@@ -161,8 +161,12 @@ public final class PackageFactory {
 
     @Override
     protected void process(Package.Builder pkgBuilder, Location location,
-        List<Label> value) {
-      pkgBuilder.setDefaultVisibility(getVisibility(pkgBuilder.getBuildFileLabel(), value));
+        List<Label> value) throws EvalException{
+      try {
+        pkgBuilder.setDefaultVisibility(getVisibility(pkgBuilder.getBuildFileLabel(), value));
+      } catch (EvalException e) {
+        throw new EvalException(location, e.getMessage());
+      }
     }
   }
 
@@ -690,12 +694,17 @@ public final class PackageFactory {
     Package.Builder pkgBuilder = getContext(env, ast).pkgBuilder;
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
-    RuleVisibility visibility = EvalUtils.isNullOrNone(visibilityO)
-        ? ConstantRuleVisibility.PUBLIC
-        : getVisibility(pkgBuilder.getBuildFileLabel(), BuildType.LABEL_LIST.convert(
+    RuleVisibility visibility;
+    try {
+      visibility = EvalUtils.isNullOrNone(visibilityO)
+          ? ConstantRuleVisibility.PUBLIC
+          : getVisibility(pkgBuilder.getBuildFileLabel(), BuildType.LABEL_LIST.convert(
               visibilityO,
               "'exports_files' operand",
               pkgBuilder.getBuildFileLabel()));
+    } catch (EvalException e) {
+      throw new EvalException(ast.getLocation(), e.getMessage());
+    }
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
 
@@ -1044,7 +1053,8 @@ public final class PackageFactory {
     }
   }
 
-  public static RuleVisibility getVisibility(Label ruleLabel, List<Label> original) {
+  public static RuleVisibility getVisibility(Label ruleLabel, List<Label> original)
+      throws EvalException {
     RuleVisibility result;
 
     result = ConstantRuleVisibility.tryParse(original);
