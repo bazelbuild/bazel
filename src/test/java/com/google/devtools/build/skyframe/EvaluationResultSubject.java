@@ -58,4 +58,10 @@ public class EvaluationResultSubject extends Subject<EvaluationResultSubject, Ev
             getSubject().getWalkableGraph().getDirectDeps(ImmutableList.of(parent)).get(parent))
         .named("Direct deps for " + parent + " in " + getDisplaySubject());
   }
+
+  public IterableSubject hasReverseDepsInGraphThat(SkyKey child) {
+    return assertThat(
+            getSubject().getWalkableGraph().getReverseDeps(ImmutableList.of(child)).get(child))
+        .named("Reverse deps for " + child + " in " + getDisplaySubject());
+  }
 }
