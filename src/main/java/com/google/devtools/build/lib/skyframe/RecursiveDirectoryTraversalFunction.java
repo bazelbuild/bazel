@@ -310,7 +310,7 @@ abstract class RecursiveDirectoryTraversalFunction
 
   private static boolean shouldFollowSymlinksWhenTraversing(Dirents dirents) {
     for (Dirent dirent : dirents) {
-      // This is a specical sentinel file whose existence tells Blaze not to follow symlinks when
+      // This is a special sentinel file whose existence tells Blaze not to follow symlinks when
       // recursively traversing through this directory.
       //
       // This admittedly ugly feature is used to support workspaces with directories with weird
