@@ -95,6 +95,7 @@ sh_test(
         ":objc-deps",
         ":test-deps",
         "//:workspace-file",
+        "//tools/build_defs/apple/test:srcs",
     ],
 )
 

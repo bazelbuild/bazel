@@ -203,4 +203,52 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_swift_import_objc_framework() {
+  rm -rf ios
+  mkdir -p ios
+
+  # Copy the prebuilt framework into app's directory.
+  cp -RL "${BAZEL_RUNFILES}/tools/build_defs/apple/test/testdata/BlazeFramework.framework" ios
+
+  touch ios/dummy.swift
+
+  cat >ios/main.swift <<EOF
+import UIKit
+
+import BlazeFramework
+
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate {
+  var window: UIWindow?
+  func application(
+      application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?)
+        -> Bool {
+          NSLog("\(Multiplier().foo())")
+          return true
+  }
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+objc_binary(name = "bin",
+            srcs = ["dummy.swift"],
+            deps = [":swift_lib"])
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              deps = [":dylib"])
+
+objc_framework(name = "dylib",
+               framework_imports = glob(["BlazeFramework.framework/**"]),
+               is_dynamic = 1)
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --ios_minimum_os=8.0 \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
 run_suite "apple_tests"
