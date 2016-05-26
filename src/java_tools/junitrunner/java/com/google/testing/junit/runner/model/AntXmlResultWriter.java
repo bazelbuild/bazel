@@ -25,6 +25,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map.Entry;
 
+import javax.inject.Inject;
+
 /**
  * Writes the JUnit test nodes and their results into Ant-JUnit XML. Ant-JUnit XML is not a
  * standardized format. For this implementation the
@@ -58,6 +60,9 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private static final String JUNIT_ATTR_TESTCASE_TIME = "time";
 
   private int testSuiteId;
+
+  @Inject
+  public AntXmlResultWriter() {}
 
   @Override
   public void writeTestSuites(XmlWriter writer, TestResult result) throws IOException {

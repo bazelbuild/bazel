@@ -15,8 +15,6 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.common.base.Supplier;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.Stderr;
 import com.google.testing.junit.runner.model.TestSuiteModel;
@@ -33,12 +31,15 @@ import sun.misc.SignalHandler;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 /**
  * A listener that writes the test output as XML.
  */
 @Singleton
 class JUnit4TestXmlListener extends RunListener  {
-  
+
   private final Supplier<TestSuiteModel> modelSupplier;
   private final CancellableRequestFactory requestFactory;
   private final SignalHandlers signalHandlers;

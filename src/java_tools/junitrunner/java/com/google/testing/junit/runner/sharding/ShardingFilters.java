@@ -14,13 +14,14 @@
 
 package com.google.testing.junit.runner.sharding;
 
-import com.google.inject.Inject;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
 import java.util.Collection;
+
+import javax.inject.Inject;
 
 /**
  * A factory for test sharding filters.
@@ -54,7 +55,7 @@ public class ShardingFilters {
       }
     }
   }
-  
+
   public static final ShardingFilterFactory DEFAULT_SHARDING_STRATEGY =
       ShardingStrategy.ROUND_ROBIN;
   private final ShardingEnvironment shardingEnvironment;
@@ -104,9 +105,9 @@ public class ShardingFilters {
       } catch (ClassNotFoundException | InstantiationException |
           IllegalAccessException | IllegalArgumentException e2) {
         throw new RuntimeException(
-            "Could not create custom sharding strategy class " + strategy, e2);  
+            "Could not create custom sharding strategy class " + strategy, e2);
       }
     }
-    return shardingFilterFactory; 
+    return shardingFilterFactory;
   }
 }
