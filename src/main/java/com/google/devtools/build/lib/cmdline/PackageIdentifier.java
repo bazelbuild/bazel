@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -77,10 +78,14 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   /** The name of the package. Canonical (i.e. x.equals(y) <=> x==y). */
   private final PathFragment pkgName;
 
+  /** Precomputed hash code **/
+  private final int hashCode;
+
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
     this.repository = Preconditions.checkNotNull(repository);
     this.pkgName = Canonicalizer.fragments().intern(
             Preconditions.checkNotNull(pkgName).normalize());
+    this.hashCode = Objects.hash(repository, pkgName);
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
@@ -166,12 +171,13 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       return false;
     }
     PackageIdentifier that = (PackageIdentifier) object;
-    return pkgName.equals(that.pkgName) && repository.equals(that.repository);
+    return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+        && repository.equals(that.repository);
   }
 
   @Override
   public int hashCode() {
-    return 31 * repository.hashCode() + pkgName.hashCode();
+    return this.hashCode;
   }
 
   @Override
