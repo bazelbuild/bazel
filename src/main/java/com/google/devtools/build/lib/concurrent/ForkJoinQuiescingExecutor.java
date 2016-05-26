@@ -23,14 +23,16 @@ import java.util.concurrent.ForkJoinTask;
 // maintaining AQV.remainingTasks.
 public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
 
-  public ForkJoinQuiescingExecutor(ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier) {
+  public ForkJoinQuiescingExecutor(ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier,
+      ErrorHandler errorHandler) {
     super(
         /*concurrent=*/ true,
         forkJoinPool,
         /*shutdownOnCompletion=*/ true,
         /*failFastOnException=*/ true,
         /*failFastOnInterrupt=*/ true,
-        errorClassifier);
+        errorClassifier,
+        errorHandler);
   }
 
   @Override

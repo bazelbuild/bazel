@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.concurrent.CountDownLatch;
@@ -136,6 +137,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private final boolean ownExecutorService;
 
   private final ErrorClassifier errorClassifier;
+  private final ErrorHandler errorHandler;
 
   private static final Logger LOG = Logger.getLogger(AbstractQueueVisitor.class.getName());
 
@@ -171,7 +173,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         failFastOnInterrupt,
         poolName,
         EXECUTOR_FACTORY,
-        ErrorClassifier.DEFAULT);
+        ErrorClassifier.DEFAULT,
+        ErrorHandler.NullHandler.INSTANCE);
   }
 
   /**
@@ -189,6 +192,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
    *                 null}, default thread naming will be used.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
+   * @param errorHandler a handler for classified errors.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
@@ -198,7 +202,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       boolean failFastOnException,
       boolean failFastOnInterrupt,
       String poolName,
-      ErrorClassifier errorClassifier) {
+      ErrorClassifier errorClassifier,
+      ErrorHandler errorHandler) {
     this(
         concurrent,
         parallelism,
@@ -208,7 +213,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         failFastOnInterrupt,
         poolName,
         EXECUTOR_FACTORY,
-        errorClassifier);
+        errorClassifier,
+        errorHandler);
   }
 
   /**
@@ -227,6 +233,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    *                 null}, default thread naming will be used.
    * @param executorFactory the factory for constructing the executor service if {@code concurrent}
    *                        is {@code true}.
+   * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
+   * @param errorHandler a handler for classified errors.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
@@ -237,7 +245,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       boolean failFastOnInterrupt,
       String poolName,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory,
-      ErrorClassifier errorClassifier) {
+      ErrorClassifier errorClassifier,
+      ErrorHandler errorHandler) {
     Preconditions.checkNotNull(poolName);
     Preconditions.checkNotNull(executorFactory);
     Preconditions.checkNotNull(errorClassifier);
@@ -252,6 +261,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
                     parallelism, keepAliveTime, units, poolName, new BlockingStack<Runnable>()))
             : null;
     this.errorClassifier = errorClassifier;
+    this.errorHandler = errorHandler;
   }
 
   /**
@@ -284,7 +294,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         true,
         poolName,
         EXECUTOR_FACTORY,
-        ErrorClassifier.DEFAULT);
+        ErrorClassifier.DEFAULT,
+        ErrorHandler.NullHandler.INSTANCE);
   }
 
   /**
@@ -309,7 +320,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         shutdownOnCompletion,
         failFastOnException,
         failFastOnInterrupt,
-        ErrorClassifier.DEFAULT);
+        ErrorClassifier.DEFAULT,
+        ErrorHandler.NullHandler.INSTANCE);
   }
 
   /**
@@ -338,6 +350,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = executorService;
     this.errorClassifier = ErrorClassifier.DEFAULT;
+    this.errorHandler = ErrorHandler.NullHandler.INSTANCE;
   }
 
   /**
@@ -353,6 +366,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
    * @param failFastOnInterrupt if {@code true}, don't run new actions after an interrupt.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
+   * @param errorHandler a handler for classified errors.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
@@ -360,7 +374,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       boolean shutdownOnCompletion,
       boolean failFastOnException,
       boolean failFastOnInterrupt,
-      ErrorClassifier errorClassifier) {
+      ErrorClassifier errorClassifier,
+      ErrorHandler errorHandler) {
     Preconditions.checkArgument(executorService != null || !concurrent);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
@@ -368,6 +383,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = executorService;
     this.errorClassifier = errorClassifier;
+    this.errorHandler = errorHandler;
   }
 
   /**
@@ -391,7 +407,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         true,
         poolName,
         EXECUTOR_FACTORY,
-        ErrorClassifier.DEFAULT);
+        ErrorClassifier.DEFAULT,
+        ErrorHandler.NullHandler.INSTANCE);
   }
 
 
@@ -686,7 +703,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    */
   private void markToStopAllJobsIfNeeded(Throwable e) {
     boolean critical = false;
-    switch (errorClassifier.classify(e)) {
+    ErrorClassification errorClassification = errorClassifier.classify(e);
+    switch (errorClassification) {
         case CRITICAL_AND_LOG:
           critical = true;
           LOG.log(Level.WARNING, "Found critical error in queue visitor", e);
@@ -697,6 +715,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         default:
           break;
     }
+    errorHandler.handle(e, errorClassification);
     synchronized (zeroRemainingTasks) {
       if (critical && !jobsMustBeStopped) {
         jobsMustBeStopped = true;

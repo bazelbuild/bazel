@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.ErrorHandler;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -147,6 +148,7 @@ public final class ParallelEvaluator implements Evaluator {
   private final DirtyKeyTracker dirtyKeyTracker;
   private final Receiver<Collection<SkyKey>> inflightKeysReceiver;
   private final EventFilter storedEventFilter;
+  private final ErrorHandler errorHandler;
 
   public ParallelEvaluator(
       ProcessableGraph graph,
@@ -174,6 +176,7 @@ public final class ParallelEvaluator implements Evaluator {
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.storedEventFilter = storedEventFilter;
     this.forkJoinPool = null;
+    this.errorHandler = ErrorHandler.NullHandler.INSTANCE;
   }
 
   public ParallelEvaluator(
@@ -188,7 +191,8 @@ public final class ParallelEvaluator implements Evaluator {
       @Nullable EvaluationProgressReceiver progressReceiver,
       DirtyKeyTracker dirtyKeyTracker,
       Receiver<Collection<SkyKey>> inflightKeysReceiver,
-      ForkJoinPool forkJoinPool) {
+      ForkJoinPool forkJoinPool,
+      ErrorHandler errorHandler) {
     this.graph = graph;
     this.skyFunctions = skyFunctions;
     this.graphVersion = graphVersion;
@@ -204,6 +208,7 @@ public final class ParallelEvaluator implements Evaluator {
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.storedEventFilter = storedEventFilter;
     this.forkJoinPool = Preconditions.checkNotNull(forkJoinPool);
+    this.errorHandler = errorHandler;
   }
 
   /**
@@ -700,7 +705,7 @@ public final class ParallelEvaluator implements Evaluator {
 
     private ValueVisitor(ForkJoinPool forkJoinPool) {
       quiescingExecutor =
-          new ForkJoinQuiescingExecutor(forkJoinPool, VALUE_VISITOR_ERROR_CLASSIFIER);
+          new ForkJoinQuiescingExecutor(forkJoinPool, VALUE_VISITOR_ERROR_CLASSIFIER, errorHandler);
     }
 
     private ValueVisitor(int threadCount) {
@@ -713,7 +718,8 @@ public final class ParallelEvaluator implements Evaluator {
               /*failFastOnException*/ true,
               /*failFastOnInterrupt*/ true,
               "skyframe-evaluator",
-              VALUE_VISITOR_ERROR_CLASSIFIER);
+              VALUE_VISITOR_ERROR_CLASSIFIER,
+              errorHandler);
     }
 
     private void waitForCompletion() throws InterruptedException {

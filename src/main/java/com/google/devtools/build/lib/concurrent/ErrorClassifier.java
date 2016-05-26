@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.concurrent;
 
 import com.google.devtools.build.lib.util.Preconditions;
 
-/** A classifier for {@link Error}s and {@link Exception}s. */
+/** A classifier for {@link Error}s and {@link Exception}s. Used by {@link AbstractQueueVisitor}. */
 public abstract class ErrorClassifier {
 
   /** Classification of an error thrown by an action. */
-  protected enum ErrorClassification {
+  public enum ErrorClassification {
     /** All running actions should be stopped.*/
     CRITICAL,
     /** Same as CRITICAL, but also log the error.*/

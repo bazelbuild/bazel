@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.ErrorHandler;
 import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -112,7 +113,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
             /*failFastOnInterrupt=*/ true,
             "skyframe-invalidator",
             executorFactory,
-            errorClassifier);
+            errorClassifier,
+            ErrorHandler.NullHandler.INSTANCE);
     this.graph = Preconditions.checkNotNull(graph);
     this.invalidationReceiver = invalidationReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -124,8 +126,9 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       @Nullable EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      ForkJoinPool forkJoinPool) {
-    this.executor = new ForkJoinQuiescingExecutor(forkJoinPool, errorClassifier);
+      ForkJoinPool forkJoinPool,
+      ErrorHandler errorHandler) {
+    this.executor = new ForkJoinQuiescingExecutor(forkJoinPool, errorClassifier, errorHandler);
     this.graph = Preconditions.checkNotNull(graph);
     this.invalidationReceiver = invalidationReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -368,8 +371,9 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
         ForkJoinPool forkJoinPool,
-        boolean supportInterruptions) {
-      super(graph, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool);
+        boolean supportInterruptions,
+        ErrorHandler errorHandler) {
+      super(graph, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool, errorHandler);
       this.supportInterruptions = supportInterruptions;
     }
 
