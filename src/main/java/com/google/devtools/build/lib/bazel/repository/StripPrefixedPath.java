@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -27,14 +28,25 @@ public final class StripPrefixedPath {
   private final boolean found;
   private final boolean skip;
 
+  /**
+   * If a prefix is given, it will be removed from the entry's path. This also turns absolute paths
+   * into relative paths (e.g., /usr/bin/bash will become usr/bin/bash, same as unzip's default
+   * behavior) and normalizes the paths (foo/../bar////baz will become bar/baz). Note that this
+   * could cause collisions, if a zip file had one entry for bin/some-binary and another entry for
+   * /bin/some-binary.
+   *
+   * Note that the prefix is stripped to move the files up one level, so if you have an entry
+   * "foo/../bar" and a prefix of "foo", the result will be "bar" not "../bar".
+   */
   public static StripPrefixedPath maybeDeprefix(String entry, Optional<String> prefix) {
-    boolean found = false;
-    PathFragment entryPath = new PathFragment(entry);
+    Preconditions.checkNotNull(entry);
+    PathFragment entryPath = relativize(entry);
     if (!prefix.isPresent()) {
       return new StripPrefixedPath(entryPath, false, false);
     }
 
-    PathFragment prefixPath = new PathFragment(prefix.get());
+    PathFragment prefixPath = relativize(prefix.get());
+    boolean found = false;
     boolean skip = false;
     if (entryPath.startsWith(prefixPath)) {
       found = true;
@@ -46,6 +58,18 @@ public final class StripPrefixedPath {
       skip = true;
     }
     return new StripPrefixedPath(entryPath, found, skip);
+  }
+
+  /**
+   * Normalize the path and, if it is absolute, make it relative (e.g., /foo/bar becomes foo/bar).
+   */
+  private static PathFragment relativize(String path) {
+    PathFragment entryPath = new PathFragment(path).normalize();
+    if (entryPath.isAbsolute()) {
+      entryPath = new PathFragment(entryPath.getSafePathString().substring(
+          entryPath.windowsVolume().length() + 1));
+    }
+    return entryPath;
   }
 
   private StripPrefixedPath(PathFragment pathFragment, boolean found, boolean skip) {
