@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -79,8 +78,10 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 
@@ -536,12 +537,17 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         /*makeExecutable =*/ false);
   }
 
-  private static FileWriteAction makeProtoTextWriteAction(
+  private static BinaryFileWriteAction makeProtoTextWriteAction(
       ActionOwner actionOwner, final MessageLite message, Artifact artifact) {
-    return new FileWriteAction(
+    return new BinaryFileWriteAction(
         actionOwner,
         artifact,
-        message.toString(),
+        new ByteSource() {
+          @Override
+          public InputStream openStream() throws IOException {
+            return new ByteArrayInputStream(message.toString().getBytes(StandardCharsets.UTF_8));
+          }
+        },
         /*makeExecutable =*/ false);
   }
 
