@@ -429,7 +429,7 @@ def _aspect_impl(target, ctx):
   )
 
   # Output the ide information file.
-  output = ctx.new_file(target.label.name + ".aswb-build.txt")
+  output = ctx.new_file(target.label.name + ".intellij-build.txt")
   ctx.file_action(output, info.to_proto())
   ide_info_text += set([output])
   ide_infos += [info]
