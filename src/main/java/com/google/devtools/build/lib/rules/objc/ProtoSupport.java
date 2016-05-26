@@ -169,7 +169,7 @@ final class ProtoSupport {
    * @return this proto support
    */
   public ProtoSupport registerActions() {
-    if (!Iterables.isEmpty(getProtoSources())) {
+    if (!Iterables.isEmpty(getFilteredProtoSources())) {
       registerProtoInputListFileAction();
       registerGenerateProtoFilesAction();
     }
@@ -282,7 +282,7 @@ final class ProtoSupport {
     return attributes.hasPortableProtoFilters() || targetType == TargetType.LINKING_TARGET;
   }
 
-  private Iterable<Artifact> getProtoSources() {
+  private Iterable<Artifact> getAllProtoSources() {
     NestedSetBuilder<Artifact> protos = NestedSetBuilder.stableOrder();
 
     if (experimentalAutoUnion() && targetType == TargetType.LINKING_TARGET) {
@@ -295,6 +295,10 @@ final class ProtoSupport {
 
     protos.addTransitive(attributes.getProtoFiles());
 
+    return protos.build();
+  }
+
+  private Iterable<Artifact> getFilteredProtoSources() {
     // Transform the well known proto artifacts by removing the external/bazel_tools prefix if
     // present. Otherwise the comparison for filtering out the well known types is not possible.
     ImmutableSet.Builder<PathFragment> wellKnownProtoPathsBuilder = new ImmutableSet.Builder<>();
@@ -312,7 +316,7 @@ final class ProtoSupport {
     // Filter out the well known types from being sent to be generated, as these protos have already
     // been generated and linked in libprotobuf.a.
     ImmutableSet.Builder<Artifact> filteredProtos = new ImmutableSet.Builder<>();
-    for (Artifact proto : protos.build()) {
+    for (Artifact proto : getAllProtoSources()) {
       if (!wellKnownProtoPaths.contains(proto.getExecPath())) {
         filteredProtos.add(proto);
       }
@@ -367,7 +371,7 @@ final class ProtoSupport {
   }
 
   private String getProtoInputListFileContents() {
-    return Artifact.joinExecPaths("\n", getProtoSources());
+    return Artifact.joinExecPaths("\n", getFilteredProtoSources());
   }
 
   private PathFragment getWorkspaceRelativeOutputDir() {
@@ -397,7 +401,7 @@ final class ProtoSupport {
     NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(attributes.getProtoCompiler())
-            .addAll(getProtoSources())
+            .addAll(getAllProtoSources())
             .add(getProtoInputListFile())
             .addAll(attributes.getProtoCompilerSupport())
             .addAll(getPortableProtoFilters());
@@ -478,7 +482,7 @@ final class ProtoSupport {
 
   private ImmutableList<Artifact> generatedOutputArtifacts(FileType newFileType) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
-    for (Artifact protoFile : getProtoSources()) {
+    for (Artifact protoFile : getFilteredProtoSources()) {
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
       String generatedOutputName;
       if (attributes.outputsCpp()) {
