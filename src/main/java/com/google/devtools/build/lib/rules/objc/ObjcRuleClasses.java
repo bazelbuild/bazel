@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -187,7 +188,7 @@ public class ObjcRuleClasses {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     return spawnAppleEnvActionBuilder(ruleContext,
-        Platform.forIosArch(appleConfiguration.getIosCpu()));
+        Platform.forTarget(PlatformType.IOS, appleConfiguration.getIosCpu()));
   }
 
   /**

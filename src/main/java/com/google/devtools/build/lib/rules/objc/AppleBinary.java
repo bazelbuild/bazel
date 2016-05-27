@@ -142,11 +142,11 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .registerCombineArchitecturesAction(
             binariesToLipo.build(),
             ruleIntermediateArtifacts.combinedArchitectureBinary(),
-            appleConfiguration.getIosCpuPlatform())
+            appleConfiguration.getPlatform(PlatformType.IOS))
         .registerCombineArchitecturesAction(
             archivesToLipo.build(),
             ruleContext.getImplicitOutputArtifact(AppleBinaryRule.LIPO_ARCHIVE),
-            appleConfiguration.getIosCpuPlatform());
+            appleConfiguration.getPlatform(PlatformType.IOS));
 
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
