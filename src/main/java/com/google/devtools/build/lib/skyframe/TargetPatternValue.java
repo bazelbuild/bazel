@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets.Builder;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -208,14 +211,21 @@ public final class TargetPatternValue implements SkyValue {
 
     public ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
         Iterable<PathFragment> blacklistedPackagePrefixes) {
+      return getAllSubdirectoriesToExclude(Suppliers.ofInstance(blacklistedPackagePrefixes));
+    }
+
+    public ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
+        Supplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes) {
       ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
       excludedPathsBuilder.addAll(getExcludedSubdirectories());
-      for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes) {
-        PackageIdentifier pkgIdForBlacklistedDirectorPrefix = PackageIdentifier.create(
-            parsedPattern.getDirectory().getRepository(),
-            blacklistedPackagePrefix);
-        if (parsedPattern.containsBelowDirectory(pkgIdForBlacklistedDirectorPrefix)) {
-          excludedPathsBuilder.add(blacklistedPackagePrefix);
+      if (parsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
+        for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
+          PackageIdentifier pkgIdForBlacklistedDirectorPrefix = PackageIdentifier.create(
+              parsedPattern.getDirectory().getRepository(),
+              blacklistedPackagePrefix);
+          if (parsedPattern.containsBelowDirectory(pkgIdForBlacklistedDirectorPrefix)) {
+            excludedPathsBuilder.add(blacklistedPackagePrefix);
+          }
         }
       }
       return excludedPathsBuilder.build();

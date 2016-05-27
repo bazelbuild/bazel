@@ -489,7 +489,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
                 provider, eventHandler, targetPatternKey.getPolicy(), threadPool);
         TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
         ImmutableSet<PathFragment> subdirectoriesToExclude =
-            targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier.get());
+            targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier);
         FilteringBatchingUniquifyingCallback wrapper =
             new FilteringBatchingUniquifyingCallback(callback);
         parsedPattern.eval(resolver, subdirectoriesToExclude, wrapper, QueryException.class);
