@@ -7,6 +7,7 @@ load("//tools/build_defs/apple:swift.bzl", "swift_library")
 swift_library(
     name = "BarLib",
     srcs = ["mul.swift"],
+    module_name = "examples_BarLib",
 )
 
 filegroup(

@@ -1,4 +1,4 @@
-import class BarLib.Multiplier
+import class examples_BarLib.Multiplier
 
 public class Foo {
   public init() {}

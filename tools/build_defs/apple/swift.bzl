@@ -49,6 +49,10 @@ def _swift_target(cpu, sdk_version):
   """Returns a target triplet for Swift compiler."""
   return "%s-apple-ios%s" % (cpu, sdk_version)
 
+def _module_name(ctx):
+  """Returns a module name for the given rule context."""
+  return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
+
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
   cpu = ctx.fragments.apple.ios_cpu()
@@ -56,6 +60,8 @@ def _swift_library_impl(ctx):
   sdk_version = ctx.fragments.apple.sdk_version_for_platform(platform)
   target = _swift_target(cpu, sdk_version)
   apple_toolchain = apple_common.apple_toolchain()
+
+  module_name = ctx.attr.module_name or _module_name(ctx)
 
   # A list of paths to pass with -F flag.
   frameworks = set([
@@ -93,9 +99,9 @@ def _swift_library_impl(ctx):
   # TODO(b/28005753): Currently this is not really a library, but an object
   # file, does not matter to the linker, but should be replaced with proper ar
   # call.
-  output_lib = ctx.outputs.swift_lib
-  output_module = ctx.outputs.swift_module
-  output_header = ctx.outputs.swift_header
+  output_lib = ctx.new_file(module_name + ".a")
+  output_module = ctx.new_file(module_name + ".swiftmodule")
+  output_header = ctx.new_file(ctx.label.name + "-Swift.h")
 
   srcs_args = [f.path for f in ctx.files.srcs]
 
@@ -116,7 +122,7 @@ def _swift_library_impl(ctx):
       "-frontend",
       "-emit-object",
       "-emit-module-path", output_module.path,
-      "-module-name", ctx.label.name,
+      "-module-name", module_name,
       "-emit-objc-header-path", output_header.path,
       "-parse-as-library",
       "-target", target,
@@ -143,23 +149,20 @@ def _swift_library_impl(ctx):
       swift=struct(
           transitive_libs=[output_lib] + dep_libs,
           transitive_modules=[output_module] + dep_modules),
-      objc=objc_provider)
+      objc=objc_provider,
+      files=set([output_lib, output_module, output_header]))
 
 swift_library = rule(
     _swift_library_impl,
     attrs = {
         "srcs": attr.label_list(allow_files = FileType([".swift"])),
         "deps": attr.label_list(providers=[["swift"], ["objc"]]),
+        "module_name": attr.string(mandatory=False),
         "_xcrunwrapper": attr.label(
             executable=True,
             default=Label(XCRUNWRAPPER_LABEL))},
     fragments = ["apple"],
     output_to_genfiles=True,
-    outputs = {
-        "swift_lib": "%{name}.a",
-        "swift_module": "%{name}.swiftmodule",
-        "swift_header": "%{name}-Swift.h",
-    },
 )
 """
 Builds a Swift module.
@@ -170,4 +173,7 @@ Dependant targets can import this module as "import RuleName".
 Args:
   srcs: Swift sources that comprise this module.
   deps: Other Swift modules.
+  module_name: Optional. Sets the Swift module name for this target. By default
+               the module name is the target path with all special symbols
+               replaced by "_", e.g. //foo:bar can be imported as "foo_bar".
 """

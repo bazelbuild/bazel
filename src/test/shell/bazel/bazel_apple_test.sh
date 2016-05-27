@@ -100,9 +100,9 @@ EOF
 
 function test_swift_library() {
   local swift_lib_pkg=examples/swift
-  assert_build_output ./bazel-genfiles/${swift_lib_pkg}/swift_lib.a \
+  assert_build_output ./bazel-genfiles/${swift_lib_pkg}/examples_swift_swift_lib.a \
       ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
-  assert_build_output ./bazel-genfiles/${swift_lib_pkg}/swift_lib.swiftmodule \
+  assert_build_output ./bazel-genfiles/${swift_lib_pkg}/examples_swift_swift_lib.swiftmodule \
       ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
 }
 
@@ -248,6 +248,43 @@ EOF
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       --ios_minimum_os=8.0 \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
+function test_swift_imports_swift() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.swift <<EOF
+import Foundation
+import ios_util
+
+public class SwiftClass {
+  public func bar() -> String {
+    return Utility().foo()
+  }
+}
+EOF
+
+  cat >ios/Utility.swift <<EOF
+public class Utility {
+  public init() {}
+  public func foo() -> String { return "foo" }
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              deps = [":util"])
+
+swift_library(name = "util",
+              srcs = ['Utility.swift'])
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
