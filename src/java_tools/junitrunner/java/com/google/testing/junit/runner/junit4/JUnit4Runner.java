@@ -51,7 +51,6 @@ public class JUnit4Runner {
   private final PrintStream testRunnerOut;
   private final JUnit4Config config;
   private final Set<RunListener> runListeners;
-  private final Set<Initializer> initializers;
 
   private GoogleTestSecurityManager googleTestSecurityManager;
   private SecurityManager previousSecurityManager;
@@ -60,21 +59,15 @@ public class JUnit4Runner {
    * Creates a runner.
    */
   @Inject
-  JUnit4Runner(
-      Request request,
-      CancellableRequestFactory requestFactory,
-      Supplier<TestSuiteModel> modelSupplier,
-      @Stdout PrintStream testRunnerOut,
-      JUnit4Config config,
-      Set<RunListener> runListeners,
-      Set<Initializer> initializers) {
+  private JUnit4Runner(Request request, CancellableRequestFactory requestFactory,
+      Supplier<TestSuiteModel> modelSupplier, @Stdout PrintStream testRunnerOut,
+      JUnit4Config config, Set<RunListener> runListeners) {
     this.request = request;
     this.requestFactory = requestFactory;
     this.modelSupplier = modelSupplier;
     this.config = config;
     this.testRunnerOut = testRunnerOut;
     this.runListeners = runListeners;
-    this.initializers = initializers;
   }
 
   /**
@@ -85,10 +78,6 @@ public class JUnit4Runner {
   public Result run() {
     testRunnerOut.println("JUnit4 Test Runner");
     checkJUnitRunnerApiVersion();
-
-    for (Initializer init : initializers) {
-      init.initialize();
-    }
 
     // Sharding
     TestSuiteModel model = modelSupplier.get();
@@ -271,16 +260,5 @@ public class JUnit4Runner {
     @Override
     public void run(RunNotifier notifier) {
     }
-  }
-
-  /**
-   * A simple initializer which can be used to provide additional initialization logic in custom
-   * runners.
-   *
-   * <p>Initializers will be run in unspecified order. If an exception is thrown it will not be
-   * deemed recoverable and will cause the runner to error-out.
-   */
-  public interface Initializer {
-    void initialize();
   }
 }

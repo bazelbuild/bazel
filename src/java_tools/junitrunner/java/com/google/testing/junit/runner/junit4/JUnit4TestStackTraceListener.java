@@ -14,6 +14,8 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.internal.Stderr;
@@ -25,9 +27,6 @@ import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
 import java.io.PrintStream;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 /**
  * A listener than dumps all stack traces when the test receives a SIGTERM.

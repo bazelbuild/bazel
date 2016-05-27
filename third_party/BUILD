@@ -183,6 +183,7 @@ java_plugin(
         ":auto_service",
         ":auto_value_value",
         ":guava",
+        ":jsr305",
         ":tomcat_annotations_api",
     ],
 )
@@ -207,10 +208,7 @@ java_import(
 java_library(
     name = "dagger",
     exported_plugins = [":dagger_plugin"],
-    exports = [
-        ":dagger_api",
-        ":jsr330_inject",
-    ],
+    exports = ["dagger_api"],
 )
 
 java_plugin(
@@ -220,8 +218,6 @@ java_plugin(
         ":dagger_api",
         ":dagger_compiler",
         ":dagger_producers",
-        ":guava",
-        ":jsr330_inject",
     ],
 )
 

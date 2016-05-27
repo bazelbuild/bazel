@@ -16,6 +16,7 @@ package com.google.testing.junit.runner.junit4;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.inject.Singleton;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.model.TestSuiteModel.Builder;
 
@@ -23,7 +24,6 @@ import org.junit.runner.Description;
 import org.junit.runner.Request;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
 /**
  * Builds a {@link TestSuiteModel} for JUnit4 tests.
