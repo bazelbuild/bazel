@@ -16,7 +16,6 @@ package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
@@ -54,14 +53,22 @@ import javax.tools.StandardLocation;
  */
 public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
-  private final Optional<ScannerSupplier> extraChecks;
+  private final ScannerSupplier scannerSupplier;
 
-  public ErrorPronePlugin(ScannerSupplier extraChecks) {
-    this.extraChecks = Optional.of(extraChecks);
-  }
-
+  /**
+   * Constructs an {@link ErrorPronePlugin} instance with the set of checks that are enabled as
+   * errors in open-source Error Prone.
+   */
   public ErrorPronePlugin() {
-    this.extraChecks = Optional.absent();
+    this.scannerSupplier = BuiltInCheckerSuppliers.errorChecks();
+  }
+  
+  /**
+   * Constructs an {@link ErrorPronePlugin} with the set of checks that are enabled in {@code
+   * scannerSupplier}.
+   */
+  public ErrorPronePlugin(ScannerSupplier scannerSupplier) {
+    this.scannerSupplier = scannerSupplier;
   }
 
   private ErrorProneAnalyzer errorProneAnalyzer;
@@ -108,15 +115,6 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     return arguments;
   }
 
-  private ScannerSupplier defaultScannerSupplier() {
-    // open-source checks that are errors
-    ScannerSupplier result = BuiltInCheckerSuppliers.errorChecks();
-    if (extraChecks.isPresent()) {
-      result = result.plus(extraChecks.get());
-    }
-    return result;
-  }
-
   private static final Function<BugChecker, Class<? extends BugChecker>> GET_CLASS =
       new Function<BugChecker, Class<? extends BugChecker>>() {
         @Override
@@ -143,14 +141,14 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
         ? fileManager.getClassLoader(StandardLocation.ANNOTATION_PROCESSOR_PATH)
         : fileManager.getClass().getClassLoader();
     Iterable<BugChecker> extraBugCheckers = ServiceLoader.load(BugChecker.class, loader);
-    ScannerSupplier scannerSupplier =
-        defaultScannerSupplier().plus(
+    ScannerSupplier result =
+        scannerSupplier.plus(
             ScannerSupplier.fromBugCheckerClasses(
                 Iterables.transform(extraBugCheckers, GET_CLASS)));
 
     if (epOptions != null) {
       try {
-        scannerSupplier = scannerSupplier.applyOverrides(epOptions);
+        result = result.applyOverrides(epOptions);
       } catch (InvalidCommandLineOptionException e) {
         throwError(Result.CMDERR, e.getMessage());
       }
@@ -158,7 +156,7 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       epOptions = ErrorProneOptions.empty();
     }
 
-    errorProneAnalyzer = ErrorProneAnalyzer.create(scannerSupplier.get()).init(context, epOptions);
+    errorProneAnalyzer = ErrorProneAnalyzer.create(result.get()).init(context, epOptions);
   }
 
   /**
