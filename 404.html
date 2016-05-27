@@ -1,0 +1,11 @@
+<html>
+  <head>
+    <script>
+      var current_url = window.location.href;
+      var base_url = new RegExp("^https?://(.*.github.io/bazel|bazel.io)/");
+      if (base_url.test(current_url)) {
+        window.location.replace(current_url.replace(base_url, "http://www.bazel.io/"));
+      }
+    </script>
+  </head>
+</html>
