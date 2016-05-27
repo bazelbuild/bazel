@@ -84,6 +84,11 @@ supported, although not primary, build system.)
 A Java code generator that lets you write Prolog-style predicates and use them
 seamlessly from normal Java code.
 
+## [Heron](http://twitter.github.io/heron/)
+
+Heron is a realtime, distributed, fault-tolerant stream processing engine
+from Twitter.
+
 ## [Jsonnet](http://google.github.io/jsonnet/doc/)
 
 An elegant, formally-specified config generation language for JSON. (Bazel is a
