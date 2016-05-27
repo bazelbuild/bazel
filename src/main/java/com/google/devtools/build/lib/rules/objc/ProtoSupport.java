@@ -237,8 +237,11 @@ final class ProtoSupport {
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
             .setPchFile(Optional.<Artifact>absent())
-            .addAdditionalHdrs(getGeneratedHeaders())
-            .addAdditionalHdrs(generatedSources);
+            .addAdditionalHdrs(getGeneratedHeaders());
+
+    if (targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary()) {
+      builder.addAdditionalHdrs(generatedSources);
+    }
 
     if (experimentalAutoUnion()) {
       if (targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary()
