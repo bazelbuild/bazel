@@ -60,6 +60,14 @@ public class AppleBinaryRule implements RuleDefinition {
         .add(attr(":cc_toolchain", LABEL)
             .cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER)
             .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+        /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
+        <ul>
+         <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture
+             binary. All transitive dependencies and <code>srcs</code> are linked.</li>
+         <li><code><var>name</var>_.lipo.a</code>: a 'lipo'ed archive file linking together only
+             the <code>srcs</code> of this target.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(LIPOBIN, LIPO_ARCHIVE))
         .build();
@@ -71,7 +79,22 @@ public class AppleBinaryRule implements RuleDefinition {
         .name("apple_binary")
         .factoryClass(AppleBinary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class, ObjcRuleClasses.SimulatorRule.class)
+            ObjcRuleClasses.SimulatorRule.class)
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = apple_binary, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p>This rule produces single- or multi-architecture ("fat") Objective-C libraries and/or binaries,
+typically used in creating apple bundles, such as frameworks, extensions, or applications.</p>
+
+<p>The <code>lipo</code> tool is used to combine files of multiple architectures. The
+<code>--ios_multi_cpus</code> flag controls which architectures are included in the output.</p>
+
+<p>This rule currently only supports building for ios architectures, though more platforms
+will be supported in the future.</p>
+
+${IMPLICIT_OUTPUTS}
+
+<!-- #END_BLAZE_RULE -->*/
