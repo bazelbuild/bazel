@@ -161,4 +161,22 @@ function test_invalid_ios_sdk_version() {
   expect_log "SDK \"iphonesimulator2.34\" cannot be located."
 }
 
+function test_xcodelocator_embedded_tool() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/BUILD <<EOF
+genrule(
+    name = "invoke_tool",
+    srcs = ["@bazel_tools//tools/objc:xcode-locator"],
+    outs = ["tool_output"],
+    cmd = "\$< > \$@",
+    tags = ["requires-darwin"],
+)
+EOF
+
+  bazel build --verbose_failures //ios:invoke_tool >$TEST_log 2>&1 \
+      || fail "should be able to resolve xcode-locator"
+}
+
 run_suite "objc/ios test suite"

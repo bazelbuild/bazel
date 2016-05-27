@@ -91,17 +91,17 @@ static NSString *ExpandVersion(NSString *version) {
 
 int main(int argc, const char * argv[]) {
   @autoreleasepool {
-    NSString *version = nil;
+    NSString *versionArg = nil;
     if (argc == 1) {
-      version = @"";
+      versionArg = @"";
     } else if (argc == 2) {
-      version = [NSString stringWithUTF8String:argv[1]];
+      versionArg = [NSString stringWithUTF8String:argv[1]];
       NSCharacterSet *versSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789."];
-      if ([version rangeOfCharacterFromSet:versSet.invertedSet].length != 0) {
-        version = nil;
+      if ([versionArg rangeOfCharacterFromSet:versSet.invertedSet].length != 0) {
+        versionArg = nil;
       }
     }
-    if (version == nil) {
+    if (versionArg == nil) {
       printf("xcode_locator <version_number>\n"
              "Given a version number, or partial version number in x.y.z format, will attempt "
              "to return the path to the appropriate developer directory.\nOmitting a version "
@@ -137,7 +137,7 @@ int main(int argc, const char * argv[]) {
       AddEntryToDictionary(entry, dict);
     }
 
-    XcodeVersionEntry *entry = [dict objectForKey:version];
+    XcodeVersionEntry *entry = [dict objectForKey:versionArg];
     if (entry) {
       printf("%s\n", entry.url.fileSystemRepresentation);
       return 0;
@@ -150,6 +150,6 @@ int main(int argc, const char * argv[]) {
       printf("\t\"%s\": \"%s\",\n", version.UTF8String, entry.url.fileSystemRepresentation);
     }
     printf("}\n");
-    return (version == nil ? 0 : 1);
+    return ([@"" isEqualToString:versionArg] ? 0 : 1);
   }
 }

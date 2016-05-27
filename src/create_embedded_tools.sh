@@ -43,6 +43,7 @@ for i in $*; do
     *src/objc_tools/*) OUTPUT_PATH=tools/objc/precomp_${i##*/} ;;
     *xcode*StdRedirect.dylib) OUTPUT_PATH=tools/objc/StdRedirect.dylib ;;
     *xcode*realpath) OUTPUT_PATH=tools/objc/realpath ;;
+    *xcode*xcode-locator) OUTPUT_PATH=tools/objc/xcode-locator ;;
     *src/tools/xcode/*) OUTPUT_PATH=tools/objc/${i##*/}.sh ;;
     *) OUTPUT_PATH=$(echo $i | sed 's_^.*bazel-out/[^/]*/bin/__') ;;
   esac
