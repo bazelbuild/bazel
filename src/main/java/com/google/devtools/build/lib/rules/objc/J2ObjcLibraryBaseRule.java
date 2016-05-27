@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -32,17 +35,38 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     // TODO(rduan): Add support for package prefixes.
     return builder
-          /* <!-- #BLAZE_RULE(j2objc_library).ATTRIBUTE(entry_classes) -->
-          The list of Java classes whose translated ObjC counterparts will be referenced directly
-          by user ObjC code. This attibute is required if flag <code>--j2objc_dead_code_removal
-          </code> is on. The Java classes should be specified in their canonical names as defined by
-          <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.7">the Java
-          Language Specification.</a>
-          When flag <code>--j2objc_dead_code_removal</code> is specified, the list of entry classes
-          will be collected transitively and used as entry points to perform dead code analysis.
-          Unused classes will then be removed from the final ObjC app bundle.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        /* <!-- #BLAZE_RULE(j2objc_library).ATTRIBUTE(entry_classes) -->
+        The list of Java classes whose translated ObjC counterparts will be referenced directly
+        by user ObjC code. This attibute is required if flag <code>--j2objc_dead_code_removal
+        </code> is on. The Java classes should be specified in their canonical names as defined by
+        <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.7">the Java
+        Language Specification.</a>
+        When flag <code>--j2objc_dead_code_removal</code> is specified, the list of entry classes
+        will be collected transitively and used as entry points to perform dead code analysis.
+        Unused classes will then be removed from the final ObjC app bundle.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("entry_classes", STRING_LIST))
+        /* <!-- #BLAZE_RULE(j2objc_library).ATTRIBUTE(jre_deps) -->
+        The list of additional JRE emulation libraries required by all Java code translated by this
+        <code>j2objc_library</code> rule. When --explicit_jre_deps is enabled only core JRE
+        functionality is included by default, so specifying additional JRE dependencies here is
+        necessary. Use with --explicit_jre_deps to reduce the size of dependent binary targets.
+        --explicit_jre_deps will eventually become the default behavior.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("jre_deps", LABEL_LIST)
+            .direct_compile_time_input()
+            .allowedRuleClasses("objc_library")
+            .allowedFileTypes()
+            .validityPredicate(
+                new ValidityPredicate() {
+                  @Override
+                  public String checkValid(Rule from, Rule to) {
+                    if (!to.getRuleTags().contains("j2objc_jre_lib")) {
+                      return "Only J2ObjC JRE libraries are allowed";
+                    }
+                    return null;
+                  }
+                }))
         .build();
   }
 

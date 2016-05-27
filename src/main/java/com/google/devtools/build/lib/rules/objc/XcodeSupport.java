@@ -202,6 +202,17 @@ public final class XcodeSupport {
   }
 
   /**
+   * Adds J2ObjC JRE dependencies to the given provider builder from the given attribute.
+   *
+   * @return this xcode support
+   */
+  XcodeSupport addJreDependencies(Builder xcodeProviderBuilder) {
+    xcodeProviderBuilder.addJreDependencies(
+        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, XcodeProvider.class));
+    return this;
+  }
+
+  /**
    * Generates an extra {@link XcodeProductType#LIBRARY_STATIC} Xcode target with the same
    * compilation artifacts as the main Xcode target associated with this Xcode support. The extra
    * Xcode library target, instead of the main Xcode target, will act as a dependency for all

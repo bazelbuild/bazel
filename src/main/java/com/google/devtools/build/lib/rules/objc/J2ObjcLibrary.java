@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.JRE_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.collect.ImmutableList;
@@ -63,14 +65,21 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addEntryClasses(ruleContext.attributes().get("entry_classes", Type.STRING_LIST))
         .build();
 
+    Iterable<ObjcProvider> jreDeps =
+        ruleContext.getPrerequisites("jre_deps", Mode.TARGET, ObjcProvider.class);
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder()
+            .addTransitiveAndPropagate(jreDeps)
             .addTransitiveAndPropagate(
                 ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
+    for (ObjcProvider prereq : jreDeps) {
+      objcProviderBuilder.addTransitiveAndPropagate(JRE_LIBRARY, prereq.get(LIBRARY));
+    }
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     XcodeSupport xcodeSupport =
         new XcodeSupport(ruleContext)
+            .addJreDependencies(xcodeProviderBuilder)
             .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
 
     ObjcProvider objcProvider = objcProviderBuilder.build();

@@ -77,9 +77,11 @@ public class J2ObjcConfiguration extends Fragment {
 
   private final Set<String> translationFlags;
   private final boolean removeDeadCode;
+  private final boolean explicitJreDeps;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
     this.removeDeadCode = j2ObjcOptions.removeDeadCode;
+    this.explicitJreDeps = j2ObjcOptions.explicitJreDeps;
     this.translationFlags = ImmutableSet.<String>builder()
         .addAll(j2ObjcOptions.translationFlags)
         .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
@@ -104,6 +106,14 @@ public class J2ObjcConfiguration extends Fragment {
    */
   public boolean removeDeadCode() {
     return removeDeadCode;
+  }
+
+  /**
+   * Returns whether explicit JRE dependencies are required. If true, all j2objc_library rules will
+   * implicitly depend on jre_core_lib instead of jre_full_lib.
+   */
+  public boolean explicitJreDeps() {
+    return explicitJreDeps;
   }
 
   @Override

@@ -82,9 +82,17 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   }
 
   public static final Key<Artifact> LIBRARY = new Key<>(LINK_ORDER, "library", Artifact.class);
-  
+
   public static final Key<Artifact> IMPORTED_LIBRARY =
       new Key<>(LINK_ORDER, "imported_library", Artifact.class);
+
+  /**
+   * J2ObjC JRE emulation libraries and their dependencies. Separate from LIBRARY because these
+   * dependencies are specified further up the tree from where the dependency actually exists and
+   * they must be forced to the end of the link order.
+   */
+  public static final Key<Artifact> JRE_LIBRARY =
+      new Key<>(LINK_ORDER, "jre_library", Artifact.class);
 
   /**
    * Single-architecture linked binaries to be combined for the final multi-architecture binary.
@@ -352,6 +360,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       ImmutableList.<Key<?>>of(
           LIBRARY,
           IMPORTED_LIBRARY,
+          JRE_LIBRARY,
           LINKED_BINARY,
           FORCE_LOAD_LIBRARY,
           HEADER,

@@ -45,6 +45,13 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       )
   public boolean removeDeadCode;
 
+  @Option(name = "explicit_jre_deps",
+      defaultValue = "false",
+      category = "flags",
+      help = "Requires JRE dependencies to be declared in j2objc_library's jre_deps attribute."
+      )
+  public boolean explicitJreDeps;
+
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
 }

@@ -35,13 +35,17 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -72,10 +76,25 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static final Iterable<Attribute> DEPENDENT_ATTRIBUTES = ImmutableList.of(
-      new Attribute("$jre_emul_lib", Mode.TARGET),
+      new Attribute(":jre_lib", Mode.TARGET),
       new Attribute("deps", Mode.TARGET),
       new Attribute("exports", Mode.TARGET),
       new Attribute("runtime_deps", Mode.TARGET));
+
+  private static final Label JRE_CORE_LIB =
+      Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_core_lib");
+
+  private static final Label JRE_EMUL_LIB =
+      Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_emul_lib");
+
+  private static final LateBoundLabel<BuildConfiguration> JRE_LIB =
+      new LateBoundLabel<BuildConfiguration>(JRE_CORE_LIB, J2ObjcConfiguration.class) {
+    @Override
+    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+      return configuration.getFragment(J2ObjcConfiguration.class).explicitJreDeps()
+          ? JRE_CORE_LIB : JRE_EMUL_LIB;
+    }
+  };
 
   /**
    * Adds additional attribute aspects and attributes to the given AspectDefinition.Builder.
@@ -110,8 +129,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(attr("$jre_emul_jar", LABEL).cfg(HOST)
             .value(Label.parseAbsoluteUnchecked(
                 toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
-        .add(attr("$jre_emul_lib", LABEL)
-            .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_emul_lib")))
+        .add(attr(":jre_lib", LABEL).value(JRE_LIB))
         .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
                 toolsRepository + "//tools/objc:xcrunwrapper")))
