@@ -198,7 +198,7 @@ function test_loading_progress {
     --experimental_skyframe_target_pattern_evaluator pkg:true 2>$TEST_log \
     || fail "bazel test failed"
   # some progress indicator is shown during loading
-  expect_log 'Loading.*[0-9,]* / [0-9,]*'
+  expect_log 'Loading.*[0-9,]* packages'
 }
 
 function test_failure_scrollback_buffer_curses {

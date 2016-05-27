@@ -27,9 +27,12 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.LoggingTerminalWriter;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -64,6 +67,35 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
       maxLength = Math.max(maxLength, line.length());
     }
     return maxLength;
+  }
+
+  @Test
+  public void testLoadingActivity() throws IOException {
+    // During loading phase, state and activity, as reported by the PackageProgressReceiver,
+    // should be visible in the progress bar.
+    String state = "42 packages loaded";
+    String activity = "currently loading //src/foo/bar and 17 more";
+    PackageProgressReceiver progress = Mockito.mock(PackageProgressReceiver.class);
+    when(progress.progressState()).thenReturn(new Pair<String, String>(state, activity));
+
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+
+    stateTracker.loadingStarted(new LoadingPhaseStartedEvent(progress));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Output should indicate that we are in the loading phase, but was:\n" + output,
+        output.contains("Loading"));
+    assertTrue(
+        "Output should contain loading state '" + state + "', but was:\n" + output,
+        output.contains(state));
+    assertTrue(
+        "Output should contain loading state '" + activity + "', but was:\n" + output,
+        output.contains(activity));
   }
 
   @Test

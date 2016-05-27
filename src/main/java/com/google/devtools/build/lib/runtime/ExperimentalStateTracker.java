@@ -26,8 +26,9 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
-import com.google.devtools.build.lib.skyframe.LoadingProgressReceiver;
+import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -40,7 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * An experimental state tracker for the new experimental UI.
@@ -83,8 +83,7 @@ class ExperimentalStateTracker {
   private boolean ok;
 
   private ExecutionProgressReceiver executionProgressReceiver;
-  private LoadingProgressReceiver loadingProgressReceiver;
-  private AtomicInteger numPackagesLoaded;
+  private PackageProgressReceiver packageProgressReceiver;
 
   ExperimentalStateTracker(Clock clock, int targetWidth) {
     this.runningActions = new ArrayDeque<>();
@@ -107,12 +106,10 @@ class ExperimentalStateTracker {
 
   void loadingStarted(LoadingPhaseStartedEvent event) {
     status = null;
-    loadingProgressReceiver = event.getLoadingProgressReceiver();
-    numPackagesLoaded = event.getNumPackagesLoaded();
+    packageProgressReceiver = event.getPackageProgressReceiver();
   }
 
   void loadingComplete(LoadingPhaseCompleteEvent event) {
-    loadingProgressReceiver = null;
     int count = event.getTargets().size();
     status = "Analyzing";
     if (count == 1) {
@@ -124,7 +121,7 @@ class ExperimentalStateTracker {
 
   void analysisComplete(AnalysisPhaseCompleteEvent event) {
     status = null;
-    numPackagesLoaded = null;
+    packageProgressReceiver = null;
   }
 
   void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
@@ -388,19 +385,13 @@ class ExperimentalStateTracker {
    * bar shows time information relative to the current time.
    */
   boolean progressBarTimeDependent() {
-    if (numPackagesLoaded != null) {
+    if (packageProgressReceiver != null) {
       return true;
     }
     if (status != null) {
       return false;
     }
     if (runningActions.size() >= 1) {
-      return true;
-    }
-    if (loadingProgressReceiver != null) {
-      // This is kind-of a hack: since the event handler does not get informed about updates
-      // in the loading phase, indicate that the progress bar might change even though no
-      // explicit update event is known to the event handler.
       return true;
     }
     return false;
@@ -441,17 +432,21 @@ class ExperimentalStateTracker {
         terminalWriter.failStatus();
       }
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
-      if (numPackagesLoaded != null) {
-        terminalWriter.append(" (" + numPackagesLoaded.get() + " packages loaded)");
+      if (packageProgressReceiver != null) {
+        Pair<String, String> progress = packageProgressReceiver.progressState();
+        terminalWriter.append(" (" + progress.getFirst() + ")");
+        if (progress.getSecond().length() > 0) {
+          terminalWriter.newline().append("    " + progress.getSecond());
+        }
       }
       return;
     }
-    if (loadingProgressReceiver != null) {
-      terminalWriter
-          .okStatus()
-          .append("Loading:")
-          .normal()
-          .append(" " + loadingProgressReceiver.progressState());
+    if (packageProgressReceiver != null) {
+      Pair<String, String> progress = packageProgressReceiver.progressState();
+      terminalWriter.okStatus().append("Loading:").normal().append(" " + progress.getFirst());
+      if (progress.getSecond().length() > 0) {
+        terminalWriter.newline().append("    " + progress.getSecond());
+      }
       return;
     }
     if (executionProgressReceiver != null) {

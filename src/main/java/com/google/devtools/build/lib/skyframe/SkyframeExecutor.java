@@ -200,6 +200,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       newAstCache();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
+  private final PackageProgressReceiver packageProgress = new PackageProgressReceiver();
 
   protected SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -368,7 +369,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             packageFunctionCache,
             astCache,
             numPackagesLoaded,
-            ruleClassProvider));
+            ruleClassProvider,
+            packageProgress));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction(ruleClassProvider));
@@ -420,7 +422,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Cache<PackageIdentifier, CacheEntryWithGlobDeps<Builder>> packageFunctionCache,
       Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache,
       AtomicInteger numPackagesLoaded,
-      RuleClassProvider ruleClassProvider) {
+      RuleClassProvider ruleClassProvider,
+      PackageProgressReceiver packageProgress) {
     return new PackageFunction(
         pkgFactory,
         packageManager,
@@ -428,7 +431,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         packageFunctionCache,
         astCache,
         numPackagesLoaded,
-        null);
+        null,
+        packageProgress);
   }
 
   protected SkyFunction newSkylarkImportLookupFunction(
@@ -936,6 +940,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     packageFunctionCache.invalidateAll();
     astCache.invalidateAll();
     numPackagesLoaded.set(0);
+    packageProgress.reset();
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter.set(createCyclesReporter());
@@ -1732,7 +1737,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       LoadingProgressReceiver loadingProgressReceiver = new LoadingProgressReceiver();
-      eventBus.post(new LoadingPhaseStartedEvent(loadingProgressReceiver, numPackagesLoaded));
+      eventBus.post(new LoadingPhaseStartedEvent(packageProgress));
       progressReceiver.loadingProgressReceiver = loadingProgressReceiver;
       try {
         evalResult =

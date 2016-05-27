@@ -13,31 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import java.util.concurrent.atomic.AtomicInteger;
 /**
  * This event is fired at the beginning of the loading phase.
  */
 public final class LoadingPhaseStartedEvent {
 
-  final LoadingProgressReceiver loadingProgressReceiver;
-  final AtomicInteger numPackagesLoaded;
+  final PackageProgressReceiver packageProgress;
 
   /**
    * Construct the event
    *
    * @param loadingProgressReceiver a receiver that gets updated about the progress of loading
    */
-  public LoadingPhaseStartedEvent(
-      LoadingProgressReceiver loadingProgressReceiver, AtomicInteger numPackagesLoaded) {
-    this.loadingProgressReceiver = loadingProgressReceiver;
-    this.numPackagesLoaded = numPackagesLoaded;
+  public LoadingPhaseStartedEvent(PackageProgressReceiver packageProgress) {
+    this.packageProgress = packageProgress;
   }
 
-  public LoadingProgressReceiver getLoadingProgressReceiver() {
-    return loadingProgressReceiver;
-  }
-
-  public AtomicInteger getNumPackagesLoaded() {
-    return numPackagesLoaded;
+  public PackageProgressReceiver getPackageProgressReceiver() {
+    return packageProgress;
   }
 }
