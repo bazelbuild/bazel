@@ -29,9 +29,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.ArrayList;
-import java.util.Collection;
-
 /**
  * Utility functions for use during analysis.
  */
@@ -67,14 +64,14 @@ public final class AnalysisUtils {
    */
   public static <C extends TransitiveInfoProvider> Iterable<C> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites, Class<C> provider) {
-    Collection<C> result = new ArrayList<>();
+    ImmutableList.Builder<C> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
       C prerequisiteProvider =  prerequisite.getProvider(provider);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }
     }
-    return ImmutableList.copyOf(result);
+    return result.build();
   }
 
   /**
