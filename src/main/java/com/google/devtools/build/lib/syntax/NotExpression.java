@@ -31,7 +31,7 @@ public class NotExpression extends Expression {
     this.expression = expression;
   }
 
-  Expression getExpression() {
+  public Expression getExpression() {
     return expression;
   }
 
