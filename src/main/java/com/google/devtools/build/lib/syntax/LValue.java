@@ -27,7 +27,6 @@ import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.Removal;
 import net.bytebuddy.implementation.bytecode.constant.IntegerConstant;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -41,7 +40,7 @@ import java.util.List;
  *    for lvalue in exp: pass
  * An LValue can be a simple variable or something more complex like a tuple.
  */
-public class LValue implements Serializable {
+public class LValue extends ASTNode {
   private final Expression expr;
 
   public LValue(Expression expr) {
@@ -137,6 +136,11 @@ public class LValue implements Serializable {
               ident.getName()));
     }
     env.update(ident.getName(), result);
+  }
+
+  @Override
+  public void accept(SyntaxTreeVisitor visitor) {
+    visitor.visit(this);
   }
 
   void validate(ValidationEnvironment env, Location loc) throws EvalException {
