@@ -33,7 +33,7 @@ import java.util.List;
  */
 public class DictionaryLiteral extends Expression {
 
-  static final class DictionaryEntryLiteral extends ASTNode {
+  public static final class DictionaryEntryLiteral extends ASTNode {
 
     private final Expression key;
     private final Expression value;
@@ -43,11 +43,11 @@ public class DictionaryLiteral extends Expression {
       this.value = value;
     }
 
-    Expression getKey() {
+    public Expression getKey() {
       return key;
     }
 
-    Expression getValue() {
+    public Expression getValue() {
       return value;
     }
 
