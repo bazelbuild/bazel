@@ -180,8 +180,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
-      ] + _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") +
-      _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
+      ] + _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
           [
               "-undefined",
               "dynamic_lookup",
@@ -203,8 +202,6 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
-          # Anticipated future default.
-          _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") +
           _add_option_if_supported(repository_ctx, cc, "-fno-canonical-system-headers") + [
               # Make C++ compilation deterministic. Use linkstamping instead of these
               # compiler symbols.
