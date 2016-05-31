@@ -270,6 +270,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final PathFragment blacklistedPackagePrefixesFile;
 
+  private final RuleClassProvider ruleClassProvider;
+
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
@@ -308,11 +310,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.blacklistedPackagePrefixesFile = blacklistedPackagePrefixesFile;
     this.binTools = binTools;
 
+    this.ruleClassProvider = pkgFactory.getRuleClassProvider();
     this.skyframeBuildView = new SkyframeBuildView(
         directories,
         this,
         binTools,
-        (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider());
+        (ConfiguredRuleClassProvider) ruleClassProvider);
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     this.externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, this.errorOnExternalFiles, directories);
@@ -1259,16 +1262,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
-      configSkyKeys.add(BuildConfigurationValue.key(fragmentsMap.get(key.getLabel()),
-          getDynamicConfigOptions(key, fromOptions)));
+      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+          fragmentsMap.get(key.getLabel());
+      configSkyKeys.add(BuildConfigurationValue.key(depFragments,
+          getDynamicConfigOptions(key, fromOptions, depFragments)));
     }
     EvaluationResult<SkyValue> configsResult = evaluateSkyKeys(eventHandler, configSkyKeys);
     for (Dependency key : keys) {
       if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
-      SkyKey configKey = BuildConfigurationValue.key(fragmentsMap.get(key.getLabel()),
-          getDynamicConfigOptions(key, fromOptions));
+      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+          fragmentsMap.get(key.getLabel());
+      SkyKey configKey = BuildConfigurationValue.key(depFragments,
+          getDynamicConfigOptions(key, fromOptions, depFragments));
       builder.put(key, ((BuildConfigurationValue) configsResult.get(configKey)).getConfiguration());
     }
 
@@ -1279,14 +1286,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Computes the build options needed for the given key, accounting for transitions possibly
    * specified in the key.
    */
-  private BuildOptions getDynamicConfigOptions(Dependency key, BuildOptions fromOptions) {
+  private BuildOptions getDynamicConfigOptions(Dependency key, BuildOptions fromOptions,
+      Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments) {
     if (key.hasStaticConfiguration()) {
       return key.getConfiguration().getOptions();
-    } else if (key.getTransition() == Attribute.ConfigurationTransition.NONE) {
-      return fromOptions;
-    } else {
-      return ((PatchTransition) key.getTransition()).apply(fromOptions);
     }
+    BuildOptions toOptions;
+    if (key.getTransition() == Attribute.ConfigurationTransition.NONE) {
+      toOptions = fromOptions;
+    } else {
+      toOptions = ((PatchTransition) key.getTransition()).apply(fromOptions);
+    }
+    return toOptions.trim(
+        BuildConfiguration.getOptionsClasses(requiredFragments, ruleClassProvider));
   }
 
   /**
