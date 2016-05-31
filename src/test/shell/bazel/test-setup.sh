@@ -66,8 +66,8 @@ function setup_android_support() {
   # TODO(bazel-team): This hard-codes the name of the Android repository in
   # the WORKSPACE file of Bazel. Change this once external repositories have
   # their own defined names under which they are mounted.
-  NDK_SRCDIR=$BAZEL_RUNFILES/external/androidndk/ndk
-  SDK_SRCDIR=$BAZEL_RUNFILES/external/androidsdk
+  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
+  SDK_SRCDIR=$TEST_SRCDIR/androidsdk
 
   mkdir -p $ANDROID_NDK
   mkdir -p $ANDROID_SDK

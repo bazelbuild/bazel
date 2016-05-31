@@ -7,5 +7,4 @@ create_android_sdk_rules(
     build_tools_version = "%build_tools_version%",
     build_tools_directory = "%build_tools_directory%",
     api_level = %api_level%,
-    workspace_name = "%workspace_name%",
 )

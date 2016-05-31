@@ -205,15 +205,15 @@ function test_android_binary_clang() {
 }
 
 # ndk r10 and earlier
-if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/RELEASE.TXT" ]]; then
+if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later
-  if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+  if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/source.properties" ]]; then
     echo "Not running Android tests due to lack of an Android NDK."
     exit 0
   fi
 fi
 
-if [[ ! -r "${BAZEL_RUNFILES}/external/androidsdk/SDK Readme.txt" ]]; then
+if [[ ! -r "${TEST_SRCDIR}/androidsdk/SDK Readme.txt" ]]; then
   echo "Not running Android tests due to lack of an Android SDK."
   exit 0
 fi

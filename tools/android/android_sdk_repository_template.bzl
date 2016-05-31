@@ -17,8 +17,7 @@ def create_android_sdk_rules(
     name,
     build_tools_version,
     build_tools_directory,
-    api_level,
-    workspace_name):
+    api_level):
   """Generate the contents of the android_sdk_repository.
 
   Args:
@@ -27,7 +26,6 @@ def create_android_sdk_rules(
     build_tools_directory: string, the directory name of the build tools in
         sdk's build-tools directory.
     api_level: int, the API level from which to get android.jar et al.
-    workspace_name: string, the local workspace's name.
   """
 
   native.filegroup(
@@ -196,8 +194,7 @@ def create_android_sdk_rules(
            "#!/bin/bash -eu",
            # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
            # so we can't simply depend on them as a file like we do with aapt.
-           # TODO(kchodorow): change this to SDK=$${0}.runfiles/%s once runfiles are restructured.
-           "SDK=$${0}.runfiles/%s/external/%s" % (workspace_name, name),
+           "SDK=$${0}.runfiles/%s" % name,
            "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
            "EOF\n"]),
   ) for tool in ["aapt", "aidl", "zipalign"]]

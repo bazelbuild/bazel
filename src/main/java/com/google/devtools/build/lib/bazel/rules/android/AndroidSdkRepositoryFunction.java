@@ -86,7 +86,6 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     String template = getStringResource("android_sdk_repository_template.txt");
 
     String buildFile = template
-        .replaceAll("%workspace_name%", rule.getWorkspaceName())
         .replaceAll("%repository_name%", rule.getName())
         .replaceAll("%build_tools_version%", buildToolsVersion)
         .replaceAll("%build_tools_directory%", buildToolsDirectory)
