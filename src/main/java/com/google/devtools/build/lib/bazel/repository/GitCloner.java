@@ -181,7 +181,7 @@ public class GitCloner {
       Throwable throwable = e;
       while (throwable.getCause() != null) {
         throwable = throwable.getCause();
-        errmsg.append(" caused by " + e.getMessage());
+        errmsg.append(" caused by " + throwable.getMessage());
       }
       throw new RepositoryFunctionException(
           new IOException("Error cloning repository: " + errmsg), Transience.PERSISTENT);
