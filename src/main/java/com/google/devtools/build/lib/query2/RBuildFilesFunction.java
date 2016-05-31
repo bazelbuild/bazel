@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -71,10 +70,6 @@ public class RBuildFilesFunction implements QueryFunction {
       List<Argument> args, Callback<T> callback) throws QueryException, InterruptedException {
     if (!(env instanceof SkyQueryEnvironment)) {
       throw new QueryException("rbuildfiles can only be used with SkyQueryEnvironment");
-    }
-    ImmutableList.Builder<String> fileNames = ImmutableList.builder();
-    for (Argument arg : args) {
-      fileNames.add(arg.getWord());
     }
     ((SkyQueryEnvironment) env)
         .getRBuildFiles(
