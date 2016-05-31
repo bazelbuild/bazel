@@ -48,6 +48,11 @@ public class BazelAndroidStudioInfoSemantics implements AndroidStudioInfoSemanti
   }
 
   @Override
+  public boolean suppressJavaRuleInfo(ConfiguredTarget base) {
+    return false;
+  }
+
+  @Override
   public boolean checkForAdditionalCppRules(String ruleClass) {
     return false;
   }

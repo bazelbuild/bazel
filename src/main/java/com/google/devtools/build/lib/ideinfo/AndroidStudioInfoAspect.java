@@ -330,7 +330,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     // Java rules
     JavaRuleOutputJarsProvider outputJarsProvider =
         base.getProvider(JavaRuleOutputJarsProvider.class);
-    if (outputJarsProvider != null) {
+    if (outputJarsProvider != null && !androidStudioInfoSemantics.suppressJavaRuleInfo(base)) {
       Artifact packageManifest = createPackageManifest(base, ruleContext);
       if (packageManifest != null) {
         providerBuilder.ideInfoFilesBuilder().add(packageManifest);

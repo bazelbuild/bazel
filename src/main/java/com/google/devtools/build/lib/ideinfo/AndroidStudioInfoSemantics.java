@@ -36,6 +36,8 @@ public interface AndroidStudioInfoSemantics {
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> ideResolveArtifacts);
 
+  boolean suppressJavaRuleInfo(ConfiguredTarget base);
+
   void augmentCppRuleInfo(
       CRuleIdeInfo.Builder builder,
       ConfiguredTarget base,
