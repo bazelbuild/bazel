@@ -8,7 +8,6 @@ java_library(
     deps = [
         ":query-engine",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:common",
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:graph",
@@ -16,6 +15,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -27,13 +27,13 @@ java_library(
         ":query-engine",
         ":query2",
         "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:common",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:graph",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -43,10 +43,10 @@ java_library(
     name = "query-engine",
     srcs = glob(["engine/*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:common",
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:graph",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

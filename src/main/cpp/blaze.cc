@@ -549,6 +549,8 @@ static vector<string> GetArgumentArray() {
                      globals->options.invocation_policy);
   }
 
+  result.push_back("--product_name=" + globals->options.GetProductName());
+
   globals->options.AddExtraOptions(&result);
 
   // The option sources are transmitted in the following format:

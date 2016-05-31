@@ -248,7 +248,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "changes instead of scanning every file for a change.")
   public boolean watchFS;
 
-
   @Option(name = "invocation_policy",
       defaultValue = "",
       category = "undocumented",
@@ -263,4 +262,12 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "Port to start up the gRPC command server on. If 0, let the kernel choose. If -1, "
           + "use a custom protocol on an AF_UNIX socket.")
   public int commandPort;
+
+  @Option(name = "product_name",
+      defaultValue = "bazel", // NOTE: purely decorative!
+      category = "undocumented",
+      help = "The name of the build system. It is used as part of the name of the generated "
+          + "directories (e.g. productName-bin for binaries) as well as for printing error "
+          + "messages and logging")
+  public String productName;
 }

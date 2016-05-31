@@ -5,21 +5,10 @@ package(
 )
 
 java_library(
-    name = "common",
-    srcs = [
-        "Constants.java",
-    ],
-    exports = ["//third_party:guava"],
-    deps = [
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "shell",
     srcs = glob(["shell/*.java"]),
     deps = [
-        ":common",
+        "//third_party:guava",
     ],
 )
 
@@ -57,7 +46,7 @@ java_library(
     name = "graph",
     srcs = glob(["graph/*.java"]),
     deps = [
-        ":common",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -74,8 +63,8 @@ java_library(
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     deps = [
-        ":common",
         ":shell",
+        "//third_party:guava",
     ],
 )
 
@@ -84,8 +73,8 @@ java_library(
     name = "concurrent",
     srcs = glob(["concurrent/*.java"]),
     deps = [
-        ":common",
         ":preconditions",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -98,8 +87,8 @@ java_library(
         "collect/nestedset/*.java",
     ]),
     deps = [
-        ":common",
         ":preconditions",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -130,11 +119,11 @@ java_library(
     deps = [
         ":base-util",
         ":clock",
-        ":common",
         ":concurrent",
         ":os_util",
         ":preconditions",
         ":unix",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -148,10 +137,10 @@ java_library(
         "profiler/statistics/*.java",
     ]),
     deps = [
-        ":common",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -162,11 +151,11 @@ java_library(
     srcs = glob(["vfs/inmemoryfs/*.java"]),
     deps = [
         ":clock",
-        ":common",
         ":concurrent",
         ":preconditions",
         ":unix",
         ":vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -193,8 +182,8 @@ java_library(
         "util/VarInt.java",
     ],
     deps = [
-        ":common",
         ":preconditions",
+        "//third_party:guava",
     ],
 )
 
@@ -203,7 +192,7 @@ java_library(
     name = "preconditions",
     srcs = ["util/Preconditions.java"],
     deps = [
-        ":common",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -214,9 +203,9 @@ java_library(
     srcs = glob(["util/io/*.java"]),
     deps = [
         ":clock",
-        ":common",
         ":concurrent",
         ":vfs",
+        "//third_party:guava",
     ],
 )
 
@@ -253,7 +242,6 @@ java_library(
     deps = [
         ":base-util",
         ":collect",
-        ":common",
         ":concurrent",
         ":exitcode-external",
         ":os_util",
@@ -262,6 +250,7 @@ java_library(
         ":unix",
         ":vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -281,11 +270,11 @@ java_library(
     name = "events",
     srcs = glob(["events/*.java"]),
     deps = [
-        ":common",
         ":concurrent",
         ":io",
         ":preconditions",
         ":vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -336,11 +325,11 @@ java_library(
     srcs = glob(["cmdline/*.java"]),
     deps = [
         ":base-util",
-        ":common",
         ":concurrent",
         ":skylarkinterface",
         ":util",
         ":vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -353,7 +342,6 @@ java_library(
     deps = [
         ":cmdline",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":skylarkinterface",
@@ -364,6 +352,7 @@ java_library(
         "//third_party:asm-util",
         "//third_party:auto_value",
         "//third_party:bytebuddy",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -400,7 +389,6 @@ java_library(
     deps = [
         ":cmdline",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":skylarkinterface",
@@ -486,7 +474,6 @@ java_library(
         ":base-util",
         ":cmdline",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":exitcode-external",
@@ -536,7 +523,6 @@ java_library(
         ":build-base",
         ":build-info",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":ideinfo",
@@ -601,7 +587,6 @@ java_library(
     srcs = glob(["bazel/commands/*.java"]),
     resources = ["bazel/commands/fetch.txt"],
     deps = [
-        ":common",
         ":events",
         ":exitcode-external",
         ":java-rules",
@@ -681,13 +666,13 @@ java_library(
     deps = [
         ":build-base",
         ":collect",
-        ":common",
         ":concurrent",
         ":packages-internal",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf",
     ],
@@ -701,7 +686,6 @@ java_library(
     deps = [
         ":build-base",
         ":collect",
-        ":common",
         ":concurrent",
         ":packages-internal",
         ":skylarkinterface",
@@ -728,7 +712,6 @@ java_library(
     deps = [
         ":build-base",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":java-implicit-attributes",
@@ -741,6 +724,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//third_party:guava",
         "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/protobuf",
@@ -760,7 +744,6 @@ java_library(
     deps = [
         ":build-base",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":java-rules",
@@ -775,6 +758,7 @@ java_library(
         "//src/main/protobuf:android_deploy_info_java_proto",
         "//src/main/protobuf:apk_manifest_java_proto",
         "//third_party:android_sdklib",
+        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf",
     ],
@@ -788,7 +772,6 @@ java_library(
     deps = [
         ":build-base",
         ":collect",
-        ":common",
         ":concurrent",
         ":packages-internal",
         ":skylarkinterface",
@@ -799,6 +782,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf",
     ],
@@ -813,7 +797,6 @@ java_library(
         ":android-rules",
         ":build-base",
         ":collect",
-        ":common",
         ":concurrent",
         ":java-rules",
         ":packages-internal",
@@ -855,7 +838,6 @@ java_library(
         ":clock",
         ":cmdline",
         ":collect",
-        ":common",
         ":concurrent",
         ":events",
         ":exitcode-external",
@@ -879,6 +861,7 @@ java_library(
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//third_party:guava",
         "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
@@ -896,7 +879,6 @@ java_library(
     name = "all-build-rules",
     exports = [
         ":build-base",
-        ":common",
         ":concurrent",
         ":graph",
         ":packages-internal",
@@ -905,6 +887,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -928,7 +911,6 @@ java_library(
 java_library(
     name = "query2",
     exports = [
-        ":common",
         ":concurrent",
         ":events",
         ":foundation",
@@ -939,6 +921,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
+        "//third_party:guava",
     ],
 )
 
