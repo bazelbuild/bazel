@@ -541,16 +541,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-    name = "use_isystem_for_includes",
-    defaultValue = "true",
-    category = "undocumented",
-    help =
-        "Instruct C and C++ compilations to treat 'includes' paths as system header "
-            + "paths, by translating it into -isystem instead of -I."
-  )
-  public boolean useIsystemForIncludes;
-
-  @Option(
     name = "experimental_omitfp",
     defaultValue = "false",
     category = "semantics",

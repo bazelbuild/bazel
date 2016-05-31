@@ -1677,10 +1677,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.inmemoryDotdFiles;
   }
 
-  public boolean useIsystemForIncludes() {
-    return cppOptions.useIsystemForIncludes;
-  }
-
   public LibcTop getLibcTop() {
     return cppOptions.libcTop;
   }

@@ -310,7 +310,6 @@ public final class CcLibraryHelper {
         .addCopts(common.getCopts())
         .addDefines(common.getDefines())
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-        .addIncludeDirs(common.getIncludeDirs())
         .addLooseIncludeDirs(common.getLooseIncludeDirs())
         .addPicIndependentObjectFiles(common.getLinkerScripts())
         .addSystemIncludeDirs(common.getSystemIncludeDirs())

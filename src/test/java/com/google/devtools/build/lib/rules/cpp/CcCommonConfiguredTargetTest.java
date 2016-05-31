@@ -423,8 +423,6 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     // Tests the (immediate) effect of declaring the includes attribute on a
     // cc_library.
 
-    useConfiguration("--use_isystem_for_includes=false");
-
     scratch.file(
         "bang/BUILD",
         "cc_library(name = 'bang',",
@@ -434,11 +432,9 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
 
     String includesRoot = "bang/bang_includes";
-    List<PathFragment> expected =
-        ImmutableList.of(
-            new PathFragment(includesRoot),
-            targetConfig.getGenfilesFragment().getRelative(includesRoot));
-    assertEquals(expected, foo.getProvider(CppCompilationContext.class).getIncludeDirs());
+    assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs()).containsAllOf(
+        new PathFragment(includesRoot),
+        targetConfig.getGenfilesFragment().getRelative(includesRoot));
   }
 
   @Test

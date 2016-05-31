@@ -313,10 +313,6 @@ public class BazelCppRuleClasses {
              very careful, since this may have far-reaching effects.  When in doubt, add
              "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
           </p>
-          <p>To use <code>-iquote</code> instead of <code>-isystem</code>, specify
-             <code>--use_isystem_for_includes=false</code> (the flag is undocumented and defaults
-             to <code>true</code>).
-          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
           .add(attr(":lipo_context_collector", LABEL)
