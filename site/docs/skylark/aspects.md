@@ -40,7 +40,7 @@ java_library(name = 'X', deps = [':Y',':Z'], runtime_deps = [':T'], ...)
 
 This BUILD file defines a dependency graph shown in Fig 1.
 
-![Build Graph](build-graph.svg)
+![Build Graph](build-graph.png){width="250px"}
 
 Bazel analyzes this dependency graph by calling implementations of
 [rules](rules.md) (in this case "java_library" starting from leaves of
@@ -63,7 +63,7 @@ attribute (all attributes in A's propagation list). Thus a single act of
 applying aspect A to a target X yields a "shadow graph" of the original
 dependency graph of targets (see Fig.2).
 
-![Build Graph with Aspect](build-graph-aspect.svg)
+![Build Graph with Aspect](build-graph-aspects.png)
 
 The only edges that are shadowed are the edges along the attributes in
 the propagation set, thus the `runtime_deps` edge is not shadowed in this
