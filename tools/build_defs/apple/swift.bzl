@@ -16,25 +16,9 @@
 
 load("shared", "xcrun_action", "XCRUNWRAPPER_LABEL")
 
-def _framework_dirs(framework_files):
-  """Computes a set of framework parent directories.
-
-  Collects framework directories based on the list of files from ObjcProvider
-  and returns the parent directory for each one. Suitable for passing as -F
-  flags to the compiler.
-
-  Args:
-    framework_files: A list of files from various ObjcProvider FRAMEWORK* keys.
-  Returns:
-    A list of paths that represent parent directories to framework bundles.
-  """
-  dirs = []
-
-  for f in framework_files:
-    d = f.dirname
-    dirs.append(d[:d.rfind("/", 0, d.find(".framework"))])
-
-  return set(dirs)
+def _parent_dirs(dirs):
+  """Returns a set of parent directories for each directory in dirs."""
+  return set([f.rpartition("/")[0] for f in dirs])
 
 def _intersperse(separator, iterable):
   """Inserts separator before each item in iterable."""
@@ -64,7 +48,7 @@ def _swift_library_impl(ctx):
   module_name = ctx.attr.module_name or _module_name(ctx)
 
   # A list of paths to pass with -F flag.
-  frameworks = set([
+  framework_dirs = set([
       apple_toolchain.platform_developer_framework_dir(ctx.fragments.apple)])
 
   # Collect transitive dependecies.
@@ -87,14 +71,9 @@ def _swift_library_impl(ctx):
     objc_files += objc.header
     objc_files += objc.module_map
 
-    # TODO(b/28978494): Switch to reading FRAMEWORK_DIR.
-    if hasattr(objc, "framework_file"):
-      objc_files += objc.framework_file
-      frameworks += _framework_dirs(objc.framework_file)
-    else:
-      files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
-      objc_files += files
-      frameworks += _framework_dirs(files)
+    files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
+    objc_files += files
+    framework_dirs += _parent_dirs(objc.framework_dir)
 
   # TODO(b/28005753): Currently this is not really a library, but an object
   # file, does not matter to the linker, but should be replaced with proper ar
@@ -110,7 +89,7 @@ def _swift_library_impl(ctx):
   include_dirs = set([x.dirname for x in dep_modules])
 
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
-  framework_args = ["-F%s" % x for x in frameworks]
+  framework_args = ["-F%s" % x for x in framework_dirs]
 
   # Add the current directory to clang's search path.
   # This instance of clang is spawned by swiftc to compile module maps and is
