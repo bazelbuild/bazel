@@ -71,7 +71,7 @@ pkg_tar(
         srcs = ["docker_test.py"],
         args = [
             "--main='$(location :bazel_cc_configure-%s-%s)'" % (flavour, mode),
-            "--docker='$(location @docker//:docker)'",
+            "--docker='../docker/docker'",
         ],
         data = [
             ":bazel_cc_configure-%s-%s" % (flavour, mode),
