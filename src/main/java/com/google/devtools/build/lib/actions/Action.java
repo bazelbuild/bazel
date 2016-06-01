@@ -62,12 +62,12 @@ import javax.annotation.Nullable;
  *       but be aware that every time we've done that, it later resulted in expensive debugging
  *       sessions and bug fixes.
  *   <li>As much as possible, make the cache key computation obvious - fully hash every field
- *       (except inputs and outputs) in the class, and avoid referencing anything that isn't needed
- *       for action execution, such as {@link
- *       com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects or even fragments
- *       thereof; if the action has a command line, err on the side of hashing the entire command
- *       line, even if that seems expensive. It's always safe to hash too much - the negative effect
- *       on incremental build times is usually negligible.
+ *       (except input contents, but including input and output names if they appear in the command
+ *       line) in the class, and avoid referencing anything that isn't needed for action execution,
+ *       such as {@link com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects or
+ *       even fragments thereof; if the action has a command line, err on the side of hashing the
+ *       entire command line, even if that seems expensive. It's always safe to hash too much - the
+ *       negative effect on incremental build times is usually negligible.
  *   <li>Add test coverage for the cache key computation; use {@link
  *       com.google.devtools.build.lib.analysis.util.ActionTester} to generate as many combinations
  *       of field values as possible; add test coverage every time you add another field.
