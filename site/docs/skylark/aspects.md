@@ -110,7 +110,7 @@ Example:
 ```python
 def _metal_proto_aspect_impl(target, ctx):
     # For every `src` in proto_library, generate an output file
-    proto_sources = [f for src in ctx.rule.attrs.src
+    proto_sources = [f for src in ctx.rule.attr.src
                        for f in src.files]
     outputs = [ctx.new_file(f.short_path + ".metal")
                for f in proto_sources]
