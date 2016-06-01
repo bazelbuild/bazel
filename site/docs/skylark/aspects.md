@@ -9,13 +9,14 @@ title: Skylark Aspects
 
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
-* IDEs that integrate Bazel can use aspects to collect information about the
-  project
-* Code generation tools can leverage aspects to execute on their inputs in
-  "target-agnostic" manner. As an example, BUILD files can specify a hierarchy
-  of [protobuf](https://developers.google.com/protocol-buffers/) library
-  definitions, and language-specific rules can use aspects to attach
-  actions generating protobuf support code for a particular language
+
+*   IDEs that integrate Bazel can use aspects to collect information about the
+    project
+*   Code generation tools can leverage aspects to execute on their inputs in
+    "target-agnostic" manner. As an example, BUILD files can specify a hierarchy
+    of [protobuf](https://developers.google.com/protocol-buffers/) library
+    definitions, and language-specific rules can use aspects to attach
+    actions generating protobuf support code for a particular language
 
 ## Aspect basics
 
@@ -103,9 +104,9 @@ Aspect implementation functions are similiar to the rule implementation
 functions. They return [providers](rule.md#providers), can generate
 [actions](rule.md#actions) and take two arguments:
 
-* `target`: the target the aspect is being applied to.
-* [`ctx`](lib/ctx.html): `ctx` object that can be used to access attributes and
-  generate outputs and actions.
+*    `target`: the target the aspect is being applied to.
+*    [`ctx`](lib/ctx.html): `ctx` object that can be used to access attributes and
+     generate outputs and actions.
 
 Example:
 
