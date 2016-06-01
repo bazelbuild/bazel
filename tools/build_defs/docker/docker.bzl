@@ -175,6 +175,8 @@ def _metadata_action(ctx, layer, name, output):
   if base:
     args += ["--base=%s" % base.path]
     inputs += [base]
+  if ctx.attr.user:
+    args += ["--user=" + ctx.attr.user]
 
   ctx.action(
       executable = rewrite_tool,
@@ -322,6 +324,7 @@ docker_build_ = rule(
         "symlinks": attr.string_dict(),
         "entrypoint": attr.string_list(),
         "cmd": attr.string_list(),
+        "user": attr.string(),
         "env": attr.string_dict(),
         "labels": attr.string_dict(),
         "ports": attr.string_list(),  # Skylark doesn't support int_list...
@@ -421,7 +424,6 @@ docker_build_ = rule(
 #      # https://docs.docker.com/reference/builder/#maintainer
 #      maintainer="...",
 #
-#      # TODO(mattmoor): NYI
 #      # https://docs.docker.com/reference/builder/#user
 #      # NOTE: the normal directive affects subsequent RUN, CMD,
 #      # and ENTRYPOINT

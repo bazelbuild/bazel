@@ -42,6 +42,9 @@ gflags.DEFINE_list(
     'command', None,
     'Override the "Cmd" of the previous layer')
 
+gflags.DEFINE_string(
+    'user', None, 'The username to run commands under')
+
 gflags.DEFINE_list('labels', None, 'Augment the "Label" of the previous layer')
 
 gflags.DEFINE_list(
@@ -64,7 +67,8 @@ FLAGS = gflags.FLAGS
 
 _MetadataOptionsT = namedtuple('MetadataOptionsT',
                                ['name', 'parent', 'size', 'entrypoint', 'cmd',
-                                'env', 'labels', 'ports', 'volumes', 'workdir'])
+                                'env', 'labels', 'ports', 'volumes', 'workdir',
+                                'user'])
 
 
 class MetadataOptions(_MetadataOptionsT):
@@ -76,6 +80,7 @@ class MetadataOptions(_MetadataOptionsT):
               size=None,
               entrypoint=None,
               cmd=None,
+              user=None,
               labels=None,
               env=None,
               ports=None,
@@ -88,6 +93,7 @@ class MetadataOptions(_MetadataOptionsT):
                                                size=size,
                                                entrypoint=entrypoint,
                                                cmd=cmd,
+                                               user=user,
                                                labels=labels,
                                                env=env,
                                                ports=ports,
@@ -167,6 +173,8 @@ def RewriteMetadata(data, options):
     output['config']['Entrypoint'] = options.entrypoint
   if options.cmd:
     output['config']['Cmd'] = options.cmd
+  if options.user:
+    output['config']['User'] = options.user
 
   output['docker_version'] = _DOCKER_VERSION
   output['architecture'] = _PROCESSOR_ARCHITECTURE
@@ -303,6 +311,7 @@ def main(unused_argv):
                                            size=os.path.getsize(FLAGS.layer),
                                            entrypoint=FLAGS.entrypoint,
                                            cmd=FLAGS.command,
+                                           user=FLAGS.user,
                                            labels=labels,
                                            env=KeyValueToDict(FLAGS.env),
                                            ports=FLAGS.ports,

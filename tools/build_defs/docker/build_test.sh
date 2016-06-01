@@ -124,6 +124,13 @@ function check_workdir() {
   check_property WorkingDir "notop_${input}" "${@}"
 }
 
+function check_user() {
+  input="$1"
+  shift
+  check_property User "${input}" "${@}"
+  check_property User "notop_${input}" "${@}"
+}
+
 function check_layers_aux() {
   local input=${1}
   shift 1
@@ -367,6 +374,12 @@ function test_with_double_label() {
   check_label "with_double_label" \
     "bfe88fbb5e24fc5bff138f7a1923d53a2ee1bbc8e54b6f5d9c371d5f48b6b023" \
     '["com.example.bar={\"name\": \"blah\"}", "com.example.baz=qux", "com.example.foo={\"name\": \"blah\"}", "com.example.qux={\"name\": \"blah-blah\"}"]'
+}
+
+function test_with_user() {
+  check_user "with_user" \
+    "65664d4d78ff321684e2a8bf165792ce562c5990c9ba992e6288dcb1ec7f675c" \
+    "\"nobody\""
 }
 
 function get_layer_listing() {
