@@ -381,45 +381,61 @@ public final class LinkCommandLine extends CommandLine {
    */
   public List<String> getRawLinkArgv() {
     List<String> argv = new ArrayList<>();
-    switch (linkTargetType) {
-      case EXECUTABLE:
-        addCppArgv(argv);
-        break;
 
-      case DYNAMIC_LIBRARY:
-        if (interfaceOutput != null) {
-          argv.add(configuration.getShExecutable().getPathString());
-          argv.add("-c");
-          argv.add("build_iface_so=\"$0\"; impl=\"$1\"; iface=\"$2\"; cmd=\"$3\"; shift 3; "
-              + "\"$cmd\" \"$@\" && \"$build_iface_so\" \"$impl\" \"$iface\"");
-          argv.add(interfaceSoBuilder.getExecPathString());
+    // We create the command line from the feature configuration.  If no configuration is present,
+    // we use hard-coded flags.
+    if (featureConfiguration.actionIsConfigured(actionName)) {
+      argv.add(featureConfiguration
+            .getToolForAction(actionName)
+            .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+            .getPathString());
+      argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
+    } else {
+      // TODO(b/28928350): In order to simplify the extraction of this logic into the linux
+      // crosstool, this switch statement should be reframed as a group of action_configs and
+      // features.  Until they can be migrated into the linux crosstool, those features should
+      // be added to CppConfiguration.addLegacyFeatures().
+      switch (linkTargetType) {
+        case EXECUTABLE:
+          addCppArgv(argv);
+          break;
+
+        case DYNAMIC_LIBRARY:
+          if (interfaceOutput != null) {
+            argv.add(configuration.getShExecutable().getPathString());
+            argv.add("-c");
+            argv.add(
+                "build_iface_so=\"$0\"; impl=\"$1\"; iface=\"$2\"; cmd=\"$3\"; shift 3; "
+                    + "\"$cmd\" \"$@\" && \"$build_iface_so\" \"$impl\" \"$iface\"");
+            argv.add(interfaceSoBuilder.getExecPathString());
+            argv.add(output.getExecPathString());
+            argv.add(interfaceOutput.getExecPathString());
+          }
+          addCppArgv(argv);
+          // -pie is not compatible with -shared and should be
+          // removed when the latter is part of the link command. Should we need to further
+          // distinguish between shared libraries and executables, we could add additional
+          // command line / CROSSTOOL flags that distinguish them. But as long as this is
+          // the only relevant use case we're just special-casing it here.
+          Iterables.removeIf(argv, Predicates.equalTo("-pie"));
+          break;
+
+        case STATIC_LIBRARY:
+        case PIC_STATIC_LIBRARY:
+        case ALWAYS_LINK_STATIC_LIBRARY:
+        case ALWAYS_LINK_PIC_STATIC_LIBRARY:
+          // The static library link command follows this template:
+          // ar <cmd> <output_archive> <input_files...>
+          argv.add(cppConfiguration.getArExecutable().getPathString());
+          argv.addAll(
+              cppConfiguration.getArFlags(cppConfiguration.archiveType() == Link.ArchiveType.THIN));
           argv.add(output.getExecPathString());
-          argv.add(interfaceOutput.getExecPathString());
-        }
-        addCppArgv(argv);
-        // -pie is not compatible with -shared and should be
-        // removed when the latter is part of the link command. Should we need to further
-        // distinguish between shared libraries and executables, we could add additional
-        // command line / CROSSTOOL flags that distinguish them. But as long as this is
-        // the only relevant use case we're just special-casing it here.
-        Iterables.removeIf(argv, Predicates.equalTo("-pie"));
-        break;
+          addInputFileLinkOptions(argv, /*needWholeArchive=*/ false);
+          break;
 
-      case STATIC_LIBRARY:
-      case PIC_STATIC_LIBRARY:
-      case ALWAYS_LINK_STATIC_LIBRARY:
-      case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-        // The static library link command follows this template:
-        // ar <cmd> <output_archive> <input_files...>
-        argv.add(cppConfiguration.getArExecutable().getPathString());
-        argv.addAll(
-            cppConfiguration.getArFlags(cppConfiguration.archiveType() == Link.ArchiveType.THIN));
-        argv.add(output.getExecPathString());
-        addInputFileLinkOptions(argv, /*needWholeArchive=*/false);
-        break;
-
-      default:
-        throw new IllegalArgumentException();
+        default:
+          throw new IllegalArgumentException();
+      }
     }
 
     // Fission mode: debug info is in .dwo files instead of .o files. Inform the linker of this.

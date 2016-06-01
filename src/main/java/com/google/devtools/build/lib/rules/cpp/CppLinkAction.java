@@ -108,11 +108,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
-
-  /**
-   * The name of this action for the purpose of crosstool features/action_configs
-   */
-  private static final String ACTION_NAME = "c++-link";
   
   private final CppConfiguration cppConfiguration;
   private final LibraryToLink outputLibrary;
@@ -655,9 +650,8 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     /**
      * Returns the action name for purposes of querying the crosstool.
      */
-    // TODO(b/28791924): Expand action types to values in Link.LinkTargetType.
     private String getActionName() {
-      return ACTION_NAME;
+      return linkType.getActionName();
     }
 
     public CppLinkAction.Builder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {

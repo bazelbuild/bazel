@@ -92,7 +92,16 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_HEADER_PREPROCESSING,
             CppCompileAction.CPP_MODULE_COMPILE,
             CppCompileAction.ASSEMBLE,
-            CppCompileAction.PREPROCESS_ASSEMBLE)),
+            CppCompileAction.PREPROCESS_ASSEMBLE,
+            Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
+            // We need to create pic-specific actions for link actions, as they will produce
+            // differently named outputs.
+            Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.EXECUTABLE.getActionName())),
     CC_AND_OBJC(
         FileTypeSet.of(
             CppFileTypes.CPP_SOURCE,
@@ -111,8 +120,17 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_HEADER_PREPROCESSING,
             CppCompileAction.CPP_MODULE_COMPILE,
             CppCompileAction.ASSEMBLE,
-            CppCompileAction.PREPROCESS_ASSEMBLE));
-            
+            CppCompileAction.PREPROCESS_ASSEMBLE,
+            Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
+            // We need to create pic-specific actions for link actions, as they will produce
+            // differently named outputs. 
+            Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
+            Link.LinkTargetType.EXECUTABLE.getActionName()));
+
 
     private final FileTypeSet sourceTypeSet;
     private final Set<String> actionConfigSet;

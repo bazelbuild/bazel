@@ -802,7 +802,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                 + "  flag_set {"
                 + "    action: 'c-compile'"
                 + "    action: 'c++-compile'"
-                + "    action: 'c++-link'"
+                + "    action: 'c++-link-static-library'"
+                + "    action: 'c++-link-pic-static-library'"
+                + "    action: 'c++-link-interface-dynamic-library'"
+                + "    action: 'c++-link-dynamic-library'"
+                + "    action: 'c++-link-alwayslink-static-library'"
+                + "    action: 'c++-link-alwayslink-pic-static-library'"
+                + "    action: 'c++-link-executable'"
                 + "    flag_group {"
                 + "      flag: '-Xgcc-only=-fprofile-generate=%{fdo_instrument_path}'"
                 + "      flag: '-Xclang-only=-fprofile-instr-generate=%{fdo_instrument_path}'"
@@ -891,7 +897,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                 + "    }"
                 + "  }"
                 + "  flag_set {"
-                + "    action: 'c++-link'"
+                + "    action: 'c++-link-static-library'"
+                + "    action: 'c++-link-pic-static-library'"
+                + "    action: 'c++-link-interface-dynamic-library'"
+                + "    action: 'c++-link-dynamic-library'"
+                + "    action: 'c++-link-always-link-static-library'"
+                + "    action: 'c++-link-always-link-pic-static-library'"
+                + "    action: 'c++-link-executable'"
                 + "    flag_group {"
                 + "      flag: '-lgcov'"
                 + "    }"
@@ -1023,6 +1035,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
+  }
+
+  /**
+   * Returns the path of the crosstool.
+   */
+  public PathFragment getCrosstoolTopPathFragment() {
+    return crosstoolTopPathFragment;
   }
 
   /**

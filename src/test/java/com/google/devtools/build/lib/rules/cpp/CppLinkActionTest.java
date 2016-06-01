@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -74,11 +75,18 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "feature {",
                 "   name: 'a'",
                 "   flag_set {",
-                "      action: 'c++-link'",
+                "      action: '" + Link.LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "      flag_group { flag: 'some_flag' }",
                 "   }",
+                "}",
+                "action_config {",
+                "   config_name: '" + Link.LinkTargetType.EXECUTABLE.getActionName() + "'",
+                "   action_name: '" + Link.LinkTargetType.EXECUTABLE.getActionName() + "'",
+                "   tool {",
+                "      tool_path: 'toolchain/mock_tool'",
+                "   }",
                 "}")
-            .getFeatureConfiguration("a");
+            .getFeatureConfiguration("a", Link.LinkTargetType.EXECUTABLE.getActionName());
 
     CppLinkAction linkAction =
         createLinkBuilder(
@@ -88,17 +96,18 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableList.<LibraryToLink>of(),
                 featureConfiguration)
             .build();
+    assertThat(Joiner.on(" ").join(linkAction.getArgv())).contains("mock_tool");
     assertThat(linkAction.getArgv()).contains("some_flag");
   }
 
   @Test
   public void testToolchainFeatureEnv() throws Exception {
-     FeatureConfiguration featureConfiguration =
+    FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
                 "feature {",
                 "   name: 'a'",
                 "   env_set {",
-                "      action: 'c++-link'",
+                "      action: '" + Link.LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "      env_entry { key: 'foo', value: 'bar' }",
                 "   }",
                 "}")
@@ -186,7 +195,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 (i & 1) == 0 ? ImmutableList.of(oFile) : ImmutableList.of(oFile2));
             builder.setLinkType(
                 (i & 2) == 0 ? LinkTargetType.STATIC_LIBRARY : LinkTargetType.DYNAMIC_LIBRARY);
-            builder.setFeatureConfiguration(new FeatureConfiguration());
             return builder.build();
           }
         });

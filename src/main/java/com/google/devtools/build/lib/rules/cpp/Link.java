@@ -94,32 +94,34 @@ public abstract class Link {
    */
   public enum LinkTargetType {
     /** A normal static archive. */
-    STATIC_LIBRARY(".a", true),
+    STATIC_LIBRARY(".a", true, "c++-link-static-library"),
 
     /** A static archive with .pic.o object files (compiled with -fPIC). */
-    PIC_STATIC_LIBRARY(".pic.a", true),
+    PIC_STATIC_LIBRARY(".pic.a", true, "c++-link-pic-static-library"),
 
     /** An interface dynamic library. */
-    INTERFACE_DYNAMIC_LIBRARY(".ifso", false),
+    INTERFACE_DYNAMIC_LIBRARY(".ifso", false, "c++-link-interface-dynamic-library"),
 
     /** A dynamic library. */
-    DYNAMIC_LIBRARY(".so", false),
+    DYNAMIC_LIBRARY(".so", false, "c++-link-dynamic-library"),
 
     /** A static archive without removal of unused object files. */
-    ALWAYS_LINK_STATIC_LIBRARY(".lo", true),
+    ALWAYS_LINK_STATIC_LIBRARY(".lo", true, "c++-link-alwayslink-static-library"),
 
     /** A PIC static archive without removal of unused object files. */
-    ALWAYS_LINK_PIC_STATIC_LIBRARY(".pic.lo", true),
+    ALWAYS_LINK_PIC_STATIC_LIBRARY(".pic.lo", true, "c++-link-alwayslink-pic-static-library"),
 
     /** An executable binary. */
-    EXECUTABLE("", false);
+    EXECUTABLE("", false, "c++-link-executable");
 
     private final String extension;
     private final boolean staticLibraryLink;
+    private final String actionName;
 
-    private LinkTargetType(String extension, boolean staticLibraryLink) {
+    private LinkTargetType(String extension, boolean staticLibraryLink, String actionName) {
       this.extension = extension;
       this.staticLibraryLink = staticLibraryLink;
+      this.actionName = actionName;
     }
 
     public String getExtension() {
@@ -128,6 +130,14 @@ public abstract class Link {
 
     public boolean isStaticLibraryLink() {
       return staticLibraryLink;
+    }
+    
+    /**
+     * The name of a link action with this LinkTargetType, for the purpose of crosstool feature
+     * selection.
+     */
+    public String getActionName() {
+      return actionName;
     }
   }
 
