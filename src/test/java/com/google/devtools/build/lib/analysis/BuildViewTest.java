@@ -151,8 +151,8 @@ public class BuildViewTest extends BuildViewTestBase {
     OutputFileConfiguredTarget outputCT = (OutputFileConfiguredTarget)
         getConfiguredTarget("//pkg:a.out");
     Artifact outputArtifact = outputCT.getArtifact();
-    assertEquals(getTargetConfiguration().getBinDirectory(), outputArtifact.getRoot());
-    assertEquals(getTargetConfiguration().getBinFragment().getRelative("pkg/a.out"),
+    assertEquals(outputCT.getConfiguration().getBinDirectory(), outputArtifact.getRoot());
+    assertEquals(outputCT.getConfiguration().getBinFragment().getRelative("pkg/a.out"),
         outputArtifact.getExecPath());
     assertEquals(new PathFragment("pkg/a.out"), outputArtifact.getRootRelativePath());
 
@@ -345,7 +345,7 @@ public class BuildViewTest extends BuildViewTestBase {
       fileDependency =
           Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:file"),
-              Attribute.ConfigurationTransition.NONE,
+              Attribute.ConfigurationTransition.NULL,
               ImmutableSet.<AspectDescriptor>of());
     } else {
       innerDependency =
@@ -1213,6 +1213,19 @@ public class BuildViewTest extends BuildViewTestBase {
         "Target '//child:b' contains an error and its package is in error and referenced "
         + "by '//parent:a'", 1);
   }
+
+  @Test
+  public void testTopLevelTargetsAreTrimmedWithDynamicConfigurations() throws Exception {
+    scratch.file("foo/BUILD",
+        "sh_library(name='x', ",
+        "        srcs=['x.sh'])");
+    useConfiguration("--experimental_dynamic_configs");
+    AnalysisResult res = update("//foo:x");
+    ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
+    assertThat(topLevelTarget.getConfiguration().getAllFragments().keySet()).containsExactly(
+        ruleClassProvider.getUniversalFragment());
+  }
+
 
   /** Runs the same test with the reduced loading phase. */
   @TestSpec(size = Suite.SMALL_TESTS)

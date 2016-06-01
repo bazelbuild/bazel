@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.skyframe.ActionLookupValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -425,10 +427,11 @@ public class BuildView {
     skyframeBuildView.setConfigurations(configurations);
 
     // Determine the configurations.
-    List<TargetAndConfiguration> nodes = nodesForTargets(configurations, targets);
+    List<TargetAndConfiguration> topLevelTargetsWithConfigs =
+        nodesForTopLevelTargets(configurations, targets, eventHandler);
 
-    List<ConfiguredTargetKey> targetSpecs =
-        Lists.transform(nodes, new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
+    List<ConfiguredTargetKey> topLevelCtKeys = Lists.transform(topLevelTargetsWithConfigs,
+        new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
           @Override
           public ConfiguredTargetKey apply(TargetAndConfiguration node) {
             return new ConfiguredTargetKey(node.getLabel(), node.getConfiguration());
@@ -446,7 +449,7 @@ public class BuildView {
         PathFragment bzlFile = new PathFragment("/" + aspect.substring(0, delimiterPosition));
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
-        for (ConfiguredTargetKey targetSpec : targetSpecs) {
+        for (ConfiguredTargetKey targetSpec : topLevelCtKeys) {
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
@@ -461,7 +464,7 @@ public class BuildView {
         final NativeAspectClass aspectFactoryClass =
             ruleClassProvider.getNativeAspectClassMap().get(aspect);
         if (aspectFactoryClass != null) {
-          for (ConfiguredTargetKey targetSpec : targetSpecs) {
+          for (ConfiguredTargetKey targetSpec : topLevelCtKeys) {
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
@@ -482,13 +485,13 @@ public class BuildView {
     try {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
-              eventHandler, targetSpecs, aspectKeys, eventBus, viewOptions.keepGoing);
+              eventHandler, topLevelCtKeys, aspectKeys, eventBus, viewOptions.keepGoing);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots(), configurations);
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
 
-    int numTargetsToAnalyze = nodes.size();
+    int numTargetsToAnalyze = topLevelTargetsWithConfigs.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
@@ -665,9 +668,15 @@ public class BuildView {
     }
   }
 
-  @VisibleForTesting
-  List<TargetAndConfiguration> nodesForTargets(BuildConfigurationCollection configurations,
-      Collection<Target> targets) {
+  /**
+   * Given a set of top-level targets and a configuration collection, returns the appropriate
+   * <Target, Configuration> pair for each target.
+   *
+   * <p>Preserves the original input ordering.
+   */
+  private List<TargetAndConfiguration> nodesForTopLevelTargets(
+      BuildConfigurationCollection configurations, Collection<Target> targets,
+      EventHandler eventHandler) throws InterruptedException {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
@@ -677,8 +686,73 @@ public class BuildView {
             BuildConfigurationCollection.configureTopLevelTarget(config, target)));
       }
     }
-    return ImmutableList.copyOf(nodes);
+    return configurations.useDynamicConfigurations()
+        ? trimConfigurations(nodes, eventHandler)
+        : ImmutableList.copyOf(nodes);
   }
+
+  /**
+   * Transforms a collection of <Target, Configuration> pairs by trimming each target's
+   * configuration to only the fragments the target and its transitive dependencies need.
+   *
+   * <p>Preserves the original input order. Uses original (untrimmed) configurations for targets
+   * that can't be evaluated (e.g. due to loading phase errors).
+   *
+   * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle
+   * {@link ConfiguredTarget}s should have exactly as much information in their configurations as
+   * they need to evaluate and no more (e.g. there's no need for Android settings in a C++
+   * configured target).
+   */
+  // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
+  // never make it through analysis (and especially not seed ConfiguredTargetValues)
+  private List<TargetAndConfiguration> trimConfigurations(Iterable<TargetAndConfiguration> inputs,
+      EventHandler eventHandler) throws InterruptedException {
+    Map<Label, TargetAndConfiguration> labelsToTargets = new LinkedHashMap<>();
+    BuildConfiguration topLevelConfig = null;
+    List<Dependency> asDeps = new ArrayList<Dependency>();
+
+    for (TargetAndConfiguration targetAndConfig : inputs) {
+      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig);
+      BuildConfiguration targetConfig = targetAndConfig.getConfiguration();
+      if (targetConfig != null) {
+        asDeps.add(Dependency.withTransitionAndAspects(
+            targetAndConfig.getLabel(),
+            Attribute.ConfigurationTransition.NONE,
+            ImmutableSet.<AspectDescriptor>of()));  // TODO(bazel-team): support top-level aspects
+
+        // TODO(bazel-team): support multiple top-level configurations (for, e.g.,
+        // --experimental_multi_cpu). This requires refactoring the getConfigurations() call below.
+        Verify.verify(topLevelConfig == null || topLevelConfig == targetConfig);
+        topLevelConfig = targetConfig;
+      }
+    }
+
+    Map<Label, TargetAndConfiguration> successfullyEvaluatedTargets = new LinkedHashMap<>();
+    if (!asDeps.isEmpty()) {
+      Map<Dependency, BuildConfiguration> trimmedTargets =
+          skyframeExecutor.getConfigurations(eventHandler, topLevelConfig.getOptions(), asDeps);
+      for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entrySet()) {
+        Label targetLabel = trimmedTarget.getKey().getLabel();
+        successfullyEvaluatedTargets.put(targetLabel,
+            new TargetAndConfiguration(
+                labelsToTargets.get(targetLabel).getTarget(), trimmedTarget.getValue()));
+      }
+    }
+
+    ImmutableList.Builder<TargetAndConfiguration> result =
+        ImmutableList.<TargetAndConfiguration>builder();
+    for (TargetAndConfiguration originalInput : inputs) {
+      if (successfullyEvaluatedTargets.containsKey(originalInput.getLabel())) {
+        // The configuration was successfully trimmed.
+        result.add(successfullyEvaluatedTargets.get(originalInput.getLabel()));
+      } else {
+        // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
+        result.add(originalInput);
+      }
+    }
+    return result.build();
+  }
+
 
   /**
    * Sets the possible artifact roots in the artifact factory. This allows the factory to resolve

@@ -109,6 +109,13 @@ public final class BuildConfigurationCollection {
     return result;
   }
 
+  /**
+   * Returns whether this build uses dynamic configurations.
+   */
+  public boolean useDynamicConfigurations() {
+    return getTargetConfigurations().get(0).useDynamicConfigurations();
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
