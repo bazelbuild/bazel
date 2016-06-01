@@ -136,18 +136,19 @@ provided  by the target to which it is applied (via the `target` argument).
 
 Just like a rule implementation function, an aspect implementation function
 returns a struct of providers that are accessible to its dependencies.
-* The set of providers for an aspect application A(X) is the union of providers
-  that come from the implementation of a rule for target X and from
-  the implementation of aspect A. It is an error if a target and an aspect that
-  is applied to it each provide a provider with the same name.
-* For the aspect implementation, the values of attributes along which
-  the aspect is propagated (from the `attr_aspect` list) are replaced with
-  the results of an application of the aspect to them. For example, if target
-  X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
-  In the `_metal_proto_aspect_impl` function above, ctx.rule.attr.deps will be
-  Target objects that are the results of applying the aspect to the 'deps'
-  of the original target to which the aspect has been applied.
-  That allows the aspect to examine `metal_proto` provider on them.
+
+*   The set of providers for an aspect application A(X) is the union of providers
+    that come from the implementation of a rule for target X and from
+    the implementation of aspect A. It is an error if a target and an aspect that
+    is applied to it each provide a provider with the same name.
+*   For the aspect implementation, the values of attributes along which
+    the aspect is propagated (from the `attr_aspect` list) are replaced with
+    the results of an application of the aspect to them. For example, if target
+    X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
+    In the `_metal_proto_aspect_impl` function above, ctx.rule.attr.deps will be
+    Target objects that are the results of applying the aspect to the 'deps'
+    of the original target to which the aspect has been applied.
+    That allows the aspect to examine `metal_proto` provider on them.
 
 
 ## Applying aspects
