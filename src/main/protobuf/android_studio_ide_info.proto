@@ -102,6 +102,11 @@ message TestInfo {
   string size = 1;
 }
 
+message JavaToolchainIdeInfo {
+  string source_version = 1;
+  string target_version = 2;
+}
+
 message RuleIdeInfo {
   enum Kind {
     ANDROID_BINARY = 0;
@@ -147,4 +152,5 @@ message RuleIdeInfo {
   TestInfo test_info = 15;
 
   ProtoLibraryLegacyJavaIdeInfo proto_library_legacy_java_ide_info = 16;
+  JavaToolchainIdeInfo java_toolchain_ide_info = 17;
 }

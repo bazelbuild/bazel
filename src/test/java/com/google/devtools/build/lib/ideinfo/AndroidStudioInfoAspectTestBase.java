@@ -21,7 +21,6 @@ import static org.junit.Assert.assertFalse;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -196,18 +195,18 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
       AndroidStudioInfoFilesProvider provider =
           configuredAspect.getProvider(AndroidStudioInfoFilesProvider.class);
       Iterable<Artifact> artifacts = provider.getIdeInfoFiles();
-      ImmutableMap.Builder<String, RuleIdeInfo> builder = ImmutableMap.builder();
+      Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
       for (Artifact artifact : artifacts) {
         Action generatingAction = getGeneratingAction(artifact);
         if (generatingAction instanceof BinaryFileWriteAction) {
           BinaryFileWriteAction writeAction = (BinaryFileWriteAction) generatingAction;
           RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(writeAction.getSource().openStream());
-          builder.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+          ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
         } else {
           verifyPackageManifestSpawnAction(generatingAction);
         }
       }
-      return builder.build();
+      return ruleIdeInfos;
     } else {
       BuildView.AnalysisResult analysisResult = update(
           ImmutableList.of(target),
@@ -265,6 +264,16 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
 
   protected List<String> getIdeResolveFiles() {
     return getOutputGroupResult(AndroidStudioInfoAspect.IDE_RESOLVE);
+  }
+
+  protected static List<RuleIdeInfo> findJavaToolchain(Map<String, RuleIdeInfo> ruleIdeInfos) {
+    List<RuleIdeInfo> result = Lists.newArrayList();
+    for (RuleIdeInfo ruleIdeInfo : ruleIdeInfos.values()) {
+      if (ruleIdeInfo.getKindString().equals("java_toolchain")) {
+        result.add(ruleIdeInfo);
+      }
+    }
+    return result;
   }
 
   protected abstract boolean isNativeTest();

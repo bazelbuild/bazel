@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CToolchainIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaToolchainIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
@@ -134,6 +136,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     builder.add(new PrerequisiteAttr("exports", BuildType.LABEL_LIST));
     // From android_test
     builder.add(new PrerequisiteAttr("binary_under_test", BuildType.LABEL));
+    // from java_* rules
+    builder.add(new PrerequisiteAttr(":java_toolchain", BuildType.LABEL));
     // from cc_* rules
     builder.add(new PrerequisiteAttr(":cc_toolchain", BuildType.LABEL));
 
@@ -382,6 +386,14 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         builder.setSize(attr);
       }
       outputBuilder.setTestInfo(builder);
+    }
+
+    // Java toolchain rule
+    JavaToolchainProvider javaToolchainProvider = base.getProvider(JavaToolchainProvider.class);
+    if (javaToolchainProvider != null) {
+      outputBuilder.setJavaToolchainIdeInfo(JavaToolchainIdeInfo.newBuilder()
+          .setSourceVersion(javaToolchainProvider.getSourceVersion())
+          .setTargetVersion(javaToolchainProvider.getTargetVersion()));
     }
 
     androidStudioInfoSemantics.augmentRuleInfo(

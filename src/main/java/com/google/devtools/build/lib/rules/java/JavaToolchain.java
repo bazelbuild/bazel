@@ -78,6 +78,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             genClass,
             ijar);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
+        .addSkylarkTransitiveInfo(JavaToolchainSkylarkApiProvider.NAME,
+            new JavaToolchainSkylarkApiProvider())
         .add(JavaToolchainProvider.class, provider)
         .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));

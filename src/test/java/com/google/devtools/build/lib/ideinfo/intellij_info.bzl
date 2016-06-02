@@ -17,86 +17,83 @@
 # A map to convert rule names to a RuleIdeInfo.Kind
 # Deprecated - only here for backwards compatibility with the tests
 _kind_to_kind_id = {
-  "android_binary"  : 0,
-  "android_library" : 1,
-  "android_test" :    2,
-  "android_robolectric_test" : 3,
-  "java_library" : 4,
-  "java_test" : 5,
-  "java_import" : 6,
-  "java_binary" : 7,
-  "proto_library" : 8,
-  "android_sdk" : 9,
-  "java_plugin" : 10,
-  "android_resources" : 11,
-  "cc_library" : 12,
-  "cc_binary" : 13,
-  "cc_test" : 14,
-  "cc_inc_library" : 15,
-  "cc_toolchain": 16,
-  "java_wrap_cc": 17,
+    "android_binary": 0,
+    "android_library": 1,
+    "android_test": 2,
+    "android_robolectric_test": 3,
+    "java_library": 4,
+    "java_test": 5,
+    "java_import": 6,
+    "java_binary": 7,
+    "proto_library": 8,
+    "android_sdk": 9,
+    "java_plugin": 10,
+    "android_resources": 11,
+    "cc_library": 12,
+    "cc_binary": 13,
+    "cc_test": 14,
+    "cc_inc_library": 15,
+    "cc_toolchain": 16,
+    "java_wrap_cc": 17,
 }
 
 # A map to convert JavaApiFlavor to ProtoLibraryLegacyJavaIdeInfo.ApiFlavor
 _api_flavor_to_id = {
-  "FLAVOR_NONE": 0,
-  "FLAVOR_IMMUTABLE": 1,
-  "FLAVOR_MUTABLE": 2,
-  "FLAVOR_BOTH": 3,
+    "FLAVOR_NONE": 0,
+    "FLAVOR_IMMUTABLE": 1,
+    "FLAVOR_MUTABLE": 2,
+    "FLAVOR_BOTH": 3,
 }
 
-_unrecognized_rule = -1;
+_unrecognized_rule = -1
 
 def get_kind_legacy(target, ctx):
   """ Gets kind of a rule given a target and rule context.
   """
   return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
 
-
 # Compile-time dependency attributes, grouped by type.
 DEPS = struct(
     label = [
-      "binary_under_test", #  From android_test
-      "java_lib",# From proto_library
-      "_proto1_java_lib", # From proto_library
-      "_junit", # From android_robolectric_test
-      "_cc_toolchain", # From C rules
-      "module_target",
+        "binary_under_test",  #  From android_test
+        "java_lib",  # From proto_library
+        "_proto1_java_lib",  # From proto_library
+        "_junit",  # From android_robolectric_test
+        "_cc_toolchain",  # From C rules
+        "module_target",
+        "_java_toolchain",  # From java rules
     ],
     label_list = [
-      "deps",
-      "exports",
-      "_robolectric", # From android_robolectric_test
+        "deps",
+        "exports",
+        "_robolectric",  # From android_robolectric_test
     ],
 )
-
 
 # Run-time dependency attributes, grouped by type.
 RUNTIME_DEPS = struct(
     label = [
-      # todo(dslomov,tomlu): resources are tricky since they are sometimes labels and sometimes label_lists.
-      # "resources"
+        # todo(dslomov,tomlu): resources are tricky since they are sometimes labels and sometimes label_lists.
+        # "resources"
     ],
     label_list = [
-      "runtime_deps",
-    ]
+        "runtime_deps",
+    ],
 )
 
 # All dependency attributes along which the aspect propagates, grouped by type.
 ALL_DEPS = struct(
-  label = DEPS.label + RUNTIME_DEPS.label,
-  label_list = DEPS.label_list + RUNTIME_DEPS.label_list,
+    label = DEPS.label + RUNTIME_DEPS.label,
+    label_list = DEPS.label_list + RUNTIME_DEPS.label_list,
 )
 
 def struct_omit_none(**kwargs):
-    """ A replacement for standard `struct` function that omits the fields with None value.
-    """
+    """A replacement for standard `struct` function that omits the fields with None value."""
     d = {name: kwargs[name] for name in kwargs if kwargs[name] != None}
     return struct(**d)
 
 def artifact_location(file):
-  """ Creates an ArtifactLocation proto from a File.
-  """
+  """Creates an ArtifactLocation proto from a File."""
   if file == None:
     return None
   return struct_omit_none(
@@ -106,8 +103,7 @@ def artifact_location(file):
   )
 
 def source_directory_tuple(resource_file):
-  """ Creates a tuple of (source directory, is_source, root execution path) from an android resource file.
-  """
+  """Creates a tuple of (source directory, is_source, root execution path)."""
   return (
       str(android_common.resource_source_directory(resource_file)),
       resource_file.is_source,
@@ -115,7 +111,9 @@ def source_directory_tuple(resource_file):
   )
 
 def all_unique_source_directories(resources):
-  """ Builds a list of ArtifactLocation protos for all source directories for a list of Android resources.
+  """Builds a list of ArtifactLocation protos.
+
+  This is done for all source directories for a list of Android resources.
   """
   # Sets can contain tuples, but cannot contain structs.
   # Use set of tuples to unquify source directories.
@@ -126,16 +124,14 @@ def all_unique_source_directories(resources):
           for (relative_path, is_source, root_execution_path_fragment) in source_directory_tuples]
 
 def build_file_artifact_location(build_file_path):
-  """ Creates an ArtifactLocation proto representing a location of a given BUILD file.
-  """
+  """Creates an ArtifactLocation proto representing a location of a given BUILD file."""
   return struct(
       relative_path = build_file_path,
       is_source = True,
   )
 
 def library_artifact(java_output):
-  """ Creates a LibraryArtifact representing a given java_output.
-  """
+  """Creates a LibraryArtifact representing a given java_output."""
   if java_output == None or java_output.class_jar == None:
     return None
   return struct_omit_none(
@@ -145,24 +141,22 @@ def library_artifact(java_output):
   )
 
 def annotation_processing_jars(annotation_processing):
-  """ Creates a LibraryArtifact representing Java annotation processing jars.
-  """
+  """Creates a LibraryArtifact representing Java annotation processing jars."""
   return struct_omit_none(
         jar = artifact_location(annotation_processing.class_jar),
         source_jar = artifact_location(annotation_processing.source_jar),
   )
 
 def jars_from_output(output):
-  """ Collect jars for ide-resolve-files from Java output.
-  """
+  """Collect jars for ide-resolve-files from Java output."""
   if output == None:
     return []
   return [jar
           for jar in [output.class_jar, output.ijar, output.source_jar]
           if jar != None and not jar.is_source]
 
-def c_rule_ide_info(target, ctx):
-  """ Build CRuleIdeInfo.
+def build_c_rule_ide_info(target, ctx):
+  """Build CRuleIdeInfo.
 
   Returns a pair of (CRuleIdeInfo proto, a set of ide-resolve-files).
   (or (None, empty set) if the rule is not a C rule).
@@ -198,8 +192,8 @@ def c_rule_ide_info(target, ctx):
          ),
          ide_resolve_files)
 
-def c_toolchain_ide_info(target, ctx):
-  """ Build CToolchainIdeInfo.
+def build_c_toolchain_ide_info(target, ctx):
+  """Build CToolchainIdeInfo.
 
   Returns a pair of (CToolchainIdeInfo proto, a set of ide-resolve-files).
   (or (None, empty set) if the rule is not a cc_toolchain rule).
@@ -244,8 +238,9 @@ def getSourcesFromRule(context):
             for file in src.files]
   return []
 
-def java_rule_ide_info(target, ctx):
-  """ Build JavaRuleIdeInfo.
+def build_java_rule_ide_info(target, ctx):
+  """
+  Build JavaRuleIdeInfo.
 
   Returns a pair of (JavaRuleIdeInfo proto, a set of ide-resolve-files).
   (or (None, empty set) if the rule is not Java rule).
@@ -278,13 +273,14 @@ def java_rule_ide_info(target, ctx):
           ),
           ide_resolve_files)
 
-def android_rule_ide_info(target, ctx):
-  """ Build AndroidRuleIdeInfo.
+def build_android_rule_ide_info(target, ctx):
+  """
+  Build AndroidRuleIdeInfo.
 
   Returns a pair of (AndroidRuleIdeInfo proto, a set of ide-resolve-files).
   (or (None, empty set) if the rule is not Android rule).
   """
-  if not hasattr(target, 'android'):
+  if not hasattr(target, "android"):
     return (None, set())
   ide_resolve_files = set(jars_from_output(target.android.idl.output))
   return (struct_omit_none(
@@ -299,8 +295,8 @@ def android_rule_ide_info(target, ctx):
         ),
         ide_resolve_files)
 
-def test_info(target, ctx):
-  """ Build TestInfo """
+def build_test_info(target, ctx):
+  """Build TestInfo"""
   if not is_test_rule(ctx):
     return None
   return struct_omit_none(
@@ -311,9 +307,9 @@ def is_test_rule(ctx):
   kind_string = ctx.rule.kind
   return kind_string.endswith("_test")
 
-def proto_library_legacy_java_ide_info(target, ctx):
-  """ Build ProtoLibraryLegacyJavaIdeInfo."""
-  if not hasattr(target, 'proto_legacy_java'):
+def build_proto_library_legacy_java_ide_info(target, ctx):
+  """Build ProtoLibraryLegacyJavaIdeInfo."""
+  if not hasattr(target, "proto_legacy_java"):
     return None
   proto_info = target.proto_legacy_java.legacy_info
   return struct_omit_none(
@@ -324,8 +320,19 @@ def proto_library_legacy_java_ide_info(target, ctx):
     jars_immutable = [library_artifact(output) for output in proto_info.jars_immutable],
   )
 
+def build_java_toolchain_ide_info(target):
+  """Build JavaToolchainIdeInfo."""
+  if not hasattr(target, "java_toolchain"):
+    return None
+  toolchain_info = target.java_toolchain
+  return struct_omit_none(
+      source_version = toolchain_info.source_version,
+      target_version = toolchain_info.target_version,
+  )
+
 def collect_labels(rule_attrs, attrs):
-  """ Collect labels from attribute values.
+  """
+  Collect labels from attribute values.
 
   Assuming that values of attributes from attr_list in rule_atrs
   are label lists, collect a set of string representation of those labels.
@@ -339,8 +346,7 @@ def collect_labels(rule_attrs, attrs):
       if hasattr(rule_attrs, attr_name)])
 
 def collect_export_deps(rule_attrs):
-  """ Build a union of all export dependencies.
-  """
+  """Build a union of all export dependencies."""
   result = set()
   for attr_name in DEPS.label_list:
     if hasattr(rule_attrs, attr_name):
@@ -354,8 +360,7 @@ def collect_export_deps(rule_attrs):
   return result
 
 def _aspect_impl(target, ctx):
-  """ Aspect implementation function
-  """
+  """Aspect implementation function."""
   kind_legacy = get_kind_legacy(target, ctx)
   kind_string = ctx.rule.kind
   rule_attrs = ctx.rule.attr
@@ -383,24 +388,26 @@ def _aspect_impl(target, ctx):
 
 
   # Collect C-specific information
-  (c_rule_ide_info, c_ide_resolve_files) = c_rule_ide_info(target, ctx)
+  (c_rule_ide_info, c_ide_resolve_files) = build_c_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | c_ide_resolve_files
 
-  (c_toolchain_ide_info, c_toolchain_ide_resolve_files) = c_toolchain_ide_info(target, ctx)
+  (c_toolchain_ide_info, c_toolchain_ide_resolve_files) = build_c_toolchain_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | c_toolchain_ide_resolve_files
 
   # Collect Java-specific information
-  (java_rule_ide_info, java_ide_resolve_files) = java_rule_ide_info(target, ctx)
+  (java_rule_ide_info, java_ide_resolve_files) = build_java_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | java_ide_resolve_files
 
   # Collect Android-specific information
-  (android_rule_ide_info, android_ide_resolve_files) = android_rule_ide_info(target, ctx)
+  (android_rule_ide_info, android_ide_resolve_files) = build_android_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
-  proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info(target, ctx)
+  proto_library_legacy_java_ide_info = build_proto_library_legacy_java_ide_info(target, ctx)
+
+  java_toolchain_ide_info = build_java_toolchain_ide_info(target)
 
   # Collect test info
-  test_info = test_info(target, ctx)
+  test_info = build_test_info(target, ctx)
 
   # Collect information about exports.
   export_deps = set()
@@ -426,6 +433,7 @@ def _aspect_impl(target, ctx):
       tags = ctx.rule.attr.tags,
       test_info = test_info,
       proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info,
+      java_toolchain_ide_info = java_toolchain_ide_info,
   )
 
   # Output the ide information file.
@@ -449,7 +457,7 @@ def _aspect_impl(target, ctx):
     )
 
 intellij_info_aspect = aspect(
-    implementation = _aspect_impl,
     attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list,
     fragments = ["cpp"],
+    implementation = _aspect_impl,
 )
