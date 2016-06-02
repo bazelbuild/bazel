@@ -42,13 +42,20 @@ import java.util.Stack;
  */
 public final class Lexer {
 
+  // Characters that can come immediately prior to an '=' character to generate
+  // a different token
   private static final Map<Character, TokenKind> EQUAL_TOKENS =
-      ImmutableMap.<Character, TokenKind>of(
-          '=', TokenKind.EQUALS_EQUALS,
-          '!', TokenKind.NOT_EQUALS,
-          '>', TokenKind.GREATER_EQUALS,
-          '<', TokenKind.LESS_EQUALS,
-          '+', TokenKind.PLUS_EQUALS);
+      ImmutableMap.<Character, TokenKind>builder()
+          .put('=', TokenKind.EQUALS_EQUALS)
+          .put('!', TokenKind.NOT_EQUALS)
+          .put('>', TokenKind.GREATER_EQUALS)
+          .put('<', TokenKind.LESS_EQUALS)
+          .put('+', TokenKind.PLUS_EQUALS)
+          .put('-', TokenKind.MINUS_EQUALS)
+          .put('*', TokenKind.STAR_EQUALS)
+          .put('/', TokenKind.SLASH_EQUALS)
+          .put('%', TokenKind.PERCENT_EQUALS)
+          .build();
 
   private final EventHandler eventHandler;
 

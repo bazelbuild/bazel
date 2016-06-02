@@ -168,10 +168,15 @@ public class Parser {
           .put(TokenKind.STAR, Operator.MULT)
           .build();
 
+  // TODO(bazel-team): add support for |=
   private static final Map<TokenKind, Operator> augmentedAssignmentMethods =
       new ImmutableMap.Builder<TokenKind, Operator>()
-      .put(TokenKind.PLUS_EQUALS, Operator.PLUS) // += // TODO(bazel-team): other similar operators
-      .build();
+          .put(TokenKind.PLUS_EQUALS, Operator.PLUS)
+          .put(TokenKind.MINUS_EQUALS, Operator.MINUS)
+          .put(TokenKind.STAR_EQUALS, Operator.MULT)
+          .put(TokenKind.SLASH_EQUALS, Operator.DIVIDE)
+          .put(TokenKind.PERCENT_EQUALS, Operator.PERCENT)
+          .build();
 
   /** Highest precedence goes last.
    *  Based on: http://docs.python.org/2/reference/expressions.html#operator-precedence
