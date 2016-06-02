@@ -141,10 +141,6 @@ public final class BlazeRuntime {
 
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
-  // Pre-allocate memory for this object in case of an OOM.
-  private static final CommandCompleteEvent OOM_COMMAND_COMPLETE_EVENT =
-      new CommandCompleteEvent(ExitCode.OOM_ERROR.getNumericExitCode());
-
   private final Iterable<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
   private final Clock clock;
@@ -519,11 +515,7 @@ public final class BlazeRuntime {
       // thread won the race (unlikely, but possible), this may be incorrectly logged as a success.
       return;
     }
-    CommandCompleteEvent commandCompleteEvent =
-        exitCode == ExitCode.OOM_ERROR.getNumericExitCode()
-            ? OOM_COMMAND_COMPLETE_EVENT
-            : new CommandCompleteEvent(exitCode);
-    workspace.getSkyframeExecutor().getEventBus().post(commandCompleteEvent);
+    workspace.getSkyframeExecutor().getEventBus().post(new CommandCompleteEvent(exitCode));
   }
 
   /**
