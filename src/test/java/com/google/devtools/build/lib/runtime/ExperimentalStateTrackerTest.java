@@ -287,7 +287,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
   @Test
   public void testPassedVisible() throws Exception {
-    // The last test that passed should still be visible in the long status bar.
+    // The last test should still be visible in the long status bar, and colored as ok if it passed.
     ManualClock clock = new ManualClock();
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
@@ -303,13 +303,43 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
+    String expected = LoggingTerminalWriter.OK + labelA;
     assertTrue(
-        "Label " + labelA.toString() + " should be present in progress bar: " + output,
-        output.contains(labelA.toString()));
+        "Sequence '" + expected + "' should be present in colored progress bar: " + output,
+        output.contains(expected));
+  }
+
+  @Test
+  public void testFailedVisible() throws Exception {
+    // The last test should still be visible in the long status bar, and colored as fail if it
+    // did not pass.
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
+    Label labelA = Label.parseAbsolute("//foo/bar:baz");
+    ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
+    when(targetA.getLabel()).thenReturn(labelA);
+    ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
+    when(filteringComplete.getTestTargets()).thenReturn(ImmutableSet.of(targetA, targetB));
+    TestSummary testSummary = Mockito.mock(TestSummary.class);
+    when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED);
+    when(testSummary.getTarget()).thenReturn(targetA);
+
+    stateTracker.testFilteringComplete(filteringComplete);
+    stateTracker.testSummary(testSummary);
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    String expected = LoggingTerminalWriter.FAIL + labelA;
+    assertTrue(
+        "Sequence '" + expected + "' should be present in colored progress bar: " + output,
+        output.contains(expected));
   }
 
   @Test

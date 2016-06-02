@@ -410,10 +410,15 @@ class ExperimentalStateTracker {
     final String prefix = "; last test: ";
     if (!shortVersion && mostRecentTest != null) {
       if (terminalWriter != null) {
-        terminalWriter
-            .normal()
-            .append(prefix + shortenedLabelString(
-                mostRecentTest.getTarget().getLabel(), width - prefix.length()));
+        terminalWriter.normal().append(prefix);
+        if (mostRecentTest.getStatus() == BlazeTestStatus.PASSED) {
+          terminalWriter.okStatus();
+        } else {
+          terminalWriter.failStatus();
+        }
+        terminalWriter.append(
+            shortenedLabelString(mostRecentTest.getTarget().getLabel(), width - prefix.length()));
+        terminalWriter.normal();
       }
       return true;
     } else {
