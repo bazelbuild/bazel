@@ -40,7 +40,12 @@ mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 # Even though there are no quotes around $* in the .bat file, arguments
 # containing spaces seem to be passed properly.
 echo "Bootstrapping Bazel"
-./compile.sh "$*" || exit $?
+retCode=0
+./compile.sh "$*" || retCode=$?
+if (( $retCode != 0 )); then
+  echo "$retCode" > .unstable
+  exit 0
+fi
 
 # Run the only Windows-specific test we have.
 # todo(bazel-team): add more tests here.
@@ -48,6 +53,6 @@ echo "Running tests"
 retCode=0
 ./output/bazel test --test_output=all //src/test/shell/bazel:bazel_windows_cpp_test || retCode=$?
 # Exit for failure except for test failures (exit code 3).
-if (( $retCode != 0 && $retCode != 3 )); then
-  exit $retCode
+if (( $retCode != 0 )); then
+  echo "$retCode" > .unstable
 fi
