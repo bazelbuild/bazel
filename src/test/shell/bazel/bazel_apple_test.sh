@@ -287,6 +287,7 @@ int main() {
 EOF
 
   bazel build --verbose_failures //package:lipo_out  \
+    --ios_sdk_version=$IOS_SDK_VERSION \
     --ios_multi_cpus=i386,x86_64 || fail "should build apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
@@ -324,6 +325,7 @@ EOF
 
 
   bazel build --verbose_failures //package:extract_archives  \
+    --ios_sdk_version=$IOS_SDK_VERSION \
     --ios_multi_cpus=i386,x86_64 \
     || fail "should build multi-architecture archive"
 
