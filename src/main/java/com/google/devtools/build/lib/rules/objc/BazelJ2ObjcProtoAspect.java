@@ -52,7 +52,7 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//third_party/java/j2objc:proto_plugin_osx")));
+                toolsRepository + "//third_party/java/j2objc:proto_plugin")));
   }
 
   @Override

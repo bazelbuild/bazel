@@ -85,8 +85,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
         .attributeAspect("exports", this)
         .attributeAspect("runtime_deps", this)
         .add(attr("$protobuf_lib", LABEL)
-            .value(Label.parseAbsoluteUnchecked(
-                "//third_party/java/j2objc:proto_runtime_internal")))
+            .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:proto_runtime")))
         .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
                 toolsRepository + "//tools/objc:xcrunwrapper")))
