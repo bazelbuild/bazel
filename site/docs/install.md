@@ -22,11 +22,61 @@ Windows Support
 *   Currently, Windows support is highly experimental. For more information, see
     [Building Bazel on Windows](windows.html).
 
-## Install dependencies
 
-### Ubuntu
+## Install on Ubuntu
 
-#### 1. Install JDK 8
+#### Install JDK 8
+
+If you are running **Ubuntu Wily (15.10)**, you can skip this step.
+But for **Ubuntu Trusty (14.04 LTS)** users, since OpenJDK 8 is not available on Trusty, please install Oracle JDK 8:
+
+```
+$ sudo add-apt-repository ppa:webupd8team/java
+$ sudo apt-get update
+$ sudo apt-get install oracle-java8-installer
+```
+
+Note: You might need to `sudo apt-get install software-properties-common` if you don't have the `add-apt-repository` command. See [here](http://manpages.ubuntu.com/manpages/wily/man1/add-apt-repository.1.html).
+
+##### 1. Add Bazel distribution URI as a package source (one time setup)
+
+```
+$ echo "deb http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+$ curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
+```
+
+If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you want to install the testing version of Bazel, replace `stable` with `testing`.
+
+##### 2. Update and install Bazel
+
+`$ sudo apt-get update && sudo apt-get install bazel`
+
+Once installed, you can upgrade to newer version of Bazel with:
+
+`$ sudo apt-get upgrade bazel`
+
+## Install on Mac OS X
+
+##### 1. Install Homebrew on Mac OS X (one time setup)
+
+`$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`
+
+##### 2. Install Bazel using Homebrew
+
+`$ brew install bazel`
+
+Once installed, you can upgrade to newer version of Bazel with:
+
+`$ brew upgrade bazel`
+
+
+## Install with installer
+
+### Install dependencies
+
+#### Ubuntu
+
+##### 1. Install JDK 8
 
 **Ubuntu Trusty (14.04 LTS).** OpenJDK 8 is not available on Trusty. To
 install Oracle JDK 8:
@@ -45,22 +95,23 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 $ sudo apt-get install openjdk-8-jdk
 ```
 
-#### 2. Install required packages
+##### 2. Install required packages
 
 ```
 $ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
 ```
 
-### Mac OS X
 
-#### 1. Install JDK 8
+#### Mac OS X
+
+##### 1. Install JDK 8
 
 JDK 8 can be downloaded from
 [Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
 Look for "Mac OS X x64" under "Java SE Development Kit". This will download a
 DMG image with an install wizard.
 
-#### 2. Install XCode command line tools
+##### 2. Install XCode command line tools
 
 Xcode can be downloaded from the
 [Apple Developer Site](https://developer.apple.com/xcode/downloads/), which will
@@ -76,12 +127,12 @@ command:
 $ sudo gcc --version
 ```
 
-## Download Bazel
+### Download Bazel
 
 Download the [Bazel installer](https://github.com/bazelbuild/bazel/releases) for
 your operating system.
 
-## Run the installer
+### Run the installer
 
 Run the installer:
 
