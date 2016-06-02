@@ -18,6 +18,9 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -423,6 +426,110 @@ public class SplitZipTest {
     } catch (IOException e) {
       fail("Exception: " + e);
     }
+  }
+
+  @Test
+  public void testInputFilter() throws Exception {
+    new ZipFileBuilder()
+        .add("pkg/test.txt", "hello world")
+        .add("pkg/test2.txt", "how are you")
+        .add("pkg/test.class", "hello world")
+        .add("pkg/test2.class", "how are you")
+        .add("pkg/R$attr.class", "bye bye")
+        .create("input.zip");
+
+    new ZipFileBuilder()
+        .add("pkg/test.txt", "hello world")
+        .add("pkg/test2.class", "how are you")
+        .create("expected.zip");
+    byte[] expectedBytes = fileSystem.toByteArray("expected.zip");
+
+    new SplitZip()
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
+            "out/shard1.jar"))
+        .setVerbose(true)
+        .addInput(new ZipIn(fileSystem.getInputChannel("input.zip"), "input.zip"))
+        .setInputFilter(
+            Predicates.in(ImmutableSet.of("pkg/test.txt", "pkg/test2.class", "pkg2/test.class")))
+        .run()
+        .close();
+
+    byte[] outputBytes = fileSystem.toByteArray("out/shard1.jar");
+    assertThat(outputBytes).isEqualTo(expectedBytes);
+  }
+
+  @Test
+  public void testInputFilter_splitDexedClasses() throws Exception {
+    new ZipFileBuilder()
+        .add("pkg/test.class.dex", "hello world")
+        .add("pkg/test2.class", "how are you")
+        .add("pkg/R$attr.class", "bye bye")
+        .create("input.zip");
+
+    new ZipFileBuilder()
+        .add("pkg/test.class.dex", "hello world")
+        .add("pkg/R$attr.class", "bye bye")
+        .create("expected.zip");
+    byte[] expectedBytes = fileSystem.toByteArray("expected.zip");
+
+    new SplitZip()
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
+            "out/shard1.jar"))
+        .setVerbose(true)
+        .addInput(new ZipIn(fileSystem.getInputChannel("input.zip"), "input.zip"))
+        .setInputFilter(
+            Predicates.in(ImmutableSet.of("pkg/test.class", "pkg/R$attr.class")))
+        .setSplitDexedClasses(true)
+        .run()
+        .close();
+
+    byte[] outputBytes = fileSystem.toByteArray("out/shard1.jar");
+    assertThat(outputBytes).isEqualTo(expectedBytes);
+  }
+
+  @Test
+  public void testInputFilter_mainDexFilter() throws Exception {
+    new ZipFileBuilder()
+        .add("pkg1/test1.class", "hello world")
+        .add("pkg2/test1.class", "how are you")
+        .add("pkg1/test2.class", "hello world")
+        .add("pkg2/test2.class", "how are you")
+        .add("pkg1/test3.class", "bye bye")
+        .add("pkg2/test3.class", "bye bye")
+        .create("input.jar");
+
+    String classFileList = "pkg1/test1.class\npkg2/test2.class\n";
+    fileSystem.addFile("main_dex_list.txt", classFileList);
+
+    new SplitZip()
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
+            "out/shard1.jar"))
+        .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard2.jar", false),
+            "out/shard2.jar"))
+        .setVerbose(true)
+        .setMainClassListFile(fileSystem.getInputStream("main_dex_list.txt"))
+        .addInput(new ZipIn(fileSystem.getInputChannel("input.jar"), "input.jar"))
+        .setInputFilter(
+            Predicates.in(
+                ImmutableSet.of("pkg1/test1.class", "pkg2/test1.class", "pkg3/test1.class")))
+        .setSplitDexedClasses(true)
+        .run()
+        .close();
+
+    // 1st shard contains only main dex list classes also in the filter
+    new ZipFileBuilder()
+        .add("pkg1/test1.class", "hello world")
+        .create("expected/shard1.jar");
+
+    new ZipFileBuilder()
+        .add("pkg2/test1.class", "how are you")
+        .create("expected/shard2.jar");
+
+    assertThat(fileSystem.toByteArray("out/shard1.jar"))
+        .isEqualTo(fileSystem.toByteArray("expected/shard1.jar"));
+
+    assertThat(fileSystem.toByteArray("out/shard2.jar"))
+        .isEqualTo(fileSystem.toByteArray("expected/shard2.jar"));
   }
 
   @Test

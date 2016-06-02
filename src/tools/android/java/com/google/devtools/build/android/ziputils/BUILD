@@ -25,6 +25,7 @@ java_library(
             "DexMapper.java",
             "DexReducer.java",
             "SplitZip.java",
+            "SplitZipFilters.java",
             "Splitter.java",
         ],
     ),
@@ -37,12 +38,11 @@ java_library(
 
 java_library(
     name = "splitter_lib",
-    srcs = glob(
-        [
-            "SplitZip.java",
-            "Splitter.java",
-        ],
-    ),
+    srcs = [
+        "SplitZip.java",
+        "SplitZipFilters.java",
+        "Splitter.java",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":ziputils_lib",
@@ -61,6 +61,7 @@ java_binary(
     deps = [
         ":splitter_lib",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -88,5 +89,6 @@ java_binary(
         ":splitter_lib",
         ":ziputils_lib",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )

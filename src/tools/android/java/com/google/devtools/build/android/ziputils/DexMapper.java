@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.android.ziputils;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -42,12 +44,17 @@ public class DexMapper {
     String resourceFile = options.outputResources;
 
     try {
+      Predicate<String> inputFilter = Predicates.alwaysTrue();
+      if (options.inclusionFilterJar != null) {
+        inputFilter = SplitZipFilters.entriesIn(options.inclusionFilterJar);
+      }
       new SplitZip()
           .setVerbose(false)
           .useDefaultEntryDate()
           .setSplitDexedClasses(options.splitDexedClasses)
           .addInputs(inputs)
           .addOutputs(outputs)
+          .setInputFilter(inputFilter)
           .setMainClassListFile(filterFile)
           .setResourceFile(resourceFile)
           .run()
@@ -99,5 +106,11 @@ public class DexMapper {
         defaultValue = "false",
         help = "Split X.class.dex like X.class if true.  Treated as resources if false.")
     public boolean splitDexedClasses;
+
+    @Option(name = "inclusion_filter_jar",
+        defaultValue = "null",
+        help = "Only copy entries that are listed in the given Jar file.  By default, all entries "
+            + "are copied over.")
+    public String inclusionFilterJar;
   }
 }
