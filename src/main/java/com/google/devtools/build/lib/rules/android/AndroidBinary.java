@@ -359,7 +359,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardMapping);
   }
 
-
   public static RuleConfiguredTargetBuilder createAndroidBinary(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
@@ -1055,7 +1054,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact mainDexProguardSpec,
       JavaTargetAttributes attributes)
       throws InterruptedException, RuleErrorException {
-    boolean isFinalJarDerived = isBinaryJarFiltered || binaryJar != proguardedJar;
     List<String> dexopts = ruleContext.getTokenizedStringListAttr("dexopts");
     MultidexMode multidexMode = getMultidexMode(ruleContext);
     if (!supportsMultidexMode(ruleContext, multidexMode)) {
@@ -1083,14 +1081,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // Always OFF if finalJarIsDerived
     ImmutableSet<AndroidBinaryType> incrementalDexing =
-        getEffectiveIncrementalDexing(ruleContext, dexopts, isFinalJarDerived, isBinaryJarFiltered);
+        getEffectiveIncrementalDexing(ruleContext, dexopts, binaryJar != proguardedJar);
+    Artifact inclusionFilterJar =
+        isBinaryJarFiltered && binaryJar == proguardedJar ? binaryJar : null;
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
       if (incrementalDexing.contains(AndroidBinaryType.MONODEX)) {
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
         Artifact jarToDex = getDxArtifact(ruleContext, "classes.jar");
         createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
-            common, dexopts, attributes, (Artifact) null);
+            common, inclusionFilterJar, dexopts, attributes, (Artifact) null);
         createDexMergerAction(ruleContext, "off", jarToDex, classesDex, (Artifact) null, dexopts);
         return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
       } else {
@@ -1120,9 +1120,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             createShuffleJarAction(
                 ruleContext,
                 incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED),
-                isFinalJarDerived ? proguardedJar : null,
+                /*proguardedJar*/ binaryJar != proguardedJar ? proguardedJar : null,
                 shards,
                 common,
+                inclusionFilterJar,
                 dexopts,
                 attributes,
                 mainDexList);
@@ -1171,7 +1172,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_UNSHARDED)) {
           Artifact jarToDex = AndroidBinary.getDxArtifact(ruleContext, "classes.jar");
           createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
-              common, dexopts, attributes, (Artifact) null);
+              common, inclusionFilterJar, dexopts, attributes, (Artifact) null);
           createDexMergerAction(ruleContext, "minimal", jarToDex, classesDex, mainDexList, dexopts);
         } else {
           // Because the dexer also places resources into this zip, we also need to create a cleanup
@@ -1191,18 +1192,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static ImmutableSet<AndroidBinaryType> getEffectiveIncrementalDexing(
-      RuleContext ruleContext, List<String> dexopts, boolean isFinalJarDerived,
-      boolean isBinaryJarFiltered) {
+      RuleContext ruleContext, List<String> dexopts, boolean isBinaryProguarded) {
     TriState override = ruleContext.attributes().get("incremental_dexing", BuildType.TRISTATE);
     // Ignore --incremental_dexing_binary_types if the incremental_dexing attribute is set, but
     // raise an error if proguard is enabled (b/c incompatible with incremental dexing ATM).
-    if (isFinalJarDerived && override == TriState.YES) {
+    if (isBinaryProguarded && override == TriState.YES) {
       ruleContext.attributeError("incremental_dexing",
-          "target cannot be incrementally dexed because "
-          + (isBinaryJarFiltered ? "it builds a partial APK" : "the target uses Proguard"));
+          "target cannot be incrementally dexed because it uses Proguard");
       return ImmutableSet.of();
     }
-    if (isFinalJarDerived || override == TriState.NO) {
+    if (isBinaryProguarded || override == TriState.NO) {
       return ImmutableSet.of();
     }
     ImmutableSet<AndroidBinaryType> result =
@@ -1301,11 +1300,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact proguardedJar,
       List<Artifact> shards,
       AndroidCommon common,
+      @Nullable Artifact inclusionFilterJar,
       List<String> dexopts,
       JavaTargetAttributes attributes,
       @Nullable Artifact mainDexList)
       throws InterruptedException {
     checkArgument(mainDexList == null || shards.size() > 1);
+    checkArgument(proguardedJar == null || inclusionFilterJar == null);
     Artifact javaResourceJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.JAVA_RESOURCES_JAR);
 
@@ -1350,6 +1351,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       }
       shardCommandLine.addBeforeEachExecPath("--input_jar", classpath);
       shardAction.addInputs(classpath);
+
+      if (inclusionFilterJar != null) {
+        shardCommandLine.addExecPath("--inclusion_filter_jar", inclusionFilterJar);
+        shardAction.addInput(inclusionFilterJar);
+      }
     }
 
     shardAction.setCommandLine(shardCommandLine.build());
