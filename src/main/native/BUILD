@@ -20,8 +20,14 @@ genrule(
 filegroup(
     name = "jni_os",
     srcs = select({
-        "//src:darwin": ["unix_jni_darwin.cc"],
-        "//src:darwin_x86_64": ["unix_jni_darwin.cc"],
+        "//src:darwin": [
+            "unix_jni_darwin.cc",
+            "fsevents.cc",
+        ],
+        "//src:darwin_x86_64": [
+            "unix_jni_darwin.cc",
+            "fsevents.cc",
+        ],
         "//src:freebsd": ["unix_jni_freebsd.cc"],
         "//conditions:default": ["unix_jni_linux.cc"],
     }),
@@ -44,6 +50,11 @@ cc_binary(
         "-DBLAZE_JAVA_CPU=\"k8\"",
     ],
     includes = ["."],  # For jni headers.
+    linkopts = select({
+        "//src:darwin": ["-framework CoreServices"],
+        "//src:darwin_x86_64": ["-framework CoreServices"],
+        "//conditions:default": [],
+    }),
     linkshared = 1,
     visibility = ["//src:__subpackages__"],
     deps = [

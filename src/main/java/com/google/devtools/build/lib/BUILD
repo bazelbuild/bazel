@@ -485,6 +485,7 @@ java_library(
         ":shell",
         ":skylarkinterface",
         ":transitive-info-provider",
+        ":unix",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
