@@ -284,16 +284,17 @@ def build_android_rule_ide_info(target, ctx):
     return (None, set())
   ide_resolve_files = set(jars_from_output(target.android.idl.output))
   return (struct_omit_none(
-            java_package = target.android.java_package,
-            manifest = artifact_location(target.android.manifest),
-            apk = artifact_location(target.android.apk),
-            dependency_apk = [artifact_location(apk) for apk in target.android.apks_under_test],
-            has_idl_sources = target.android.idl.output != None,
-            idl_jar = library_artifact(target.android.idl.output),
-            generate_resource_class = target.android.defines_resources,
-            resources = all_unique_source_directories(target.android.resources),
-        ),
-        ide_resolve_files)
+      java_package = target.android.java_package,
+      manifest = artifact_location(target.android.manifest),
+      apk = artifact_location(target.android.apk),
+      dependency_apk = [artifact_location(apk) for apk in target.android.apks_under_test],
+      has_idl_sources = target.android.idl.output != None,
+      idl_jar = library_artifact(target.android.idl.output),
+      generate_resource_class = target.android.defines_resources,
+      resources = all_unique_source_directories(target.android.resources),
+      resource_jar = library_artifact(target.android.resource_jar),
+  ),
+          ide_resolve_files)
 
 def build_test_info(target, ctx):
   """Build TestInfo"""
@@ -337,13 +338,14 @@ def collect_labels(rule_attrs, attrs):
   Assuming that values of attributes from attr_list in rule_atrs
   are label lists, collect a set of string representation of those labels.
   """
-  return set([str(dep.label)
-      for attr_name in attrs.label_list
-      if hasattr(rule_attrs, attr_name)
-      for dep in getattr(rule_attrs, attr_name)]) | \
-         set([str(getattr(rule_attrs, attr_name).label)
-      for attr_name in attrs.label
-      if hasattr(rule_attrs, attr_name)])
+  list_labels = [str(dep.label) for attr_name in attrs.label_list
+                 if hasattr(rule_attrs, attr_name)
+                 for dep in getattr(rule_attrs, attr_name)]
+
+  scalar_labels = [str(getattr(rule_attrs, attr_name).label) for attr_name in attrs.label
+                   if hasattr(rule_attrs, attr_name)]
+
+  return set(list_labels) | set(scalar_labels)
 
 def collect_export_deps(rule_attrs):
   """Build a union of all export dependencies."""

@@ -117,6 +117,17 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     return collectDirectArtifacts(ResourceType.RESOURCES);
   }
 
+  @SkylarkCallable(
+      name = "resource_jar",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns a jar file for classes generated from resources."
+  )
+  @Nullable
+  public JavaRuleOutputJarsProvider.OutputJar getResourceJar() {
+    return getIdeInfoProvider().getResourceJar();
+  }
+
   private NestedSet<Artifact> collectDirectArtifacts(final ResourceType resources) {
     AndroidResourcesProvider provider = getInfo().getProvider(AndroidResourcesProvider.class);
     if (provider == null) {

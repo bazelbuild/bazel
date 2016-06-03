@@ -626,6 +626,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
         .isEqualTo("com/google/example/AndroidManifest.xml");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    assertThat(LIBRARY_ARTIFACT_TO_STRING.apply(ruleInfo.getAndroidRuleIdeInfo().getResourceJar()))
+        .isEqualTo(jarString("com/google/example",
+            "l_resources.jar", "l_resources-ijar.jar", "l_resources-src.jar"
+        ));
 
     assertThat(ruleInfo.getDependenciesList()).contains("//com/google/example:l1");
     assertThat(getIdeResolveFiles()).containsExactly(

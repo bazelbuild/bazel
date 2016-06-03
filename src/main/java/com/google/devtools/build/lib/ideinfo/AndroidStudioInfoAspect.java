@@ -532,6 +532,15 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       builder.setLegacyResources(dependenciesResult.resources.toString());
     }
 
+    OutputJar resourceJar = androidIdeInfoProvider.getResourceJar();
+    if (resourceJar != null) {
+      LibraryArtifact resourceLibraryArtifact = makeLibraryArtifact(ideResolveArtifacts,
+          resourceJar.getClassJar(), resourceJar.getIJar(), resourceJar.getSrcJar());
+      if (resourceLibraryArtifact != null) {
+        builder.setResourceJar(resourceLibraryArtifact);
+      }
+    }
+
     return builder.build();
   }
 

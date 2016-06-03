@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -244,6 +245,7 @@ public class AndroidCommon {
       RuleContext ruleContext,
       AndroidSemantics semantics,
       AndroidIdlHelper idlHelper,
+      OutputJar resourceJar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest) {
@@ -251,6 +253,7 @@ public class AndroidCommon {
         new AndroidIdeInfoProvider.Builder()
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
+            .setResourceJar(resourceJar)
             .addIdlParcelables(idlHelper.getIdlParcelables())
             .addIdlSrcs(idlHelper.getIdlSources())
             .addIdlGeneratedJavaFiles(idlHelper.getIdlGeneratedJavaSources())
@@ -660,8 +663,10 @@ public class AndroidCommon {
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder()
         .addOutputJar(classJar, iJar, srcJar)
         .setJdeps(outputDepsProto);
+    OutputJar resourceJar = null;
     if (resourceClassJar != null && resourceIJar != null && resourceSourceJar != null) {
-      outputJarsBuilder.addOutputJar(resourceClassJar, resourceIJar, resourceSourceJar);
+      resourceJar = new OutputJar(resourceClassJar, resourceIJar, resourceSourceJar);
+      outputJarsBuilder.addOutputJar(resourceJar);
     }
 
     return builder
@@ -678,6 +683,7 @@ public class AndroidCommon {
                 ruleContext,
                 androidSemantics,
                 idlHelper,
+                resourceJar,
                 resourceApk,
                 zipAlignedApk,
                 apksUnderTest))
