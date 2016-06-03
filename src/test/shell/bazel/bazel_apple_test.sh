@@ -415,7 +415,7 @@ EOF
 
   otool -lv bazel-bin/ios/app_test_bin \
       | grep @loader_path/Frameworks -sq \
-      || fail "expected test binary to contain @executable_path in LC_RPATH"
+      || fail "expected test binary to contain @loader_path in LC_RPATH"
 
 }
 
