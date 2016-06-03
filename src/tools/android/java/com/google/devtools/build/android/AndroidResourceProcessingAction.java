@@ -174,7 +174,7 @@ public class AndroidResourceProcessingAction {
         defaultValue = "",
         converter = CommaSeparatedOptionListConverter.class,
         category = "config",
-        help = "A list densities to filter the resource drawables by.")
+        help = "A list of densities to filter the resource drawables by.")
     public List<String> densities;
 
     @Option(name = "packageForR",
@@ -287,6 +287,7 @@ public class AndroidResourceProcessingAction {
           options.packageForR,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
+          aaptConfigOptions.splits,
           processedManifestData,
           data,
           generatedSources,

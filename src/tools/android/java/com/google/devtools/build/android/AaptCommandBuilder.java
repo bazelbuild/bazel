@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
@@ -20,33 +21,53 @@ import com.android.builder.core.VariantConfiguration.Type;
 import com.android.sdklib.repository.FullRevision;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nullable;
 
+/**
+ * Builder for AAPT command lines, with support for making flags conditional on build tools version
+ * and variant type.
+ */
 class AaptCommandBuilder {
-  private final Path aapt;
-  private final String command;
-  private final List<String> flags = new ArrayList<>();
-  private final FullRevision buildToolsVersion;
-  private final Type variantType;
+  private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
+  private FullRevision buildToolsVersion;
+  private Type variantType;
 
-  AaptCommandBuilder(
-      Path aapt, @Nullable FullRevision buildToolsVersion, Type variantType, String command) {
-    this.aapt = aapt;
-    this.buildToolsVersion = buildToolsVersion;
-    this.variantType = variantType;
-    this.command = command;
+  public AaptCommandBuilder(Path aapt) {
+    flags.add(aapt.toString());
   }
 
-  AaptCommandBuilder add(String flag) {
+  /** Sets the build tools version to be used for {@link #whenVersionIsAtLeast}. */
+  AaptCommandBuilder forBuildToolsVersion(@Nullable FullRevision buildToolsVersion) {
+    Preconditions.checkState(
+        this.buildToolsVersion == null, "A build tools version was already specified.");
+    this.buildToolsVersion = buildToolsVersion;
+    return this;
+  }
+
+  /** Sets the variant type to be used for {@link #whenVariantIs}. */
+  AaptCommandBuilder forVariantType(Type variantType) {
+    Preconditions.checkNotNull(variantType);
+    Preconditions.checkState(this.variantType == null, "A variant type was already specified.");
+    this.variantType = variantType;
+    return this;
+  }
+
+  /** Adds a single flag to the builder. */
+  public AaptCommandBuilder add(String flag) {
     flags.add(flag);
     return this;
   }
 
-  AaptCommandBuilder add(String flag, @Nullable String value) {
+  /**
+   * Adds a flag to the builder, along with a string value. The two will be added as different words
+   * in the final command line. If the value is {@code null}, neither the flag nor the value will
+   * be added.
+   */
+  public AaptCommandBuilder add(String flag, @Nullable String value) {
+    Preconditions.checkNotNull(flag);
     if (!Strings.isNullOrEmpty(value)) {
       flags.add(flag);
       flags.add(value);
@@ -54,70 +75,168 @@ class AaptCommandBuilder {
     return this;
   }
 
-  AaptCommandBuilder add(String flag, @Nullable Path path) {
+  /**
+   * Adds a flag to the builder, along with a path value. The path will be converted to a string
+   * using {@code toString}, then the flag and the path will be added to the final command line as
+   * different words. If the value is {@code null}, neither the flag nor the path will be added.
+   *
+   * @see #add(String,String)
+   */
+  public AaptCommandBuilder add(String flag, @Nullable Path path) {
+    Preconditions.checkNotNull(flag);
     if (path != null) {
       add(flag, path.toString());
     }
     return this;
   }
 
-  AaptCommandBuilder addRepeated(String flag, Collection<String> values) {
+  /**
+   * Adds a flag to the builder multiple times, once for each value in the given collection.
+   * {@code null} values will be skipped. If the collection is empty, nothing will be added.
+   * The values will be added in the source collection's iteration order.
+   *
+   * <p>ex. If {@code flag} is {@code "-0"} and {@code values} contains the values
+   * {@code "png"}, {@code null}, and {@code "gif"}, then four words will be added to the final
+   * command line: {@code "-0", "png", "-0", "gif"}.
+   */
+  public AaptCommandBuilder addRepeated(String flag, Collection<String> values) {
+    Preconditions.checkNotNull(flag);
     for (String value : values) {
       add(flag, value);
     }
     return this;
   }
 
-
-  AaptCommandBuilder maybeAdd(String flag, boolean condition) {
+  /** Adds the next flag to the builder only if the condition is true. */
+  public ConditionalAaptCommandBuilder when(boolean condition) {
     if (condition) {
-      add(flag);
+      return new SuccessfulConditionCommandBuilder(this);
+    } else {
+      return new FailedConditionCommandBuilder(this);
     }
-    return this;
   }
 
-  AaptCommandBuilder maybeAdd(String flag, Path directory, boolean condition) {
-    if (condition) {
-      add(flag, directory);
-    }
-    return this;
+  /** Adds the next flag to the builder only if the variant type is the passed-in type. */
+  public ConditionalAaptCommandBuilder whenVariantIs(Type type) {
+    Preconditions.checkNotNull(type);
+    return when(variantType == type);
   }
 
-  AaptCommandBuilder maybeAdd(String flag, @Nullable Path path, FullRevision requiredVersion) {
-    if (buildToolsVersion == null || buildToolsVersion.compareTo(requiredVersion) >= 0) {
-      add(flag, path);
-    }
-    return this;
+  /**
+   * Adds the next flag to the builder only if the build tools version is unspecified or is
+   * greater than or equal to the given version.
+   */
+  public ConditionalAaptCommandBuilder whenVersionIsAtLeast(FullRevision requiredVersion) {
+    Preconditions.checkNotNull(requiredVersion);
+    return when(buildToolsVersion == null || buildToolsVersion.compareTo(requiredVersion) >= 0);
   }
 
-  AaptCommandBuilder maybeAdd(String flag, FullRevision requiredVersion) {
-    if (buildToolsVersion == null || buildToolsVersion.compareTo(requiredVersion) >= 0) {
-      add(flag);
-    }
-    return this;
+  /** Assembles the full command line as a list. */
+  public List<String> build() {
+    return flags.build();
   }
 
-  AaptCommandBuilder maybeAdd(String flag, Type variant) {
-    if (variantType == variant) {
-      add(flag);
-    }
-    return this;
+  /**
+   * Wrapper for potentially adding flags to an AaptCommandBuilder based on a conditional.
+   */
+  public interface ConditionalAaptCommandBuilder {
+    /**
+     * Adds a single flag to the builder if the condition was true.
+     *
+     * @see AaptCommandBuilder#add(String)
+     */
+    AaptCommandBuilder thenAdd(String flag);
+
+    /**
+     * Adds a single flag and associated string value to the builder if the value is non-null and
+     * the condition was true.
+     *
+     * @see AaptCommandBuilder#add(String,String)
+     */
+    AaptCommandBuilder thenAdd(String flag, @Nullable String value);
+
+    /**
+     * Adds a single flag and associated path value to the builder if the value is non-null and the
+     * condition was true.
+     *
+     * @see AaptCommandBuilder#add(String,Path)
+     */
+    AaptCommandBuilder thenAdd(String flag, @Nullable Path value);
+
+    /**
+     * Adds the values in the collection to the builder, each preceded by the given flag,
+     * if the collection was non-empty and the condition was true.
+     *
+     * @see AaptCommandBuilder#addRepeated(String,Collection<String>)
+     */
+    AaptCommandBuilder thenAddRepeated(String flag, Collection<String> values);
   }
 
-  AaptCommandBuilder maybeAdd(String flag, @Nullable String value, Type variant) {
-    if (variantType == variant) {
-      add(flag, value);
+  /**
+   * Forwarding implementation of ConditionalAaptCommandBuilder returned when a condition is true.
+   */
+  private static class SuccessfulConditionCommandBuilder implements ConditionalAaptCommandBuilder {
+    private final AaptCommandBuilder originalCommandBuilder;
+
+    public SuccessfulConditionCommandBuilder(AaptCommandBuilder originalCommandBuilder) {
+      this.originalCommandBuilder = originalCommandBuilder;
     }
-    return this;
+
+    @Override
+    public AaptCommandBuilder thenAdd(String flag) {
+      return originalCommandBuilder.add(flag);
+    }
+
+    @Override
+    public AaptCommandBuilder thenAdd(String flag, @Nullable String value) {
+      return originalCommandBuilder.add(flag, value);
+    }
+
+    @Override
+    public AaptCommandBuilder thenAdd(String flag, @Nullable Path value) {
+      return originalCommandBuilder.add(flag, value);
+    }
+
+    @Override
+    public AaptCommandBuilder thenAddRepeated(String flag, Collection<String> values) {
+      return originalCommandBuilder.addRepeated(flag, values);
+    }
   }
 
-  List<String> build() {
-    return ImmutableList
-        .<String>builder()
-        .add(aapt.toString())
-        .add(command)
-        .addAll(flags)
-        .build();
+  /**
+   * Null implementation of ConditionalAaptCommandBuilder returned when a condition is false.
+   */
+  private static class FailedConditionCommandBuilder implements ConditionalAaptCommandBuilder {
+    private final AaptCommandBuilder originalCommandBuilder;
+
+    public FailedConditionCommandBuilder(AaptCommandBuilder originalCommandBuilder) {
+      this.originalCommandBuilder = originalCommandBuilder;
+    }
+
+    @Override
+    public AaptCommandBuilder thenAdd(String flag) {
+      Preconditions.checkNotNull(flag);
+      return originalCommandBuilder;
+    }
+
+    @Override
+    public AaptCommandBuilder thenAdd(String flag, @Nullable String value) {
+      Preconditions.checkNotNull(flag);
+      return originalCommandBuilder;
+    }
+
+    @Override
+    public AaptCommandBuilder thenAdd(String flag, @Nullable Path value) {
+      Preconditions.checkNotNull(flag);
+      return originalCommandBuilder;
+    }
+
+    @Override
+    public AaptCommandBuilder thenAddRepeated(String flag, Collection<String> values) {
+      Preconditions.checkNotNull(flag);
+      Preconditions.checkNotNull(values);
+      return originalCommandBuilder;
+    }
   }
 }
 
