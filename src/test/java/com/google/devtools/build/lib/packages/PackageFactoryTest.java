@@ -500,7 +500,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
       assertThat(e)
           .hasMessage(
               "no such target '//x:z.cc': "
-                  + "target 'z.cc' not declared in package 'x' defined by /x/BUILD");
+                  + "target 'z.cc' not declared in package 'x' (did you mean 'x.cc'?) "
+                  + "defined by /x/BUILD");
     }
 
     try {

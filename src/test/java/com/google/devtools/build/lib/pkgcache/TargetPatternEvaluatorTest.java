@@ -316,7 +316,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testUnsupportedTargets() throws Exception {
     String expectedError = "no such target '//foo:foo': target 'foo' not declared in package 'foo'"
-        + " defined by /workspace/foo/BUILD";
+        + " (did you mean 'foo1'?) defined by /workspace/foo/BUILD";
     expectError(expectedError, "foo");
     expectError("The package part of 'foo/' should not end in a slash", "foo/");
   }
@@ -1155,4 +1155,3 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     expectError("no such target '//:nope.cc'", "//:nope.cc");
   }
 }
-

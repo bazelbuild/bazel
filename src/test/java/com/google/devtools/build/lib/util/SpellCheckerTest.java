@@ -15,9 +15,13 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.Lists;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.List;
 
 /**
  * Tests for {@link SpellChecker}.
@@ -75,5 +79,28 @@ public class SpellCheckerTest {
     assertThat(SpellChecker.editDistance("kitten", "sitting", 4)).isEqualTo(3);
 
     assertThat(SpellChecker.editDistance("abcdefg", "s", 2)).isEqualTo(-1);
+  }
+
+  @Test
+  public void suggest() throws Exception {
+    List<String> dict = Lists.newArrayList(
+        "isalnum", "isalpha", "isdigit", "islower", "isupper", "find", "join",
+        "rsplit", "rstrip", "split", "splitlines", "startswith", "strip", "title", "upper");
+
+    assertThat(SpellChecker.suggest("isdfit", dict)).isEqualTo("isdigit");
+    assertThat(SpellChecker.suggest("rspit", dict)).isEqualTo("rsplit");
+    assertThat(SpellChecker.suggest("IS_LOWER", dict)).isEqualTo("islower");
+    assertThat(SpellChecker.suggest("sartwigh", dict)).isEqualTo("startswith");
+    assertThat(SpellChecker.suggest("SplitAllLines", dict)).isEqualTo("splitlines");
+    assertThat(SpellChecker.suggest("fird", dict)).isEqualTo("find");
+    assertThat(SpellChecker.suggest("stip", dict)).isEqualTo("strip");
+    assertThat(SpellChecker.suggest("isAln", dict)).isEqualTo("isalnum");
+
+    assertThat(SpellChecker.suggest("isAl", dict)).isEqualTo(null);
+    assertThat(SpellChecker.suggest("", dict)).isEqualTo(null);
+    assertThat(SpellChecker.suggest("f", dict)).isEqualTo(null);
+    assertThat(SpellChecker.suggest("fir", dict)).isEqualTo(null);
+    assertThat(SpellChecker.suggest("wqevxc", dict)).isEqualTo(null);
+    assertThat(SpellChecker.suggest("ialsnuaip", dict)).isEqualTo(null);
   }
 }

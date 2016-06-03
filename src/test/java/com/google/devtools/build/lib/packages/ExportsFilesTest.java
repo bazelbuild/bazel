@@ -75,7 +75,8 @@ public class ExportsFilesTest {
       fail();
     } catch (NoSuchTargetException e) {
       assertThat(e).hasMessage("no such target '//pkg:baz.txt':"
-          + " target 'baz.txt' not declared in package 'pkg' defined by /workspace/pkg/BUILD");
+          + " target 'baz.txt' not declared in package 'pkg' (did you mean 'bar.txt'?)"
+          + " defined by /workspace/pkg/BUILD");
     }
   }
 

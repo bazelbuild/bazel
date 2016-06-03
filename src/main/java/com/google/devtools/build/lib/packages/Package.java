@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -528,7 +529,12 @@ public class Package {
       suffix = "; however, a source file of this name exists.  (Perhaps add "
           + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD?)";
     } else {
-      suffix = "";
+      String suggestion = SpellChecker.suggest(targetName, targets.keySet());
+      if (suggestion != null) {
+        suffix = " (did you mean '" + suggestion + "'?)";
+      } else {
+        suffix = "";
+      }
     }
 
     throw makeNoSuchTargetException(targetName, suffix);
