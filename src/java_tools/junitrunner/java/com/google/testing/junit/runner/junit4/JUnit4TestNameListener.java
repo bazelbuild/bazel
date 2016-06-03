@@ -14,15 +14,16 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.google.testing.junit.runner.util.TestNameProvider;
 
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunListener;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 /**
- * A listener to get the name of a JUnit4 test. 
+ * A listener to get the name of a JUnit4 test.
  */
 @Singleton
 class JUnit4TestNameListener extends RunListener {

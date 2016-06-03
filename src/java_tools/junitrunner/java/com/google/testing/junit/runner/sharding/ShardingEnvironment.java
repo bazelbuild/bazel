@@ -20,6 +20,8 @@ import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 
+import javax.inject.Inject;
+
 /**
  * Utility class that encapsulates dependencies from sharding implementations
  * on the test environment.  See http://bazel.io/docs/test-sharding.html for a
@@ -34,6 +36,9 @@ public class ShardingEnvironment {
 
   /** Usage: -Dtest.sharding.strategy=round_robin */
   private static final String TEST_SHARDING_STRATEGY = "test.sharding.strategy";
+
+  @Inject
+  public ShardingEnvironment() {}
 
   /**
    * Return true iff the current test should be sharded.

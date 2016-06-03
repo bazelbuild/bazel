@@ -14,28 +14,29 @@
 
 package com.google.testing.junit.runner;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.inject.AbstractModule;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.internal.Stderr;
 import com.google.testing.junit.runner.internal.Stdout;
+import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
+import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.junit4.JUnit4Runner;
 import com.google.testing.junit.runner.junit4.JUnit4RunnerModule;
 import com.google.testing.junit.runner.model.AntXmlResultWriter;
 import com.google.testing.junit.runner.model.XmlResultWriter;
+
+import dagger.Component;
+import dagger.Module;
+import dagger.Provides;
 
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.io.PrintStream;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import javax.inject.Singleton;
 
 /**
  * A class to run JUnit tests in a controlled environment.
@@ -142,11 +143,19 @@ public class BazelTestRunner {
       }
     }
 
-    Injector injector = Guice.createInjector(
-        new BazelTestRunnerModule(suite, ImmutableList.copyOf(args)));
-
-    JUnit4Runner runner = injector.getInstance(JUnit4Runner.class);
+    JUnit4Runner runner =
+        DaggerBazelTestRunner_JUnit4Bazel.builder()
+            .suiteClass(new SuiteClass(suite))
+            .config(new Config(args))
+            .build()
+            .runner();
     return runner.run().wasSuccessful() ? 0 : 1;
+  }
+
+  @Singleton
+  @Component(modules = {BazelTestRunnerModule.class})
+  interface JUnit4Bazel {
+    JUnit4Runner runner();
   }
 
   private static Class<?> getTestClass(String name) {
@@ -181,29 +190,25 @@ public class BazelTestRunner {
     thread.start();
   }
 
-  static class BazelTestRunnerModule extends AbstractModule {
-    final Class<?> suite;
-    final List<String> args;
-
-    BazelTestRunnerModule(Class<?> suite, List<String> args) {
-      this.suite = suite;
-      this.args = args;
+  @Module(includes = JUnit4RunnerModule.class)
+  static class BazelTestRunnerModule {
+    @Provides
+    static XmlResultWriter resultWriter(AntXmlResultWriter impl) {
+      return impl;
     }
 
-    @Override
-    protected void configure() {
-      install(JUnit4RunnerModule.create(suite, args));
-      bind(XmlResultWriter.class).to(AntXmlResultWriter.class);
-    }
-
-    @Provides @Singleton @Stdout
-    PrintStream provideStdoutStream() {
+    @Provides
+    @Singleton
+    @Stdout
+    static PrintStream stdoutStream() {
       return System.out;
     }
 
-    @Provides @Singleton @Stderr
-    PrintStream provideStderrStream() {
+    @Provides
+    @Singleton
+    @Stderr
+    static PrintStream stderrStream() {
       return System.err;
     }
-  };
+  }
 }

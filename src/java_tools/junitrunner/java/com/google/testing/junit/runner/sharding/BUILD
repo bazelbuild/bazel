@@ -13,8 +13,8 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
+        "//third_party:dagger",
         "//third_party:guava",
-        "//third_party:guice",
         "//third_party:jsr305",
         "//third_party:junit4",
     ],

@@ -14,20 +14,20 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_SHARDING_STRATEGY;
+import static dagger.Provides.Type.SET;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.inject.AbstractModule;
-import com.google.inject.Key;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
-import com.google.inject.multibindings.Multibinder;
 import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.runner.internal.Stdout;
+import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
+
+import dagger.Module;
+import dagger.Multibindings;
+import dagger.Provides;
 
 import org.junit.internal.TextListener;
 import org.junit.runner.Request;
@@ -37,50 +37,44 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
+
+import javax.inject.Singleton;
 
 /**
- * Guice module for creating {@link JUnit4Runner}. This contains the common
+ * Dagger module for creating a {@link JUnit4Runner}. This contains the common
  * bindings used when either the runner runs actual tests or when we do
  * integration tests of the runner itself.
  *
- * <p>Note: we do not use {@code Modules.override()} to test the runner because
- * there are bindings that we use when the runner runs actual tests that set
- * global state, and we don't want to do that when we test the runner itself.
  */
-class JUnit4RunnerBaseModule extends AbstractModule {
-  private final Class<?> suiteClass;
+@Module(includes = SuiteClass.class)
+public final class JUnit4RunnerBaseModule {
 
-  public JUnit4RunnerBaseModule(Class<?> suiteClass) {
-    this.suiteClass = suiteClass;
+  @Multibindings
+  interface MultiBindings {
+    Set<JUnit4Runner.Initializer> initializers();
   }
 
-  @Override
-  protected void configure() {
-    requireBinding(Key.get(PrintStream.class, Stdout.class));
-    requireBinding(JUnit4Config.class);
-    requireBinding(TestSuiteModel.Builder.class);
-
-    // We require explicit bindings so we don't use an unexpected just-in-time binding
-    bind(JUnit4Runner.class);
-    bind(JUnit4TestModelBuilder.class);
-    bind(CancellableRequestFactory.class);
-
-    // Normal bindings
-    bind(ShardingFilterFactory.class).toInstance(DEFAULT_SHARDING_STRATEGY);
-    bindConstant().annotatedWith(TopLevelSuite.class).to(suiteClass.getCanonicalName());
-
-    // Bind listeners
-    Multibinder<RunListener> listenerBinder = newSetBinder(binder(), RunListener.class);
-    listenerBinder.addBinding().to(TextListener.class);
+  @Provides
+  static ShardingFilterFactory shardingFilterFactory() {
+    return DEFAULT_SHARDING_STRATEGY;
   }
 
-  @Provides @Singleton
-  Supplier<TestSuiteModel> provideTestSuiteModelSupplier(JUnit4TestModelBuilder builder) {
+  @Provides(type = SET)
+  static RunListener textListener(TextListener impl) {
+    return impl;
+  }
+
+
+  @Provides
+  @Singleton
+  static Supplier<TestSuiteModel> provideTestSuiteModelSupplier(JUnit4TestModelBuilder builder) {
     return Suppliers.memoize(builder);
   }
 
-  @Provides @Singleton
-  TextListener provideTextListener(@Stdout PrintStream testRunnerOut) {
+  @Provides
+  @Singleton
+  static TextListener provideTextListener(@Stdout PrintStream testRunnerOut) {
     return new TextListener(asUtf8PrintStream(testRunnerOut));
   }
 
@@ -92,8 +86,9 @@ class JUnit4RunnerBaseModule extends AbstractModule {
     }
   }
 
-  @Provides @Singleton
-  Request provideRequest() {
+  @Provides
+  @Singleton
+  static Request provideRequest(@TopLevelSuite Class<?> suiteClass) {
     /*
      * JUnit4Runner requests the Runner twice, once to build the model (before
      * filtering) and once to run the tests (after filtering). Constructing the
