@@ -122,7 +122,8 @@ def _swift_library_impl(ctx):
   objc_provider = apple_common.new_objc_provider(
       library=set([output_lib] + dep_libs),
       header=set([output_header]),
-      providers=objc_providers)
+      providers=objc_providers,
+      uses_swift=True)
 
   return struct(
       swift=struct(

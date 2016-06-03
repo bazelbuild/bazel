@@ -39,8 +39,6 @@ function make_app() {
   rm -rf ios
   mkdir -p ios
 
-  touch ios/dummy.swift
-
   cat >ios/app.swift <<EOF
 import UIKit
 
@@ -87,9 +85,7 @@ swift_library(name = "SwiftMain",
               srcs = ["app.swift"])
 
 objc_binary(name = "bin",
-            # TODO(b/28723643): This dummy is only here to trigger the
-            # USES_SWIFT flag on ObjcProvider and should not be necessary.
-            srcs = ['dummy.swift'],
+            srcs = ["//tools/objc:dummy.c"],
             deps = [":SwiftMain"])
 
 ios_application(name = "app",
@@ -118,8 +114,6 @@ function test_objc_depends_on_swift() {
   rm -rf ios
   mkdir -p ios
 
-  touch ios/dummy.swift
-
   cat >ios/main.swift <<EOF
 import Foundation
 
@@ -147,9 +141,7 @@ swift_library(name = "SwiftMain",
               srcs = ["main.swift"])
 
 objc_binary(name = "bin",
-            # TODO(b/28723643): This dummy is only here to trigger the
-            # USES_SWIFT flag on ObjcProvider and should not be necessary.
-            srcs = ['app.m', 'dummy.swift'],
+            srcs = ['app.m',],
             deps = [":SwiftMain"])
 EOF
 
@@ -210,8 +202,6 @@ function test_swift_import_objc_framework() {
   # Copy the prebuilt framework into app's directory.
   cp -RL "${BAZEL_RUNFILES}/tools/build_defs/apple/test/testdata/BlazeFramework.framework" ios
 
-  touch ios/dummy.swift
-
   cat >ios/main.swift <<EOF
 import UIKit
 
@@ -234,7 +224,7 @@ EOF
 load("//tools/build_defs/apple:swift.bzl", "swift_library")
 
 objc_binary(name = "bin",
-            srcs = ["dummy.swift"],
+            srcs = ["//tools/objc:dummy.c"],
             deps = [":swift_lib"])
 
 swift_library(name = "swift_lib",
@@ -287,7 +277,6 @@ int main() {
 EOF
 
   bazel build --verbose_failures //package:lipo_out  \
-    --ios_sdk_version=$IOS_SDK_VERSION \
     --ios_multi_cpus=i386,x86_64 || fail "should build apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
@@ -325,7 +314,6 @@ EOF
 
 
   bazel build --verbose_failures //package:extract_archives  \
-    --ios_sdk_version=$IOS_SDK_VERSION \
     --ios_multi_cpus=i386,x86_64 \
     || fail "should build multi-architecture archive"
 
@@ -388,9 +376,7 @@ swift_library(name = "SwiftMain",
               srcs = ["app.swift"])
 
 objc_binary(name = "bin",
-            # TODO(b/28723643): This dummy is only here to trigger the
-            # USES_SWIFT flag on ObjcProvider and should not be necessary.
-            srcs = ['dummy.swift'],
+            srcs = ["//tools/objc:dummy.c"],
             deps = [":SwiftMain"])
 
 ios_application(name = "app",
@@ -401,7 +387,7 @@ swift_library(name = "SwiftTest",
               srcs = ["tests.swift"])
 
 ios_test(name = "app_test",
-         srcs = ['dummy.swift'],
+         srcs = ["//tools/objc:dummy.c"],
          deps = [":SwiftTest"],
          xctest_app = "app")
 EOF
