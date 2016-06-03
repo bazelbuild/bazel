@@ -334,4 +334,19 @@ EOF
   expect_log "name=\"dir/fail\""
 }
 
+function test_detailed_test_summary() {
+  copy_examples
+  cat > WORKSPACE <<EOF
+workspace(name = "io_bazel")
+EOF
+  setup_javatest_support
+
+  local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
+
+  bazel test --test_summary=detailed "${java_native_tests}:fail" >& $TEST_log \
+    && fail "Test $* succeed while expecting failure" \
+    || true
+  expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
+}
+
 run_suite "test tests"
