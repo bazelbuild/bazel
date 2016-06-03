@@ -370,4 +370,53 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_swift_tests() {
+  make_app
+
+  cat >ios/tests.swift <<EOF
+  import XCTest
+
+class FooTest: XCTestCase {
+  func testFoo() { XCTAssertEqual(2, 3) }
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "SwiftMain",
+              srcs = ["app.swift"])
+
+objc_binary(name = "bin",
+            # TODO(b/28723643): This dummy is only here to trigger the
+            # USES_SWIFT flag on ObjcProvider and should not be necessary.
+            srcs = ['dummy.swift'],
+            deps = [":SwiftMain"])
+
+ios_application(name = "app",
+                binary = ':bin',
+                infoplist = 'App-Info.plist')
+
+swift_library(name = "SwiftTest",
+              srcs = ["tests.swift"])
+
+ios_test(name = "app_test",
+         srcs = ['dummy.swift'],
+         deps = [":SwiftTest"],
+         xctest_app = "app")
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      //ios:app_test >$TEST_log 2>&1 || fail "should build"
+
+  otool -lv bazel-bin/ios/app_test_bin \
+      | grep @executable_path/Frameworks -sq \
+      || fail "expected test binary to contain @executable_path in LC_RPATH"
+
+  otool -lv bazel-bin/ios/app_test_bin \
+      | grep @loader_path/Frameworks -sq \
+      || fail "expected test binary to contain @executable_path in LC_RPATH"
+
+}
+
 run_suite "apple_tests"

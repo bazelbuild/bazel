@@ -133,9 +133,12 @@ public final class IosTest implements RuleConfiguredTargetFactory {
       // -bundle_loader causes the code in this test to have access to the symbols in the test rig,
       // or more specifically, the flag causes ld to consider the given binary when checking for
       // missing symbols.
+      // -rpath @loader_path/Frameworks allows test bundles to load dylibs from the app's
+      // Frameworks directory.
       extraLinkArgs = new ExtraLinkArgs(
           "-bundle",
-          "-bundle_loader", bundleLoader.getExecPathString());
+          "-bundle_loader", bundleLoader.getExecPathString(),
+          "-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
 
       extraLinkInputs = ImmutableList.of(bundleLoader);
       bundleFormat = ReleaseBundlingSupport.XCTEST_BUNDLE_DIR_FORMAT;
