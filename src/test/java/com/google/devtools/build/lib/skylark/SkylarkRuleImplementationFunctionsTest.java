@@ -209,18 +209,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testNestedSetGetsConvertedToSkylarkNestedSet() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result =
-        evalRuleContextCode(
-            ruleContext,
-            "dep = ruleContext.attr.tools[0]",
-            "provider(dep, 'analysis.FileProvider').files_to_build");
-    SkylarkNestedSet nset = (SkylarkNestedSet) result;
-    assertEquals(Artifact.class, nset.getContentType().getType());
-  }
-
-  @Test
   public void testCreateSpawnActionCreatesSpawnAction() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     createTestSpawnAction(ruleContext);
@@ -643,37 +631,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
     assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
-  }
-  
-  @Test
-  public void testGetProviderNotTransitiveInfoCollection() throws Exception {
-    checkErrorContains(
-        createRuleContext("//foo:foo"),
-        "Method provider(target: Target, type: string) is not applicable for arguments "
-            + "(string, string): 'target' is string, but should be Target",
-        "provider('some string', 'FileProvider')");
-  }
-
-  @Test
-  public void testGetProviderNonExistingClassType() throws Exception {
-    checkErrorContains(
-        createRuleContext("//foo:foo"),
-        "Unknown class type bad.Bad",
-        "def func():", // we need a func to hold the for loop
-        "  for tic in ruleContext.attr.srcs:",
-        "    provider(tic, 'bad.Bad')",
-        "func()");
-  }
-
-  @Test
-  public void testGetProviderNotTransitiveInfoProviderClassType() throws Exception {
-    checkErrorContains(
-        createRuleContext("//foo:foo"),
-        "Not a TransitiveInfoProvider rules.java.JavaBinary",
-        "def func():", // we need a func to hold the for loop
-        "  for tic in ruleContext.attr.srcs:",
-        "    provider(tic, 'rules.java.JavaBinary')",
-        "func()");
   }
 
   @Test

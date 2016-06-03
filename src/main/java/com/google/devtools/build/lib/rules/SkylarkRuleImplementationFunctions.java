@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -66,7 +65,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 // TODO(bazel-team): function argument names are often duplicated,
 // figure out a nicely readable way to get rid of the duplications.
@@ -502,34 +500,6 @@ public class SkylarkRuleImplementationFunctions {
   private static String convertLatin1ToUtf8(String latin1) {
     return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
   }
-
-  /**
-   * A built in Skylark helper function to access the
-   * Transitive info providers of Transitive info collections.
-   */
-  @SkylarkSignature(name = "provider",
-      doc = "Returns the transitive info provider provided by the target.",
-      mandatoryPositionals = {
-        @Param(name = "target", type = TransitiveInfoCollection.class,
-            doc = "the configured target which provides the provider"),
-        @Param(name = "type", type = String.class, doc = "the class type of the provider")},
-      useLocation = true)
-  private static final BuiltinFunction provider = new BuiltinFunction("provider") {
-      public Object invoke(TransitiveInfoCollection target, String type,
-          Location loc) throws EvalException {
-      try {
-        Class<?> classType = SkylarkRuleContext.classCache.get(type);
-        Class<? extends TransitiveInfoProvider> convertedClass =
-            classType.asSubclass(TransitiveInfoProvider.class);
-        Object result = target.getProvider(convertedClass);
-        return result == null ? Runtime.NONE : result;
-      } catch (ExecutionException e) {
-        throw new EvalException(loc, "Unknown class type " + type);
-      } catch (ClassCastException e) {
-        throw new EvalException(loc, "Not a TransitiveInfoProvider " + type);
-      }
-    }
-  };
 
   // TODO(bazel-team): Remove runfile states from Skylark.
   @SkylarkSignature(name = "runfiles",

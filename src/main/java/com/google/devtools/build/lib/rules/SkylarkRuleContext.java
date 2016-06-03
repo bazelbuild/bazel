@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.common.base.Function;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -81,26 +78,12 @@ import javax.annotation.Nullable;
     + "you create a rule.")
 public final class SkylarkRuleContext {
 
-  public static final String PROVIDER_CLASS_PREFIX = "com.google.devtools.build.lib.";
-
   private static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
       + "system, just declares that some action will do so. You must create an action that "
       + "generates the file. If the file should be visible to other rules, declare a rule output "
       + "instead when possible. Doing so enables Blaze to associate a label with the file that "
       + "rules can refer to (allowing finer dependency control) instead of referencing the whole "
       + "rule.";
-
-  static final LoadingCache<String, Class<?>> classCache = CacheBuilder.newBuilder()
-      .initialCapacity(10)
-      .maximumSize(100)
-      .build(new CacheLoader<String, Class<?>>() {
-
-      @Override
-      public Class<?> load(String key) throws Exception {
-        String classPath = SkylarkRuleContext.PROVIDER_CLASS_PREFIX + key;
-        return Class.forName(classPath);
-      }
-    });
   public static final String EXECUTABLE_DOC =
       "A <code>struct</code> containing executable files defined in label type "
           + "attributes marked as <code>executable=True</code>. The struct fields correspond "
