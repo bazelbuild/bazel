@@ -20,18 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcSpecificLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -76,23 +67,19 @@ public final class JavaLibraryHelper {
   }
 
   private final RuleContext ruleContext;
-  private final BuildConfiguration configuration;
   private final String implicitAttributesSuffix;
 
   private Artifact output;
   private final List<Artifact> sourceJars = new ArrayList<>();
+
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
-   * Some of these may not be complete configured targets; for backwards compatibility with some
-   * existing code, we sometimes only have pretend dependencies that only have a single {@link
-   * JavaCompilationArgsProvider}.
    */
-  private final List<TransitiveInfoCollection> deps = new ArrayList<>();
+  private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
 
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
-  private boolean emitProviders = true;
 
   public JavaLibraryHelper(RuleContext ruleContext) {
     this(ruleContext, DEFAULT_SUFFIX_IS_EMPTY_STRING);
@@ -100,7 +87,7 @@ public final class JavaLibraryHelper {
 
   public JavaLibraryHelper(RuleContext ruleContext, String implicitAttributesSuffix) {
     this.ruleContext = ruleContext;
-    this.configuration = ruleContext.getConfiguration();
+    ruleContext.getConfiguration();
     this.classpathMode = ruleContext.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
     this.implicitAttributesSuffix = implicitAttributesSuffix;
   }
@@ -130,54 +117,14 @@ public final class JavaLibraryHelper {
     return this.addSourceJars(Arrays.asList(sourceJars));
   }
 
-  /**
-   * Adds the given compilation args as deps. Avoid this method, and prefer {@link #addDeps}
-   * instead; this method only exists for backward compatibility and may be removed at any time.
-   */
-  public JavaLibraryHelper addProcessedDeps(JavaCompilationArgs... deps) {
-    for (JavaCompilationArgs dep : deps) {
-      this.deps.add(toTransitiveInfoCollection(dep));
-    }
+  public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
+    this.deps.add(provider);
     return this;
   }
 
-  private static TransitiveInfoCollection toTransitiveInfoCollection(
-      final JavaCompilationArgs args) {
-    return new TransitiveInfoCollection() {
-      @Override
-      public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-        if (JavaCompilationArgsProvider.class.equals(provider)) {
-          return provider.cast(new JavaCompilationArgsProvider(args, args));
-        }
-        return null;
-      }
-
-      @Override
-      public Label getLabel() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public BuildConfiguration getConfiguration() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Object get(String providerKey) {
-        throw new UnsupportedOperationException();
-      }
-    };
-  }
-
-  /**
-   * Adds the given targets as deps. These are used as both compile-time and runtime dependencies.
-   */
-  public JavaLibraryHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      Preconditions.checkArgument(dep.getConfiguration() == null
-          || configuration.equalsOrIsSupersetOf(dep.getConfiguration()));
-      this.deps.add(dep);
-    }
+  public JavaLibraryHelper addAllDeps(
+      Iterable<JavaCompilationArgsProvider> providers) {
+    Iterables.addAll(deps, providers);
     return this;
   }
 
@@ -198,16 +145,6 @@ public final class JavaLibraryHelper {
   }
 
   /**
-   * Disables all providers, i.e., the resulting {@link Info} object will not contain any providers.
-   * Avoid this method - having this class compute the providers ensures consistency among all
-   * clients of this code.
-   */
-  public JavaLibraryHelper noProviders() {
-    this.emitProviders = false;
-    return this;
-  }
-
-  /**
    * Creates the compile actions and providers.
    */
   public Info build(JavaSemantics semantics) {
@@ -220,7 +157,8 @@ public final class JavaLibraryHelper {
     attributes.setTargetLabel(ruleContext.getLabel());
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      JavaCompilationHelper.addDependencyArtifactsToAttributes(attributes, transformDeps());
+      JavaCompilationHelper.addDependencyArtifactsToAttributes(
+          attributes, deps);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -240,20 +178,11 @@ public final class JavaLibraryHelper {
 
     Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
         new LinkedHashMap<>();
-    if (emitProviders) {
-      providers.put(JavaCompilationArgsProvider.class,
-          collectJavaCompilationArgs(compilationArtifacts));
-      providers.put(JavaSourceJarsProvider.class,
-          new JavaSourceJarsProvider(collectTransitiveJavaSourceJars(), sourceJars));
-      providers.put(JavaRunfilesProvider.class, collectJavaRunfiles(compilationArtifacts));
-      providers.put(JavaCcLinkParamsProvider.class,
-          new JavaCcLinkParamsProvider(createJavaCcLinkParamsStore()));
-    }
     return new Info(providers, compilationArtifacts);
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
-    NestedSet<Artifact> directJars = null;
+    NestedSet<Artifact> directJars;
     if (isStrict()) {
       directJars = getNonRecursiveCompileTimeJarsFromDeps();
       if (directJars != null) {
@@ -262,8 +191,10 @@ public final class JavaLibraryHelper {
       }
     }
 
-    JavaCompilationArgs args = JavaCompilationArgs.builder()
-        .addTransitiveDependencies(transformDeps(), true).build();
+    JavaCompilationArgs args =
+        JavaCompilationArgs.builder()
+            .addTransitiveDependencies(deps, true)
+            .build();
     attributes.addCompileTimeClassPathEntries(args.getCompileTimeJars());
     attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
     attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
@@ -271,83 +202,11 @@ public final class JavaLibraryHelper {
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromDeps() {
     JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder();
-    builder.addTransitiveDependencies(transformDeps(), false);
+    builder.addTransitiveDependencies(deps, false);
     return builder.build().getCompileTimeJars();
-  }
-
-  private Iterable<JavaCompilationArgsProvider> transformDeps() {
-    ImmutableList.Builder<JavaCompilationArgsProvider> result = ImmutableList.builder();
-    for (TransitiveInfoCollection target : deps) {
-      JavaCompilationArgsProvider argsProvider =
-          target.getProvider(JavaCompilationArgsProvider.class);
-      if (argsProvider != null) {
-        result.add(argsProvider);
-      }
-    }
-    return result.build();
   }
 
   private boolean isStrict() {
     return strictDepsMode != OFF;
-  }
-
-  private JavaCompilationArgsProvider collectJavaCompilationArgs(
-      JavaCompilationArtifacts compilationArtifacts) {
-    JavaCompilationArgs javaCompilationArgs =
-        collectJavaCompilationArgs(compilationArtifacts, false);
-    JavaCompilationArgs recursiveJavaCompilationArgs =
-        collectJavaCompilationArgs(compilationArtifacts, true);
-    return new JavaCompilationArgsProvider(javaCompilationArgs, recursiveJavaCompilationArgs);
-  }
-
-  /**
-   * Get compilation arguments for java compilation action.
-   *
-   * @param recursive a boolean specifying whether to get transitive
-   *        dependencies
-   * @return java compilation args
-   */
-  private JavaCompilationArgs collectJavaCompilationArgs(
-      JavaCompilationArtifacts compilationArtifacts, boolean recursive) {
-    return JavaCompilationArgs.builder()
-        .merge(compilationArtifacts)
-        .addTransitiveDependencies(transformDeps(), recursive)
-        .build();
-  }
-
-  private NestedSet<Artifact> collectTransitiveJavaSourceJars() {
-    NestedSetBuilder<Artifact> transitiveJavaSourceJarBuilder =
-        NestedSetBuilder.<Artifact>stableOrder();
-    transitiveJavaSourceJarBuilder.addAll(sourceJars);
-    for (TransitiveInfoCollection dep : deps) {
-      JavaSourceJarsProvider provider = dep.getProvider(JavaSourceJarsProvider.class);
-      if (provider != null) {
-        transitiveJavaSourceJarBuilder.addTransitive(provider.getTransitiveSourceJars());
-      }
-    }
-    return transitiveJavaSourceJarBuilder.build();
-  }
-
-  private JavaRunfilesProvider collectJavaRunfiles(
-      JavaCompilationArtifacts javaCompilationArtifacts) {
-    Runfiles runfiles = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        // Compiled templates as well, for API.
-        .addArtifacts(javaCompilationArtifacts.getRuntimeJars())
-        .addTargets(deps, JavaRunfilesProvider.TO_RUNFILES)
-        .build();
-    return new JavaRunfilesProvider(runfiles);
-  }
-
-  private CcLinkParamsStore createJavaCcLinkParamsStore() {
-    return new CcLinkParamsStore() {
-      @Override
-      protected void collect(Builder builder, boolean linkingStatically, boolean linkShared) {
-        builder.addTransitiveTargets(deps,
-            JavaCcLinkParamsProvider.TO_LINK_PARAMS,
-            CcLinkParamsProvider.TO_LINK_PARAMS,
-            CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
-      }
-    };
   }
 }
