@@ -31,6 +31,7 @@ java_test(
 java_test(
     name = "fail",
     srcs = ["Fail.java"],
+    test_class = "com.example.myproject.Fail",
     deps = ["//third_party:junit4"],
 )
 
