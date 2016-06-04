@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -28,10 +27,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A class to create Java compile actions in a way that is consistent with java_library. Rules that
@@ -43,28 +39,6 @@ import java.util.Map;
  */
 public final class JavaLibraryHelper {
   private static final String DEFAULT_SUFFIX_IS_EMPTY_STRING = "";
-
-  /**
-   * Contains the providers as well as the compilation outputs.
-   */
-  public static final class Info {
-    private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers;
-    private final JavaCompilationArtifacts compilationArtifacts;
-
-    private Info(Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers,
-        JavaCompilationArtifacts compilationArtifacts) {
-      this.providers = Collections.unmodifiableMap(providers);
-      this.compilationArtifacts = compilationArtifacts;
-    }
-
-    public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> getProviders() {
-      return providers;
-    }
-
-    public JavaCompilationArtifacts getCompilationArtifacts() {
-      return compilationArtifacts;
-    }
-  }
 
   private final RuleContext ruleContext;
   private final String implicitAttributesSuffix;
@@ -147,7 +121,7 @@ public final class JavaLibraryHelper {
   /**
    * Creates the compile actions and providers.
    */
-  public Info build(JavaSemantics semantics) {
+  public JavaCompilationArtifacts build(JavaSemantics semantics) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
@@ -174,11 +148,8 @@ public final class JavaLibraryHelper {
         null /* outputMetadata */);
     helper.createCompileTimeJarAction(output, artifactsBuilder);
     artifactsBuilder.addRuntimeJar(output);
-    JavaCompilationArtifacts compilationArtifacts = artifactsBuilder.build();
 
-    Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
-        new LinkedHashMap<>();
-    return new Info(providers, compilationArtifacts);
+    return artifactsBuilder.build();
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
