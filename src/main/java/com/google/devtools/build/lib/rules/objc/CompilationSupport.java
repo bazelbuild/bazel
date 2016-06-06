@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -98,7 +97,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -235,7 +233,7 @@ public final class CompilationSupport {
   static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
 
   static final ImmutableList<String> DEFAULT_LINKER_FLAGS = ImmutableList.of("-ObjC");
-  
+
   /**
    * Returns information about the given rule's compilation artifacts.
    */
@@ -243,7 +241,7 @@ public final class CompilationSupport {
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
     return compilationArtifacts(ruleContext,  ObjcRuleClasses.intermediateArtifacts(ruleContext));
   }
-  
+
   /**
    * Returns information about the given rule's compilation artifacts. Dependencies specified
    * in the current rule's attributes are obtained via {@code ruleContext}. Output locations
@@ -277,25 +275,67 @@ public final class CompilationSupport {
   private final IntermediateArtifacts intermediateArtifacts;
 
   /**
-   * Creates a new compilation support for the given rule. All actions will be created under
-   * the given build configuration, which may be different than the current rule context
-   * configuration.
-   */
-  public CompilationSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration) {
-    this.ruleContext = ruleContext;
-    this.buildConfiguration = buildConfiguration;
-    this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
-    this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
-    this.attributes = new CompilationAttributes(ruleContext);
-    this.intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
-  }
-
-  /**
    * Creates a new compilation support for the given rule.
    */
   public CompilationSupport(RuleContext ruleContext) {
     this(ruleContext, ruleContext.getConfiguration());
+  }
+
+  /**
+   * Creates a new compilation support for the given rule.
+   *
+   * <p>All actions will be created under the given build configuration, which may be different than
+   * the current rule context configuration.
+   */
+  public CompilationSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration) {
+    this(
+        ruleContext,
+        buildConfiguration,
+        ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration),
+        CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
+  }
+
+  /**
+   * Creates a new compilation support for the given rule.
+   *
+   * <p>The compilation and linking flags will be retrieved from the given compilation attributes.
+   * The names of the generated artifacts will be retrieved from the given intermediate artifacts.
+   *
+   * <p>By instantiating multiple compilation supports for the same rule but with intermediate
+   * artifacts with different output prefixes, multiple archives can be compiled for the same
+   * rule context.
+   */
+  public CompilationSupport(
+      RuleContext ruleContext,
+      IntermediateArtifacts intermediateArtifacts,
+      CompilationAttributes compilationAttributes) {
+    this(ruleContext, ruleContext.getConfiguration(), intermediateArtifacts, compilationAttributes);
+  }
+
+  /**
+   * Creates a new compilation support for the given rule and build configuration.
+   *
+   * <p>All actions will be created under the given build configuration, which may be different than
+   * the current rule context configuration.
+   *
+   * <p>The compilation and linking flags will be retrieved from the given compilation attributes.
+   * The names of the generated artifacts will be retrieved from the given intermediate artifacts.
+   *
+   * <p>By instantiating multiple compilation supports for the same rule but with intermediate
+   * artifacts with different output prefixes, multiple archives can be compiled for the same
+   * rule context.
+   */
+  public CompilationSupport(
+      RuleContext ruleContext,
+      BuildConfiguration buildConfiguration,
+      IntermediateArtifacts intermediateArtifacts,
+      CompilationAttributes compilationAttributes) {
+    this.ruleContext = ruleContext;
+    this.buildConfiguration = buildConfiguration;
+    this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
+    this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
+    this.attributes = compilationAttributes;
+    this.intermediateArtifacts = intermediateArtifacts;
   }
 
   /**
@@ -1370,9 +1410,9 @@ public final class CompilationSupport {
     }
 
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      Set<Artifact> hdrsSet = new HashSet<>(attributes.hdrs());
-      Set<Artifact> srcsSet =
-          new HashSet<>(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
+      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(attributes.hdrs());
+      ImmutableSet<Artifact> srcsSet =
+          ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
 
       // Check for overlap between srcs and hdrs.
       for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
@@ -1382,8 +1422,9 @@ public final class CompilationSupport {
       }
 
       // Check for overlap between srcs and non_arc_srcs.
-      Set<Artifact> nonArcSrcsSet =
-          new HashSet<>(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET).list());
+      ImmutableSet<Artifact> nonArcSrcsSet =
+          ImmutableSet.copyOf(
+              ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET).list());
       for (Artifact conflict : Sets.intersection(nonArcSrcsSet, srcsSet)) {
         String path = conflict.getRootRelativePath().toString();
         ruleContext.attributeError(

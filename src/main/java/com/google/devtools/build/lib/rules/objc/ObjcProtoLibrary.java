@@ -32,14 +32,12 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     ProtoSupport protoSupport =
         new ProtoSupport(ruleContext, TargetType.PROTO_TARGET)
             .validate()
-            .addCommonOptions(commonBuilder)
             .addXcodeProviderOptions(xcodeProviderBuilder)
             .addFilesToBuild(filesToBuild)
             .registerActions();
@@ -48,7 +46,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    ObjcCommon common = commonBuilder.build();
+    ObjcCommon common = protoSupport.getCommon();
 
     filesToBuild.addAll(common.getCompiledArchive().asSet());
 
@@ -67,9 +65,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     // If the experimental flag is not set, or if it's set and doesn't use the protobuf library,
     // register the compilation actions, as the output needs to be linked in the final binary.
     if (!experimentalAutoUnion || !usesProtobufLibrary) {
-      new CompilationSupport(ruleContext)
-          .registerCompileAndArchiveActions(common)
-          .registerFullyLinkAction(common.getObjcProvider());
+      new CompilationSupport(ruleContext).registerCompileAndArchiveActions(common);
     }
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())

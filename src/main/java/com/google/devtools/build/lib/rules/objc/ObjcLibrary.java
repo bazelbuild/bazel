@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -71,7 +70,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
    */
   private ObjcCommon common(RuleContext ruleContext) {
     return new ObjcCommon.Builder(ruleContext)
-        .setCompilationAttributes(new CompilationAttributes(ruleContext))
+        .setCompilationAttributes(
+            CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))

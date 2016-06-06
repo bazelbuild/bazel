@@ -33,6 +33,7 @@ public class ObjcFrameworkRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .requiresConfigurationFragments(ObjcConfiguration.class)
         /* <!-- #BLAZE_RULE(objc_framework).ATTRIBUTE(framework_imports) -->
         The list of files under a <code>.framework</code> directory which are
         provided to Objective-C targets that depend on this target.

@@ -58,7 +58,6 @@ import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -69,23 +68,17 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppRunfilesProvider;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -98,160 +91,6 @@ import java.util.Set;
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
 public final class ObjcCommon {
-  /**
-   * Provides a way to access attributes that are common to all compilation rules.
-   */
-  // TODO(bazel-team): Delete and move into support-specific attributes classes once ObjcCommon is
-  // gone.
-  static final class CompilationAttributes {
-    private final RuleContext ruleContext;
-    private final ObjcSdkFrameworks.Attributes sdkFrameworkAttributes;
-
-    CompilationAttributes(RuleContext ruleContext) {
-      this.ruleContext = Preconditions.checkNotNull(ruleContext);
-      this.sdkFrameworkAttributes = new ObjcSdkFrameworks.Attributes(ruleContext);
-    }
-
-    ImmutableList<Artifact> hdrs() {
-      // Some rules may compile but not have the "hdrs" attribute.
-      if (!ruleContext.attributes().has("hdrs", BuildType.LABEL_LIST)) {
-        return ImmutableList.of();
-      }
-      ImmutableList.Builder<Artifact> headers = ImmutableList.builder();
-      for (Pair<Artifact, Label> header : CcCommon.getHeaders(ruleContext)) {
-        headers.add(header.first);
-      }
-      return headers.build();
-    }
-
-    /**
-     * Returns headers that cannot be compiled individually.
-     */
-    ImmutableList<Artifact> textualHdrs() {
-      // Some rules may compile but not have the "textual_hdrs" attribute.
-      if (!ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
-        return ImmutableList.of();
-      }
-      return ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list();
-    }
-
-    Optional<Artifact> bridgingHeader() {
-      Artifact header = ruleContext.getPrerequisiteArtifact("bridging_header", Mode.TARGET);
-      return Optional.fromNullable(header);
-    }
-
-    Iterable<PathFragment> includes() {
-      return Iterables.transform(
-          ruleContext.attributes().get("includes", Type.STRING_LIST),
-          PathFragment.TO_PATH_FRAGMENT);
-    }
-
-    Iterable<PathFragment> sdkIncludes() {
-      return Iterables.transform(
-          ruleContext.attributes().get("sdk_includes", Type.STRING_LIST),
-          PathFragment.TO_PATH_FRAGMENT);
-    }
-
-    /**
-     * Returns the value of the sdk_frameworks attribute plus frameworks that are included
-     * automatically.
-     */
-    ImmutableSet<SdkFramework> sdkFrameworks() {
-      return sdkFrameworkAttributes.sdkFrameworks();
-    }
-
-    /**
-     * Returns the value of the weak_sdk_frameworks attribute.
-     */
-    ImmutableSet<SdkFramework> weakSdkFrameworks() {
-      return sdkFrameworkAttributes.weakSdkFrameworks();
-    }
-
-    /**
-     * Returns the value of the sdk_dylibs attribute.
-     */
-    ImmutableSet<String> sdkDylibs() {
-      return sdkFrameworkAttributes.sdkDylibs();
-    }
-
-    /**
-     * Returns the exec paths of all header search paths that should be added to this target and
-     * dependers on this target, obtained from the {@code includes} attribute.
-     */
-    ImmutableList<PathFragment> headerSearchPaths(PathFragment genfilesFragment) {
-      ImmutableList.Builder<PathFragment> paths = new ImmutableList.Builder<>();
-      PathFragment packageFragment =
-          ruleContext.getLabel().getPackageIdentifier().getPathFragment();
-      List<PathFragment> rootFragments =
-          ImmutableList.of(packageFragment, genfilesFragment.getRelative(packageFragment));
-
-      Iterable<PathFragment> relativeIncludes =
-          Iterables.filter(includes(), Predicates.not(PathFragment.IS_ABSOLUTE));
-      for (PathFragment include : relativeIncludes) {
-        for (PathFragment rootFragment : rootFragments) {
-          paths.add(rootFragment.getRelative(include).normalize());
-        }
-      }
-      return paths.build();
-    }
-
-    /**
-     * Returns any values specified in this rule's {@code copts} attribute or an empty list if the
-     * attribute does not exist or no values are specified.
-     */
-    public Iterable<String> copts() {
-      return ruleContext.getTokenizedStringListAttr("copts");
-    }
-
-    /**
-     * Returns any values specified in this rule's {@code linkopts} attribute or an empty list if
-     * the attribute does not exist or no values are specified.
-     */
-    public Iterable<String> linkopts() {
-      return ruleContext.getTokenizedStringListAttr("linkopts");
-    }
-
-    /**
-     * The clang module maps of direct dependencies of this rule. These are needed to generate
-     * this rule's module map.
-     */
-    public List<CppModuleMap> moduleMapsForDirectDeps() {
-      // Make sure all dependencies that have headers are included here. If a module map is missing,
-      // its private headers will be treated as public!
-      ArrayList<CppModuleMap> moduleMaps = new ArrayList<>();
-      collectModuleMapsFromAttributeIfExists(moduleMaps, "deps");
-      collectModuleMapsFromAttributeIfExists(moduleMaps, "non_propagated_deps");
-      return moduleMaps;
-    }
-
-    /**
-     * Collects all module maps from the targets in a certain attribute and adds them into
-     * {@code moduleMaps}.
-     *
-     * @param moduleMaps an {@link ArrayList} to collect the module maps into
-     * @param attribute the name of a label list attribute to collect module maps from
-     */
-    private void collectModuleMapsFromAttributeIfExists(
-        ArrayList<CppModuleMap> moduleMaps, String attribute) {
-      if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-        Iterable<ObjcProvider> providers =
-            ruleContext.getPrerequisites(attribute, Mode.TARGET, ObjcProvider.class);
-        for (ObjcProvider provider : providers) {
-          moduleMaps.addAll(provider.get(TOP_LEVEL_MODULE_MAP).toCollection());
-        }
-      }
-    }
-
-    /**
-     * Returns whether this target uses language features that require clang modules, such as
-     * {@literal @}import.
-     */
-    public boolean enableModules() {
-      return ruleContext.attributes().has("enable_modules", Type.BOOLEAN)
-          && ruleContext.attributes().get("enable_modules", Type.BOOLEAN);
-    }
-  }
-
   /**
    * Provides a way to access attributes that are common to all resources rules.
    */

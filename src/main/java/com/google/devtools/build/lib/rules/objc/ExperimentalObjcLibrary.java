@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Val
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 
 import java.util.Collection;
 
@@ -79,7 +78,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
               objcProvider, ruleContext.getFragment(AppleConfiguration.class))) {
         frameworkSequence.addValue(framework);
       }
-      builder.addSequence(FRAMEWORKS_VARIABLE_NAME, frameworkSequence.build());      
+      builder.addSequence(FRAMEWORKS_VARIABLE_NAME, frameworkSequence.build());
     }
   }
 
@@ -89,7 +88,8 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
-    CompilationAttributes compilationAttributes = new CompilationAttributes(ruleContext);
+    CompilationAttributes compilationAttributes =
+        CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     ObjcCommon common = common(ruleContext, compilationAttributes, compilationArtifacts);

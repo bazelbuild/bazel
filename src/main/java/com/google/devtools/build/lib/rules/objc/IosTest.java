@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,14 +36,12 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for {@code ios_test} rule in Bazel.
@@ -100,14 +99,17 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
     addResourceFilesToBuild(ruleContext, common.getObjcProvider(), filesToBuild);
 
-    ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
-    Iterable<PathFragment> priorityHeaders;
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-      protoSupport.registerActions().addXcodeProviderOptions(xcodeProviderBuilder);
-      priorityHeaders = protoSupport.getUserHeaderSearchPaths();
-    } else {
-      priorityHeaders = ImmutableList.of();
+      ProtoSupport protoSupport =
+          new ProtoSupport(ruleContext, TargetType.LINKING_TARGET).registerActions();
+
+      ObjcCommon protoCommon = protoSupport.getCommon();
+      new CompilationSupport(
+              ruleContext,
+              protoSupport.getIntermediateArtifacts(),
+              new CompilationAttributes.Builder().build())
+          .registerCompileAndArchiveActions(protoCommon, protoSupport.getUserHeaderSearchPaths());
     }
 
     XcodeProductType productType = getProductType(ruleContext);
@@ -161,7 +163,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             extraLinkArgs,
             extraLinkInputs,
             DsymOutputType.TEST)
-        .registerCompileAndArchiveActions(common, priorityHeaders)
+        .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(common.getObjcProvider())
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
@@ -256,20 +258,19 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos()) {
+    Optional<Artifact> protoLib;
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
       ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
-      compilationArtifacts =
-          new CompilationArtifacts.Builder()
-              .setPchFile(compilationArtifacts.getPchFile())
-              .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-              .addAllSources(compilationArtifacts)
-              .addAllSources(protoSupport.getCompilationArtifacts())
-              .build();
+      protoLib = protoSupport.getCommon().getCompiledArchive();
+    } else {
+      protoLib = Optional.absent();
     }
 
     ObjcCommon.Builder builder =
         new ObjcCommon.Builder(ruleContext)
-            .setCompilationAttributes(new CompilationAttributes(ruleContext))
+            .setCompilationAttributes(
+                CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .setCompilationArtifacts(compilationArtifacts)
             .setResourceAttributes(new ResourceAttributes(ruleContext))
             .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
@@ -279,6 +280,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
                 ruleContext.getPrerequisites(
                     "non_propagated_deps", Mode.TARGET, ObjcProvider.class))
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+            .addExtraImportLibraries(protoLib.asSet())
             .setHasModuleMap();
 
     if (isXcTest(ruleContext)) {

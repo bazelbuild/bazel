@@ -118,6 +118,7 @@ final class ProtoSupport {
   private final RuleContext ruleContext;
   private final Attributes attributes;
   private final TargetType targetType;
+  private final IntermediateArtifacts intermediateArtifacts;
 
   /**
    * Creates a new proto support.
@@ -129,6 +130,15 @@ final class ProtoSupport {
     this.ruleContext = ruleContext;
     this.attributes = new Attributes(ruleContext);
     this.targetType = targetType;
+    if (targetType != TargetType.PROTO_TARGET) {
+      // Use a a prefixed version of the intermediate artifacts to avoid naming collisions, as
+      // the proto compilation step happens in the same context as the linking target.
+      this.intermediateArtifacts =
+          new IntermediateArtifacts(
+              ruleContext, "_protos", "protos", ruleContext.getConfiguration());
+    } else {
+      this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    }
   }
 
   /**
@@ -164,6 +174,13 @@ final class ProtoSupport {
   }
 
   /**
+   * Returns the intermediate artifacts associated with generated proto compilation.
+   */
+  public IntermediateArtifacts getIntermediateArtifacts() {
+    return intermediateArtifacts;
+  }
+
+  /**
    * Registers actions required for compiling the proto files.
    *
    * @return this proto support
@@ -177,29 +194,30 @@ final class ProtoSupport {
   }
 
   /**
-   * Adds required configuration to the ObjcCommon support class for proto compilation.
-   *
-   * @param commonBuilder The builder for the ObjcCommon support class.
-   * @return this proto support
+   * Returns the common object for a proto specific compilation environment.
    */
-  public ProtoSupport addCommonOptions(ObjcCommon.Builder commonBuilder) {
-    commonBuilder
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites(
-                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
-        .setHasModuleMap();
+  public ObjcCommon getCommon() {
+    ObjcCommon.Builder commonBuilder =
+        new ObjcCommon.Builder(ruleContext)
+            .setIntermediateArtifacts(intermediateArtifacts)
+            .setHasModuleMap()
+            .setCompilationArtifacts(getCompilationArtifacts());
 
-    if (usesProtobufLibrary() && experimentalAutoUnion() && targetType == TargetType.PROTO_TARGET) {
-      commonBuilder
-          .addDirectDependencyHeaderSearchPaths(getUserHeaderSearchPaths())
-          .setCompilationArtifacts(getCompilationArtifacts());
-    } else {
-      commonBuilder
-          .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
-          .setCompilationArtifacts(getCompilationArtifacts());
+    if (targetType == TargetType.LINKING_TARGET) {
+      commonBuilder.addDepObjcProviders(
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
+    } else if (targetType == TargetType.PROTO_TARGET) {
+      commonBuilder.addDepObjcProviders(
+          ruleContext.getPrerequisites(
+              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class));
+
+      if (usesProtobufLibrary() && experimentalAutoUnion()) {
+        commonBuilder.addDirectDependencyHeaderSearchPaths(getUserHeaderSearchPaths());
+      } else {
+        commonBuilder.addUserHeaderSearchPaths(getUserHeaderSearchPaths());
+      }
     }
-    return this;
+    return commonBuilder.build();
   }
 
   /**
@@ -235,7 +253,7 @@ final class ProtoSupport {
     ImmutableList<Artifact> generatedSources = getGeneratedSources();
     CompilationArtifacts.Builder builder =
         new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+            .setIntermediateArtifacts(intermediateArtifacts)
             .setPchFile(Optional.<Artifact>absent())
             .addAdditionalHdrs(getGeneratedHeaders());
 
