@@ -28,7 +28,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -83,7 +82,6 @@ public class RecursiveGlobTest {
       for (String pattern : Lists.newArrayList("**fo", "fo**", "**fo**", "fo**fo", "fo**fo**fo")) {
         assertIllegalWildcard(prefix + pattern);
         assertIllegalWildcard(pattern + suffix);
-        assertIllegalWildcard("foo", pattern + suffix);
       }
     }
   }
@@ -122,66 +120,13 @@ public class RecursiveGlobTest {
     assertGlobMatches("foo/bar/wiz/file/**" /* => nothing */);
   }
 
-  @Test
-  public void testSingleFileExclude() throws Exception {
-    assertGlobWithExcludeMatches("**", "food", ".", "foo", "foo/bar", "foo/bar/wiz", "foo/baz",
-                                 "foo/baz/quip", "foo/baz/quip/wiz", "foo/baz/wiz",
-                                 "foo/bar/wiz/file", "food/baz", "food/baz/wiz", "fool", "fool/baz",
-                                 "fool/baz/wiz");
-  }
-
-  @Test
-  public void testSingleFileExcludeForDirectoryWithChildGlob()
-      throws Exception {
-    assertGlobWithExcludeMatches("foo/**", "foo", "foo/bar", "foo/bar/wiz", "foo/baz",
-                                 "foo/baz/quip", "foo/baz/quip/wiz", "foo/baz/wiz",
-                                 "foo/bar/wiz/file");
-  }
-
-  @Test
-  public void testGlobExcludeForDirectoryWithChildGlob()
-      throws Exception {
-    assertGlobWithExcludeMatches("foo/**", "foo/*", "foo", "foo/bar/wiz", "foo/baz/quip",
-                                 "foo/baz/quip/wiz", "foo/baz/wiz", "foo/bar/wiz/file");
-  }
-
-  @Test
-  public void testExcludeAll() throws Exception {
-    assertGlobWithExcludesMatches(Lists.newArrayList("**"),
-                                  Lists.newArrayList("*", "*/*", "*/*/*", "*/*/*/*"), ".");
-  }
-
-  @Test
-  public void testManualGlobExcludeForDirectoryWithChildGlob()
-      throws Exception {
-    assertGlobWithExcludesMatches(Lists.newArrayList("foo/**"),
-                                  Lists.newArrayList("foo", "foo/*", "foo/*/*", "foo/*/*/*"));
-  }
-
   private void assertGlobMatches(String pattern, String... expecteds)
       throws Exception {
-    assertGlobWithExcludesMatches(
-        Collections.singleton(pattern), Collections.<String>emptyList(),
-        expecteds);
-  }
-
-  private void assertGlobWithExcludeMatches(String pattern, String exclude,
-                                            String... expecteds)
-      throws Exception {
-    assertGlobWithExcludesMatches(
-        Collections.singleton(pattern), Collections.singleton(exclude),
-        expecteds);
-  }
-
-  private void assertGlobWithExcludesMatches(Collection<String> pattern,
-                                             Collection<String> excludes,
-                                             String... expecteds) throws Exception {
     assertThat(
-            new UnixGlob.Builder(tmpPath)
-                .addPatterns(pattern)
-                .addExcludes(excludes)
-                .globInterruptible())
-        .containsExactlyElementsIn(resolvePaths(expecteds));
+        new UnixGlob.Builder(tmpPath)
+            .addPatterns(pattern)
+            .globInterruptible())
+    .containsExactlyElementsIn(resolvePaths(expecteds));
   }
 
   private Set<Path> resolvePaths(String... relativePaths) {
@@ -209,12 +154,11 @@ public class RecursiveGlobTest {
         .inOrder();
   }
 
-  private void assertIllegalWildcard(String pattern, String... excludePatterns)
+  private void assertIllegalWildcard(String pattern)
       throws Exception {
     try {
       new UnixGlob.Builder(tmpPath)
           .addPattern(pattern)
-          .addExcludes(excludePatterns)
           .globInterruptible();
       fail();
     } catch (IllegalArgumentException e) {
