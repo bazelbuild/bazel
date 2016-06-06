@@ -103,16 +103,6 @@ public class ActionMetadataHandler implements MetadataHandler {
       new ConcurrentHashMap<>();
 
   /**
-   * Contains per-fragment FileArtifactValues when those values must be stored separately.
-   * Bona-fide Artifacts are stored in {@link #additionalOutputData} instead.
-   * See {@link #getAdditionalOutputData()} for details.
-   * Unlike additionalOutputData, this map is discarded (the relevant FileArtifactValues
-   * are stored in outputTreeArtifactData's values instead).
-   */
-  private final ConcurrentMap<TreeFileArtifact, FileArtifactValue> cachedTreeFileArtifactData =
-      new ConcurrentHashMap<>();
-
-  /**
    * Data for TreeArtifactValues, constructed from outputArtifactData and
    * additionalOutputFileData.
    */
@@ -287,8 +277,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       // We are dealing with artifacts inside a tree artifact.
       FileArtifactValue value =
           FileArtifactValue.createWithDigest(artifact.getPath(), injectedDigest, data.getSize());
-      FileArtifactValue oldValue = cachedTreeFileArtifactData.putIfAbsent(
-          (TreeFileArtifact) artifact, value);
+      FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
       checkInconsistentData(artifact, oldValue, value);
       return new Metadata(value.getDigest());
     }
@@ -375,7 +364,7 @@ public class ActionMetadataHandler implements MetadataHandler {
         Maps.newHashMapWithExpectedSize(contents.size());
 
     for (TreeFileArtifact treeFileArtifact : contents) {
-      FileArtifactValue cachedValue = cachedTreeFileArtifactData.get(treeFileArtifact);
+      FileArtifactValue cachedValue = additionalOutputData.get(treeFileArtifact);
       if (cachedValue == null) {
         FileValue fileValue = outputArtifactData.get(treeFileArtifact);
         // This is similar to what's present in getRealMetadataForArtifact, except
@@ -385,11 +374,11 @@ public class ActionMetadataHandler implements MetadataHandler {
         if (fileValue == null) {
           fileValue = constructFileValue(treeFileArtifact, /*statNoFollow=*/ null);
           // A minor hack: maybeStoreAdditionalData will force the data to be stored
-          // in cachedTreeFileArtifactData.
+          // in additionalOutputData.
           maybeStoreAdditionalData(treeFileArtifact, fileValue, null);
         }
         cachedValue = Preconditions.checkNotNull(
-            cachedTreeFileArtifactData.get(treeFileArtifact), treeFileArtifact);
+            additionalOutputData.get(treeFileArtifact), treeFileArtifact);
       }
 
       values.put(treeFileArtifact, cachedValue);
@@ -500,7 +489,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     outputDirectoryListings.clear();
     outputTreeArtifactData.clear();
     additionalOutputData.clear();
-    cachedTreeFileArtifactData.clear();
   }
 
   @Override

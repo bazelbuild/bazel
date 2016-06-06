@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,6 +38,15 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public class ActionExecutionValue implements SkyValue {
+
+  private static final Function<Action, SkyKey> TO_KEY =
+      new Function<Action, SkyKey>() {
+        @Override
+        public SkyKey apply(Action action) {
+          return key(action);
+        }
+      };
+
   /*
   Concerning the data in this class:
 
@@ -129,6 +140,10 @@ public class ActionExecutionValue implements SkyValue {
   @VisibleForTesting
   public static SkyKey key(Action action) {
     return SkyKey.create(SkyFunctions.ACTION_EXECUTION, action);
+  }
+
+  static Iterable<SkyKey> keys(Iterable<Action> actions) {
+    return Iterables.transform(actions, TO_KEY);
   }
 
   /**

@@ -15,13 +15,17 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -71,32 +75,84 @@ class ArtifactFunction implements SkyFunction {
       return null;
     }
 
-    Preconditions.checkState(
-        actionMetadata instanceof Action,
-        "%s is not a proper Action object and therefore cannot be executed",
-        actionMetadata);
-    Action action = (Action) actionMetadata;
-    ActionExecutionValue actionValue =
+    // If the action is an ActionTemplate, we need to expand the ActionTemplate into concrete
+    // actions, execute those actions in parallel and then aggregate the action execution results.
+    if (artifact.isTreeArtifact() && actionMetadata instanceof SpawnActionTemplate) {
+      return createTreeArtifactValueFromActionTemplate(
+          (SpawnActionTemplate) actionMetadata, artifact, env);
+    } else {
+      Preconditions.checkState(
+          actionMetadata instanceof Action,
+          "%s is not a proper Action object and therefore cannot be executed",
+          actionMetadata);
+      Action action = (Action) actionMetadata;
+      ActionExecutionValue actionValue =
         (ActionExecutionValue) env.getValue(ActionExecutionValue.key(action));
-    if (actionValue == null) {
+      if (actionValue == null) {
+        return null;
+      }
+
+      if (artifact.isTreeArtifact()) {
+        // We get a request for the whole tree artifact. We can just return the associated
+        // TreeArtifactValue.
+        return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
+      } else if (isAggregatingValue(action)) {
+        return createAggregatingValue(artifact, action,
+            actionValue.getArtifactValue(artifact), env);
+      } else {
+        return createSimpleFileArtifactValue(artifact, action, actionValue, env);
+      }
+    }
+  }
+
+  private TreeArtifactValue createTreeArtifactValueFromActionTemplate(
+      SpawnActionTemplate actionTemplate, Artifact treeArtifact, Environment env)
+      throws ArtifactFunctionException {
+    // Request the list of expanded actions from the ActionTemplate.
+    ActionTemplateExpansionValue expansionValue = (ActionTemplateExpansionValue) env.getValue(
+        ActionTemplateExpansionValue.key(actionTemplate));
+
+    // The expanded actions are not yet available.
+    if (env.valuesMissing()) {
       return null;
     }
 
-    if (artifact.isTreeArtifact()) {
-      return actionValue.getTreeArtifactValue(artifact);
-    } else if (!isAggregatingValue(action)) {
-      try {
-        return createSimpleValue(artifact, actionValue);
-      } catch (IOException e) {
-        ActionExecutionException ex = new ActionExecutionException(e, action,
-            /*catastrophe=*/false);
-        env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
-        // This is a transient error since we did the work that led to the IOException.
-        throw new ArtifactFunctionException(ex, Transience.TRANSIENT);
-      }
-    } else {
-      return createAggregatingValue(artifact, action, actionValue.getArtifactValue(artifact), env);
+    // Execute the expanded actions in parallel.
+    Iterable<SkyKey> expandedActionExecutionKeys = ActionExecutionValue.keys(
+        expansionValue.getExpandedActions());
+    Map<SkyKey, SkyValue> expandedActionValueMap = env.getValues(expandedActionExecutionKeys);
+
+    // The execution values of the expanded actions are not yet all available.
+    if (env.valuesMissing()) {
+      return null;
     }
+
+    // Aggregate the ArtifactValues for individual TreeFileArtifacts into a TreeArtifactValue for
+    // the parent TreeArtifact.
+    ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> map = ImmutableMap.builder();
+    for (Map.Entry<SkyKey, SkyValue> entry : expandedActionValueMap.entrySet()) {
+      SkyKey expandedActionExecutionKey = entry.getKey();
+      ActionExecutionValue actionExecutionValue = (ActionExecutionValue) entry.getValue();
+      Action expandedAction = (Action) expandedActionExecutionKey.argument();
+
+      Iterable<TreeFileArtifact> treeFileArtifacts = findActionOutputsWithMatchingParent(
+          expandedAction, treeArtifact);
+
+      Preconditions.checkState(
+          !Iterables.isEmpty(treeFileArtifacts),
+          "Action %s does not output TreeFileArtifact under %s",
+          expandedAction,
+          treeArtifact);
+
+      for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
+        FileArtifactValue value  = createSimpleFileArtifactValue(
+            treeFileArtifact, expandedAction, actionExecutionValue, env);
+        map.put(treeFileArtifact, value);
+      }
+    }
+
+    // Return the aggregated TreeArtifactValue.
+    return TreeArtifactValue.create(map.build());
   }
 
   private ArtifactValue createSourceValue(Artifact artifact, boolean mandatory, Environment env)
@@ -155,9 +211,10 @@ class ArtifactFunction implements SkyFunction {
 
   // Non-aggregating artifact -- should contain at most one piece of artifact data.
   // data may be null if and only if artifact is a middleman artifact.
-  private ArtifactValue createSimpleValue(Artifact artifact, ActionExecutionValue actionValue)
-      throws IOException {
-    ArtifactValue value = actionValue.getArtifactValue(artifact);
+  private static FileArtifactValue createSimpleFileArtifactValue(Artifact artifact,
+      Action generatingAction, ActionExecutionValue actionValue, Environment env)
+      throws ArtifactFunctionException {
+    FileArtifactValue value = actionValue.getArtifactValue(artifact);
     if (value != null) {
       return value;
     }
@@ -168,7 +225,16 @@ class ArtifactFunction implements SkyFunction {
         "%s %s", artifact, actionValue);
     Preconditions.checkNotNull(data.getDigest(),
           "Digest should already have been calculated for %s (%s)", artifact, data);
-    return FileArtifactValue.create(artifact, data);
+
+    try {
+      return FileArtifactValue.create(artifact, data);
+    } catch (IOException e) {
+      ActionExecutionException ex = new ActionExecutionException(e, generatingAction,
+          /*catastrophe=*/false);
+      env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
+      // This is a transient error since we did the work that led to the IOException.
+      throw new ArtifactFunctionException(ex, Transience.TRANSIENT);
+    }
   }
 
   private AggregatingArtifactValue createAggregatingValue(Artifact artifact,
@@ -222,8 +288,31 @@ class ArtifactFunction implements SkyFunction {
     // were created during the first analysis of a configured target.
     Preconditions.checkNotNull(value,
         "Owner %s of %s not in graph %s", artifactOwner, artifact, actionLookupKey);
-    return Preconditions.checkNotNull(value.getGeneratingAction(artifact),
-          "Value %s does not contain generating action of %s", value, artifact);
+
+    ActionAnalysisMetadata action = value.getGeneratingAction(artifact);
+    if (artifact.hasParent()) {
+      // We are trying to resolve the generating action for a TreeFileArtifact. It may not have
+      // a generating action in the action graph at analysis time. In that case, we get the
+      // generating action for its parent TreeArtifact, which contains this TreeFileArtifact.
+      if (action == null) {
+        action = value.getGeneratingAction(artifact.getParent());
+      }
+    }
+
+    return Preconditions.checkNotNull(action,
+        "Value %s does not contain generating action of %s", value, artifact);
+  }
+
+  private static Iterable<TreeFileArtifact> findActionOutputsWithMatchingParent(
+      Action action, Artifact treeArtifact) {
+    ImmutableList.Builder<TreeFileArtifact> matchingOutputs = ImmutableList.builder();
+    for (Artifact output : action.getOutputs()) {
+      Preconditions.checkState(output.hasParent(), "%s must be a TreeFileArtifact", output);
+      if (output.getParent().equals(treeArtifact)) {
+        matchingOutputs.add((TreeFileArtifact) output);
+      }
+    }
+    return matchingOutputs.build();
   }
 
   private static final class ArtifactFunctionException extends SkyFunctionException {

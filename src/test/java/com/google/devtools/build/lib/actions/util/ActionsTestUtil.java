@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -39,6 +40,9 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
@@ -524,5 +528,19 @@ public final class ActionsTestUtil {
     } catch (ActionConflictException e) {
       throw new UncheckedActionConflictException(e);
     }
+  }
+
+  public static SpawnActionTemplate createDummySpawnActionTemplate(
+      Artifact inputTreeArtifact, Artifact outputTreeArtifact) {
+    return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
+        .setCommandLineTemplate(CustomCommandLine.builder().build())
+        .setExecutable(new PathFragment("bin/executable"))
+        .setOutputPathMapper(new OutputPathMapper() {
+          @Override
+          public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
+            return inputTreeFileArtifact.getParentRelativePath();
+          }
+        })
+        .build(NULL_ACTION_OWNER);
   }
 }
