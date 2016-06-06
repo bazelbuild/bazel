@@ -293,11 +293,11 @@ public class SkylarkRepositoryContext {
     return osObject;
   }
 
-  private void createOutputDirectory() throws RepositoryFunctionException {
+  private void createDirectory(Path directory) throws RepositoryFunctionException {
     try {
-      if (!outputDirectory.exists()) {
-        makeDirectories(outputDirectory);
-        outputDirectory.createDirectory();
+      if (!directory.exists()) {
+        makeDirectories(directory);
+        directory.createDirectory();
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -315,7 +315,7 @@ public class SkylarkRepositoryContext {
   )
   public SkylarkExecutionResult execute(List<Object> arguments, Integer timeout,
       Map<String, String> environment) throws EvalException, RepositoryFunctionException {
-    createOutputDirectory();
+    createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .addArguments(arguments)
         .setDirectory(outputDirectory.getPathFile())
@@ -327,7 +327,7 @@ public class SkylarkRepositoryContext {
   @SkylarkCallable(name = "execute", documented = false)
   public SkylarkExecutionResult execute(List<Object> arguments)
       throws EvalException, RepositoryFunctionException {
-    createOutputDirectory();
+    createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .setDirectory(outputDirectory.getPathFile())
         .addArguments(arguments)
@@ -338,7 +338,7 @@ public class SkylarkRepositoryContext {
   @SkylarkCallable(name = "execute", documented = false)
   public SkylarkExecutionResult execute(List<Object> arguments, Integer timeout)
       throws EvalException, RepositoryFunctionException {
-    createOutputDirectory();
+    createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .setDirectory(outputDirectory.getPathFile())
         .addArguments(arguments)
@@ -458,6 +458,7 @@ public class SkylarkRepositoryContext {
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory(outputPath);
+    createDirectory(outputPath.getPath());
     Path downloadedPath = HttpDownloader
         .download(url, sha256, type, outputPath.getPath(), env.getListener(),
             osObject.getEnvironmentVariables());

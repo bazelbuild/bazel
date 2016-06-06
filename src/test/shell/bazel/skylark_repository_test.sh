@@ -359,7 +359,6 @@ EOF
   expect_log "erf"
 }
 
-
 function test_skylark_repository_execute_env_and_workdir() {
   setup_skylark_repository
 
@@ -548,6 +547,8 @@ def _impl(repository_ctx):
   repository_ctx.download_and_extract(
     "http://localhost:${fileserver_port}/download_and_extract2.zip", "", "")
   repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "some/path")
+  repository_ctx.download_and_extract(
     "http://localhost:${fileserver_port}/download_and_extract3.zip", ".", "${file_sha256}", "", "")
 repo = repository_rule(implementation=_impl, local=False)
 EOF
@@ -559,21 +560,24 @@ EOF
   output_base="$(bazel info output_base)"
   # Test cleanup
   test -e "${output_base}/external/foo/server_dir/download_and_extract1.tar.gz" \
-    && fail "temp file is not deleted successfully" || true
+    && fail "temp file was not deleted successfully" || true
   test -e "${output_base}/external/foo/server_dir/download_and_extract2.zip" \
-    && fail "temp file is not deleted successfully" || true
+    && fail "temp file was not deleted successfully" || true
   test -e "${output_base}/external/foo/server_dir/download_and_extract3.zip" \
-    && fail "temp file is not deleted successfully" || true
+    && fail "temp file was not deleted successfully" || true
   # Test download_and_extract
   diff "${output_base}/external/foo/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
-    || fail "download_and_extract1.tar.gz is not extracted successfully"
+    || fail "download_and_extract1.tar.gz was not extracted successfully"
+  diff "${output_base}/external/foo/some/path/server_dir/download_and_extract1.txt" \
+    "${file_prefix}1.txt" >/dev/null \
+    || fail "download_and_extract1.tar.gz was not extracted successfully in some/path"
   diff "${output_base}/external/foo/server_dir/download_and_extract2.txt" \
     "${file_prefix}2.txt" >/dev/null \
-    || fail "download_and_extract2.zip is not extracted successfully"
+    || fail "download_and_extract2.zip was not extracted successfully"
   diff "${output_base}/external/foo/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
-    || fail "download_and_extract3.zip is not extracted successfully"
+    || fail "download_and_extract3.zip was not extracted successfully"
 }
 
 # Test native.bazel_version
