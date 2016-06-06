@@ -318,6 +318,8 @@ function test_skylark_repository_which_and_execute() {
   # Our custom repository rule
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
   bash = repository_ctx.which("bash")
   if bash == None:
     fail("Bash not found!")
@@ -326,12 +328,10 @@ def _impl(repository_ctx):
     fail("bin.sh not found!")
   result = repository_ctx.execute([bash, "--version"])
   if result.return_code != 0:
-    fail("Non-zero return code from bash: " + result.return_code)
+    fail("Non-zero return code from bash: " + str(result.return_code))
   if result.stderr != "":
     fail("Non-empty error output: " + result.stderr)
   print(result.stdout)
-  # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
@@ -344,19 +344,41 @@ function test_skylark_repository_execute_stderr() {
 
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
   result = repository_ctx.execute([str(repository_ctx.which("bash")), "-c", "echo erf >&2; exit 1"])
   if result.return_code != 1:
-    fail("Incorrect return code from bash (should be 1): " + result.return_code)
+    fail("Incorrect return code from bash: %s != 1\n%s" % (result.return_code, result.stderr))
   if result.stdout != "":
     fail("Non-empty output: %s (stderr was %s)" % (result.stdout, result.stderr))
   print(result.stderr)
-  # Symlink so a repository is created
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "erf"
+}
+
+
+function test_skylark_repository_execute_env_and_workdir() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+  result = repository_ctx.execute(
+    [str(repository_ctx.which("bash")), "-c", "echo PWD=\$PWD TOTO=\$TOTO"],
+    1000000,
+    { "TOTO": "titi" })
+  if result.return_code != 0:
+    fail("Incorrect return code from bash: %s != 0\n%s" % (result.return_code, result.stderr))
+  print(result.stdout)
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "PWD=$repo2 TOTO=titi"
 }
 
 function test_skylark_repository_environ() {

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
@@ -23,9 +24,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A structure callable from Skylark that stores the result of repository_ctx.execute() method. It
@@ -89,9 +92,12 @@ final class SkylarkExecutionResult {
 
   /**
    * Returns a Builder that can be used to execute a command and build an execution result.
+   *
+   * @param environment pass through the list of environment variables from the client to be passed
+   * to the execution environment.
    */
-  public static Builder builder() {
-    return new Builder();
+  public static Builder builder(Map<String, String> environment) {
+    return new Builder(environment);
   }
 
   /**
@@ -100,8 +106,14 @@ final class SkylarkExecutionResult {
   static final class Builder {
 
     private final List<String> args = new ArrayList<>();
+    private File directory = null;
+    private final ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     private long timeout = -1;
     private boolean executed = false;
+
+    private Builder(Map<String, String> environment) {
+      envBuilder.putAll(environment);
+    }
 
     /**
      * Adds arguments to the list of arguments to pass to the command. The first argument is
@@ -125,6 +137,25 @@ final class SkylarkExecutionResult {
     }
 
     /**
+     * Set the path to the directory to execute the result process. This method must be called
+     * before calling {@link #execute()}.
+     */
+    Builder setDirectory(File path) throws EvalException {
+      this.directory = path;
+      return this;
+    }
+
+    /**
+     * Add an environment variables to be added to the list of environment variables. For all
+     * key <code>k</code> of <code>variables</code>, the resulting process will have the variable
+     * <code>k=variables.get(k)</code> defined.
+     */
+    Builder addEnvironmentVariables(Map<String, String> variables) {
+      this.envBuilder.putAll(variables);
+      return this;
+    }
+
+    /**
      * Sets the timeout, in milliseconds, after which the executed command will be terminated.
      */
     Builder setTimeout(long timeout) {
@@ -140,6 +171,7 @@ final class SkylarkExecutionResult {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
       Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
       Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
+      Preconditions.checkNotNull(directory, "Directory must be set before calling execute().");
       executed = true;
 
       try {
@@ -147,7 +179,8 @@ final class SkylarkExecutionResult {
         for (int i = 0; i < args.size(); i++) {
           argsArray[i] = args.get(i);
         }
-        CommandResult result = new Command(argsArray).execute(new byte[]{}, timeout, false);
+        Command command = new Command(argsArray, envBuilder.build(), directory);
+        CommandResult result = command.execute(new byte[]{}, timeout, false);
         return new SkylarkExecutionResult(result);
       } catch (BadExitStatusException e) {
         return new SkylarkExecutionResult(e.getResult());
