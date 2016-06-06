@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 import javax.annotation.Nullable;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 public class DigestUtils {
   // Object to synchronize on when serializing large file reads.
   private static final Object MD5_LOCK = new Object();
+  private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
 
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
@@ -44,7 +46,7 @@ public class DigestUtils {
    * @param size size of Artifact on filesystem in bytes, getSize() on its stat.
    */
   public static boolean useFileDigest(boolean isFile, long size) {
-    // Use timestamps for directories. Use digests for everything else.
+    // Use timestamps for directories and empty files. Use digests for everything else.
     return isFile && size != 0;
   }
 
@@ -83,8 +85,17 @@ public class DigestUtils {
    * Returns the the fast md5 digest of the file, or null if not available.
    */
   @Nullable
-  public static byte[] getFastDigest(Path path) throws IOException {
-    return path.getFastDigestFunctionType().equals("MD5") ? path.getFastDigest() : null;
+  private static byte[] getFastDigest(Path path) throws IOException {
+    // TODO(bazel-team): the action cache currently only works with md5 digests but it ought to
+    // work with any opaque digest.
+    return Objects.equals(path.getFastDigestFunctionType(), "MD5") ? path.getFastDigest() : null;
+  }
+
+  /**
+   * Enable or disable multi-threaded digesting even for large files.
+   */
+  public static void setMultiThreadedDigest(boolean multiThreadedDigest) {
+    DigestUtils.MULTI_THREADED_DIGEST.set(multiThreadedDigest);
   }
 
   /**
@@ -97,12 +108,8 @@ public class DigestUtils {
    * to avoid excessive disk seeks.
    */
   public static byte[] getDigestOrFail(Path path, long fileSize) throws IOException {
-    // TODO(bazel-team): the action cache currently only works with md5 digests but it ought to
-    // work with any opaque digest.
-    byte[] md5bin = null;
-    if (Objects.equals(path.getFastDigestFunctionType(), "MD5")) {
-      md5bin = getFastDigest(path);
-    }
+    byte[] md5bin = getFastDigest(path);
+
     if (md5bin != null && !binaryDigestWellFormed(md5bin)) {
       // Fail-soft in cases where md5bin is non-null, but not a valid digest.
       String msg = String.format("Malformed digest '%s' for file %s",
@@ -111,9 +118,10 @@ public class DigestUtils {
       LoggingUtil.logToRemote(Level.SEVERE, msg, new IllegalStateException(msg));
       md5bin = null;
     }
+
     if (md5bin != null) {
       return md5bin;
-    } else if (fileSize > 4096) {
+    } else if (fileSize > 4096 && !MULTI_THREADED_DIGEST.get()) {
       // We'll have to read file content in order to calculate the digest. In that case
       // it would be beneficial to serialize those calculations since there is a high
       // probability that MD5 will be requested for multiple output files simultaneously.
