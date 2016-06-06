@@ -339,8 +339,9 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       if (packageManifest != null) {
         providerBuilder.ideInfoFilesBuilder().add(packageManifest);
         ruleContext.registerAction(
-            makePackageManifestAction(ruleContext, packageManifest, getJavaSources(ruleContext))
-        );
+            makePackageManifestAction(ruleContext,
+                packageManifest,
+                getJavaSourcefForPackageManifest(ruleContext)));
       }
 
       JavaRuleIdeInfo javaRuleIdeInfo = makeJavaRuleIdeInfo(
@@ -431,7 +432,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
   @Nullable private static Artifact createPackageManifest(ConfiguredTarget base,
       RuleContext ruleContext) {
-    Collection<Artifact> sourceFiles = getJavaSources(ruleContext);
+    Collection<Artifact> sourceFiles = getJavaSourcefForPackageManifest(ruleContext);
     if (sourceFiles.isEmpty()) {
       return null;
     }
@@ -467,11 +468,11 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       new Function<Artifact, String>() {
         @Override
         public String apply(Artifact artifact) {
-          ArtifactLocation location = makeArtifactLocation(artifact);
+          Root root = artifact.getRoot();
           return Joiner.on(",").join(
-              location.getRootExecutionPathFragment(),
-              location.getRelativePath(),
-              location.getRootPath()
+              root.getExecPath().toString(),
+              artifact.getRootRelativePath().toString(),
+              root.getPath().toString() // Remove me once we remove ArtifactLocation root
           );
         }
       };
@@ -767,7 +768,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     }
   }
 
-  private static Collection<Artifact> getJavaSources(RuleContext ruleContext) {
+  private static Collection<Artifact> getJavaSourcefForPackageManifest(RuleContext ruleContext) {
     Collection<Artifact> srcs = getSources(ruleContext);
     List<Artifact> javaSrcs = Lists.newArrayList();
     for (Artifact src : srcs) {

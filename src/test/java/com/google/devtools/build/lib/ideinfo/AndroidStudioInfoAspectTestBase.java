@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.protobuf.TextFormat;
 
@@ -137,7 +136,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
       Map<String, RuleIdeInfo> ruleIdeInfos) {
     Entry<String, RuleIdeInfo> toolchainInfo = null;
     for (Entry<String, RuleIdeInfo> entry : ruleIdeInfos.entrySet()) {
-      if (entry.getValue().getKind() == Kind.CC_TOOLCHAIN) {
+      if (entry.getValue().getKindString().equals("cc_toolchain")) {
         // Make sure we only have 1.
         assertThat(toolchainInfo).isNull();
         assertThat(entry.getValue().hasCToolchainIdeInfo()).isTrue();
@@ -225,12 +224,15 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
       Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
       for (Artifact artifact : outputGroup) {
         Action generatingAction = getGeneratingAction(artifact);
-        assertThat(generatingAction).isInstanceOf(FileWriteAction.class);
-        String fileContents = ((FileWriteAction) generatingAction).getFileContents();
-        RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
-        TextFormat.getParser().merge(fileContents, builder);
-        RuleIdeInfo ruleIdeInfo = builder.build();
-        ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+        if (generatingAction instanceof FileWriteAction) {
+          String fileContents = ((FileWriteAction) generatingAction).getFileContents();
+          RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
+          TextFormat.getParser().merge(fileContents, builder);
+          RuleIdeInfo ruleIdeInfo = builder.build();
+          ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+        } else {
+          verifyPackageManifestSpawnAction(generatingAction);
+        }
       }
       return ruleIdeInfos;
 
@@ -277,4 +279,11 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected abstract boolean isNativeTest();
+
+  // We only need to test legacy functionality for the native aspect.
+  // To make it easier to tally missing skylark aspect functionality,
+  // we give this switch a different name.
+  protected boolean testLegacyAswbPluginVersionCompatibility() {
+    return isNativeTest();
+  }
 }

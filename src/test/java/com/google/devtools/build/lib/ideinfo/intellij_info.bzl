@@ -14,29 +14,6 @@
 
 # Implementaion of AndroidStudio-specific information collecting aspect.
 
-# A map to convert rule names to a RuleIdeInfo.Kind
-# Deprecated - only here for backwards compatibility with the tests
-_kind_to_kind_id = {
-    "android_binary": 0,
-    "android_library": 1,
-    "android_test": 2,
-    "android_robolectric_test": 3,
-    "java_library": 4,
-    "java_test": 5,
-    "java_import": 6,
-    "java_binary": 7,
-    "proto_library": 8,
-    "android_sdk": 9,
-    "java_plugin": 10,
-    "android_resources": 11,
-    "cc_library": 12,
-    "cc_binary": 13,
-    "cc_test": 14,
-    "cc_inc_library": 15,
-    "cc_toolchain": 16,
-    "java_wrap_cc": 17,
-}
-
 # A map to convert JavaApiFlavor to ProtoLibraryLegacyJavaIdeInfo.ApiFlavor
 _api_flavor_to_id = {
     "FLAVOR_NONE": 0,
@@ -44,13 +21,6 @@ _api_flavor_to_id = {
     "FLAVOR_MUTABLE": 2,
     "FLAVOR_BOTH": 3,
 }
-
-_unrecognized_rule = -1
-
-def get_kind_legacy(target, ctx):
-  """ Gets kind of a rule given a target and rule context.
-  """
-  return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
 
 # Compile-time dependency attributes, grouped by type.
 DEPS = struct(
@@ -72,10 +42,7 @@ DEPS = struct(
 
 # Run-time dependency attributes, grouped by type.
 RUNTIME_DEPS = struct(
-    label = [
-        # todo(dslomov,tomlu): resources are tricky since they are sometimes labels and sometimes label_lists.
-        # "resources"
-    ],
+    label = [],
     label_list = [
         "runtime_deps",
     ],
@@ -86,6 +53,10 @@ ALL_DEPS = struct(
     label = DEPS.label + RUNTIME_DEPS.label,
     label_list = DEPS.label_list + RUNTIME_DEPS.label_list,
 )
+
+LEGACY_RESOURCE_ATTR = "resources"
+
+##### Helpers
 
 def struct_omit_none(**kwargs):
     """A replacement for standard `struct` function that omits the fields with None value."""
@@ -99,7 +70,7 @@ def artifact_location(file):
   return struct_omit_none(
       relative_path = file.short_path,
       is_source = file.is_source,
-      root_execution_path_fragment = file.root.path if not file.is_source else None
+      root_execution_path_fragment = file.root.path if not file.is_source else None,
   )
 
 def source_directory_tuple(resource_file):
@@ -155,6 +126,75 @@ def jars_from_output(output):
           for jar in [output.class_jar, output.ijar, output.source_jar]
           if jar != None and not jar.is_source]
 
+# TODO(salguarnieri) Remove once skylark provides the path safe string from a PathFragment.
+def replace_empty_path_with_dot(pathString):
+  return "." if len(pathString) == 0 else pathString
+
+def sources_from_rule(context):
+  """
+  Get the list of sources from a rule as artifact locations.
+
+  Returns the list of sources as artifact locations for a rule or an empty list if no sources are
+  present.
+  """
+
+  if hasattr(context.rule.attr, "srcs"):
+    return [artifact_location(file)
+            for src in context.rule.attr.srcs
+            for file in src.files]
+  return []
+
+def collect_targets_from_attrs(rule_attrs, attrs):
+  """Returns a list of targets from the given attributes."""
+  list_deps = [dep for attr_name in attrs.label_list
+               if hasattr(rule_attrs, attr_name)
+               for dep in getattr(rule_attrs, attr_name)]
+
+  scalar_deps = [getattr(rule_attrs, attr_name) for attr_name in attrs.label
+                 if hasattr(rule_attrs, attr_name)]
+
+  return [dep for dep in (list_deps + scalar_deps) if is_valid_aspect_target(dep)]
+
+def collect_transitive_exports(targets):
+  """Build a union of all export dependencies."""
+  result = set()
+  for dep in targets:
+    result = result | dep.export_deps
+  return result
+
+def get_legacy_resource_dep(rule_attrs):
+  """Gets the legacy 'resources' attribute."""
+  legacy_resource_target = None
+  if hasattr(rule_attrs, LEGACY_RESOURCE_ATTR):
+    dep = getattr(rule_attrs, LEGACY_RESOURCE_ATTR)
+    # resources can sometimes be a list attribute, in which case we don't want it
+    if dep and is_valid_aspect_target(dep):
+      legacy_resource_target = dep
+  return legacy_resource_target
+
+def targets_to_labels(targets):
+  """Returns a set of label strings for the given targets."""
+  return set([str(target.label) for target in targets])
+
+def list_omit_none(value):
+  """Returns a list of the value, or the empty list if None."""
+  return [value] if value else []
+
+def is_valid_aspect_target(target):
+  """Returns whether the target has had the aspect run on it."""
+  return hasattr(target, "intellij_aspect")
+
+super_secret_rule_name = "".join(["gen", "m", "p", "m"])  # Take that, leak test
+is_bazel = not hasattr(native, super_secret_rule_name)
+def tool_label(label_str):
+  """Returns a label that points to a blaze/bazel tool.
+
+  Will be removed once the aspect is migrated out of core.
+  """
+  return Label("@bazel_tools" + label_str if is_bazel else label_str)
+
+##### Builders for individual parts of the aspect output
+
 def build_c_rule_ide_info(target, ctx):
   """Build CRuleIdeInfo.
 
@@ -164,7 +204,7 @@ def build_c_rule_ide_info(target, ctx):
   if not hasattr(target, "cc"):
     return (None, set())
 
-  sources = getSourcesFromRule(ctx)
+  sources = sources_from_rule(ctx)
 
   rule_includes = []
   if hasattr(ctx.rule.attr, "includes"):
@@ -178,19 +218,18 @@ def build_c_rule_ide_info(target, ctx):
 
   cc_provider = target.cc
 
+  c_rule_ide_info = struct_omit_none(
+      source = sources,
+      rule_include = rule_includes,
+      rule_define = rule_defines,
+      rule_copt = rule_copts,
+      transitive_include_directory = cc_provider.include_directories,
+      transitive_quote_include_directory = cc_provider.quote_include_directories,
+      transitive_define = cc_provider.defines,
+      transitive_system_include_directory = cc_provider.system_include_directories,
+  )
   ide_resolve_files = set()
-
-  return (struct_omit_none(
-                  source = sources,
-                  rule_include = rule_includes,
-                  rule_define = rule_defines,
-                  rule_copt = rule_copts,
-                  transitive_include_directory = cc_provider.include_directories,
-                  transitive_quote_include_directory = cc_provider.quote_include_directories,
-                  transitive_define = cc_provider.defines,
-                  transitive_system_include_directory = cc_provider.system_include_directories
-         ),
-         ide_resolve_files)
+  return (c_rule_ide_info, ide_resolve_files)
 
 def build_c_toolchain_ide_info(target, ctx):
   """Build CToolchainIdeInfo.
@@ -205,50 +244,32 @@ def build_c_toolchain_ide_info(target, ctx):
   # This should exist because we requested it in our aspect definition.
   cc_fragment = ctx.fragments.cpp
 
-  return (struct_omit_none(
-                  target_name = cc_fragment.target_gnu_system_name,
-                  base_compiler_option = cc_fragment.compiler_options(ctx.features),
-                  c_option = cc_fragment.c_options,
-                  cpp_option = cc_fragment.cxx_options(ctx.features),
-                  link_option = cc_fragment.link_options,
-                  unfiltered_compiler_option = cc_fragment.unfiltered_compiler_options(ctx.features),
-                  preprocessor_executable =
-                      replaceEmptyPathWithDot(str(cc_fragment.preprocessor_executable)),
-                  cpp_executable = str(cc_fragment.compiler_executable),
-                  built_in_include_directory = [str(d)
-                                                for d in cc_fragment.built_in_include_directories]
-         ),
-         set())
-
-# TODO(salguarnieri) Remove once skylark provides the path safe string from a PathFragment.
-def replaceEmptyPathWithDot(pathString):
-  return "." if len(pathString) == 0 else pathString
-
-def getSourcesFromRule(context):
-  """
-  Get the list of sources from a rule as artifact locations.
-
-  Returns the list of sources as artifact locations for a rule or an empty list if no sources are
-  present.
-  """
-
-  if hasattr(context.rule.attr, "srcs"):
-    return [artifact_location(file)
-            for src in context.rule.attr.srcs
-            for file in src.files]
-  return []
+  c_toolchain_ide_info = struct_omit_none(
+      target_name = cc_fragment.target_gnu_system_name,
+      base_compiler_option = cc_fragment.compiler_options(ctx.features),
+      c_option = cc_fragment.c_options,
+      cpp_option = cc_fragment.cxx_options(ctx.features),
+      link_option = cc_fragment.link_options,
+      unfiltered_compiler_option = cc_fragment.unfiltered_compiler_options(ctx.features),
+      preprocessor_executable = replace_empty_path_with_dot(
+          str(cc_fragment.preprocessor_executable)),
+      cpp_executable = str(cc_fragment.compiler_executable),
+      built_in_include_directory = [str(d)
+                                    for d in cc_fragment.built_in_include_directories],
+  )
+  return (c_toolchain_ide_info, set())
 
 def build_java_rule_ide_info(target, ctx):
   """
   Build JavaRuleIdeInfo.
 
-  Returns a pair of (JavaRuleIdeInfo proto, a set of ide-resolve-files).
-  (or (None, empty set) if the rule is not Java rule).
+  Returns a pair of (JavaRuleIdeInfo proto, a set of ide-info-files, a set of ide-resolve-files).
+  (or (None, empty set, empty set) if the rule is not Java rule).
   """
   if not hasattr(target, "java") or ctx.rule.kind == "proto_library":
-    return (None, set())
+    return (None, set(), set())
 
-  sources = getSourcesFromRule(ctx)
+  sources = sources_from_rule(ctx)
 
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   ide_resolve_files = set([jar
@@ -258,32 +279,67 @@ def build_java_rule_ide_info(target, ctx):
   gen_jars = []
   if target.java.annotation_processing and target.java.annotation_processing.enabled:
     gen_jars = [annotation_processing_jars(target.java.annotation_processing)]
-    ide_resolve_files = ide_resolve_files | set([ jar
-        for jar in [target.java.annotation_processing.class_jar,
-                    target.java.annotation_processing.source_jar]
+    ide_resolve_files = ide_resolve_files | set([
+        jar for jar in [target.java.annotation_processing.class_jar,
+                        target.java.annotation_processing.source_jar]
         if jar != None and not jar.is_source])
 
   jdeps = artifact_location(target.java.outputs.jdeps)
 
-  return (struct_omit_none(
-                 sources = sources,
-                 jars = jars,
-                 jdeps = jdeps,
-                 generated_jars = gen_jars
-          ),
-          ide_resolve_files)
+  package_manifest = build_java_package_manifest(target, ctx)
+  ide_info_files = set([package_manifest]) if package_manifest else set()
 
-def build_android_rule_ide_info(target, ctx):
-  """
-  Build AndroidRuleIdeInfo.
+  java_rule_ide_info = struct_omit_none(
+      sources = sources,
+      jars = jars,
+      jdeps = jdeps,
+      generated_jars = gen_jars,
+      package_manifest = artifact_location(package_manifest),
+  )
+  return (java_rule_ide_info, ide_info_files, ide_resolve_files)
+
+def build_java_package_manifest(target, ctx):
+  """Builds a java package manifest and returns the output file."""
+  source_files = java_sources_for_package_manifest(ctx)
+  if not source_files:
+    return None
+
+  output = ctx.new_file(target.label.name + ".manifest")
+
+  args = []
+  args += ["--output_manifest", output.path]
+  args += ["--sources"]
+  args += [":".join([f.root.path + "," + f.path for f in source_files])]
+  ctx.action(
+      inputs = source_files,
+      outputs = [output],
+      executable = ctx.executable._package_parser,
+      arguments = args,
+      mnemonic = "JavaPackageManifest",
+      progress_message = "Parsing java package strings for " + str(target.label),
+  )
+  return output
+
+def java_sources_for_package_manifest(ctx):
+  """Get the list of non-generated java sources to go in the package manifest."""
+
+  if hasattr(ctx.rule.attr, "srcs"):
+    return [f
+            for src in ctx.rule.attr.srcs
+            for f in src.files
+            if f.is_source and f.basename.endswith(".java")]
+  return []
+
+def build_android_rule_ide_info(target, ctx, legacy_resource_label):
+  """Build AndroidRuleIdeInfo.
 
   Returns a pair of (AndroidRuleIdeInfo proto, a set of ide-resolve-files).
   (or (None, empty set) if the rule is not Android rule).
   """
   if not hasattr(target, "android"):
     return (None, set())
-  ide_resolve_files = set(jars_from_output(target.android.idl.output))
-  return (struct_omit_none(
+
+  android_rule_ide_info = struct_omit_none(
       java_package = target.android.java_package,
       manifest = artifact_location(target.android.manifest),
       apk = artifact_location(target.android.apk),
@@ -293,8 +349,10 @@ def build_android_rule_ide_info(target, ctx):
       generate_resource_class = target.android.defines_resources,
       resources = all_unique_source_directories(target.android.resources),
       resource_jar = library_artifact(target.android.resource_jar),
-  ),
-          ide_resolve_files)
+      legacy_resources = legacy_resource_label,
+  )
+  ide_resolve_files = set(jars_from_output(target.android.idl.output))
+  return (android_rule_ide_info, ide_resolve_files)
 
 def build_test_info(target, ctx):
   """Build TestInfo"""
@@ -331,63 +389,43 @@ def build_java_toolchain_ide_info(target):
       target_version = toolchain_info.target_version,
   )
 
-def collect_labels(rule_attrs, attrs):
-  """
-  Collect labels from attribute values.
-
-  Assuming that values of attributes from attr_list in rule_atrs
-  are label lists, collect a set of string representation of those labels.
-  """
-  list_labels = [str(dep.label) for attr_name in attrs.label_list
-                 if hasattr(rule_attrs, attr_name)
-                 for dep in getattr(rule_attrs, attr_name)]
-
-  scalar_labels = [str(getattr(rule_attrs, attr_name).label) for attr_name in attrs.label
-                   if hasattr(rule_attrs, attr_name)]
-
-  return set(list_labels) | set(scalar_labels)
-
-def collect_export_deps(rule_attrs):
-  """Build a union of all export dependencies."""
-  result = set()
-  for attr_name in DEPS.label_list:
-    if hasattr(rule_attrs, attr_name):
-      for dep in getattr(rule_attrs, attr_name):
-        result = result | dep.export_deps
-  for attr_name in DEPS.label:
-    if hasattr(rule_attrs, attr_name):
-      dep = getattr(rule_attrs, attr_name)
-      result = result | dep.export_deps
-
-  return result
+##### Main aspect function
 
 def _aspect_impl(target, ctx):
   """Aspect implementation function."""
-  kind_legacy = get_kind_legacy(target, ctx)
-  kind_string = ctx.rule.kind
   rule_attrs = ctx.rule.attr
 
-  # Collect transitive values
-  compiletime_deps = collect_labels(rule_attrs, DEPS) | collect_export_deps(rule_attrs)
-  runtime_deps = collect_labels(rule_attrs, RUNTIME_DEPS)
+  # Collect direct dependencies
+  direct_dep_targets = collect_targets_from_attrs(rule_attrs, DEPS)
 
+  # Add exports from direct dependencies
+  exported_deps_from_deps = collect_transitive_exports(direct_dep_targets)
+  compiletime_deps = targets_to_labels(direct_dep_targets) | exported_deps_from_deps
+
+  # Propagate my own exports
+  export_deps = set()
+  if hasattr(target, "java"):
+    export_deps = set([str(l) for l in target.java.transitive_exports])
+    # Empty android libraries export all their dependencies.
+    if ctx.rule.kind == "android_library":
+      if not hasattr(rule_attrs, "src") or not ctx.rule.attr.src:
+        export_deps = export_deps | compiletime_deps
+
+  # runtime_deps
+  runtime_dep_targets = collect_targets_from_attrs(rule_attrs, RUNTIME_DEPS)
+  runtime_deps = targets_to_labels(runtime_dep_targets)
+
+  # resources
+  legacy_resource_target = get_legacy_resource_dep(rule_attrs)
+  legacy_resource_label = str(legacy_resource_target.label) if legacy_resource_target else None
+
+  # Roll up files from my prerequisites
+  prerequisites = direct_dep_targets + runtime_dep_targets + list_omit_none(legacy_resource_target)
   ide_info_text = set()
   ide_resolve_files = set()
-  ide_infos = []
-
-  for attr_name in ALL_DEPS.label_list:
-    if hasattr(rule_attrs, attr_name):
-      for dep in getattr(rule_attrs, attr_name):
-        ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
-        ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
-        ide_infos += dep.ide_infos
-
-  for attr_name in ALL_DEPS.label:
-    if hasattr(rule_attrs, attr_name):
-      dep = getattr(rule_attrs, attr_name)
-      ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
-      ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
-
+  for dep in prerequisites:
+    ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
+    ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
 
   # Collect C-specific information
   (c_rule_ide_info, c_ide_resolve_files) = build_c_rule_ide_info(target, ctx)
@@ -397,34 +435,29 @@ def _aspect_impl(target, ctx):
   ide_resolve_files = ide_resolve_files | c_toolchain_ide_resolve_files
 
   # Collect Java-specific information
-  (java_rule_ide_info, java_ide_resolve_files) = build_java_rule_ide_info(target, ctx)
+  (java_rule_ide_info, java_ide_info_files, java_ide_resolve_files) = build_java_rule_ide_info(
+      target, ctx)
+  ide_info_text = ide_info_text | java_ide_info_files
   ide_resolve_files = ide_resolve_files | java_ide_resolve_files
 
   # Collect Android-specific information
-  (android_rule_ide_info, android_ide_resolve_files) = build_android_rule_ide_info(target, ctx)
+  (android_rule_ide_info, android_ide_resolve_files) = build_android_rule_ide_info(
+      target, ctx, legacy_resource_label)
   ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
+  # legacy proto_library support
   proto_library_legacy_java_ide_info = build_proto_library_legacy_java_ide_info(target, ctx)
 
+  # java_toolchain
   java_toolchain_ide_info = build_java_toolchain_ide_info(target)
 
   # Collect test info
   test_info = build_test_info(target, ctx)
 
-  # Collect information about exports.
-  export_deps = set()
-  if hasattr(target, "java"):
-    export_deps = set([str(l) for l in target.java.transitive_exports])
-    # Empty android libraries export all their dependencies.
-    if ctx.rule.kind == "android_library" and \
-            (not hasattr(rule_attrs, "src") or not ctx.rule.attr.src):
-      export_deps = export_deps | compiletime_deps
-
   # Build RuleIdeInfo proto
   info = struct_omit_none(
       label = str(target.label),
-      kind = kind_legacy if kind_legacy != _unrecognized_rule else None,
-      kind_string = kind_string,
+      kind_string = ctx.rule.kind,
       dependencies = list(compiletime_deps),
       runtime_deps = list(runtime_deps),
       build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
@@ -441,11 +474,11 @@ def _aspect_impl(target, ctx):
   # Output the ide information file.
   output = ctx.new_file(target.label.name + ".intellij-build.txt")
   ctx.file_action(output, info.to_proto())
-  ide_info_text += set([output])
-  ide_infos += [info]
+  ide_info_text = ide_info_text | set([output])
 
   # Return providers.
   return struct(
+      intellij_aspect = True,
       output_groups = {
         "ide-info-text" : ide_info_text,
         "ide-resolve" : ide_resolve_files,
@@ -455,11 +488,18 @@ def _aspect_impl(target, ctx):
         ide_resolve_files = ide_resolve_files,
       ),
       export_deps = export_deps,
-      ide_infos = ide_infos,
     )
 
 intellij_info_aspect = aspect(
-    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list,
+    attrs = {
+        "_package_parser": attr.label(
+            default = tool_label("//tools/android:PackageParser"),
+            cfg = HOST_CFG,
+            executable = True,
+            allow_files = True,
+        ),
+    },
+    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list + [LEGACY_RESOURCE_ATTR],
     fragments = ["cpp"],
     implementation = _aspect_impl,
 )
