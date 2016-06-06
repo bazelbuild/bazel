@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * A helper class for calling Skylark functions from Java.
@@ -31,6 +33,10 @@ public class SkylarkCallbackFunction {
     this.funcallEnv = funcallEnv;
   }
 
+  public ImmutableList<String> getParameterNames() {
+    return callback.signature.getSignature().getNames();
+  }
+
   public Object call(ClassObject ctx, Object... arguments)
       throws EvalException, InterruptedException {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {
@@ -39,10 +45,41 @@ public class SkylarkCallbackFunction {
           .setEventHandler(funcallEnv.getEventHandler())
           .setGlobals(funcallEnv.getGlobals())
           .build();
-      return callback.call(
-          ImmutableList.<Object>builder().add(ctx).add(arguments).build(), null, ast, env);
+      return callback.call(buildArgumentList(ctx, arguments), null, ast, env);
     } catch (ClassCastException | IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
+  }
+
+  // For legacy reasons: these names are used in the depot to signal that the first parameter of
+  // the callback function should be an attribute map.
+  // TODO(fwe): remove once this CL is part of a Blaze release and the depot is clean.
+  private static final ImmutableSet<String> LEGACY_ATTR_MAP_NAMES =
+      ImmutableSet.<String>of("attr_map", "attrs", "attr");
+
+  /**
+   * Creates a list of actual arguments that contains the given arguments and all attribute values
+   * required from the specified context.
+   */
+  private ImmutableList<Object> buildArgumentList(ClassObject ctx, Object... arguments) {
+    Builder<Object> builder = ImmutableList.<Object>builder();
+    ImmutableList<String> names = getParameterNames();
+    int requiredParameters = names.size() - arguments.length;
+    for (int pos = 0; pos < requiredParameters; ++pos) {
+      String name = names.get(pos);
+      Object value = ctx.getValue(name);
+      if (value == null) {
+        if (requiredParameters == 1 && LEGACY_ATTR_MAP_NAMES.contains(name)) {
+          // Legacy mode: some bzl files still expect the attribute map as the first parameter.
+          // TODO(fwe): remove this branch once this CL is part of a Blaze release and the depot
+          // is clean.
+          value = ctx;
+        } else {
+          throw new IllegalArgumentException(ctx.errorMessage(name));
+        }
+      }
+      builder.add(value);
+    }
+    return builder.add(arguments).build();
   }
 }
