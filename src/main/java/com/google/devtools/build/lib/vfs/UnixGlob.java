@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -39,6 +40,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -69,6 +72,20 @@ public final class UnixGlob {
     return visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
+  private static long globInternalAndReturnNumGlobTasksForTesting(
+      Path base, Collection<String> patterns,
+      boolean excludeDirectories,
+      Predicate<Path> dirPred,
+      boolean checkForInterruption,
+      FilesystemCalls syscalls,
+      ThreadPoolExecutor threadPool) throws IOException, InterruptedException {
+    GlobVisitor visitor = (threadPool == null)
+        ? new GlobVisitor(checkForInterruption)
+        : new GlobVisitor(threadPool, checkForInterruption);
+    visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
+    return visitor.getNumGlobTasksForTesting();
+  }
+
   private static Future<List<Path>> globAsyncInternal(Path base, Collection<String> patterns,
                                                       boolean excludeDirectories,
                                                       Predicate<Path> dirPred,
@@ -76,14 +93,8 @@ public final class UnixGlob {
                                                       boolean checkForInterruption,
                                                       ThreadPoolExecutor threadPool) {
     Preconditions.checkNotNull(threadPool, "%s %s", base, patterns);
-    try {
-      return new GlobVisitor(threadPool, checkForInterruption)
-          .globAsync(base, patterns, excludeDirectories, dirPred, syscalls);
-    } catch (IOException e) {
-      // We are evaluating asynchronously, so no exceptions should be thrown until the future is
-      // retrieved.
-      throw new IllegalStateException(e);
-    }
+    return new GlobVisitor(threadPool, checkForInterruption).globAsync(
+        base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
   /**
@@ -376,8 +387,8 @@ public final class UnixGlob {
      */
     public List<Path> glob() throws IOException {
       try {
-        return globInternal(base, patterns, excludeDirectories, pathFilter, false,
-            syscalls.get(), threadPool);
+        return globInternal(base, patterns, excludeDirectories, pathFilter, false, syscalls.get(),
+            threadPool);
       } catch (InterruptedException e) {
         // cannot happen, since we told globInternal not to throw
         throw new IllegalStateException(e);
@@ -390,8 +401,15 @@ public final class UnixGlob {
      * @throws InterruptedException if the thread is interrupted.
      */
     public List<Path> globInterruptible() throws IOException, InterruptedException {
-      return globInternal(base, patterns, excludeDirectories, pathFilter, true,
-          syscalls.get(), threadPool);
+      return globInternal(base, patterns, excludeDirectories, pathFilter, true, syscalls.get(),
+          threadPool);
+    }
+
+    @VisibleForTesting
+    public long globInterruptibleAndReturnNumGlobTasksForTesting()
+        throws IOException, InterruptedException {
+      return globInternalAndReturnNumGlobTasksForTesting(base, patterns, excludeDirectories,
+          pathFilter, true, syscalls.get(), threadPool);
     }
 
     /**
@@ -401,8 +419,8 @@ public final class UnixGlob {
      * @param checkForInterrupt if the returned future may throw InterruptedException.
      */
     public Future<List<Path>> globAsync(boolean checkForInterrupt) {
-      return globAsyncInternal(base, patterns, excludeDirectories, pathFilter,
-          syscalls.get(), checkForInterrupt, threadPool);
+      return globAsyncInternal(base, patterns, excludeDirectories, pathFilter, syscalls.get(),
+          checkForInterrupt, threadPool);
     }
   }
 
@@ -466,6 +484,7 @@ public final class UnixGlob {
 
     private final GlobFuture result;
     private final ThreadPoolExecutor executor;
+    private final AtomicLong totalOps = new AtomicLong(0);
     private final AtomicLong pendingOps = new AtomicLong(0);
     private final AtomicReference<IOException> failure = new AtomicReference<>();
     private volatile boolean canceled = false;
@@ -507,9 +526,12 @@ public final class UnixGlob {
       }
     }
 
+    private static boolean isRecursivePattern(String pattern) {
+      return "**".equals(pattern);
+    }
+
     public Future<List<Path>> globAsync(Path base, Collection<String> patterns,
-        boolean excludeDirectories, Predicate<Path> dirPred, FilesystemCalls syscalls)
-            throws IOException {
+        boolean excludeDirectories, Predicate<Path> dirPred, FilesystemCalls syscalls) {
 
       FileStatus baseStat = syscalls.statNullable(base, Symlinks.FOLLOW);
       if (baseStat == null || patterns.isEmpty()) {
@@ -518,15 +540,24 @@ public final class UnixGlob {
 
       List<String[]> splitPatterns = checkAndSplitPatterns(patterns);
 
-      // We do a dumb loop, even though it will likely duplicate work
-      // (e.g., readdir calls). In order to optimize, we would need
-      // to keep track of which patterns shared sub-patterns and which did not
-      // (for example consider the glob [*/*.java, sub/*.java, */*.txt]).
+      // We do a dumb loop, even though it will likely duplicate logical work (note that the
+      // physical filesystem operations are cached). In order to optimize, we would need to keep
+      // track of which patterns shared sub-patterns and which did not (for example consider the
+      // glob [*/*.java, sub/*.java, */*.txt]).
       pendingOps.incrementAndGet();
       try {
         for (String[] splitPattern : splitPatterns) {
-          queueGlob(base, baseStat.isDirectory(), splitPattern, 0, excludeDirectories, results,
-              cache, dirPred, syscalls);
+          boolean containsRecursivePattern = false;
+          for (String pattern : splitPattern) {
+            if (isRecursivePattern(pattern)) {
+              containsRecursivePattern = true;
+              break;
+            }
+          }
+          GlobTaskContext context = containsRecursivePattern
+              ? new RecursiveGlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls)
+              : new GlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls);
+          context.queueGlob(base, baseStat.isDirectory(), 0);
         }
       } finally {
         decrementAndCheckDone();
@@ -535,18 +566,15 @@ public final class UnixGlob {
       return result;
     }
 
-    private void queueGlob(final Path base, final boolean baseIsDir,
-        final String[] patternParts, final int idx,
-        final boolean excludeDirectories,
-        final Collection<Path> results, final Cache<String, Pattern> cache,
-        final Predicate<Path> dirPred, final FilesystemCalls syscalls) throws IOException {
+    /** Should only be called by link {@GlobTaskContext}. */
+    private void queueGlob(final Path base, final boolean baseIsDir, final int idx,
+        final GlobTaskContext context) {
       enqueue(new Runnable() {
         @Override
         public void run() {
           Profiler.instance().startTask(ProfilerTask.VFS_GLOB, this);
           try {
-            reallyGlob(base, baseIsDir, patternParts, idx, excludeDirectories, results, cache,
-                dirPred, syscalls);
+            reallyGlob(base, baseIsDir, idx, context);
           } catch (IOException e) {
             failure.set(e);
           } finally {
@@ -559,13 +587,14 @@ public final class UnixGlob {
           return String.format(
                   "%s glob(include=[%s], exclude_directories=%s)",
                   base.getPathString(),
-                  "\"" + Joiner.on("\", \"").join(patternParts) + "\"",
-                  excludeDirectories);
+                  "\"" + Joiner.on("\", \"").join(context.patternParts) + "\"",
+                  context.excludeDirectories);
         }
       });
     }
 
     protected void enqueue(final Runnable r) {
+      totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
 
       Runnable wrapped = new Runnable() {
@@ -588,6 +617,10 @@ public final class UnixGlob {
       }
     }
 
+    private long getNumGlobTasksForTesting() {
+      return totalOps.get();
+    }
+
     protected void cancel() {
       this.canceled = true;
     }
@@ -607,6 +640,86 @@ public final class UnixGlob {
       }
     }
 
+    /** A context for evaluating all the subtasks of a single top-level glob task. */
+    private class GlobTaskContext {
+      private final String[] patternParts;
+      private final boolean excludeDirectories;
+      private final Predicate<Path> dirPred;
+      private final FilesystemCalls syscalls;
+
+      GlobTaskContext(
+          String[] patternParts,
+          boolean excludeDirectories,
+          Predicate<Path> dirPred,
+          FilesystemCalls syscalls) {
+        this.patternParts = patternParts;
+        this.excludeDirectories = excludeDirectories;
+        this.dirPred = dirPred;
+        this.syscalls = syscalls;
+      }
+
+      protected void queueGlob(Path base, boolean baseIsDir, int patternIdx) {
+        GlobVisitor.this.queueGlob(base, baseIsDir, patternIdx, this);
+      }
+    }
+
+    /**
+     * A special implementation of {@link GlobTaskContext} that dedupes glob subtasks. Our naive
+     * implementation of recursive patterns means there are multiple ways to enqueue the same
+     * logical subtask.
+     */
+    private class RecursiveGlobTaskContext extends GlobTaskContext {
+
+      private class GlobTask {
+        private final Path base;
+        private final int patternIdx;
+
+        private GlobTask(Path base, int patternIdx) {
+          this.base = base;
+          this.patternIdx = patternIdx;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+          if (!(obj instanceof GlobTask)) {
+            return false;
+          }
+          GlobTask other = (GlobTask) obj;
+          return base.equals(other.base) && patternIdx == other.patternIdx;
+        }
+
+        @Override
+        public int hashCode() {
+          return Objects.hash(base, patternIdx);
+        }
+      }
+
+      private final Set<GlobTask> visitedGlobSubTasks = Sets.newConcurrentHashSet();
+
+      private RecursiveGlobTaskContext(
+          String[] patternParts,
+          boolean excludeDirectories,
+          Predicate<Path> dirPred,
+          FilesystemCalls syscalls) {
+        super(patternParts, excludeDirectories, dirPred, syscalls);
+      }
+
+      @Override
+      protected void queueGlob(Path base, boolean baseIsDir, int patternIdx) {
+        if (visitedGlobSubTasks.add(new GlobTask(base, patternIdx))) {
+          // This is a unique glob task. For example of how duplicates can arise, consider:
+          //   glob(['**/foo.txt'])
+          // with the only file being
+          //   a/foo.txt
+          //
+          // there are two ways to reach a/foo.txt: one by recursively globbing 'foo.txt' in the
+          // subdirectory 'a', and another other by recursively globbing '**/foo.txt' in the
+          // subdirectory 'a'.
+          super.queueGlob(base, baseIsDir, patternIdx);
+        }
+      }
+    }
+
     /**
      * Expressed in Haskell:
      * <pre>
@@ -614,17 +727,17 @@ public final class UnixGlob {
      *  reallyGlob base [x:xs] = union { reallyGlob(f, xs) | f results "base/x" }
      * </pre>
      */
-    private void reallyGlob(Path base, boolean baseIsDir, String[] patternParts, int idx,
-        boolean excludeDirectories,
-        Collection<Path> results, Cache<String, Pattern> cache,
-        Predicate<Path> dirPred,
-        FilesystemCalls syscalls) throws IOException {
-      if (baseIsDir && !dirPred.apply(base)) {
+    private void reallyGlob(
+        Path base,
+        boolean baseIsDir,
+        int idx,
+        GlobTaskContext context) throws IOException {
+      if (baseIsDir && !context.dirPred.apply(base)) {
         return;
       }
 
-      if (idx == patternParts.length) { // Base case.
-        if (!(excludeDirectories && baseIsDir)) {
+      if (idx == context.patternParts.length) { // Base case.
+        if (!(context.excludeDirectories && baseIsDir)) {
           results.add(base);
         }
 
@@ -636,32 +749,30 @@ public final class UnixGlob {
         return;
       }
 
-      final String pattern = patternParts[idx];
+      final String pattern = context.patternParts[idx];
 
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
-      if ("**".equals(pattern)) {
-        queueGlob(base, baseIsDir, patternParts, idx + 1, excludeDirectories, results, cache,
-            dirPred, syscalls);
+      final boolean isRecursivePattern = isRecursivePattern(pattern);
+      if (isRecursivePattern) {
+        context.queueGlob(base, baseIsDir, idx + 1);
       }
 
       if (!pattern.contains("*") && !pattern.contains("?")) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
-        FileStatus status = syscalls.statNullable(child, Symlinks.FOLLOW);
+        FileStatus status = context.syscalls.statNullable(child, Symlinks.FOLLOW);
         if (status == null || (!status.isDirectory() && !status.isFile())) {
           // The file is a dangling symlink, fifo, does not exist, etc.
           return;
         }
 
         boolean childIsDir = status.isDirectory();
-
-        queueGlob(child, childIsDir, patternParts, idx + 1, excludeDirectories, results, cache,
-            dirPred, syscalls);
+        context.queueGlob(child, childIsDir, idx + 1);
         return;
       }
 
-      Collection<Dirent> dents = syscalls.readdir(base, Symlinks.FOLLOW);
+      Collection<Dirent> dents = context.syscalls.readdir(base, Symlinks.FOLLOW);
 
       for (Dirent dent : dents) {
         Dirent.Type type = dent.getType();
@@ -673,21 +784,19 @@ public final class UnixGlob {
         String text = dent.getName();
         Path child = base.getChild(text);
 
-        if ("**".equals(pattern)) {
+        if (isRecursivePattern) {
           // Recurse without shifting the pattern.
           if (childIsDir) {
-            queueGlob(child, childIsDir, patternParts, idx, excludeDirectories, results, cache,
-                dirPred, syscalls);
+            context.queueGlob(child, childIsDir, idx);
           }
         }
         if (matches(pattern, text, cache)) {
           // Recurse and consume one segment of the pattern.
           if (childIsDir) {
-            queueGlob(child, childIsDir, patternParts, idx + 1, excludeDirectories, results, cache,
-                dirPred, syscalls);
+            context.queueGlob(child, childIsDir, idx + 1);
           } else {
             // Instead of using an async call, just repeat the base case above.
-            if (idx + 1 == patternParts.length) {
+            if (idx + 1 == context.patternParts.length) {
               results.add(child);
             }
           }

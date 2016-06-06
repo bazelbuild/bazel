@@ -154,6 +154,21 @@ public class RecursiveGlobTest {
         .inOrder();
   }
 
+  @Test
+  public void testRecursiveGlobsAreOptimized() throws Exception {
+    long numGlobTasks = new UnixGlob.Builder(tmpPath)
+        .addPattern("**")
+        .setExcludeDirectories(false)
+        .globInterruptibleAndReturnNumGlobTasksForTesting();
+
+    // The old glob implementation used to use 41 total glob tasks.
+    // Yes, checking for an exact value here is super brittle, but it lets us catch performance
+    // regressions. In other words, if you're a developer reading this comment because this test
+    // case is failing, you should be very sure you know what you're doing before you change the
+    // expectation of the test.
+    assertThat(numGlobTasks).isEqualTo(28);
+  }
+
   private void assertIllegalWildcard(String pattern)
       throws Exception {
     try {
