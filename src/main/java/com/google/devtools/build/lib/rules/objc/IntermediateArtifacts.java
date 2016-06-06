@@ -393,7 +393,7 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    if (!buildConfiguration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
+    if (!ObjcCommon.shouldUseObjcModules(ruleContext)) {
       throw new IllegalStateException();
     }
     String moduleName =

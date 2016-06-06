@@ -118,7 +118,6 @@ public final class CcLibraryHelper {
             CppCompileAction.OBJCPP_COMPILE,
             CppCompileAction.CPP_HEADER_PARSING,
             CppCompileAction.CPP_HEADER_PREPROCESSING,
-            CppCompileAction.CPP_MODULE_COMPILE,
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
@@ -274,8 +273,9 @@ public final class CcLibraryHelper {
   private boolean emitDynamicLibrary = true;
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
-  private SourceCategory sourceCatagory;
+  private final SourceCategory sourceCategory;
   private List<VariablesExtension> variablesExtensions = new ArrayList<>();
+  @Nullable private CppModuleMap injectedCppModuleMap;
   
   private final FeatureConfiguration featureConfiguration;
 
@@ -296,7 +296,7 @@ public final class CcLibraryHelper {
     this.configuration = ruleContext.getConfiguration();
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
-    this.sourceCatagory = Preconditions.checkNotNull(sourceCatagory);
+    this.sourceCategory = Preconditions.checkNotNull(sourceCatagory);
   }
 
   public CcLibraryHelper(
@@ -443,7 +443,7 @@ public final class CcLibraryHelper {
   private void addSource(Artifact source, Label label) {
     boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
-    boolean isCompiledSource = sourceCatagory.getSourceTypes().matches(source.getExecPathString());
+    boolean isCompiledSource = sourceCategory.getSourceTypes().matches(source.getExecPathString());
     if (isHeader || isTextualInclude) {
       privateHeaders.add(source);
     }
@@ -681,6 +681,15 @@ public final class CcLibraryHelper {
   public CcLibraryHelper addVariableExtension(VariablesExtension variableExtension) {
     Preconditions.checkNotNull(variableExtension);
     this.variablesExtensions.add(variableExtension);
+    return this;
+  }
+  
+  /**
+   * Sets the module map artifact for this build.
+   */
+  public CcLibraryHelper setCppModuleMap(CppModuleMap cppModuleMap) {
+    Preconditions.checkNotNull(cppModuleMap);
+    this.injectedCppModuleMap = cppModuleMap;
     return this;
   }
   
@@ -1031,24 +1040,24 @@ public final class CcLibraryHelper {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
-      CppModuleMap cppModuleMap = CppHelper.addCppModuleMapToContext(ruleContext, contextBuilder);
-      // TODO(bazel-team): addCppModuleMapToContext second-guesses whether module maps should
-      // actually be enabled, so we need to double-check here. Who would write code like this?
-      if (cppModuleMap != null) {
-        CppModuleMapAction action =
-            new CppModuleMapAction(
-                ruleContext.getActionOwner(),
-                cppModuleMap,
-                privateHeaders,
-                publicHeaders,
-                collectModuleMaps(),
-                additionalExportedHeaders,
-                featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
-                featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
-                featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
-                !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
-        ruleContext.registerAction(action);
-      }
+      CppModuleMap cppModuleMap =
+          injectedCppModuleMap == null
+              ? CppHelper.createDefaultCppModuleMap(ruleContext)
+              : injectedCppModuleMap;
+      contextBuilder.setCppModuleMap(cppModuleMap);
+      CppModuleMapAction action =
+          new CppModuleMapAction(
+              ruleContext.getActionOwner(),
+              cppModuleMap,
+              privateHeaders,
+              publicHeaders,
+              collectModuleMaps(),
+              additionalExportedHeaders,
+              featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
+              featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
+              featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
+              !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
+      ruleContext.registerAction(action);
       if (model.getGeneratesPicHeaderModule()) {
         contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
       }
