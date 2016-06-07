@@ -26,6 +26,9 @@ set -eu
 MY_LOCATION=${MY_LOCATION:-"$0.runfiles/bazel_tools/tools/objc"}
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
+# Ensure 0 timestamping for binary identical results.
+export ZERO_AR_DATE=1
+
 # TODO(b/28347228): When all callers of "xcrunwrapper libtool" are migrated to
 # using this script, move the symlinking behavior to this script.
 "${WRAPPER}" libtool "$@"
