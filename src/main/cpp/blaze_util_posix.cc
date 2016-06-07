@@ -103,7 +103,7 @@ class PipeBlazeServerStartup : public BlazeServerStartup {
  public:
   PipeBlazeServerStartup(int pipe_fd);
   virtual ~PipeBlazeServerStartup();
-  bool IsStillAlive() override;
+  virtual bool IsStillAlive();
 
  private:
   int pipe_fd;

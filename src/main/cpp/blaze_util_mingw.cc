@@ -295,7 +295,7 @@ class DummyBlazeServerStartup : public BlazeServerStartup {
  public:
   DummyBlazeServerStartup() {}
   virtual ~DummyBlazeServerStartup() {}
-  bool IsStillAlive() override { return true; }
+  virtual bool IsStillAlive() { return true; }
 };
 
 void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,

@@ -247,11 +247,11 @@ class AfUnixBlazeServer : public BlazeServer {
   AfUnixBlazeServer();
   virtual ~AfUnixBlazeServer() {}
 
-  bool Connect() override;
-  void Disconnect() override;
-  unsigned int Communicate() override;
-  void KillRunningServer() override;
-  void Cancel() override;
+  virtual bool Connect();
+  virtual void Disconnect();
+  virtual unsigned int Communicate();
+  virtual void KillRunningServer();
+  virtual void Cancel();
 
  private:
   int server_socket_;
@@ -264,11 +264,11 @@ class GrpcBlazeServer : public BlazeServer {
   GrpcBlazeServer();
   virtual ~GrpcBlazeServer();
 
-  bool Connect() override;
-  void Disconnect() override;
-  unsigned int Communicate() override;
-  void KillRunningServer() override;
-  void Cancel() override;
+  virtual bool Connect();
+  virtual void Disconnect();
+  virtual unsigned int Communicate();
+  virtual void KillRunningServer();
+  virtual void Cancel();
 
  private:
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
