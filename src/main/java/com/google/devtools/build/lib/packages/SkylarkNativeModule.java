@@ -57,7 +57,7 @@ public class SkylarkNativeModule {
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
-        doc = "The list of glob patterns to include."
+        doc = "The list of glob patterns to include. Patterns may not be absolute (starting with <code>/</code>) or reference Repositories."
       )
     },
     optionalPositionals = {
@@ -66,7 +66,7 @@ public class SkylarkNativeModule {
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
-        doc = "The list of glob patterns to exclude."
+        doc = "The list of glob patterns to exclude. Patterns may not be absolute (starting with <code>/</code>) or reference Repositories."
       ),
       // TODO(bazel-team): accept booleans as well as integers? (and eventually migrate?)
       @Param(

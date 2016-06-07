@@ -86,6 +86,10 @@ public final class GlobValue implements SkyValue {
       throw new InvalidGlobPatternException(pattern, "wildcard ? forbidden");
     }
 
+    if (pattern.startsWith("@") || pattern.startsWith("//")) {
+      throw new InvalidGlobPatternException(pattern, "Repository references forbidden");
+    }
+
     String error = UnixGlob.checkPatternForError(pattern);
     if (error != null) {
       throw new InvalidGlobPatternException(pattern, error);
