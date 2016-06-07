@@ -61,8 +61,10 @@ public class BazelConfiguration extends Fragment {
       String path = System.getenv("BAZEL_SH");
       if (path != null) {
         builder.put("sh", new PathFragment(path));
-        return;
+      } else {
+        builder.put("sh", new PathFragment("c:/tools/msys64/usr/bin/bash.exe"));
       }
+      return;
     }
     if (OS.getCurrent() == OS.FREEBSD) {
       String path = System.getenv("BAZEL_SH");
