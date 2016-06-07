@@ -1519,6 +1519,14 @@ public final class PackageFactory {
   }
 
   /**
+   * Called by a caller of {@link #createPackageFromPreprocessingAst} after this caller has fully
+   * loaded the package.
+   */
+  public void afterDoneLoadingPackage(Package pkg) {
+    packageBuilderHelper.onLoadingComplete(pkg);
+  }
+
+  /**
    * Constructs a Package instance, evaluates the BUILD-file AST inside the
    * build environment, and populates the package with Rule instances as it
    * goes.  As with most programming languages, evaluation stops when an

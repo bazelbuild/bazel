@@ -383,6 +383,7 @@ public class PackageFunction implements SkyFunction {
     Package pkg = workspace.getPackage();
     Event.replayEventsOn(env.getListener(), pkg.getEvents());
 
+    packageFactory.afterDoneLoadingPackage(pkg);
     return new PackageValue(pkg);
   }
 
@@ -539,6 +540,7 @@ public class PackageFunction implements SkyFunction {
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.invalidate(packageId);
 
+    packageFactory.afterDoneLoadingPackage(pkg);
     return new PackageValue(pkg);
   }
 
