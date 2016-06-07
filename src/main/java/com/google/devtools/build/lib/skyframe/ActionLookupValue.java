@@ -36,7 +36,8 @@ import java.util.Map;
 public class ActionLookupValue implements SkyValue {
   protected final ImmutableMap<Artifact, ActionAnalysisMetadata> generatingActionMap;
 
-  private static Map<Artifact, ActionAnalysisMetadata> filterSharedActionsAndThrowRuntimeIfConflict(
+  private static ImmutableMap<Artifact, ActionAnalysisMetadata>
+      filterSharedActionsAndThrowRuntimeIfConflict(
       Iterable<ActionAnalysisMetadata> actions) {
     try {
       return Actions.filterSharedActionsAndThrowActionConflict(actions);
