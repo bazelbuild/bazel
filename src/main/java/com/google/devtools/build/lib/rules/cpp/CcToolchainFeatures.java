@@ -431,7 +431,15 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableList<FlagGroup> flagGroups;
     
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
-      this.actions = ImmutableSet.copyOf(flagSet.getActionList());
+      this(flagSet, ImmutableSet.copyOf(flagSet.getActionList()));
+    }
+
+    /**
+     * Constructs a FlagSet for the given set of actions.
+     */
+    private FlagSet(CToolchain.FlagSet flagSet, ImmutableSet<String> actions)
+        throws InvalidConfigurationException {
+      this.actions = actions;
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
       ImmutableList.Builder<FlagGroup> builder = ImmutableList.builder();
       for (CToolchain.FlagGroup flagGroup : flagSet.getFlagGroupList()) {
@@ -591,34 +599,52 @@ public class CcToolchainFeatures implements Serializable {
   
   
   /**
-   * A container for information on a particular blaze action. 
-   * 
+   * A container for information on a particular blaze action.
+   *
    * <p>An ActionConfig can select a tool for its blaze action based on the set of active
    * features.  Internally, an ActionConfig maintains an ordered list (the order being that of the
-   * list of tools in the crosstool action_config message) of such tools and the feature sets for 
+   * list of tools in the crosstool action_config message) of such tools and the feature sets for
    * which they are valid.  For a given feature configuration, the ActionConfig will consider the
    * first tool in that list with a feature set that matches the configuration to be the tool for
    * its blaze action.
-   * 
+   *
    * <p>ActionConfigs can be activated by features.  That is, a particular feature can cause an
-   * ActionConfig to be applied in its "implies" field.  Blaze may include certain actions in 
-   * the action graph only if a corresponding ActionConfig is activated in the toolchain - this 
-   * provides the crosstool with a mechanism for adding certain actions to the action graph based 
+   * ActionConfig to be applied in its "implies" field.  Blaze may include certain actions in
+   * the action graph only if a corresponding ActionConfig is activated in the toolchain - this
+   * provides the crosstool with a mechanism for adding certain actions to the action graph based
    * on feature configuration.
-   * 
+   *
    * <p>It is invalid for a toolchain to contain two action configs for the same blaze action.  In
    * that case, blaze will throw an error when it consumes the crosstool.
    */
   @Immutable
-  private static class ActionConfig implements Serializable, CrosstoolSelectable {
+  static class ActionConfig implements Serializable, CrosstoolSelectable {
+
+    public static final String FLAG_SET_WITH_ACTION_ERROR =
+        "action_config %s specifies actions.  An action_config's flag sets automatically apply "
+            + "to the configured action.  Thus, you must not specify action lists in an "
+            + "action_config's flag set.";
+
     private final String configName;
     private final String actionName;
     private final List<CToolchain.Tool> tools;
+    private final ImmutableList<FlagSet> flagSets;
 
-    private ActionConfig(CToolchain.ActionConfig actionConfig) {
+    private ActionConfig(CToolchain.ActionConfig actionConfig)
+        throws InvalidConfigurationException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
       this.tools = actionConfig.getToolList();
+      ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
+      for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
+        if (!flagSet.getActionList().isEmpty()) {
+          throw new InvalidConfigurationException(
+              String.format(FLAG_SET_WITH_ACTION_ERROR, configName));
+        }
+
+        flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
+      }
+      this.flagSets = flagSetBuilder.build();
     }
 
     @Override
@@ -658,6 +684,15 @@ public class CcToolchainFeatures implements Serializable {
                 + getActionName()
                 + " not "
                 + "found for given feature configuration");
+      }
+    }
+
+    /**
+     * Adds the flags that apply to this action to {@code commandLine}.
+     */
+    private void expandCommandLine(Variables variables, List<String> commandLine) {
+      for (FlagSet flagSet : flagSets) {
+        flagSet.expandCommandLine(actionName, variables, commandLine);
       }
     }
   }
@@ -1068,6 +1103,11 @@ public class CcToolchainFeatures implements Serializable {
       for (Feature feature : enabledFeatures) {
         feature.expandCommandLine(action, variables, commandLine);
       }
+      
+      if (actionIsConfigured(action)) {
+        actionConfigByActionName.get(action).expandCommandLine(variables, commandLine);
+      }
+
       return commandLine;
     }
 

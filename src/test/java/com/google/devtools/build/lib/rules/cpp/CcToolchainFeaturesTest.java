@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
@@ -845,6 +846,44 @@ public class CcToolchainFeaturesTest {
       fail("Expected InvalidConfigurationException");
     } catch (InvalidConfigurationException e) {
       assertThat(e.getMessage()).contains("multiple action configs for action 'action-a'");
+    }
+  }
+
+  @Test
+  public void testFlagsFromActionConfig() throws Exception {
+    FeatureConfiguration featureConfiguration =
+        buildFeatures(
+                "action_config {",
+                "  config_name: 'c++-compile'",
+                "  action_name: 'c++-compile'",
+                "  flag_set {",
+                "    flag_group {flag: 'foo'}",
+                "  }",
+                "}")
+            .getFeatureConfiguration("c++-compile");
+    List<String> commandLine =
+        featureConfiguration.getCommandLine("c++-compile", createVariables());
+    assertThat(commandLine).contains("foo");
+    ;
+  }
+
+  @Test
+  public void testErrorForFlagFromActionConfigWithSpecifiedAction() throws Exception {
+    try {
+      buildFeatures(
+              "action_config {",
+              "  config_name: 'c++-compile'",
+              "  action_name: 'c++-compile'",
+              "  flag_set {",
+              "    action: 'c++-compile'",
+              "    flag_group {flag: 'foo'}",
+              "  }",
+              "}")
+          .getFeatureConfiguration("c++-compile");
+      fail("Should throw InvalidConfigurationException");
+    } catch (InvalidConfigurationException e) {
+      assertThat(e.getMessage())
+          .contains(String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, "c++-compile"));
     }
   }
 }
