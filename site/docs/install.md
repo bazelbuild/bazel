@@ -162,8 +162,10 @@ You can also add this command to your `~/.bashrc` file.
 Bazel version _0.1.0_ runs without any change with JDK 7. However, future
 version will stop supporting JDK 7 when our CI cannot build for it anymore.
 The installer for JDK 7 for Bazel versions after _0.1.0_ is labeled
-`./install-<em>version</em>-<em>os</em>-<b>jdk7</b>.sh`. If you wish to use JDK
-7, follow the same steps as for JDK 8 but with the _jdk7_ installer.
+<pre>
+./install-<em>version</em>-<em>os</em>-<b>jdk7</b>.sh
+</pre>
+If you wish to use JDK 7, follow the same steps as for JDK 8 but with the _jdk7_ installer.
 
 ### Getting bash completion
 
