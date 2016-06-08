@@ -290,7 +290,7 @@ public class BazelJavaRuleClasses {
           .add(attr("jvm_flags", STRING_LIST))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(use_testrunner) -->
           Use the
-          <code>com.google.testing.junit.runner.GoogleTestRunner</code> class as the
+          <code>com.google.testing.junit.runner.BazelTestRunner</code> class as the
           main entry point for a Java program.
 
           You can use this to override the default
