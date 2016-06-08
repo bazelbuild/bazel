@@ -1285,13 +1285,15 @@ public class CppCompileAction extends AbstractAction
       // second: The compiler options.
       commandLine.addAll(getCompilerOptions());
 
-      // third: The file to compile!
-      commandLine.add("-c");
-      commandLine.add(sourceFile.getExecPathString());
+      if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
+        // third: The file to compile!
+        commandLine.add("-c");
+        commandLine.add(sourceFile.getExecPathString());
 
-      // finally: The output file. (Prefixed with -o).
-      commandLine.add("-o");
-      commandLine.add(outputFile.getPathString());
+        // finally: The output file. (Prefixed with -o).
+        commandLine.add("-o");
+        commandLine.add(outputFile.getPathString());
+      }
 
       return commandLine;
     }
@@ -1354,12 +1356,14 @@ public class CppCompileAction extends AbstractAction
         options.add(dotdFile.getSafeExecPath().getPathString());
       }
 
-      if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
-        options.add("-S");
-      } else if (FileType.contains(outputFile, CppFileTypes.PREPROCESSED_C,
-          CppFileTypes.PREPROCESSED_CPP, CppFileTypes.PIC_PREPROCESSED_C,
-          CppFileTypes.PIC_PREPROCESSED_CPP)) {
-        options.add("-E");
+      if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
+        if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
+          options.add("-S");
+        } else if (FileType.contains(outputFile, CppFileTypes.PREPROCESSED_C,
+            CppFileTypes.PREPROCESSED_CPP, CppFileTypes.PIC_PREPROCESSED_C,
+            CppFileTypes.PIC_PREPROCESSED_CPP)) {
+          options.add("-E");
+        }
       }
 
       return options;

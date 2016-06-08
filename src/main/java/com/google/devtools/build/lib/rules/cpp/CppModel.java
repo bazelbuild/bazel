@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Var
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -368,7 +369,27 @@ public final class CppModel {
 
     CppCompilationContext builderContext = builder.getContext();
     CppModuleMap cppModuleMap = builderContext.getCppModuleMap();
-    buildVariables.addVariable("output_file", builder.getOutputFile().getExecPathString());
+    Artifact outputFile = builder.getOutputFile();
+    String realOutputFilePath;
+
+    buildVariables.addVariable("source_file", builder.getSourceFile().getExecPathString());
+    buildVariables.addVariable("output_file", outputFile.getExecPathString());
+
+    if (fake) {
+      realOutputFilePath = builder.getTempOutputFile().getPathString();
+    } else {
+      realOutputFilePath = builder.getOutputFile().getExecPathString();
+    }
+
+    if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
+      buildVariables.addVariable("output_assembly_file", realOutputFilePath);
+    } else if (FileType.contains(outputFile, CppFileTypes.PREPROCESSED_C,
+        CppFileTypes.PREPROCESSED_CPP, CppFileTypes.PIC_PREPROCESSED_C,
+        CppFileTypes.PIC_PREPROCESSED_CPP)) {
+      buildVariables.addVariable("output_preprocess_file", realOutputFilePath);
+    } else {
+      buildVariables.addVariable("output_object_file", realOutputFilePath);
+    }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       // If the feature is enabled and cppModuleMap is null, we are about to fail during analysis

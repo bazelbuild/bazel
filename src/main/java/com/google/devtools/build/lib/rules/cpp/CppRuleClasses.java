@@ -102,6 +102,13 @@ public class CppRuleClasses {
   public static final String RANDOM_SEED = "random_seed";
 
   /**
+   * A string constant for the compile_action_flags_in_flag_set feature. This feature is just a
+   * transitional feature which helps telling whether -c and -o options are already in flag_set of
+   * action_config in CROSSTOOL file. Once the transition is done, it should be removed.
+   */
+  public static final String COMPILE_ACTION_FLAGS_IN_FLAG_SET = "compile_action_flags_in_flag_set";
+
+  /**
    * A string constant for the module_map_home_cwd feature.
    */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";

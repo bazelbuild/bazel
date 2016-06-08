@@ -183,9 +183,15 @@ public class FakeCppCompileAction extends CppCompileAction {
         @Override
         public String apply(String input) {
           String result = ShellEscaper.escapeString(input);
+          // Once -c and -o options are added into action_config, the argument of
+          // getArgv(outputFile.getExecPath()) won't be used anymore. There will always be
+          // -c <tempOutputFile>, but here it has to be outputFile, so we replace it.
+          if (input.equals(tempOutputFile.getPathString())) {
+            result = outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
+          }
           if (input.equals(outputFile.getExecPathString())
               || input.equals(getDotdFile().getSafeExecPath().getPathString())) {
-            result = outputPrefix + result;
+            result = outputPrefix + ShellEscaper.escapeString(input);
           }
           return result;
         }
