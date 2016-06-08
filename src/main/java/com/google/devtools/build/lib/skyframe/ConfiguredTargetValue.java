@@ -44,10 +44,6 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   // only after they are cleared.
   @Nullable private ConfiguredTarget configuredTarget;
 
-  // We overload this variable to check whether the value has been clear()ed. We don't use a
-  // separate variable in order to save memory.
-  @Nullable private volatile Iterable<ActionAnalysisMetadata> actions;
-
   private final NestedSet<Package> transitivePackages;
 
   ConfiguredTargetValue(ConfiguredTarget configuredTarget,
@@ -55,19 +51,19 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
       NestedSet<Package> transitivePackages) {
     super(generatingActionMap);
     this.configuredTarget = configuredTarget;
-    this.actions = generatingActionMap.values();
     this.transitivePackages = transitivePackages;
   }
 
   @VisibleForTesting
   public ConfiguredTarget getConfiguredTarget() {
-    Preconditions.checkNotNull(actions, configuredTarget);
+    Preconditions.checkNotNull(configuredTarget);
     return configuredTarget;
   }
 
   @VisibleForTesting
   public Iterable<ActionAnalysisMetadata> getActions() {
-    return Preconditions.checkNotNull(actions, configuredTarget);
+    Preconditions.checkNotNull(configuredTarget);
+    return generatingActionMap.values();
   }
 
   public NestedSet<Package> getTransitivePackages() {
@@ -82,9 +78,8 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
    * called.
    */
   public void clear() {
-    Preconditions.checkNotNull(actions, configuredTarget);
+    Preconditions.checkNotNull(configuredTarget);
     configuredTarget = null;
-    actions = null;
   }
 
   @VisibleForTesting
@@ -112,7 +107,7 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
 
   @Override
   public String toString() {
-    return "ConfiguredTargetValue: "
-        + configuredTarget + ", actions: " + (actions == null ? null : Iterables.toString(actions));
+    return "ConfiguredTargetValue: " + configuredTarget + ", actions: "
+        + (configuredTarget == null ? null : Iterables.toString(getActions()));
   }
 }
