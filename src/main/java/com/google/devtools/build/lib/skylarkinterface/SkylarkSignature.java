@@ -42,9 +42,9 @@ public @interface SkylarkSignature {
 
   Param[] mandatoryNamedOnly() default {};
 
-  Param[] extraPositionals() default {};
+  Param extraPositionals() default @Param(name = "");
 
-  Param[] extraKeywords() default {};
+  Param extraKeywords() default @Param(name = "");
 
   boolean documented() default true;
 

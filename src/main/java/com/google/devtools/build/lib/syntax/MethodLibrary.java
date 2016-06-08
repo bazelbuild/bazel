@@ -883,12 +883,11 @@ public class MethodLibrary {
       mandatoryPositionals = {
           @Param(name = "self", type = String.class, doc = "This string."),
       },
-      extraPositionals = {
+      extraPositionals =
           @Param(name = "args", type = SkylarkList.class, defaultValue = "()",
               doc = "List of arguments"),
-      },
-      extraKeywords = {@Param(name = "kwargs", type = SkylarkDict.class, defaultValue = "{}",
-            doc = "Dictionary of arguments")},
+      extraKeywords = @Param(name = "kwargs", type = SkylarkDict.class, defaultValue = "{}",
+            doc = "Dictionary of arguments"),
       useLocation = true)
   private static final BuiltinFunction format = new BuiltinFunction("format") {
     @SuppressWarnings("unused")
@@ -1086,9 +1085,8 @@ public class MethodLibrary {
     doc =
         "Returns the smallest one of all given arguments. "
             + "If only one argument is provided, it must be a non-empty iterable.",
-    extraPositionals = {
-      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked.")
-    },
+    extraPositionals =
+      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
     useLocation = true
   )
   private static final BuiltinFunction min = new BuiltinFunction("min") {
@@ -1104,9 +1102,8 @@ public class MethodLibrary {
     doc =
         "Returns the largest one of all given arguments. "
             + "If only one argument is provided, it must be a non-empty iterable.",
-    extraPositionals = {
-      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked.")
-    },
+    extraPositionals =
+      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
     useLocation = true
   )
   private static final BuiltinFunction max = new BuiltinFunction("max") {
@@ -1829,8 +1826,7 @@ public class MethodLibrary {
       + "multiple values together.Example:<br>"
       + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
       + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
-      extraKeywords = {
-        @Param(name = "kwargs", doc = "the struct attributes")},
+      extraKeywords = @Param(name = "kwargs", doc = "the struct attributes"),
       useLocation = true)
   private static final BuiltinFunction struct = new BuiltinFunction("struct") {
     @SuppressWarnings("unchecked")
@@ -1887,7 +1883,7 @@ public class MethodLibrary {
                 + "exactly two elements: key, value"
       ),
     },
-    extraKeywords = {@Param(name = "kwargs", doc = "Dictionary of additional entries.")},
+    extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
     useLocation = true, useEnvironment = true
   )
   private static final BuiltinFunction dict =
@@ -2197,7 +2193,7 @@ public class MethodLibrary {
         @Param(name = "sep", type = String.class, defaultValue = "' '",
             doc = "The separator string between the objects, default is space (\" \").")},
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
-      extraPositionals = {@Param(name = "args", doc = "The objects to print.")},
+      extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction print = new BuiltinFunction("print") {
     public Runtime.NoneType invoke(String sep, SkylarkList<?> starargs,
@@ -2223,7 +2219,7 @@ public class MethodLibrary {
           + "zip([1, 2])  # == [(1,), (2,)]\n"
           + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
           + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
-      extraPositionals = {@Param(name = "args", doc = "lists to zip")},
+      extraPositionals = @Param(name = "args", doc = "lists to zip"),
       returnType = MutableList.class, useLocation = true, useEnvironment = true)
   private static final BuiltinFunction zip = new BuiltinFunction("zip") {
     public MutableList<?> invoke(SkylarkList<?> args, Location loc, Environment env)

@@ -79,14 +79,13 @@ public class AppleSkylarkCommon {
         doc = "Whether this provider should enable Swift support."
       )
     },
-    extraKeywords = {
+    extraKeywords =
       @Param(
         name = "kwargs",
         type = SkylarkDict.class,
         defaultValue = "{}",
         doc = "Dictionary of arguments"
       )
-    }
   )
   public static final BuiltinFunction NEW_OBJC_PROVIDER =
       new BuiltinFunction("new_objc_provider") {
