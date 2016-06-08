@@ -93,6 +93,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     KEEP_GOING,
     SKYFRAME_LOADING_PHASE,
+    DYNAMIC_CONFIGURATIONS,
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -214,6 +215,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getConfigurationOptions()));
     optionsParser.parse(new String[] {"--default_visibility=public" });
     optionsParser.parse(args);
+    if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS)) {
+      optionsParser.parse("--experimental_dynamic_configs");
+    }
 
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);

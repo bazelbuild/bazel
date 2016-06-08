@@ -861,6 +861,12 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testCycleDueToJavaLauncherConfiguration() throws Exception {
+    if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS)) {
+      // Dynamic configurations don't yet support late-bound attributes. Development testing already
+      // runs all tests with dynamic configurations enabled, so this will still fail for developers
+      // and won't get lost in the fog.
+      return;
+    }
     scratch.file("foo/BUILD",
         "java_binary(name = 'java', srcs = ['DoesntMatter.java'])",
         "cc_binary(name = 'cpp', data = [':java'])");
@@ -1230,7 +1236,6 @@ public class BuildViewTest extends BuildViewTestBase {
         ruleClassProvider.getUniversalFragment());
   }
 
-
   /** Runs the same test with the reduced loading phase. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
@@ -1238,6 +1243,16 @@ public class BuildViewTest extends BuildViewTestBase {
     @Override
     protected FlagBuilder defaultFlags() {
       return super.defaultFlags().with(Flag.SKYFRAME_LOADING_PHASE);
+    }
+  }
+
+  /** Runs the same test with dynamic configurations. */
+  @TestSpec(size = Suite.SMALL_TESTS)
+  @RunWith(JUnit4.class)
+  public static class WithDynamicConfigurations extends BuildViewTest {
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
     }
   }
 }
