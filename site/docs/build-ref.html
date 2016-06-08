@@ -1097,11 +1097,9 @@ sh_test(
 <p>These files are available using the relative path
 <code>"path/to/data/file"</code>. In tests, it is also possible to refer to
 them by joining the paths of the test's source directory and the workspace-relative
-path, e.g.  <code>${TEST_SRCDIR}/path/to/data/file</code>. (The exact syntax
-depends on your programming language, of course.)</p>
+path, e.g.
 
-<p>
-
+<code>${TEST_SRCDIR}/workspace/path/to/data/file</code>.
    <h3 id="label_directory">Using Labels to Reference Directories</h3>
 
    <p>As you look over our <code>BUILD</code> files, you might notice
