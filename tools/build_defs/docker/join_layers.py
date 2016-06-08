@@ -19,9 +19,11 @@
 #             --name=myname --repository=repositoryName
 # See the gflags declaration about the flags argument details.
 
+import json
 import os.path
 import sys
 
+from tools.build_defs.docker import utils
 from tools.build_defs.pkg import archive
 from third_party.py import gflags
 
@@ -39,15 +41,14 @@ gflags.DEFINE_string(
 
 gflags.DEFINE_string(
     'name', None,
-    'The symbolic name of this image (use with --id and --repsoitory).')
+    'The symbolic name of this image (use with --id and --repository).')
 
 FLAGS = gflags.FLAGS
 
 
 def _layer_filter(name):
-  """Ignore files 'top' and 'repositories' when merging layers."""
   basename = os.path.basename(name)
-  return basename not in ('top', 'repositories')
+  return basename not in ('manifest.json', 'top', 'repositories')
 
 
 def create_image(output, layers, identifier=None,
@@ -61,9 +62,16 @@ def create_image(output, layers, identifier=None,
     name: symbolic name for this docker image.
     repository: repository name for this docker image.
   """
+  manifest = []
+
   tar = archive.TarFileWriter(output)
   for layer in layers:
     tar.add_tar(layer, name_filter=_layer_filter)
+    manifest += utils.GetManifestFromTar(layer)
+
+  manifest_content = json.dumps(manifest, sort_keys=True)
+  tar.add_file('manifest.json', content=manifest_content)
+
   # In addition to N layers of the form described above, there might be
   # a single file at the top of the image called repositories.
   # This file contains a JSON blob of the form:

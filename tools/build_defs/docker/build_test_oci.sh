@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,61 +38,41 @@ function EXPECT_CONTAINS() {
 function check_property() {
   local property="${1}"
   local tarball="${2}"
-  local layer="${3}"
+  local image="${3}"
   local expected="${4}"
   local test_data="${TEST_DATA_DIR}/${tarball}.tar"
 
-  local metadata="$(tar xOf "${test_data}" "./${layer}/json")"
+  local config="$(tar xOf "${test_data}" "./${image}.json")"
 
   # This would be much more accurate if we had 'jq' everywhere.
-  EXPECT_CONTAINS "${metadata}" "\"${property}\": ${expected}"
+  EXPECT_CONTAINS "${config}" "\"${property}\": ${expected}"
 }
 
 function check_no_property() {
   local property="${1}"
   local tarball="${2}"
-  local layer="${3}"
+  local image="${3}"
   local test_data="${TEST_DATA_DIR}/${tarball}.tar"
 
-  tar xOf "${test_data}" "./${layer}/json" >$TEST_log
+  tar xOf "${test_data}" "./${image}.json" >$TEST_log
   expect_not_log "\"${property}\":"
-
-  # notop variant
-  test_data="${TEST_DATA_DIR}/notop_${tarball}.tar"
-  tar xOf "${test_data}" "./${layer}/json" >$TEST_log
-  expect_not_log "\"${property}\":"
-}
-
-function check_size() {
-  check_property Size "${@}"
-}
-
-function check_id() {
-  check_property id "${@}"
-}
-
-function check_parent() {
-  check_property parent "${@}"
 }
 
 function check_entrypoint() {
   input="$1"
   shift
   check_property Entrypoint "${input}" "${@}"
-  check_property Entrypoint "notop_${input}" "${@}"
 }
 
 function check_cmd() {
   input="$1"
   shift
   check_property Cmd "${input}" "${@}"
-  check_property Cmd "notop_${input}" "${@}"
 }
 
 function check_ports() {
   input="$1"
   shift
-  check_property ExposedPorts "${input}" "${@}"
   check_property ExposedPorts "${input}" "${@}"
 }
 
@@ -100,39 +80,107 @@ function check_volumes() {
   input="$1"
   shift
   check_property Volumes "${input}" "${@}"
-  check_property Volumes "notop_${input}" "${@}"
 }
 
 function check_env() {
   input="$1"
   shift
   check_property Env "${input}" "${@}"
-  check_property Env "notop_${input}" "${@}"
 }
 
 function check_label() {
   input="$1"
   shift
   check_property Label "${input}" "${@}"
-  check_property Label "notop_${input}" "${@}"
 }
 
 function check_workdir() {
   input="$1"
   shift
   check_property WorkingDir "${input}" "${@}"
-  check_property WorkingDir "notop_${input}" "${@}"
 }
 
 function check_user() {
   input="$1"
   shift
   check_property User "${input}" "${@}"
-  check_property User "notop_${input}" "${@}"
+}
+
+function check_images() {
+  local input="$1"
+  shift 1
+  local expected_images=(${*})
+  local test_data="${TEST_DATA_DIR}/${input}.tar"
+
+  local manifest="$(tar xOf "${test_data}" "./manifest.json")"
+  local manifest_images=(
+    $(echo "${manifest}" | grep -Eo '"Config":[[:space:]]*"[^"]+"' \
+      | sed -r -e 's#"Config":.*?"([0-9a-f]+)\.json"#\1#'))
+
+  local manifest_parents=(
+    $(echo "${manifest}" | grep -Eo '"Parent":[[:space:]]*"[^"]+"' \
+      | sed -r -e 's#"Parent":.*?"sha256:([0-9a-f]+)"#\1#'))
+
+  # Verbose output for testing.
+  echo Expected: "${expected_images[@]}"
+  echo Actual: "${manifest_images[@]}"
+  echo Parents: "${manifest_parents[@]}"
+
+  check_eq "${#expected_images[@]}" "${#manifest_images[@]}"
+
+  local index=0
+  while [ "${index}" -lt "${#expected_images[@]}" ]
+  do
+    # Check that the nth sorted layer matches
+    check_eq "${expected_images[$index]}" "${manifest_images[$index]}"
+
+    index=$((index + 1))
+  done
+
+  # Check that the image contains its predecessor as its parent in the manifest.
+  check_eq "${#manifest_parents[@]}" "$((${#manifest_images[@]} - 1))"
+
+  local index=0
+  while [ "${index}" -lt "${#manifest_parents[@]}" ]
+  do
+    # Check that the nth sorted layer matches
+    check_eq "${manifest_parents[$index]}" "${manifest_images[$index]}"
+
+    index=$((index + 1))
+  done
+}
+
+# The bottom manifest entry must contain all layers in order
+function check_image_manifest_layers() {
+  local input="$1"
+  shift 1
+  local expected_layers=(${*})
+  local test_data="${TEST_DATA_DIR}/${input}.tar"
+
+  local manifest="$(tar xOf "${test_data}" "./manifest.json")"
+  local manifest_layers=(
+    $(echo "${manifest}" | grep -Eo '"Layers":[[:space:]]*\[[^]]+\]' \
+      | grep -Eo '\[.+\]' | tail -n 1 | tr ',' '\n' \
+      | sed -r -e 's#.*"([0-9a-f]+)/layer\.tar".*#\1#'))
+
+  # Verbose output for testing.
+  echo Expected: "${expected_layers[@]}"
+  echo Actual: "${manifest_layers[@]}"
+
+  check_eq "${#expected_layers[@]}" "${#manifest_layers[@]}"
+
+  local index=0
+  while [ "${index}" -lt "${#expected_layers[@]}" ]
+  do
+    # Check that the nth sorted layer matches
+    check_eq "${expected_layers[$index]}" "${manifest_layers[$index]}"
+
+    index=$((index + 1))
+  done
 }
 
 function check_layers_aux() {
-  local input=${1}
+  local input="$1"
   shift 1
   local expected_layers=(${*})
 
@@ -149,13 +197,12 @@ function check_layers_aux() {
       | cut -d'/' -f 2 | grep -E '^[0-9a-f]+$' | sort | uniq))
 
   # Verbose output for testing.
-  echo Expected: ${expected_layers_sorted[@]}
-  echo Actual: ${actual_layers[@]}
+  echo Expected: "${expected_layers_sorted[@]}"
+  echo Actual: "${actual_layers[@]}"
 
   check_eq "${#expected_layers[@]}" "${#actual_layers[@]}"
 
   local index=0
-  local parent=
   while [ "${index}" -lt "${#expected_layers[@]}" ]
   do
     # Check that the nth sorted layer matches
@@ -172,27 +219,15 @@ function check_layers_aux() {
     # Check that all files in the layer, if any, have the magic timestamp
     check_eq "$(echo "${listing}" | grep -Fv "${MAGIC_TIMESTAMP}" || true)" ""
 
-    check_id "${input}" "${layer}" "\"${layer}\""
-
-    # Check that the layer contains its predecessor as its parent in the JSON.
-    if [[ -n "${parent}" ]]; then
-      check_parent "${input}" "${layer}" "\"${parent}\""
-    fi
-
-    # Check that the layer's size metadata matches the layer's tarball's size.
-    local layer_size=$(tar xOf "${test_data}" "./${layer}/layer.tar" | wc -c | xargs)
-    check_size "${input}" "${layer}" "${layer_size}"
-
     index=$((index + 1))
-    parent=$layer
   done
 }
 
 function check_layers() {
-  local input=$1
+  local input="$1"
   shift
   check_layers_aux "$input" "$@"
-  check_layers_aux "notop_$input" "$@"
+  check_image_manifest_layers "$input" "$@"
 }
 
 function test_gen_image() {
@@ -204,14 +239,6 @@ function test_dummy_repository() {
   local layer="0279f3ce8b08d10506abcf452393b3e48439f5eca41b836fae59a0d509fbafea"
   local test_data="${TEST_DATA_DIR}/dummy_repository.tar"
   check_layers_aux "dummy_repository" "$layer"
-
-
-  local repositories="$(tar xOf "${test_data}" "./repositories")"
-  # This would really need to use `jq` instead.
-  echo "${repositories}" | \
-    grep -Esq -- "\"gcr.io/dummy/[a-zA-Z_]*_docker_testdata\": {" \
-    || fail "Cannot find image in repository gcr.io/dummy in '${repositories}'"
-  EXPECT_CONTAINS "${repositories}" "\"dummy_repository\": \"$layer\""
 }
 
 function test_files_base() {
@@ -232,7 +259,7 @@ function test_tar_base() {
   # Check that this layer doesn't have any entrypoint data by looking
   # for *any* entrypoint.
   check_no_property "Entrypoint" "tar_base" \
-    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277"
+    "9fec194fd32c03350d6a6e60ee8ed7862471e8817aaa310306d9be6242b05d20"
 }
 
 function test_tar_with_tar_base() {
@@ -270,12 +297,12 @@ function test_base_with_entrypoint() {
     "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b"
 
   check_entrypoint "base_with_entrypoint" \
-    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
+    "d59ab78d94f88b906227b8696d3065b91c71a1c6045d5103f3572c1e6fe9a1a9" \
     '["/bar"]'
 
   # Check that the base layer has a port exposed.
   check_ports "base_with_entrypoint" \
-    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
+    "d59ab78d94f88b906227b8696d3065b91c71a1c6045d5103f3572c1e6fe9a1a9" \
     '{"8080/tcp": {}}'
 }
 
@@ -291,24 +318,29 @@ function test_derivative_with_cmd() {
     "e35f57dc6c1e84ae67dcaaf3479a3a3c0f52ac4d194073bd6214e04c05beab42" \
     "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01"
 
+  check_images "derivative_with_cmd" \
+    "d59ab78d94f88b906227b8696d3065b91c71a1c6045d5103f3572c1e6fe9a1a9" \
+    "a37fcc5dfa513987ecec8a19ebe5d17568a7d6e696771c596b110fcc30a2d8a6" \
+    "d3ea6e7cfc3e182a8ca43081db1e145f1bee8c5da5627639800c76abf61b5165"
+
   check_entrypoint "derivative_with_cmd" \
-    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01" \
+    "d59ab78d94f88b906227b8696d3065b91c71a1c6045d5103f3572c1e6fe9a1a9" \
     '["/bar"]'
 
-  # Check that the middle layer has our shadowed arg.
+  # Check that the middle image has our shadowed arg.
   check_cmd "derivative_with_cmd" \
-    "e35f57dc6c1e84ae67dcaaf3479a3a3c0f52ac4d194073bd6214e04c05beab42" \
+    "a37fcc5dfa513987ecec8a19ebe5d17568a7d6e696771c596b110fcc30a2d8a6" \
     '["shadowed-arg"]'
 
-  # Check that our topmost layer excludes the shadowed arg.
+  # Check that our topmost image excludes the shadowed arg.
   check_cmd "derivative_with_cmd" \
-    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01" \
+    "d3ea6e7cfc3e182a8ca43081db1e145f1bee8c5da5627639800c76abf61b5165" \
     '["arg1", "arg2"]'
 
   # Check that the topmost layer has the ports exposed by the bottom
   # layer, and itself.
   check_ports "derivative_with_cmd" \
-    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01" \
+    "d3ea6e7cfc3e182a8ca43081db1e145f1bee8c5da5627639800c76abf61b5165" \
     '{"80/tcp": {}, "8080/tcp": {}}'
 }
 
@@ -317,14 +349,18 @@ function test_derivative_with_volume() {
     "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
     "08424283ad3a7e020e210bec22b166d7ebba57f7ba2d0713c2fd7bd1e2038f88"
 
+  check_images "derivative_with_volume" \
+    "da0f0e314eb3187877754fd5ee1e487b93c13dbabdba18f35d130324f3c9b76d" \
+    "c872bf3f4c7eb5a01ae7ad6fae4c25e86ff2923bb1fe29be5edcdff1b31ed71a"
+
   # Check that the topmost layer has the ports exposed by the bottom
   # layer, and itself.
   check_volumes "derivative_with_volume" \
-    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "da0f0e314eb3187877754fd5ee1e487b93c13dbabdba18f35d130324f3c9b76d" \
     '{"/logs": {}}'
 
   check_volumes "derivative_with_volume" \
-    "08424283ad3a7e020e210bec22b166d7ebba57f7ba2d0713c2fd7bd1e2038f88" \
+    "c872bf3f4c7eb5a01ae7ad6fae4c25e86ff2923bb1fe29be5edcdff1b31ed71a" \
     '{"/asdf": {}, "/blah": {}, "/logs": {}}'
 }
 
@@ -339,7 +375,7 @@ function test_with_env() {
     "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624"
 
   check_env "with_env" \
-    "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624" \
+    "87c0d91841f92847ec6c183810f720e5926dba0652eb5d52a807366825dd21c7" \
     '["bar=blah blah blah", "foo=/asdf"]'
 }
 
@@ -351,7 +387,7 @@ function test_with_double_env() {
 
   # Check both the aggregation and the expansion of embedded variables.
   check_env "with_double_env" \
-    "576a9fd9c690be04dc7aacbb9dbd1f14816e32dbbcc510f4d42325bbff7163dd" \
+    "273d2a6cfc25001baf9d3f7c68770ec79a1671b8249d153e7611a4f80165ecda" \
     '["bar=blah blah blah", "baz=/asdf blah blah blah", "foo=/asdf"]'
 }
 
@@ -361,7 +397,7 @@ function test_with_label() {
     "eba6abda3d259ab6ed5f4d48b76df72a5193fad894d4ae78fbf0a363d8f9e8fd"
 
   check_label "with_label" \
-    "eba6abda3d259ab6ed5f4d48b76df72a5193fad894d4ae78fbf0a363d8f9e8fd" \
+    "83c007425faff33ac421329af9f6444b7250abfc12c28f188b47e97fb715c006" \
     '["com.example.bar={\"name\": \"blah\"}", "com.example.baz=qux", "com.example.foo={\"name\": \"blah\"}"]'
 }
 
@@ -369,16 +405,16 @@ function test_with_double_label() {
   check_layers "with_double_label" \
     "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
     "eba6abda3d259ab6ed5f4d48b76df72a5193fad894d4ae78fbf0a363d8f9e8fd" \
-    "bfe88fbb5e24fc5bff138f7a1923d53a2ee1bbc8e54b6f5d9c371d5f48b6b023" \
+    "bfe88fbb5e24fc5bff138f7a1923d53a2ee1bbc8e54b6f5d9c371d5f48b6b023"
 
   check_label "with_double_label" \
-    "bfe88fbb5e24fc5bff138f7a1923d53a2ee1bbc8e54b6f5d9c371d5f48b6b023" \
+    "8cfc89c83adf947cd2c18c11579559f1f48cf375a20364ec79eb14d6580dbf75" \
     '["com.example.bar={\"name\": \"blah\"}", "com.example.baz=qux", "com.example.foo={\"name\": \"blah\"}", "com.example.qux={\"name\": \"blah-blah\"}"]'
 }
 
 function test_with_user() {
   check_user "with_user" \
-    "65664d4d78ff321684e2a8bf165792ce562c5990c9ba992e6288dcb1ec7f675c" \
+    "bd6666bdde7d4a837a0685d2861822507119f7f6e565acecbbbe93f1d0cc1974" \
     "\"nobody\""
 }
 
@@ -454,4 +490,4 @@ function test_extras_with_deb() {
 ./usr/titi"
 }
 
-run_suite "build_test"
+run_suite "build_test_oci"

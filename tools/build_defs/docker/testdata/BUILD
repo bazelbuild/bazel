@@ -222,6 +222,12 @@ docker_build(
 ]]
 
 docker_build(
+    name = "with_user",
+    base = ":base_with_volume",
+    user = "nobody",
+)
+
+docker_build(
     name = "link_with_files_base",
     base = ":files_base",
     symlinks = {
@@ -350,6 +356,12 @@ docker_build(
     labels = {
         "com.example.qux": "@blah-blah.json",
     },
+)
+
+docker_build(
+    name = "notop_with_user",
+    base = ":notop_base_with_volume",
+    user = "nobody",
 )
 
 docker_build(

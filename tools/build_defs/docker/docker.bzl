@@ -137,6 +137,58 @@ def _get_base_artifact(ctx):
 def _serialize_dict(dict_value):
     return ",".join(["%s=%s" % (k, dict_value[k]) for k in dict_value])
 
+def _image_config(ctx, layer_names):
+  """Create the configuration for a new docker image."""
+  config = ctx.new_file(ctx.label.name + ".config")
+
+  label_file_dict = dict()
+  for i in range(len(ctx.files.label_files)):
+    fname = ctx.attr.label_file_strings[i]
+    file = ctx.files.label_files[i]
+    label_file_dict[fname] = file
+
+  labels = dict()
+  for l in ctx.attr.labels:
+    fname = ctx.attr.labels[l]
+    if fname[0] == '@':
+      labels[l] = "@" + label_file_dict[fname[1:]].path
+    else:
+      labels[l] = fname
+
+  args = [
+      "--output=%s" % config.path,
+      "--entrypoint=%s" % ",".join(ctx.attr.entrypoint),
+      "--command=%s" % ",".join(ctx.attr.cmd),
+      "--labels=%s" % _serialize_dict(labels),
+      "--env=%s" % _serialize_dict(ctx.attr.env),
+      "--ports=%s" % ",".join(ctx.attr.ports),
+      "--volumes=%s" % ",".join(ctx.attr.volumes)
+      ]
+  if ctx.attr.user:
+    args += ["--user=" + ctx.attr.user]
+  if ctx.attr.workdir:
+    args += ["--workdir=" + ctx.attr.workdir]
+
+  inputs = layer_names
+  args += ["--layer=@" + l.path for l in layer_names]
+
+  if ctx.attr.label_files:
+    inputs += ctx.files.label_files
+
+  base = _get_base_artifact(ctx)
+  if base:
+    args += ["--base=%s" % base.path]
+    inputs += [base]
+
+  ctx.action(
+      executable = ctx.executable.create_image_config,
+      arguments = args,
+      inputs = inputs,
+      outputs = [config],
+      use_default_shell_env=True,
+      mnemonic = "ImageConfig")
+  return config
+
 def _metadata_action(ctx, layer, name, output):
   """Generate the action to create the JSON metadata for the layer."""
   rewrite_tool = ctx.executable.rewrite_tool
@@ -216,28 +268,42 @@ def _metadata(ctx, layer, name):
   _metadata_action(ctx, layer, name, metadata)
   return metadata
 
-def _create_image(ctx, layer, name, metadata):
+def _create_image(ctx, layers, id, config, name, metadata):
   """Create the new image."""
-  create_image = ctx.executable.create_image
   args = [
       "--output=" + ctx.outputs.layer.path,
-      "--metadata=" + metadata.path,
-      "--layer=" + layer.path,
-      "--id=@" + name.path,
+      "--id=@" + id.path,
+      "--config=" + config.path,
       ]
-  inputs = [layer, metadata, name]
+
+  args += ["--layer=@%s=%s" % (l["name"].path, l["layer"].path) for l in layers]
+  inputs = [id, config] + [l["name"] for l in layers] + [l["layer"] for l in layers]
+
+  if name:
+    args += ["--legacy_id=@" + name.path]
+    inputs += [name]
+
+  if metadata:
+    args += ["--metadata=" + metadata.path]
+    inputs += [metadata]
+
   # If we have been provided a base image, add it.
   if ctx.attr.base and not hasattr(ctx.attr.base, "docker_layers"):
-    base = _get_base_artifact(ctx)
-    if base:
-      args += ["--base=%s" % base.path]
-      inputs += [base]
+    legacy_base = _get_base_artifact(ctx)
+    if legacy_base:
+      args += ["--legacy_base=%s" % legacy_base.path]
+      inputs += [legacy_base]
+
+  base = _get_base_artifact(ctx)
+  if base:
+    args += ["--base=%s" % base.path]
+    inputs += [base]
   ctx.action(
-      executable = create_image,
+      executable = ctx.executable.create_image,
       arguments = args,
       inputs = inputs,
       outputs = [ctx.outputs.layer],
-      mnemonic = "CreateLayer",
+      mnemonic = "CreateImage",
       )
 
 def _assemble_image(ctx, layers, name):
@@ -278,35 +344,47 @@ def _get_runfile_path(ctx, f):
 def _docker_build_impl(ctx):
   """Implementation for the docker_build rule."""
   layer = _build_layer(ctx)
+  layer_sha = _sha256(ctx, layer)
+
+  config = _image_config(ctx, [layer_sha])
+  id = _sha256(ctx, config)
+
   name = _compute_layer_name(ctx, layer)
   metadata = _metadata(ctx, layer, name)
-  _create_image(ctx, layer, name, metadata)
+
+  # creating a partial image so only pass the layers that belong to it
+  image_layer = {"layer": layer, "name": layer_sha}
+  _create_image(ctx, [image_layer], id, config, name, metadata)
+
   # Compute the layers transitive provider.
   # It includes the current layers, and, if they exists the layer from
   # base docker_build rules. We do not extract the list of layer in
   # a base tarball as they probably do not respect the convention on
   # layer naming that our rules use.
   layers =  [
-      {"layer": ctx.outputs.layer, "name": name}
+      {"layer": ctx.outputs.layer, "id": id, "name": name}
       ] + getattr(ctx.attr.base, "docker_layers", [])
   # Generate the incremental load statement
   ctx.template_action(
       template = ctx.file.incremental_load_template,
       substitutions = {
         "%{load_statements}": "\n".join([
-            "incr_load '%s' '%s'" % (_get_runfile_path(ctx, l["name"]),
-                                     _get_runfile_path(ctx, l["layer"]))
+            "incr_load '%s' '%s' '%s'" % (_get_runfile_path(ctx, l["name"]),
+                                          _get_runfile_path(ctx, l["id"]),
+                                          _get_runfile_path(ctx, l["layer"]))
             # The last layer is the first in the list of layers.
             # We reverse to load the layer from the parent to the child.
             for l in reverse(layers)]),
         "%{repository}": _repository_name(ctx),
-        "%{tag}" : ctx.label.name,
+        "%{tag}": ctx.label.name,
         },
       output = ctx.outputs.executable,
       executable = True)
-  _assemble_image(ctx, layers, name)
+  _assemble_image(ctx, reverse(layers), name)
   runfiles = ctx.runfiles(
-      files = [l["layer"] for l in layers] + [l["name"] for l in layers])
+      files = [l["name"] for l in layers] +
+              [l["id"] for l in layers] +
+              [l["layer"] for l in layers])
   return struct(runfiles = runfiles,
                 files = set([ctx.outputs.layer]),
                 docker_layers = layers)
@@ -336,31 +414,36 @@ docker_build_ = rule(
             allow_files=True),
         "label_file_strings": attr.string_list(),
         "build_layer": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
+            default=Label("//tools/build_defs/pkg:build_tar"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
         "create_image": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/docker:create_image"),
+            default=Label("//tools/build_defs/docker:create_image"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
         "incremental_load_template": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/docker:incremental_load_template"),
+            default=Label("//tools/build_defs/docker:incremental_load_template"),
             single_file=True,
             allow_files=True),
         "join_layers": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/docker:join_layers"),
+            default=Label("//tools/build_defs/docker:join_layers"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
         "rewrite_tool": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/docker:rewrite_json"),
+            default=Label("//tools/build_defs/docker:rewrite_json"),
+            cfg=HOST_CFG,
+            executable=True,
+            allow_files=True),
+        "create_image_config": attr.label(
+            default=Label("//tools/build_defs/docker:create_image_config"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
         "sha256": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/docker:sha256"),
+            default=Label("//tools/build_defs/docker:sha256"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True)
@@ -375,6 +458,9 @@ docker_build_ = rule(
 # is a single additional layer atop 'base'.  The goal is to have relatively
 # complete support for building docker image, from the Dockerfile spec.
 #
+# For more information see the 'Config' section of the image specification:
+# https://github.com/opencontainers/image-spec/blob/v0.2.0/serialization.md
+#
 # Only 'name' is required. All other fields have sane defaults.
 #
 #   docker_build(
@@ -383,7 +469,7 @@ docker_build_ = rule(
 #
 #      # The base layers on top of which to overlay this layer,
 #      # equivalent to FROM.
-#      base="//another/build:rule",]
+#      base="//another/build:rule",
 #
 #      # The base directory of the files, defaulted to
 #      # the package of the input.
@@ -420,10 +506,6 @@ docker_build_ = rule(
 #      # https://docs.docker.com/reference/builder/#expose
 #      ports=[...],
 #
-#      # TODO(mattmoor): NYI
-#      # https://docs.docker.com/reference/builder/#maintainer
-#      maintainer="...",
-#
 #      # https://docs.docker.com/reference/builder/#user
 #      # NOTE: the normal directive affects subsequent RUN, CMD,
 #      # and ENTRYPOINT
@@ -445,9 +527,6 @@ docker_build_ = rule(
 #         ...
 #         "varN": "valN",
 #      },
-#
-#      # NOTE: Without a motivating use case, there is little reason to support:
-#      # https://docs.docker.com/reference/builder/#onbuild
 #   )
 def docker_build(**kwargs):
   """Package a docker image.
@@ -459,7 +538,9 @@ def docker_build(**kwargs):
       layer.tar
       VERSION
       json
+    {image-config-sha256}.json
     ...
+    manifest.json
     repositories
     top     # an implementation detail of our rules, not consumed by Docker.
   This rule appends a single new layer to the tarball of this form provided

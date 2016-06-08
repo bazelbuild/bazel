@@ -18,8 +18,8 @@ import json
 import os
 import os.path
 import sys
-import tarfile
 
+from tools.build_defs.docker import utils
 from third_party.py import gflags
 
 gflags.DEFINE_string(
@@ -237,27 +237,6 @@ def RewriteMetadata(data, options):
   return output
 
 
-def GetTarFile(f, name):
-  """Return the content of a file inside a tar file.
-
-  This method looks for ./f, /f and f file entry in a tar file and if found,
-  return its content. This allows to read file with various path prefix.
-
-  Args:
-    f: The tar file to read.
-    name: The name of the file inside the tar file.
-
-  Returns:
-    The content of the file, or None if not found.
-  """
-  with tarfile.open(f, 'r') as tar:
-    members = [tarinfo.name for tarinfo in tar.getmembers()]
-    for i in ['', './', '/']:
-      if i + name in members:
-        return tar.extractfile(i + name).read()
-    return None
-
-
 def GetParentIdentifier(f):
   """Try to look at the parent identifier from a docker image.
 
@@ -272,10 +251,10 @@ def GetParentIdentifier(f):
     The identifier of the docker image, or None if no identifier was found.
   """
   # TODO(dmarting): Maybe we could drop the 'top' file all together?
-  top = GetTarFile(f, 'top')
+  top = utils.GetTarFile(f, 'top')
   if top:
     return top.strip()
-  repositories = GetTarFile(f, 'repositories')
+  repositories = utils.GetTarFile(f, 'repositories')
   if repositories:
     data = json.loads(repositories)
     for k1 in data:
@@ -291,7 +270,7 @@ def main(unused_argv):
   if FLAGS.base:
     parent = GetParentIdentifier(FLAGS.base)
     if parent:
-      base_json = GetTarFile(FLAGS.base, '%s/json' % parent)
+      base_json = utils.GetTarFile(FLAGS.base, '%s/json' % parent)
   data = json.loads(base_json)
 
   name = FLAGS.name

@@ -14,11 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is a generated files that loads all docker layer built by "docker_build".
+# This is a generated file that loads all docker layers built by "docker_build".
 
 RUNFILES="${PYTHON_RUNFILES:-${BASH_SOURCE[0]}.runfiles}"
 
 DOCKER="${DOCKER:-docker}"
+
+FULL_DOCKER_VERSION=$(docker version -f {{.Server.Version}} 2> /dev/null \
+    || echo "1.10.0")
+DOCKER_MAJOR_VERSION=$(echo "$FULL_DOCKER_VERSION" | sed -r 's#^([0-9]+)\..*#\1#')
+DOCKER_MINOR_VERSION=$(echo "$FULL_DOCKER_VERSION" | sed -r 's#^[0-9]+\.([0-9]+).*#\1#')
+if [ "$DOCKER_MAJOR_VERSION" -eq "1" ] && [ "$DOCKER_MINOR_VERSION" -lt "10" ]; then
+  LEGACY_DOCKER=true
+else
+  LEGACY_DOCKER=false
+fi
 
 # List all images identifier (only the identifier) from the local
 # docker registry.
@@ -30,12 +40,17 @@ IMAGE_LEN=$(for i in $IMAGES; do echo -n $i | wc -c; done | sort -g | head -1 | 
 function incr_load() {
   # Load a layer if and only if the layer is not in "$IMAGES", that is
   # in the local docker registry.
-  name=$(cat ${RUNFILES}/$1)
+  if [ "$LEGACY_DOCKER" = true ]; then
+    name=$(cat ${RUNFILES}/$1)
+  else
+    name=$(cat ${RUNFILES}/$2)
+  fi
+
   if (echo "$IMAGES" | grep -q ^${name:0:$IMAGE_LEN}$); then
     echo "Skipping $name, already loaded."
   else
     echo "Loading $name..."
-    "${DOCKER}" load -i ${RUNFILES}/$2
+    "${DOCKER}" load -i ${RUNFILES}/$3
   fi
 }
 
@@ -47,5 +62,9 @@ function incr_load() {
 if [ -n "${name}" ]; then
   TAG="${1:-%{repository}:%{tag}}"
   echo "Tagging ${name} as ${TAG}"
-  "${DOCKER}" tag -f ${name} ${TAG}
+  if [ "$LEGACY_DOCKER" = true ]; then
+    "${DOCKER}" tag -f ${name} ${TAG}
+  else
+    "${DOCKER}" tag ${name} ${TAG}
+  fi
 fi
