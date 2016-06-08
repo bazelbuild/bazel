@@ -272,7 +272,7 @@ public final class XcodeSupport {
       this.project = project;
       this.pbxproj = pbxproj;
       this.workspaceRoot = objcConfiguration.getXcodeWorkspaceRoot();
-      this.appleCpus = appleConfiguration.getArchitectures(PlatformType.IOS);
+      this.appleCpus = appleConfiguration.getMultiArchitectures(PlatformType.IOS);
       this.minimumOs = objcConfiguration.getMinimumOs().toString();
       this.generateDebugSymbols =
           objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym();

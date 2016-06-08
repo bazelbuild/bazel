@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.syntax.Type;
@@ -153,7 +154,8 @@ final class WatchApplicationSupport {
    * {@code TargetDeviceFamily.WATCH}.
    */
   private ImmutableSet<TargetDeviceFamily> families() {
-    Platform platform = ruleContext.getFragment(AppleConfiguration.class).getBundlingPlatform();
+    Platform platform =
+        ruleContext.getFragment(AppleConfiguration.class).getMultiArchPlatform(PlatformType.IOS);
     if (platform == Platform.IOS_DEVICE) {
       return ImmutableSet.of(TargetDeviceFamily.WATCH);
     } else {
@@ -207,7 +209,7 @@ final class WatchApplicationSupport {
             Joiner.on(" ").join(ImmutableList.of("_WatchKitStub", bundleName))));
 
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext,
-        ruleContext.getFragment(AppleConfiguration.class).getBundlingPlatform())
+        ruleContext.getFragment(AppleConfiguration.class).getMultiArchPlatform(PlatformType.IOS))
         .setProgressMessage(
             "Copying WatchKit binary and stub resource: " + ruleContext.getLabel())
         .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))

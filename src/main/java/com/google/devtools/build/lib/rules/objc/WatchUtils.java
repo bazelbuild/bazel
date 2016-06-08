@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
@@ -140,7 +141,7 @@ final class WatchUtils {
             watchKitSupportDirName));
 
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext,
-        ruleContext.getFragment(AppleConfiguration.class).getBundlingPlatform())
+        ruleContext.getFragment(AppleConfiguration.class).getMultiArchPlatform(PlatformType.IOS))
         .setProgressMessage("Copying Watchkit support to app bundle")
         .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
         .addOutput(watchSupportZip)

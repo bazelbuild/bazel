@@ -81,7 +81,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -563,7 +562,7 @@ public final class CompilationSupport {
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+                ruleContext, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine.build())
@@ -693,7 +692,7 @@ public final class CompilationSupport {
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+                ruleContext, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("SwiftCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine.build())
@@ -763,7 +762,7 @@ public final class CompilationSupport {
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+            ruleContext, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("SwiftModuleMerge")
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
@@ -794,13 +793,13 @@ public final class CompilationSupport {
     actions.add(objFilelistAction(context, objFiles, objList));
 
     actions.add(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+            ruleContext, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
         .setExecutable(libtool(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
             .add("-static")
             .add("-filelist").add(objList.getExecPathString())
-            .add("-arch_only").add(appleConfiguration.getSingleArchitecture(PlatformType.IOS))
+            .add("-arch_only").add(appleConfiguration.getSingleArchitecture())
             .add("-syslibroot").add(AppleToolchain.sdkDir())
             .add("-o").add(archive.getExecPathString())
             .build())
@@ -834,12 +833,12 @@ public final class CompilationSupport {
     ImmutableList<Artifact> objcLibraries = objcLibraries(objcProvider);
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+            ruleContext, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
         .setExecutable(libtool(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
             .add("-static")
-            .add("-arch_only").add(appleConfiguration.getSingleArchitecture(PlatformType.IOS))
+            .add("-arch_only").add(appleConfiguration.getSingleArchitecture())
             .add("-syslibroot").add(AppleToolchain.sdkDir())
             .add("-o").add(outputArchive.getExecPathString())
             .addExecPaths(objcLibraries)
@@ -1037,7 +1036,7 @@ public final class CompilationSupport {
             linkmap);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+                ruleContext, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .setCommandLine(new SingleArgCommandLine(commandLine))
@@ -1072,7 +1071,7 @@ public final class CompilationSupport {
 
       ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+                  ruleContext, appleConfiguration.getSingleArchPlatform())
               .setMnemonic("ObjcBinarySymbolStrip")
               .setExecutable(xcrunwrapper(ruleContext))
               .setCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
@@ -1341,7 +1340,7 @@ public final class CompilationSupport {
             commandLine,
             ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
         ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getPlatform(PlatformType.IOS))
+                ruleContext, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("DummyPruner")
             .setExecutable(pruner)
             .addInput(dummyArchive)
@@ -1557,8 +1556,9 @@ public final class CompilationSupport {
    */
   @VisibleForTesting
   static String swiftTarget(AppleConfiguration configuration) {
-    return configuration.getSingleArchitecture(PlatformType.IOS)
-        + "-apple-ios" + configuration.getIosSdkVersion();
+    // TODO(bazel-team): Assert the configuration is for an apple platform, or support
+    // other platform types.
+    return configuration.getSingleArchitecture() + "-apple-ios" + configuration.getIosSdkVersion();
   }
   
   /**
@@ -1568,7 +1568,7 @@ public final class CompilationSupport {
       ObjcProvider provider, ObjcConfiguration objcConfiguration,
       AppleConfiguration appleConfiguration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-    Platform platform = appleConfiguration.getPlatform(PlatformType.IOS);
+    Platform platform = appleConfiguration.getSingleArchPlatform();
     if (platform == Platform.IOS_SIMULATOR) {
       builder.add("-mios-simulator-version-min=" + objcConfiguration.getMinimumOs());
     } else {
@@ -1580,7 +1580,7 @@ public final class CompilationSupport {
     }
 
     return builder
-        .add("-arch", appleConfiguration.getSingleArchitecture(PlatformType.IOS))
+        .add("-arch", appleConfiguration.getSingleArchitecture())
         .add("-isysroot", AppleToolchain.sdkDir())
         // TODO(bazel-team): Pass framework search paths to Xcodegen.
         .addAll(commonFrameworkFlags(provider, appleConfiguration))
@@ -1600,7 +1600,7 @@ public final class CompilationSupport {
    */
   static Iterable<String> commonFrameworkNames(
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
-    Platform platform = appleConfiguration.getPlatform(PlatformType.IOS);
+    Platform platform = appleConfiguration.getSingleArchPlatform();
 
     return new ImmutableList.Builder<String>()
         .add(AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
@@ -1628,7 +1628,7 @@ public final class CompilationSupport {
 
   private static List<String> platformSpecificCompileFlagsForClang(
       AppleConfiguration configuration) {
-    switch (configuration.getPlatform(PlatformType.IOS)) {
+    switch (configuration.getSingleArchPlatform()) {
       case IOS_DEVICE:
         return ImmutableList.of();
       case IOS_SIMULATOR:

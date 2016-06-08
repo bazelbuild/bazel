@@ -1043,7 +1043,8 @@ public class ObjcRuleClasses {
                             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
-                          if (appleConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
+                          if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
+                              != Platform.IOS_DEVICE) {
                             return null;
                           }
                           if (rule.isAttributeValueExplicitlySpecified(PROVISIONING_PROFILE_ATTR)) {
@@ -1341,7 +1342,8 @@ public class ObjcRuleClasses {
                             BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
-                          if (appleConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
+                          if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
+                              != Platform.IOS_DEVICE) {
                             return null;
                           }
                           if (rule.isAttributeValueExplicitlySpecified(
@@ -1524,7 +1526,8 @@ public class ObjcRuleClasses {
                             BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
-                          if (appleConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
+                          if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
+                              != Platform.IOS_DEVICE) {
                             return null;
                           }
                           if (rule.isAttributeValueExplicitlySpecified(
