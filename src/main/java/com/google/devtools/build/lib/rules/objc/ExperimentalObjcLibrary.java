@@ -169,6 +169,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     // We create a module map by default to allow for swift interop.
     activatedCrosstoolSelectables.add(CppRuleClasses.MODULE_MAPS);
     activatedCrosstoolSelectables.add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET);
+    activatedCrosstoolSelectables.add(CppRuleClasses.DEPENDENCY_FILE);
 
     return toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
   }
