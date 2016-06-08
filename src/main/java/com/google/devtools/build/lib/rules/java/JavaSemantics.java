@@ -327,12 +327,6 @@ public interface JavaSemantics {
   void addDependenciesForRunfiles(RuleContext ruleContext, Builder builder);
 
   /**
-   * Determines if we should enforce the use of the :java_launcher target to determine the java
-   * launcher artifact even if the --java_launcher option was not specified.
-   */
-  boolean forceUseJavaLauncherTarget(RuleContext ruleContext);
-
-  /**
    * Add a source artifact to a {@link JavaTargetAttributes.Builder}. It is called when a source
    * artifact is processed but is not matched by default patterns in the
    * {@link JavaTargetAttributes.Builder#addSourceArtifacts(Iterable)} method. The semantics can

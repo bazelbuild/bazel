@@ -386,11 +386,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public boolean forceUseJavaLauncherTarget(RuleContext ruleContext) {
-    return false;
-  }
-
-  @Override
   public void addArtifactToJavaTargetAttribute(JavaTargetAttributes.Builder builder,
       Artifact srcArtifact) {
   }
