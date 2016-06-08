@@ -128,7 +128,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
                 terminal.flush();
                 stream.write(event.getKind() == EventKind.STDOUT ? stdoutBuffer : stderrBuffer);
                 stream.write(Arrays.copyOf(message, eolIndex + 1));
-                byte[] restMessage = Arrays.copyOfRange(message, eolIndex + 1, message.length + 1);
+                byte[] restMessage = Arrays.copyOfRange(message, eolIndex + 1, message.length);
                 if (event.getKind() == EventKind.STDOUT) {
                   stdoutBuffer = restMessage;
                 } else {
