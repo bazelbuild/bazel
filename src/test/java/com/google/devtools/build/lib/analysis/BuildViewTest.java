@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
+import com.google.devtools.build.lib.analysis.util.ExpectedDynamicConfigurationErrors;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
@@ -865,6 +866,9 @@ public class BuildViewTest extends BuildViewTestBase {
         "cc_binary(name = 'cpp', data = [':java'])");
     // Everything is fine - the dependency graph is acyclic.
     update("//foo:java", "//foo:cpp");
+    if (getTargetConfiguration().useDynamicConfigurations()) {
+      fail(ExpectedDynamicConfigurationErrors.LATE_BOUND_ATTRIBUTES_UNSUPPORTED);
+    }
     // Now there will be an analysis-phase cycle because the java_binary now has an implicit dep on
     // the cc_binary launcher.
     useConfiguration("--java_launcher=//foo:cpp");
