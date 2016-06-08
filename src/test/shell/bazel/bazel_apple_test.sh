@@ -191,7 +191,6 @@ objc_library(name = "ObjcLib",
 EOF
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --experimental_objc_enable_module_maps \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 

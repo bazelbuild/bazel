@@ -184,7 +184,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
-        .setHasModuleMap()
+        // TODO(b/29152500): Enable module map generation.
         .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary())
         .addExtraImportLibraries(protoLib.asSet())
         .build();

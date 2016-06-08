@@ -536,8 +536,7 @@ public final class ObjcCommon {
         }
       }
 
-      if (hasModuleMap
-          && buildConfiguration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
+      if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
         objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
         objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);

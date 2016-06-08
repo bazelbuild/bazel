@@ -401,9 +401,6 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    if (!ObjcCommon.shouldUseObjcModules(ruleContext)) {
-      throw new IllegalStateException();
-    }
     String moduleName =
         ruleContext
             .getLabel()

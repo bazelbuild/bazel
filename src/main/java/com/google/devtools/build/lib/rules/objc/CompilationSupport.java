@@ -538,6 +538,10 @@ public final class CompilationSupport {
       .add("-MD")
       .addExecPath("-MF", dotdFile);
 
+    if (objcConfiguration.moduleMapsEnabled()) {
+      additionalInputs.addAll(objcProvider.get(MODULE_MAP));
+    }
+
     if (moduleMap.isPresent()) {
       // If modules are enabled for the rule, -fmodules is added to the copts already. (This implies
       // module map usage). Otherwise, we need to pass -fmodule-maps.
@@ -572,7 +576,6 @@ public final class CompilationSupport {
             .addOutputs(gcnoFiles.build())
             .addOutput(dotdFile)
             .addTransitiveInputs(objcProvider.get(HEADER))
-            .addTransitiveInputs(objcProvider.get(MODULE_MAP))
             .addInputs(compilationArtifacts.getPrivateHdrs())
             .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
@@ -956,19 +959,18 @@ public final class CompilationSupport {
    */
   CompilationSupport registerGenerateModuleMapAction(
       Optional<CompilationArtifacts> compilationArtifacts) {
-    if (objcConfiguration.moduleMapsEnabled()) {
-      // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
-      // dropped.
-      Iterable<Artifact> publicHeaders = attributes.hdrs();
-      Iterable<Artifact> privateHeaders = ImmutableList.of();
-      if (compilationArtifacts.isPresent()) {
-        CompilationArtifacts artifacts = compilationArtifacts.get();
-        publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
-        privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
-      }
-      CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
-      registerGenerateModuleMapAction(moduleMap, publicHeaders, privateHeaders);
+    // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
+    // dropped.
+    Iterable<Artifact> publicHeaders = attributes.hdrs();
+    Iterable<Artifact> privateHeaders = ImmutableList.of();
+    if (compilationArtifacts.isPresent()) {
+      CompilationArtifacts artifacts = compilationArtifacts.get();
+      publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
+      privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
     }
+    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+    registerGenerateModuleMapAction(moduleMap, publicHeaders, privateHeaders);
+
     return this;
   }
 
