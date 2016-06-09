@@ -24,13 +24,35 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface SkylarkCallable {
+
+  /**
+   * Name of the method, as exposed to Skylark.
+   */
   String name() default "";
 
-  String doc() default ""; // only allowed to be empty if documented() is false.
+  /**
+   * The documentation text in Skylark. It can contain HTML tags for special formatting.
+   *
+   * <p>It is allowed to be empty only if {@link #documented()} is false.
+   */
+  String doc() default "";
 
+  /**
+   * If true, the function will appear in the Skylark documentation. Set this to false if the
+   * function is experimental or an overloading and doesn't need to be documented.
+   */
   boolean documented() default true;
 
+  /**
+   * If true, this method will be considered as a field of the enclosing Java object. E.g., if set
+   * to true on a method {@code foo}, then the callsites of this method will look like
+   * {@code bar.foo} instead of {@code bar.foo()}. The annotated method must be parameterless.
+   */
   boolean structField() default false;
 
+  /**
+   * Set it to true if the Java method may return <code>null</code> (which will then be converted to
+   * <code>None</code>). If not set and the Java method returns null, an error will be raised.
+   */
   boolean allowReturnNones() default false;
 }
