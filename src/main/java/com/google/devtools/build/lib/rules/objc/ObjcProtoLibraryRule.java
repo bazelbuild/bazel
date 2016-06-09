@@ -123,7 +123,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         if (rule.isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR)) {
-                          return env.getToolsLabel("//tools/objc:objc_protobuf_lib");
+                          return env.getLabel("//external:objc_protobuf_lib");
                         } else {
                           return rule.get(OUTPUT_CPP_ATTR, Type.BOOLEAN)
                               ? env.getLabel("//external:objc_proto_cpp_lib")
