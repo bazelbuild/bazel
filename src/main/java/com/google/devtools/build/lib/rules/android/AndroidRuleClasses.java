@@ -630,7 +630,7 @@ public final class AndroidRuleClasses {
           --incremental_dexing flag. Users should set this attribute to 0 for release binaries
           (e.g., to avoid accidental usage of --incremental_dexing), since incremental dexing can
           produce slightly larger artifacts than dx. It is an error to set this attribute to 1 for
-          android_binary and android_test rules that have proguard enabled, as well as for
+          android_binary and android_test rules that have Proguard enabled, as well as for
           android_test rules with binary_under_test set. We are working on addressing these
           shortcomings so please check with us if you run into these limitations.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -670,9 +670,9 @@ com/google/common/base/Objects.class
           The mapping file will be generated only if <code>proguard_specs</code> is
           specified. This file will list the mapping between the original and
           obfuscated class, method, and field names.
-          <p><em class="harmful">WARNING: If you use this attribute, your Proguard specification
-          should contain neither <code>-dontobfuscate</code> nor <code>-printmapping</code>.
-          </em>.</p>
+          <p><em class="harmful">WARNING: If this attribute is used, the Proguard
+          specification should contain neither <code>-dontobfuscate</code> nor
+          <code>-printmapping</code>.</em></p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_generate_mapping", BOOLEAN).value(false)
               .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
