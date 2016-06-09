@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -89,9 +90,25 @@ public class AttributeSerializer {
       boolean explicitlySpecified,
       boolean includeGlobs,
       boolean encodeBooleanAndTriStateAsIntegerAndString) {
-    Type<?> type = attr.getType();
+    return getAttributeProto(
+        attr.getName(),
+        attr.getType(),
+        value,
+        explicitlySpecified,
+        includeGlobs,
+        encodeBooleanAndTriStateAsIntegerAndString);
+  }
+
+  @VisibleForTesting
+  static Build.Attribute getAttributeProto(
+      String name,
+      Type<?> type,
+      @Nullable Object value,
+      boolean explicitlySpecified,
+      boolean includeGlobs,
+      boolean encodeBooleanAndTriStateAsIntegerAndString) {
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
-    attrPb.setName(attr.getName());
+    attrPb.setName(name);
     attrPb.setExplicitlySpecified(explicitlySpecified);
     maybeSetNoDep(type, attrPb);
 
