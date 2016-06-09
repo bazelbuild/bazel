@@ -92,4 +92,7 @@ message ApkManifest {
 
   // Information about resources referenced from AndroidManifest.xml.
   repeated AndroidManifestResource android_manifest_resources = 6;
+
+  // Location of the debug keystore file.
+  Artifact debug_keystore = 7;
 }

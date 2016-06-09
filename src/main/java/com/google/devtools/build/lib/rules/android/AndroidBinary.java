@@ -628,6 +628,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(splitDeployInfo)
         .build();
 
+    Artifact debugKeystore = androidSemantics.getApkDebugSigningKey(ruleContext);
     Artifact apkManifest =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST);
     createApkManifestAction(
@@ -637,7 +638,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         androidCommon,
         resourceClasses,
         resourceApk,
-        nativeLibs);
+        nativeLibs,
+        debugKeystore);
 
     Artifact apkManifestText =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST_TEXT);
@@ -648,7 +650,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         androidCommon,
         resourceClasses,
         resourceApk,
-        nativeLibs);
+        nativeLibs,
+        debugKeystore);
 
     androidCommon.addTransitiveInfoProviders(
         builder, androidSemantics, resourceApk, zipAlignedApk, apksUnderTest);
@@ -818,7 +821,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon androidCommon,
       JavaTargetAttributes resourceClasses,
       ResourceApk resourceApk,
-      NativeLibs nativeLibs) {
+      NativeLibs nativeLibs,
+      Artifact debugKeystore) {
 
     Iterable<Artifact> jars = IterablesChain.concat(
         resourceClasses.getArchiveInputs(true), androidCommon.getRuntimeJars());
@@ -832,7 +836,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         sdk,
         jars,
         resourceApk,
-        nativeLibs);
+        nativeLibs,
+        debugKeystore);
 
     ruleContext.registerAction(manifestAction);
   }

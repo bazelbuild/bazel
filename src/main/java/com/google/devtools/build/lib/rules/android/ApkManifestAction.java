@@ -42,7 +42,8 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       AndroidSdkProvider sdk,
       Iterable<Artifact> jars,
       ResourceApk resourceApk,
-      NativeLibs nativeLibs) {
+      NativeLibs nativeLibs,
+      Artifact debugKeystore) {
 
     return ImmutableList.<Artifact>builder()
         .add(sdk.getAapt().getExecutable())
@@ -66,6 +67,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
         .add(resourceApk.getArtifact())
         .add(resourceApk.getManifest())
         .addAll(nativeLibs.getAllNativeLibs())
+        .add(debugKeystore)
         .build();
   }
 
@@ -76,6 +78,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
   private final Iterable<Artifact> jars;
   private final ResourceApk resourceApk;
   private final NativeLibs nativeLibs;
+  private final Artifact debugKeystore;
 
   /**
    * @param owner The action owner.
@@ -85,6 +88,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
    * @param jars All the jars that would be merged and dexed and put into an APK.
    * @param resourceApk The ResourceApk for the .ap_ that contains the resources that would go into
    *     an APK.
+   * @param debugKeystore The debug keystore.
    * @param nativeLibs The natives libs that would go into an APK.
    */
   public ApkManifestAction(
@@ -94,14 +98,16 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       AndroidSdkProvider sdk,
       Iterable<Artifact> jars,
       ResourceApk resourceApk,
-      NativeLibs nativeLibs) {
-    super(owner, makeInputs(sdk, jars, resourceApk, nativeLibs), outputFile, false);
+      NativeLibs nativeLibs,
+      Artifact debugKeystore) {
+    super(owner, makeInputs(sdk, jars, resourceApk, nativeLibs, debugKeystore), outputFile, false);
     CollectionUtils.checkImmutable(jars);
     this.textOutput = textOutput;
     this.sdk = sdk;
     this.jars = jars;
     this.resourceApk = resourceApk;
     this.nativeLibs = nativeLibs;
+    this.debugKeystore = debugKeystore;
   }
 
   @Override
@@ -191,6 +197,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       }
 
       manifestBuilder.setAndroidSdk(createAndroidSdk(sdk));
+      manifestBuilder.setDebugKeystore(makeArtifactProto(debugKeystore));
       return manifestBuilder.build();
     }
 
