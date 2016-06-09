@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -246,4 +247,30 @@ public final class FilesetEntry implements SkylarkValue {
         files != null ? files.size() : 0,
         excludes != null ? excludes.size() : 0);
   }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(srcLabel, files, excludes, destDir, symlinkBehavior, stripPrefix);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+
+    if (!(other instanceof FilesetEntry)) {
+      return false;
+    }
+
+    FilesetEntry that = (FilesetEntry) other;
+    return Objects.equal(srcLabel, that.srcLabel)
+        && Objects.equal(files, that.files)
+        && Objects.equal(excludes, that.excludes)
+        && Objects.equal(destDir, that.destDir)
+        && Objects.equal(symlinkBehavior, that.symlinkBehavior)
+        && Objects.equal(stripPrefix, that.stripPrefix);
+  }
+
+
 }
