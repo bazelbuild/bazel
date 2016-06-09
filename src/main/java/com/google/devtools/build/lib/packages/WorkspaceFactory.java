@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -287,8 +288,7 @@ public class WorkspaceFactory {
             + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
             + "start with a letter and can only contain letters, numbers, and underscores.",
     mandatoryPositionals = {
-      @SkylarkSignature.Param(name = "name", type = String.class, doc = "the name of the workspace."
-      )
+      @Param(name = "name", type = String.class, doc = "the name of the workspace.")
     },
     documented = true,
     useAst = true,

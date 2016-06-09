@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.skylark;
 
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 
 import java.util.ArrayList;

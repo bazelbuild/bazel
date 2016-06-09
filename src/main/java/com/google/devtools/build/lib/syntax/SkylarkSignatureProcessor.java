@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
 import com.google.devtools.build.lib.util.Preconditions;
 

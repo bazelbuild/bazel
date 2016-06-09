@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
