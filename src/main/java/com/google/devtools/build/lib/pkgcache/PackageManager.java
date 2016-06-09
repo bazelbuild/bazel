@@ -23,7 +23,6 @@ import java.io.PrintStream;
  * related functionality: Recursive package finding, loaded package checking, etc.
  */
 public interface PackageManager extends PackageProvider, CachingPackageLocator {
-
   /**
    * Returns the package cache statistics.
    */
@@ -55,6 +54,19 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator {
    * Collects statistics of the package manager since the last sync.
    */
   interface PackageManagerStatistics {
+    public static final PackageManagerStatistics ZERO = new PackageManagerStatistics() {
+        @Override public int getPackagesLoaded() {
+          return 0;
+        }
+
+        @Override public int getPackagesLookedUp() {
+          return 0;
+        }
+
+        @Override public int getCacheSize() {
+          return 0;
+        }
+    };
 
     /**
      * Returns the number of packages loaded since the last sync. I.e. the cache

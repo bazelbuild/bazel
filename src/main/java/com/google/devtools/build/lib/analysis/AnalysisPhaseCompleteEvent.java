@@ -23,32 +23,32 @@ import java.util.Collection;
  */
 public class AnalysisPhaseCompleteEvent {
 
-  private final Collection<ConfiguredTarget> targets;
+  private final Collection<ConfiguredTarget> topLevelTargets;
   private final long timeInMs;
   private int targetsVisited;
 
   /**
    * Construct the event.
-   * @param targets The set of active targets that remain.
+   * @param topLevelTargets The set of active topLevelTargets that remain.
    */
-  public AnalysisPhaseCompleteEvent(Collection<? extends ConfiguredTarget> targets,
+  public AnalysisPhaseCompleteEvent(Collection<? extends ConfiguredTarget> topLevelTargets,
       int targetsVisited, long timeInMs) {
     this.timeInMs = timeInMs;
     // Do not remove <ConfiguredTarget>: workaround for Java 7 type inference.
-    this.targets = ImmutableList.<ConfiguredTarget>copyOf(targets);
+    this.topLevelTargets = ImmutableList.<ConfiguredTarget>copyOf(topLevelTargets);
     this.targetsVisited = targetsVisited;
   }
 
   /**
-   * @return The set of active targets remaining, which is a subset
-   *     of the targets we attempted to analyze.
+   * @return The set of active topLevelTargets remaining, which is a subset
+   *     of the topLevelTargets we attempted to analyze.
    */
-  public Collection<ConfiguredTarget> getTargets() {
-    return targets;
+  public Collection<ConfiguredTarget> getTopLevelTargets() {
+    return topLevelTargets;
   }
 
   /**
-   * @return The number of targets freshly visited during analysis
+   * @return The number of topLevelTargets freshly visited during analysis
    */
   public int getTargetsVisited() {
     return targetsVisited;
