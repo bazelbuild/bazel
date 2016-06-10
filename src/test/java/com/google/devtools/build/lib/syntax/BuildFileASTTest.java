@@ -142,7 +142,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   public void testWithSyntaxErrorsDoesNotPrintDollarError() throws Exception {
     setFailFast(false);
     BuildFileAST buildFile = parseBuildFile(
-        "abi = cxx_abi + '-glibc-' + glibc_version + '-' + generic_cpu + '-' + sysname",
+        "abi = cxx_abi + '-glibc-' + glibc_version + '-' + $(TARGET_CPU) + '-' + sysname",
         "libs = [abi + opt_level + '/lib/libcc.a']",
         "shlibs = [abi + opt_level + '/lib/libcc.so']",
         "+* shlibs", // syntax error at '+'
