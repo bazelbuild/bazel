@@ -426,6 +426,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  public DotdFile getDotdFile() {
+    return this.dotdFile;
+  }
+
   public CppCompileActionBuilder setGcnoFile(Artifact gcnoFile) {
     this.gcnoFile = gcnoFile;
     return this;
