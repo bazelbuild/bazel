@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -63,8 +62,8 @@ import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 
 /**
  * Rule class definitions for C++ rules.
@@ -98,28 +97,6 @@ public class BazelCppRuleClasses {
         "objc_library",
       };
 
-  /**
-   * Miscellaneous configuration transitions. It would be better not to have this - please don't add
-   * to it.
-   */
-  public static enum CppTransition implements Transition {
-    /**
-     * The configuration for LIPO information collection. Requesting this from a configuration that
-     * does not have lipo optimization enabled may result in an exception.
-     */
-    LIPO_COLLECTOR,
-
-    /**
-     * The corresponding (target) configuration.
-     */
-    TARGET_CONFIG_FOR_LIPO;
-
-    @Override
-    public boolean defaultsToSelf() {
-      return false;
-    }
-  }
-
   private static final RuleClass.Configurator<BuildConfiguration, Rule> LIPO_ON_DEMAND =
       new RuleClass.Configurator<BuildConfiguration, Rule>() {
     @Override
@@ -132,7 +109,7 @@ public class BazelCppRuleClasses {
         return configuration;
       }
       BuildConfiguration toplevelConfig =
-          configuration.getConfiguration(CppTransition.TARGET_CONFIG_FOR_LIPO);
+          configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
       // If LIPO is enabled, override the default configuration.
       if (toplevelConfig != null
           && toplevelConfig.getFragment(CppConfiguration.class).isLipoOptimization()
@@ -185,23 +162,6 @@ public class BazelCppRuleClasses {
           return getStl(rule, configuration);
         }
       };
-
-  /**
-   * Implementation for the :lipo_context_collector attribute.
-   */
-  public static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT_COLLECTOR =
-      new LateBoundLabel<BuildConfiguration>() {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      // This attribute connects a target to the LIPO context target configured with the
-      // lipo input collector configuration.
-      CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-      return !cppConfiguration.isLipoContextCollector()
-          && (cppConfiguration.getLipoMode() == LipoMode.BINARY)
-          ? cppConfiguration.getLipoContextLabel()
-          : null;
-    }
-  };
 
   /**
    * Returns the STL prerequisite of the rule.
@@ -316,8 +276,8 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
           .add(attr(":lipo_context_collector", LABEL)
-              .cfg(CppTransition.LIPO_COLLECTOR)
-              .value(LIPO_CONTEXT_COLLECTOR)
+              .cfg(LipoTransition.LIPO_COLLECTOR)
+              .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
               .skipPrereqValidatorCheck())
           .build();
     }

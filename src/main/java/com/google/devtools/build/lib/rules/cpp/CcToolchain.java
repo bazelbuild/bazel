@@ -63,6 +63,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
+    TransitiveInfoCollection lipoContextCollector =
+        ruleContext.getPrerequisite(":lipo_context_collector", Mode.DONT_CHECK);
+    if (lipoContextCollector != null
+        && lipoContextCollector.getProvider(LipoContextProvider.class) == null) {
+      ruleContext.ruleError("--lipo_context must point to a cc_binary or a cc_test rule");
+      return null;
+    }
+
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     Path fdoZip = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT

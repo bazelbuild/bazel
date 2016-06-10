@@ -30,11 +30,11 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CppTransition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -192,8 +192,9 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // implementing a way for the C++ rules to contribute this transition to the configuration
     // collection.
     for (BuildConfiguration config : allConfigurations) {
-      transitionBuilder.put(config, CppTransition.LIPO_COLLECTOR, new ConfigurationHolder(config));
-      transitionBuilder.put(config, CppTransition.TARGET_CONFIG_FOR_LIPO,
+      transitionBuilder.put(config, LipoTransition.LIPO_COLLECTOR,
+          new ConfigurationHolder(config));
+      transitionBuilder.put(config, LipoTransition.TARGET_CONFIG_FOR_LIPO,
           new ConfigurationHolder(config.isHostConfiguration() ? null : config));
     }
 

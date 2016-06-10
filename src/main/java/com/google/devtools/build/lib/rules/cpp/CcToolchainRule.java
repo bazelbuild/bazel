@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
 
 /**
  * Rule definition for compiler definition.
@@ -76,6 +77,10 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         // TODO(bazel-team): Should be using the TARGET configuration.
         .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))
+        .add(attr(":lipo_context_collector", LABEL)
+            .cfg(LipoTransition.LIPO_COLLECTOR)
+            .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
+            .skipPrereqValidatorCheck())
         .build();
   }
 
