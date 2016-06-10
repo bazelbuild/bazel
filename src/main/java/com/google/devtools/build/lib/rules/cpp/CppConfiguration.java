@@ -713,8 +713,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "    action: 'c++-module-compile'"
             + "    action: 'objc-compile'"
             + "    action: 'objc++-compile'"
-            + "    action: 'c++-header-preprocessing'"
-            + "    action: 'c++-header-parsing'"
             + "    expand_if_all_available: 'dependency_file'"
             + "    flag_group {"
             + "      flag: '-MD'"
