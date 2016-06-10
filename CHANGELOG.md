@@ -1,3 +1,49 @@
+## Release 0.3.0 (2016-06-10)
+
+```
+Baseline: a9301fa
+
+Cherry picks:
+   + ff30a73: Turn --legacy_external_runfiles back on by default
+   + aeee3b8: Fix delete[] warning on fsevents.cc
+```
+
+Incompatible changes:
+
+  - The --cwarn command line option is not supported anymore. Use
+    --copt instead.
+
+New features:
+
+  - On OSX, --watchfs now uses FsEvents to be notified of changes
+    from the filesystem (previously, this flag had no effect on OS X).
+  - add support for the '-=', '*=', '/=', and'%=' operators to
+    skylark.  Notably, we do not support '|=' because the semantics
+    of skylark sets are sufficiently different from python sets.
+
+Important changes:
+
+  - Use singular form when appropriate in blaze's test result summary
+    message.
+  - Added supported for Android NDK revision 11
+  - --objc_generate_debug_symbols is now deprecated.
+  - swift_library now generates an Objective-C header for its @objc
+    interfaces.
+  - new_objc_provider can now set the USES_SWIFT flag.
+  - objc_framework now supports dynamic frameworks.
+  - Symlinks in zip files are now unzipped correctly by http_archive,
+    download_and_extract, etc.
+  - swift_library is now able to import framework rules such as
+    objc_framework.
+  - Adds "jre_deps" attribute to j2objc_library.
+  - Release apple_binary rule, for creating multi-architecture
+    ("fat") objc/cc binaries and libraries, targeting ios platforms.
+  - Aspects documentation added.
+  - The --ues_isystem_for_includes command line option is not
+    supported anymore.
+  - global function 'provider' is removed from .bzl files. Providers
+    can only be accessed through fields in a 'target' object.
+
 ## Release 0.2.3 (2016-05-10)
 
 ```
