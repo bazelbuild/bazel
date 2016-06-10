@@ -310,11 +310,15 @@ def build_java_package_manifest(target, ctx):
   args += ["--output_manifest", output.path]
   args += ["--sources"]
   args += [":".join([f.root.path + "," + f.path for f in source_files])]
+  argfile = ctx.new_file(ctx.configuration.bin_dir,
+                         target.label.name + ".manifest.params")
+  ctx.file_action(output=argfile, content="\n".join(args))
+
   ctx.action(
-      inputs = source_files,
+      inputs = source_files + [argfile],
       outputs = [output],
       executable = ctx.executable._package_parser,
-      arguments = args,
+      arguments = ["@" + argfile.path],
       mnemonic = "JavaPackageManifest",
       progress_message = "Parsing java package strings for " + str(target.label),
   )
