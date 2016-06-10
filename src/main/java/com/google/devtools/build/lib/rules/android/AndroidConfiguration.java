@@ -356,7 +356,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean legacyNativeSupport;
   private final String cpu;
   private final boolean incrementalNativeLibs;
-  private final boolean fatApk;
+  private final boolean usesAndroidCrosstool;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
@@ -373,7 +373,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;
     this.cpu = options.cpu;
-    this.fatApk = !options.fatApkCpus.isEmpty();
+    this.usesAndroidCrosstool = (options.androidCrosstoolTop != null);
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.useJackForDexing = options.useJackForDexing;
     this.jackSanityChecks = options.jackSanityChecks;
@@ -407,8 +407,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return strictDeps;
   }
 
-  public boolean isFatApk() {
-    return fatApk;
+  public boolean usesAndroidCrosstool() {
+    return usesAndroidCrosstool;
   }
 
   /**

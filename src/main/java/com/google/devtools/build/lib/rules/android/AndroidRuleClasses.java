@@ -224,6 +224,10 @@ public final class AndroidRuleClasses {
 
           if (androidOptions.fatApkCpus.isEmpty()) {
             BuildOptions splitOptions = buildOptions.clone();
+            splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+            // getSplitPrerequisites() will complain if cpu is null after this transition,
+            // so default to android_cpu.
+            splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
             setCrosstoolToAndroid(splitOptions, buildOptions);
             return ImmutableList.of(splitOptions);
           }

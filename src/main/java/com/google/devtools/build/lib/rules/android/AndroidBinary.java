@@ -150,7 +150,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Multimap<String, TransitiveInfoCollection> depsByArchitecture =
         MultimapBuilder.treeKeys().arrayListValues().build();
     AndroidConfiguration config = ruleContext.getFragment(AndroidConfiguration.class);
-    if (config.isFatApk()) {
+    if (config.usesAndroidCrosstool()) {
       for (Map.Entry<String, ? extends List<? extends TransitiveInfoCollection>> entry :
           ruleContext.getSplitPrerequisites("deps").entrySet()) {
         depsByArchitecture.putAll(entry.getKey(), entry.getValue());
@@ -161,7 +161,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
     Map<String, BuildConfiguration> configurationMap = new LinkedHashMap<>();
     Map<String, CcToolchainProvider> toolchainMap = new LinkedHashMap<>();
-    if (config.isFatApk()) {
+    if (config.usesAndroidCrosstool()) {
       for (Map.Entry<String, ? extends List<? extends TransitiveInfoCollection>> entry :
           ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
         TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
