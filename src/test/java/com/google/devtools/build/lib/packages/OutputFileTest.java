@@ -19,7 +19,6 @@ import static org.junit.Assert.assertSame;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
 import org.junit.Before;
@@ -29,15 +28,11 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class OutputFileTest extends PackageLoadingTestCase {
-
-  private PackageFactory packageFactory;
   private Package pkg;
   private Rule rule;
 
   @Before
   public final void createRule() throws Exception {
-    packageFactory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
-
     Path buildfile =
         scratch.file(
             "pkg/BUILD",

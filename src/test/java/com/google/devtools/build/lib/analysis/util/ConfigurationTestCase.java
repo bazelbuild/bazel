@@ -93,7 +93,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     final PackageFactory pkgFactory;
     BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, rootDirectory,
         TestConstants.PRODUCT_NAME);
-    pkgFactory = new PackageFactory(ruleClassProvider);
+    pkgFactory = TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
+        ruleClassProvider, scratch.getFileSystem());
     AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     AnalysisMock analysisMock = getAnalysisMock();

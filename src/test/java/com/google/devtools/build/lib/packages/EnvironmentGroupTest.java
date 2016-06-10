@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
 import org.junit.Before;
@@ -54,9 +53,8 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
             "    environments = [':foo', ':bar', ':baz'],",
             "    defaults = [':foo'],",
             ")");
-    PackageFactory pkgFactory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
     pkg =
-        pkgFactory.createPackageForTesting(
+        packageFactory.createPackageForTesting(
             PackageIdentifier.createInMainRepo("pkg"), buildfile, getPackageManager(), reporter);
 
     group = (EnvironmentGroup) pkg.getTarget("group");

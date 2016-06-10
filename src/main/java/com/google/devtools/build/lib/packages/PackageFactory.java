@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -333,47 +334,50 @@ public final class PackageFactory {
 
   private final Package.Builder.Helper packageBuilderHelper;
 
-  /**
-   * Constructs a {@code PackageFactory} instance with the given rule factory.
-   */
+  /** Factory for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
-  public PackageFactory(RuleClassProvider ruleClassProvider) {
-    this(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        ImmutableList.<EnvironmentExtension>of(),
-        "test",
-        Package.Builder.DefaultHelper.INSTANCE);
-  }
-
-  @VisibleForTesting
-  public PackageFactory(RuleClassProvider ruleClassProvider,
-      EnvironmentExtension environmentExtension) {
-    this(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        ImmutableList.of(environmentExtension),
-        "test",
-        Package.Builder.DefaultHelper.INSTANCE);
-  }
-
-  @VisibleForTesting
-  public PackageFactory(RuleClassProvider ruleClassProvider,
-      Iterable<EnvironmentExtension> environmentExtensions) {
-    this(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        environmentExtensions,
-        "test",
-        Package.Builder.DefaultHelper.INSTANCE);
+  public abstract static class FactoryForTesting {
+    public final PackageFactory create(RuleClassProvider ruleClassProvider, FileSystem fs) {
+      return create(ruleClassProvider, ImmutableList.<EnvironmentExtension>of(), fs);
+    }
+    
+    public final PackageFactory create(
+        RuleClassProvider ruleClassProvider,
+        EnvironmentExtension environmentExtension,
+        FileSystem fs) {
+      return create(ruleClassProvider, ImmutableList.of(environmentExtension), fs);
+    }
+  
+    public final PackageFactory create(
+        RuleClassProvider ruleClassProvider,
+        Iterable<EnvironmentExtension> environmentExtensions,
+        FileSystem fs) {
+      return create(
+          ruleClassProvider,
+          null,
+          AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
+          environmentExtensions,
+          "test",
+          fs);
+    }
+      
+    protected abstract PackageFactory create(
+        RuleClassProvider ruleClassProvider,
+        Map<String, String> platformSetRegexps,
+        Function<RuleClass, AttributeContainer> attributeContainerFactory,
+        Iterable<EnvironmentExtension> environmentExtensions,
+        String version,
+        FileSystem fs);
   }
 
   /**
    * Constructs a {@code PackageFactory} instance with a specific glob path translator
    * and rule factory.
+   *
+   * <p>Only intended to be called by BlazeRuntime or {@link FactoryForTesting#create}.
+   *
+   * <p>Do not call this constructor directly in tests; please use
+   * TestConstants#PACKAGE_FACTORY_FACTORY_FOR_TESTING instead.
    */
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
