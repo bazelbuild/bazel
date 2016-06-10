@@ -290,6 +290,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Enables resource shrinking for android_binary APKs that use proguard.")
     public boolean useAndroidResourceShrinking;
 
+    @Option(name = "experimental_use_proguard_previous_obfuscation_map",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Enables the use of an obfuscation map when generating the main dex jar file")
+    public boolean useProguardPreviousObfuscationMap;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -359,6 +365,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
+  private final boolean useProguardPreviousObfuscationMap;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -381,6 +388,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
+    this.useProguardPreviousObfuscationMap = options.useProguardPreviousObfuscationMap;
   }
 
   public String getCpu() {
@@ -451,6 +459,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useAndroidResourceShrinking() {
     return useAndroidResourceShrinking;
+  }
+
+  public boolean useProguardPreviousObfuscationMap() {
+    return useProguardPreviousObfuscationMap;
   }
 
   @Override

@@ -405,6 +405,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ? dexWithJack(ruleContext, androidCommon, proguardSpecs)
             : dex(
                 ruleContext,
+                androidSemantics,
                 binaryJar,
                 jarToDex,
                 isBinaryJarFiltered,
@@ -1052,6 +1053,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   /** Creates one or more classes.dex files that correspond to {@code proguardedJar}. */
   private static DexingOutput dex(
       RuleContext ruleContext,
+      AndroidSemantics androidSemantics,
       Artifact binaryJar,
       Artifact proguardedJar,
       boolean isBinaryJarFiltered,
@@ -1111,7 +1113,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
       if (multidexMode == MultidexMode.LEGACY) {
         // For legacy multidex, we need to generate a list for the dexer's --main-dex-list flag.
-        mainDexList = createMainDexListAction(ruleContext, proguardedJar, mainDexProguardSpec);
+        mainDexList = createMainDexListAction(
+            ruleContext, androidSemantics, proguardedJar, mainDexProguardSpec);
       }
 
       Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
@@ -1394,7 +1397,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * Returns the file containing the list.
    */
   static Artifact createMainDexListAction(
-      RuleContext ruleContext, Artifact jar, @Nullable Artifact mainDexProguardSpec) {
+      RuleContext ruleContext,
+      AndroidSemantics androidSemantics,
+      Artifact jar,
+      @Nullable Artifact mainDexProguardSpec)
+      throws InterruptedException {
     // Process the input jar through Proguard into an intermediate, streamlined jar.
     Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -1430,6 +1437,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       streamlinedBuilder.addArgument("-include");
       streamlinedBuilder.addInputArgument(spec);
     }
+
+    androidSemantics.addMainDexListActionArguments(ruleContext, streamlinedBuilder);
 
     ruleContext.registerAction(streamlinedBuilder.build(ruleContext));
 
