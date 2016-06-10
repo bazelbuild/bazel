@@ -102,23 +102,24 @@ public final class ApplicationManifest {
     }
   }
 
-  public ApplicationManifest addStubApplication(RuleContext ruleContext)
+  public ApplicationManifest addMobileInstallStubApplication(RuleContext ruleContext)
       throws InterruptedException {
 
-    Artifact stubManifest =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.STUB_APPLICATON_MANIFEST);
+    Artifact stubManifest = ruleContext.getImplicitOutputArtifact(
+            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATON_MANIFEST);
 
     SpawnAction.Builder builder = new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
-        .setProgressMessage("Injecting stub application")
-        .setMnemonic("InjectStubApplication")
+        .setProgressMessage("Injecting mobile install stub application")
+        .setMnemonic("InjectMobileInstallStubApplication")
+        .addArgument("--mode=mobile_install")
         .addArgument("--input_manifest")
         .addInputArgument(manifest)
         .addArgument("--output_manifest")
         .addOutputArgument(stubManifest)
         .addArgument("--output_datafile")
-        .addOutputArgument(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.STUB_APPLICATION_DATA));
+        .addOutputArgument(ruleContext.getImplicitOutputArtifact(
+            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA));
 
     String overridePackage = getOverridePackage(ruleContext);
     if (overridePackage != null) {
@@ -131,6 +132,27 @@ public final class ApplicationManifest {
     return new ApplicationManifest(stubManifest);
   }
 
+  public ApplicationManifest addInstantRunStubApplication(RuleContext ruleContext)
+      throws InterruptedException {
+
+    Artifact stubManifest = ruleContext.getImplicitOutputArtifact(
+        AndroidRuleClasses.INSTANT_RUN_STUB_APPLICATON_MANIFEST);
+
+    SpawnAction.Builder builder = new SpawnAction.Builder()
+        .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
+        .setProgressMessage("Injecting instant run stub application")
+        .setMnemonic("InjectInstantRunStubApplication")
+        .addArgument("--mode=instant_run")
+        .addArgument("--input_manifest")
+        .addInputArgument(manifest)
+        .addArgument("--output_manifest")
+        .addOutputArgument(stubManifest);
+
+    ruleContext.registerAction(builder.build(ruleContext));
+
+    return new ApplicationManifest(stubManifest);
+  }
+  
   public static ApplicationManifest fromRule(RuleContext ruleContext) {
     return new ApplicationManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET));
   }
@@ -216,7 +238,8 @@ public final class ApplicationManifest {
                 Mode.TARGET,
                 FileProvider.class)).build();
 
-    return createApk(resourceApk,
+    return createApk(
+        resourceApk,
         ruleContext,
         false, /* isLibrary */
         resourceDeps,
@@ -273,7 +296,8 @@ public final class ApplicationManifest {
     if (ruleContext.hasErrors()) {
       return null;
     }
-    return createApk(resourceApk,
+    return createApk(
+        resourceApk,
         ruleContext,
         isLibrary,
         resourceDeps,

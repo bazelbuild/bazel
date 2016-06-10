@@ -122,8 +122,10 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/local-R.txt");
   public static final ImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =
       fromTemplates("%{name}_processed_manifest/AndroidManifest.xml");
-  public static final SafeImplicitOutputsFunction STUB_APPLICATON_MANIFEST =
-      fromTemplates("%{name}_files/stub/AndroidManifest.xml");
+  public static final SafeImplicitOutputsFunction MOBILE_INSTALL_STUB_APPLICATON_MANIFEST =
+      fromTemplates("%{name}_files/mobile_install/AndroidManifest.xml");
+  public static final SafeImplicitOutputsFunction INSTANT_RUN_STUB_APPLICATON_MANIFEST =
+      fromTemplates("%{name}_files/instant_run/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction FULL_DEPLOY_MARKER =
       fromTemplates("%{name}_files/full_deploy_marker");
   public static final SafeImplicitOutputsFunction INCREMENTAL_DEPLOY_MARKER =
@@ -146,7 +148,7 @@ public final class AndroidRuleClasses {
   // This needs to be in its own directory because ApkBuilder only has a function (-rf) for source
   // folders but not source files, and it's easiest to guarantee that nothing gets put beside this
   // file in the ApkBuilder invocation in this manner
-  public static final SafeImplicitOutputsFunction STUB_APPLICATION_DATA =
+  public static final SafeImplicitOutputsFunction MOBILE_INSTALL_STUB_APPLICATION_DATA =
       fromTemplates("%{name}_files/stub_application_data/stub_application_data.txt");
   public static final SafeImplicitOutputsFunction DEX_MANIFEST =
       fromTemplates("%{name}_files/dexmanifest.txt");
