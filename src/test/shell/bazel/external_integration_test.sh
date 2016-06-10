@@ -83,8 +83,6 @@ function http_archive_helper() {
   zipper=$1
   local write_workspace
   [[ $# -gt 1 ]] && [[ "$2" = "nowrite" ]] && write_workspace=1 || write_workspace=0
-  local do_symlink
-  [[ $# -gt 1 ]] && [[ "$2" = "do_symlink" ]] && do_symlink=1 || do_symlink=0
 
   if [[ $write_workspace -eq 0 ]]; then
     # Create a zipped-up repository HTTP response.
@@ -107,9 +105,7 @@ echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
     ln -s male fox/male_relative
-    if [[ $do_symlink = 1 ]]; then
-      ln -s /fox/male fox/male_absolute
-    fi
+    ln -s /fox/male fox/male_absolute
     # Add some padding to the .zip to test that Bazel's download logic can
     # handle breaking a response into chunks.
     dd if=/dev/zero of=fox/padding bs=1024 count=10240 >& $TEST_log
@@ -151,9 +147,7 @@ fi
 
   base_external_path=bazel-out/../external/endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
-  if [[ $do_symlink = 1 ]]; then
-    assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
-  fi
+  assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
 }
 
 function assert_files_same() {
@@ -187,13 +181,13 @@ EOF
 }
 
 function test_http_archive_tgz() {
-  http_archive_helper tar_gz_up "do_symlink"
+  http_archive_helper tar_gz_up
   bazel shutdown
-  http_archive_helper tar_gz_up "do_symlink"
+  http_archive_helper tar_gz_up
 }
 
 function test_http_archive_tar_xz() {
-  http_archive_helper tar_xz_up "do_symlink"
+  http_archive_helper tar_xz_up
 }
 
 function test_http_archive_no_server() {
