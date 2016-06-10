@@ -97,6 +97,7 @@ sh_test(
         "//:workspace-file",
         "//tools/build_defs/apple/test:srcs",
     ],
+    shard_count = 3,
 )
 
 sh_test(
