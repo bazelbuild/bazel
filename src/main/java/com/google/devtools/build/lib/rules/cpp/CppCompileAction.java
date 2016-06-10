@@ -1340,6 +1340,22 @@ public class CppCompileAction extends AbstractAction
         }
       }
 
+      // Enable <object>.d file generation.
+      if (dotdFile != null) {
+        // Gcc options:
+        //  -MD turns on .d file output as a side-effect (doesn't imply -E)
+        //  -MM[D] enables user includes only, not system includes
+        //  -MF <name> specifies the dotd file name
+        // Issues:
+        //  -M[M] alone subverts actual .o output (implies -E)
+        //  -M[M]D alone breaks some of the .d naming assumptions
+        // This combination gets user and system includes with specified name:
+        //  -MD -MF <name>
+        options.add("-MD");
+        options.add("-MF");
+        options.add(dotdFile.getSafeExecPath().getPathString());
+      }
+
       if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
         if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
           options.add("-S");

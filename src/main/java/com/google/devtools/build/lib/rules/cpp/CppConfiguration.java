@@ -692,38 +692,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return toolchain;
     }
     try {
-      if (!features.contains("dependency_file")) {
-        // Gcc options:
-        //  -MD turns on .d file output as a side-effect (doesn't imply -E)
-        //  -MM[D] enables user includes only, not system includes
-        //  -MF <name> specifies the dotd file name
-        // Issues:
-        //  -M[M] alone subverts actual .o output (implies -E)
-        //  -M[M]D alone breaks some of the .d naming assumptions
-        // This combination gets user and system includes with specified name:
-        //  -MD -MF <name>
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'dependency_file'"
-            + "  flag_set {"
-            + "    action: 'assemble'"
-            + "    action: 'preprocess-assemble'"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    action: 'c++-module-compile'"
-            + "    action: 'objc-compile'"
-            + "    action: 'objc++-compile'"
-            + "    expand_if_all_available: 'dependency_file'"
-            + "    flag_group {"
-            + "      flag: '-MD'"
-            + "      flag: '-MF'"
-            + "      flag: '%{dependency_file}'"
-            + "    }"
-            + "  }"
-            + "}",
-            toolchainBuilder);
-      }
-
       if (!features.contains("random_seed")) {
         // GCC and Clang give randomized names to symbols which are defined in
         // an anonymous namespace but have external linkage.  To make

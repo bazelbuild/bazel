@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -370,11 +369,10 @@ public final class CppModel {
 
     CppCompilationContext builderContext = builder.getContext();
     CppModuleMap cppModuleMap = builderContext.getCppModuleMap();
-    Artifact sourceFile = builder.getSourceFile();
     Artifact outputFile = builder.getOutputFile();
     String realOutputFilePath;
 
-    buildVariables.addVariable("source_file", sourceFile.getExecPathString());
+    buildVariables.addVariable("source_file", builder.getSourceFile().getExecPathString());
     buildVariables.addVariable("output_file", outputFile.getExecPathString());
 
     if (fake) {
@@ -391,13 +389,6 @@ public final class CppModel {
       buildVariables.addVariable("output_preprocess_file", realOutputFilePath);
     } else {
       buildVariables.addVariable("output_object_file", realOutputFilePath);
-    }
-
-    DotdFile dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
-        ? Preconditions.checkNotNull(builder.getDotdFile()) : null;
-    // Set dependency_file to enable <object>.d file generation.
-    if (dotdFile != null) {
-      buildVariables.addVariable("dependency_file", dotdFile.getSafeExecPath().getPathString());
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {

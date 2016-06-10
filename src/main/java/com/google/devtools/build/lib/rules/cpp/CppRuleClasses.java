@@ -109,11 +109,6 @@ public class CppRuleClasses {
   public static final String COMPILE_ACTION_FLAGS_IN_FLAG_SET = "compile_action_flags_in_flag_set";
 
   /**
-   * A string constant for the dependency_file feature. This feature generates the .d file.
-   */
-  public static final String DEPENDENCY_FILE = "dependency_file";
-
-  /**
    * A string constant for the module_map_home_cwd feature.
    */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
