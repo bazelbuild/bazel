@@ -42,9 +42,11 @@ public final class FilteringPolicies {
    * Base class for singleton filtering policies.
    */
   private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
+    private final int hashCode = getClass().getSimpleName().hashCode();
+
     @Override
     public int hashCode() {
-      return getClass().getSimpleName().hashCode();
+      return hashCode;
     }
 
     @Override
