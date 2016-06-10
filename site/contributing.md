@@ -55,12 +55,11 @@ don't have IDE support for other languages in Bazel right now.
 
 ### Creating an Eclipse project
 
-To work with Eclipse, run `sh scripts/setup-eclipse.sh` from the root of the
-source tree and it will create the `.project` and the `.classpath` files (if a
-`.project` file is present, only the `.classpath` will get overwritten). You
-can then import the project in Eclipse.
-
-_You might see some errors in Eclipse concerning Truth assertions._
+To work with Eclipse, install the [e4b](https://github.com/bazelbuild/e4b)
+plugin and import the Bazel workspace as a Bazel project
+(`Import project > Others`). You can select `//src/main/java/...` and
+`//src/test/java/...` as target to build and the corresponding directory to
+track.
 
 ### Creating an IntelliJ project
 
