@@ -1,7 +1,8 @@
 ---
-layouts: posts
-title: [IDE support]
+layout: posts
+title: IDE support
 ---
+
 One of Bazel’s longest-standing feature requests is integration with IDEs.
 With the 0.3 release, we finally have all machinery in place that allows
 implementing integration with Bazel in IDEs. Simultaneous with that
