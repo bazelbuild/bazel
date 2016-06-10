@@ -72,7 +72,7 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/be/workspace.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="29"><b><a name="beta"></a>Beta</b></td>
+      <td rowspan="30"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9">
          <a href="https://github.com/bazelbuild/bazel/releases/tag/0.1.0"><b>0.1</b>
          <br/><span class="label label-default">Released</span></a>
@@ -102,11 +102,11 @@ be refined if appropriate.
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/releases/latest">Debian packages for Bazel</a></td></tr>
     <tr><td>P2. <a href="http://braumeister.org/formula/bazel">OS X homebrew recipe for distributing Bazel</a></td></tr>
     <tr>
-      <td rowspan="4">
+      <td rowspan="5">
         <a href="https://github.com/bazelbuild/bazel/releases/tag/0.3.0"><b>0.3</b>
         <br/><span class="label label-default">Released</span></a>
       </td>
-      <td rowspan="4"><b>2016&#8209;06&#8209;10</b></td>
+      <td rowspan="5"><b>2016&#8209;06&#8209;10</b></td>
       <td>P0. <a href="http://bazel.io/docs/windows.html">Bazel can bootstrap itself on Windows without requiring admin privileges</a></td></tr>
     </tr>
     <tr><td>P1. <a href="http://bazel.io/blog/2016/06/10/ide-support.html">Interface for IDE support</a></td></tr>
