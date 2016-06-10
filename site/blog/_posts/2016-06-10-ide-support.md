@@ -56,7 +56,7 @@ by the e4b plugin inside Eclipse to build [Eclipse's representation
 of a project](https://github.com/bazelbuild/e4b/blob/master/com.google.devtools.bazel.e4b/src/com/google/devtools/bazel/e4b/classpath/BazelClasspathContainer.java),
 [IClasspathContainer](http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2FIClasspathContainer.html):
 
-![e4bazel workflow](e4b-workflow.png)
+![e4bazel workflow](/assets/e4b-workflow.png)
 
 Through the e4b plugin UI, the user specifies an initial set of targets
 (typically a java or android binary, a selection of tests, all targets
@@ -82,7 +82,7 @@ a Classpath for Eclipse core to consume. If the input BUILD files change
 so that a project model needs to be re-synced, the plugin still invokes
 the exact same command: Bazel will rebuild only those files that are affected
 by the change, so the plugin need only reexamine only those newly built
-`.e4b-build.json` files. `ide-info` is an output group defined by e4b_aspect;
+`.e4b-build.json` files. `ide-info` is an output group defined by e4b\_aspect;
 the `--output_groups` flag ensures that only the artifacts belonging to that
 group (and hence only to the aspect) are built, and therefore that no
 unnecessary build steps are performed.
