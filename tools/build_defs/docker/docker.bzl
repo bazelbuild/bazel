@@ -103,11 +103,13 @@ def _build_layer(ctx):
   args += ["--deb=" + f.path for f in ctx.files.debs if f.path.endswith(".deb")]
   args += ["--link=%s:%s" % (k, ctx.attr.symlinks[k])
            for k in ctx.attr.symlinks]
+  arg_file = ctx.new_file(ctx.label.name + ".layer.args")
+  ctx.file_action(arg_file, "\n".join(args))
 
   ctx.action(
       executable = build_layer,
-      arguments = args,
-      inputs = ctx.files.files + ctx.files.tars + ctx.files.debs,
+      arguments = ["--flagfile=" + arg_file.path],
+      inputs = ctx.files.files + ctx.files.tars + ctx.files.debs + [arg_file],
       outputs = [layer],
       use_default_shell_env=True,
       mnemonic="DockerLayer"
