@@ -85,7 +85,7 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
       Artifact old =
           dexArchives.put(
               ImmutableSet.copyOf(dexopts), checkNotNull(dexedJar, "dexedJar"), dexArchive);
-      checkArgument(old == null || old.equals(dexedJar),
+      checkArgument(old == null || old.equals(dexArchive),
           "We already had mapping %s-%s for dexopts %s, so we don't also need %s",
           dexedJar, old, dexopts, dexArchive);
       return this;
