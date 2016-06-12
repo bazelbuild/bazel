@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -30,6 +31,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
@@ -94,8 +96,19 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
           String.format("%s not found in %s", tagQName, Arrays.toString(values())));
     }
 
-    String openTag(FullyQualifiedName key) {
-      return String.format("<%s name='%s'>", tagName.getLocalPart(), key.name());
+    String openTag(FullyQualifiedName key, ImmutableMap<String, String> attributes) {
+      StringBuilder xmlString = new StringBuilder("<");
+      xmlString.append(tagName.getLocalPart());
+      xmlString.append(" name='").append(key.name()).append("'");
+      for (Entry<String, String> entry : attributes.entrySet()) {
+        xmlString
+            .append(" ")
+            .append(entry.getKey())
+            .append("='")
+            .append(entry.getValue())
+            .append("'");
+      }
+      return xmlString.append(">").toString();
     }
 
     String closeTag() {
@@ -105,10 +118,13 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
 
   private final ImmutableList<String> values;
   private final ArrayType arrayType;
+  private final ImmutableMap<String, String> attributes;
 
-  private ArrayXmlResourceValue(ArrayType arrayType, ImmutableList<String> values) {
+  private ArrayXmlResourceValue(
+      ArrayType arrayType, ImmutableList<String> values, ImmutableMap<String, String> attributes) {
     this.arrayType = arrayType;
     this.values = values;
+    this.attributes = attributes;
   }
 
   @VisibleForTesting
@@ -117,11 +133,19 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue of(ArrayType arrayType, List<String> values) {
-    return new ArrayXmlResourceValue(arrayType, ImmutableList.copyOf(values));
+    return of(arrayType, values, ImmutableMap.<String, String>of());
+  }
+
+  public static XmlResourceValue of(
+      ArrayType arrayType, List<String> values, ImmutableMap<String, String> attributes) {
+    return new ArrayXmlResourceValue(arrayType, ImmutableList.copyOf(values), attributes);
   }
 
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
-    return of(ArrayType.valueOf(proto.getValueType()), proto.getListValueList());
+    return of(
+        ArrayType.valueOf(proto.getValueType()),
+        proto.getListValueList(),
+        ImmutableMap.copyOf(proto.getMappedStringValueMap()));
   }
 
   @Override
@@ -130,7 +154,8 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     mergedDataWriter.writeToValuesXml(
         key,
         FluentIterable.from(
-                ImmutableList.of(String.format("<!-- %s -->", source), arrayType.openTag(key)))
+                ImmutableList.of(
+                    String.format("<!-- %s -->", source), arrayType.openTag(key, attributes)))
             .append(FluentIterable.from(values).transform(ITEM_TO_XML))
             .append(arrayType.closeTag()));
   }
@@ -144,12 +169,13 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
                 SerializeFormat.DataValueXml.newBuilder()
                     .addAllListValue(values)
                     .setType(SerializeFormat.DataValueXml.XmlType.ARRAY)
+                    .putAllMappedStringValue(attributes)
                     .setValueType(arrayType.toString())));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(arrayType, values);
+    return Objects.hash(arrayType, values, attributes);
   }
 
   @Override
@@ -158,7 +184,9 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       return false;
     }
     ArrayXmlResourceValue other = (ArrayXmlResourceValue) obj;
-    return Objects.equals(arrayType, other.arrayType) && Objects.equals(values, other.values);
+    return Objects.equals(arrayType, other.arrayType)
+        && Objects.equals(values, other.values)
+        && Objects.equals(attributes, other.attributes);
   }
 
   @Override
@@ -166,6 +194,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     return MoreObjects.toStringHelper(getClass())
         .add("arrayType", arrayType)
         .add("values", values)
+        .add("attributes", attributes)
         .toString();
   }
 
@@ -185,13 +214,16 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
           throw new XMLStreamException(
               String.format("Expected start element %s", element), element.getLocation());
         }
-        String contents = XmlResourceValues.readContentsAsString(eventReader,
-            element.asStartElement().getName());
+        String contents =
+            XmlResourceValues.readContentsAsString(eventReader, element.asStartElement().getName());
         values.add(contents != null ? contents : "");
       }
     }
     try {
-      return of(ArrayType.fromTagName(start), values);
+      return of(
+          ArrayType.fromTagName(start),
+          values,
+          ImmutableMap.copyOf(XmlResourceValues.parseTagAttributes(start)));
     } catch (IllegalArgumentException e) {
       throw new XMLStreamException(e.getMessage(), start.getLocation());
     }

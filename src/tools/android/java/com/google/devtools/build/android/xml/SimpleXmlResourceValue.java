@@ -175,11 +175,6 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     return withAttributes(Type.ITEM, ImmutableMap.of("type", resourceType.getName()));
   }
 
-  @Deprecated
-  public static XmlResourceValue of(Type valueType, @Nullable String value) {
-    return of(valueType, ImmutableMap.<String, String>of(), value);
-  }
-
   public static XmlResourceValue of(
       Type valueType, ImmutableMap<String, String> attributes, @Nullable String value) {
     return new SimpleXmlResourceValue(valueType, attributes, value);
@@ -226,7 +221,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
     return of(
         Type.valueOf(proto.getValueType()),
-        ImmutableMap.copyOf(proto.getMappedStringValue()),
+        ImmutableMap.copyOf(proto.getMappedStringValueMap()),
         proto.hasValue() ? proto.getValue() : null);
   }
 

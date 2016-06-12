@@ -165,6 +165,22 @@ public class XmlResourceValues {
   static XmlResourceValue parseSimple(
       XMLEventReader eventReader, ResourceType resourceType, StartElement start)
       throws XMLStreamException {
+    String contents;
+    // Check that the element is unary. If it is, the contents is null
+    if (isEndTag(eventReader.peek(), start.getName())) {
+      contents = null;
+    } else {
+      contents = readContentsAsString(eventReader, start.getName());
+    }
+    return SimpleXmlResourceValue.of(
+        start.getName().equals(TAG_ITEM)
+            ? SimpleXmlResourceValue.Type.ITEM
+            : SimpleXmlResourceValue.Type.from(resourceType),
+        ImmutableMap.copyOf(parseTagAttributes(start)),
+        contents);
+  }
+
+  public static Map<String, String> parseTagAttributes(StartElement start) {
     // Using a map to deduplicate xmlns declarations on the attributes.
     Map<String, String> attributeMap = new LinkedHashMap<>();
     Iterator<Attribute> attributes = iterateAttributesFrom(start);
@@ -190,19 +206,7 @@ public class XmlResourceValues {
         attributeMap.put(attribute.getName().getLocalPart(), value);
       }
     }
-    String contents;
-    // Check and see if the element is unary. If it is, the contents is null
-    if (isEndTag(eventReader.peek(), start.getName())) {
-      contents = null;
-    } else {
-      contents = readContentsAsString(eventReader, start.getName());
-    }
-    return SimpleXmlResourceValue.of(
-        start.getName().equals(TAG_ITEM)
-            ? SimpleXmlResourceValue.Type.ITEM
-            : SimpleXmlResourceValue.Type.from(resourceType),
-        ImmutableMap.copyOf(attributeMap),
-        contents);
+    return attributeMap;
   }
 
   // TODO(corysmith): Replace this with real escaping system, preferably a performant high level xml
