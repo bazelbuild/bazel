@@ -64,7 +64,7 @@ in certain packages, etc). E4b plugin then invokes bazel as follows:
 
 ```
 bazel build //java/com/company/example:main \
---aspect e4b_aspect.bzl%e4b_aspect \
+--aspects e4b_aspect.bzl%e4b_aspect \
 --output_groups ide-info
 ```
 
@@ -72,7 +72,7 @@ bazel build //java/com/company/example:main \
 [e4b source](https://github.com/bazelbuild/e4b/blob/master/com.google.devtools.bazel.e4b/src/com/google/devtools/bazel/e4b/command/BazelCommand.java) for complete
 invocation)
 
-The "--aspect" flag directs Bazel to apply e4b_aspect, exported from
+The "--aspects" flag directs Bazel to apply e4b_aspect, exported from
 e4bazel.bzl Skylark extension, to target //java/com/company/example:main.
 
 The aspect is then applied transitively to the dependencies of the specified
