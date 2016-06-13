@@ -90,7 +90,7 @@ public class DependencySetWindowsTest {
   }
 
   @Test
-  public void dotDParser_caseInsenstivie() throws Exception {
+  public void dotDParser_caseInsensitive() throws Exception {
     Path file1 = fileSystem.getPath("C:/blah/blah/genhello/hello.cc");
     Path file2 = fileSystem.getPath("C:/blah/blah/genhello/hello.h");
     Path file2DiffCase = fileSystem.getPath("C:/Blah/blah/Genhello/hello.h");

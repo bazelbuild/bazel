@@ -191,6 +191,39 @@ public class DependencySetTest {
     }
   }
 
+  /*
+   * Test compatibility with --config=nvcc, which writes an extra space before the colon.
+   */
+  @Test
+  public void dotDParser_spaceBeforeColon() throws Exception {
+    Path file1 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.cc");
+    Path file2 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.h");
+    String filename = "hello.o";
+    Path dotd = scratch.file("/tmp/foo.d",
+        filename + " : \\",
+        " " + file1 + " \\",
+        " " + file2 + " ");
+    DependencySet depset = newDependencySet().read(dotd);
+    assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
+    assertEquals(depset.getOutputFileName(), filename);
+  }
+
+  /*
+   * Bug-for-bug compatibility with --config=msvc, which writes malformed .d files.
+   */
+  @Test
+  public void dotDParser_missingBackslash() throws Exception {
+    Path file1 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.cc");
+    Path file2 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.h");
+    String filename = "hello.o";
+    Path dotd = scratch.file("/tmp/foo.d",
+        filename + ": ",
+        " " + file1 + " \\",
+        " " + file2 + " ");
+    DependencySet depset = newDependencySet().read(dotd);
+    assertThat(depset.getDependencies()).isEmpty();
+  }
+
   @Test
   public void writeSet() throws Exception {
     Path file1 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.cc");
