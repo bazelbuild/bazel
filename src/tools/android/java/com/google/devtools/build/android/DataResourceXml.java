@@ -149,8 +149,8 @@ public class DataResourceXml implements DataResource {
   private static XmlResourceValue parseXmlElements(
       ResourceType resourceType, XMLEventReader eventReader, StartElement start)
       throws XMLStreamException {
-    // Handle unary ids first, as they are a special kind of item.
-    if (resourceType == ID && XmlResourceValues.isEndTag(eventReader.peek(), start.getName())) {
+    // Handle ids first, as they are a special kind of item.
+    if (resourceType == ID) {
       return XmlResourceValues.parseId();
     }
     // Handle item stubs.
