@@ -49,7 +49,7 @@ EOF
 
 function zip_up() {
   repo2_zip=$TEST_TMPDIR/fox.zip
-  zip -0 -r $repo2_zip WORKSPACE fox
+  zip -0 -ry $repo2_zip WORKSPACE fox
 }
 
 function tar_gz_up() {
