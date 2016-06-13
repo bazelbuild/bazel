@@ -136,12 +136,10 @@ public final class CustomCommandLine extends CommandLine {
     void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
       Set<Artifact> expandedArtifacts = new TreeSet<>();
       artifactExpander.expand(treeArtifact, expandedArtifacts);
-      Preconditions.checkState(
-          !expandedArtifacts.isEmpty(),
-          "%s expanded into nothing, maybe it's not added as a input for the associated action?",
-          treeArtifact);
-
-      builder.add(Artifact.joinExecPaths(delimiter, expandedArtifacts));
+      
+      if (!expandedArtifacts.isEmpty()) {
+        builder.add(Artifact.joinExecPaths(delimiter, expandedArtifacts));
+      }
     }
 
     @Override

@@ -224,6 +224,40 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testEmptyTreeArtifactInputAndOutput() throws Exception {
+    Action action = createPopulateTreeArtifactAction();
+    scratch.overwriteFile("archiveManifest.txt", "");
+
+    ArrayList<Artifact> treeFileArtifacts = new ArrayList<Artifact>();
+    ActionExecutionContext executionContext = actionExecutionContext(treeFileArtifacts);
+
+    action.execute(executionContext);
+
+    assertThat(treeFileArtifacts).isEmpty();
+  }
+
+  @Test
+  public void testOutputTreeFileArtifactDirsCreated() throws Exception {
+    Action action = createPopulateTreeArtifactAction();
+    scratch.overwriteFile(
+        "archiveManifest.txt",
+        "archive_members/dirA/memberA",
+        "archive_members/dirB/memberB");
+
+    ArrayList<Artifact> treeFileArtifacts = new ArrayList<Artifact>();
+    ActionExecutionContext executionContext = actionExecutionContext(treeFileArtifacts);
+    action.execute(executionContext);
+
+    // We check whether the parent directory structures of output TreeFileArtifacts exist even
+    // though the spawn is not executed (the SpawnActionContext is mocked out).
+    assertThat(treeFileArtifacts).hasSize(2);
+    for (Artifact treeFileArtifact : treeFileArtifacts) {
+      assertThat(treeFileArtifact.getPath().getParentDirectory().exists()).isTrue();
+      assertThat(treeFileArtifact.getPath().exists()).isFalse();
+    }
+  }
+
+  @Test
   public void testComputeKey() throws Exception {
     final Artifact archiveA = getSourceArtifact("myArchiveA.zip");
     final Artifact archiveB = getSourceArtifact("myArchiveB.zip");

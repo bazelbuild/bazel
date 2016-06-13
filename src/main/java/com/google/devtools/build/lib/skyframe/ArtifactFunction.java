@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -78,6 +79,19 @@ class ArtifactFunction implements SkyFunction {
     // If the action is an ActionTemplate, we need to expand the ActionTemplate into concrete
     // actions, execute those actions in parallel and then aggregate the action execution results.
     if (artifact.isTreeArtifact() && actionMetadata instanceof SpawnActionTemplate) {
+      // Create the directory structures for the output TreeArtifact first.
+      try {
+        FileSystemUtils.createDirectoryAndParents(artifact.getPath());
+      } catch (IOException e) {
+        env.getListener().handle(
+            Event.error(
+                String.format(
+                    "Failed to create output directory for TreeArtifact %s: %s",
+                    artifact,
+                    e.getMessage())));
+        throw new ArtifactFunctionException(e, Transience.TRANSIENT);
+      }
+
       return createTreeArtifactValueFromActionTemplate(
           (SpawnActionTemplate) actionMetadata, artifact, env);
     } else {
@@ -321,6 +335,10 @@ class ArtifactFunction implements SkyFunction {
     }
 
     ArtifactFunctionException(ActionExecutionException e, Transience transience) {
+      super(e, transience);
+    }
+
+    ArtifactFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }
   }

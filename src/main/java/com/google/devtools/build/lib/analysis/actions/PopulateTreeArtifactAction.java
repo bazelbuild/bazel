@@ -166,11 +166,27 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
       throw new ActionExecutionException(e, this, true);
     }
 
+    // If the spawn does not have any output, it means the archive file contains nothing. In this
+    // case we just return without generating anything under the output TreeArtifact.
+    if (spawn.getOutputFiles().isEmpty()) {
+      return;
+    }
+
     // Check spawn output TreeFileArtifact conflicts.
     try {
       checkOutputConflicts(spawn.getOutputFiles());
     } catch (ArtifactPrefixConflictException e) {
       throw new ActionExecutionException(e, this, true);
+    }
+
+    // Create parent directories for the output TreeFileArtifacts.
+    try {
+      for (ActionInput fileEntry : spawn.getOutputFiles()) {
+        FileSystemUtils.createDirectoryAndParents(
+            ((Artifact) fileEntry).getPath().getParentDirectory());
+      }
+    } catch (IOException e) {
+      throw new ActionExecutionException(e, this, false);
     }
 
     // Execute the spawn.
@@ -266,12 +282,10 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
   private Iterable<PathFragment> readAndCheckManifestEntries()
       throws IOException, IllegalManifestFileException {
     ImmutableList.Builder<PathFragment> manifestEntries = ImmutableList.builder();
-    boolean hasNonEmptyLines = false;
 
     for (String line :
         FileSystemUtils.iterateLinesAsLatin1(archiveManifest.getPath())) {
       if (!line.isEmpty()) {
-        hasNonEmptyLines = true;
         PathFragment path = new PathFragment(line);
 
         if (!path.isNormalized() || path.isAbsolute()) {
@@ -281,11 +295,6 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
 
         manifestEntries.add(path);
       }
-    }
-
-    if (!hasNonEmptyLines) {
-      throw new IllegalManifestFileException(
-          String.format("Archive manifest %s must not be empty.", archiveManifest));
     }
 
     return manifestEntries.build();
