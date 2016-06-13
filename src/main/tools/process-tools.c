@@ -87,7 +87,18 @@ void HandleSignal(int sig, void (*handler)(int)) {
   CHECK_CALL(sigaction(sig, &sa, NULL));
 }
 
-void UnHandle(int sig) { HandleSignal(sig, SIG_DFL); }
+void UnHandle(int sig) {
+  switch (sig) {
+    case SIGSTOP:
+    case SIGKILL:
+      // These signals can't be handled, so they'll always have a valid default
+      // handler. In fact, even trying to install SIG_DFL again will result in
+      // EINVAL, so we'll just not do anything for these.
+      return;
+    default:
+      HandleSignal(sig, SIG_DFL);
+  }
+}
 
 void ClearSignalMask() {
   // Use an empty signal mask for the process.
