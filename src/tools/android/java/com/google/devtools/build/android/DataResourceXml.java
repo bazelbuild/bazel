@@ -151,7 +151,7 @@ public class DataResourceXml implements DataResource {
       throws XMLStreamException {
     // Handle ids first, as they are a special kind of item.
     if (resourceType == ID) {
-      return XmlResourceValues.parseId();
+      return XmlResourceValues.parseId(eventReader, start);
     }
     // Handle item stubs.
     if (XmlResourceValues.isItem(start)) {

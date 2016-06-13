@@ -289,21 +289,36 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+
     ImmutableList<String> formatKeys = Ordering.natural().immutableSortedCopy(formats.keySet());
-    FluentIterable<String> iterable =
-        FluentIterable.from(
-            ImmutableList.of(
-                String.format("<!-- %s -->", source),
-                formatKeys.isEmpty()
-                    ? String.format("<attr name='%s'>", key.name())
-                    : String.format(
-                        "<attr name='%s' format='%s'>",
-                        key.name(),
-                        Joiner.on('|').join(formatKeys))));
-    for (String formatKey : formatKeys) {
-      iterable = formats.get(formatKey).appendTo(iterable);
+    if (formatKeys.isEmpty()) {
+      mergedDataWriter.writeToValuesXml(
+          key,
+          ImmutableList.of(
+              String.format("<!-- %s -->", source),
+              String.format("<attr name='%s'/>", key.name())));
+    } else if (formats.containsKey(FLAGS) || formats.containsKey(ENUM)) {
+      FluentIterable<String> iterable =
+          FluentIterable.from(
+              ImmutableList.of(
+                  String.format("<!-- %s -->", source),
+                  formatKeys.isEmpty()
+                      ? String.format("<attr name='%s'>", key.name())
+                      : String.format(
+                          "<attr format='%s' name='%s' >",
+                          Joiner.on('|').join(formatKeys), key.name())));
+      for (String formatKey : formatKeys) {
+        iterable = formats.get(formatKey).appendTo(iterable);
+      }
+      mergedDataWriter.writeToValuesXml(key, iterable.append("</attr>"));
+    } else {
+      mergedDataWriter.writeToValuesXml(
+          key,
+          ImmutableList.of(
+              String.format("<!-- %s -->", source),
+              String.format(
+                  "<attr format='%s' name='%s'/>", Joiner.on('|').join(formatKeys), key.name())));
     }
-    mergedDataWriter.writeToValuesXml(key, iterable.append("</attr>"));
   }
 
   @Override
