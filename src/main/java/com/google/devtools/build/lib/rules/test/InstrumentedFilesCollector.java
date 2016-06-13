@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -250,8 +251,9 @@ public final class InstrumentedFilesCollector {
   public static final LocalMetadataCollector NO_METADATA_COLLECTOR = null;
 
   private static boolean shouldIncludeLocalSources(RuleContext ruleContext) {
-    return ruleContext.getConfiguration().getInstrumentationFilter().isIncluded(
-        ruleContext.getLabel().toString());
+    BuildConfiguration config = ruleContext.getConfiguration();
+    return ((config.shouldInstrumentTestTargets() || !ruleContext.isTestTarget())
+        && config.getInstrumentationFilter().isIncluded(ruleContext.getLabel().toString()));
   }
 
   private static Iterable<TransitiveInfoCollection> getAllPrerequisites(

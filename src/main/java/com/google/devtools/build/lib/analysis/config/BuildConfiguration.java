@@ -559,7 +559,7 @@ public final class BuildConfiguration {
     public boolean stampBinaries;
 
     // TODO(bazel-team): delete from OSS tree
-    // This value is always overwritten in the case of "blaze coverage" by :
+    // This default value is always overwritten in the case of "blaze coverage" by
     // CoverageCommand.setDefaultInstrumentationFilter()
     @Option(name = "instrumentation_filter",
         converter = RegexFilter.RegexFilterConverter.class,
@@ -570,6 +570,15 @@ public final class BuildConfiguration {
             + "with '-' are excluded instead. By default, rules containing "
             + "'javatests' or ending with '_test' will not be instrumented.")
     public RegexFilter instrumentationFilter;
+
+    @Option(name = "instrument_test_targets",
+        defaultValue = "true",
+        category = "semantics",
+        help = "When coverage is enabled, specifies whether to consider instrumenting test rules. "
+            + "When true (the default), test rules included by --instrumentation_filter are "
+            + "instrumented. When false, test rules are always excluded from coverage "
+            + "instrumentation.")
+    public boolean instrumentTestTargets;
 
     @Option(name = "show_cached_analysis_results",
         defaultValue = "true",
@@ -2042,6 +2051,15 @@ public final class BuildConfiguration {
    */
   public RegexFilter getInstrumentationFilter() {
     return options.instrumentationFilter;
+  }
+
+  /**
+   * Returns a boolean of whether to include targets created by *_test rules in the set of targets
+   * matched by --instrumentation_filter. If this is false, all test targets are excluded from
+   * instrumentation.
+   */
+  public boolean shouldInstrumentTestTargets() {
+    return options.instrumentTestTargets;
   }
 
   /**
