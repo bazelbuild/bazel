@@ -779,8 +779,7 @@ public final class CompilationSupport {
 
   private void registerArchiveActions(ImmutableList.Builder<Artifact> objFiles, Artifact archive) {
     for (Action action :
-        archiveActions(ruleContext, objFiles.build(), archive,
-            intermediateArtifacts.archiveObjList())) {
+        archiveActions(ruleContext, objFiles.build(), archive, intermediateArtifacts.objList())) {
       ruleContext.registerAction(action);
     }
   }
@@ -793,7 +792,11 @@ public final class CompilationSupport {
 
     ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
 
-    actions.add(objFilelistAction(context, objFiles, objList));
+    actions.add(new FileWriteAction(
+        context.getActionOwner(),
+        objList,
+        Artifact.joinExecPaths("\n", objFiles),
+        /*makeExecutable=*/ false));
 
     actions.add(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             ruleContext, appleConfiguration.getSingleArchPlatform())
@@ -812,15 +815,6 @@ public final class CompilationSupport {
         .build(context));
 
     return actions.build();
-  }
-
-  private Action objFilelistAction(ActionConstructionContext context,
-      Iterable<Artifact> objFiles, Artifact objList) {
-    return new FileWriteAction(
-        context.getActionOwner(),
-        objList,
-        Artifact.joinExecPaths("\n", objFiles),
-        /*makeExecutable=*/ false);
   }
 
   /**
@@ -1052,7 +1046,6 @@ public final class CompilationSupport {
             .addInputs(ccLibraries)
             .addInputs(extraLinkInputs)
             .addInputs(prunedJ2ObjcArchives)
-            .addInput(intermediateArtifacts.linkerObjList())
             .addInput(xcrunwrapper(ruleContext).getExecutable())
             .build(ruleContext));
 
@@ -1166,14 +1159,11 @@ public final class CompilationSupport {
       commandLine.add("-dead_strip").add("-no_dead_strip_inits_and_terms");
     }
 
-    Artifact inputFileList = intermediateArtifacts.linkerObjList();
-    ruleContext.registerAction(
-        objFilelistAction(ruleContext,
-            Iterables.concat(bazelBuiltLibraries, objcProvider.get(IMPORTED_LIBRARY), ccLibraries),
-            inputFileList));
-    
     if (objcConfiguration.shouldPrioritizeStaticLibs()) {
-      commandLine.add("-filelist").add(inputFileList.getExecPathString());
+      commandLine
+          .addExecPaths(bazelBuiltLibraries)
+          .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+          .addExecPaths(ccLibraries);
     }
 
     commandLine
@@ -1195,7 +1185,10 @@ public final class CompilationSupport {
         .addFormatEach("-l%s", libraryNames);
 
     if (!objcConfiguration.shouldPrioritizeStaticLibs()) {
-      commandLine.add("-filelist").add(inputFileList.getExecPathString());
+      commandLine
+          .addExecPaths(bazelBuiltLibraries)
+          .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+          .addExecPaths(ccLibraries);
     }
 
     Iterable<Artifact> ccLibrariesToForceLoad =
