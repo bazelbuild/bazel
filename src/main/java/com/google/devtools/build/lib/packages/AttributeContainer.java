@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.events.Location;
 
-import java.util.BitSet;
+import java.util.Arrays;
 
 /**
  * Provides attribute setting and retrieval for a Rule. Encapsulating attribute access
@@ -38,25 +39,41 @@ public class AttributeContainer {
   // Attribute values, keyed by attribute index:
   private final Object[] attributeValues;
 
-  // Whether an attribute value has been set explicitly in the BUILD file, keyed by attribute index.
-  private final BitSet attributeValueExplicitlySpecified;
+  // Holds two lists of attribute indices.
+  // The first byte gives the length of the first list.
+  // The first list records which attributes were set explicitly in the BUILD file.
+  // The second list ends at the end of the array.
+  // The second list records which attributes have Locations, in reverse order
+  // from the attributeLocations array.
+  // Between the lists there may be unused zero bytes (zeros are forbidden within each list).
+  private byte[] state;
 
-  // Attribute locations, keyed by attribute index:
-  private final Location[] attributeLocations;
+  // Attribute locations, packed:
+  private Location[] attributeLocations;
+
 
   /**
    * Create a container for a rule of the given rule class.
    */
   public AttributeContainer(RuleClass ruleClass) {
-   this(ruleClass, new Location[ruleClass.getAttributeCount()]);
+   this(ruleClass, EMPTY_LOCATIONS);
   }
-  
+
   AttributeContainer(RuleClass ruleClass, Location[] locations) {
+    int n = ruleClass.getAttributeCount();
+    if (n > 254) {
+      // We reserve the zero byte as a hole/sentinel inside state[].
+      // If you hit this limit, replace byte with char and remove the masking with 0xff.
+      throw new AssertionError("can't pack " + n + " rule indices into bytes");
+    }
     this.ruleClass = ruleClass;
-    this.attributeValues = new Object[ruleClass.getAttributeCount()];
-    this.attributeValueExplicitlySpecified = new BitSet(ruleClass.getAttributeCount());
+    this.attributeValues = new Object[n];
+    this.state = EMPTY_STATE;
     this.attributeLocations = locations;
   }
+
+  private static final byte[] EMPTY_STATE = {0};
+  private static final Location[] EMPTY_LOCATIONS = {};
 
   /**
    * Returns an attribute value by instance, or null on no match.
@@ -83,7 +100,78 @@ public class AttributeContainer {
 
   public boolean isAttributeValueExplicitlySpecified(String attributeName) {
     Integer idx = ruleClass.getAttributeIndex(attributeName);
-    return idx != null && attributeValueExplicitlySpecified.get(idx);
+    return idx != null && getExplicit(idx);
+  }
+
+ /**
+  * Returns the number of elements of state[] currently used to store
+  * indices of "explicitly set" attributes.
+  */
+  private int explicitCount() {
+    return 0xff & state[0];
+  }
+
+  private boolean getExplicit(int index) {
+    int n = explicitCount();
+    for (int i = 1; i <= n; ++i) {
+      if ((0xff & state[i]) == index + 1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private int getLocationIndex(int index) {
+    int n = explicitCount();
+    for (int i = state.length - 1; i > n; --i) {
+      if ((0xff & state[i]) == index + 1) {
+        return state.length - 1 - i;
+      }
+    }
+    return -1;
+  }
+
+  private void setExplicit(int index) {
+    if (getExplicit(index)) {
+      return;
+    }
+    ensureSpace();
+    int n = explicitCount() + 1;
+    state[0] = (byte) n;
+    state[n] = (byte) (index + 1);
+  }
+
+  private int addLocationIndex(int index) {
+    ensureSpace();
+    for (int i = state.length - 1; ; --i) {
+      if (i <= explicitCount()) {
+        throw new AssertionError("ensureSpace() did not insert a zero");
+      }
+      if (state[i] == 0) {
+        state[i] = (byte) (index + 1);
+        return state.length - 1 - i;
+      }
+    }
+  }
+
+  /**
+   * Ensures that the state[n] byte is equal to the sentinel value 0, so there is room for another
+   * attribute's explicit bit to be set, or for an attribute's location to be set.
+   */
+  private void ensureSpace() {
+    int n = explicitCount() + 1;
+    if (n < state.length && state[n] == 0) {
+      return;
+    }
+    // Grow up to the next multiple of eight bytes, as the object will be
+    // aligned to eight bytes anyway.  Insert zeros between the two lists.
+    byte[] newState = new byte[(state.length | 7) + 1];
+    // Copy stored explicit attributes to the beginning of the array.
+    System.arraycopy(state, 0, newState, 0, n);
+    // Copy stored attribute locations to the *end* of the array.
+    int oldLocations = state.length - n;
+    System.arraycopy(state, n, newState, newState.length - oldLocations, oldLocations);
+    state = newState;
   }
 
   /**
@@ -91,7 +179,8 @@ public class AttributeContainer {
    */
   public Location getAttributeLocation(String attrName) {
     Integer idx = ruleClass.getAttributeIndex(attrName);
-    return idx != null ? attributeLocations[idx] : null;
+    int locationIndex = idx != null ? getLocationIndex(idx) : -1;
+    return locationIndex >= 0 ? attributeLocations[locationIndex] : null;
   }
 
   Object getAttributeValue(int index) {
@@ -99,24 +188,43 @@ public class AttributeContainer {
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
-    Integer index = ruleClass.getAttributeIndex(attribute.getName());
+    String name = attribute.getName();
+    Integer index = ruleClass.getAttributeIndex(name);
+    if (!explicit && getExplicit(index)) {
+      throw new IllegalArgumentException("attribute " + name + " already explicitly set");
+    }
     attributeValues[index] = value;
-    attributeValueExplicitlySpecified.set(index, explicit);
+    if (explicit) {
+      setExplicit(index);
+    }
   }
 
+  // This sets the attribute "explicitly" as if it came from the BUILD file.
+  // At present, the sole use of this is for the test_suite.$implicit_tests
+  // attribute, which is synthesized during package loading.  We do want to
+  // consider that "explicitly set" so that it appears in query output.
   void setAttributeValueByName(String attrName, Object value) {
-    Integer index = ruleClass.getAttributeIndex(attrName);
-    attributeValues[index] = value;
-    attributeValueExplicitlySpecified.set(index);
+    setAttributeValue(ruleClass.getAttributeByName(attrName), value, true);
   }
 
   void setAttributeLocation(int attrIndex, Location location) {
-    attributeLocations[attrIndex] = location;
+    int locationIndex = getLocationIndex(attrIndex);
+    if (locationIndex >= 0) {
+      throw new IllegalArgumentException("already have a location for attribute "
+          + ruleClass.getAttribute(attrIndex).getName() + ": " + attributeLocations[locationIndex]);
+    }
+    locationIndex = addLocationIndex(attrIndex);
+    if (locationIndex >= attributeLocations.length) {
+      // Grow by two references, as the object will be aligned to eight bytes anyway.
+      attributeLocations = Arrays.copyOf(attributeLocations, attributeLocations.length + 2);
+    }
+    attributeLocations[locationIndex] = location;
   }
 
+  @VisibleForTesting
   void setAttributeLocation(Attribute attribute, Location location) {
     Integer index = ruleClass.getAttributeIndex(attribute.getName());
-    attributeLocations[index] = location;
+    setAttributeLocation(index, location);
   }
 
   public static final Function<RuleClass, AttributeContainer> ATTRIBUTE_CONTAINER_FACTORY =

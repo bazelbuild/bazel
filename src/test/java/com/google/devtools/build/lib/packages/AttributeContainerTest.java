@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.events.Location;
@@ -26,6 +27,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Random;
 
 /**
  * Unit tests for {@link AttributeContainer}.
@@ -98,5 +103,54 @@ public class AttributeContainerTest {
     assertEquals(location1, container.getAttributeLocation(attribute1.getName()));
     assertEquals(location2, container.getAttributeLocation(attribute2.getName()));
     assertNull(container.getAttributeLocation("nomatch"));
+  }
+
+  @Test
+  public void testPackedState() throws Exception {
+    Random rng = new Random();
+    // The state packing machinery has special behavior at multiples of 8,
+    // so set enough explicit values and locations to exercise that.
+    final int N = 17;
+    Attribute[] attributes = new Attribute[N];
+    for (int i = 0; i < N; ++i) {
+      attributes[i] = ruleClass.getAttribute(i);
+    }
+    Object someValue = new Object();
+    Location[] locations = new Location[N];
+    for (int i = 0; i < N; ++i) {
+      locations[i] = newLocation();
+    }
+    assertTrue(locations[0] != locations[1]);  // test relies on checking reference inequality
+    for (int explicitCount = 0; explicitCount <= N; ++explicitCount) {
+      for (int locationCount = 0; locationCount <= N; ++locationCount) {
+        AttributeContainer container = new AttributeContainer(ruleClass);
+        // Shuffle the attributes each time through, to exercise
+        // different stored indices and orderings.
+        Collections.shuffle(Arrays.asList(attributes));
+        // Also randomly interleave calls to the two setters.
+        int valuePassKey = rng.nextInt(1 << N);
+        int locationPassKey = rng.nextInt(1 << N);
+        for (int pass = 0; pass <= 1; ++pass) {
+          for (int i = 0; i < explicitCount; ++i) {
+            if (pass == ((valuePassKey >> i) & 1)) {
+              container.setAttributeValue(attributes[i], someValue, true);
+            }
+          }
+          for (int i = 0; i < locationCount; ++i) {
+            if (pass == ((locationPassKey >> i) & 1)) {
+              container.setAttributeLocation(attributes[i], locations[i]);
+            }
+          }
+        }
+        for (int i = 0; i < N; ++i) {
+          boolean expected = i < explicitCount;
+          assertEquals(expected, container.isAttributeValueExplicitlySpecified(attributes[i]));
+        }
+        for (int i = 0; i < N; ++i) {
+          Location expected = i < locationCount ? locations[i] : null;
+          assertSame(expected, container.getAttributeLocation(attributes[i].getName()));
+        }
+      }
+    }
   }
 }
