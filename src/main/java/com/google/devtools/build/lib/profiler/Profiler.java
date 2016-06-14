@@ -41,6 +41,7 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
@@ -117,6 +118,8 @@ import java.util.zip.DeflaterOutputStream;
  */
 //@ThreadSafe - commented out to avoid cyclic dependency with lib.util package
 public final class Profiler {
+  private static final Logger LOG = Logger.getLogger(Profiler.class.getName());
+
   static final int MAGIC = 0x11223344;
 
   // File version number. Note that merely adding new record types in
@@ -733,15 +736,24 @@ public final class Profiler {
     }
 
     tasksHistograms[type.ordinal()].addStat((int) TimeUnit.NANOSECONDS.toMillis(duration), object);
-    TaskData parent = taskStack.peek();
+    // Store instance fields as local variables so they are not nulled out from under us by #clear.
+    TaskStack localStack = taskStack;
+    Queue<TaskData> localQueue = taskQueue;
+    if (localStack == null || localQueue == null) {
+      // Variables have been nulled out by #clear in between the check the caller made and this
+      // point in the code. Probably due to an asynchronous crash.
+      LOG.severe("Variables null in profiler for " + type + ", probably due to async crash");
+      return;
+    }
+    TaskData parent = localStack.peek();
     if (parent != null) {
       parent.aggregateChild(type, duration);
     }
     if (wasTaskSlowEnoughToRecord(type, duration)) {
-      TaskData data = taskStack.create(startTime, type, object);
+      TaskData data = localStack.create(startTime, type, object);
       data.duration = duration;
       if (out != null) {
-        taskQueue.add(data);
+        localQueue.add(data);
       }
 
       SlowestTaskAggregator aggregator = slowestTasks[type.ordinal()];
