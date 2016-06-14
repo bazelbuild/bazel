@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
@@ -103,7 +106,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -641,7 +643,7 @@ public class ExecutionTool {
       }
     }
     env.getEventBus().post(
-        new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+        new ExecutionPhaseCompleteEvent(timer.stop().elapsed(MILLISECONDS)));
     return successfulTargets;
   }
 
@@ -716,7 +718,7 @@ public class ExecutionTool {
    */
   private void saveCaches(ActionCache actionCache) {
     long actionCacheSizeInBytes = 0;
-    long actionCacheSaveTime;
+    long actionCacheSaveTimeInMs;
 
     AutoProfiler p = AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, LOG);
     try {
@@ -724,10 +726,11 @@ public class ExecutionTool {
     } catch (IOException e) {
       getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
     } finally {
-      actionCacheSaveTime = p.completeAndGetElapsedTimeNanos();
+      actionCacheSaveTimeInMs =
+          MILLISECONDS.convert(p.completeAndGetElapsedTimeNanos(), NANOSECONDS);
     }
     env.getEventBus().post(new CachesSavedEvent(
-        actionCacheSaveTime, actionCacheSizeInBytes));
+        actionCacheSaveTimeInMs, actionCacheSizeInBytes));
   }
 
   private ActionInputFileCache createBuildSingleFileCache(Path execRoot) {
