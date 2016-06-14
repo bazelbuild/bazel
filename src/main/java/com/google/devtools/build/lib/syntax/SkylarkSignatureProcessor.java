@@ -63,33 +63,26 @@ public class SkylarkSignatureProcessor {
     Iterator<Object> defaultValuesIterator = defaultValues == null
         ? null : defaultValues.iterator();
     try {
-      for (Param param : annotation.mandatoryPositionals()) {
-        paramList.add(getParameter(name, param, enforcedTypes, doc, documented,
-                /*mandatory=*/true, /*star=*/false, /*starStar=*/false, /*defaultValue=*/null));
-      }
-      for (Param param : annotation.optionalPositionals()) {
-        paramList.add(getParameter(name, param, enforcedTypes, doc, documented,
-                /*mandatory=*/false, /*star=*/false, /*starStar=*/false,
-                /*defaultValue=*/getDefaultValue(param, defaultValuesIterator)));
-      }
-      if (!annotation.extraPositionals().name().isEmpty()
-          || annotation.optionalNamedOnly().length > 0
-          || annotation.mandatoryNamedOnly().length > 0) {
-        @Nullable Param starParam = null;
-        if (!annotation.extraPositionals().name().isEmpty()) {
-          starParam = annotation.extraPositionals();
-        }
-        paramList.add(getParameter(name, starParam, enforcedTypes, doc, documented,
+      boolean named = false;
+      for (Param param : annotation.parameters()) {
+        boolean mandatory = param.defaultValue() != null && param.defaultValue().isEmpty();
+        Object defaultValue = mandatory ? null : getDefaultValue(param, defaultValuesIterator);
+        if (param.named() && !param.positional() && !named) {
+          named = true;
+          @Nullable Param starParam = null;
+          if (!annotation.extraPositionals().name().isEmpty()) {
+            starParam = annotation.extraPositionals();
+          }
+          paramList.add(getParameter(name, starParam, enforcedTypes, doc, documented,
                 /*mandatory=*/false, /*star=*/true, /*starStar=*/false, /*defaultValue=*/null));
-      }
-      for (Param param : annotation.mandatoryNamedOnly()) {
+        }
         paramList.add(getParameter(name, param, enforcedTypes, doc, documented,
-                /*mandatory=*/true, /*star=*/false, /*starStar=*/false, /*defaultValue=*/null));
+                mandatory, /*star=*/false, /*starStar=*/false, defaultValue));
       }
-      for (Param param : annotation.optionalNamedOnly()) {
-        paramList.add(getParameter(name, param, enforcedTypes, doc, documented,
-                /*mandatory=*/false, /*star=*/false, /*starStar=*/false,
-                /*defaultValue=*/getDefaultValue(param, defaultValuesIterator)));
+      if (!annotation.extraPositionals().name().isEmpty() && !named) {
+        paramList.add(getParameter(name, annotation.extraPositionals(), enforcedTypes, doc,
+            documented, /*mandatory=*/false, /*star=*/true, /*starStar=*/false,
+            /*defaultValue=*/null));
       }
       if (!annotation.extraKeywords().name().isEmpty()) {
         paramList.add(

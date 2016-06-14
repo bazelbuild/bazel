@@ -287,7 +287,7 @@ public class WorkspaceFactory {
             + "description of the project, using underscores as separators, e.g., "
             + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
             + "start with a letter and can only contain letters, numbers, and underscores.",
-    mandatoryPositionals = {
+    parameters = {
       @Param(name = "name", type = String.class, doc = "the name of the workspace.")
     },
     documented = true,

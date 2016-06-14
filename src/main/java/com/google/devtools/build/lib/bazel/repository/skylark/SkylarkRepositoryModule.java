@@ -54,7 +54,7 @@ public class SkylarkRepositoryModule {
         "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
             + "called from the WORKSPACE file.",
     returnType = BaseFunction.class,
-    mandatoryPositionals = {
+    parameters = {
       @Param(
         name = "implementation",
         type = BaseFunction.class,
@@ -62,9 +62,7 @@ public class SkylarkRepositoryModule {
             "the function implementing this rule, has to have exactly one parameter: "
                 + "<code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The function "
                 + "is called during loading phase for each instance of the rule."
-      )
-    },
-    optionalNamedOnly = {
+      ),
       @Param(
         name = "attrs",
         type = SkylarkDict.class,
@@ -76,7 +74,9 @@ public class SkylarkRepositoryModule {
                 + "module). Attributes starting with <code>_</code> are private, and can be "
                 + "used to add an implicit dependency on a label to a file (a repository "
                 + "rule cannot depend on a generated artifact). The attribute "
-                + "<code>name</code> is implicitly added and must not be specified."
+                + "<code>name</code> is implicitly added and must not be specified.",
+        named = true,
+        positional = false
       ),
       @Param(
         name = "local",
@@ -84,7 +84,9 @@ public class SkylarkRepositoryModule {
         defaultValue = "False",
         doc =
             "Indicate that this rule fetches everything from the local system and should be "
-                + "reevaluated at every fetch."
+                + "reevaluated at every fetch.",
+        named = true,
+        positional = false
       )
     },
     useAst = true,

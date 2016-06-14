@@ -68,14 +68,14 @@ public class AppleSkylarkCommon {
     objectType = AppleSkylarkCommon.class,
     returnType = ObjcProvider.class,
     doc = "Creates a new ObjcProvider instance.",
-    mandatoryPositionals = {
-      @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance.")
-    },
-    optionalNamedOnly = {
+    parameters = {
+      @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance."),
       @Param(
         name = "uses_swift",
         type = Boolean.class,
         defaultValue = "False",
+        named = true,
+        positional = false,
         doc = "Whether this provider should enable Swift support."
       )
     },

@@ -81,10 +81,7 @@ public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
   }
 
   private void processParams() {
-    processParams(adjustedMandatoryPositionals(annotation));
-    processParams(annotation.optionalPositionals());
-    processParams(annotation.optionalNamedOnly());
-    processParams(annotation.mandatoryNamedOnly());
+    processParams(adjustedParameters(annotation));
     if (!annotation.extraPositionals().name().isEmpty()) {
       this.params.add(new SkylarkParamDoc(this, annotation.extraPositionals()));
     }

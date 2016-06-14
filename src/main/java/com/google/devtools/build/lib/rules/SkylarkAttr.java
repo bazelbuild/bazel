@@ -290,21 +290,31 @@ public final class SkylarkAttr {
     doc = "Creates an attribute of type int.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = Integer.class,
         defaultValue = "0",
-        doc = DEFAULT_DOC
+        doc = DEFAULT_DOC,
+        named = true,
+        positional = false
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = MANDATORY_DOC,
+        named = true,
+        positional = false
       ),
       @Param(
         name = VALUES_ARG,
         type = SkylarkList.class,
         generic1 = Integer.class,
         defaultValue = "[]",
-        doc = VALUES_DOC
+        doc = VALUES_DOC,
+        named = true,
+        positional = false
       )
     },
     useAst = true,
@@ -335,21 +345,31 @@ public final class SkylarkAttr {
     doc = "Creates an attribute of type <a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = String.class,
         defaultValue = "''",
-        doc = DEFAULT_DOC
+        doc = DEFAULT_DOC,
+        named = true,
+        positional = false
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = MANDATORY_DOC,
+        named = true,
+        positional = false
       ),
       @Param(
         name = VALUES_ARG,
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
-        doc = VALUES_DOC
+        doc = VALUES_DOC,
+        named = true,
+        positional = false
       )
     },
     useAst = true,
@@ -384,13 +404,15 @@ public final class SkylarkAttr {
             + "<a href=\"../rules.html#private-attributes\">make the attribute private</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = Label.class,
         callbackEnabled = true,
         noneable = true,
         defaultValue = "None",
+        named = true,
+        positional = false,
         doc =
             DEFAULT_DOC
                 + " Use the <a href=\"globals.html#Label\"><code>Label</code></a> function to "
@@ -401,15 +423,31 @@ public final class SkylarkAttr {
         name = EXECUTABLE_ARG,
         type = Boolean.class,
         defaultValue = "False",
+        named = true,
+        positional = false,
         doc = EXECUTABLE_DOC
       ),
-      @Param(name = ALLOW_FILES_ARG, defaultValue = "False", doc = ALLOW_FILES_DOC),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = ALLOW_FILES_ARG,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = ALLOW_FILES_DOC
+      ),
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
       ),
       @Param(
         name = PROVIDERS_ARG,
         type = SkylarkList.class,
         defaultValue = "[]",
+        named = true,
+        positional = false,
         doc = PROVIDERS_DOC
       ),
       @Param(
@@ -418,12 +456,16 @@ public final class SkylarkAttr {
         generic1 = String.class,
         noneable = true,
         defaultValue = "None",
+        named = true,
+        positional = false,
         doc = ALLOW_RULES_DOC
       ),
       @Param(
         name = SINGLE_FILE_ARG,
         type = Boolean.class,
         defaultValue = "False",
+        named = true,
+        positional = false,
         doc =
             "if True, the label must correspond to a single <a href=\"file.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
@@ -433,6 +475,8 @@ public final class SkylarkAttr {
         type = ConfigurationTransition.class,
         noneable = true,
         defaultValue = "None",
+        named = true,
+        positional = false,
         doc = CONFIGURATION_DOC
       )
     },
@@ -485,7 +529,7 @@ public final class SkylarkAttr {
         + "<a href=\"string.html\">strings</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalPositionals = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = SkylarkList.class,
@@ -531,7 +575,7 @@ public final class SkylarkAttr {
     doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of ints",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalPositionals = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = SkylarkList.class,
@@ -580,13 +624,15 @@ public final class SkylarkAttr {
             + "See <a href=\"attr.html#label\">label</a> for more information.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = SkylarkList.class,
         generic1 = Label.class,
         callbackEnabled = true,
         defaultValue = "[]",
+        named = true,
+        positional = false,
         doc =
             DEFAULT_DOC
                 + " Use the <a href=\"globals.html#Label\"><code>Label</code></a> function to "
@@ -596,6 +642,8 @@ public final class SkylarkAttr {
       @Param(
         name = ALLOW_FILES_ARG, // bool or FileType filter
         defaultValue = "False",
+        named = true,
+        positional = false,
         doc = ALLOW_FILES_DOC
       ),
       @Param(
@@ -604,12 +652,16 @@ public final class SkylarkAttr {
         generic1 = String.class,
         noneable = true,
         defaultValue = "None",
+        named = true,
+        positional = false,
         doc = ALLOW_RULES_DOC
       ),
       @Param(
         name = PROVIDERS_ARG,
         type = SkylarkList.class,
         defaultValue = "[]",
+        named = true,
+        positional = false,
         doc = PROVIDERS_DOC
       ),
       @Param(
@@ -617,17 +669,31 @@ public final class SkylarkAttr {
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
+        named = true,
+        positional = false,
         doc = FLAGS_DOC
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(name = MANDATORY_ARG,
+          type = Boolean.class,
+          defaultValue = "False",
+          named = true,
+          positional = false,
+          doc = MANDATORY_DOC
       ),
-      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      @Param(name = NON_EMPTY_ARG,
+          type = Boolean.class,
+          defaultValue = "False",
+          named = true,
+          positional = false,
+          doc = NON_EMPTY_DOC
       ),
       @Param(
         name = CONFIGURATION_ARG,
         type = ConfigurationTransition.class,
         noneable = true,
         defaultValue = "None",
+        named = true,
+        positional = false,
         doc = CONFIGURATION_DOC
       ),
       @Param(
@@ -635,6 +701,8 @@ public final class SkylarkAttr {
         type = SkylarkList.class,
         generic1 = SkylarkAspect.class,
         defaultValue = "[]",
+        named = true,
+        positional = false,
         doc = ASPECT_ARG_DOC
       )
     },
@@ -692,9 +760,22 @@ public final class SkylarkAttr {
     doc = "Creates an attribute of type bool.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
-      @Param(name = DEFAULT_ARG, type = Boolean.class, defaultValue = "False", doc = DEFAULT_DOC),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+    parameters = {
+      @Param(
+        name = DEFAULT_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = DEFAULT_DOC
+      ),
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
       )
     },
     useAst = true,
@@ -723,15 +804,23 @@ public final class SkylarkAttr {
             + "generates the file.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = Label.class,
         noneable = true,
         defaultValue = "None",
+        named = true,
+        positional = false,
         doc = DEFAULT_DOC
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
       )
     },
     useAst = true,
@@ -759,17 +848,31 @@ public final class SkylarkAttr {
             + "See <a href=\"attr.html#output\">output</a> for more information.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       @Param(
         name = DEFAULT_ARG,
         type = SkylarkList.class,
         generic1 = Label.class,
         defaultValue = "[]",
+        named = true,
+        positional = false,
         doc = DEFAULT_DOC
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
       ),
-      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = NON_EMPTY_DOC
       )
     },
     useAst = true,
@@ -806,11 +909,30 @@ public final class SkylarkAttr {
         + "<a href=\"string.html\">string</a> to <a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
-      @Param(name = DEFAULT_ARG, type = SkylarkDict.class, defaultValue = "{}", doc = DEFAULT_DOC),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+    parameters = {
+      @Param(
+        name = DEFAULT_ARG,
+        type = SkylarkDict.class,
+        named = true,
+        positional = false,
+        defaultValue = "{}",
+        doc = DEFAULT_DOC
       ),
-      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        named = true,
+        positional = false,
+        defaultValue = "False",
+        doc = MANDATORY_DOC
+      ),
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = NON_EMPTY_DOC
       )
     },
     useAst = true,
@@ -842,11 +964,30 @@ public final class SkylarkAttr {
         + "<a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
-      @Param(name = DEFAULT_ARG, type = SkylarkDict.class, defaultValue = "{}", doc = DEFAULT_DOC),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+    parameters = {
+      @Param(
+        name = DEFAULT_ARG,
+        type = SkylarkDict.class,
+        defaultValue = "{}",
+        named = true,
+        positional = false,
+        doc = DEFAULT_DOC
       ),
-      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
+      ),
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = NON_EMPTY_DOC
       )
     },
     useAst = true,
@@ -877,10 +1018,22 @@ public final class SkylarkAttr {
     // TODO(bazel-team): Implement proper license support for Skylark.
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
-    optionalNamedOnly = {
+    parameters = {
       // TODO(bazel-team): ensure this is the correct default value
-      @Param(name = DEFAULT_ARG, defaultValue = "None", noneable = true, doc = DEFAULT_DOC),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = DEFAULT_ARG,
+        defaultValue = "None",
+        noneable = true,
+        named = true,
+        positional = false,
+        doc = DEFAULT_DOC),
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
       )
     },
     useAst = true,

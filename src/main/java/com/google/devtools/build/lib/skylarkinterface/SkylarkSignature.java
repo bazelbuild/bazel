@@ -23,10 +23,8 @@ import java.lang.annotation.Target;
  *
  * <p>Use this annotation around a {@link com.google.devtools.build.lib.syntax.BuiltinFunction} or
  * a {@link com.google.devtools.build.lib.syntax.BuiltinFunction.Factory}. The annotated function
- * should expect the arguments described by {@link #parameters()},
- * {@link #optionalPositionals()}, {@link #extraPositionals()}, {@link #mandatoryNamedOnly()},
- * {@link #optionalNamedOnly()} and {@link #extraKeywords()}. It should also expect the following
- * extraneous arguments:
+ * should expect the arguments described by {@link #parameters()}, {@link #extraPositionals()},
+ * and {@link #extraKeywords()}. It should also expect the following extraneous arguments:
  *
  * <ul>
  *   <li>
@@ -60,28 +58,9 @@ public @interface SkylarkSignature {
   String doc() default "";
 
   /**
-   * List of mandatory positional parameters for calling this method. These parameters have
-   * to be placed first in the list of arguments when calling that method.
+   * List of parameters for calling this method. Named only parameters are expected to be last.
    */
-  Param[] mandatoryPositionals() default {};
-
-  /**
-   * List of optional positional parameters for calling this method. These parameters have
-   * to be placed before any named parameters when calling the method.
-   */
-  Param[] optionalPositionals() default {};
-
-  /**
-   * List of optional named parameters for calling this method. These parameters can be specified
-   * in the list of arguments using the <code>key=value</code> format in calling the method.
-   */
-  Param[] optionalNamedOnly() default {};
-
-  /**
-   * List of mandatory named parameters for calling this method. These parameters must be specified
-   * in the list of arguments using the <code>key=value</code> format in calling the method.
-   */
-  Param[] mandatoryNamedOnly() default {};
+  Param[] parameters() default {};
 
   /**
    * Defines a catch all positional parameters. By default, it is an error to define more

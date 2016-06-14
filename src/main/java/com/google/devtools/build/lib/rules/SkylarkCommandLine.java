@@ -38,7 +38,7 @@ public class SkylarkCommandLine {
       returnType = String.class,
       doc = "Creates a single command line argument joining the paths of a set "
           + "of files on the separator string.",
-      mandatoryPositionals = {
+      parameters = {
       @Param(name = "separator", type = String.class, doc = "the separator string to join on"),
       @Param(name = "files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
              doc = "the files to concatenate")})
@@ -55,7 +55,7 @@ public class SkylarkCommandLine {
       doc = "Transforms a set of files to a list of strings using the template string.",
       objectType = SkylarkCommandLine.class,
       returnType = MutableList.class,
-      mandatoryPositionals = {
+      parameters = {
       @Param(name = "items", type = SkylarkNestedSet.class, generic1 = Artifact.class,
           doc = "The set of structs to transform."),
       @Param(name = "template", type = String.class,
