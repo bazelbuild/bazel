@@ -27,18 +27,7 @@ set -eu
 TOOLNAME=$1
 shift
 
-# Creates a symbolic link to the input argument file and returns the symlink
-# file path.
-function hash_objfile() {
-  ORIGINAL_NAME="$1"
-  ORIGINAL_HASH="$(/sbin/md5 -q "${ORIGINAL_NAME}")"
-  SYMLINK_NAME="${ORIGINAL_NAME%.o}_${ORIGINAL_HASH}.o"
-  ln -sf "$(basename "$ORIGINAL_NAME")" "$SYMLINK_NAME"
-  echo "$SYMLINK_NAME"
-}
-
 # Pick values for DEVELOPER_DIR and SDKROOT as appropriate (if they weren't set)
-
 WRAPPER_DEVDIR="${DEVELOPER_DIR:-}"
 if [[ -z "${WRAPPER_DEVDIR}" ]] ; then
   WRAPPER_DEVDIR="$(xcode-select -p)"
@@ -62,63 +51,12 @@ if [[ -z "${WRAPPER_SDKROOT:-}" ]] ; then
   WRAPPER_SDKROOT="$(/usr/bin/xcrun --show-sdk-path --sdk ${WRAPPER_SDK})"
 fi
 
-ARGS=("$TOOLNAME")
-while [[ $# -gt 0 ]]; do
-  ARG="$1"
-  shift
-
-  # Libtool artifact symlinking. Apple's libtool has a bug when there are two
-  # input files with the same basename. We thus create symlinks that are named
-  # with a hash suffix for each input, and pass them to libtool.
-  # See b/28186497.
-  # TODO(b/28347228): Handle this in a separate wrapper.
-  if [ "$TOOLNAME" = "libtool" ] ; then
-    case "${ARG}" in
-      # Filelist flag, need to symlink each input in the contents of file and
-      # pass a new filelist which contains the symlinks.
-      -filelist)
-        ARGS+=("${ARG}")
-        ARG="$1"
-        shift
-        HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
-        rm -f "${HASHED_FILELIST}"
-        while read INPUT_FILE || [ -n "$INPUT_FILE" ]; do
-          echo "$(hash_objfile "${INPUT_FILE}")" >> "$HASHED_FILELIST"
-        done < "${ARG}"
-        ARGS+=("${HASHED_FILELIST}")
-        ;;
-     # Flags with no args
-      -static|-s|-a|-c|-L|-T|-no_warning_for_no_symbols)
-        ARGS+=("${ARG}")
-        ;;
-     # Single-arg flags
-     -o|-arch_only|-syslibroot)
-       ARGS+=("${ARG}")
-       ARG="$1"
-       shift
-       ARGS+=("${ARG}")
-       ;;
-     # Any remaining flags are unexpected and may ruin flag parsing.
-     -*)
-       echo "Unrecognized libtool flag ${ARG}"
-       exit 1
-       ;;
-     # Remaining args are input objects
-     *)
-       ARGS+=("$(echo "$(hash_objfile "${ARG}")")")
-       ;;
-     esac
-  else
-    ARGS+=("${ARG}")
-  fi
-done
-
 # Subsitute toolkit path placeholders.
 UPDATEDARGS=()
-for ARG in "${ARGS[@]}" ; do
+for ARG in "$@" ; do
   ARG="${ARG//__BAZEL_XCODE_DEVELOPER_DIR__/${WRAPPER_DEVDIR}}"
   ARG="${ARG//__BAZEL_XCODE_SDKROOT__/${WRAPPER_SDKROOT}}"
   UPDATEDARGS+=("${ARG}")
 done
 
-/usr/bin/xcrun "${UPDATEDARGS[@]}"
+/usr/bin/xcrun "${TOOLNAME}" "${UPDATEDARGS[@]}"
