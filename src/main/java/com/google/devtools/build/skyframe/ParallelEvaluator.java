@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -65,6 +66,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -100,6 +102,8 @@ import javax.annotation.Nullable;
  * evaluation implementations outside of this package.
  */
 public final class ParallelEvaluator implements Evaluator {
+
+  private static final Logger LOG = Logger.getLogger(ParallelEvaluator.class.getName());
 
   /** Filters out events which should not be stored. */
   public interface EventFilter extends Predicate<Event> {
@@ -1657,18 +1661,21 @@ public final class ParallelEvaluator implements Evaluator {
   private <T extends SkyValue> void checkForCycles(
       Iterable<SkyKey> badRoots, EvaluationResult.Builder<T> result, final ValueVisitor visitor,
       boolean keepGoing) {
-    for (SkyKey root : badRoots) {
-      ErrorInfo errorInfo = checkForCycles(root, visitor, keepGoing);
-      if (errorInfo == null) {
-        // This node just wasn't finished when evaluation aborted -- there were no cycles below it.
-        Preconditions.checkState(!keepGoing, "", root, badRoots);
-        continue;
-      }
-      Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()),
-          "%s was not evaluated, but was not part of a cycle", root);
-      result.addError(root, errorInfo);
-      if (!keepGoing) {
-        return;
+    try (AutoProfiler p = AutoProfiler.logged("Checking for Skyframe cycles", LOG, 10)) {
+      for (SkyKey root : badRoots) {
+        ErrorInfo errorInfo = checkForCycles(root, visitor, keepGoing);
+        if (errorInfo == null) {
+          // This node just wasn't finished when evaluation aborted -- there were no cycles below
+          // it.
+          Preconditions.checkState(!keepGoing, "", root, badRoots);
+          continue;
+        }
+        Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()),
+            "%s was not evaluated, but was not part of a cycle", root);
+        result.addError(root, errorInfo);
+        if (!keepGoing) {
+          return;
+        }
       }
     }
   }
