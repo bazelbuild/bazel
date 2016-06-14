@@ -148,8 +148,8 @@ load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
 
 docker_build(
     name = "java",
-    base = "@docker-debian//:wheezy",
-    debs = ["@openjdk-7-jre-headless//file"],
+    base = "@docker_debian//:wheezy",
+    debs = ["@openjdk_7_jre_headless//file"],
 )
 ```
 
@@ -157,7 +157,7 @@ Using the WORKSPACE file to add the actual files:
 
 ```python
 new_http_archive(
-    name = "docker-debian",
+    name = "docker_debian",
     url = "https://codeload.github.com/tianon/docker-brew-debian/zip/e9bafb113f432c48c7e86c616424cb4b2f2c7a51",
     build_file = "debian.BUILD",
     type = "zip",
@@ -165,7 +165,7 @@ new_http_archive(
 )
 
 http_file(
-   name = "openjdk-7-jre-headless",
+   name = "openjdk_7_jre_headless",
    url = "http://security.debian.org/debian-security/pool/updates/main/o/openjdk-7/openjdk-7-jre-headless_7u79-2.5.5-1~deb7u1_amd64.deb",
    sha256 = "b632f0864450161d475c012dcfcc37a1243d9ebf7ff9d6292150955616d71c23",
 )
