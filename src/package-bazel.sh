@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/bin/sh -eu
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -37,7 +37,7 @@ cp ${INSTALL_BASE_KEY} ${PACKAGE_DIR}/install_base_key
 # The timestamp of embedded tools should already be zeroed out in the input zip
 touch -t 198001010000.00 ${PACKAGE_DIR}/*
 
-if [[ ${EMBEDDED_TOOLS} != "" ]]; then
+if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q ${WORKDIR}/${EMBEDDED_TOOLS})
 fi
