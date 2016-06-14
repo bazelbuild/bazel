@@ -134,8 +134,13 @@ public class ConcurrentMultimapWithHeadElementTest {
     private final AtomicInteger actionCount = new AtomicInteger(0);
 
     private StressTester() {
-      super(/*concurrent=*/true, 200, 1, TimeUnit.SECONDS,
-          /*failFastOnException=*/true, /*failFastOnInterrupt=*/true, "action-graph-test");
+      super(
+          /*concurrent=*/ true,
+          200,
+          1,
+          TimeUnit.SECONDS,
+          /*failFastOnException=*/ true,
+          "action-graph-test");
     }
 
     private void addAndRemove(final Boolean key, final Integer add, final Integer remove) {

@@ -81,8 +81,13 @@ public class MapBasedActionGraphTest {
     private final AtomicInteger actionCount = new AtomicInteger(0);
 
     private ActionRegisterer() {
-      super(/*concurrent=*/true, 200, 1, TimeUnit.SECONDS,
-          /*failFastOnException=*/true, /*failFastOnInterrupt=*/true, "action-graph-test");
+      super(
+          /*concurrent=*/ true,
+          200,
+          1,
+          TimeUnit.SECONDS,
+          /*failFastOnException=*/ true,
+          "action-graph-test");
       FileSystem fileSystem = new InMemoryFileSystem(BlazeClock.instance());
       Path path = fileSystem.getPath("/root/foo");
       output = new Artifact(path, Root.asDerivedRoot(path));

@@ -130,9 +130,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   /** If {@code true}, don't run new actions after an uncaught exception. */
   private final boolean failFastOnException;
 
-  /** If {@code true}, don't run new actions after an interrupt. */
-  private final boolean failFastOnInterrupt;
-
   /** If {@code true}, shut down the {@link ExecutorService} on completion. */
   private final boolean ownExecutorService;
 
@@ -152,7 +149,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param failFastOnInterrupt if {@code true}, don't run new actions after an interrupt.
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
    *                 null}, default thread naming will be used.
    */
@@ -162,7 +158,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       long keepAliveTime,
       TimeUnit units,
       boolean failFastOnException,
-      boolean failFastOnInterrupt,
       String poolName) {
     this(
         concurrent,
@@ -170,7 +165,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         keepAliveTime,
         units,
         failFastOnException,
-        failFastOnInterrupt,
         poolName,
         EXECUTOR_FACTORY,
         ErrorClassifier.DEFAULT,
@@ -188,7 +182,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param failFastOnInterrupt if {@code true}, don't run new actions after an interrupt.
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
    *                 null}, default thread naming will be used.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
@@ -200,7 +193,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       long keepAliveTime,
       TimeUnit units,
       boolean failFastOnException,
-      boolean failFastOnInterrupt,
       String poolName,
       ErrorClassifier errorClassifier,
       ErrorHandler errorHandler) {
@@ -210,7 +202,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         keepAliveTime,
         units,
         failFastOnException,
-        failFastOnInterrupt,
         poolName,
         EXECUTOR_FACTORY,
         errorClassifier,
@@ -228,7 +219,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param failFastOnInterrupt if {@code true}, don't run new actions after interrupt.
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
    *                 null}, default thread naming will be used.
    * @param executorFactory the factory for constructing the executor service if {@code concurrent}
@@ -242,7 +232,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       long keepAliveTime,
       TimeUnit units,
       boolean failFastOnException,
-      boolean failFastOnInterrupt,
       String poolName,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory,
       ErrorClassifier errorClassifier,
@@ -252,7 +241,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     Preconditions.checkNotNull(errorClassifier);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
-    this.failFastOnInterrupt = failFastOnInterrupt;
     this.ownExecutorService = true;
     this.executorService =
         concurrent
@@ -267,59 +255,20 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   /**
    * Create the {@link AbstractQueueVisitor}.
    *
-   * @param concurrent {@code true} if concurrency should be enabled. Only set to {@code false}
-   *                   for debugging.
-   * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
-   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
-   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
-   * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
-   * @param units the time units of keepAliveTime.
-   * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
-   *                 null}, default thread naming will be used.
-   */
-  public AbstractQueueVisitor(
-      boolean concurrent,
-      int parallelism,
-      long keepAliveTime,
-      TimeUnit units,
-      boolean failFastOnException,
-      String poolName) {
-    this(
-        concurrent,
-        parallelism,
-        keepAliveTime,
-        units,
-        failFastOnException,
-        true,
-        poolName,
-        EXECUTOR_FACTORY,
-        ErrorClassifier.DEFAULT,
-        ErrorHandler.NullHandler.INSTANCE);
-  }
-
-  /**
-   * Create the {@link AbstractQueueVisitor}.
-   *
    * @param executorService The {@link ExecutorService} to use.
    * @param shutdownOnCompletion If {@code true}, pass ownership of the {@link ExecutorService} to
    *                             this class. The service will be shut down after a
    *                             call to {@link #awaitQuiescence}. Callers must not shutdown the
    *                             {@link ExecutorService} while queue visitors use it.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param failFastOnInterrupt if {@code true}, don't run new actions after an interrupt.
    */
   public AbstractQueueVisitor(
-      ExecutorService executorService,
-      boolean shutdownOnCompletion,
-      boolean failFastOnException,
-      boolean failFastOnInterrupt) {
+      ExecutorService executorService, boolean shutdownOnCompletion, boolean failFastOnException) {
     this(
         /*concurrent=*/ true,
         executorService,
         shutdownOnCompletion,
         failFastOnException,
-        failFastOnInterrupt,
         ErrorClassifier.DEFAULT,
         ErrorHandler.NullHandler.INSTANCE);
   }
@@ -335,18 +284,15 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    *                             call to {@link #awaitQuiescence}. Callers must not shut down the
    *                             {@link ExecutorService} while queue visitors use it.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param failFastOnInterrupt if {@code true}, don't run new actions after an interrupt.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
       ExecutorService executorService,
       boolean shutdownOnCompletion,
-      boolean failFastOnException,
-      boolean failFastOnInterrupt) {
+      boolean failFastOnException) {
     Preconditions.checkArgument(executorService != null || !concurrent);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
-    this.failFastOnInterrupt = failFastOnInterrupt;
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = executorService;
     this.errorClassifier = ErrorClassifier.DEFAULT;
@@ -364,7 +310,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    *                             call to {@link #awaitQuiescence}. Callers must not shut down the
    *                             {@link ExecutorService} while queue visitors use it.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
-   * @param failFastOnInterrupt if {@code true}, don't run new actions after an interrupt.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
    * @param errorHandler a handler for classified errors.
    */
@@ -373,13 +318,11 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       ExecutorService executorService,
       boolean shutdownOnCompletion,
       boolean failFastOnException,
-      boolean failFastOnInterrupt,
       ErrorClassifier errorClassifier,
       ErrorHandler errorHandler) {
     Preconditions.checkArgument(executorService != null || !concurrent);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
-    this.failFastOnInterrupt = failFastOnInterrupt;
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = executorService;
     this.errorClassifier = errorClassifier;
@@ -404,7 +347,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         keepAlive,
         units,
         false,
-        true,
         poolName,
         EXECUTOR_FACTORY,
         ErrorClassifier.DEFAULT,
@@ -580,15 +522,17 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   /** If this returns true, don't enqueue new actions. */
   protected boolean blockNewActions() {
-    return (failFastOnInterrupt && isInterrupted()) || (unhandled != null && failFastOnException);
+    return isInterrupted() || (unhandled != null && failFastOnException);
   }
 
   @VisibleForTesting
+  @Override
   public final CountDownLatch getExceptionLatchForTestingOnly() {
     return exceptionLatch;
   }
 
   @VisibleForTesting
+  @Override
   public final CountDownLatch getInterruptionLatchForTestingOnly() {
     return interruptedLatch;
   }
@@ -614,7 +558,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * worker thread failed unexpectedly.
    */
   private void awaitTermination(boolean interruptWorkers) throws InterruptedException {
-    Preconditions.checkState(failFastOnInterrupt || !interruptWorkers);
     Throwables.propagateIfPossible(catastrophe);
     try {
       synchronized (zeroRemainingTasks) {
