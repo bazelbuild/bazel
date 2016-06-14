@@ -169,6 +169,11 @@ final class ProtoSupport {
           || attributes.getOptionsFile() != null) {
         ruleContext.ruleError(PORTABLE_PROTO_FILTERS_NOT_EXCLUSIVE_ERROR);
       }
+    } else {
+      if (attributes.outputsCpp()) {
+        ruleContext.ruleWarning("The output_cpp attributes has been deprecated. Please "
+            + "refer to b/29342376 for information on possible alternatives");
+      }
     }
     return this;
   }
