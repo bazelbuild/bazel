@@ -21,7 +21,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
-import com.google.devtools.build.lib.actions.cache.NullActionCache;
+
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,14 +65,17 @@ public final class BlazeWorkspace {
   /** The action cache is loaded lazily on the first build command. */
   private ActionCache actionCache;
   /** The execution time range of the previous build command in this server, if any. */
-  @Nullable
-  private Range<Long> lastExecutionRange = null;
+  @Nullable private Range<Long> lastExecutionRange = null;
 
   private final String outputBaseFilesystemTypeName;
 
-  public BlazeWorkspace(BlazeRuntime runtime, BlazeDirectories directories,
-      SkyframeExecutor skyframeExecutor, SubscriberExceptionHandler eventBusExceptionHandler,
-      WorkspaceStatusAction.Factory workspaceStatusActionFactory, BinTools binTools) {
+  public BlazeWorkspace(
+      BlazeRuntime runtime,
+      BlazeDirectories directories,
+      SkyframeExecutor skyframeExecutor,
+      SubscriberExceptionHandler eventBusExceptionHandler,
+      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      BinTools binTools) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -171,9 +173,10 @@ public final class BlazeWorkspace {
 
   void recordLastExecutionTime(long commandStartTime) {
     long currentTimeMillis = runtime.getClock().currentTimeMillis();
-    lastExecutionRange = currentTimeMillis >= commandStartTime
-        ? Range.closed(commandStartTime, currentTimeMillis)
-        : null;
+    lastExecutionRange =
+        currentTimeMillis >= commandStartTime
+            ? Range.closed(commandStartTime, currentTimeMillis)
+            : null;
   }
 
   /**
@@ -210,22 +213,21 @@ public final class BlazeWorkspace {
    */
   public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
-      if (OS.getCurrent() == OS.WINDOWS) {
-        // TODO(bazel-team): Add support for a persistent action cache on Windows.
-        actionCache = new NullActionCache();
-        return actionCache;
-      }
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, LOG)) {
         try {
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         } catch (IOException e) {
           LOG.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
-          LoggingUtil.logToRemote(Level.WARNING, "Failed to load action cache: "
-              + e.getMessage(), e);
+          LoggingUtil.logToRemote(
+              Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           reporter.handle(
-              Event.error("Error during action cache initialization: " + e.getMessage()
-              + ". Corrupted files were renamed to '" + getCacheDirectory() + "/*.bad'. "
-              + "Blaze will now reset action cache data, causing a full rebuild"));
+              Event.error(
+                  "Error during action cache initialization: "
+                      + e.getMessage()
+                      + ". Corrupted files were renamed to '"
+                      + getCacheDirectory()
+                      + "/*.bad'. "
+                      + "Blaze will now reset action cache data, causing a full rebuild"));
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         }
       }
@@ -242,14 +244,19 @@ public final class BlazeWorkspace {
     Preconditions.checkNotNull(getWorkspace());
     Path outputBaseReadmeFile = getOutputBase().getRelative("README");
     try {
-      FileSystemUtils.writeIsoLatin1(outputBaseReadmeFile, "WORKSPACE: " + getWorkspace(), "",
+      FileSystemUtils.writeIsoLatin1(
+          outputBaseReadmeFile,
+          "WORKSPACE: " + getWorkspace(),
+          "",
           "The first line of this file is intentionally easy to parse for various",
           "interactive scripting and debugging purposes.  But please DO NOT write programs",
           "that exploit it, as they will be broken by design: it is not possible to",
           "reverse engineer the set of source trees or the --package_path from the output",
           "tree, and if you attempt it, you will fail, creating subtle and",
           "hard-to-diagnose bugs, that will no doubt get blamed on changes made by the",
-          "Blaze team.", "", "This directory was generated by Blaze.",
+          "Blaze team.",
+          "",
+          "This directory was generated by Blaze.",
           "Do not attempt to modify or delete any files in this directory.",
           "Among other issues, Blaze's file system caching assumes that",
           "only Blaze will modify this directory and the files in it,",
@@ -272,8 +279,8 @@ public final class BlazeWorkspace {
     Preconditions.checkNotNull(getWorkspace());
     writeDoNotBuildHereFile(getOutputBase().getRelative(DO_NOT_BUILD_FILE_NAME));
     if (startupOptions.getOptions(BlazeServerStartupOptions.class).deepExecRoot) {
-      writeDoNotBuildHereFile(getOutputBase().getRelative("execroot").getRelative(
-          DO_NOT_BUILD_FILE_NAME));
+      writeDoNotBuildHereFile(
+          getOutputBase().getRelative("execroot").getRelative(DO_NOT_BUILD_FILE_NAME));
     }
   }
 
@@ -284,8 +291,8 @@ public final class BlazeWorkspace {
     try {
       FileSystemUtils.createDirectoryAndParents(directories.getExecRoot());
     } catch (IOException e) {
-      LOG.warning("failed to create execution root '" + directories.getExecRoot() + "': "
-          + e.getMessage());
+      LOG.warning(
+          "failed to create execution root '" + directories.getExecRoot() + "': " + e.getMessage());
     }
   }
 }
