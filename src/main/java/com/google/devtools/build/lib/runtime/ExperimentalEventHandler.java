@@ -61,6 +61,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private final boolean debugAllEvents;
   private final ExperimentalStateTracker stateTracker;
   private final long minimalUpdateInterval;
+  private final boolean showProgress;
   private long lastRefreshMillis;
   private int numLinesProgressBar;
   private boolean buildComplete;
@@ -77,6 +78,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
+    this.showProgress = options.showProgress;
     this.clock = clock;
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     // If we have cursor control, we try to fit in the terminal width to avoid having
@@ -135,7 +137,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
                   stderrBuffer = restMessage;
                 }
                 stream.flush();
-                if (cursorControl) {
+                if (showProgress && cursorControl) {
                   addProgressBar();
                 }
                 terminal.flush();
@@ -153,7 +155,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
           case WARNING:
           case INFO:
           case SUBCOMMAND:
-            if (!buildComplete) {
+            if (showProgress && !buildComplete) {
               clearProgressBar();
             }
             outErr.getOutputStream().write(stdoutBuffer);
@@ -173,7 +175,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
               terminal.writeString(event.getMessage());
             }
             crlf();
-            if (!buildComplete) {
+            if (showProgress && !buildComplete) {
               addProgressBar();
             }
             terminal.flush();
@@ -307,7 +309,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
         if (summary.getFailedLogs().size() > 0) {
           crlf();
         }
-        if (cursorControl) {
+        if (showProgress && cursorControl) {
           addProgressBar();
         }
         terminal.flush();
@@ -320,8 +322,10 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   private void refresh() {
-    progressBarNeedsRefresh = true;
-    doRefresh();
+    if (showProgress) {
+      progressBarNeedsRefresh = true;
+      doRefresh();
+    }
   }
 
   private void doRefresh() {
@@ -329,7 +333,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
       synchronized (this) {
         try {
-          if (progressBarNeedsRefresh || timeBasedRefresh()) {
+          if (showProgress && (progressBarNeedsRefresh || timeBasedRefresh())) {
             progressBarNeedsRefresh = false;
             lastRefreshMillis = nowMillis;
             clearProgressBar();
@@ -355,7 +359,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
    * Decide wheter the progress bar should be redrawn only for the reason
    * that time has passed.
    */
-  private synchronized boolean timeBasedRefresh () {
+  private synchronized boolean timeBasedRefresh() {
     if (!stateTracker.progressBarTimeDependent()) {
       return false;
     }

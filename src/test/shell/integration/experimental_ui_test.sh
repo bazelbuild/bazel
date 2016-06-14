@@ -92,6 +92,15 @@ function test_basic_progress() {
   expect_log 'Analy.*pkg:true'
 }
 
+function test_noshow_progress() {
+  bazel test --experimental_ui --noshow_progress --curses=yes --color=yes \
+    pkg:true 2>$TEST_log || fail "bazel test failed"
+  # Info messages should still go through
+  expect_log 'Elapsed time'
+  # no progress indicator is shown
+  expect_not_log '\[[0-9,]* / [0-9,]*\]'
+}
+
 function test_basic_progress_no_curses() {
   bazel test --experimental_ui --curses=no --color=yes pkg:true 2>$TEST_log \
     || fail "bazel test failed"
