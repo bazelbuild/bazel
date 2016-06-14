@@ -652,7 +652,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-    ensureTargetsVisited(label);
     return view.getConfiguredTargetForTesting(
         reporter, BlazeTestUtils.convertLabel(label), config);
   }

@@ -887,7 +887,6 @@ public class BuildViewTest extends BuildViewTestBase {
           .matches("Analysis of target '//foo:(java|cpp)' failed; build aborted.*");
     }
     assertContainsEvent("cycle in dependency graph");
-    assertContainsEvent("This cycle occurred because of a configuration option");
   }
 
   @Test

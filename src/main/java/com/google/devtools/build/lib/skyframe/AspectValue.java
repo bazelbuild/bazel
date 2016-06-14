@@ -156,6 +156,17 @@ public final class AspectValue extends ActionLookupValue {
           && Objects.equal(parameters, that.parameters);
     }
 
+    public String prettyPrint() {
+      if (label == null) {
+        return "null";
+      }
+      return String.format("%s with aspect %s%s",
+          label.toString(),
+          aspectClass.getName(),
+          (aspectConfiguration != null && aspectConfiguration.isHostConfiguration())
+              ? "(host) " : "");
+    }
+
     @Override
     public String toString() {
       return label

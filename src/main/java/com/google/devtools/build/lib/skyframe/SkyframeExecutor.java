@@ -1200,6 +1200,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
+    for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
+      getCyclesReporter().reportCycles(
+          entry.getValue().getCycleInfo(),
+          entry.getKey(),
+          eventHandler);
+    }
+
     ImmutableMap.Builder<Dependency, ConfiguredTarget> cts = ImmutableMap.builder();
 
   DependentNodeLoop:

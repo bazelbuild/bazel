@@ -186,6 +186,40 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "genrule(name='b', srcs=['c'], tools=['c'], outs=['b.out'], cmd=':')",
         "genrule(name='c', srcs=['b.out'], outs=[], cmd=':')");
     getConfiguredTarget("//x:b"); // doesn't crash!
-    assertContainsEvent("in genrule rule //x:b: cycle in dependency graph");
+    assertContainsEvent("cycle in dependency graph");
+  }
+
+  @Test
+  public void testAspectCycle() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("x/BUILD",
+        "load('//x:x.bzl', 'aspected', 'plain')",
+        // Using data= makes the dependency graph clearer because then the aspect does not propagate
+        // from aspectdep through a to b (and c)
+        "plain(name = 'a', noaspect_deps = [':b'])",
+        "aspected(name = 'b', aspect_deps = ['c'])",
+        "plain(name = 'c')",
+        "plain(name = 'aspectdep', aspect_deps = ['a'])");
+
+    scratch.file("x/x.bzl",
+        "def _impl(ctx):",
+        "    return struct()",
+        "",
+        "rule_aspect = aspect(",
+        "    implementation = _impl,",
+        "    attr_aspects = ['aspect_deps'],",
+        "    attrs = { '_implicit': attr.label(default = Label('//x:aspectdep')) })",
+        "",
+        "plain = rule(",
+        "    implementation = _impl,",
+        "    attrs = { 'aspect_deps': attr.label_list(), 'noaspect_deps': attr.label_list() })",
+        "",
+        "aspected = rule(",
+        "    implementation = _impl,",
+        "    attrs = { 'aspect_deps': attr.label_list(aspects = [rule_aspect]) })");
+
+    getConfiguredTarget("//x:a");
+    assertContainsEvent("cycle in dependency graph");
+    assertContainsEvent("//x:c with aspect //x:x.bzl%rule_aspect");
   }
 }
