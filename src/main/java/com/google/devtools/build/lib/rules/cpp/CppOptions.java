@@ -107,6 +107,13 @@ public class CppOptions extends FragmentOptions {
   public static class LibcTopConverter implements Converter<LibcTop> {
     @Override
     public LibcTop convert(String input) throws OptionsParsingException {
+      if (input.equals("default")) {
+        // This is needed for defining config_setting() values, the syntactic form
+        // of which must be a String, to match absence of a --grte_top option.
+        // "--grte_top=default" works on the command-line too,
+        // but that's an inconsequential side-effect, not the intended purpose.
+        return null;
+      }
       if (!input.startsWith("//")) {
         throw new OptionsParsingException("Not a label");
       }

@@ -245,6 +245,13 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSelectForDefaultGrteTop() throws Exception {
+    scratchConfiguredTarget("a", "a",
+        "config_setting(name='cs', values={'grte_top': 'default'})",
+        "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
+  }
+
+  @Test
   public void testRequiredConfigFragmentMatcher() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
