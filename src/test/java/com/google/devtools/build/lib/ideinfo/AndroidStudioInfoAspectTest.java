@@ -891,6 +891,32 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
+  public void testAndroidLibraryExportsDoNotOverReport() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "android_library(",
+        "  name = 'lib',",
+        "  deps = [':middle'],",
+        ")",
+        "android_library(",
+        "  name = 'middle',",
+        "  srcs = ['Middle.java'],",
+        "  deps = [':exported'],",
+        ")",
+        "android_library(",
+        "  name = 'exported',",
+        "  srcs = ['Exported.java'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
+    RuleIdeInfo javaToolchain = Iterables.getOnlyElement(findJavaToolchain(ruleIdeInfos));
+    assertThat(ruleInfo.getDependenciesList()).containsExactly(
+        javaToolchain.getLabel(),
+        "//com/google/example:middle"
+    );
+  }
+
+  @Test
   public void testSourceFilesAreCorrectlyMarkedAsSourceOrGenerated() throws Exception {
     scratch.file(
         "com/google/example/BUILD",

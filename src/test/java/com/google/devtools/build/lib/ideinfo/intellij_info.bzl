@@ -412,7 +412,7 @@ def _aspect_impl(target, ctx):
     export_deps = set([str(l) for l in target.java.transitive_exports])
     # Empty android libraries export all their dependencies.
     if ctx.rule.kind == "android_library":
-      if not hasattr(rule_attrs, "src") or not ctx.rule.attr.src:
+      if not hasattr(rule_attrs, "srcs") or not ctx.rule.attr.srcs:
         export_deps = export_deps | compiletime_deps
 
   # runtime_deps
