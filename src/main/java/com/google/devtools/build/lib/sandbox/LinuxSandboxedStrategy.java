@@ -76,7 +76,6 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
   private final boolean sandboxDebug;
   private final boolean unblockNetwork;
-  private final StandaloneSpawnStrategy standaloneStrategy;
   private final List<String> sandboxAddPath;
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
@@ -99,8 +98,6 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     this.sandboxDebug = sandboxDebug;
     this.sandboxAddPath = sandboxAddPath;
     this.unblockNetwork = unblockNetwork;
-    this.standaloneStrategy = new StandaloneSpawnStrategy(
-        blazeDirs.getExecRoot(), verboseFailures, productName);
     this.productName = productName;
   }
 
@@ -110,13 +107,15 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException {
+    Executor executor = actionExecutionContext.getExecutor();
+
     // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
     if (!spawn.isRemotable()) {
+      StandaloneSpawnStrategy standaloneStrategy =
+          Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
-
-    Executor executor = actionExecutionContext.getExecutor();
 
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(
