@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -178,6 +179,11 @@ public final class AspectDefinition {
     return classStrings.build();
   }
 
+  @Nullable
+  private static Label maybeGetRepositoryRelativeLabel(Rule from, @Nullable Label label) {
+    return label == null ? null : from.getLabel().resolveRepositoryRelative(label);
+  }
+
   /**
    * Collects all attribute labels from the specified aspectDefinition.
    */
@@ -192,14 +198,21 @@ public final class AspectDefinition {
         continue;
       }
       if (aspectAttribute.getType() == BuildType.LABEL) {
-        Label label = from.getLabel().resolveRepositoryRelative(
-            BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from)));
+        Label label = maybeGetRepositoryRelativeLabel(
+            from, BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from)));
         if (label != null) {
           labelBuilder.put(aspectAttribute, label);
         }
       } else if (aspectAttribute.getType() == BuildType.LABEL_LIST) {
-        for (Label label : BuildType.LABEL_LIST.cast(aspectAttribute.getDefaultValue(from))) {
-          labelBuilder.put(aspectAttribute, from.getLabel().resolveRepositoryRelative(label));
+        List<Label> defaultLabels = BuildType.LABEL_LIST.cast(
+            aspectAttribute.getDefaultValue(from));
+        if (defaultLabels != null) {
+          for (Label defaultLabel : defaultLabels) {
+            Label label = maybeGetRepositoryRelativeLabel(from, defaultLabel);
+            if (label != null) {
+              labelBuilder.put(aspectAttribute, label);
+            }
+          }
         }
       }
     }
