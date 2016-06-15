@@ -996,9 +996,10 @@ public class ObjcRuleClasses {
           for more information. If absent, the default entitlements from the
           provisioning profile will be used.
           <p>
-          The following variables are substituted as per
-          <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
-          $(AppIdentifierPrefix) and $(CFBundleIdentifier).
+          The following variables are substituted: <code>$(CFBundleIdentifier)</code> with the
+          bundle id and <code>$(AppIdentifierPrefix)</code> with the value of the
+          <code>ApplicationIdentifierPrefix</code> key from this target's provisioning profile (or
+          the default provisioning profile, if none is specified).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(ENTITLEMENTS_ATTR, LABEL).allowedFileTypes(ENTITLEMENTS_TYPE))
           .add(
