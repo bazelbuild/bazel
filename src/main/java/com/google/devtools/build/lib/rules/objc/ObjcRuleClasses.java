@@ -201,8 +201,18 @@ public class ObjcRuleClasses {
   // retrieving it from the rule context.
   static SpawnAction.Builder spawnAppleEnvActionBuilder(RuleContext ruleContext,
       Platform targetPlatform) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
+    return spawnAppleEnvActionBuilder(
+        ruleContext.getFragment(AppleConfiguration.class), targetPlatform);
+  }
+  
+  /**
+   * Creates a new spawn action builder with apple environment variables set that are typically
+   * needed by the apple toolchain. This should be used to start to build spawn actions that, in
+   * order to run, require both a darwin architecture and a collection of environment variables
+   * which contain information about the target and host architectures.
+   */
+  static SpawnAction.Builder spawnAppleEnvActionBuilder(AppleConfiguration appleConfiguration,
+      Platform targetPlatform) {
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
         .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
         .putAll(appleConfiguration.getAppleHostSystemEnv());

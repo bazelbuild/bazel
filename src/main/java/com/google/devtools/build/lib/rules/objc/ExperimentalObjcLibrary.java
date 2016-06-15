@@ -79,10 +79,10 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     }
 
     private void addFrameworkVariables(Builder builder) {
-       ValueSequence.Builder frameworkSequence = new ValueSequence.Builder();
+      ValueSequence.Builder frameworkSequence = new ValueSequence.Builder();
+      AppleConfiguration appleConfig = ruleContext.getFragment(AppleConfiguration.class);
       for (String framework :
-          CompilationSupport.commonFrameworkNames(
-              objcProvider, ruleContext.getFragment(AppleConfiguration.class))) {
+          CompilationSupport.commonFrameworkNames(objcProvider, appleConfig)) {
         frameworkSequence.addValue(framework);
       }
       builder.addSequence(FRAMEWORKS_VARIABLE_NAME, frameworkSequence.build());

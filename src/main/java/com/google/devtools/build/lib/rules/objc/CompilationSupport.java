@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -81,6 +80,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -131,7 +131,7 @@ public final class CompilationSupport {
   // These are added by Xcode when building, because the simulator is built on OSX
   // frameworks so we aim compile to match the OSX objc runtime.
   @VisibleForTesting
-  static final ImmutableList<String> IOS_SIMULATOR_COMPILE_FLAGS =
+  static final ImmutableList<String> SIMULATOR_COMPILE_FLAGS =
       ImmutableList.of(
           "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
 
@@ -567,7 +567,7 @@ public final class CompilationSupport {
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getSingleArchPlatform())
+                appleConfiguration, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine.build())
@@ -696,7 +696,7 @@ public final class CompilationSupport {
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getSingleArchPlatform())
+                appleConfiguration, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("SwiftCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine.build())
@@ -766,7 +766,7 @@ public final class CompilationSupport {
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getSingleArchPlatform())
+            appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("SwiftModuleMerge")
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
@@ -780,13 +780,12 @@ public final class CompilationSupport {
 
   private void registerArchiveActions(ImmutableList.Builder<Artifact> objFiles, Artifact archive) {
     for (Action action :
-        archiveActions(ruleContext, objFiles.build(), archive, intermediateArtifacts.objList())) {
+        archiveActions(objFiles.build(), archive, intermediateArtifacts.objList())) {
       ruleContext.registerAction(action);
     }
   }
 
   private Iterable<Action> archiveActions(
-      ActionConstructionContext context,
       Iterable<Artifact> objFiles,
       Artifact archive,
       Artifact objList) {
@@ -794,13 +793,13 @@ public final class CompilationSupport {
     ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
 
     actions.add(new FileWriteAction(
-        context.getActionOwner(),
+        ruleContext.getActionOwner(),
         objList,
         Artifact.joinExecPaths("\n", objFiles),
         /*makeExecutable=*/ false));
 
     actions.add(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getSingleArchPlatform())
+            appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
         .setExecutable(libtool(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
@@ -813,7 +812,7 @@ public final class CompilationSupport {
         .addInputs(objFiles)
         .addInput(objList)
         .addOutput(archive)
-        .build(context));
+        .build(ruleContext));
 
     return actions.build();
   }
@@ -831,7 +830,7 @@ public final class CompilationSupport {
     ImmutableList<Artifact> objcLibraries = objcLibraries(objcProvider);
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext, appleConfiguration.getSingleArchPlatform())
+            appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
         .setExecutable(libtool(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
@@ -1033,7 +1032,7 @@ public final class CompilationSupport {
             linkmap);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getSingleArchPlatform())
+                appleConfiguration, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .setCommandLine(new SingleArgCommandLine(commandLine))
@@ -1067,7 +1066,7 @@ public final class CompilationSupport {
 
       ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  ruleContext, appleConfiguration.getSingleArchPlatform())
+                  appleConfiguration, appleConfiguration.getSingleArchPlatform())
               .setMnemonic("ObjcBinarySymbolStrip")
               .setExecutable(xcrunwrapper(ruleContext))
               .setCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
@@ -1337,7 +1336,7 @@ public final class CompilationSupport {
             commandLine,
             ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
         ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext, appleConfiguration.getSingleArchPlatform())
+                appleConfiguration, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("DummyPruner")
             .setExecutable(pruner)
             .addInput(dummyArchive)
@@ -1561,17 +1560,29 @@ public final class CompilationSupport {
   /**
    * Returns a list of clang flags used for all link and compile actions executed through clang.
    */
-  private static List<String> commonLinkAndCompileFlagsForClang(
+  private List<String> commonLinkAndCompileFlagsForClang(
       ObjcProvider provider, ObjcConfiguration objcConfiguration,
       AppleConfiguration appleConfiguration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     Platform platform = appleConfiguration.getSingleArchPlatform();
-    if (platform == Platform.IOS_SIMULATOR) {
-      builder.add("-mios-simulator-version-min=" + objcConfiguration.getMinimumOs());
-    } else {
-      builder.add("-miphoneos-version-min=" + objcConfiguration.getMinimumOs());
+    switch (platform) {
+      case IOS_SIMULATOR:
+        builder.add("-mios-simulator-version-min=" + objcConfiguration.getMinimumOs());
+        break;
+      case IOS_DEVICE:
+        builder.add("-miphoneos-version-min=" + objcConfiguration.getMinimumOs());
+        break;
+      case WATCHOS_SIMULATOR:
+        builder.add("-mwatchos-simulator-version-min="
+            + appleConfiguration.getSdkVersionForPlatform(platform));
+        break;
+      case WATCHOS_DEVICE:
+        builder.add("-mwatchos-version-min="
+            + appleConfiguration.getSdkVersionForPlatform(platform));
+        break;
+      default:
+        throw new IllegalArgumentException("Unhandled platform " + platform);
     }
-
     if (objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym()) {
       builder.add("-g");
     }
@@ -1589,7 +1600,8 @@ public final class CompilationSupport {
    */
   static Iterable<String> commonFrameworkFlags(
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
-    return Interspersing.beforeEach("-F", commonFrameworkNames(provider, appleConfiguration));
+    return Interspersing.beforeEach("-F",
+        commonFrameworkNames(provider, appleConfiguration));
   }
 
   /**
@@ -1599,10 +1611,13 @@ public final class CompilationSupport {
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
     Platform platform = appleConfiguration.getSingleArchPlatform();
 
-    return new ImmutableList.Builder<String>()
-        .add(AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
+    ImmutableList.Builder<String> frameworkNames = new ImmutableList.Builder<String>()
+        .add(AppleToolchain.sdkFrameworkDir(platform, appleConfiguration));
+    if (platform.getType() == PlatformType.IOS) {
         // As of sdk8.1, XCTest is in a base Framework dir
-        .add(AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+      frameworkNames.add(AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration));
+    }
+    return frameworkNames
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
         .addAll(PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR))))
@@ -1627,9 +1642,11 @@ public final class CompilationSupport {
       AppleConfiguration configuration) {
     switch (configuration.getSingleArchPlatform()) {
       case IOS_DEVICE:
+      case WATCHOS_DEVICE:
         return ImmutableList.of();
       case IOS_SIMULATOR:
-        return IOS_SIMULATOR_COMPILE_FLAGS;
+      case WATCHOS_SIMULATOR:
+        return SIMULATOR_COMPILE_FLAGS;
       default:
         throw new AssertionError();
     }

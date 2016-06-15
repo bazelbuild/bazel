@@ -87,6 +87,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
   @VisibleForTesting public static final String DEFAULT_APPLETVOS_SDK_VERSION = "1.0";
+  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
+
+  /**
+   * The default watchos CPU value.
+   */
+  public static final String DEFAULT_WATCHOS_CPU = "i386";
 
   @Option(name = "ios_cpu",
       defaultValue = DEFAULT_IOS_CPU,
@@ -131,7 +137,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
           + "is a universal binary containing all specified architectures.")
   public List<String> iosMultiCpus;
 
-  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
+  @Option(name = "watchos_cpus",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = DEFAULT_WATCHOS_CPU,
+      category = "flags",
+      help = "Comma-separated list of architectures for which to build apple watchos binaries.")
+  public List<String> watchosCpus;
 
   @Option(name = "default_ios_provisioning_profile",
       defaultValue = "",

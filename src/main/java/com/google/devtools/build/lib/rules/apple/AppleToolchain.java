@@ -140,6 +140,10 @@ public class AppleToolchain {
       case MACOS_X:
         relativePath = DEVELOPER_FRAMEWORK_PATH;
         break;
+      case WATCHOS_DEVICE:
+      case WATCHOS_SIMULATOR:
+        relativePath = SYSTEM_FRAMEWORK_PATH;
+        break;
       default:
         throw new IllegalArgumentException("Unhandled platform " + targetPlatform);
     }

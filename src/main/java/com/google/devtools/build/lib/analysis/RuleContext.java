@@ -459,7 +459,8 @@ public final class RuleContext extends TargetContext
    * <p>If the name of the attribute starts with <code>$</code>
    * it is replaced with a string <code>(an implicit dependency)</code>.
    */
-  public void throwWithAttributeError(String attrName, String message) throws RuleErrorException {
+  public RuleErrorException throwWithAttributeError(String attrName, String message)
+      throws RuleErrorException {
     reporter.attributeError(attrName, message);
     throw new RuleErrorException();
   }

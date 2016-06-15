@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -27,11 +28,18 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 
 /**
  * Rule definition for apple_binary.
  */
 public class AppleBinaryRule implements RuleDefinition {
+
+  /**
+   * Attribute name for {@code apple_binary}'s apple platform type (for which all dependencies and
+   * sources of an {@code apple_binary} target will be built).
+   */
+  static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
 
   /**
    * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of
@@ -60,6 +68,24 @@ public class AppleBinaryRule implements RuleDefinition {
         .add(attr(":cc_toolchain", LABEL)
             .cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER)
             .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(platform_type) -->
+        The type of platform for which to create multi-architecture "fat" binaries in this rule.
+        For example, if <code>ios</code> is selected, then fat binaries will be created 
+        combining all architectures specified in <code>--ios_multi_cpus</code>.
+
+        Options are:
+        <ul>
+          <li>
+            <code>ios</code> (default): architectures gathered from <code>--ios_multi_cpus</code>.
+          </li>
+          <li>
+            <code>watchos</code>: architectures gathered from <code>--watchos_multi_cpus</code>
+          </li>
+        </ul>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
+            .value(PlatformType.IOS.toString())
+            .nonconfigurable("Determines the configuration transition on deps"))
         /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture

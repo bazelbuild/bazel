@@ -29,25 +29,39 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(name = "platform", doc = "Distinguishes between various apple platforms.")
 public enum Platform {
-  IOS_DEVICE("iPhoneOS"),
-  IOS_SIMULATOR("iPhoneSimulator"),
-  MACOS_X("MacOSX"),
-  TVOS_DEVICE("AppleTVOS"),
-  TVOS_SIMULATOR("AppleTVSimulator"),
-  WATCHOS_DEVICE("WatchOS"),
-  WATCHOS_SIMULATOR("WatchSimulator");
+
+  IOS_DEVICE("iPhoneOS", PlatformType.IOS),
+  IOS_SIMULATOR("iPhoneSimulator", PlatformType.IOS),
+  MACOS_X("MacOSX", PlatformType.MACOSX),
+  TVOS_DEVICE("AppleTVOS", PlatformType.TVOS),
+  TVOS_SIMULATOR("AppleTVSimulator", PlatformType.TVOS),
+  WATCHOS_DEVICE("WatchOS", PlatformType.WATCHOS),
+  WATCHOS_SIMULATOR("WatchSimulator", PlatformType.WATCHOS);
 
   private static final Set<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
+  private static final Set<String> WATCHOS_SIMULATOR_TARGET_CPUS =
+      ImmutableSet.of("watchos_i386");
+  private static final Set<String> WATCHOS_DEVICE_TARGET_CPUS =
+      ImmutableSet.of("watchos_armv7k");
   private static final Set<String> IOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s");
   private static final Set<String> MACOSX_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64");
 
   private final String nameInPlist;
+  private final PlatformType platformType;
 
-  Platform(String nameInPlist) {
+  Platform(String nameInPlist, PlatformType platformType) {
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
+    this.platformType = platformType;
+  }
+
+  /**
+   * Returns the platform type of this platform.
+   */
+  public PlatformType getType() {
+    return platformType;
   }
 
   /**
@@ -75,6 +89,10 @@ public enum Platform {
       return IOS_SIMULATOR;
     } else if (IOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
       return IOS_DEVICE;
+    } else if (WATCHOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
+      return WATCHOS_SIMULATOR;
+    } else if (WATCHOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
+      return WATCHOS_DEVICE;
     } else if (MACOSX_TARGET_CPUS.contains(targetCpu)) {
       return MACOS_X;
     } else {
@@ -130,6 +148,20 @@ public enum Platform {
     @Override
     public String toString() {
       return name().toLowerCase();
+    }
+    
+    /**
+     * Returns the {@link PlatformType} with given name (case insensitive).
+     * 
+     * @throws IllegalArgumentException if the name does not match a valid platform type.
+     */
+    public static PlatformType fromString(String name) {
+      for (PlatformType platformType : PlatformType.values()) {
+        if (name.equalsIgnoreCase(platformType.toString())) {
+          return platformType;
+        }
+      }
+      throw new IllegalArgumentException(String.format("Unsupported platform type \"%s\"", name));
     }
   }
 }
