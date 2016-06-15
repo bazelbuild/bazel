@@ -142,6 +142,12 @@ if [[ "$SINGLEJAR" != 1 || "%needs_runfiles%" == 1 ]]; then
   fi
 fi
 
+# This script is running with msys on Windows, so CLASSPATH has to be unix format. If JAVA_RUNFILES
+# is like C:/blah/blah, we need convert it to /c/blah/blah, otherwise CLASSPATH doesn't work.
+if [ ${JAVA_RUNFILES:1:1} == : ]; then
+  JAVA_RUNFILES=$(cygpath --unix "$JAVA_RUNFILES")
+fi
+
 # Set JAVABIN to the path to the JVM launcher.
 %javabin%
 

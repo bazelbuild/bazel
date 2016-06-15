@@ -21,7 +21,7 @@ public class TestHello {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Greeter.out = new PrintStream(out);
     Greeter.main();
-    assertEquals("Hello world\n", new String(out.toByteArray(), StandardCharsets.UTF_8));
+    assertEquals("Hello world", new String(out.toByteArray(), StandardCharsets.UTF_8).trim());
   }
 
   @Test
@@ -29,7 +29,7 @@ public class TestHello {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Greeter.out = new PrintStream(out);
     Greeter.main("toto");
-    assertEquals("Hello toto\n", new String(out.toByteArray(), StandardCharsets.UTF_8));
+    assertEquals("Hello toto", new String(out.toByteArray(), StandardCharsets.UTF_8).trim());
   }
 
 }
