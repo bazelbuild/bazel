@@ -23,6 +23,7 @@
 #include <sys/sysctl.h>
 #include <sys/syslimits.h>
 #include <sys/types.h>
+#include <sys/xattr.h>
 
 #include <string>
 
@@ -104,14 +105,12 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size) {
-  errno = ENOSYS;
-  return -1;
+  return getxattr(path, name, value, size, 0, 0);
 }
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size) {
-  errno = ENOSYS;
-  return -1;
+  return getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
