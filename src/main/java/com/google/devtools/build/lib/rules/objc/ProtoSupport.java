@@ -171,8 +171,12 @@ final class ProtoSupport {
       }
     } else {
       if (attributes.outputsCpp()) {
-        ruleContext.ruleWarning("The output_cpp attributes has been deprecated. Please "
-            + "refer to b/29342376 for information on possible alternatives");
+        ruleContext.ruleWarning("The output_cpp attribute has been deprecated. Please "
+            + "refer to b/29342376 for information on possible alternatives.");
+      }
+      if (!attributes.usesObjcHeaderNames()) {
+        ruleContext.ruleWarning("As part of the migration process, it is recommended to enable "
+            + "use_objc_header_names. Please refer to b/29368416 for more information.");
       }
     }
     return this;
