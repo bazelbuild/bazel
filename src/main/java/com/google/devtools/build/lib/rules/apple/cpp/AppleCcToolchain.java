@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 
 import java.util.Map;
@@ -29,13 +30,27 @@ public class AppleCcToolchain extends CcToolchain {
   // TODO(bazel-team): Compute default based on local Xcode instead of hardcoded 7.2.
   private static final DottedVersion DEFAULT_XCODE_VERSION = DottedVersion.fromString("7.2");
 
-  public static final String XCODE_VERSION_KEY = "xcode_version";
+  private static final String XCODE_VERSION_KEY = "xcode_version";
+  private static final String IOS_SDK_VERSION_KEY = "ios_sdk_version";
+  private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
+  private static final String TVOS_SDK_VERSION_KEY = "appletvos_sdk_version";
+  private static final String WATCHOS_SDK_VERSION_KEY = "watchos_sdk_version";
 
   @Override
   protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    return ImmutableMap.of(
-        XCODE_VERSION_KEY,
-        appleConfiguration.getXcodeVersion().or(DEFAULT_XCODE_VERSION).toString());
+    
+    return ImmutableMap.<String, String>builder()
+        .put(XCODE_VERSION_KEY,
+            appleConfiguration.getXcodeVersion().or(DEFAULT_XCODE_VERSION).toString())
+        .put(IOS_SDK_VERSION_KEY,
+            appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR).toString())
+        .put(MACOSX_SDK_VERSION_KEY,
+            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS_X).toString())
+        .put(TVOS_SDK_VERSION_KEY,
+            appleConfiguration.getSdkVersionForPlatform(Platform.TVOS_SIMULATOR).toString())
+        .put(WATCHOS_SDK_VERSION_KEY,
+            appleConfiguration.getSdkVersionForPlatform(Platform.WATCHOS_SIMULATOR).toString())
+        .build();
   }
 }

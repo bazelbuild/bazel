@@ -356,7 +356,12 @@ public final class CppModel {
     return result;
   }
 
-  private void setupBuildVariables(
+  private CcToolchainFeatures.Variables linkBuildVariables() {
+    return new CcToolchainFeatures.Variables.Builder()
+        .addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables()).build();
+  }
+  
+  private void setupCompileBuildVariables(
       CppCompileActionBuilder builder,
       boolean usePic,
       PathFragment ccRelativeName,
@@ -523,7 +528,7 @@ public final class CppModel {
         .setDotdFile(outputName, ".h.d")
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(this.getGeneratePicActions());
-    setupBuildVariables(builder, this.getGeneratePicActions(), /*ccRelativeName=*/null,
+    setupCompileBuildVariables(builder, this.getGeneratePicActions(), /*ccRelativeName=*/null,
         /*autoFdoImportPath=*/null, /*gcnoFile=*/null, /*dwoFile=*/null);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.build();
@@ -571,7 +576,7 @@ public final class CppModel {
             enableCoverage ? ruleContext.getRelatedArtifact(outputName, ".pic.gcno") : null;
         Artifact dwoFile = generateDwo ? getDwoFile(outputFile) : null;
 
-        setupBuildVariables(picBuilder, /*usePic=*/ true, ccRelativeName,
+        setupCompileBuildVariables(picBuilder, /*usePic=*/ true, ccRelativeName,
             sourceArtifact.getExecPath(), gcnoFile, dwoFile);
 
         if (maySaveTemps) {
@@ -617,8 +622,8 @@ public final class CppModel {
 
         Artifact noPicDwoFile = generateDwo ? getDwoFile(noPicOutputFile) : null;
 
-        setupBuildVariables(builder, /*usePic=*/false, ccRelativeName, sourceArtifact.getExecPath(),
-            gcnoFile, noPicDwoFile);
+        setupCompileBuildVariables(builder, /*usePic=*/false, ccRelativeName,
+            sourceArtifact.getExecPath(), gcnoFile, noPicDwoFile);
 
         if (maySaveTemps) {
           result.addTemps(
@@ -673,7 +678,7 @@ public final class CppModel {
         .setDotdFile(outputName, dependencyFileExtension)
         .setTempOutputFile(tempOutputName);
 
-    setupBuildVariables(builder, usePic, ccRelativeName, execPath, /*gcnoFile*/ null,
+    setupCompileBuildVariables(builder, usePic, ccRelativeName, execPath, /*gcnoFile*/ null,
         /*dwoFile*/ null);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction action = builder.build();
@@ -735,6 +740,7 @@ public final class CppModel {
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .setFeatureConfiguration(featureConfiguration)
+            .setBuildVariables(linkBuildVariables())
             .build();
     env.registerAction(maybePicAction);
     result.addStaticLibrary(maybePicAction.getOutputLibrary());
@@ -756,6 +762,7 @@ public final class CppModel {
               .setLinkType(picLinkType)
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
               .setFeatureConfiguration(featureConfiguration)
+              .setBuildVariables(linkBuildVariables())
               .build();
       env.registerAction(picAction);
       result.addPicStaticLibrary(picAction.getOutputLibrary());
@@ -781,7 +788,7 @@ public final class CppModel {
       sonameLinkopts = ImmutableList.of("-Wl,-soname=" +
           SolibSymlinkAction.getDynamicLibrarySoname(soImpl.getRootRelativePath(), false));
     }
-
+    
     // Should we also link in any libraries that this library depends on?
     // That is required on some systems...
     CppLinkAction action =
@@ -797,6 +804,7 @@ public final class CppModel {
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
             .setFeatureConfiguration(featureConfiguration)
+            .setBuildVariables(linkBuildVariables())
             .build();
     env.registerAction(action);
 
@@ -890,7 +898,7 @@ public final class CppModel {
     dBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + iExt))
         .setDotdFile(outputName, picExt + iExt + ".d");
-    setupBuildVariables(dBuilder, usePic, ccRelativeName, source.getExecPath(), null, null);
+    setupCompileBuildVariables(dBuilder, usePic, ccRelativeName, source.getExecPath(), null, null);
     semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
     CppCompileAction dAction = dBuilder.build();
     ruleContext.registerAction(dAction);
@@ -899,7 +907,7 @@ public final class CppModel {
     sdBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + ".s"))
         .setDotdFile(outputName, picExt + ".s.d");
-    setupBuildVariables(sdBuilder, usePic, ccRelativeName, source.getExecPath(), null, null);
+    setupCompileBuildVariables(sdBuilder, usePic, ccRelativeName, source.getExecPath(), null, null);
     semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
     CppCompileAction sdAction = sdBuilder.build();
     ruleContext.registerAction(sdAction);
