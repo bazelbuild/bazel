@@ -60,8 +60,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -254,14 +252,6 @@ public final class BuildConfiguration {
      */
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.of();
-    }
-
-    /**
-     * Declares dependencies on any relevant Skyframe values (for example, relevant FileValues).
-     *
-     * @param env the skyframe environment
-     */
-    public void declareSkyframeDependencies(Environment env) {
     }
 
     /**
@@ -2341,15 +2331,6 @@ public final class BuildConfiguration {
    */
   public BuildOptions getOptions() {
     return buildOptions;
-  }
-
-  /**
-   * Declares dependencies on any relevant Skyframe values (for example, relevant FileValues).
-   */
-  public void declareSkyframeDependencies(SkyFunction.Environment env) {
-    for (Fragment fragment : fragments.values()) {
-      fragment.declareSkyframeDependencies(env);
-    }
   }
 
   /**

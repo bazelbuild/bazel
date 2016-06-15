@@ -68,12 +68,6 @@ public class ConfigurationCollectionFunction implements SkyFunction {
         return null;
       }
 
-      for (BuildConfiguration config : result.getTargetConfigurations()) {
-        config.declareSkyframeDependencies(env);
-      }
-      if (env.valuesMissing()) {
-        return null;
-      }
       return new ConfigurationCollectionValue(result);
     } catch (InvalidConfigurationException e) {
       throw new ConfigurationCollectionFunctionException(e);
