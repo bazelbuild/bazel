@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -53,6 +54,10 @@ public enum Platform {
    * Returns the name of the "platform" as it appears in the CFBundleSupportedPlatforms plist
    * setting.
    */
+  @SkylarkCallable(name = "name_in_plist", structField = true,
+    doc = "The name of the platform as it appears in the CFBundleSupportedPlatforms plist "
+        + "setting. This name can also be converted to lowercase and passed to command-line "
+        + "tools, such as ibtool and actool.")
   public String getNameInPlist() {
     return nameInPlist;
   }
