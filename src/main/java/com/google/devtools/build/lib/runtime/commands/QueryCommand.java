@@ -158,9 +158,10 @@ public final class QueryCommand implements BlazeCommand {
       disableAnsiCharactersFiltering(env);
       output = new PrintStream(env.getReporter().getOutErr().getOutputStream());
       // 2. Evaluate expression:
-      callback = ((StreamedFormatter) formatter)
-          .createStreamCallback(queryOptions, output, queryOptions.aspectDeps.createResolver(
-              env.getPackageManager(), env.getReporter()));
+      StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
+      streamedFormatter.setOptions(queryOptions, queryOptions.aspectDeps.createResolver(
+          env.getPackageManager(), env.getReporter()));
+      callback = streamedFormatter.createStreamCallback(output);
     } else {
       callback = new AggregateAllOutputFormatterCallback<>();
     }

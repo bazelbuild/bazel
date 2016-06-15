@@ -18,7 +18,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -58,22 +57,13 @@ import javax.xml.transform.stream.StreamResult;
  * An output formatter that prints the result as XML.
  */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
-
-  private QueryOptions options;
-  private AspectResolver aspectResolver;
-  private DependencyFilter dependencyFilter;
-
   @Override
   public String getName() {
     return "xml";
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
-      final PrintStream out, AspectResolver aspectResolver) {
-    this.options = options;
-    this.aspectResolver = aspectResolver;
-    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
+  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;

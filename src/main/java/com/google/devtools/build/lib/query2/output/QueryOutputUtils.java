@@ -49,8 +49,10 @@ public class QueryOutputUtils {
           ((DigraphQueryEvalResult<Target>) result).getGraph().extractSubgraph(targetsResult),
           outputStream, aspectResolver);
     } else {
-      OutputFormatterCallback.processAllTargets(((StreamedFormatter) formatter)
-          .createStreamCallback(queryOptions, outputStream, aspectResolver), targetsResult);
+      StreamedFormatter streamedFormatter = (StreamedFormatter) formatter;
+      streamedFormatter.setOptions(queryOptions, aspectResolver);
+      OutputFormatterCallback.processAllTargets(
+          streamedFormatter.createStreamCallback(outputStream), targetsResult);
     }
   }
 }

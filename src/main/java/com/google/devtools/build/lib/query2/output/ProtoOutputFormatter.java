@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeSerializer;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -69,9 +68,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
    */
   public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
 
-  private transient DependencyFilter dependencyFilter;
-  protected transient AspectResolver aspectResolver;
-
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
 
@@ -85,13 +81,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
-      final PrintStream out, AspectResolver aspectResolver) {
-    relativeLocations = options.relativeLocations;
-    this.aspectResolver = aspectResolver;
+  public void setOptions(QueryOptions options, AspectResolver aspectResolver) {
+    super.setOptions(options, aspectResolver);
+    this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
-    setDependencyFilter(options);
+  }
 
+  @Override
+  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
     return new OutputFormatterCallback<Target>() {
 
       private Builder queryResult;
@@ -130,8 +127,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   /**
    * Converts a logical {@link Target} object into a {@link Build.Target} protobuffer.
    */
-  protected Build.Target toTargetProtoBuffer(Target target)
-      throws InterruptedException {
+  protected Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
     String location = getLocation(target, relativeLocations);
