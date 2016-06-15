@@ -54,6 +54,10 @@ public class BuildFailedException extends Exception {
     this(message, false, null, ImmutableList.<Label>of());
   }
 
+  public BuildFailedException(String message, ExitCode exitCode) {
+    this(message, false, null, ImmutableList.<Label>of(), false, exitCode);
+  }
+
   public BuildFailedException(String message, boolean catastrophic) {
     this(message, catastrophic, null, ImmutableList.<Label>of());
   }
