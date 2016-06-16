@@ -947,7 +947,12 @@ public class CppCompileAction extends AbstractAction
           // are, it's probably due to a non-hermetic #include, & we should stop
           // the build with an error.
           if (execPath.startsWith(execRoot)) {
-            execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+            // funky but tolerable path
+            execPathFragment = execPath.relativeTo(execRoot);
+          } else if (execPath.startsWith(execRoot.getParentDirectory())) {
+            // External repository.
+            execPathFragment = new PathFragment("..")
+                .getRelative(execPath.relativeTo(execRoot.getParentDirectory()));
           } else {
             problems.add(execPathFragment.getPathString());
             continue;

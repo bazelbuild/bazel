@@ -122,6 +122,10 @@ public final class Root implements Comparable<Root>, Serializable {
     return execPath;
   }
 
+  public PathFragment getWorkspaceDirectory() {
+    return new PathFragment(isSourceRoot() ? path.getBaseName() : execRoot.getBaseName());
+  }
+
   @SkylarkCallable(name = "path", structField = true,
       doc = "Returns the relative path from the exec root to the actual root.")
   public String getExecPathString() {

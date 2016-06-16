@@ -294,7 +294,7 @@ public class Package {
     this.filename = builder.getFilename();
     this.packageDirectory = filename.getParentDirectory();
 
-    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getPathFragment());
+    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getPackageFragment());
     if ((sourceRoot == null
         || !sourceRoot.getRelative(packageIdentifier.getPathFragment()).equals(packageDirectory))
         && !filename.getBaseName().equals("WORKSPACE")) {

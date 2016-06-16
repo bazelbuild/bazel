@@ -428,7 +428,7 @@ public final class Runfiles {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getUnconditionalArtifactsWithoutMiddlemen()) {
-      checker.put(manifest, artifact.getRootRelativePath(), artifact);
+      checker.put(manifest, artifact.getRootRelativePath().normalize(), artifact);
     }
 
     // Add conditional artifacts (only included if they appear in a pruning manifest).
@@ -485,7 +485,7 @@ public final class Runfiles {
     // workspace.
     private boolean sawWorkspaceName;
 
-    public ManifestBuilder(
+    ManifestBuilder(
         PathFragment workspaceName, boolean legacyExternalRunfiles) {
       this.manifest = new HashMap<>();
       this.workspaceName = workspaceName;
@@ -496,20 +496,18 @@ public final class Runfiles {
     /**
      * Adds a map under the workspaceName.
      */
-    public void addUnderWorkspace(
+    void addUnderWorkspace(
         Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
       for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
         PathFragment path = entry.getKey();
         if (isUnderWorkspace(path)) {
           sawWorkspaceName = true;
-          checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
-        } else {
-          if (legacyExternalRunfiles) {
-            checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
-          }
-          // Always add the non-legacy .runfiles/repo/whatever path.
-          checker.put(manifest, getExternalPath(path), entry.getValue());
+        } else if (legacyExternalRunfiles) {
+          // Turn ../repo/foo info wsname/external/repo/foo.
+          checker.put(manifest, workspaceName.getRelative(Label.EXTERNAL_PACKAGE_NAME)
+              .getRelative(workspaceName).getRelative(path).normalize(), entry.getValue());
         }
+        checker.put(manifest, workspaceName.getRelative(path).normalize(), entry.getValue());
       }
     }
 
@@ -536,17 +534,14 @@ public final class Runfiles {
       return manifest;
     }
 
-    private PathFragment getExternalPath(PathFragment path) {
-      return checkForWorkspace(path.relativeTo(Label.EXTERNAL_PACKAGE_NAME));
-    }
-
     private PathFragment checkForWorkspace(PathFragment path) {
-      sawWorkspaceName = sawWorkspaceName || path.getSegment(0).equals(workspaceName);
+      sawWorkspaceName = sawWorkspaceName
+          || path.getSegment(0).equals(workspaceName.getPathString());
       return path;
     }
 
     private static boolean isUnderWorkspace(PathFragment path) {
-      return !path.startsWith(Label.EXTERNAL_PACKAGE_NAME);
+      return !path.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX));
     }
   }
 

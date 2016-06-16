@@ -322,7 +322,7 @@ public class FileFunctionTest {
   @Test
   public void testAbsoluteSymlinkToExternal() throws Exception {
     String externalPath =
-        outputBase.getRelative(Label.EXTERNAL_PATH_PREFIX).getRelative("a/b").getPathString();
+        outputBase.getRelative(Label.EXTERNAL_PACKAGE_NAME).getRelative("a/b").getPathString();
     symlink("a", externalPath);
     file("b");
     file(externalPath);

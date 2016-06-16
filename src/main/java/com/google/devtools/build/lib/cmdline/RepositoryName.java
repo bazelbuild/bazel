@@ -205,10 +205,10 @@ public final class RepositoryName implements Serializable {
    * Returns the runfiles path for this repository (relative to the x.runfiles/main-repo/
    * directory). If we don't know the name of this repo (i.e., it is in the main repository),
    * return an empty path fragment.
+   * TODO(kchodorow): remove this.
    */
   public PathFragment getRunfilesPath() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : new PathFragment("..").getRelative(strippedName());
+    return getPathFragment();
   }
 
   /**

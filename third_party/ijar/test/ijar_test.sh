@@ -26,9 +26,7 @@ JAR=$1
 shift
 JAVAP=$1
 shift
-IJAR=$TEST_SRCDIR/$1
-shift
-LANGTOOLS8=$TEST_SRCDIR/$1
+IJAR=$1
 shift
 UNZIP=$1
 shift
@@ -343,7 +341,7 @@ function test_type_annotation() {
   $JAVAP -classpath $TYPEANN2_IJAR -v Util >& $TEST_log || fail "javap failed"
   expect_log "RuntimeVisibleTypeAnnotations" "RuntimeVisibleTypeAnnotations not preserved!"
   cp $TYPEANN2_JAVA $TEST_TMPDIR/TypeAnnotationTest2.java
-  $JAVAC -J-Xbootclasspath/p:$LANGTOOLS8 $TEST_TMPDIR/TypeAnnotationTest2.java -cp $TYPEANN2_IJAR ||
+  $JAVAC $TEST_TMPDIR/TypeAnnotationTest2.java -cp $TYPEANN2_IJAR ||
     fail "javac failed"
 }
 

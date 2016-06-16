@@ -14,7 +14,7 @@ genrule(
     outs = ["JavacBootclasspathLocations.java"],
     cmd = """
 declare -a paths=($(SRCS)) && paths=($${paths[@]#$(GENDIR)/}) &&
-paths=($$(echo $${paths[@]} | sed s_external/__g)) &&
+paths=($$(echo $${paths[@]} | sed 's_\.\./__g')) &&
 IFS=: &&
 cat > $@ <<EOF
 package com.google.devtools.build.java.bazel;

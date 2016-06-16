@@ -205,7 +205,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
                 }
                 PathFragment relPath =
                     ruleContext.getRule().getLabel().getPackageIdentifier().getPathFragment();
-                return dir.getRelative(relPath).getPathString();
+                return dir.getRelative(relPath).normalize().getPathString();
               }
             } else {
               return super.lookupMakeVariable(name);

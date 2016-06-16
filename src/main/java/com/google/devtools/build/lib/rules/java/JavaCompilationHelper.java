@@ -468,7 +468,8 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     String basename = FileSystemUtils.removeExtension(outputJar.getExecPath().getBaseName());
     return getConfiguration().getBinDirectory().getExecPath()
         .getRelative(ruleContext.getUniqueDirectory("_javac"))
-        .getRelative(basename + suffix);
+        .getRelative(basename + suffix)
+        .normalize();
   }
 
   /**

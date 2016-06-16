@@ -397,9 +397,12 @@ public final class CcCommon {
         continue;
       }
       PathFragment includesPath = packageFragment.getRelative(includesAttr).normalize();
-      if (!includesPath.isNormalized()) {
+      // It's okay for the includes path to start with ../workspace-name for external repos.
+      if ((packageIdentifier.getRepository().isMain() && !includesPath.isNormalized())
+          || (!packageIdentifier.getRepository().isMain()
+              && !includesPath.startsWith(packageIdentifier.getRepository().getPathFragment()))) {
         ruleContext.attributeError("includes",
-            "Path references a path above the execution root.");
+            includesAttr + " references a path above the execution root (" + includesPath + ").");
       }
       if (includesPath.segmentCount() == 0) {
         ruleContext.attributeError(

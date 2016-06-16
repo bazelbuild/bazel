@@ -57,13 +57,12 @@ public class ArtifactTest {
   }
 
   @Test
-  public void testConstruction_badRootDir() throws IOException {
+  public void testConstruction_UplevelRootDir() throws IOException {
     Path f1 = scratch.file("/exec/dir/file.ext");
     Path bogusDir = scratch.file("/exec/dir/bogus");
-    try {
-      new Artifact(f1, Root.asDerivedRoot(bogusDir), f1.relativeTo(execDir));
-      fail("Expected IllegalArgumentException constructing artifact with a bad root dir");
-    } catch (IllegalArgumentException expected) {}
+    Artifact artifact = new Artifact(f1, Root.asDerivedRoot(bogusDir), f1.relativeTo(execDir));
+    assertThat(artifact.getExecPath()).isEqualTo(new PathFragment("dir/file.ext"));
+    assertThat(artifact.getRootRelativePath()).isEqualTo(new PathFragment("../file.ext"));
   }
 
   @Test

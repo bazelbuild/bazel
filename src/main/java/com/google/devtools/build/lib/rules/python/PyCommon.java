@@ -437,7 +437,7 @@ public final class PyCommon {
     }
 
     PathFragment workspaceName = new PathFragment(ruleContext.getRule().getWorkspaceName());
-    return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
+    return workspaceName.getRelative(mainArtifact.getRunfilesPath()).normalize().getPathString();
   }
 
   public Artifact getExecutable() {

@@ -150,25 +150,26 @@ public class ArtifactFactoryTest {
   }
 
   @Test
-  public void testResolveArtifactWithUpLevelFailsCleanly() throws Exception {
+  public void testResolveArtifactWithUpLevel() throws Exception {
     // We need a package in the root directory to make every exec path (even one with up-level
     // references) be in a package.
     Map<PackageIdentifier, Root> packageRoots = ImmutableMap.of(
-        PackageIdentifier.createInMainRepo(new PathFragment("")), clientRoot);
+        PackageIdentifier.create("@workspace", new PathFragment("")), clientRoot,
+        PackageIdentifier.create("@repo", new PathFragment("dir")), clientRoot);
     artifactFactory.setPackageRoots(packageRoots);
-    PathFragment outsideWorkspace = new PathFragment("../foo");
-    PathFragment insideWorkspace =
-        new PathFragment("../" + clientRoot.getPath().getBaseName() + "/foo");
-    assertNull(artifactFactory.resolveSourceArtifact(outsideWorkspace));
-    assertNull("Up-level-containing paths that descend into the right workspace aren't allowed",
-            artifactFactory.resolveSourceArtifact(insideWorkspace));
+    PathFragment topLevel = new PathFragment("../workspace/foo");
+    PathFragment subdir = new PathFragment("../repo/dir/foo");
+    Artifact topLevelArtifact = artifactFactory.resolveSourceArtifact(topLevel);
+    assertThat(topLevelArtifact).isNotNull();
+    Artifact subdirArtifact = artifactFactory.resolveSourceArtifact(subdir);
+    assertThat(subdirArtifact).isNotNull();
     MockPackageRootResolver packageRootResolver = new MockPackageRootResolver();
     packageRootResolver.setPackageRoots(packageRoots);
     Map<PathFragment, Artifact> result = new HashMap<>();
-    result.put(insideWorkspace, null);
-    result.put(outsideWorkspace, null);
+    result.put(topLevel, topLevelArtifact);
+    result.put(subdir, subdirArtifact);
     assertThat(
-        artifactFactory.resolveSourceArtifacts(ImmutableList.of(insideWorkspace, outsideWorkspace),
+        artifactFactory.resolveSourceArtifacts(ImmutableList.of(topLevel, subdir),
             packageRootResolver).entrySet()).containsExactlyElementsIn(result.entrySet());
   }
 
