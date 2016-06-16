@@ -147,6 +147,7 @@ public class Artifact
     }
   };
 
+  private final int hashCode;
   private final Path path;
   private final Root root;
   private final PathFragment execPath;
@@ -180,6 +181,7 @@ public class Artifact
       throw new IllegalArgumentException(execPath + ": illegal execPath for " + path
           + " (root: " + root + ")");
     }
+    this.hashCode = path.hashCode();
     this.path = path;
     this.root = root;
     this.execPath = execPath;
@@ -572,7 +574,10 @@ public class Artifact
 
   @Override
   public final int hashCode() {
-    return path.hashCode();
+    // This is just path.hashCode().  We cache a copy in the Artifact object to reduce LLC misses
+    // during operations which build a HashSet out of many Artifacts.  This is a slight loss for
+    // memory but saves ~1% overall CPU in some real builds.
+    return hashCode;
   }
 
   @Override

@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -45,7 +44,7 @@ public abstract class ExpanderTestBase  {
   public void simple() {
     NestedSet<String> s = prepareBuilder("c", "a", "b").build();
 
-    assertTrue(Arrays.equals(simpleResult().toArray(), s.directMembers()));
+    assertEquals(simpleResult(), s.toList());
     assertSetContents(simpleResult(), s);
   }
 
@@ -53,7 +52,7 @@ public abstract class ExpanderTestBase  {
   public void simpleNoDuplicates() {
     NestedSet<String> s = prepareBuilder("c", "a", "a", "a", "b").build();
 
-    assertTrue(Arrays.equals(simpleResult().toArray(), s.directMembers()));
+    assertEquals(simpleResult(), s.toList());
     assertSetContents(simpleResult(), s);
   }
 
@@ -94,7 +93,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> s1 = prepareBuilder().add("a").add("c").add("b").build();
     NestedSet<String> s2 = prepareBuilder().addAll(ImmutableList.of("a", "c", "b")).build();
 
-    assertTrue(Arrays.equals(s1.directMembers(), s2.directMembers()));
     assertCollectionsEqual(s1.toCollection(), s2.toCollection());
     assertCollectionsEqual(s1.toList(), s2.toList());
     assertCollectionsEqual(Lists.newArrayList(s1), Lists.newArrayList(s2));
@@ -106,7 +104,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> s2 = prepareBuilder().add("a").addAll(ImmutableList.of("b", "c")).add("d")
         .build();
 
-    assertTrue(Arrays.equals(s1.directMembers(), s2.directMembers()));
     assertCollectionsEqual(s1.toCollection(), s2.toCollection());
     assertCollectionsEqual(s1.toList(), s2.toList());
     assertCollectionsEqual(Lists.newArrayList(s1), Lists.newArrayList(s2));
@@ -140,7 +137,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> b = prepareBuilder("b").addTransitive(c).build();
     NestedSet<String> a = prepareBuilder("a").addTransitive(b).build();
 
-    assertTrue(Arrays.equals(new String[]{"a"}, a.directMembers()));
     assertSetContents(chainResult(), a);
   }
 
@@ -151,7 +147,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> b = prepareBuilder("b").addTransitive(d).build();
     NestedSet<String> a = prepareBuilder("a").addTransitive(b).addTransitive(c).build();
 
-    assertTrue(Arrays.equals(new String[]{"a"}, a.directMembers()));
     assertSetContents(diamondResult(), a);
   }
 
@@ -206,20 +201,6 @@ public abstract class ExpanderTestBase  {
     NestedSet<String> s = prepareBuilder("a", "b").build();
     assertFalse(s.isEmpty());
     assertEquals(expanderOrder(), s.getOrder());
-  }
-
-  /**
-   * In case we have inner NestedSets with different order (allowed by the builder). We should
-   * maintain the order of the top-level NestedSet.
-   */
-  @Test
-  public void regressionOnOneTransitiveDep() {
-    NestedSet<String> subsub = NestedSetBuilder.<String>stableOrder().add("c").add("a").add("e")
-        .build();
-    NestedSet<String> sub = NestedSetBuilder.<String>stableOrder().add("b").add("d")
-        .addTransitive(subsub).build();
-    NestedSet<String> top = prepareBuilder().addTransitive(sub).build();
-    assertSetContents(nestedResult(), top);
   }
 
   @Test

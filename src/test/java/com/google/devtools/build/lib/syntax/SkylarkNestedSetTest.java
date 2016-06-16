@@ -178,38 +178,6 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testSetOuterOrderWins() throws Exception {
-    // The order of the outer set should define the final iteration order,
-    // no matter what the order of nested sets is
-    /*
-     * Set:     {4, 44, {1, 11, {2, 22}}}
-     * PRE:     4, 44, 1, 11, 2, 22     (Link)
-     * POST:    2, 22, 1, 11, 4, 44     (Stable)
-     *
-     */
-    Order[] orders = {Order.STABLE_ORDER, Order.LINK_ORDER};
-    String[] expected = {
-        "set([\"2\", \"22\", \"1\", \"11\", \"4\", \"44\"])",
-        "set([\"4\", \"44\", \"1\", \"11\", \"2\", \"22\"], order = \"link\")"};
-
-    for (int i = 0; i < 2; ++i) {
-      Order outerOrder = orders[i];
-      Order innerOrder = orders[1 - i];
-
-      SkylarkNestedSet inner1 =
-          new SkylarkNestedSet(innerOrder, Tuple.of("1", "11"), null);
-      SkylarkNestedSet inner2 =
-          new SkylarkNestedSet(innerOrder, Tuple.of("2", "22"), null);
-      SkylarkNestedSet innerUnion = new SkylarkNestedSet(inner1, inner2, null);
-      SkylarkNestedSet result =
-          new SkylarkNestedSet(outerOrder, Tuple.of("4", "44"), null);
-      result = new SkylarkNestedSet(result, innerUnion, null);
-
-      assertThat(result.toString()).isEqualTo(expected[i]);
-    }
-  }
-
-  @Test
   public void testSetOrderCompatibility() throws Exception {
     // Two sets are compatible if
     //  (a) both have the same order or

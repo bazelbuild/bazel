@@ -17,22 +17,24 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MapMaker;
+import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.util.Preconditions;
 
-import java.util.LinkedHashSet;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * A builder for nested sets.
  *
  * <p>The builder supports the standard builder interface (that is, {@code #add}, {@code #addAll}
- * and {@code #addTransitive} followed by {@code build}), in addition to shortcut methods
- * {@code #wrap} and {@code #of}.
+ * and {@code #addTransitive} followed by {@code build}), in addition to shortcut method
+ * {@code #wrap}.
  */
 public final class NestedSetBuilder<E> {
 
   private final Order order;
-  private final LinkedHashSet<E> items = new LinkedHashSet<>();
-  private final LinkedHashSet<NestedSet<? extends E>> transitiveSets = new LinkedHashSet<>();
+  private final CompactHashSet<E> items = CompactHashSet.create();
+  private final CompactHashSet<NestedSet<? extends E>> transitiveSets = CompactHashSet.create();
 
   public NestedSetBuilder(Order order) {
     this.order = order;
@@ -105,7 +107,7 @@ public final class NestedSetBuilder<E> {
    * addTransitive calls matters, but the order between add/addAll and addTransitive does not.
    *
    * <p>An error will be thrown if the ordering of {@code subset} is incompatible with the ordering
-   * of this set. Either they must match or this set must be a {@code STABLE_ORDER} set.
+   * of this set. Either they must match or one must be a {@code STABLE_ORDER} set.
    *
    * @return the builder.
    */
@@ -132,8 +134,8 @@ public final class NestedSetBuilder<E> {
    * <p>This method may be called multiple times with interleaved {@link #add}, {@link #addAll} and
    * {@link #addTransitive} calls.
    */
-  // Casting from LinkedHashSet<NestedSet<? extends E>> to LinkedHashSet<NestedSet<E>> by way of
-  // LinkedHashSet<?>.
+  // Casting from CompactHashSet<NestedSet<? extends E>> to CompactHashSet<NestedSet<E>> by way of
+  // CompactHashSet<?>.
   @SuppressWarnings("unchecked")
   public NestedSet<E> build() {
     if (isEmpty()) {
@@ -143,74 +145,45 @@ public final class NestedSetBuilder<E> {
     // This cast is safe because NestedSets are immutable -- we will never try to add an element to
     // these nested sets, only to retrieve elements from them. Thus, treating them as NestedSet<E>
     // is safe.
-    LinkedHashSet<NestedSet<E>> transitiveSetsCast =
-        (LinkedHashSet<NestedSet<E>>) (LinkedHashSet<?>) transitiveSets;
+    CompactHashSet<NestedSet<E>> transitiveSetsCast =
+        (CompactHashSet<NestedSet<E>>) (CompactHashSet<?>) transitiveSets;
     if (items.isEmpty() && (transitiveSetsCast.size() == 1)) {
       NestedSet<E> candidate = getOnlyElement(transitiveSetsCast);
       if (candidate.getOrder().equals(order)) {
         return candidate;
       }
     }
-    int transitiveSize = transitiveSets.size();
-    int directSize = items.size();
-
-    switch (transitiveSize) {
-      case 0:
-        switch (directSize) {
-          case 0:
-            return order.emptySet();
-          case 1:
-            return order.factory.oneDirect(getOnlyElement(items));
-          default:
-            return order.factory.onlyDirects(items.toArray());
-        }
-      case 1:
-        switch (directSize) {
-          case 0:
-            return order.factory.onlyOneTransitive(getOnlyElement(transitiveSetsCast));
-          case 1:
-            return order.factory.oneDirectOneTransitive(getOnlyElement(items),
-                getOnlyElement(transitiveSetsCast));
-          default:
-            return order.factory.manyDirectsOneTransitive(items.toArray(),
-                getOnlyElement(transitiveSetsCast));
-        }
-      default:
-        switch (directSize) {
-          case 0:
-            return order.factory.onlyManyTransitives(
-                transitiveSetsCast.toArray(new NestedSet[transitiveSize]));
-          case 1:
-            return order.factory.oneDirectManyTransitive(getOnlyElement(items), transitiveSetsCast
-                .toArray(new NestedSet[transitiveSize]));
-          default:
-            return order.factory.manyDirectManyTransitive(items.toArray(),
-                transitiveSetsCast.toArray(new NestedSet[transitiveSize]));
-        }
-    }
+    return new NestedSet<E>(order, items, transitiveSetsCast);
   }
+
+  private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =
+      new MapMaker().weakKeys().makeMap();
 
   /**
    * Creates a nested set from a given list of items.
-   *
-   * <p>If the list of items is an {@link ImmutableList}, reuses the list as the backing store for
-   * the nested set.
    */
+  @SuppressWarnings("unchecked")
   public static <E> NestedSet<E> wrap(Order order, Iterable<E> wrappedItems) {
     ImmutableList<E> wrappedList = ImmutableList.copyOf(wrappedItems);
     if (wrappedList.isEmpty()) {
       return order.emptySet();
-    } else if (wrappedList.size() == 1) {
-      return order.factory.oneDirect(getOnlyElement(wrappedItems));
+    } else if (order == Order.STABLE_ORDER
+               && wrappedList == wrappedItems && wrappedList.size() > 1) {
+      NestedSet<?> cached = immutableListCache.get(wrappedList);
+      if (cached != null) {
+        return (NestedSet<E>) cached;
+      }
+      NestedSet<E> built = new NestedSetBuilder<E>(order).addAll(wrappedList).build();
+      immutableListCache.putIfAbsent(wrappedList, built);
+      return built;
     } else {
-      return order.factory.onlyDirects(wrappedList);
+      return new NestedSetBuilder<E>(order).addAll(wrappedList).build();
     }
   }
 
-
-    /**
-     * Creates a nested set with the given list of items as its elements.
-     */
+  /**
+   * Creates a nested set with the given list of items as its elements.
+   */
   @SuppressWarnings("unchecked")
   public static <E> NestedSet<E> create(Order order, E... elems) {
     return wrap(order, ImmutableList.copyOf(elems));

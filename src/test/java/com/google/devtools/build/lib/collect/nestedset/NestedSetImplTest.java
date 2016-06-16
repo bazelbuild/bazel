@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -26,8 +25,6 @@ import com.google.common.testing.EqualsTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
 
 /**
  * Tests for {@link com.google.devtools.build.lib.collect.nestedset.NestedSet}.
@@ -45,8 +42,7 @@ public class NestedSetImplTest {
   public void simple() {
     NestedSet<String> set = nestedSetBuilder("a").build();
 
-    assertTrue(Arrays.equals(new String[]{"a"}, set.directMembers()));
-    assertThat(set.transitiveSets()).isEmpty();
+    assertEquals(ImmutableList.of("a"), set.toList());
     assertFalse(set.isEmpty());
   }
 
@@ -59,15 +55,15 @@ public class NestedSetImplTest {
 
   @Test
   public void nestedToString() {
-    NestedSet<String> b = nestedSetBuilder("b").build();
-    NestedSet<String> c = nestedSetBuilder("c").build();
+    NestedSet<String> b = nestedSetBuilder("b1", "b2").build();
+    NestedSet<String> c = nestedSetBuilder("c1", "c2").build();
 
-    assertEquals("{a, {b}}",
+    assertEquals("{{b1, b2}, a}",
       nestedSetBuilder("a").addTransitive(b).build().toString());
-    assertEquals("{a, {b}, {c}}",
+    assertEquals("{{b1, b2}, {c1, c2}, a}",
       nestedSetBuilder("a").addTransitive(b).addTransitive(c).build().toString());
 
-    assertEquals("{b}", nestedSetBuilder().addTransitive(b).build().toString());
+    assertEquals("{b1, b2}", nestedSetBuilder().addTransitive(b).build().toString());
   }
 
   @Test
@@ -148,13 +144,6 @@ public class NestedSetImplTest {
     return new SetWrapper<E>(builder.build());
   }
 
-  // Same as flat(), but allows duplicate elements.
-  @SafeVarargs
-  private static <E> SetWrapper<E> flatWithDuplicates(E... directMembers) {
-    return new SetWrapper<E>(
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.copyOf(directMembers)));
-  }
-
   @SafeVarargs
   private static <E> SetWrapper<E> nest(SetWrapper<E>... nested) {
     NestedSetBuilder<E> builder = NestedSetBuilder.stableOrder();
@@ -191,16 +180,16 @@ public class NestedSetImplTest {
       .addEqualityGroup(flat(3),
                         flat(3),
                         flat(3, 3))  // Element de-duplication.
-      .addEqualityGroup(flatWithDuplicates(3, 3))
       .addEqualityGroup(flat(4),
                         nest(flat(4))) // Automatic elision of one-element nested sets.
       .addEqualityGroup(NestedSetBuilder.<Integer>linkOrder().add(4).build())
       .addEqualityGroup(nestedSetBuilder("4").build())  // Like flat("4").
       .addEqualityGroup(flat(3, 4),
                         flat(3, 4))
-      // Shallow equality means that {{3},{5}} != {{3},{5}}.
-      .addEqualityGroup(nest(flat(3), flat(5)))
-      .addEqualityGroup(nest(flat(3), flat(5)))
+      // Make a couple sets deep enough that shallowEquals() fails.
+      // If this test case fails because you improve the representation, just delete it.
+      .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
+      .addEqualityGroup(nest(nest(flat(3, 4), flat(5)), nest(flat(6, 7), flat(8))))
       .addEqualityGroup(nest(myRef),
                         nest(myRef),
                         nest(myRef, myRef))  // Set de-duplication.

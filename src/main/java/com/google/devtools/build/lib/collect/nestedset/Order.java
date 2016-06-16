@@ -23,25 +23,19 @@ import java.util.HashMap;
  * see CompileOrderExpander, LinkOrderExpander, NaiveLinkOrderExpander.
  */
 public enum Order {
-
-  STABLE_ORDER("stable", new CompileOrderExpander<>(), new StableOrderNestedSetFactory()),
-  COMPILE_ORDER("compile", new CompileOrderExpander<>(), new CompileOrderNestedSetFactory()),
-  LINK_ORDER("link", new LinkOrderExpander<>(), new LinkOrderNestedSetFactory()),
-  NAIVE_LINK_ORDER("naive_link", new NaiveLinkOrderExpander<>(),
-      new NaiveLinkOrderNestedSetFactory());
+  STABLE_ORDER("stable"),
+  COMPILE_ORDER("compile"),
+  LINK_ORDER("link"),
+  NAIVE_LINK_ORDER("naive_link");
 
   private static final ImmutableMap<String, Order> VALUES;
 
   private final String name;
-  private final NestedSetExpander<?> expander;
-  final NestedSetFactory factory;
   private final NestedSet<?> emptySet;
 
-  private Order(String name, NestedSetExpander<?> expander, NestedSetFactory factory) {
+  private Order(String name) {
     this.name = name;
-    this.expander = expander;
-    this.factory = factory;
-    this.emptySet = new EmptyNestedSet<>(this);
+    this.emptySet = new NestedSet<>(this);
   }
 
   /**
@@ -50,14 +44,6 @@ public enum Order {
   @SuppressWarnings("unchecked")  // Nested sets are immutable, so a downcast is fine.
   <E> NestedSet<E> emptySet() {
     return (NestedSet<E>) emptySet;
-  }
-
-  /**
-   * Returns an empty set of the given ordering.
-   */
-  @SuppressWarnings("unchecked")  // Nested set expanders contain no data themselves.
-  <E> NestedSetExpander<E> expander() {
-    return (NestedSetExpander<E>) expander;
   }
 
   public String getName() {

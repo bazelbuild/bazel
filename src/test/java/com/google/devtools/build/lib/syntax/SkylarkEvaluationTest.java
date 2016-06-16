@@ -654,7 +654,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     new SkylarkTest()
         .update("mock", new MockClassObject())
-        .testIfExactError("Type is not allowed in Skylark: EmptyNestedSet", "v = mock.nset");
+        .testIfExactError("Type is not allowed in Skylark: NestedSet", "v = mock.nset");
   }
 
   @Test

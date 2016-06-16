@@ -34,7 +34,7 @@ import java.util.Set;
 public final class NestedSetVisitor<E> {
 
   /**
-   * For each element of the NestedSet the {@code Reciver} will receive one element during the
+   * For each element of the NestedSet the {@code Receiver} will receive one element during the
    * visitation.
    */
   public interface Receiver<E> {
@@ -56,41 +56,34 @@ public final class NestedSetVisitor<E> {
    * @param nestedSet the nested set to visit transitively.
    *
    */
-  @SuppressWarnings("unchecked")
   public void visit(NestedSet<E> nestedSet) {
-    // This method suppresses the unchecked warning so that it can access the internal NestedSet
-    // raw structure.
     Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);
-    if (!visited.add(nestedSet)) {
-      return;
-    }
+    visitRaw(nestedSet.rawChildren());
+  }
 
-    for (NestedSet<E> subset : nestedSet.transitiveSets()) {
-      visit(subset);
-    }
-    for (Object member : nestedSet.directMembers()) {
-      if (visited.add((E) member)) {
-        callback.accept((E) member);
+  @SuppressWarnings("unchecked")
+  private void visitRaw(Object node) {
+    if (visited.add(node)) {
+      if (node instanceof Object[]) {
+        for (Object child : (Object[]) node) {
+          visitRaw(child);
+        }
+      } else {
+        callback.accept((E) node);
       }
     }
   }
 
   /** A class that allows us to keep track of the seen nodes and transitive sets. */
   public static class VisitedState<E> {
-    private final Set<NestedSet<E>> seenSets = Sets.newConcurrentHashSet();
-    private final Set<E> seenNodes = Sets.newConcurrentHashSet();
+    private final Set<Object> seenNodes = Sets.newConcurrentHashSet();
 
     public void clear() {
-      seenSets.clear();
       seenNodes.clear();
     }
 
-    private boolean add(E node) {
+    private boolean add(Object node) {
       return seenNodes.add(node);
-    }
-
-    private boolean add(NestedSet<E> set) {
-      return !set.isEmpty() && seenSets.add(set);
     }
   }
 }

@@ -26,6 +26,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -401,7 +402,10 @@ final class ProtoSupport {
   }
 
   private String getProtoInputListFileContents() {
-    return Artifact.joinExecPaths("\n", getFilteredProtoSources());
+    // Sort the file names to make the remote action key independent of the precise deps structure.
+    // compile_protos.py will sort the input list anyway.
+    Iterable<Artifact> sorted = Ordering.natural().immutableSortedCopy(getFilteredProtoSources());
+    return Artifact.joinExecPaths("\n", sorted);
   }
 
   private PathFragment getWorkspaceRelativeOutputDir() {
