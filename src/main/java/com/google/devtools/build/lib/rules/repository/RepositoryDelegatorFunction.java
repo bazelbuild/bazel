@@ -113,26 +113,30 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     Path repoRoot =
         RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
-
-    handler.setClientEnvironment(clientEnvironment);
-    if (handler.isLocal(rule)) {
-      // Local repositories are always fetched because the operation is generally fast and they do
-      // not depend on non-local data, so it does not make much sense to try to catch from across
-      // server instances.
-      setupRepositoryRoot(repoRoot);
-      return handler.fetch(rule, repoRoot, directories, env);
-    }
-
-    // We check the repository root for existence here, but we can't depend on the FileValue,
-    // because it's possible that we eventually create that directory in which case the FileValue
-    // and the state of the file system would be inconsistent.
-
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
     if (ruleSpecificData == null) {
       return null;
     }
     byte[] ruleKey = computeRuleKey(rule, ruleSpecificData);
     Path markerPath = getMarkerPath(directories, rule);
+
+    handler.setClientEnvironment(clientEnvironment);
+    if (handler.isLocal(rule)) {
+      // Local repositories are always fetched because the operation is generally fast and they do
+      // not depend on non-local data, so it does not make much sense to try to cache from across
+      // server instances.
+      setupRepositoryRoot(repoRoot);
+      SkyValue localRepo = handler.fetch(rule, repoRoot, directories, env);
+      if (localRepo != null) {
+        writeMarkerFile(markerPath, ruleKey);
+      }
+      return localRepo;
+    }
+
+    // We check the repository root for existence here, but we can't depend on the FileValue,
+    // because it's possible that we eventually create that directory in which case the FileValue
+    // and the state of the file system would be inconsistent.
+
     boolean markerUpToDate = isFilesystemUpToDate(markerPath, ruleKey);
     if (markerUpToDate && repoRoot.exists()) {
       // Now that we know that it exists, we can declare a Skyframe dependency on the repository

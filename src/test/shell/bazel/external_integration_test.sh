@@ -281,22 +281,6 @@ EOF
   expect_log $what_does_the_fox_say
 }
 
-# Pending proper external file handling
-function DISABLED_test_changed_zip() {
-  nc_port=$(pick_random_unused_tcp_port) || fail "Couldn't get TCP port"
-  http_archive_helper zip_up
-  http_archive_helper zip_up "nowrite"
-  expect_not_log "Downloading from"
-  local readonly output_base=$(bazel info output_base)
-  local readonly repo_zip=$output_base/external/endangered/fox.zip
-  rm $repo_zip || fail "Couldn't delete $repo_zip"
-  touch $repo_zip || fail "Couldn't touch $repo_zip"
-  [[ -s $repo_zip ]] && fail "File size not 0"
-  http_archive_helper zip_up "nowrite"
-  expect_log "Downloading from"
-  [[ -s $repo_zip ]] || fail "File size was 0"
-}
-
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
   bazel shutdown >& $TEST_log || fail "Couldn't shut down"
@@ -823,6 +807,45 @@ EOF
       || fail "Expected success"
   cat "$TEST_TMPDIR/queryout" > "$TEST_log"
   expect_log "//external:androidsdk"
+}
+
+function test_flip_flopping() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  touch WORKSPACE BUILD foo
+  zip -r repo.zip *
+  startup_server $PWD
+  # Make the remote repo and local repo slightly different.
+  rm foo
+  touch bar
+  cd -
+
+  cat > local_ws <<EOF
+local_repository(
+    name = "repo",
+    path = "$REPO_PATH",
+)
+EOF
+  cat > remote_ws <<EOF
+http_archive(
+    name = "repo",
+    url = "http://localhost:$fileserver_port/repo.zip",
+)
+EOF
+  external_dir=$(bazel info output_base)/external
+  for i in $(seq 1 3); do
+    cp local_ws WORKSPACE
+    bazel build @repo//:all &> $TEST_log || fail "Build failed"
+    test -L "$external_dir/repo" || fail "creating local symlink failed"
+    test -a "$external_dir/repo/bar" || fail "bar not found"
+    cp remote_ws WORKSPACE
+    bazel build @repo//:all &> $TEST_log || fail "Build failed"
+    test -d "$external_dir//repo" || fail "creating remote repo failed"
+    test -a "$external_dir/repo/foo" || fail "foo not found"
+  done
+
+  shutdown_server
 }
 
 run_suite "external tests"
