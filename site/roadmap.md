@@ -110,7 +110,7 @@ be refined if appropriate.
       <td>P0. <a href="http://bazel.io/docs/windows.html">Bazel can bootstrap itself on Windows without requiring admin privileges</a></td></tr>
     </tr>
     <tr><td>P1. <a href="http://bazel.io/blog/2016/06/10/ide-support.html">Interface for IDE support</a></td></tr>
-    <tr><td>P1. IDE support for <a href="http://tulsi.bazel.io">X-code (stable)</a> and <a href="https://github.com/bazelbuild/e4b">Eclipse (experimental)</a></td></tr>
+    <tr><td>P1. IDE support for <a href="http://tulsi.bazel.io">Xcode (stable)</a> and <a href="https://github.com/bazelbuild/e4b">Eclipse (experimental)</a></td></tr>
     <tr><td>P1. <a href="https://docs.google.com/document/d/1jKbNXOVp2T1zJD_iRnVr8k5D0xZKgO8blMVDlXOksJg">Custom remote repositories using Skylark</a></td></tr>
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/commit/79adf59e2973754c8c0415fcab45cd58c7c34697">Prototype for distributed caching of build artifact</a></td></tr>
     <tr>
