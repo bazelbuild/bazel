@@ -249,17 +249,14 @@ public class ExecutionTool {
       }
     }
 
-    // If tests are to be run during build, too, we have to explicitly load the test action context.
-    if (request.shouldRunTests()) {
-      String testStrategyValue = request.getOptions(ExecutionOptions.class).testStrategy;
-      ActionContext context = strategyConverter.getStrategy(TestActionContext.class,
-          testStrategyValue);
-      if (context == null) {
-        throw makeExceptionForInvalidStrategyValue(testStrategyValue, "test",
-            strategyConverter.getValidValues(TestActionContext.class));
-      }
-      strategies.add(context);
+    String testStrategyValue = request.getOptions(ExecutionOptions.class).testStrategy;
+    ActionContext context = strategyConverter.getStrategy(TestActionContext.class,
+        testStrategyValue);
+    if (context == null) {
+      throw makeExceptionForInvalidStrategyValue(testStrategyValue, "test",
+          strategyConverter.getValidValues(TestActionContext.class));
     }
+    strategies.add(context);
   }
 
   private static ImmutableList<ActionContextConsumer> getActionContextConsumersFromModules(
