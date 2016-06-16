@@ -64,6 +64,7 @@ java_library(
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     deps = [
+        ":os_util",
         ":shell",
         "//third_party:guava",
     ],

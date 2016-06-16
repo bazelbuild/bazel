@@ -46,10 +46,13 @@ java_library(
         "vfs/util/*.java",
         "events/util/*.java",
     ]),
-    data = [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
+    data = select({
+        "//src:windows": [],
+        "//conditions:default": [
+            "//src/main/native:libunix.dylib",
+            "//src/main/native:libunix.so",
+        ],
+    }),
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.UnixJniLoader;
+import com.google.devtools.build.lib.util.OS;
 
 import java.io.Closeable;
 import java.io.FileDescriptor;
@@ -42,7 +43,9 @@ class LocalSocketImpl extends SocketImpl {
 
   static {
     UnixJniLoader.loadJni();
-    init();
+    if (OS.getCurrent() != OS.WINDOWS) {
+      init();
+    }
   }
 
   // The logic here is a little twisted, to support JDK7 and JDK8.
