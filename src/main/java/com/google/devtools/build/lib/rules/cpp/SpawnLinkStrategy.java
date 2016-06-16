@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -43,7 +42,7 @@ public final class SpawnLinkStrategy implements CppLinkActionContext {
         new BaseSpawn(
             action.getCommandLine(),
             action.getEnvironment(),
-            ImmutableMap.<String, String>of(),
+            action.getExecutionInfo(),
             action,
             estimateResourceConsumption(action));
     spawnActionContext.exec(spawn, actionExecutionContext);
