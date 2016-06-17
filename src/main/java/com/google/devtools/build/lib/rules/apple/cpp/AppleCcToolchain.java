@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.apple.cpp;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
@@ -35,22 +36,36 @@ public class AppleCcToolchain extends CcToolchain {
   private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
   private static final String TVOS_SDK_VERSION_KEY = "appletvos_sdk_version";
   private static final String WATCHOS_SDK_VERSION_KEY = "watchos_sdk_version";
+  public static final String SDK_DIR_KEY = "sdk_dir";
+  public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
+  public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
 
   @Override
   protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    
+    Platform platform = appleConfiguration.getSingleArchPlatform();
+
     return ImmutableMap.<String, String>builder()
-        .put(XCODE_VERSION_KEY,
+        .put(
+            XCODE_VERSION_KEY,
             appleConfiguration.getXcodeVersion().or(DEFAULT_XCODE_VERSION).toString())
-        .put(IOS_SDK_VERSION_KEY,
+        .put(
+            IOS_SDK_VERSION_KEY,
             appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR).toString())
-        .put(MACOSX_SDK_VERSION_KEY,
+        .put(
+            MACOSX_SDK_VERSION_KEY,
             appleConfiguration.getSdkVersionForPlatform(Platform.MACOS_X).toString())
-        .put(TVOS_SDK_VERSION_KEY,
+        .put(
+            TVOS_SDK_VERSION_KEY,
             appleConfiguration.getSdkVersionForPlatform(Platform.TVOS_SIMULATOR).toString())
-        .put(WATCHOS_SDK_VERSION_KEY,
+        .put(
+            WATCHOS_SDK_VERSION_KEY,
             appleConfiguration.getSdkVersionForPlatform(Platform.WATCHOS_SIMULATOR).toString())
+        .put(SDK_DIR_KEY, AppleToolchain.sdkDir())
+        .put(SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
+        .put(
+            PLATFORM_DEVELOPER_FRAMEWORK_DIR,
+            AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
         .build();
   }
 }

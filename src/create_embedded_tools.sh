@@ -27,6 +27,14 @@ mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
+
+  # xcrunwrapper should come from src/tools/xcode/.  Exclude an
+  # xcrunwrapper in tools/objc to avoid conflict.
+  if  [[ $i == "tools/objc/xcrunwrapper.sh" ]]
+  then
+    continue
+  fi
+
   case "$i" in
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
     *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
