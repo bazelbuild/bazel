@@ -1201,10 +1201,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
     for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
-      getCyclesReporter().reportCycles(
-          entry.getValue().getCycleInfo(),
-          entry.getKey(),
-          eventHandler);
+      reportCycles(eventHandler, entry.getValue().getCycleInfo(), entry.getKey());
     }
 
     ImmutableMap.Builder<Dependency, ConfiguredTarget> cts = ImmutableMap.builder();
@@ -1274,6 +1271,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     EvaluationResult<SkyValue> fragmentsResult = evaluateSkyKeys(
         eventHandler, transitiveFragmentSkyKeys, /*keepGoing=*/true);
+    for (Map.Entry<SkyKey, ErrorInfo> entry : fragmentsResult.errorMap().entrySet()) {
+      reportCycles(eventHandler, entry.getValue().getCycleInfo(), entry.getKey());
+    }
     for (Dependency key : keys) {
       if (!depsToEvaluate.contains(key)) {
         // No fragments to compute here.

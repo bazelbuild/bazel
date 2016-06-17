@@ -478,7 +478,15 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("and referenced by '//foo:bad'");
     assertContainsEvent("in sh_library rule //foo");
     assertContainsEvent("cycle in dependency graph");
-    assertEventCount(3, eventCollector);
+    // Dynamic configurations trigger this error both in configuration trimming (which visits
+    // the transitive target closure) and in the normal configured target cycle detection path.
+    // So we get an additional instance of this check (which varies depending on whether Skyframe
+    // loading phase is enabled).
+    // TODO(gregce): refactor away this variation. Note that the duplicate doesn't make it into
+    // real user output (it only affects tests).
+    if (!getTargetConfiguration().useDynamicConfigurations()) {
+      assertEventCount(3, eventCollector);
+    }
   }
 
   @Test
