@@ -599,6 +599,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkTextMessage("struct(name='a\"b').to_proto()", "name: \"a\\\"b\"");
     checkTextMessage("struct(name='a\\'b').to_proto()", "name: \"a'b\"");
     checkTextMessage("struct(name='a\\nb').to_proto()", "name: \"a\\nb\"");
+
+    // struct(name="a\\\"b") -> name: "a\\\"b"
+    checkTextMessage("struct(name='a\\\\\\\"b').to_proto()", "name: \"a\\\\\\\"b\"");
   }
 
   @Test
