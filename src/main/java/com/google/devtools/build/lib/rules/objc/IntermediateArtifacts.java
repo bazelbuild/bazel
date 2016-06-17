@@ -149,11 +149,19 @@ public final class IntermediateArtifacts {
   }
 
   /**
-   * The .objlist file, which contains a list of paths of object files to archive  and is read by
-   * libtool in the archive action.
+   * The .objlist file, which contains a list of paths of object files to archive and is read by
+   * clang (via -filelist flag) in the link action (for binary creation).
    */
-  public Artifact objList() {
-    return appendExtension(".objlist");
+  public Artifact linkerObjList() {
+    return appendExtension("-linker.objlist");
+  }
+
+  /**
+   * The .objlist file, which contains a list of paths of object files to archive  and is read by
+   * libtool (via -filelist flag) in the archive action.
+   */
+  public Artifact archiveObjList() {
+    return appendExtension("-archive.objlist");
   }
 
   /**
