@@ -79,7 +79,8 @@ cc_library(
     ],
 )
 
-# See package group "//frobber:friends" (below) for who can access this rule.
+# See package group "//frobber:friends" (below) for who can
+# access this rule.
 cc_library(
     name = thingy,
     visibility = ["//frobber:friends"],
@@ -89,9 +90,11 @@ cc_library(
 File <code>//frobber/BUILD</code>:
 </p>
 <pre class="code">
-# This is the package group declaration to which rule //frobber/bin:thingy refers.
+# This is the package group declaration to which rule
+# //frobber/bin:thingy refers.
 #
-# Our friends are packages //frobber, //fribber and any subpackage of //fribber.
+# Our friends are packages //frobber, //fribber and any
+# subpackage of //fribber.
 package_group(
     name = "friends",
     packages = [
