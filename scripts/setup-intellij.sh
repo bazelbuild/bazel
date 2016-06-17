@@ -149,14 +149,14 @@ cat >> $iml_file <<'EOF'
     <orderEntry type="inheritedJdk" />
 EOF
 
+for path_pair in ${GENERATED_PATHS}; do
+  write_jar_entry ${path_pair//:/ }
+done
+
 for jar in ${THIRD_PARTY_JAR_PATHS}; do
   if [[ jar != "$javac_jar" ]]; then
     write_jar_entry $jar
   fi
-done
-
-for path_pair in ${GENERATED_PATHS}; do
-  write_jar_entry ${path_pair//:/ }
 done
 
 write_jar_entry "bazel-bin/src/main/protobuf"

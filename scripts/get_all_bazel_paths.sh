@@ -21,7 +21,7 @@ cd $(dirname "$0")
 cd ..
 
 function query() {
-    ./output/bazel query --keep_going "$@"
+    ./output/bazel query --keep_going -- "$@"
 }
 
 # Compile bazel
@@ -83,10 +83,11 @@ function get_containing_library() {
 
 function collect_generated_paths() {
   # uniq to avoid doing blaze query on duplicates.
-  for path in $(find bazel-genfiles/ -name "*.java" | sed 's|/\{0,1\}bazel-genfiles/\{1,2\}|//|' | uniq); do
-    source_path=$(echo ${path} | sed 's|//|bazel-genfiles/|' | sed 's|/com/.*$||')
-    echo "$(get_containing_library ${path}):${source_path}"
-  done | sort -u
+  (find -L bazel-bin -name '*_srcjar.srcjar' | sed 's/_srcjar.srcjar$/.jar/';
+   for path in $(find bazel-genfiles/ -name "*.java" | sed 's|/\{0,1\}bazel-genfiles/\{1,2\}|//|' | uniq); do
+     source_path=$(echo ${path} | sed 's|//|bazel-genfiles/|' | sed 's|/com/.*$||')
+     echo "$(get_containing_library ${path}):${source_path}"
+   done) | sort -u
 }
 
 # GENERATED_PATHS stores pairs of jar:source_path as a list of strings, with
