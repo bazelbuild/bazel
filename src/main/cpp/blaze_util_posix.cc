@@ -17,6 +17,8 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
