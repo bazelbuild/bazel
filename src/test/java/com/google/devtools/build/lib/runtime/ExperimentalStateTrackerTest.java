@@ -20,8 +20,10 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -123,7 +125,6 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertTrue(
         "Action message '" + message + "' should be present in short output: " + output,
         output.contains(message));
-
   }
 
   @Test
@@ -373,6 +374,33 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         output.contains("foo.jar (42 source files)"));
   }
 
+  @Test
+  public void testActionStrategyVisible() throws Exception {
+    // verify that, if a strategy was reported for a shown action, it is visible
+    // in the progress bar.
+    String strategy = "verySpecialStrategy";
+    String primaryOutput = "some/path/to/a/file";
+
+    ManualClock clock = new ManualClock();
+    Path path = outputBase.getRelative(new PathFragment(primaryOutput));
+    Artifact artifact = new Artifact(path, Root.asSourceRoot(path));
+    ActionExecutionMetadata actionMetadata = Mockito.mock(ActionExecutionMetadata.class);
+    when(actionMetadata.getPrimaryOutput()).thenReturn(artifact);
+
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    stateTracker.actionStarted(
+        new ActionStartedEvent(mockAction("Some random action", primaryOutput), clock.nanoTime()));
+    stateTracker.actionStatusMessage(ActionStatusMessage.runningStrategy(actionMetadata, strategy));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Output should mention strategy '" + strategy + "', but was: " + output,
+        output.contains(strategy));
+  }
+
   private void doTestOutputLength(boolean withTest, int actions) throws Exception {
     // If we target 70 characters, then there should be enough space to both,
     // keep the line limit, and show the local part of the running actions and
@@ -387,8 +415,9 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         "Building //src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar",
         "//src/some/very/long/path/long/long/long/long/long/long/long/baz:bazbuild");
 
-    Label bartestLabel = Label.parseAbsolute(
-        "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest");
+    Label bartestLabel =
+        Label.parseAbsolute(
+            "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest");
     ConfiguredTarget bartestTarget = Mockito.mock(ConfiguredTarget.class);
     when(bartestTarget.getLabel()).thenReturn(bartestLabel);
 

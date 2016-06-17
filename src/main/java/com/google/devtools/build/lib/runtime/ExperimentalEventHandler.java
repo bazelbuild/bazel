@@ -17,6 +17,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -274,6 +275,12 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Subscribe
   public void actionStarted(ActionStartedEvent event) {
     stateTracker.actionStarted(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void actionStatusMessage(ActionStatusMessage event) {
+    stateTracker.actionStatusMessage(event);
     refresh();
   }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
@@ -67,7 +68,7 @@ class ExperimentalStateTracker {
   private final Deque<String> runningActions;
   private final Map<String, Action> actions;
   private final Map<String, Long> actionNanoStartTimes;
-
+  private final Map<String, String> actionStrategy;
 
   // For each test, the list of actions (again identified by the path of the
   // primary output) currently running for that test (identified by its label),
@@ -89,6 +90,7 @@ class ExperimentalStateTracker {
     this.runningActions = new ArrayDeque<>();
     this.actions = new TreeMap<>();
     this.actionNanoStartTimes = new TreeMap<>();
+    this.actionStrategy = new TreeMap<>();
     this.testActions = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
@@ -157,6 +159,16 @@ class ExperimentalStateTracker {
     }
   }
 
+  void actionStatusMessage(ActionStatusMessage event) {
+    String strategy = event.getStrategy();
+    if (strategy != null) {
+      String name = event.getActionMetadata().getPrimaryOutput().getPath().getPathString();
+      synchronized (this) {
+        actionStrategy.put(name, strategy);
+      }
+    }
+  }
+
   synchronized void actionCompletion(ActionCompletionEvent event) {
     actionsCompleted++;
     Action action = event.getAction();
@@ -164,6 +176,7 @@ class ExperimentalStateTracker {
     runningActions.remove(name);
     actions.remove(name);
     actionNanoStartTimes.remove(name);
+    actionStrategy.remove(name);
 
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();
@@ -283,8 +296,15 @@ class ExperimentalStateTracker {
     String postfix = "";
     long nanoRuntime = nanoTime - actionNanoStartTimes.get(name);
     long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
-    if (runtimeSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
-      postfix = " " + runtimeSeconds + "s";
+    String strategy = actionStrategy.get(name);
+    // To keep the UI appearance more stable, always show the elapsed
+    // time if we also show a strategy (otherwise the strategy will jump in
+    // the progress bar).
+    if (strategy != null || runtimeSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      postfix = "; " + runtimeSeconds + "s";
+    }
+    if (strategy != null) {
+      postfix += " " + strategy;
     }
 
     String message = action.getProgressMessage();
@@ -377,7 +397,6 @@ class ExperimentalStateTracker {
       failedTests++;
     }
   }
-
 
   /***
    * Predicate indicating whether the contents of the progress bar can change, if the
