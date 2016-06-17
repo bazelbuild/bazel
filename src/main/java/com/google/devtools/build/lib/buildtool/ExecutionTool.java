@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -122,7 +121,6 @@ import java.util.logging.Logger;
  * @see BuildView
  */
 public class ExecutionTool {
-
   private static class StrategyConverter {
     private Table<Class<? extends ActionContext>, String, ActionContext> classMap =
         HashBasedTable.create();
@@ -335,9 +333,9 @@ public class ExecutionTool {
    * creation
    */
   void executeBuild(UUID buildId, AnalysisResult analysisResult,
-                    BuildResult buildResult,
-                    BuildConfigurationCollection configurations,
-                    Map<PackageIdentifier, Path> packageRoots)
+      BuildResult buildResult,
+      BuildConfigurationCollection configurations,
+      ImmutableMap<PathFragment, Path> packageRoots)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(packageRoots);
@@ -497,7 +495,8 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(Map<PackageIdentifier, Path> packageRoots) throws ExecutorInitException {
+  private void prepare(ImmutableMap<PathFragment, Path> packageRoots)
+      throws ExecutorInitException {
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
@@ -516,12 +515,12 @@ public class ExecutionTool {
     }
   }
 
-  private void plantSymlinkForest(Map<PackageIdentifier, Path> packageRoots)
+  private void plantSymlinkForest(ImmutableMap<PathFragment, Path> packageRoots)
       throws ExecutorInitException {
     try {
-      SymlinkForest forest = new SymlinkForest(
-          packageRoots, getExecRoot(), runtime.getProductName());
-      forest.plantLinkForest();
+      FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
+          new String[] { ".", "_", runtime.getProductName() + "-"});
+      FileSystemUtils.plantLinkForest(packageRoots, getExecRoot(), runtime.getProductName());
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
     }

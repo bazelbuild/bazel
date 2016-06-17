@@ -80,8 +80,8 @@ genrule(
    name = "tooldir",
    srcs = [],
    outs = ["tooldir.txt"],
-   cmd = "ls -l ../bazel_tools/tools/genrule | tee $@ >&2; " +
-       "cat ../bazel_tools/tools/genrule/genrule-setup.sh >&2",
+   cmd = "ls -l external/bazel_tools/tools/genrule | tee $@ >&2; " +
+       "cat external/bazel_tools/tools/genrule/genrule-setup.sh >&2",
 )
 
 genrule(

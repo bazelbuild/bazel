@@ -716,7 +716,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
     String buildFilePathString = packageName + "/BUILD";
-    if (packageName.equals(Label.EXTERNAL_PACKAGE_NAME.getPathString())) {
+    if (packageName.equals(Label.EXTERNAL_PATH_PREFIX)) {
       buildFilePathString = "WORKSPACE";
       scratch.overwriteFile(buildFilePathString, lines);
     } else {

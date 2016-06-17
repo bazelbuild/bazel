@@ -262,7 +262,7 @@ public abstract class RepositoryFunction {
 
   /**
    * Uses a remote repository name to fetch the corresponding Rule describing how to get it.
-   *
+   * 
    * This should be the unique entry point for resolving a remote repository function.
    */
   @Nullable
@@ -352,7 +352,9 @@ public abstract class RepositoryFunction {
   }
 
   public static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories.getOutputBase().getRelative(Label.EXTERNAL_PACKAGE_NAME);
+    return directories
+        .getOutputBase()
+        .getRelative(Label.EXTERNAL_PATH_PREFIX);
   }
 
   /**

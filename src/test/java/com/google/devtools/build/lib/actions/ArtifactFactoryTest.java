@@ -150,26 +150,25 @@ public class ArtifactFactoryTest {
   }
 
   @Test
-  public void testResolveArtifactWithUpLevel() throws Exception {
+  public void testResolveArtifactWithUpLevelFailsCleanly() throws Exception {
     // We need a package in the root directory to make every exec path (even one with up-level
     // references) be in a package.
     Map<PackageIdentifier, Root> packageRoots = ImmutableMap.of(
-        PackageIdentifier.create("@workspace", new PathFragment("")), clientRoot,
-        PackageIdentifier.create("@repo", new PathFragment("dir")), clientRoot);
+        PackageIdentifier.createInMainRepo(new PathFragment("")), clientRoot);
     artifactFactory.setPackageRoots(packageRoots);
-    PathFragment topLevel = new PathFragment("../workspace/foo");
-    PathFragment subdir = new PathFragment("../repo/dir/foo");
-    Artifact topLevelArtifact = artifactFactory.resolveSourceArtifact(topLevel);
-    assertThat(topLevelArtifact).isNotNull();
-    Artifact subdirArtifact = artifactFactory.resolveSourceArtifact(subdir);
-    assertThat(subdirArtifact).isNotNull();
+    PathFragment outsideWorkspace = new PathFragment("../foo");
+    PathFragment insideWorkspace =
+        new PathFragment("../" + clientRoot.getPath().getBaseName() + "/foo");
+    assertNull(artifactFactory.resolveSourceArtifact(outsideWorkspace));
+    assertNull("Up-level-containing paths that descend into the right workspace aren't allowed",
+            artifactFactory.resolveSourceArtifact(insideWorkspace));
     MockPackageRootResolver packageRootResolver = new MockPackageRootResolver();
     packageRootResolver.setPackageRoots(packageRoots);
     Map<PathFragment, Artifact> result = new HashMap<>();
-    result.put(topLevel, topLevelArtifact);
-    result.put(subdir, subdirArtifact);
+    result.put(insideWorkspace, null);
+    result.put(outsideWorkspace, null);
     assertThat(
-        artifactFactory.resolveSourceArtifacts(ImmutableList.of(topLevel, subdir),
+        artifactFactory.resolveSourceArtifacts(ImmutableList.of(insideWorkspace, outsideWorkspace),
             packageRootResolver).entrySet()).containsExactlyElementsIn(result.entrySet());
   }
 

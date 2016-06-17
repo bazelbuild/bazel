@@ -294,8 +294,8 @@ genrule(
 EOF
 
   bazel build @r//package:hi >$TEST_log 2>&1 || fail "Should build"
-  expect_log bazel-out/local-fastbuild/r/package/a/b
-  expect_log bazel-out/local-fastbuild/r/package/c/d
+  expect_log bazel-genfiles/external/r/package/a/b
+  expect_log bazel-genfiles/external/r/package/c/d
 }
 
 function test_python_with_workspace_name() {

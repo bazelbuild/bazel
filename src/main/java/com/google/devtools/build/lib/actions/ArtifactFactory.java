@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -201,8 +200,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
 
   private void validatePath(PathFragment rootRelativePath, Root root) {
     Preconditions.checkArgument(!rootRelativePath.isAbsolute(), rootRelativePath);
-    Preconditions.checkArgument(
-        root.getWorkspaceDirectory().getRelative(rootRelativePath).normalize().isNormalized());
+    Preconditions.checkArgument(rootRelativePath.isNormalized(), rootRelativePath);
     Preconditions.checkArgument(root.getPath().startsWith(execRoot), "%s %s", root, execRoot);
     Preconditions.checkArgument(!root.getPath().equals(execRoot), "%s %s", root, execRoot);
     // TODO(bazel-team): this should only accept roots from derivedRoots.
@@ -316,9 +314,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     PathFragment execPath =
         baseExecPath == null ? relativePath : baseExecPath.getRelative(relativePath);
     execPath = execPath.normalize();
-    if (execPath.containsUplevelReferences()
-        && (execPath.segmentCount() >= 2
-        && !execPath.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX)))) {
+    if (execPath.containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
       return null;
     }
@@ -379,9 +375,8 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
 
     for (PathFragment execPath : execPaths) {
       PathFragment execPathNormalized = execPath.normalize();
-      if (execPathNormalized.subFragment(1, execPathNormalized.segmentCount())
-          .containsUplevelReferences()) {
-        // Source exec paths cannot escape the execution root.
+      if (execPathNormalized.containsUplevelReferences()) {
+        // Source exec paths cannot escape the source root.
         result.put(execPath, null);
         continue;
       }

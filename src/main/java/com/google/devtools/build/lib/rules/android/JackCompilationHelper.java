@@ -432,11 +432,11 @@ public final class JackCompilationHelper {
    */
   private Artifact postprocessPartialJackAndAddResources(
       Artifact partialJackLibrary, Artifact resources) {
-    PathFragment partialPath = new PathFragment(
-        partialJackLibrary.getRootRelativePath().getPathString()
-            .replace(PARTIAL_JACK_DIRECTORY, JACK_DIRECTORY));
-    Artifact result = ruleContext.getDerivedArtifact(
-        partialPath, ruleContext.getBinOrGenfilesDirectory());
+    Artifact result = ruleContext.getUniqueDirectoryArtifact(
+        JACK_DIRECTORY,
+        partialJackLibrary.getRootRelativePath().relativeTo(
+            ruleContext.getUniqueDirectory(PARTIAL_JACK_DIRECTORY)),
+        ruleContext.getBinOrGenfilesDirectory());
     CustomCommandLine.Builder builder =
         CustomCommandLine.builder()
             // Have jack double-check its behavior and crash rather than producing invalid output

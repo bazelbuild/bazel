@@ -46,13 +46,12 @@ import javax.annotation.Nullable;
 /**
  * An Artifact represents a file used by the build system, whether it's a source
  * file or a derived (output) file. Not all Artifacts have a corresponding
- * FileTarget object in the <code>build.lib.packages</code> API: for example,
+ * FileTarget object in the <code>build.packages</code> API: for example,
  * low-level intermediaries internal to a given rule, such as a Java class files
  * or C++ object files. However all FileTargets have a corresponding Artifact.
  *
- * <p>In any given call to
- * {@link com.google.devtools.build.lib.skyframe.SkyframeExecutor#buildArtifacts}, no two Artifacts
- * in the action graph may refer to the same path.
+ * <p>In any given call to Builder#buildArtifacts(), no two Artifacts in the
+ * action graph may refer to the same path.
  *
  * <p>Artifacts generally fall into two classifications, source and derived, but
  * there exist a few other cases that are fuzzy and difficult to classify. The
@@ -155,64 +154,6 @@ public class Artifact
   private final PathFragment rootRelativePath;
   private final ArtifactOwner owner;
 
-  private static boolean pathEndsWith(PathFragment path, PathFragment suffix) {
-    if (suffix.isNormalized()) {
-      return path.endsWith(suffix);
-    }
-
-    for (int suffixIndex = suffix.segmentCount() - 1, pathIndex = path.segmentCount() - 1;
-         suffixIndex >= 0; suffixIndex--) {
-      if (suffix.getSegment(suffixIndex).equals("..")) {
-        if (suffixIndex > 0) {
-          // The path foo/bar/../baz matches the suffix foo/baz.
-          suffixIndex--;
-          continue;
-        } else {
-          // The path repo/foo matches the suffix ../repo/foo.
-          return true;
-        }
-      }
-      if (pathIndex < 0 || !path.getSegment(pathIndex).equals(suffix.getSegment(suffixIndex))) {
-        return false;
-      }
-      pathIndex--;
-    }
-
-    return true;
-  }
-
-  // Like startsWith, but allows prefix to match the path.getParentDirectory() instead of just
-  // path (so that bazel-out/config/repo/foo "starts with" bazel-out/config/bin).
-  private static boolean pathMostlyStartsWith(Path path, Path prefix) {
-    return path.startsWith(prefix) || path.startsWith(prefix.getParentDirectory());
-  }
-
-  private static PathFragment getRelativePath(PathFragment path, PathFragment ancestorDirectory) {
-    if (path.startsWith(ancestorDirectory)) {
-      // Local path.
-      return path.relativeTo(ancestorDirectory);
-    }
-
-    // External repository.
-    int ancestorLength = ancestorDirectory.segmentCount();
-
-    PathFragment builder = PathFragment.EMPTY_FRAGMENT;
-    int diffIndex = -1;
-    for (int i = 0; i < ancestorLength; i++) {
-      if (diffIndex == -1 && i < path.segmentCount()
-          && ancestorDirectory.getSegment(i).equals(path.getSegment(i))) {
-        continue;
-      }
-      diffIndex = i;
-      builder = builder.getRelative("..");
-    }
-    int tailIndex = diffIndex == -1 ? ancestorLength : diffIndex;
-    for (int i = tailIndex; i < path.segmentCount(); i++) {
-      builder = builder.getRelative(path.getSegment(i));
-    }
-    return builder;
-  }
-
   /**
    * Constructs an artifact for the specified path, root and execPath. The root must be an ancestor
    * of path, and execPath must be a non-absolute tail of path. Outside of testing, this method
@@ -225,18 +166,18 @@ public class Artifact
    * </pre>
    *
    * <p>In a derived Artifact, the execPath will overlap with part of the root, which in turn will
-   * be below the execRoot.
+   * be below of the execRoot.
    * <pre>
    *  [path] == [/root][pathTail] == [/execRoot][execPath] == [/execRoot][rootPrefix][pathTail]
    * <pre>
    */
   @VisibleForTesting
   public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
-    if (root == null || !pathMostlyStartsWith(path, root.getPath())) {
+    if (root == null || !path.startsWith(root.getPath())) {
       throw new IllegalArgumentException(root + ": illegal root for " + path
           + " (execPath: " + execPath + ")");
     }
-    if (execPath == null || execPath.isAbsolute() || !pathEndsWith(path.asFragment(), execPath)) {
+    if (execPath == null || execPath.isAbsolute() || !path.asFragment().endsWith(execPath)) {
       throw new IllegalArgumentException(execPath + ": illegal execPath for " + path
           + " (root: " + root + ")");
     }
@@ -247,14 +188,12 @@ public class Artifact
     // These two lines establish the invariant that
     // execPath == rootRelativePath <=> execPath.equals(rootRelativePath)
     // This is important for isSourceArtifact.
-    PathFragment rootRel = getRelativePath(path.asFragment(), root.getPath().asFragment());
-    if (!pathEndsWith(execPath, rootRel)) {
+    PathFragment rootRel = path.relativeTo(root.getPath());
+    if (!execPath.endsWith(rootRel)) {
       throw new IllegalArgumentException(execPath + ": illegal execPath doesn't end with "
           + rootRel + " at " + path + " with root " + root);
     }
-
-    this.rootRelativePath = root.getPath().getRelative(rootRel).asFragment().normalize().equals(
-        root.getPath().getRelative(execPath).asFragment().normalize()) ? execPath : rootRel;
+    this.rootRelativePath = rootRel.equals(execPath) ? execPath : rootRel;
     this.owner = Preconditions.checkNotNull(owner, path);
   }
 
@@ -559,10 +498,16 @@ public class Artifact
   /**
    * For targets in external repositories, this returns the path the artifact live at in the
    * runfiles tree. For local targets, it returns the rootRelativePath.
-   * TODO(kchodorow): remove.
    */
   public final PathFragment getRunfilesPath() {
-    return getRootRelativePath();
+    PathFragment relativePath = rootRelativePath;
+    if (relativePath.segmentCount() > 1
+        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
+      // Turn external/repo/foo into ../repo/foo.
+      relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      relativePath = new PathFragment("..").getRelative(relativePath);
+    }
+    return relativePath;
   }
 
   @SkylarkCallable(

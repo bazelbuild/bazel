@@ -39,7 +39,8 @@ public class PackageIdentifierTest {
     PackageIdentifier fooA = PackageIdentifier.parse("@foo//a");
     assertThat(fooA.getRepository().strippedName()).isEqualTo("foo");
     assertThat(fooA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(fooA.getRepository().getPathFragment()).isEqualTo(new PathFragment("../foo"));
+    assertThat(fooA.getRepository().getPathFragment()).isEqualTo(
+        new PathFragment("external/foo"));
 
     PackageIdentifier absoluteA = PackageIdentifier.parse("//a");
     assertThat(absoluteA.getRepository().strippedName()).isEqualTo("");

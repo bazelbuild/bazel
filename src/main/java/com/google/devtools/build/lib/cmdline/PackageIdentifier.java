@@ -48,17 +48,14 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return INTERNER.intern(new PackageIdentifier(repository, pkgName));
   }
 
-  static final String DEFAULT_REPOSITORY = "";
-  public static final RepositoryName MAIN_REPOSITORY_NAME;
+  public static final String DEFAULT_REPOSITORY = "";
   public static final RepositoryName DEFAULT_REPOSITORY_NAME;
-  public static final PackageIdentifier EMPTY_PACKAGE_IDENTIFIER;
+  public static final RepositoryName MAIN_REPOSITORY_NAME;
 
   static {
     try {
       DEFAULT_REPOSITORY_NAME = RepositoryName.create(DEFAULT_REPOSITORY);
       MAIN_REPOSITORY_NAME = RepositoryName.create("@");
-      EMPTY_PACKAGE_IDENTIFIER =
-          PackageIdentifier.create(MAIN_REPOSITORY_NAME, PathFragment.EMPTY_FRAGMENT);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }

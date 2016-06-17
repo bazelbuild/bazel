@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -111,11 +110,8 @@ public class PathPackageLocator implements Serializable {
       // $OUTPUT_BASE/external, which is created by the appropriate RepositoryDirectoryValue. This
       // is true for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()
       // invocation in Parser#include().
-      Path buildFile = outputBase
-          .getRelative(Label.EXTERNAL_PACKAGE_NAME)
-          .getRelative(packageIdentifier.getRepository().strippedName())
-          .getRelative(packageIdentifier.getPackageFragment())
-          .getRelative("BUILD");
+      Path buildFile = outputBase.getRelative(
+          packageIdentifier.getPathFragment()).getRelative("BUILD");
       FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
       if (stat != null && stat.isFile()) {
         return buildFile;

@@ -745,7 +745,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "test",
         "bad_relative_include",
-        "../.. references a path above the execution root (..).",
+        "Path references a path above the execution root.",
         "cc_library(name='bad_relative_include', srcs=[], includes=['../..'])");
   }
 
