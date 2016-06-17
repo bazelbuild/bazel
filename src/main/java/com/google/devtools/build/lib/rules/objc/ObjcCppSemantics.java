@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAM
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
@@ -80,10 +79,5 @@ public class ObjcCppSemantics implements CppSemantics {
   @Override
   public boolean needsIncludeScanning(RuleContext ruleContext) {
     return false;
-  }
-
-  @Override
-  public Root getGreppedIncludesDirectory(RuleContext ruleContext) {
-    return null;
   }
 }
