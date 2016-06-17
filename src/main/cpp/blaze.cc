@@ -972,8 +972,8 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
   fclose(fp);
 }
 
-// After connecting to the Blaze server, initialize server_pid. Return -1 if
-// there was an error.
+// After connecting to the Blaze server, return its PID, or -1 if there was an
+// error.
 static int GetServerPid(const string &server_dir) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
