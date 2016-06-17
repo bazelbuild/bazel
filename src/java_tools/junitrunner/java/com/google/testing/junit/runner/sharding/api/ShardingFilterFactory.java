@@ -24,7 +24,6 @@ import java.util.Collection;
  * no-argument constructor.
  */
 public interface ShardingFilterFactory {
-
   /**
    * Creates a test sharding filter.
    *  

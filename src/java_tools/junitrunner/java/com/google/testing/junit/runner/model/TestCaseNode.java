@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Multiset;
 import com.google.testing.junit.runner.model.TestResult.Status;
@@ -35,9 +33,11 @@ import org.joda.time.Interval;
 import org.junit.runner.Description;
 
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.annotation.Nullable;
@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
  */
 class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   private final TestSuiteNode parent;
-  private final Map<String, String> properties = Maps.newConcurrentMap();
+  private final Map<String, String> properties = new ConcurrentHashMap<>();
   private final Multiset<String> repeatedPropertyNames = ConcurrentHashMultiset.create();
   private final Queue<Throwable> globalFailures = new ConcurrentLinkedQueue<>();
   private final ListMultimap<Description, Throwable> dynamicTestToFailures =
@@ -177,7 +177,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
 
     // For now, we give each dynamic test an empty properties map and the same
     // run time and status as its parent test case, but this may change.
-    List<TestResult> childResults = Lists.newLinkedList();
+    List<TestResult> childResults = new LinkedList<>();
     for (Description dynamicTest : getDescription().getChildren()) {
       childResults.add(buildDynamicResult(dynamicTest, getRuntime(), getTestResultStatus()));
     }

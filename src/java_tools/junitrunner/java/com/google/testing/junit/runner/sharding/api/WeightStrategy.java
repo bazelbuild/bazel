@@ -20,7 +20,6 @@ import org.junit.runner.Description;
  * Extracts the weight associated with a test for use by sharding filters.
  */
 public interface WeightStrategy {
-  
   /**
    * Returns the weight of a test extracted from its description.
    * 

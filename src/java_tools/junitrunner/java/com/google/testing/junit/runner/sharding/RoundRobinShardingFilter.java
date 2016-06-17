@@ -16,15 +16,15 @@ package com.google.testing.junit.runner.sharding;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +40,6 @@ import java.util.Map;
  * sharding, but are done so that this filter can be compared in tests.
  */
 public final class RoundRobinShardingFilter extends Filter {
-
   @VisibleForTesting
   final Map<Description, Integer> testToShardMap;
   @VisibleForTesting
@@ -63,11 +62,11 @@ public final class RoundRobinShardingFilter extends Filter {
    */
   private static Map<Description, Integer> buildTestToShardMap(
       Collection<Description> testDescriptions) {
-    Map<Description, Integer> map = Maps.newHashMap();
+    Map<Description, Integer> map = new HashMap<>();
 
     // Sorting this list is incredibly important to correctness. Otherwise,
     // "shuffled" suites would break the sharding protocol.
-    List<Description> sortedDescriptions = Lists.newArrayList(testDescriptions);
+    List<Description> sortedDescriptions = new ArrayList<>(testDescriptions);
     Collections.sort(sortedDescriptions, new DescriptionComparator());
 
     // If we get two descriptions that are equal, the shard number for the second
@@ -110,5 +109,4 @@ public final class RoundRobinShardingFilter extends Filter {
       return d1.getDisplayName().compareTo(d2.getDisplayName());
     }
   }
-
 }

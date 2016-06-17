@@ -23,7 +23,6 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//third_party:dagger",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
         "//third_party:junit4",

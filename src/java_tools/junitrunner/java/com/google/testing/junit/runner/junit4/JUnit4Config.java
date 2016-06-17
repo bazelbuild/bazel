@@ -15,7 +15,6 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
@@ -74,16 +73,11 @@ class JUnit4Config {
    */
   public Optional<Path> getXmlOutputPath() {
     if (!xmlOutputPath.isPresent()) {
-      Optional<String> envXmlOutputPath =
-          Optional.fromNullable(System.getenv(XML_OUTPUT_FILE_ENV_VAR));
-      return envXmlOutputPath.transform(new Function<String, Path>() {
-          @Override
-          public Path apply(String path) {
-            return FileSystems.getDefault().getPath(path);
-          }
-        });
+      String envXmlOutputPath = System.getenv(XML_OUTPUT_FILE_ENV_VAR);
+      return envXmlOutputPath == null
+          ? Optional.<Path>absent()
+          : Optional.of(FileSystems.getDefault().getPath(envXmlOutputPath));
     }
-
     return xmlOutputPath;
   }
 

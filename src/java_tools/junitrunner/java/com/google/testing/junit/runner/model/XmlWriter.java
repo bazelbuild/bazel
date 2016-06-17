@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import com.google.common.xml.XmlEscapers;
 
 import java.io.IOException;
@@ -27,6 +26,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -40,7 +40,7 @@ class XmlWriter {
   private final Writer writer;
   private boolean started;
   private boolean inElement;
-  private final List<String> elementStack = Lists.newArrayList();
+  private final List<String> elementStack = new ArrayList<>();
 
   /**
    * Creates an XML writer that writes to the given {@code OutputStream}.

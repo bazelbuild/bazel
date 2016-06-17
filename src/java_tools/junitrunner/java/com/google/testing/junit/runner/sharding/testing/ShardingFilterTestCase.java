@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 
 import junit.framework.TestCase;
@@ -29,13 +28,13 @@ import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
 import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
  * Common base class for all sharding filter tests.
  */
 public abstract class ShardingFilterTestCase extends TestCase {
-
   static final List<Description> TEST_DESCRIPTIONS = createGenericTestCaseDescriptions(6);
 
   /**
@@ -166,7 +165,7 @@ public abstract class ShardingFilterTestCase extends TestCase {
     if (descriptions.isEmpty()) {
       return ArrayListMultimap.create();
     }
-    Deque<Description> mutatingDescriptions = Lists.newLinkedList(descriptions);
+    Deque<Description> mutatingDescriptions = new LinkedList<>(descriptions);
     ListMultimap<Filter, Description> descriptionsRun = ArrayListMultimap.create();
 
     for (Filter filter : filters) {
