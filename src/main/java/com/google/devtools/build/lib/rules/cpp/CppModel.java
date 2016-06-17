@@ -382,7 +382,7 @@ public final class CppModel {
     buildVariables.addVariable("source_file", sourceFile.getExecPathString());
     buildVariables.addVariable("output_file", outputFile.getExecPathString());
 
-    if (fake) {
+    if (builder.getTempOutputFile() != null) {
       realOutputFilePath = builder.getTempOutputFile().getPathString();
     } else {
       realOutputFilePath = builder.getOutputFile().getExecPathString();
