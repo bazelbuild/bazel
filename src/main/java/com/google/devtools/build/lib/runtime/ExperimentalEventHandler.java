@@ -64,6 +64,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private final long minimalUpdateInterval;
   private final boolean showProgress;
   private long lastRefreshMillis;
+  private long mustRefreshAfterMillis;
   private int numLinesProgressBar;
   private boolean buildComplete;
   private boolean progressBarNeedsRefresh;
@@ -287,7 +288,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Subscribe
   public void actionCompletion(ActionCompletionEvent event) {
     stateTracker.actionCompletion(event);
-    refresh();
+    refreshSoon();
   }
 
   @Subscribe
@@ -351,7 +352,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
           LOG.warning("IO Error writing to output stream: " + e);
         }
       }
-      if (!stateTracker.progressBarTimeDependent()) {
+      if (!stateTracker.progressBarTimeDependent() && mustRefreshAfterMillis < lastRefreshMillis) {
         stopUpdateThread();
       }
     } else {
@@ -360,6 +361,18 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
       // timely manner, as it best describes the current state.
       startUpdateThread();
     }
+  }
+
+  private void refreshSoon() {
+    // Schedule an update of the progress bar in the near future, unless there is already
+    // a future update scheduled.
+    long nowMillis = clock.currentTimeMillis();
+    synchronized (this) {
+      if (mustRefreshAfterMillis <= lastRefreshMillis) {
+        mustRefreshAfterMillis = Math.max(nowMillis + minimalUpdateInterval, lastRefreshMillis + 1);
+      }
+    }
+    startUpdateThread();
   }
 
   /**
@@ -372,6 +385,13 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     }
     long nowMillis = clock.currentTimeMillis();
     long intervalMillis = cursorControl ? SHORT_REFRESH_MILLIS : LONG_REFRESH_MILLIS;
+    if (lastRefreshMillis < mustRefreshAfterMillis
+        && mustRefreshAfterMillis < nowMillis + minimalDelayMillis) {
+      // Within the a smal interval from now, an update is scheduled anyway,
+      // so don't do a time-based update of the progress bar now, to avoid
+      // updates too close to each other.
+      return false;
+    }
     return lastRefreshMillis + intervalMillis < nowMillis;
   }
 
@@ -394,6 +414,10 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
                     try {
                       while (true) {
                         Thread.sleep(minimalUpdateInterval);
+                        if (lastRefreshMillis < mustRefreshAfterMillis
+                            && mustRefreshAfterMillis < clock.currentTimeMillis()) {
+                          progressBarNeedsRefresh = true;
+                        }
                         eventHandler.doRefresh();
                       }
                     } catch (InterruptedException e) {
