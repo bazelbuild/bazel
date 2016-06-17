@@ -753,6 +753,16 @@ public class BuildView {
     return result.build();
   }
 
+  /**
+   * Trims a configuration to the fragments needed by the given target.
+   */
+  @VisibleForTesting
+  public BuildConfiguration trimConfigurationForTesting(Target target, BuildConfiguration config,
+      EventHandler eventHandler) throws InterruptedException {
+    return Iterables.getOnlyElement(trimConfigurations(
+        ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config)),
+        eventHandler)).getConfiguration();
+  }
 
   /**
    * Sets the possible artifact roots in the artifact factory. This allows the factory to resolve
