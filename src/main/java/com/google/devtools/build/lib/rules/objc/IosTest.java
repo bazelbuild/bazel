@@ -275,6 +275,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             .setResourceAttributes(new ResourceAttributes(ruleContext))
             .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+            .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
             .addDeps(ruleContext.getPrerequisites("bundles", Mode.TARGET))
             .addNonPropagatedDepObjcProviders(
                 ruleContext.getPrerequisites(

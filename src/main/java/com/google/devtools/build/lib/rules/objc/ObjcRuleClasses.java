@@ -724,6 +724,17 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
                   .allowedFileTypes())
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
+          The list of framework targets that are late loaded at runtime.  They are included in the
+          app bundle but not linked against at build time.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+         .add(
+             attr("runtime_deps", LABEL_LIST)
+                 .direct_compile_time_input()
+                 .allowedRuleClasses("objc_framework")
+                 // TODO(b/28637288): ios_framework is experimental and not fully implemented.
+                 .allowedRuleClassesWithWarning("ios_framework")
+                 .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_propagated_deps) -->
            The list of targets that are required in order to build this target,
            but which are not included in the final bundle.
@@ -936,7 +947,7 @@ public class ObjcRuleClasses {
 
           <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
           example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Blaze will
-          replicate Xcode's behavior and replace non-RFC1034-compliant characters with 
+          replicate Xcode's behavior and replace non-RFC1034-compliant characters with
           <code>-</code>.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("infoplists", BuildType.LABEL_LIST).allowedFileTypes(PLIST_TYPE))

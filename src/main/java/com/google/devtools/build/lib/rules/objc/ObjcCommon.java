@@ -134,8 +134,8 @@ public final class ObjcCommon {
   }
 
   static class Builder {
-    private RuleContext context;
-    private BuildConfiguration buildConfiguration;
+    private final RuleContext context;
+    private final BuildConfiguration buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
     private Optional<ResourceAttributes> resourceAttributes = Optional.absent();
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
@@ -146,6 +146,7 @@ public final class ObjcCommon {
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
+    private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
     private Iterable<PathFragment> directDependencyHeaderSearchPaths = ImmutableList.of();
@@ -260,6 +261,22 @@ public final class ObjcCommon {
       addDepObjcProviders(propagatedObjcDeps.build());
       this.depCcHeaderProviders = Iterables.concat(this.depCcHeaderProviders, cppDeps.build());
       this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, cppDepLinkParams.build());
+      return this;
+    }
+
+    /**
+     * Adds providers for runtime frameworks included in the final app bundle but not linked with
+     * at build time.
+     */
+    Builder addRuntimeDeps(List<? extends TransitiveInfoCollection> runtimeDeps) {
+      ImmutableList.Builder<ObjcProvider> propagatedDeps =
+          ImmutableList.<ObjcProvider>builder();
+
+      for (TransitiveInfoCollection dep : runtimeDeps) {
+        addAnyProviders(propagatedDeps, dep, ObjcProvider.class);
+      }
+      this.runtimeDepObjcProviders = Iterables.concat(
+          this.runtimeDepObjcProviders, propagatedDeps.build());
       return this;
     }
 
@@ -393,6 +410,14 @@ public final class ObjcCommon {
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders)
               .addTransitiveWithoutPropagating(directDepObjcProviders);
+
+      for (ObjcProvider provider : runtimeDepObjcProviders) {
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
+        // TODO(b/28637288): Remove STATIC_FRAMEWORK_FILE and MERGE_ZIP when they are
+        // no longer provided by ios_framework.
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
+      }
 
       for (CppCompilationContext headerProvider : depCcHeaderProviders) {
         objcProvider.addTransitiveAndPropagate(HEADER, headerProvider.getDeclaredIncludeSrcs());
