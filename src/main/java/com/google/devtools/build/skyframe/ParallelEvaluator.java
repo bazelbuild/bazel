@@ -61,6 +61,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -1875,8 +1876,8 @@ public final class ParallelEvaluator implements Evaluator {
   private List<ErrorInfo> getChildrenErrorsForCycle(Iterable<SkyKey> children) {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
-    for (SkyKey child : children) {
-      ErrorInfo errorInfo = getAndCheckDone(child).getErrorInfo();
+    for (NodeEntry childNode : getAndCheckDoneBatch(children).values()) {
+      ErrorInfo errorInfo = childNode.getErrorInfo();
       if (errorInfo != null) {
         foundCycle |= !Iterables.isEmpty(errorInfo.getCycleInfo());
         allErrors.add(errorInfo);
@@ -1895,8 +1896,11 @@ public final class ParallelEvaluator implements Evaluator {
    */
   private List<ErrorInfo> getChildrenErrors(Iterable<SkyKey> children, SkyKey unfinishedChild) {
     List<ErrorInfo> allErrors = new ArrayList<>();
-    for (SkyKey child : children) {
-      ErrorInfo errorInfo = getErrorMaybe(child, /*allowUnfinished=*/child.equals(unfinishedChild));
+    for (Entry<SkyKey, NodeEntry> childMapEntry : graph.getBatch(children).entrySet()) {
+      SkyKey childKey = childMapEntry.getKey();
+      NodeEntry childNodeEntry = childMapEntry.getValue();
+      ErrorInfo errorInfo = getErrorMaybe(childKey, childNodeEntry,
+          /*allowUnfinished=*/childKey.equals(unfinishedChild));
       if (errorInfo != null) {
         allErrors.add(errorInfo);
       }
@@ -1905,12 +1909,12 @@ public final class ParallelEvaluator implements Evaluator {
   }
 
   @Nullable
-  private ErrorInfo getErrorMaybe(SkyKey key, boolean allowUnfinished) {
+  private ErrorInfo getErrorMaybe(SkyKey key, NodeEntry childNodeEntry, boolean allowUnfinished) {
+    Preconditions.checkNotNull(childNodeEntry, key);
     if (!allowUnfinished) {
-      return getAndCheckDone(key).getErrorInfo();
+      return checkDone(key, childNodeEntry).getErrorInfo();
     }
-    NodeEntry entry = Preconditions.checkNotNull(graph.get(key), key);
-    return entry.isDone() ? entry.getErrorInfo() : null;
+    return childNodeEntry.isDone() ? childNodeEntry.getErrorInfo() : null;
   }
 
   /**
@@ -1980,10 +1984,21 @@ public final class ParallelEvaluator implements Evaluator {
   }
 
   private NodeEntry getAndCheckDone(SkyKey key) {
-    NodeEntry entry = graph.get(key);
+    return checkDone(key, graph.get(key));
+  }
+
+  private static NodeEntry checkDone(SkyKey key, NodeEntry entry) {
     Preconditions.checkNotNull(entry, key);
     Preconditions.checkState(entry.isDone(), "%s %s", key, entry);
     return entry;
+  }
+
+  private Map<SkyKey, NodeEntry> getAndCheckDoneBatch(Iterable<SkyKey> keys) {
+    Map<SkyKey, NodeEntry> nodes = graph.getBatch(keys);
+    for (Map.Entry<SkyKey, NodeEntry> nodeEntryMapEntry : nodes.entrySet()) {
+      checkDone(nodeEntryMapEntry.getKey(), nodeEntryMapEntry.getValue());
+    }
+    return nodes;
   }
 
   private static final SkyValue NULL_MARKER = new SkyValue() {};
