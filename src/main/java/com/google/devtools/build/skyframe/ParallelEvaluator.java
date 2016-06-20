@@ -919,6 +919,8 @@ public final class ParallelEvaluator implements Evaluator {
           // always the last dep).
           state.addTemporaryDirectDepsGroupToDirtyEntry(directDepsToCheck);
 
+          // TODO(bazel-team): If this signals the current node, consider falling through to the
+          // VERIFIED_CLEAN case below directly, without scheduling a new Evaluate().
           for (Map.Entry<SkyKey, NodeEntry> e
               : graph.createIfAbsentBatch(directDepsToCheck).entrySet()) {
             SkyKey directDep = e.getKey();
@@ -1780,6 +1782,7 @@ public final class ParallelEvaluator implements Evaluator {
         // Found a cycle!
         cyclesFound++;
         Iterable<SkyKey> cycle = graphPath.subList(cycleStart, graphPath.size());
+        LOG.info("Found cycle : " + cycle + " from " + graphPath);
         // Put this node into a consistent state for building if it is dirty.
         if (entry.isDirty() && entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
           // In the check deps state, entry has exactly one child not done yet. Note that this node
@@ -1833,8 +1836,16 @@ public final class ParallelEvaluator implements Evaluator {
       if (Iterables.isEmpty(children)) {
         continue;
       }
-      // Prefetch all children, in case our graph performs better with a primed cache.
-      graph.getBatch(children);
+      // Prefetch all children, in case our graph performs better with a primed cache. No need to
+      // recurse into done nodes.
+      Map<SkyKey, NodeEntry> childrenNodes = graph.getBatch(children);
+      Preconditions.checkState(childrenNodes.size() == Iterables.size(children), childrenNodes);
+      children = Maps.filterValues(childrenNodes, new Predicate<NodeEntry>() {
+        @Override
+        public boolean apply(NodeEntry nodeEntry) {
+          return !nodeEntry.isDone();
+        }
+      }).keySet();
 
       // This marker flag will tell us when all this node's children have been processed.
       toVisit.push(CHILDREN_FINISHED);
