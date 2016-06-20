@@ -819,7 +819,7 @@ public final class Environment implements Freezable {
    */
   public static class NoSuchVariableException extends Exception {
     NoSuchVariableException(String variable) {
-      super("no such variable: " + variable);
+      super("no such variable: " + variable, null, false, false /* don't fillInStackTrace() */);
     }
   }
 
