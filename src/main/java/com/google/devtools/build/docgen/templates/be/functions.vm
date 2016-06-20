@@ -308,15 +308,20 @@ package_group(
 
 </p>
 
-<h3 id="licenses_example">Examples</h3>
-
-<p>The following example specifies a single license type of
-  <code>"notice"</code>.  Third-party software licenses that do not require
-  publishing of source code changes but require some sort of copyright or
-  other public notice are included in this license type.
-</p>
-
-<pre class="code">
+<p>Legal license types include:</p>
+<dl>
+<dt><code>restricted</code></dt><dd>Requires mandatory source distribution.</dd>
+<dt><code>reciprocal</code></dt><dd>Allows usage of software freely in
+<b>unmodified</b> form. Any modifications must be made freely available.</dd>
+<dt><code>notice</code></dt><dd>Original or modified third-party software may be
+shipped without danger nor encumbering other sources. All of the licenses in this
+category do, however, have an \"original Copyright notice\" or
+\"advertising clause\", wherein any external distributions must include the notice
+or clause specified in the license.</dd>
+<dt><code>permissive</code></dt><dd>Code that is under a license but does not
+require a notice.</dd>
+<dt><code>unencumbered</code></dt><dd>Public domain, free for any use.</dd>
+</dl>
 
 licenses(["notice"])  # MIT license
 
