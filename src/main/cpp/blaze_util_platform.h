@@ -118,6 +118,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode,
 void ReleaseLock(BlazeLock* blaze_lock);
 
 // Kills a server process based on its output base and PID.
+// This function can be called from a signal handler!
 void KillServerProcess(
     int pid, const string& output_base, const string& install_base);
 

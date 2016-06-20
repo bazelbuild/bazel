@@ -1466,19 +1466,15 @@ static void sigprintf(const char *format, ...) {
 
 // Signal handler.
 static void handler(int signum) {
-  // A defensive measure:
-  if (kill(globals->server_pid, 0) == -1 && errno == ESRCH) {
-    sigprintf("\n%s server has died; client exiting.\n\n",
-              globals->options.GetProductName().c_str());
-    _exit(1);
-  }
-
   switch (signum) {
     case SIGINT:
       if (++globals->sigint_count >= 3)  {
         sigprintf("\n%s caught third interrupt signal; killed.\n\n",
                   globals->options.GetProductName().c_str());
-        killpg(globals->server_pid, SIGKILL);
+        if (globals->server_pid != -1) {
+          KillServerProcess(globals->server_pid, globals->options.output_base,
+                            globals->options.install_base);
+        }
         _exit(1);
       }
       sigprintf("\n%s caught interrupt signal; shutting down.\n\n",

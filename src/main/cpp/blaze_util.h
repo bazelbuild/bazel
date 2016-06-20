@@ -49,11 +49,11 @@ string MakeAbsolute(const string &path);
 int MakeDirectories(const string &path, mode_t mode);
 
 // Replaces 'content' with contents of file 'filename'.
-// Returns false on error.
+// Returns false on error. Can be called from a signal handler.
 bool ReadFile(const string &filename, string *content);
 
 // Replaces 'content' with contents of file descriptor 'fd'.
-// Returns false on error.
+// Returns false on error. Can be called from a signal handler.
 bool ReadFileDescriptor(int fd, string *content);
 
 // Writes 'content' into file 'filename', and makes it executable.

@@ -176,7 +176,7 @@ int MakeDirectories(const string& path, mode_t mode) {
 }
 
 // Replaces 'contents' with contents of 'fd' file descriptor.
-// Returns false on error.
+// Returns false on error. Can be called from a signal handler.
 bool ReadFileDescriptor(int fd, string *content) {
   content->clear();
   char buf[4096];
@@ -193,7 +193,7 @@ bool ReadFileDescriptor(int fd, string *content) {
 }
 
 // Replaces 'content' with contents of file 'filename'.
-// Returns false on error.
+// Returns false on error. Can be called from a signal handler.
 bool ReadFile(const string &filename, string *content) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;

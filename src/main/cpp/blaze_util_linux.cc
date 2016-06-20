@@ -182,6 +182,7 @@ string GetDefaultHostJavabase() {
   return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
 }
 
+// Called from a signal handler!
 static bool GetStartTime(const string& pid, string* start_time) {
   string statfile = "/proc/" + pid + "/stat";
   string statline;
@@ -221,6 +222,9 @@ void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
 // On Linux we use a combination of PID and start time to identify the server
 // process. That is supposed to be unique unless one can start more processes
 // than there are PIDs available within a single jiffy.
+//
+// This looks complicated, but all it does is an open(), then read(), then
+// close(), all of which are safe to call from signal handlers.
 void KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
   string start_time;
