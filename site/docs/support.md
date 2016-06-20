@@ -1,5 +1,5 @@
 ---
-layout: community
+layout: documentation
 title: Support Policy
 ---
 
