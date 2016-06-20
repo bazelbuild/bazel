@@ -234,8 +234,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .setHasModuleMap()
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
-        || ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
       builder.addDebugArtifacts(DsymOutputType.APP);
     }
 

@@ -76,7 +76,7 @@ import javax.annotation.Nullable;
 /**
  * Support for released bundles, such as an application or extension. Such a bundle is generally
  * composed of a top-level {@link BundleSupport bundle}, potentially signed, as well as some debug
- * information, if {@link ObjcConfiguration#generateDebugSymbols() requested}.
+ * information, if {@link ObjcConfiguration#generateDsym() requested}.
  *
  * <p>Contains actions, validation logic and provider value generation.
  *
@@ -625,8 +625,7 @@ public final class ReleaseBundlingSupport {
       filesToBuild.add(linkmapFile);
     }
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
-        || ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
       filesToBuild.addAll(getDsymFiles(dsymOutputType).values());
 
       // TODO(bazel-team): Remove the 'if' when the objc_binary rule does not generate a bundle any
@@ -648,14 +647,6 @@ public final class ReleaseBundlingSupport {
       }
     }
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
-      filesToBuild.addAll(getBreakpadFiles().values());
-
-      if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
-        debugSymbolBuilder.add(intermediateArtifacts.breakpadSym());
-      }
-    }
-
     filesToBuild
         .add(releaseBundling.getIpaArtifact())
         .addTransitive(debugSymbolBuilder.build())
@@ -669,8 +660,7 @@ public final class ReleaseBundlingSupport {
    */
   public void addExportedDebugArtifacts(
       ObjcProvider.Builder objcBuilder, DsymOutputType dsymOutputType) {
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
-        || ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
       objcBuilder
           .addAll(ObjcProvider.EXPORTED_DEBUG_ARTIFACTS, getDsymFiles(dsymOutputType).values())
           .add(

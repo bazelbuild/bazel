@@ -274,8 +274,7 @@ public final class XcodeSupport {
       this.appleCpus = appleConfiguration.getMultiArchitectures(
           appleConfiguration.getSingleArchPlatform().getType());
       this.minimumOs = objcConfiguration.getMinimumOs().toString();
-      this.generateDebugSymbols =
-          objcConfiguration.generateDebugSymbols() || objcConfiguration.generateDsym();
+      this.generateDebugSymbols = objcConfiguration.generateDsym();
     }
 
     @Override

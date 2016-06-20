@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BREAKPAD_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
@@ -575,10 +574,6 @@ public final class ObjcCommon {
         objcProvider
             .add(DEBUG_SYMBOLS, intermediateArtifacts.dsymSymbol(dsymOutputType))
             .add(DEBUG_SYMBOLS_PLIST, intermediateArtifacts.dsymPlist(dsymOutputType));
-
-        if (ObjcRuleClasses.objcConfiguration(context).generateDebugSymbols()) {
-          objcProvider.add(BREAKPAD_FILE, intermediateArtifacts.breakpadSym());
-        }
       }
 
       return new ObjcCommon(objcProvider.build(), compilationArtifacts);
