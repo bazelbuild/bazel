@@ -70,33 +70,30 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final ExecutorService backgroundWorkers;
 
+  private final SandboxOptions sandboxOptions;
   private final ImmutableMap<String, String> clientEnv;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean verboseFailures;
-  private final boolean sandboxDebug;
   private final boolean unblockNetwork;
-  private final List<String> sandboxAddPath;
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
   private final String productName;
 
   public LinuxSandboxedStrategy(
+      SandboxOptions options,
       Map<String, String> clientEnv,
       BlazeDirectories blazeDirs,
       ExecutorService backgroundWorkers,
       boolean verboseFailures,
-      boolean sandboxDebug,
-      List<String> sandboxAddPath,
       boolean unblockNetwork,
       String productName) {
+    this.sandboxOptions = options;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
     this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
-    this.sandboxDebug = sandboxDebug;
-    this.sandboxAddPath = sandboxAddPath;
     this.unblockNetwork = unblockNetwork;
     this.productName = productName;
   }
@@ -136,9 +133,9 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     Path sandboxPath =
         execRoot.getRelative(productName + "-sandbox").getRelative(execId);
 
+    // Gather all necessary mounts for the sandbox.
     ImmutableMap<Path, Path> mounts;
     try {
-      // Gather all necessary mounts for the sandbox.
       mounts = getMounts(spawn, actionExecutionContext);
     } catch (IllegalArgumentException | IOException e) {
       throw new EnvironmentalExecException("Could not prepare mounts for sandbox execution", e);
@@ -148,7 +145,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
     int timeout = getTimeout(spawn);
 
-    ImmutableSet.Builder<PathFragment> outputFiles = ImmutableSet.<PathFragment>builder();
+    ImmutableSet.Builder<PathFragment> outputFiles = ImmutableSet.builder();
     for (PathFragment optionalOutput : spawn.getOptionalOutputFiles()) {
       Preconditions.checkArgument(!optionalOutput.isAbsolute());
       outputFiles.add(optionalOutput);
@@ -160,7 +157,12 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     try {
       final NamespaceSandboxRunner runner =
           new NamespaceSandboxRunner(
-              execRoot, sandboxPath, mounts, createDirs, verboseFailures, sandboxDebug);
+              execRoot,
+              sandboxPath,
+              mounts,
+              createDirs,
+              verboseFailures,
+              sandboxOptions.sandboxDebug);
       try {
         runner.run(
             spawn.getArguments(),
@@ -529,7 +531,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     ImmutableList<Path> exclude =
         ImmutableList.of(blazeDirs.getWorkspace(), blazeDirs.getOutputBase());
 
-    for (String pathStr : sandboxAddPath) {
+    for (String pathStr : sandboxOptions.sandboxAddPath) {
       Path path = fs.getPath(pathStr);
 
       // Check if path is in {workspace, outputBase}
@@ -611,6 +613,6 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
   @Override
   public boolean shouldPropagateExecException() {
-    return verboseFailures && sandboxDebug;
+    return verboseFailures && sandboxOptions.sandboxDebug;
   }
 }
