@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
@@ -118,6 +120,8 @@ public class SkylarkRepositoryModule {
             }
           }
           builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
+          BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
+          builder.add(attr("expect_failure", STRING));
           builder.setConfiguredTargetFunction(implementation);
           builder.setRuleDefinitionEnvironment(funcallEnv);
           builder.setWorkspaceOnly();

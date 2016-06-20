@@ -658,6 +658,22 @@ EOF
   expect_log "non_existing = False,False"
 }
 
+function test_build_a_repo() {
+  cat > WORKSPACE <<EOF
+load("//:repo.bzl", "my_repo")
+my_repo(name = "reg")
+EOF
+
+  cat > repo.bzl <<EOF
+def _impl(repository_ctx):
+  pass
+
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build //external:reg &> $TEST_log || fail "Couldn't build repo"
+}
+
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
