@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -297,24 +298,44 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     refresh();
   }
 
+  /**
+   * Return true, if the test summary provides information that is both
+   * worth being shown in the scroll-back buffer and new with respect to
+   * the alreay shown failure messages.
+   */
+  private boolean testSummaryProvidesNewInformation(TestSummary summary) {
+    ImmutableSet<BlazeTestStatus> statusToIgnore =
+        ImmutableSet.of(
+            BlazeTestStatus.PASSED,
+            BlazeTestStatus.FAILED_TO_BUILD,
+            BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING,
+            BlazeTestStatus.NO_STATUS);
+
+    if (statusToIgnore.contains(summary.getStatus())) {
+      return false;
+    }
+    if (summary.getStatus() == BlazeTestStatus.FAILED && summary.getFailedLogs().size() == 1) {
+      return false;
+    }
+    return true;
+  }
+
   @Subscribe
   public synchronized void testSummary(TestSummary summary) {
     stateTracker.testSummary(summary);
-    if (summary.getStatus() != BlazeTestStatus.PASSED) {
+    if (testSummaryProvidesNewInformation(summary)) {
       // For failed test, write the failure to the scroll-back buffer immediately
       try {
         clearProgressBar();
+        crlf();
         setEventKindColor(EventKind.ERROR);
-        terminal.writeString("FAIL: ");
+        terminal.writeString("" + summary.getStatus() + ": ");
         terminal.resetTerminal();
         terminal.writeString(summary.getTarget().getLabel().toString());
         terminal.writeString(" (Summary)");
         crlf();
         for (Path logPath : summary.getFailedLogs()) {
           terminal.writeString("      " + logPath.getPathString());
-          crlf();
-        }
-        if (summary.getFailedLogs().size() > 0) {
           crlf();
         }
         if (showProgress && cursorControl) {

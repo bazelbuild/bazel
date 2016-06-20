@@ -215,9 +215,8 @@ function test_failure_scrollback_buffer_curses {
   bazel test --experimental_ui --curses=yes --color=yes \
     --nocache_test_results pkg:false pkg:slow 2>$TEST_log \
     && fail "expected failure"
-  # Some line starting with FAIL in red bold replaces a previous one
-  # (the old progress bar that is deleted
-  expect_log $'\x1b\[K\x1b\[31m\x1b\[1mFAIL:'
+  # Some line starts with FAIL in red bold.
+  expect_log '^'$'\x1b\[31m\x1b\[1mFAIL:'
 }
 
 function test_failure_scrollback_buffer {
