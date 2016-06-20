@@ -271,7 +271,7 @@ function bootstrap_build() {
       --output_base=${OUTPUT_DIR}/out \
       --install_md5= \
       --workspace_directory=${PWD} \
-      --nodeep_execroot --nofatal_event_bus_exceptions \
+      --nofatal_event_bus_exceptions \
       build \
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
