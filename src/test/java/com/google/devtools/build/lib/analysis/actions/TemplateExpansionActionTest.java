@@ -211,8 +211,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     // We have to overwrite the artifacts since we need our template in "inputs"
     createArtifacts(SPECIAL_CHARS + "%key%");
 
-    // scratch.overwriteFile appends a newline, so we need an additional %n here
-    String expected = String.format("%s%s%n", SPECIAL_CHARS, SPECIAL_CHARS);
+    // scratch.overwriteFile appends a newline, so we need an additional \n here
+    String expected = String.format("%s%s\n", SPECIAL_CHARS, SPECIAL_CHARS);
 
     executeTemplateExpansion(expected, ImmutableList.of(Substitution.of("%key%", SPECIAL_CHARS)));
   }

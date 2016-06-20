@@ -34,6 +34,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class MethodLibraryTest extends EvaluationTestCase {
 
+  private static final String LINE_SEPARATOR = System.lineSeparator();
+
   @Before
   public final void setFailFast() throws Exception {
     setFailFast(true);
@@ -348,35 +350,43 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStackTraceLocation() throws Exception {
-    new SkylarkTest().testIfErrorContains(
-        "Traceback (most recent call last):\n\t"
-        + "File \"<unknown>\", line 8\n\t\t"
-        + "foo()\n\t"
-        + "File \"<unknown>\", line 2, in foo\n\t\t"
-        + "bar(1)\n\t"
-        + "File \"<unknown>\", line 7, in bar\n\t\t"
-        + "'test'.index(x)",
-        "def foo():",
-        "  bar(1)",
-        "def bar(x):",
-        "  if x == 1:",
-        "    a = x",
-        "    b = 2",
-        "    'test'.index(x)",
-        "foo()");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "Traceback (most recent call last):\n\t"
+                + "File \"<unknown>\", line 8"
+                + LINE_SEPARATOR
+                + "\t\tfoo()\n\t"
+                + "File \"<unknown>\", line 2, in foo"
+                + LINE_SEPARATOR
+                + "\t\tbar(1)\n\t"
+                + "File \"<unknown>\", line 7, in bar"
+                + LINE_SEPARATOR
+                + "\t\t'test'.index(x)",
+            "def foo():",
+            "  bar(1)",
+            "def bar(x):",
+            "  if x == 1:",
+            "    a = x",
+            "    b = 2",
+            "    'test'.index(x)",
+            "foo()");
   }
 
   @Test
   public void testStackTraceWithIf() throws Exception {
-    new SkylarkTest().testIfErrorContains(
-        "File \"<unknown>\", line 5\n\t\t"
-        + "foo()\n\t"
-        + "File \"<unknown>\", line 3, in foo\n\t\ts[0]",
-        "def foo():",
-        "  s = set()",
-        "  if s[0] == 1:",
-        "    x = 1",
-        "foo()");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "File \"<unknown>\", line 5"
+                + LINE_SEPARATOR
+                + "\t\tfoo()\n\t"
+                + "File \"<unknown>\", line 3, in foo"
+                + LINE_SEPARATOR
+                + "\t\ts[0]",
+            "def foo():",
+            "  s = set()",
+            "  if s[0] == 1:",
+            "    x = 1",
+            "foo()");
   }
 
   @Test
@@ -397,11 +407,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .testIfExactError(
             "Traceback (most recent call last):\n"
-                + "\tFile \"<unknown>\", line 6\n"
+                + "\tFile \"<unknown>\", line 6"
+                + LINE_SEPARATOR
                 + "\t\tfoo()\n"
-                + "\tFile \"<unknown>\", line 2, in foo\n"
+                + "\tFile \"<unknown>\", line 2, in foo"
+                + LINE_SEPARATOR
                 + "\t\tbar(1)\n"
-                + "\tFile \"<unknown>\", line 5, in bar\n"
+                + "\tFile \"<unknown>\", line 5, in bar"
+                + LINE_SEPARATOR
                 + "\t\t'test'.index(x)\n"
                 + "Method string.index(sub: string, start: int, end: int or NoneType) "
                 + "is not applicable "
@@ -471,15 +484,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testBoolean() throws Exception {
-    new BothModesTest()
-        .testStatement("False", Boolean.FALSE)
-        .testStatement("True", Boolean.TRUE);
+    new BothModesTest().testStatement("False", Boolean.FALSE).testStatement("True", Boolean.TRUE);
   }
 
   @Test
   public void testBooleanUnsupportedOperationFails() throws Exception {
-    new BothModesTest().testIfErrorContains(
-        "unsupported operand type(s) for +: 'bool' and 'bool'", "True + True");
+    new BothModesTest()
+        .testIfErrorContains("unsupported operand type(s) for +: 'bool' and 'bool'", "True + True");
   }
 
   @Test
@@ -490,18 +501,20 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyStringGlobalJoin() throws Exception {
     // TODO(bazel-team): BUILD and Skylark should use the same code path (and same error message).
-    new BuildTest().testIfErrorContains(
-        "name 'join' is not defined", "join(' ', [ 'a', 'b', 'c' ])");
+    new BuildTest()
+        .testIfErrorContains("name 'join' is not defined", "join(' ', [ 'a', 'b', 'c' ])");
 
-    new SkylarkTest().testIfErrorContains("ERROR 1:1: function 'join' does not exist",
-        "join(' ', [ 'a', 'b', 'c' ])");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "ERROR 1:1: function 'join' does not exist", "join(' ', [ 'a', 'b', 'c' ])");
 
     new BothModesTest().testStatement("' '.join([ 'a', 'b', 'c' ])", "a b c");
   }
 
   @Test
   public void testPyStringJoinCompr() throws Exception {
-    new BothModesTest().testStatement("''.join([(x + '*') for x in ['a', 'b', 'c']])", "a*b*c*")
+    new BothModesTest()
+        .testStatement("''.join([(x + '*') for x in ['a', 'b', 'c']])", "a*b*c*")
         .testStatement(
             "''.join([(y + '*' + z + '|') " + "for y in ['a', 'b', 'c'] for z in ['d', 'e']])",
             "a*d|a*e|b*d|b*e|c*d|c*e|");
@@ -522,19 +535,17 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyStringReplace() throws Exception {
     new BothModesTest()
-      .testStatement("'banana'.replace('a', 'e')", "benene")
-      .testStatement("'banana'.replace('a', '$()')", "b$()n$()n$()")
-      .testStatement("'banana'.replace('a', '$')", "b$n$n$")
-      .testStatement("'banana'.replace('a', '\\\\')", "b\\n\\n\\")
-      .testStatement("'b$()n$()n$()'.replace('$()', '$($())')", "b$($())n$($())n$($())")
-      .testStatement("'b\\\\n\\\\n\\\\'.replace('\\\\', '$()')", "b$()n$()n$()");
+        .testStatement("'banana'.replace('a', 'e')", "benene")
+        .testStatement("'banana'.replace('a', '$()')", "b$()n$()n$()")
+        .testStatement("'banana'.replace('a', '$')", "b$n$n$")
+        .testStatement("'banana'.replace('a', '\\\\')", "b\\n\\n\\")
+        .testStatement("'b$()n$()n$()'.replace('$()', '$($())')", "b$($())n$($())n$($())")
+        .testStatement("'b\\\\n\\\\n\\\\'.replace('\\\\', '$()')", "b$()n$()n$()");
   }
 
   @Test
   public void testPyStringReplace2() throws Exception {
-    new BothModesTest()
-      .testStatement("'banana'.replace('a', 'e', 2)", "benena")
-;
+    new BothModesTest().testStatement("'banana'.replace('a', 'e', 2)", "benena");
   }
 
   @Test
@@ -554,8 +565,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testPyStringSplitNoSep() throws Exception {
-    new BothModesTest().testEval(
-        "'  1  2  3  '.split(' ')", "['', '', '1', '', '2', '', '3', '', '']");
+    new BothModesTest()
+        .testEval("'  1  2  3  '.split(' ')", "['', '', '1', '', '2', '', '3', '', '']");
   }
 
   @Test
@@ -585,13 +596,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("'xxxxxx'.rsplit('x', 5)", "['x', '', '', '', '', '']")
         .testEval("'xxxxxx'.rsplit('x', 6)", "['', '', '', '', '', '', '']")
         .testEval("'xxxxxx'.rsplit('x', 7)", "['', '', '', '', '', '', '']");
-
   }
 
   @Test
   public void testPyStringRSplitLongerSep() throws Exception {
-    new BothModesTest().testEval("'abcdabef'.rsplit('ab')", "['', 'cd', 'ef']").testEval(
-        "'google_or_gogol'.rsplit('go')", "['', 'ogle_or_', '', 'l']");
+    new BothModesTest()
+        .testEval("'abcdabef'.rsplit('ab')", "['', 'cd', 'ef']")
+        .testEval("'google_or_gogol'.rsplit('go')", "['', 'ogle_or_', '', 'l']");
   }
 
   @Test
@@ -615,8 +626,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testPyStringPartitionEasy() throws Exception {
-    new BothModesTest().testEval("'lawl'.partition('a')", "['l', 'a', 'wl']").testEval(
-        "'lawl'.rpartition('a')", "['l', 'a', 'wl']");
+    new BothModesTest()
+        .testEval("'lawl'.partition('a')", "['l', 'a', 'wl']")
+        .testEval("'lawl'.rpartition('a')", "['l', 'a', 'wl']");
   }
 
   @Test
@@ -690,24 +702,25 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testPyStringTitle() throws Exception {
-    new BothModesTest().testStatement(
-        "'this is a very simple test'.title()", "This Is A Very Simple Test");
-    new BothModesTest().testStatement(
-        "'Do We Keep Capital Letters?'.title()", "Do We Keep Capital Letters?");
-    new BothModesTest().testStatement(
-        "'this isn\\'t just an ol\\' apostrophe test'.title()",
-        "This Isn'T Just An Ol' Apostrophe Test");
-    new BothModesTest().testStatement(
-        "'Let us test crazy characters: _bla.exe//foo:bla(test$class)'.title()",
-        "Let Us Test Crazy Characters: _Bla.Exe//Foo:Bla(Test$Class)");
-    new BothModesTest().testStatement(
-        "'any germans here? äöü'.title()",
-        "Any Germans Here? Äöü");
-    new BothModesTest().testStatement(
-        "'WE HAve tO lOWERCASE soMEthING heRE, AI?'.title()",
-        "We Have To Lowercase Something Here, Ai?");
-    new BothModesTest().testStatement(
-        "'wh4t ab0ut s0me numb3rs'.title()", "Wh4T Ab0Ut S0Me Numb3Rs");
+    new BothModesTest()
+        .testStatement("'this is a very simple test'.title()", "This Is A Very Simple Test");
+    new BothModesTest()
+        .testStatement("'Do We Keep Capital Letters?'.title()", "Do We Keep Capital Letters?");
+    new BothModesTest()
+        .testStatement(
+            "'this isn\\'t just an ol\\' apostrophe test'.title()",
+            "This Isn'T Just An Ol' Apostrophe Test");
+    new BothModesTest()
+        .testStatement(
+            "'Let us test crazy characters: _bla.exe//foo:bla(test$class)'.title()",
+            "Let Us Test Crazy Characters: _Bla.Exe//Foo:Bla(Test$Class)");
+    new BothModesTest().testStatement("'any germans here? äöü'.title()", "Any Germans Here? Äöü");
+    new BothModesTest()
+        .testStatement(
+            "'WE HAve tO lOWERCASE soMEthING heRE, AI?'.title()",
+            "We Have To Lowercase Something Here, Ai?");
+    new BothModesTest()
+        .testStatement("'wh4t ab0ut s0me numb3rs'.title()", "Wh4T Ab0Ut S0Me Numb3Rs");
   }
 
   @Test
@@ -823,30 +836,25 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("'{{ }}'.format(42)", "{ }")
         .testStatement("'{{{{}}}}'.format()", "{{}}")
         .testStatement("'{{{{}}}}'.format(42)", "{{}}")
-
         .testStatement("'{{0}}'.format(42)", "{0}")
-
         .testStatement("'{{}}'.format(42)", "{}")
         .testStatement("'{{{}}}'.format(42)", "{42}")
         .testStatement("'{{ '.format(42)", "{ ")
         .testStatement("' }}'.format(42)", " }")
         .testStatement("'{{ {}'.format(42)", "{ 42")
         .testStatement("'{} }}'.format(42)", "42 }")
-
         .testStatement("'{{0}}'.format(42)", "{0}")
         .testStatement("'{{{0}}}'.format(42)", "{42}")
         .testStatement("'{{ 0'.format(42)", "{ 0")
         .testStatement("'0 }}'.format(42)", "0 }")
         .testStatement("'{{ {0}'.format(42)", "{ 42")
         .testStatement("'{0} }}'.format(42)", "42 }")
-
         .testStatement("'{{test}}'.format(test = 42)", "{test}")
         .testStatement("'{{{test}}}'.format(test = 42)", "{42}")
         .testStatement("'{{ test'.format(test = 42)", "{ test")
         .testStatement("'test }}'.format(test = 42)", "test }")
         .testStatement("'{{ {test}'.format(test = 42)", "{ 42")
         .testStatement("'{test} }}'.format(test = 42)", "42 }")
-
         .testIfErrorContains("Found '}' without matching '{'", "'{{}'.format(1)")
         .testIfErrorContains("Found '}' without matching '{'", "'{}}'.format(1)");
   }
@@ -901,12 +909,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testStatement("'{test} and {}'.format(2, test = 1)", "1 and 2")
         .testStatement("'{test} and {0}'.format(2, test = 1)", "1 and 2")
-
         .testIfErrorContains(
             "non-keyword arg after keyword arg", "'{test} and {}'.format(test = 1, 2)")
         .testIfErrorContains(
             "non-keyword arg after keyword arg", "'{test} and {0}'.format(test = 1, 2)")
-
         .testIfErrorContains(
             "Cannot mix manual and automatic numbering of positional fields",
             "'{} and {1}'.format(1, 2)")
@@ -918,13 +924,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyStringFormatInvalidFields() throws Exception {
     for (char unsupported : new char[] {'.', '[', ']', ','}) {
-      new BothModesTest().testIfErrorContains(
-          String.format("Invalid character '%c' inside replacement field", unsupported),
-          String.format("'{test%ctest}'.format(test = 1)", unsupported));
+      new BothModesTest()
+          .testIfErrorContains(
+              String.format("Invalid character '%c' inside replacement field", unsupported),
+              String.format("'{test%ctest}'.format(test = 1)", unsupported));
     }
 
-    new BothModesTest().testIfErrorContains(
-        "Nested replacement fields are not supported", "'{ {} }'.format(42)");
+    new BothModesTest()
+        .testIfErrorContains("Nested replacement fields are not supported", "'{ {} }'.format(42)");
   }
 
   @Test
@@ -936,9 +943,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("'{a}{b}{a}{b}'.format(a = 3, b = True)", "3True3True")
         .testStatement("'{a}{b}{a}{b}'.format(a = 3, b = True)", "3True3True")
         .testStatement("'{s1}{s2}'.format(s1 = ['a'], s2 = 'a')", "[\"a\"]a")
-
         .testIfErrorContains("Missing argument 'b'", "'{a}{b}'.format(a = 5)")
-
         .testStatement("'{a}'.format(a = '$')", "$")
         .testStatement("'{a}'.format(a = '$a')", "$a")
         .testStatement("'{a}$'.format(a = '$a')", "$a$");
@@ -1139,9 +1144,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryAccess() throws Exception {
-    new BothModesTest().testEval("{1: ['foo']}[1]", "['foo']")
-      .testStatement("{'4': 8}['4']", 8)
-      .testStatement("{'a': 'aa', 'b': 'bb', 'c': 'cc'}['b']", "bb");
+    new BothModesTest()
+        .testEval("{1: ['foo']}[1]", "['foo']")
+        .testStatement("{'4': 8}['4']", 8)
+        .testStatement("{'a': 'aa', 'b': 'bb', 'c': 'cc'}['b']", "bb");
   }
 
   @Test
@@ -1201,9 +1207,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStringSliceStep_EmptyString() throws Exception {
-    new BothModesTest()
-        .testStatement("''[::1]", "")
-        .testStatement("''[::-1]", "");
+    new BothModesTest().testStatement("''[::1]", "").testStatement("''[::-1]", "");
   }
 
   @Test
@@ -1226,9 +1230,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStringSliceStep_WrongOrder() throws Exception {
-    new BothModesTest()
-        .testStatement("'123'[3:1:1]", "")
-        .testStatement("'123'[1:3:-1]", "");
+    new BothModesTest().testStatement("'123'[3:1:1]", "").testStatement("'123'[1:3:-1]", "");
   }
 
   @Test
@@ -1258,9 +1260,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryCreationEmpty() throws Exception {
-    new BothModesTest()
-    .testEval("dict()", "{}")
-    .testEval("dict([])", "{}");
+    new BothModesTest().testEval("dict()", "{}").testEval("dict([])", "{}");
   }
 
   @Test
@@ -1279,8 +1279,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testEval("dict([('a', 42), ('b', 2), ('a', 1), ('c', 3)])", expected)
         .testEval("dict([('a', 42)], a = 1, b = 2, c = 3)", expected);
-    new SkylarkTest()
-        .testEval("dict([('a', 42)], **{'a': 1, 'b': 2, 'c': 3})", expected);
+    new SkylarkTest().testEval("dict([('a', 42)], **{'a': 1, 'b': 2, 'c': 3})", expected);
   }
 
   @Test
@@ -1288,7 +1287,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains(
             "expected value of type 'list(object)' for parameter args in dict(), "
-            + "but got \"a\" (string)",
+                + "but got \"a\" (string)",
             "dict('a')")
         .testIfErrorContains(
             "Cannot convert dictionary update sequence element #0 to a sequence", "dict(['a'])")
@@ -1344,9 +1343,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .testEval(
             "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
-            + "if len(d) != 3: fail('clear 1')\n"
-            + "if d.clear() != None: fail('clear 2')\n"
-            + "d",
+                + "if len(d) != 3: fail('clear 1')\n"
+                + "if d.clear() != None: fail('clear 2')\n"
+                + "d",
             "{}");
   }
 
@@ -1356,13 +1355,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains(
             "KeyError: 1",
             "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
-            + "if len(d) != 3: fail('pop 1')\n"
-            + "if d.pop(2) != 'bar': fail('pop 2')\n"
-            + "if d.pop(3, 'quux') != 'baz': fail('pop 3a')\n"
-            + "if d.pop(3, 'quux') != 'quux': fail('pop 3b')\n"
-            + "if d.pop(1) != 'foo': fail('pop 1')\n"
-            + "if d != {}: fail('pop 0')\n"
-            + "d.pop(1)");
+                + "if len(d) != 3: fail('pop 1')\n"
+                + "if d.pop(2) != 'bar': fail('pop 2')\n"
+                + "if d.pop(3, 'quux') != 'baz': fail('pop 3a')\n"
+                + "if d.pop(3, 'quux') != 'quux': fail('pop 3b')\n"
+                + "if d.pop(1) != 'foo': fail('pop 1')\n"
+                + "if d != {}: fail('pop 0')\n"
+                + "d.pop(1)");
   }
 
   @Test
@@ -1371,12 +1370,12 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains(
             "popitem(): dictionary is empty",
             "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
-            + "if len(d) != 3: fail('popitem 0')\n"
-            + "if d.popitem() != (1, 'foo'): fail('popitem 1')\n"
-            + "if d.popitem() != (2, 'bar'): fail('popitem 2')\n"
-            + "if d.popitem() != (3, 'baz'): fail('popitem 3')\n"
-            + "if d != {}: fail('popitem 4')\n"
-            + "d.popitem()");
+                + "if len(d) != 3: fail('popitem 0')\n"
+                + "if d.popitem() != (1, 'foo'): fail('popitem 1')\n"
+                + "if d.popitem() != (2, 'bar'): fail('popitem 2')\n"
+                + "if d.popitem() != (3, 'baz'): fail('popitem 3')\n"
+                + "if d != {}: fail('popitem 4')\n"
+                + "d.popitem()");
   }
 
   @Test
@@ -1394,12 +1393,12 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .testEval(
             "d = {2: 'bar', 1: 'foo'}\n"
-            + "if len(d) != 2: fail('setdefault 0')\n"
-            + "if d.setdefault(1, 'a') != 'foo': fail('setdefault 1')\n"
-            + "if d.setdefault(2) != 'bar': fail('setdefault 2')\n"
-            + "if d.setdefault(3) != None: fail('setdefault 3')\n"
-            + "if d.setdefault(4, 'b') != 'b': fail('setdefault 4')\n"
-            + "d",
+                + "if len(d) != 2: fail('setdefault 0')\n"
+                + "if d.setdefault(1, 'a') != 'foo': fail('setdefault 1')\n"
+                + "if d.setdefault(2) != 'bar': fail('setdefault 2')\n"
+                + "if d.setdefault(3) != None: fail('setdefault 3')\n"
+                + "if d.setdefault(4, 'b') != 'b': fail('setdefault 4')\n"
+                + "d",
             "{1: 'foo', 2: 'bar', 3: None, 4: 'b'}");
   }
 
@@ -1440,11 +1439,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testSetUnionSideEffects() throws Exception {
-    eval("def func():",
-        "  n1 = set(['a'])",
-        "  n2 = n1.union(['b'])",
-        "  return n1",
-        "n = func()");
+    eval("def func():", "  n1 = set(['a'])", "  n2 = n1.union(['b'])", "  return n1", "n = func()");
     assertEquals(ImmutableList.of("a"), ((SkylarkNestedSet) lookup("n")).toCollection());
   }
 
@@ -1495,13 +1490,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(range(0))", "[]")
         .testStatement("str(range(1))", "[0]")
         .testStatement("str(range(-2))", "[]")
-
         .testStatement("str(range(-3, 2))", "[-3, -2, -1, 0, 1]")
         .testStatement("str(range(3, 2))", "[]")
         .testStatement("str(range(3, 3))", "[]")
         .testStatement("str(range(3, 4))", "[3]")
         .testStatement("str(range(3, 5))", "[3, 4]")
-
         .testStatement("str(range(-3, 5, 2))", "[-3, -1, 1, 3]")
         .testStatement("str(range(-3, 6, 2))", "[-3, -1, 1, 3, 5]")
         .testStatement("str(range(5, 0, -1))", "[5, 4, 3, 2, 1]")
@@ -1522,10 +1515,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testEnumerateBadArg() throws Exception {
-    new BothModesTest().testIfErrorContains(
-        "Method enumerate(list: sequence) is not applicable for arguments (string): "
-        + "'list' is string, but should be sequence",
-        "enumerate('a')");
+    new BothModesTest()
+        .testIfErrorContains(
+            "Method enumerate(list: sequence) is not applicable for arguments (string): "
+                + "'list' is string, but should be sequence",
+            "enumerate('a')");
   }
 
   @Test

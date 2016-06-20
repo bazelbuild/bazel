@@ -55,6 +55,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     return false;
   }
 
+  private static final String LINE_SEPARATOR = System.lineSeparator();
+
   @Test
   public void testAspect() throws Exception {
     scratch.file(
@@ -417,9 +419,11 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "ERROR /workspace/test/BUILD:1:1: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
-            + "\tFile \"/workspace/test/BUILD\", line 1\n"
+            + "\tFile \"/workspace/test/BUILD\", line 1"
+            + LINE_SEPARATOR
             + "\t\t//test:aspect.bzl%MyAspect(...)\n"
-            + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl\n"
+            + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl"
+            + LINE_SEPARATOR
             + "\t\t1 / 0\n"
             + "integer division by zero");
   }

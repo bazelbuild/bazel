@@ -44,8 +44,8 @@ public final class MockToolsConfig {
     this(rootDirectory, realFileSystem, null);
   }
 
-  public MockToolsConfig(Path rootDirectory, boolean realFileSystem,
-      @Nullable Path runfilesDirectoryOpt) {
+  public MockToolsConfig(
+      Path rootDirectory, boolean realFileSystem, @Nullable Path runfilesDirectoryOpt) {
     this.rootDirectory = rootDirectory;
     this.realFileSystem = realFileSystem;
     if (!realFileSystem) {
@@ -75,7 +75,7 @@ public final class MockToolsConfig {
       StringBuilder newContent = new StringBuilder();
       for (String line : lines) {
         newContent.append(line);
-        newContent.append("\n");
+        newContent.append(System.lineSeparator());
       }
 
       if (!newContent.toString().equals(existingContent)) {
@@ -127,8 +127,9 @@ public final class MockToolsConfig {
     if (!target.exists()) {
       // In some cases we run tests in a special client with a ../READONLY/ path where we may also
       // find the runfiles. Try that, too.
-      Path readOnlyClientPath = rootDirectory.getRelative(
-          "../READONLY/" + TestConstants.WORKSPACE_NAME + "/" + relativePath);
+      Path readOnlyClientPath =
+          rootDirectory.getRelative(
+              "../READONLY/" + TestConstants.WORKSPACE_NAME + "/" + relativePath);
       if (!readOnlyClientPath.exists()) {
         throw new IOException("target does not exist " + target);
       } else {
