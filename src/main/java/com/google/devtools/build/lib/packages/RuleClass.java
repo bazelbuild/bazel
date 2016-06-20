@@ -1694,7 +1694,7 @@ public final class RuleClass {
    */
   private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
       throws ConversionException {
-    String what = String.format("attribute '%s' in '%s' rule", attr.getName(), rule.getRuleClass());
+    String what = "attribute '" + attr.getName() + "' in '" + rule.getRuleClass() + "' rule";
     Object converted =
         BuildType.selectableConvert(attr.getType(), buildLangValue, what, rule.getLabel());
 
