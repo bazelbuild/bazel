@@ -6,6 +6,14 @@ java_import(
 )
 
 java_binary(
+    name = "AndroidResourceCompilationAction",
+    main_class = "com.google.devtools.build.android.AndroidResourceCompilationAction",
+    runtime_deps = [
+        ":classes",
+    ],
+)
+
+java_binary(
     name = "AndroidResourceProcessingAction",
     main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
     runtime_deps = [

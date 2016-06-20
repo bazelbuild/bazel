@@ -95,6 +95,38 @@ public final class Converters {
   }
 
   /**
+   * Converter for a list of {@link DependencySymbolFileProvider}. Relies on
+   * {@code DependencySymbolFileProvider#valueOf(String)} to perform conversion and validation.
+   */
+  public static class DependencySymbolFileProviderListConverter
+      implements Converter<List<DependencySymbolFileProvider>> {
+
+    @Override
+    public List<DependencySymbolFileProvider> convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return ImmutableList.<DependencySymbolFileProvider>of();
+      }
+      try {
+        ImmutableList.Builder<DependencySymbolFileProvider> builder = ImmutableList.builder();
+        for (String item : input.split(",")) {
+          builder.add(DependencySymbolFileProvider.valueOf(item));
+        }
+        return builder.build();
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return String.format("a list of dependency android data in the format: %s[%s]",
+          DependencySymbolFileProvider.commandlineFormat("1"),
+          DependencySymbolFileProvider.commandlineFormat("2"));
+    }
+  }
+
+  /**
    * Converter for {@link FullRevision}. Relies on {@code FullRevision#parseRevision(String)} to
    * perform conversion and validation.
    */
