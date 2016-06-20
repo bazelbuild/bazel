@@ -21,6 +21,8 @@ message Artifact {
   // This path is relative to "bazel info execution_root"
   string exec_root_path = 1;
   bytes hash = 2;
+  // The label of the rule that produced this artifact.
+  string label = 3;
 }
 
 message NativeLib {

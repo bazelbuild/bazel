@@ -217,6 +217,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       return ApkManifestOuterClass.Artifact.newBuilder()
           .setExecRootPath(artifact.getExecPathString())
           .setHash(ByteString.copyFrom(digest))
+          .setLabel(artifact.getOwnerLabel().toString())
           .build();
     }
 
