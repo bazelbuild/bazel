@@ -85,11 +85,13 @@ The directories are laid out as follows:
                                               that produced output.
       command.log                         <== A copy of the stdout/stderr output from the most recent bazel
                                               command.
+      external/                           <== The directory that remote repositories are downloaded/symlinked
+                                              into.
       server/                             <== The Bazel server puts all server-related files (such as socket
                                               file, logs, etc) here.
         server.socket                     <== Socket file for the server.
         server.log                        <== Server logs.
-      &lt;workspace-name&gt;/                   <== Working tree for the Bazel build & root of symlink forest: execRoot
+      &lt;workspace-name&gt;/             <== Working tree for the Bazel build & root of symlink forest: execRoot
         _bin/                             <== Helper tools are linked from or copied to here.
 
         bazel-out/                        <== All actual output of the build is under here: outputPath
