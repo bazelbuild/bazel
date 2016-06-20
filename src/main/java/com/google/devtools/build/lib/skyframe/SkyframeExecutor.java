@@ -540,8 +540,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   protected void init() {
     progressReceiver = newSkyframeProgressReceiver();
-    Map<SkyFunctionName, SkyFunction> skyFunctions = skyFunctions(
-        directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
+    ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
+        skyFunctions(directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
     memoizingEvaluator = evaluatorSupplier.create(
         skyFunctions, evaluatorDiffer(), progressReceiver, emittedEventState,
         hasIncrementalState());

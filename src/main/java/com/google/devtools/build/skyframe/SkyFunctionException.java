@@ -82,7 +82,7 @@ public abstract class SkyFunctionException extends Exception {
     return rootCause;
   }
 
-  final boolean isTransient() {
+  public final boolean isTransient() {
     return transience == Transience.TRANSIENT;
   }
 
@@ -120,10 +120,10 @@ public abstract class SkyFunctionException extends Exception {
   }
 
   /** A {@link SkyFunctionException} with a definite root cause. */
-  static class ReifiedSkyFunctionException extends SkyFunctionException {
+  public static class ReifiedSkyFunctionException extends SkyFunctionException {
     private final boolean isCatastrophic;
 
-    ReifiedSkyFunctionException(SkyFunctionException e, SkyKey key) {
+    public ReifiedSkyFunctionException(SkyFunctionException e, SkyKey key) {
       super(e.getCause(), e.transience, Preconditions.checkNotNull(e.getRootCauseSkyKey() == null
           ? key : e.getRootCauseSkyKey()));
       this.isCatastrophic = e.isCatastrophic();

@@ -360,7 +360,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       new EvaluatorSupplier() {
         @Override
         public MemoizingEvaluator create(
-            Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+            ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
             Differencer differencer,
             @Nullable EvaluationProgressReceiver invalidationReceiver,
             EmittedEventState emittedEventState,

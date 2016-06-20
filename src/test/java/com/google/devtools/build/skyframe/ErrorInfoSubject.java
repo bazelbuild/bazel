@@ -34,6 +34,7 @@ public class ErrorInfoSubject extends Subject<ErrorInfoSubject, ErrorInfo> {
   }
 
   public IterableSubject hasCycleInfoThat() {
+    isNotNull();
     return Truth.assertThat(getSubject().getCycleInfo())
         .named("CycleInfo in " + getDisplaySubject());
   }

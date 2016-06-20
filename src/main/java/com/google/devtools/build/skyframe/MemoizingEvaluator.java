@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -149,7 +150,7 @@ public interface MemoizingEvaluator {
   /** A supplier for creating instances of a particular evaluator implementation. */
   interface EvaluatorSupplier {
     MemoizingEvaluator create(
-        Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+        ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
         Differencer differencer,
         @Nullable EvaluationProgressReceiver invalidationReceiver,
         EmittedEventState emittedEventState,
