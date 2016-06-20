@@ -108,17 +108,6 @@ src/
   openssl.h
 </pre>
 
-<p>In the local repository, the user creates a <i>BUILD.ssl</i> file which contains the following
-target definition:</p>
-
-<pre class="code">
-cc_library(
-    name = "openssl-lib",
-    srcs = ["openssl.cc"],
-    hdrs = ["openssl.h"],
-)
-</pre>
-
 <p>Targets in the <i>~/chat-app</i> repository can depend on this target if the following lines are
   added to <i>~/chat-app/WORKSPACE</i>:</p>
 
@@ -127,10 +116,15 @@ new_git_repository(
     name = "my-ssl",
     remote = "http://example.com/openssl/openssl.git",
     tag = "v1.0.2",
-    build_file = "BUILD.ssl",
+    build_file_content = """
+cc_library(
+    name = "openssl-lib",
+    srcs = ["src/openssl.cc"],
+    hdrs = ["src/openssl.h"],
+)""",
 )
 </pre>
 
-<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
+<p>Then targets would specify <code>@my-ssl//:openssl-lib</code> as a dependency.</p>
 
 <!-- #END_BLAZE_RULE -->*/
