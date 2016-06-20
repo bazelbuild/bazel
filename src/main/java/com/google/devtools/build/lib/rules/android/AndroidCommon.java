@@ -478,10 +478,13 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    JavaTargetAttributes.Builder attributes = javaCommon
-        .initCommon(idlHelper.getIdlGeneratedJavaSources(), androidSemantics.getJavacArguments())
-        .setBootClassPath(ImmutableList.of(
-            AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
+    JavaTargetAttributes.Builder attributes =
+        javaCommon
+            .initCommon(
+                idlHelper.getIdlGeneratedJavaSources(),
+                androidSemantics.getJavacArguments(ruleContext))
+            .setBootClassPath(
+                ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     ImmutableList.Builder<Artifact> jarsProducedForRuntime = ImmutableList.builder();

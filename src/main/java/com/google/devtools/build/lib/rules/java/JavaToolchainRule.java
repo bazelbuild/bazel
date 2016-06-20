@@ -18,14 +18,18 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import java.util.List;
 
 /**
  * Rule definition for {@code java_toolchain}
@@ -125,6 +129,10 @@ public final class JavaToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        .add(
+            attr("compatible_javacopts", STRING_LIST_DICT)
+                .undocumented("internal")
+                .value(ImmutableMap.<String, List<String>>of()))
         .build();
   }
 

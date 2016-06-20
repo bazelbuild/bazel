@@ -70,7 +70,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   }
 
   @Override
-  public ImmutableList<String> getJavacArguments() {
+  public ImmutableList<String> getJavacArguments(RuleContext ruleContext) {
     return ImmutableList.of(
         "-source", "7",
         "-target", "7");

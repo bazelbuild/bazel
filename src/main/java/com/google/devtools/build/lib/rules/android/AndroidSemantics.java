@@ -84,7 +84,7 @@ public interface AndroidSemantics {
    * <p>These will come after the default options specified by the toolchain and the ones in the
    * {@code javacopts} attribute.
    */
-  ImmutableList<String> getJavacArguments();
+  ImmutableList<String> getJavacArguments(RuleContext ruleContext);
 
   /**
    * JVM arguments to be passed to the command line of dx.

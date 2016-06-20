@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implementation for the {@code java_toolchain} rule.
@@ -54,6 +57,9 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact singleJar = getArtifact("singlejar", ruleContext);
     Artifact genClass = getArtifact("genclass", ruleContext);
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar", Mode.HOST);
+    ImmutableMap<String, ImmutableList<String>> compatibleJavacOptions =
+        getCompatibleJavacOptions(ruleContext);
+
     final JavaToolchainData toolchainData =
         new JavaToolchainData(
             source,
@@ -76,7 +82,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompiler,
             singleJar,
             genClass,
-            ijar);
+            ijar,
+            compatibleJavacOptions);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
         .addSkylarkTransitiveInfo(JavaToolchainSkylarkApiProvider.NAME,
             new JavaToolchainSkylarkApiProvider())
@@ -85,6 +92,17 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
     return builder.build();
+  }
+
+  private ImmutableMap<String, ImmutableList<String>> getCompatibleJavacOptions(
+      RuleContext ruleContext) {
+    ImmutableMap.Builder<String, ImmutableList<String>> result = ImmutableMap.builder();
+    for (Map.Entry<String, List<String>> entry :
+        ruleContext.attributes().get("compatible_javacopts", Type.STRING_LIST_DICT).entrySet()) {
+      result.put(
+          entry.getKey(), ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(entry.getValue())));
+    }
+    return result.build();
   }
 
   private Artifact getArtifact(String attributeName, RuleContext ruleContext) {
