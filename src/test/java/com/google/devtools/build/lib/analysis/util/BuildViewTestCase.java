@@ -175,6 +175,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfiguration targetConfig;  // "target" or "build" config
+  private List<String> configurationArgs;
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
@@ -276,14 +277,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           ExecutionOptions.class,
           BuildRequest.BuildRequestOptions.class),
           ruleClassProvider.getConfigurationOptions()));
-    List<String> configurationArgs = new ArrayList<>();
+    List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
-    configurationArgs.add("--stamp");  // Stamp is now defaulted to false.
-    configurationArgs.add("--experimental_extended_sanity_checks");
-    configurationArgs.add("--features=cc_include_scanning");
-    configurationArgs.addAll(getAnalysisMock().getOptionOverrides());
+    allArgs.add("--stamp");  // Stamp is now defaulted to false.
+    allArgs.add("--experimental_extended_sanity_checks");
+    allArgs.add("--features=cc_include_scanning");
+    allArgs.addAll(getAnalysisMock().getOptionOverrides());
 
-    optionsParser.parse(configurationArgs);
+    optionsParser.parse(allArgs);
     optionsParser.parse(args);
 
     InvocationPolicyEnforcer optionsPolicyEnforcer =
@@ -339,13 +340,37 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getPackageManager();
   }
 
+  protected void invalidatePackages() throws InterruptedException {
+    invalidatePackages(true);
+  }
+
   /**
-   * Invalidates all existing packages.
+   * Invalidates all existing packages. Optionally invalidates configurations too.
+   *
+   * <p>Tests should invalidate both unless they have specific reason not to.
+   *
    * @throws InterruptedException
    */
-  protected void invalidatePackages() throws InterruptedException {
+  protected void invalidatePackages(boolean alsoConfigs) throws InterruptedException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+    if (alsoConfigs) {
+      try {
+        // Also invalidate all configurations. This is important for dynamic configurations: by
+        // invalidating all files we invalidate CROSSTOOL, which invalidates CppConfiguration (and
+        // a few other fragments). So we need to invalidate the
+        // {@link SkyframeBuildView#hostConfigurationCache} as well. Otherwise we end up
+        // with old CppConfiguration instances. Even though they're logically equal to the new ones,
+        // CppConfiguration has no .equals() method and some production code expects equality.
+        useConfiguration(configurationArgs.toArray(new String[0]));
+      } catch (Exception e) {
+        // There are enough dependers on this method that don't handle Exception that just passing
+        // through the Exception would result in a huge refactoring. As it stands this shouldn't
+        // fail anyway because this method only gets called after a successful useConfiguration()
+        // call anyway.
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   /**
@@ -357,6 +382,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final void useConfiguration(String... args) throws Exception {
     masterConfig = createConfigurations(args);
     targetConfig = getTargetConfiguration();
+    configurationArgs = Arrays.asList(args);
     createBuildView();
   }
 

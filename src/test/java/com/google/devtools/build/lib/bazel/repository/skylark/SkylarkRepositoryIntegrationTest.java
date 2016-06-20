@@ -146,6 +146,13 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     return ruleProvider;
   }
 
+  @Override
+  protected void invalidatePackages() throws InterruptedException {
+    // Repository shuffling breaks access to config-needed paths like //tools/jdk:toolchain and
+    // these tests don't do anything interesting with configurations anyway. So exempt them.
+    invalidatePackages(/*alsoConfigs=*/false);
+  }
+
   @Test
   public void testSkylarkLocalRepository() throws Exception {
     // A simple test that recreates local_repository with Skylark.

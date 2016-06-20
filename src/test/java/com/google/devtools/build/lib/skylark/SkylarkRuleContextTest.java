@@ -339,7 +339,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.overwriteFile("WORKSPACE", "local_repository(name='r', path='/r')");
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
@@ -812,7 +812,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.overwriteFile("WORKSPACE",
         "local_repository(name='r', path='/r')");
 
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     SkylarkRuleContext context = createRuleContext("@r//a:r");
     Label depLabel = (Label) evalRuleContextCode(context, "ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("//:dep"));
@@ -843,7 +843,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.overwriteFile("WORKSPACE",
         "local_repository(name='r', path='/r')");
 
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     SkylarkRuleContext context = createRuleContext("@r//a:r");
     Label depLabel = (Label) evalRuleContextCode(context, "ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep"));
@@ -879,7 +879,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "load('@r2//:other_test.bzl', 'other_macro')",  // We can still refer to r2 in other chunks.
         "macro(NEXT_NAME, '/r2')"  // and we can still use macro outside of its chunk.
     );
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     assertThat(getConfiguredTarget("@r1//:test")).isNotNull();
   }
 
@@ -897,7 +897,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "WORKSPACE",
         "local_repository(name = 'foo', path = '/bar')",
         "local_repository(name = 'foo', path = '/baz')");
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     assertThat(
             (List<Label>)
                 getConfiguredTarget("@foo//:baz")
@@ -915,7 +915,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "load('//:bar.bzl', 'dummy')",
         "local_repository(name = 'foo', path = '/baz')");
     try {
-      invalidatePackages();
+      invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchains.
       createRuleContext("@foo//:baz");
       fail("Should have failed because repository 'foo' is overloading after a load!");
     } catch (Exception ex) {

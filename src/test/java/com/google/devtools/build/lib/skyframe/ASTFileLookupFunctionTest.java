@@ -94,7 +94,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD", "genrule(name = 'foo',", "  outs = ['out.txt'],", "  cmd = 'echo hello >@')");
     mockFS.statThrowsIoException = true;
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // We don't want to fail early on config creation.
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     EvaluationResult<PackageValue> result =
@@ -121,7 +121,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     scratch.file("/a_remote_repo/remote_pkg/ext.bzl",
         "CONST = 17");
 
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchains.
     SkyKey skyKey =
         ASTFileLookupValue.key(Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:BUILD"));
     EvaluationResult<ASTFileLookupValue> result =
@@ -146,7 +146,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     scratch.file("/a_remote_repo/remote_pkg/ext2.bzl",
         "CONST = 17");
 
-    invalidatePackages();
+    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchains.
     SkyKey skyKey =
         ASTFileLookupValue.key(Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext1.bzl"));
     EvaluationResult<ASTFileLookupValue> result =
