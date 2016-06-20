@@ -63,13 +63,13 @@ abstract class SkylarkDoc {
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
     } else if (type.isAnnotationPresent(SkylarkModule.class)) {
-      // TODO(bazel-team): this can produce dead links for types don't show up in the doc.
-      // The correct fix is to generate those types (e.g. SkylarkFileType) too.
-      String module = type.getAnnotation(SkylarkModule.class).name();
-      return "<a class=\"anchor\" href=\"" + module + ".html\">" + module + "</a>";
-    } else {
-      return EvalUtils.getDataTypeNameFromClass(type);
+      SkylarkModule module = type.getAnnotation(SkylarkModule.class);
+      if (module.documented()) {
+        return String.format("<a class=\"anchor\" href=\"%1$s.html\">%1$s</a>",
+                             module.name());
+      }
     }
+    return EvalUtils.getDataTypeNameFromClass(type);
   }
 
   // Elide self parameter from parameters in class methods.
