@@ -504,7 +504,12 @@ public class ExecutionTool {
     createActionLogDirectory();
 
     // Plant the symlink forest.
-    plantSymlinkForest(packageRoots);
+    try {
+      new SymlinkForest(
+          packageRoots, getExecRoot(), runtime.getProductName()).plantSymlinkForest();
+    } catch (IOException e) {
+      throw new ExecutorInitException("Source forest creation failed", e);
+    }
   }
 
   private void createToolsSymlinks() throws ExecutorInitException {
@@ -512,17 +517,6 @@ public class ExecutionTool {
       env.getBlazeWorkspace().getBinTools().setupBuildTools();
     } catch (ExecException e) {
       throw new ExecutorInitException("Tools symlink creation failed", e);
-    }
-  }
-
-  private void plantSymlinkForest(ImmutableMap<PathFragment, Path> packageRoots)
-      throws ExecutorInitException {
-    try {
-      FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
-          new String[] { ".", "_", runtime.getProductName() + "-"});
-      FileSystemUtils.plantLinkForest(packageRoots, getExecRoot(), runtime.getProductName());
-    } catch (IOException e) {
-      throw new ExecutorInitException("Source forest creation failed", e);
     }
   }
 
