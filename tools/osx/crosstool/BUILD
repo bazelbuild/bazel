@@ -4,11 +4,6 @@ package(default_visibility = ["//visibility:public"])
 exports_files(glob(["**"]))
 
 filegroup(
-    name = "dump_syms",
-    srcs = [":dump_syms_stub"],
-)
-
-filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )

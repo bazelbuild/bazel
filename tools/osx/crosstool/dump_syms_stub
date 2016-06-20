@@ -1,7 +1,0 @@
-#!/bin/bash
-
-(
-  # Warn the user that Bazel only partially implements symbol dumping. Actions
-  # that depend on the generated dSYM bundle are not guaranteed to succeed.
-  printf 'WARNING: Bazel does not yet fully support symbol dumping.\n'
-) >&2

@@ -852,11 +852,6 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
-              attr("$dumpsyms", LABEL)
-                  .cfg(HOST)
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/osx/crosstool:dump_syms")))
-          .add(
               attr("$j2objc_dead_code_pruner", LABEL)
                   .allowedFileTypes(FileType.of(".py"))
                   .cfg(HOST)

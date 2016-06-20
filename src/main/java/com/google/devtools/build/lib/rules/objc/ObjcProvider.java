@@ -281,13 +281,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(STABLE_ORDER, "exported_debug_artifacts", Artifact.class);
 
   /**
-   * Generated breakpad file containing debug information used by the breakpad crash reporting
-   * system.
-   */
-  public static final Key<Artifact> BREAKPAD_FILE =
-      new Key<>(STABLE_ORDER, "breakpad_file", Artifact.class);
-
-  /**
    * Single-architecture link map for a binary.
    */
   public static final Key<Artifact> LINKMAP_FILE =
@@ -375,7 +368,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           DYNAMIC_FRAMEWORK_FILE,
           DEBUG_SYMBOLS,
           DEBUG_SYMBOLS_PLIST,
-          BREAKPAD_FILE,
           STORYBOARD,
           XIB,
           STRINGS,

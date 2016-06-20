@@ -295,7 +295,6 @@ public final class ReleaseBundlingSupport {
     bundleSupport.registerActions(objcProvider);
 
     registerCombineArchitecturesAction();
-    registerTransformAndCopyBreakpadFilesAction();
     registerCopyDsymFilesAction(dsymOutputType);
     registerCopyDsymPlistAction(dsymOutputType);
     registerCopyLinkmapFilesAction();
@@ -889,46 +888,6 @@ public final class ReleaseBundlingSupport {
             .build(ruleContext));
   }
 
-  /**
-   * Registers the actions that transform and copy the breakpad files from the CPU-specific binaries
-   * that are part of this application. There are two steps involved: 1) The breakpad files have to
-   * be renamed to include their corresponding CPU architecture as a suffix. 2) The first line of
-   * the breakpad file has to be rewritten, as it has to include the name of the application instead
-   * of the name of the binary artifact.
-   *
-   * <p>Example:<br>
-   * The ios_application "PrenotCalculator" is specified to use "PrenotCalculatorBinary" as its
-   * binary. Assuming that the application is built for armv7 and arm64 CPUs, in the build process
-   * two binaries with a corresponding breakpad file each will be built:
-   *
-   * <pre>blaze-out/xyz-crosstool-ios-arm64/.../PrenotCalculatorBinary_bin
-   * blaze-out/xyz-crosstool-ios-arm64/.../PrenotCalculatorBinary.breakpad
-   * blaze-out/xyz-crosstool-ios-armv7/.../PrenotCalculatorBinary_bin
-   * blaze-out/xyz-crosstool-ios-armv7/.../PrenotCalculatorBinary.breakpad</pre>
-   *
-   * <p>The first line of the breakpad files will look like this:
-   * <pre>MODULE mac arm64 8A7A2DDD28E83E27B339E63631ADBEF30 PrenotCalculatorBinary_bin</pre>
-   *
-   * <p>For our application, we have to transform & copy these breakpad files like this:
-   * <pre>$ head -n1 blaze-bin/.../PrenotCalculator_arm64.breakpad
-   * MODULE mac arm64 8A7A2DDD28E83E27B339E63631ADBEF30 PrenotCalculator</pre>
-   */
-  private void registerTransformAndCopyBreakpadFilesAction() {
-    for (Entry<Artifact, Artifact> breakpadFiles : getBreakpadFiles().entrySet()) {
-      ruleContext.registerAction(
-          new SpawnAction.Builder().setMnemonic("CopyBreakpadFile")
-              .setShellCommand(String.format(
-                  // This sed command replaces the last word of the first line with the application
-                  // name.
-                  "sed \"1 s/^\\(MODULE \\w* \\w* \\w*\\).*$/\\1 %s/\" < %s > %s",
-                  ruleContext.getLabel().getName(), breakpadFiles.getKey().getExecPathString(),
-                  breakpadFiles.getValue().getExecPathString()))
-              .addInput(breakpadFiles.getKey())
-              .addOutput(breakpadFiles.getValue())
-              .build(ruleContext));
-    }
-  }
-
   private void registerCopyLinkmapFilesAction() {
    for (Entry<Artifact, Artifact> linkmapFile : getLinkmapFiles().entrySet()) {
       ruleContext.registerAction(
@@ -971,19 +930,6 @@ public final class ReleaseBundlingSupport {
               intermediateArtifacts.dsymPlist(dsymOutputType),
               "Symlinking dSYM plist"));
     }
-  }
-
-  /**
-   * Returns a map of input breakpad artifacts from the CPU-specific binaries built for this
-   * ios_application to the new output breakpad artifacts.
-   */
-  private ImmutableMap<Artifact, Artifact> getBreakpadFiles() {
-    ImmutableMap.Builder<Artifact, Artifact> results = ImmutableMap.builder();
-    for (Entry<String, Artifact> breakpadFile : attributes.cpuSpecificBreakpadFiles().entrySet()) {
-      Artifact destBreakpad = intermediateArtifacts.breakpadSym(breakpadFile.getKey());
-      results.put(breakpadFile.getValue(), destBreakpad);
-    }
-    return results.build();
   }
 
   /**
@@ -1275,10 +1221,6 @@ public final class ReleaseBundlingSupport {
         return null;
       }
       return ruleContext.getPrerequisiteArtifact(DEBUG_ENTITLEMENTS_ATTR, Mode.HOST);
-    }
-
-    ImmutableMap<String, Artifact> cpuSpecificBreakpadFiles() {
-      return cpuSpecificArtifacts(ObjcProvider.BREAKPAD_FILE);
     }
 
     ImmutableMap<String, Artifact> cpuSpecificDsymFiles() {

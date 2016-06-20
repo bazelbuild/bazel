@@ -303,9 +303,6 @@ message CToolchain {
   optional bool supports_fission = 43 [default = false];
   // Can generate dsym debug symbol information.
   optional bool supports_dsym = 51 [default = false];
-  // Can generate a breakpad file. Requires that support_dsym=true,
-  // otherwise an error will be thrown.
-  optional bool supports_breakpad = 52 [default = false];
   optional bool needsPic = 12 [default = false];
 
   // Compiler flags for C/C++/Asm compilation.
