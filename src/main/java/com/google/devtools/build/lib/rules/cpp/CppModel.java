@@ -33,10 +33,10 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -922,9 +922,8 @@ public final class CppModel {
    */
   private boolean isCodeCoverageEnabled() {
     if (configuration.isCodeCoverageEnabled()) {
-      final RegexFilter filter = configuration.getInstrumentationFilter();
       // If rule is matched by the instrumentation filter, enable instrumentation
-      if (filter.isIncluded(ruleContext.getLabel().toString())) {
+      if (InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext)) {
         return true;
       }
       // At this point the rule itself is not matched by the instrumentation filter. However, we
@@ -943,7 +942,7 @@ public final class CppModel {
       if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
           if (dep.getProvider(CppCompilationContext.class) != null
-              && filter.isIncluded(dep.getLabel().toString())) {
+              && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {
             return true;
           }
         }

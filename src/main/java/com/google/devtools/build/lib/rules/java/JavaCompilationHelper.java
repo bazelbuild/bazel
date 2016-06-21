@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -222,8 +223,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
   private boolean shouldInstrumentJar() {
     // TODO(bazel-team): What about source jars?
     return getConfiguration().isCodeCoverageEnabled() && attributes.hasSourceFiles() &&
-        getConfiguration().getInstrumentationFilter().isIncluded(
-            getRuleContext().getLabel().toString());
+        InstrumentedFilesCollector.shouldIncludeLocalSources(getRuleContext());
   }
 
   private boolean shouldUseHeaderCompilation() {

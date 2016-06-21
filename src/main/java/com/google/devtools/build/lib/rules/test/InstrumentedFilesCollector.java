@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -146,6 +147,32 @@ public final class InstrumentedFilesCollector {
   }
 
   /**
+   * Return whether the sources of the rule in {@code ruleContext} should be instrumented based on
+   * the --instrumentation_filter and --instrument_test_targets config settings.
+   */
+  public static boolean shouldIncludeLocalSources(RuleContext ruleContext) {
+    return shouldIncludeLocalSources(ruleContext.getConfiguration(), ruleContext.getLabel(),
+        ruleContext.isTestTarget());
+  }
+
+  /**
+   * Return whether the sources included from {@code dep} (a {@link TransitiveInfoCollection}
+   * representing a rule's dependency) should be instrumented according the --instrumentation_filter
+   * and --instrument_test_targets settings in {@code config}.
+   */
+  public static boolean shouldIncludeLocalSources(BuildConfiguration config,
+      TransitiveInfoCollection dep) {
+    return shouldIncludeLocalSources(config, dep.getLabel(),
+        dep.getProvider(TestProvider.class) != null);
+  }
+
+  private static boolean shouldIncludeLocalSources(BuildConfiguration config, Label label,
+      boolean isTest) {
+    return ((config.shouldInstrumentTestTargets() || !isTest)
+        && config.getInstrumentationFilter().isIncluded(label.toString()));
+  }
+
+  /**
    * The set of file types and attributes to visit to collect instrumented files for a certain rule
    * type. The class is intentionally immutable, so that a single instance is sufficient for all
    * rules of the same type (and in some cases all rules of related types, such as all {@code foo_*}
@@ -249,12 +276,6 @@ public final class InstrumentedFilesCollector {
    * An explicit constant for a {@link LocalMetadataCollector} that doesn't collect anything.
    */
   public static final LocalMetadataCollector NO_METADATA_COLLECTOR = null;
-
-  private static boolean shouldIncludeLocalSources(RuleContext ruleContext) {
-    BuildConfiguration config = ruleContext.getConfiguration();
-    return ((config.shouldInstrumentTestTargets() || !ruleContext.isTestTarget())
-        && config.getInstrumentationFilter().isIncluded(ruleContext.getLabel().toString()));
-  }
 
   private static Iterable<TransitiveInfoCollection> getAllPrerequisites(
       RuleContext ruleContext, Collection<String> attributeNames) {
