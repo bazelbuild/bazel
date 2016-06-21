@@ -40,7 +40,7 @@ public class HttpFileRule implements RuleDefinition {
          A URL to a file that will be made available to Bazel.
 
          <p>This must be an http or https URL. Authentication is not support.
-         Redirections are followed.</p>
+         Redirections are followed, but not from HTTP to HTTPS.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(sha256) -->
