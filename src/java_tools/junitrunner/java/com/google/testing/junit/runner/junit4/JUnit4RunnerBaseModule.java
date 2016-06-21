@@ -15,7 +15,6 @@
 package com.google.testing.junit.runner.junit4;
 
 import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_SHARDING_STRATEGY;
-import static dagger.Provides.Type.SET;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -28,6 +27,7 @@ import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import dagger.Module;
 import dagger.Multibindings;
 import dagger.Provides;
+import dagger.multibindings.IntoSet;
 
 import org.junit.internal.TextListener;
 import org.junit.runner.Request;
@@ -60,7 +60,8 @@ public final class JUnit4RunnerBaseModule {
     return DEFAULT_SHARDING_STRATEGY;
   }
 
-  @Provides(type = SET)
+  @Provides
+  @IntoSet
   static RunListener textListener(TextListener impl) {
     return impl;
   }
