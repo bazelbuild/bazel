@@ -688,6 +688,8 @@ public final class CompilationSupport {
       PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
       commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
       commandLine.add("-import-underlying-module");
+
+      inputHeaders.addAll(objcProvider.get(MODULE_MAP));
     }
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
@@ -702,7 +704,6 @@ public final class CompilationSupport {
             .addInputs(otherSwiftSources)
             .addInputs(inputHeaders.build())
             .addTransitiveInputs(objcProvider.get(HEADER))
-            .addTransitiveInputs(objcProvider.get(MODULE_MAP))
             .addOutput(objFile)
             .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
             .build(ruleContext));
