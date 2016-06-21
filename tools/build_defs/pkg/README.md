@@ -88,7 +88,8 @@ Here, the Debian package is built from three `pkg_tar` targets:
 ## pkg_tar
 
 ```python
-pkg_tar(name, extension, data_path, directory, files, mode, modes, deps, symlinks)
+pkg_tar(name, extension, data_path, directory, strip_prefix, package_dir, files,
+mode, modes, deps, symlinks)
 ```
 
 Creates a tar file from a list of inputs.
