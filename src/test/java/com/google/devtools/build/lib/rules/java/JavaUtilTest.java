@@ -39,16 +39,66 @@ public class JavaUtilTest {
         .isNull();
     assertThat(getRootPath("java/com/google/common/case")).isEqualTo("java");
     assertThat(getRootPath("javatests/com/google/common/case")).isEqualTo("javatests");
+    assertThat(getRootPath("src/com/myproject/util")).isEqualTo("src");
     assertThat(getRootPath("project/java")).isEqualTo("project/java");
     assertThat(getRootPath("project/java/anything")).isEqualTo("project/java");
     assertThat(getRootPath("project/javatests")).isEqualTo("project/javatests");
     assertThat(getRootPath("project/javatests/anything")).isEqualTo("project/javatests");
+    assertThat(getRootPath("project/src")).isEqualTo("project/src");
+    assertThat(getRootPath("project/src/anything")).isEqualTo("project/src");
     assertThat(getRootPath("third_party/java_src/project/src/main/java/foo"))
         .isEqualTo("third_party/java_src/project/src/main/java");
     assertThat(getRootPath("third_party/java_src/project/src/test/java/foo"))
         .isEqualTo("third_party/java_src/project/src/test/java");
+    assertThat(getRootPath("third_party/java_src/project/src/main/resources/foo"))
+        .isEqualTo("third_party/java_src/project/src/main/resources");
+    assertThat(getRootPath("third_party/java_src/project/src/test/resources/foo"))
+        .isEqualTo("third_party/java_src/project/src/test/resources");
     assertThat(getRootPath("third_party/java_src/project/javatests/foo"))
         .isEqualTo("third_party/java_src/project/javatests");
+
+    // Cases covering nested /src/ directories.
+    assertThat(getRootPath("java/com/google/project/module/src/com"))
+        .isEqualTo("java/com/google/project/module/src");
+    assertThat(getRootPath("java/com/google/project/module/src/org"))
+        .isEqualTo("java/com/google/project/module/src");
+    assertThat(getRootPath("java/com/google/project/module/src/net"))
+        .isEqualTo("java/com/google/project/module/src");
+    assertThat(getRootPath("java/com/google/project/module/src/main/java"))
+        .isEqualTo("java/com/google/project/module/src/main/java");
+    assertThat(getRootPath("java/com/google/project/module/src/test/java"))
+        .isEqualTo("java/com/google/project/module/src/test/java");
+    assertThat(getRootPath("javatests/com/google/project/src/com"))
+        .isEqualTo("javatests/com/google/project/src");
+    assertThat(getRootPath("src/com/google/project/src/main/java"))
+        .isEqualTo("src/com/google/project/src/main/java");
+    assertThat(getRootPath("java/com/google/project/module/src/somethingelse"))
+        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/foo/java"))
+        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/main/com"))
+        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/test/org"))
+        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/java/com"))
+        .isEqualTo("java");
+    assertThat(getRootPath("foo/java/com/google/project/src/com"))
+        .isEqualTo("foo/java");
+    assertThat(getRootPath("src/com/google/java/javac"))
+        .isEqualTo("src");
+
+    assertThat(getRootPath("src/java_tools/buildjar/javatests/com"))
+        .isEqualTo("src/java_tools/buildjar/javatests");
+    assertThat(getRootPath("third_party/project/src/java_tools/buildjar/javatests/com"))
+        .isEqualTo("third_party/project/src/java_tools/buildjar/javatests");
+    assertThat(getRootPath("third_party/project/src/java_tools/buildjar/java/net"))
+        .isEqualTo("third_party/project/src/java_tools/buildjar/java");
+    assertThat(getRootPath("src/java_tools/buildjar/javatests/foo"))
+        .isEqualTo("src");
+    assertThat(getRootPath("src/tools/workspace/src/test/java/foo"))
+        .isEqualTo("src/tools/workspace/src/test/java");
+    assertThat(getRootPath("foo/src/tools/workspace/src/test/java/foo"))
+        .isEqualTo("foo/src/tools/workspace/src/test/java");
   }
 
   @Test
