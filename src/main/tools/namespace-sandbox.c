@@ -617,36 +617,8 @@ static void SetupDirectories() {
     strcpy(full_sandbox_path, opt.sandbox_root);
     strcat(full_sandbox_path, opt.mount_targets[i]);
     CHECK_CALL(CreateTarget(full_sandbox_path, S_ISDIR(sb.st_mode)));
-
-    int mountFlags = MS_BIND;
-    if (S_ISDIR(sb.st_mode)) {
-      mountFlags |= MS_REC;
-    }
-    CHECK_CALL(
-        mount(opt.mount_sources[i], full_sandbox_path, NULL, mountFlags, NULL));
-
-    // Check whether we need additional mount flags for the remount.
-    int remountFlags = MS_BIND | MS_REMOUNT | MS_NODEV | MS_NOSUID | MS_RDONLY;
-    if (!S_ISDIR(sb.st_mode) && access(opt.mount_sources[i], X_OK) != 0) {
-      switch (errno) {
-        case EACCES:
-          remountFlags |= MS_NOEXEC;
-          break;
-        default:
-          perror("access(opt.mount_sources[i], X_OK)");
-          exit(EXIT_FAILURE);
-      }
-    }
-
     CHECK_CALL(mount(opt.mount_sources[i], full_sandbox_path, NULL,
-                     remountFlags, NULL));
-
-    // Check that the target became read-only.
-    if (access(full_sandbox_path, W_OK) != -1 && errno != EACCES) {
-      perror("access(opt.mount_sources[i], W_OK)");
-      exit(EXIT_FAILURE);
-    }
-
+                     MS_REC | MS_BIND | MS_RDONLY, NULL));
     free(full_sandbox_path);
   }
 }

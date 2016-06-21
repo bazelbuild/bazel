@@ -156,15 +156,6 @@ genrule(
   cmd = "ls -l $$(dirname \"$$(pwd)\") &> $@",
 )
 
-genrule(
-  name = "modifies_input_file",
-  srcs = ["readonly.txt"],
-  outs = ["modifies_input_file.txt"],
-  cmd = (
-      "echo \"OWNED\" > $(location :readonly.txt);" +
-      "touch \"$@\""
-  )
-)
 EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
@@ -441,14 +432,6 @@ EOF
     && fail "Expected failure" || true
 
   expect_log "Sandboxed execution failed, which may be legitimate"
-}
-
-function test_modifies_input_file() {
-  echo 'This is readonly' > examples/genrule/readonly.txt
-  bazel build examples/genrule:modifies_input_file &> $TEST_log \
-    && fail "Expected failure: examples/genrule:modifies_input_file" || true
-  fgrep OWNED examples/genrule/readonly.txt \
-    && fail "Sandboxed genrule was able to modify input file" || true
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
