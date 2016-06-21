@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
@@ -612,20 +613,23 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     }
 
     /**
-     * Adds the given providers from skylark.  An error is thrown if toAdd is not an iterable of
+     * Adds the given providers from skylark. An error is thrown if toAdd is not an iterable of
      * ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
     void addProvidersFromSkylark(Object toAdd) {
       if (!(toAdd instanceof Iterable)) {
         throw new IllegalArgumentException(
-            String.format(AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, toAdd.getClass()));
+            String.format(
+                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
             throw new IllegalArgumentException(
-                String.format(AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR, toAddObject.getClass()));
+                String.format(
+                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
+                    EvalUtils.getDataTypeName(toAddObject)));
           } else {
             this.addTransitiveAndPropagate((ObjcProvider) toAddObject);
           }
