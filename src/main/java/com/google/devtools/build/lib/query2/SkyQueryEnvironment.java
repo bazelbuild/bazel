@@ -94,6 +94,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
@@ -242,7 +243,64 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     // errors here.
     eventHandler.resetErrors();
     init();
-    return super.evaluateQuery(expr, callback);
+
+    // SkyQueryEnvironment batches callback invocations using a BatchStreamedCallback, created here
+    // so that there's one per top-level evaluateQuery call. The batch size is large enough that
+    // per-call costs of calling the original callback are amortized over a good number of targets,
+    // and small enough that holding a batch of targets in memory doesn't risk an OOM error.
+    //
+    // This flushes the batched callback prior to constructing the QueryEvalResult in the unlikely
+    // case of a race between the original callback and the eventHandler.
+    final BatchStreamedCallback aggregator =
+        new BatchStreamedCallback(callback, BATCH_CALLBACK_SIZE, createUniquifier());
+
+    final AtomicBoolean empty = new AtomicBoolean(true);
+    try (final AutoProfiler p = AutoProfiler.logged("evaluating query", LOG)) {
+
+      // In the --nokeep_going case, errors are reported in the order in which the patterns are
+      // specified; using a linked hash set here makes sure that the left-most error is reported.
+      Set<String> targetPatternSet = new LinkedHashSet<>();
+      expr.collectTargetPatterns(targetPatternSet);
+
+      // TODO(mschaller): preloadOrThrow does no useful work in the common case. Consider... not.
+      try {
+        preloadOrThrow(expr, targetPatternSet);
+      } catch (TargetParsingException e) {
+        // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
+        throw new QueryException(expr, e.getMessage());
+      }
+
+      try {
+        expr.eval(
+            this,
+            new Callback<Target>() {
+              @Override
+              public void process(Iterable<Target> partialResult)
+                  throws QueryException, InterruptedException {
+                empty.compareAndSet(true, Iterables.isEmpty(partialResult));
+                aggregator.process(partialResult);
+              }
+            });
+      } catch (QueryException e) {
+        throw new QueryException(e, expr);
+      }
+
+      aggregator.processLastPending();
+    }
+
+    if (eventHandler.hasErrors()) {
+      if (!keepGoing) {
+        // This case represents loading-phase errors reported during evaluation
+        // of target patterns that don't cause evaluation to fail per se.
+        throw new QueryException("Evaluation of query \"" + expr
+            + "\" failed due to BUILD file errors");
+      } else {
+        eventHandler.handle(Event.warn("--keep_going specified, ignoring errors.  "
+            + "Results may be inaccurate"));
+      }
+    }
+
+    return new QueryEvalResult(!eventHandler.hasErrors(), empty.get());
   }
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
@@ -385,10 +443,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   @Override
   public void eval(QueryExpression expr, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    BatchStreamedCallback aggregator =
-        new BatchStreamedCallback(callback, BATCH_CALLBACK_SIZE, createUniquifier());
-    expr.eval(this, aggregator);
-    aggregator.processLastPending();
+    expr.eval(this, callback);
   }
 
   private static Uniquifier<Target> uniquifier() {
@@ -939,6 +994,16 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         .build();
   }
 
+  /**
+   * Wraps a {@link Callback} and guarantees that all calls to the original will have at least
+   * {@code batchThreshold} {@link Target}s, except for the final such call.
+   *
+   * <p>Retains fewer than {@code batchThreshold} {@link Target}s at a time.
+   *
+   * <p>After this object's {@link #process} has been called for the last time, {#link
+   * #processLastPending} must be called to "flush" any remaining {@link Target}s through to the
+   * original.
+   */
   private static class BatchStreamedCallback implements Callback<Target> {
 
     private final Callback<Target> callback;
