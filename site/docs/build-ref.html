@@ -643,7 +643,7 @@ testdata/input.txt
 
 <p>
   By definition, every package contains a BUILD file, which is a short
-  program written in the Build Language.  Most build files
+  program written in the Build Language.  Most BUILD files
   appear to be little more than a series of declarations of build
   rules; indeed, the declarative style is strongly encouraged when
   writing BUILD files.
@@ -663,15 +663,7 @@ testdata/input.txt
   features, and when they did, it often resulted in complex and
   fragile BUILD files.  In many cases, the use of such features was
   unnecessary, and the same result could be achieved by using an
-  external program, e.g. via a <code>genrule</code> BUILD rule.
-</p>
-
-<p>
-  The build language has two dialects, the <em>core</em> language and
-  the <em>extended</em> language.  Each BUILD file can elect which
-  dialect it uses; the vast majority use the core language, which is a
-  strict subset of the extended language.  The extended language is a
-  strict subset of Python 2.6.
+  external program, e.g. via a <code>genrule</code> build rule.
 </p>
 
 <p>
@@ -728,6 +720,7 @@ expr ::= INTEGER
        | '[' expr ('for' IDENTIFIER 'in' expr)+ ']'
        | '(' expr_list? ')'
        | '{' dict_entry_list? '}'
+       | '{' dict_entry ('for' IDENTIFIER 'in' expr)+ '}'
        | expr '+' expr
        | expr '-' expr
        | expr '%' expr
@@ -787,7 +780,7 @@ arg ::= IDENTIFIER '=' expr
 </p>
 
 <p>
-  Build file authors are encouraged to use comments liberally to
+  BUILD file authors are encouraged to use comments liberally to
   document the role of each build target, whether it is intended for
   public use, and anything else that would help users and future
   maintainers, including a <code># Description:</code> comment at the
@@ -914,7 +907,7 @@ arg ::= IDENTIFIER '=' expr
 </p>
 
 <p>
-  What this means for BUILD-file writers is that every rule must
+  What this means for BUILD file writers is that every rule must
   explicitly declare all of its actual direct dependencies to the
   build system, and no more.
 
@@ -944,7 +937,7 @@ arg ::= IDENTIFIER '=' expr
   Through careless programming, code in one file may use code provided
   by an <em>indirect</em> dependency, i.e. a transitive but not direct
   edge in the declared dependency graph.  Indirect dependencies do not
-  appear in the build file.  Since the <code>BUILD</code> rule doesn't
+  appear in the BUILD file.  Since the rule doesn't
   directly depend on the provider, there is no way to track changes,
   as shown in the following example timeline:
 </p>
@@ -1102,7 +1095,7 @@ Actual dependency graph:    a --&gt; b    _c
 
 <p>The build system runs tests in an isolated directory where only files
    listed as "data" are available. Thus, if a binary/library/test
-   needs some files to run, specify them (or a BUILD rule containing
+   needs some files to run, specify them (or a build rule containing
    them) in data. For example:
 </p>
 
