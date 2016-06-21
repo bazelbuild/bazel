@@ -226,7 +226,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelListWithAspectsError() throws Exception {
     checkErrorContains(
-        "Illegal argument: expected type aspect for 'aspects' element but got type int instead",
+        "Illegal argument: expected type Aspect for 'aspects' element but got type int instead",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
