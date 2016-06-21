@@ -324,6 +324,14 @@ class MergeManifests(object):
       # append the mergee child as the first child.
       return parents[0].insertBefore(mergee_element, parents[0].firstChild)
 
+  def _OrderManifestChildren(self):
+    """Moves elements of the manifest tag into the correct order."""
+    manifest = self._merger_dom.getElementsByTagName('manifest')[0]
+    # The application element must be the last element in the manifest tag.
+    applications = self._merger_dom.getElementsByTagName('application')
+    if applications:
+      manifest.appendChild(applications[0])
+
   def Merge(self):
     """Takes two manifests, and merges them together to produce a third."""
     self._RemoveFromMerger()
@@ -372,6 +380,7 @@ class MergeManifests(object):
                                   manifest_element.firstChild)
 
     self._SortAliases()
+    self._OrderManifestChildren()
     return self._merger_dom.toprettyxml(indent='  ')
 
 

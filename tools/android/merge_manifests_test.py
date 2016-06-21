@@ -47,13 +47,13 @@ FIRST_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
     <activity android:name=".ui.topup.TopUpActivity" />
     <service android:name=".nfcevent.NfcEventService" />
     <receiver
-         android:name="com.receiver.TestReceiver"
-         android:process="@string/receiver_service_name">
+        android:name="com.receiver.TestReceiver"
+        android:process="@string/receiver_service_name">
       <!-- Receive the actual message -->
-       <intent-filter>
-         <action
-           android:name="android.intent.action.USER_PRESENT"/>
-       </intent-filter>
+      <intent-filter>
+        <action
+            android:name="android.intent.action.USER_PRESENT"/>
+      </intent-filter>
     </receiver>
     <provider
         android:name=".dataaccess.persistence.ContentProvider"
@@ -65,11 +65,11 @@ FIRST_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
 
 SECOND_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="com.google.android.apps.testapp2"
-      android:versionCode="1"
-      android:versionName="1.0">
+    package="com.google.android.apps.testapp2"
+    android:versionCode="1"
+    android:versionName="1.0">
   <permission android:name="com.google.android.apps.foo.C2D_MESSAGE"
-     android:protectionLevel="signature" />
+      android:protectionLevel="signature" />
   <uses-sdk android:minSdkVersion="5" />
   <uses-feature android:name="android.hardware.nfc" android:required="true" />
   <uses-permission android:name="android.permission.READ_LOGS" />
@@ -88,7 +88,7 @@ SECOND_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
       android:label="@string/app_name"
       android:backupAgent="FooBar">
     <activity android:name=".ui.home.HomeActivity"
-              android:label="@string/app_name" >
+        android:label="@string/app_name" >
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
@@ -98,8 +98,8 @@ SECOND_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
     <activity android:name=".PreviewActivity"></activity>
     <activity android:name=".ShowTextActivity" android:excludeFromRecents="true"></activity>
     <activity android:name=".ShowStringListActivity"
-              android:excludeFromRecents="true"
-              android:parentActivityName=".ui.home.HomeActivity">
+        android:excludeFromRecents="true"
+        android:parentActivityName=".ui.home.HomeActivity">
     </activity>
     <service android:name=".TestService">
       <meta-data android:name="param" android:value="value"/>
@@ -112,17 +112,17 @@ SECOND_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
     </receiver>
     <activity-alias android:name="BarFoo" android:targetActivity=".FooBar" />
     <provider
-      android:name="some.package.with.inner.class$AnInnerClass" />
+        android:name="some.package.with.inner.class$AnInnerClass" />
     <provider
-      android:name="${packageName}"
-      android:authorities="${packageName}.${packageName}"
-      android:exported="false" />
+        android:name="${packageName}"
+        android:authorities="${packageName}.${packageName}"
+        android:exported="false" />
     <provider
-      android:name="${packageName}.PlaceHolderProviderName"
-      android:authorities="PlaceHolderProviderAuthorities.${packageName}"
-      android:exported="false" />
+        android:name="${packageName}.PlaceHolderProviderName"
+        android:authorities="PlaceHolderProviderAuthorities.${packageName}"
+        android:exported="false" />
     <activity
-      android:name="activityPrefix.${packageName}.activitySuffix">
+        android:name="activityPrefix.${packageName}.activitySuffix">
       <intent-filter>
         <action android:name="actionPrefix.${packageName}.actionSuffix" />
       </intent-filter>
@@ -133,16 +133,16 @@ SECOND_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
 
 THIRD_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="com.google.android.apps.testapp3"
-      android:versionCode="3"
-      android:versionName="1.30">
+    package="com.google.android.apps.testapp3"
+    android:versionCode="3"
+    android:versionName="1.30">
   <uses-sdk android:minSdkVersion="14" />
   <uses-feature android:name="android.hardware.nfc" android:required="true" />
   <uses-permission android:name="android.permission.READ_LOGS" />
   <uses-permission android:name="android.permission.INTERNET" />
   <application>
     <activity android:name=".ui.home.HomeActivity"
-              android:label="@string/app_name" >
+        android:label="@string/app_name" >
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
@@ -175,7 +175,17 @@ MANUALLY_MERGED = """<?xml version='1.0' encoding='utf-8'?>
   <uses-sdk android:minSdkVersion="10"/>
   <uses-feature android:name="android.hardware.nfc" android:required="true" />
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
+  <!-- Merged from file: SECOND_MANIFEST -->
+  <permission android:name="com.google.android.apps.foo.C2D_MESSAGE" android:protectionLevel="signature" />
+  <!-- Merged from file: SECOND_MANIFEST -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Merged from file: SECOND_MANIFEST -->
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <!-- Merged from file: SECOND_MANIFEST -->
+  <!-- Comment for permission android.permission.GET_ACCOUNTS.
+    This is just to make sure the comment is being merged correctly.
+  -->
+  <uses-permission android:name="android.permission.GET_ACCOUNTS" />
   <application
       android:icon="@drawable/icon"
       android:name="com.google.android.apps.testapp.TestApplication"
@@ -197,13 +207,13 @@ MANUALLY_MERGED = """<?xml version='1.0' encoding='utf-8'?>
          android:name="com.receiver.TestReceiver"
          android:process="@string/receiver_service_name">
       <!-- Receive the actual message -->
-       <intent-filter>
-         <action
-           android:name="android.intent.action.USER_PRESENT"/>
-       </intent-filter>
+      <intent-filter>
+        <action
+            android:name="android.intent.action.USER_PRESENT"/>
+      </intent-filter>
     </receiver>
     <provider android:authorities="com.google.android.apps.testapp" android:exported="false"
-      android:name="com.google.android.apps.testapp.dataaccess.persistence.ContentProvider"/>
+        android:name="com.google.android.apps.testapp.dataaccess.persistence.ContentProvider"/>
     <!-- Merged from file: SECOND_MANIFEST -->
     <activity android:label="@string/app_name" android:name="com.google.android.apps.testapp2.ui.home.HomeActivity">
       <intent-filter>
@@ -220,29 +230,29 @@ MANUALLY_MERGED = """<?xml version='1.0' encoding='utf-8'?>
         android:excludeFromRecents="true"></activity>
     <!-- Merged from file: SECOND_MANIFEST -->
     <activity android:name="com.google.android.apps.testapp2.ShowStringListActivity"
-              android:excludeFromRecents="true"
-              android:parentActivityName="com.google.android.apps.testapp2.ui.home.HomeActivity">
+        android:excludeFromRecents="true"
+        android:parentActivityName="com.google.android.apps.testapp2.ui.home.HomeActivity">
     </activity>
     <!-- Merged from file: SECOND_MANIFEST -->
     <activity
-      android:name="activityPrefix.com.google.android.apps.testapp.activitySuffix">
+        android:name="activityPrefix.com.google.android.apps.testapp.activitySuffix">
       <intent-filter>
         <action android:name="actionPrefix.com.google.android.apps.testapp.actionSuffix" />
       </intent-filter>
     </activity>
     <!-- Merged from file: SECOND_MANIFEST -->
     <provider
-      android:name="some.package.with.inner.class$AnInnerClass" />
+        android:name="some.package.with.inner.class$AnInnerClass" />
     <!-- Merged from file: SECOND_MANIFEST -->
     <provider
-      android:name="com.google.android.apps.testapp"
-      android:authorities="com.google.android.apps.testapp.com.google.android.apps.testapp"
-      android:exported="false" />
+        android:name="com.google.android.apps.testapp"
+        android:authorities="com.google.android.apps.testapp.com.google.android.apps.testapp"
+        android:exported="false" />
     <!-- Merged from file: SECOND_MANIFEST -->
     <provider
-      android:name="com.google.android.apps.testapp.PlaceHolderProviderName"
-      android:authorities="PlaceHolderProviderAuthorities.com.google.android.apps.testapp"
-      android:exported="false" />
+        android:name="com.google.android.apps.testapp.PlaceHolderProviderName"
+        android:authorities="PlaceHolderProviderAuthorities.com.google.android.apps.testapp"
+        android:exported="false" />
     <!-- Merged from file: SECOND_MANIFEST -->
     <receiver android:name="com.google.android.apps.testapp2.ConnectivityReceiver"
         android:enabled="false" >
@@ -267,28 +277,17 @@ MANUALLY_MERGED = """<?xml version='1.0' encoding='utf-8'?>
     <activity android:name="com.google.android.apps.testapp3.TestActivity"/>
     <!-- Merged from file: THIRD_MANIFEST -->
     <receiver android:enabled="true"
-      android:name="com.google.android.apps.testapp3.ConnectivityReceiver">
-    <intent-filter>
-      <action android:name="android.net.conn.CONNECTIVITY_CHANGER"/>
-    </intent-filter>
-  </receiver>
-  <!-- Merged from file: THIRD_MANIFEST -->
-  <service android:name="com.google.android.apps.testapp3.TestService"/>
-  <!-- Merged from file: SECOND_MANIFEST -->
+        android:name="com.google.android.apps.testapp3.ConnectivityReceiver">
+      <intent-filter>
+        <action android:name="android.net.conn.CONNECTIVITY_CHANGER"/>
+      </intent-filter>
+    </receiver>
+    <!-- Merged from file: THIRD_MANIFEST -->
+    <service android:name="com.google.android.apps.testapp3.TestService"/>
+    <!-- Merged from file: SECOND_MANIFEST -->
     <activity-alias android:name="com.google.android.apps.testapp2.BarFoo"
-      android:targetActivity="com.google.android.apps.testapp2.FooBar"/>
+        android:targetActivity="com.google.android.apps.testapp2.FooBar"/>
   </application>
-  <!-- Merged from file: SECOND_MANIFEST -->
-  <permission android:name="com.google.android.apps.foo.C2D_MESSAGE" android:protectionLevel="signature" />
-  <!-- Merged from file: SECOND_MANIFEST -->
-  <uses-permission android:name="android.permission.INTERNET" />
-  <!-- Merged from file: SECOND_MANIFEST -->
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-  <!-- Merged from file: SECOND_MANIFEST -->
-  <!-- Comment for permission android.permission.GET_ACCOUNTS.
-    This is just to make sure the comment is being merged correctly.
-  -->
-  <uses-permission android:name="android.permission.GET_ACCOUNTS" />
 </manifest>
 """
 
@@ -308,7 +307,7 @@ ALIAS_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
       android:theme="@style/Theme.Test"
       android:label="@string/app_name">
     <activity-alias android:name="com.google.foo.should.not.be.first"
-      android:targetActivity=".entrypoint.EntryPointActivityGroup"/>
+        android:targetActivity=".entrypoint.EntryPointActivityGroup"/>
     <!--  START LIBRARIES (Maintain Alphabetic order) -->
     <!-- NFC extras -->
     <uses-library android:name="com.google.android.nfc_extras" android:required="false"/>
@@ -327,7 +326,7 @@ ALIAS_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
       <!-- Receive the actual message -->
        <intent-filter>
          <action
-           android:name="android.intent.action.USER_PRESENT"/>
+             android:name="android.intent.action.USER_PRESENT"/>
        </intent-filter>
     </receiver>
     <provider
@@ -343,13 +342,24 @@ ALIAS_MANIFEST = """<?xml version='1.0' encoding='utf-8'?>
 # dependent manifests to provide required elements, i.e. a <application>
 INVALID_MERGER_MANIFEST = """
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.google.android.invalid"
-  android:versionCode="9100000"
-  android:versionName="9.1.0.0x">
+    package="com.google.android.invalid"
+    android:versionCode="9100000"
+    android:versionName="9.1.0.0x">
   <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
 </manifest>
 """
 
+
+INVALID_MERGEE_MANIFEST = """
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.android.invalid"
+    android:versionCode="9100000"
+    android:versionName="9.1.0.0x">
+  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
+  <permission android:name="com.google.android.apps.foo.C2D_MESSAGE" android:protectionLevel="signature"/>
+  <uses-feature android:name="android.hardware.nfc" android:required="true"/>
+</manifest>
+"""
 
 VALID_MANIFEST = """
 <manifest
@@ -363,6 +373,11 @@ VALID_MANIFEST = """
   Mergee manifests:
     SECOND_MANIFEST
   -->
+  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21"/>
+  <!-- Merged from file: SECOND_MANIFEST -->
+  <permission android:name="com.google.android.apps.foo.C2D_MESSAGE" android:protectionLevel="signature"/>
+  <!-- Merged from file: SECOND_MANIFEST -->
+  <uses-feature android:name="android.hardware.nfc" android:required="true"/>
   <application
       android:backupAgent="com.google.android.apps.testapp2.FooBar"
       android:icon="@drawable/icon"
@@ -370,36 +385,36 @@ VALID_MANIFEST = """
       android:name="com.google.android.apps.testapp.TestApplication2"
       android:theme="@style/Theme.Test2">
     <activity
-       android:name="com.google.android.apps.testapp2.TestActivity2"/>
+        android:name="com.google.android.apps.testapp2.TestActivity2"/>
     <activity
-       android:name="com.google.android.apps.testapp2.PreviewActivity"/>
+        android:name="com.google.android.apps.testapp2.PreviewActivity"/>
     <activity android:excludeFromRecents="true"
-       android:name="com.google.android.apps.testapp2.ShowTextActivity"/>
+        android:name="com.google.android.apps.testapp2.ShowTextActivity"/>
     <activity android:excludeFromRecents="true"
-       android:name="com.google.android.apps.testapp2.ShowStringListActivity"
-       android:parentActivityName="com.google.android.apps.testapp2.ui.home.HomeActivity">
+        android:name="com.google.android.apps.testapp2.ShowStringListActivity"
+        android:parentActivityName="com.google.android.apps.testapp2.ui.home.HomeActivity">
     </activity>
     <service
-       android:name="com.google.android.apps.testapp2.TestService">
+        android:name="com.google.android.apps.testapp2.TestService">
       <meta-data android:name="param"
-         android:value="value"/>
+          android:value="value"/>
     </service>
     <service
-       android:name="com.google.android.apps.testapp2.nfcevent.NfcEventService"/>
+        android:name="com.google.android.apps.testapp2.nfcevent.NfcEventService"/>
     <receiver
-      android:enabled="false"
-      android:name="com.google.android.apps.testapp2.ConnectivityReceiver">
+        android:enabled="false"
+        android:name="com.google.android.apps.testapp2.ConnectivityReceiver">
       <intent-filter>
         <action android:name="android.net.conn.CONNECTIVITY_CHANGE"/>
       </intent-filter>
     </receiver>
     <provider android:name="some.package.with.inner.class$AnInnerClass"/>
     <provider
-       android:authorities="com.google.android.invalid.com.google.android.invalid"
-       android:exported="false" android:name="com.google.android.invalid"/>
+        android:authorities="com.google.android.invalid.com.google.android.invalid"
+        android:exported="false" android:name="com.google.android.invalid"/>
     <provider android:authorities="PlaceHolderProviderAuthorities.com.google.android.invalid"
-       android:exported="false"
-       android:name="com.google.android.invalid.PlaceHolderProviderName"/>
+        android:exported="false"
+        android:name="com.google.android.invalid.PlaceHolderProviderName"/>
     <activity android:name="activityPrefix.com.google.android.invalid.activitySuffix">
       <intent-filter>
         <action android:name="actionPrefix.com.google.android.invalid.actionSuffix"/>
@@ -407,21 +422,16 @@ VALID_MANIFEST = """
     </activity>
     <!-- Merged from file: SECOND_MANIFEST -->
     <activity android:label="@string/app_name"
-       android:name="com.google.android.apps.testapp2.ui.home.HomeActivity">
+        android:name="com.google.android.apps.testapp2.ui.home.HomeActivity">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
     <activity-alias
-      android:name="com.google.android.apps.testapp2.BarFoo"
-      android:targetActivity="com.google.android.apps.testapp2.FooBar"/>
+        android:name="com.google.android.apps.testapp2.BarFoo"
+        android:targetActivity="com.google.android.apps.testapp2.FooBar"/>
   </application>
-  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21"/>
-  <!-- Merged from file: SECOND_MANIFEST -->
-  <permission android:name="com.google.android.apps.foo.C2D_MESSAGE" android:protectionLevel="signature"/>
-  <!-- Merged from file: SECOND_MANIFEST -->
-  <uses-feature android:name="android.hardware.nfc" android:required="true"/>
 </manifest>
 """
 
@@ -503,6 +513,12 @@ class MergeManifestsTest(unittest.TestCase):
     expected = xml.dom.minidom.parseString(VALID_MANIFEST).toprettyxml()
     self.assertEquals(Reformat(expected), Reformat(result))
 
+  def testMergeWithNoApplication(self):
+    merger = merge_manifests.MergeManifests(
+        (INVALID_MERGER_MANIFEST, 'INVALID_MERGER_MANIFEST'),
+        [(INVALID_MERGEE_MANIFEST, 'INVALID_MERGEE_MANIFEST')],
+        ['all'])
+    merger.Merge()
 
 if __name__ == '__main__':
   unittest.main()
