@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -71,7 +70,7 @@ public class JavaHeaderCompileActionBuilder {
   @Nullable private Label targetLabel;
   private PathFragment tempDirectory;
   private BuildConfiguration.StrictDepsMode strictJavaDeps = BuildConfiguration.StrictDepsMode.OFF;
-  private List<Artifact> directJars = new ArrayList<>();
+  private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private List<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
   private ImmutableList<String> javacOpts;
   private List<Artifact> processorPath = new ArrayList<>();
@@ -92,9 +91,9 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the direct dependency artifacts. */
-  public JavaHeaderCompileActionBuilder addDirectJars(Collection<Artifact> directJars) {
+  public JavaHeaderCompileActionBuilder setDirectJars(NestedSet<Artifact> directJars) {
     checkNotNull(directJars, "directJars must not be null");
-    this.directJars.addAll(directJars);
+    this.directJars = directJars;
     return this;
   }
 
@@ -237,6 +236,13 @@ public class JavaHeaderCompileActionBuilder {
     checkNotNull(processorPath, "processorPath must not be null");
     checkNotNull(processorNames, "processorNames must not be null");
 
+    // Invariant: if strictJavaDeps is OFF, then directJars and
+    // dependencyArtifacts are ignored
+    if (strictJavaDeps == BuildConfiguration.StrictDepsMode.OFF) {
+      directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+      compileTimeDependencyArtifacts.clear();
+    }
+
     SpawnAction.Builder builder = new SpawnAction.Builder();
 
     builder.addOutput(outputJar);
@@ -253,7 +259,7 @@ public class JavaHeaderCompileActionBuilder {
     builder.addInputs(processorPath);
     builder.addInputs(sourceJars);
     builder.addInputs(sourceFiles);
-    builder.addInputs(directJars);
+    builder.addTransitiveInputs(directJars);
     builder.addInputs(compileTimeDependencyArtifacts);
 
     builder.addTool(javacJar);
@@ -331,13 +337,7 @@ public class JavaHeaderCompileActionBuilder {
     }
 
     if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
-      result.add(
-          new CustomMultiArgv() {
-            @Override
-            public Iterable<String> argv() {
-              return JavaCompileAction.addJarsToTargets(classpathEntries, directJars);
-            }
-          });
+      result.add(new JavaCompileAction.JarsToTargetsArgv(classpathEntries, directJars));
 
       if (!compileTimeDependencyArtifacts.isEmpty()) {
         result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);

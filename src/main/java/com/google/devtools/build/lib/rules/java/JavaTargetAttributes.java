@@ -83,7 +83,7 @@ public class JavaTargetAttributes {
 
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
         BuildConfiguration.StrictDepsMode.OFF;
-    private final List<Artifact> directJars = new ArrayList<>();
+    private final NestedSetBuilder<Artifact> directJars = NestedSetBuilder.naiveLinkOrder();
     private final List<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
@@ -174,15 +174,6 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addDirectCompileTimeClassPathEntries(Iterable<Artifact> entries) {
-      Preconditions.checkArgument(!built);
-      // The other version is preferred as it is more memory-efficient.
-      for (Artifact classPathEntry : entries) {
-        compileTimeClassPath.add(classPathEntry);
-      }
-      return this;
-    }
-
     public Builder setRuleKind(String ruleKind) {
       Preconditions.checkArgument(!built);
       this.ruleKind = ruleKind;
@@ -228,23 +219,21 @@ public class JavaTargetAttributes {
     }
 
     /**
-     * In tandem with strictJavaDeps, directJars represents a subset of the
-     * compile-time, classpath jars that were provided by direct dependencies.
-     * When strictJavaDeps is OFF, there is no need to provide directJars, and
-     * no extra information is passed to javac. When strictJavaDeps is set to
-     * WARN or ERROR, the compiler command line will include extra flags to
-     * indicate the warning/error policy and to map the classpath jars to direct
-     * or transitive dependencies, using the information in directJars. The extra
-     * flags are formatted like this (same for --indirect_dependency):
+     * In tandem with strictJavaDeps, directJars represents a subset of the compile-time, classpath
+     * jars that were provided by direct dependencies. When strictJavaDeps is OFF, there is no need
+     * to provide directJars, and no extra information is passed to javac. When strictJavaDeps is
+     * set to WARN or ERROR, the compiler command line will include extra flags to indicate the
+     * warning/error policy and to map the classpath jars to direct or transitive dependencies,
+     * using the information in directJars. The extra flags are formatted like this (same for
+     * --indirect_dependency): <pre>
      * --direct_dependency
      * foo/bar/lib.jar
      * //java/com/google/foo:bar
-     *
-     * @param directJars
+     * </pre>
      */
-    public Builder addDirectJars(Iterable<Artifact> directJars) {
+    public Builder addDirectJars(NestedSet<Artifact> directJars) {
       Preconditions.checkArgument(!built);
-      Iterables.addAll(this.directJars, directJars);
+      this.directJars.addTransitive(directJars);
       return this;
     }
 
@@ -339,7 +328,7 @@ public class JavaTargetAttributes {
           messages,
           sourceJars,
           classPathResources,
-          directJars,
+          directJars.build(),
           compileTimeDependencyArtifacts,
           ruleKind,
           targetLabel,
@@ -391,7 +380,7 @@ public class JavaTargetAttributes {
 
   private final ImmutableList<Artifact> classPathResources;
 
-  private final ImmutableList<Artifact> directJars;
+  private final NestedSet<Artifact> directJars;
   private final ImmutableList<Artifact> compileTimeDependencyArtifacts;
   private final String ruleKind;
   private final Label targetLabel;
@@ -399,9 +388,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> excludedArtifacts;
   private final BuildConfiguration.StrictDepsMode strictJavaDeps;
 
-  /**
-   * Constructor of JavaTargetAttributes.
-   */
+  /** Constructor of JavaTargetAttributes. */
   private JavaTargetAttributes(
       Set<Artifact> sourceFiles,
       Set<Artifact> compileTimeJarFiles,
@@ -415,7 +402,7 @@ public class JavaTargetAttributes {
       List<Artifact> messages,
       List<Artifact> sourceJars,
       List<Artifact> classPathResources,
-      List<Artifact> directJars,
+      NestedSet<Artifact> directJars,
       List<Artifact> compileTimeDependencyArtifacts,
       String ruleKind,
       Label targetLabel,
@@ -433,7 +420,7 @@ public class JavaTargetAttributes {
     this.messages = ImmutableList.copyOf(messages);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.classPathResources = ImmutableList.copyOf(classPathResources);
-    this.directJars = ImmutableList.copyOf(directJars);
+    this.directJars = directJars;
     this.compileTimeDependencyArtifacts = ImmutableList.copyOf(compileTimeDependencyArtifacts);
     this.ruleKind = ruleKind;
     this.targetLabel = targetLabel;
@@ -441,7 +428,7 @@ public class JavaTargetAttributes {
     this.strictJavaDeps = strictJavaDeps;
   }
 
-  public List<Artifact> getDirectJars() {
+  public NestedSet<Artifact> getDirectJars() {
     return directJars;
   }
 
