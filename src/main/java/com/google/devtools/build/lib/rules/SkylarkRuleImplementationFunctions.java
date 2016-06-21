@@ -190,8 +190,8 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "information for scheduling the action."
-                + " See [tags](/docs/be/common-definitions.html#common.tags) for useful keys."
+            "information for scheduling the action. See "
+            + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> for useful keys."
       ),
       @Param(
         name = "input_manifests",
@@ -686,8 +686,8 @@ public class SkylarkRuleImplementationFunctions {
         named = true,
         positional = false,
         doc =
-            "information for scheduling the action to resolve this command."
-                + " See [tags](/docs/be/common-definitions.html#common.tags) for useful keys."
+            "information for scheduling the action to resolve this command. See "
+            + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> for useful keys."
       ),
     },
     useLocation = true, useEnvironment = true
