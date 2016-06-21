@@ -85,7 +85,6 @@ public class LinuxSandboxedStrategyTestCase {
 
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(ExecutionOptions.class, SandboxOptions.class);
-    optionsParser.parse("--verbose_failures", "--sandbox_debug");
 
     EventBus bus = new EventBus();
 
