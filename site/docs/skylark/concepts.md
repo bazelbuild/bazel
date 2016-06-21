@@ -81,11 +81,28 @@ side-effect, it only defines values and functions.
 ## Language
 
 Skylark is a superset of the core build language and its syntax is a subset of
-Python. The following constructs have been added to the core build language:
-`if` statements, `for` loops, and function definitions.
+Python.
 It is designed to be simple, thread-safe and integrated with the
 BUILD language. It is not a general-purpose language and most Python
 features are not included.
+
+The following constructs have been added to the Core Build Language: `if`
+statements, `for` loops, and function definitions. They behave like in Python.
+Here is an example to show the syntax:
+
+```python
+def fizz_buzz(n):
+  """Print Fizz Buzz numbers from 1 to n."""
+  for i in range(1, n + 1):
+    s = ""
+    if i % 3 == 0:
+      s += "Fizz"
+    if i % 5 == 0:
+      s += "Buzz"
+    print(s if s else i)
+
+fizz_buzz(20)
+```
 
 ## Mutability
 
