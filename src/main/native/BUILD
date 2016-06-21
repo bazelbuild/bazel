@@ -70,6 +70,7 @@ genrule(
     srcs = ["libunix.so"],
     outs = ["libunix.dylib"],
     cmd = "cp $< $@",
+    output_to_bindir = 1,
     visibility = ["//src:__subpackages__"],
 )
 
