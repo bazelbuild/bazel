@@ -1,5 +1,5 @@
 ---
-layout: community
+layout: contribute
 title: Bazel Users
 ---
 
