@@ -94,6 +94,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
         this.cursorControl
             ? new ExperimentalStateTracker(clock, this.terminalWidth - 2)
             : new ExperimentalStateTracker(clock);
+    this.stateTracker.setSampleSize(options.experimentalUiActionsShown);
     this.numLinesProgressBar = 0;
     this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
     this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);

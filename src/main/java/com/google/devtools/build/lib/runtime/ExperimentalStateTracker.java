@@ -48,11 +48,12 @@ import java.util.TreeSet;
  */
 class ExperimentalStateTracker {
 
-  static final int SAMPLE_SIZE = 3;
   static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   static final String ELLIPSIS = "...";
 
   static final int NANOS_PER_SECOND = 1000000000;
+
+  private int sampleSize = 3;
 
   private String status;
   private String additionalMessage;
@@ -99,6 +100,13 @@ class ExperimentalStateTracker {
 
   ExperimentalStateTracker(Clock clock) {
     this(clock, 0);
+  }
+
+  /**
+   * Set the maximal number of actions shown in the progress bar.
+   */
+  void setSampleSize(int sampleSize) {
+    this.sampleSize = sampleSize;
   }
 
   void buildStarted(BuildStartingEvent event) {
@@ -368,10 +376,11 @@ class ExperimentalStateTracker {
         continue;
       }
       count++;
-      if (count > SAMPLE_SIZE) {
+      if (count > sampleSize) {
+        totalCount--;
         break;
       }
-      int width = (count >= SAMPLE_SIZE && count < actionCount) ? targetWidth - 8 : targetWidth - 4;
+      int width = (count >= sampleSize && count < actionCount) ? targetWidth - 8 : targetWidth - 4;
       terminalWriter.newline().append("    " + describeAction(action, nanoTime, width, toSkip));
     }
     if (totalCount < actionCount) {

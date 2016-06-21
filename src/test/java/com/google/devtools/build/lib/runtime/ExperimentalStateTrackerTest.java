@@ -199,6 +199,42 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testSampleSize() throws IOException {
+    // Verify that the number of actions shown in the progress bar can be set as sample size.
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
+
+    // Start 10 actions (numbered 0 to 9).
+    for (int i = 0; i < 10; i++) {
+      clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+      Action action = mockAction("Performing action A" + i + ".", "action_A" + i + ".out");
+      stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    }
+
+    // For various sample sizes verify the progress bar
+    for (int i = 1; i < 11; i++) {
+      stateTracker.setSampleSize(i);
+      LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+      stateTracker.writeProgressBar(terminalWriter);
+      String output = terminalWriter.getTranscript();
+      assertTrue(
+          "Action " + (i - 1) + " should still be shown in the output: '" + output,
+          output.contains("A" + (i - 1) + "."));
+      assertFalse(
+          "Action " + i + " should not be shown in the output: " + output,
+          output.contains("A" + i + "."));
+      if (i < 10) {
+        assertTrue("Ellipsis symbol should be shown in output: " + output, output.contains("..."));
+      } else {
+        assertFalse(
+            "Ellipsis symbol should not be shown in output: " + output, output.contains("..."));
+      }
+    }
+  }
+
+  @Test
   public void testTimesShown() throws IOException {
     // For sufficiently long running actions, the time that has passed since their start is shown.
     // In the short version of the progress bar, this should be true at least for the oldest action.
