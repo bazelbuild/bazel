@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -92,7 +94,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
@@ -112,7 +113,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   protected WalkableGraph graph;
 
-  private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
   private Supplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
@@ -132,6 +132,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       return target.getLabel();
     }
   };
+  private final ListeningExecutorService threadPool =
+      MoreExecutors.listeningDecorator(
+          Executors.newFixedThreadPool(
+              Runtime.getRuntime().availableProcessors(),
+              new ThreadFactoryBuilder().setNameFormat("GetPackages-%d").build()));
+  private RecursivePackageProviderBackedTargetPatternResolver resolver;
 
   private static class BlacklistSupplier implements Supplier<ImmutableSet<PathFragment>> {
     private final WalkableGraph graph;
@@ -179,9 +185,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     blacklistPatternsSupplier = Suppliers.memoize(new BlacklistSupplier(graph));
 
     SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
-    universeTargetPatternKeys =
+    ImmutableList<TargetPatternKey> universeTargetPatternKeys =
         PrepareDepsOfPatternsFunction.getTargetPatternKeys(
             PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
+    GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
+        new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
+    resolver =
+        new RecursivePackageProviderBackedTargetPatternResolver(
+            graphBackedRecursivePackageProvider,
+            eventHandler,
+            TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
+            threadPool);
 
     // The prepareAndGet call above evaluates a single PrepareDepsOfPatterns SkyKey.
     // We expect to see either a single successfully evaluated value or a cycle in the result.
@@ -487,14 +501,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
               TargetPatternValue.key(
                       pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
                   .argument());
-      GraphBackedRecursivePackageProvider provider = new GraphBackedRecursivePackageProvider(
-          graph, universeTargetPatternKeys, pkgPath);
-      ExecutorService threadPool = Executors.newFixedThreadPool(
-          Runtime.getRuntime().availableProcessors(),
-          new ThreadFactoryBuilder().setNameFormat("GetPackages-%d").build());
-      RecursivePackageProviderBackedTargetPatternResolver resolver =
-          new RecursivePackageProviderBackedTargetPatternResolver(
-              provider, eventHandler, targetPatternKey.getPolicy(), threadPool);
       TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
       ImmutableSet<PathFragment> subdirectoriesToExclude =
           targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier);
