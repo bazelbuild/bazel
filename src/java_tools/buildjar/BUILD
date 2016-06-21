@@ -54,7 +54,10 @@ java_toolchain(
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
-    jvm_opts = ["-client"],
+    jvm_opts = [
+        "-XX:+TieredCompilation",
+        "-XX:TieredStopAtLevel=1",
+    ],
     singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
     source_version = "8",
     target_version = "8",
@@ -70,7 +73,10 @@ java_toolchain(
     ijar = ["//third_party/ijar"],
     javabuilder = ["//third_party/java/jdk/javabuilder:JavaBuilder_0.1.0"],
     javac = ["//third_party/java/jdk/langtools:javac7_jar"],
-    jvm_opts = ["-client"],
+    jvm_opts = [
+        "-XX:+TieredCompilation",
+        "-XX:TieredStopAtLevel=1",
+    ],
     singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
     source_version = "7",
     target_version = "7",

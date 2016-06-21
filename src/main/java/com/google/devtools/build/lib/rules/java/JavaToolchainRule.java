@@ -83,7 +83,10 @@ public final class JavaToolchainRule implements RuleDefinition {
         The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java
         virtual machine documentation for the extensive list of possible flags for this option.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("jvm_opts", STRING_LIST).value(ImmutableList.<String>of("-client")))
+        .add(
+            attr("jvm_opts", STRING_LIST)
+                .value(
+                    ImmutableList.<String>of("-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1")))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

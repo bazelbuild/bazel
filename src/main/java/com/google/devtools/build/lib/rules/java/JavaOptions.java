@@ -357,7 +357,9 @@ public class JavaOptions extends FragmentOptions {
     JavaOptions host = (JavaOptions) getDefault();
 
     host.javaBase = hostJavaBase;
-    host.jvmOpts = ImmutableList.of("-client", "-XX:ErrorFile=/dev/stderr");
+    host.jvmOpts =
+        ImmutableList.of(
+            "-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", "-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = javacOpts;
     host.javaToolchain = hostJavaToolchain;
