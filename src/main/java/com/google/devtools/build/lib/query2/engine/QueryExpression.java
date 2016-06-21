@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.util.concurrent.ListeningExecutorService;
+
 import java.util.Collection;
 
 /**
@@ -69,6 +71,20 @@ public abstract class QueryExpression {
    */
   public abstract <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
       throws QueryException, InterruptedException;
+
+  /**
+   * Evaluates this query in the specified environment, as in {@link
+   * #eval(QueryEnvironment, Callback)}. If the query expression supports concurrent evaluation, it
+   * may employ {@code executorService}.
+   *
+   * <p>The caller must ensure that both {@code env} and {@code callback} are effectively
+   * threadsafe. The query expression may call their methods from multiple threads.
+   */
+  public <T> void evalConcurrently(
+      QueryEnvironment<T> env, Callback<T> callback, ListeningExecutorService executorService)
+      throws QueryException, InterruptedException {
+    this.eval(env, callback);
+  }
 
   /**
    * Collects all target patterns that are referenced anywhere within this query expression and adds
