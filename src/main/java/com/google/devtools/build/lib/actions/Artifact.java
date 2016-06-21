@@ -91,8 +91,14 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @SkylarkModule(name = "File",
-    doc = "This type represents a file used by the build system. It can be "
-        + "either a source file or a derived file produced by a rule.")
+    doc = "<p>This type represents a file used by the build system. It can be "
+        + "either a source file or a derived file produced by a rule.</p>"
+        + "<p>The File constructor is private, so you cannot call it directly to create new "
+        + "Files. If you have a Skylark rule that needs to create a new File, you might need to "
+        + "add the label to the attrs (if it's an input) or the outputs (if it's an output). Then "
+        + "you can access the File through the rule's <a href='ctx.html'>context</a>. You can "
+        + "also use <a href='ctx.html#new_file'>ctx.new_file</a> to create a new file in the rule "
+        + "implementation.</p>")
 public class Artifact
     implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 

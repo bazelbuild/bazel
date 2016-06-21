@@ -7,11 +7,31 @@ title: Skylark Rules
 **Status: Experimental**. We may make breaking changes to the API, but we will
   help you update your code.
 
+A rule defines a series of actions that Bazel should perform on inputs to get a
+set of outputs.  For example, a C++ binary rule might take a set of .cpp
+files (the inputs), run `g++` on them (the action), and return an executable
+file (the output).
+
+Note that, from Bazel's perspective, `g++` and the standard C++ libraries are
+also inputs to this rule. As a rule writer, you must consider not only the
+user-provided inputs to a rule, but also all of the tools and libraries required
+to execute the actions (called _implicit inputs_).
+
 ## Rule creation
 
-In a Skylark extension, use the [rule](lib/globals.html#rule) function
-to create a new rule and store it in a global variable.
-[See example](cookbook.md#empty).
+In a Skylark extension (a .bzl file), use the [rule](lib/globals.html#rule)
+function to create a new rule and store it in a global variable:
+
+```python
+my_rule = rule(...)
+```
+
+See [the cookbook](cookbook.md#empty) for examples. The rule can then be
+loaded by BUILD files:
+
+```python
+load('//some/pkg:whatever.bzl', 'my_rule')
+```
 
 A custom rule can be used just like a native rule. It has a mandatory `name`
 attribute, you can refer to it with a label, and you can see it in
@@ -30,9 +50,9 @@ the attributes and their types when you define a rule.
 
 ```python
 sum = rule(
-    implementation=impl,
-    attrs={
-        "number": attr.int(default=1),
+    implementation = impl,
+    attrs = {
+        "number": attr.int(default = 1),
         "deps": attr.label_list(),
     },
 )
@@ -40,12 +60,16 @@ sum = rule(
 
 The following attributes are implicitly added to every rule: `deprecation`,
 `features`, `name`, `tags`, `testonly`, `visibility`. Test rules also have the
-following attributes: `args`, `flaky`, `local`, `shard_count`, `size`, `timeout`.
+following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
+`timeout`.
 
-To access an attribute, use `ctx.attr.<attribute_name>`. The name and the
-package of a rule are available with `ctx.label.name` and `ctx.label.package`.
+Labels listed in `attr` will be inputs to the rule.
 
-[See example.](cookbook.md#attr)
+To access an attribute in a rule's implementation, use
+`ctx.attr.<attribute_name>`. The name and the package of a rule are available
+with `ctx.label.name` and `ctx.label.package`.
+
+See [an example](cookbook.md#attr) of using `attr` in a rule.
 
 ### <a name="private-attributes"></a> Private Attributes
 
@@ -152,7 +176,7 @@ actions. There are three ways to create output files in Skylark:
   output files come from the actual attribute values.
   [See example](cookbook.md#outputs-custom)
 
-All output files must have exactly one generating action. See the
+Each output file must have exactly one generating action. See the
 [library](lib/ctx.html#outputs) for more context.
 
 ## Default outputs
@@ -209,8 +233,9 @@ an execution error and the build will fail. This happens for instance when a
 compilation fails.
 
 **If an action generates an unknown number of outputs and you want to keep them
-all**, you may group them in a zip file. This way, you will be able to declare
-your output.
+all**, you must group them in a single file (e.g., a zip, tar, or other
+archive format). This way, you will be able to deterministically declare your
+outputs.
 
 **If an action does not list a file it uses as an input**, the action execution
 will most likely result in an error. The file is not guaranteed to be available
