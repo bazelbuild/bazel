@@ -30,9 +30,9 @@ All undocumented features (attributes, rules, "Make" variables, and flags) are s
 at any time without prior notice. Features that are documented but marked *experimental* are also
 subject to change at any time without prior notice.
 
-The Skylark macro and rules language (anything you write in a `.bzl` file) is still subject to
-change. We are in the process of migrating Google to Skylark, and expect the macro language to
-stabilize as part of that process. The rules language is still somewhat experimental.
+Bazel's extension language Skylark (anything you write in a `.bzl` file) is still subject to change.
+We are in the process of migrating Google to Skylark, and expect the language part to extend macros
+to stabilize as part of that process. Adding rules with skylark is still somewhat experimental.
 
 Help keep us honest: report bugs and regressions in the
 [GitHub bugtracker](https://github.com/bazelbuild/bazel/issues). We will make an effort to triage all
