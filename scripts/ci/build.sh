@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/bin/bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -13,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+set -eu
 
 # Main deploy functions for the continous build system
 # Just source this file and use the various method:
@@ -36,8 +38,6 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 
 : ${RELEASE_CANDIDATE_URL:="${GCS_BASE_URL}/${GCS_BUCKET}/%release_name%/rc%rc%/index.html"}
 : ${RELEASE_URL="${GIT_REPOSITORY_URL}/releases/tag/%release_name%"}
-
-set -eu
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 if [[ ${PLATFORM} == "darwin" ]]; then

@@ -186,27 +186,30 @@ def create_android_sdk_rules(
       ])
   )
 
-  [native.genrule(
-       name = tool + "_runner",
-       outs = [tool + "_runner.sh"],
-       srcs = [],
-       cmd  = "\n".join(["cat > $@ << 'EOF'",
-           "#!/bin/bash -eu",
-           # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
-           # so we can't simply depend on them as a file like we do with aapt.
-           "SDK=$${0}.runfiles/%s" % name,
-           "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
-           "EOF\n"]),
-  ) for tool in ["aapt", "aidl", "zipalign"]]
+  for tool in ["aapt", "aidl", "zipalign"]:
+    native.genrule(
+        name = tool + "_runner",
+        outs = [tool + "_runner.sh"],
+        srcs = [],
+        cmd  = "\n".join([
+            "cat > $@ << 'EOF'",
+            "#!/bin/bash",
+            "set -eu",
+            # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
+            # so we can't simply depend on them as a file like we do with aapt.
+            "SDK=$${0}.runfiles/%s" % name,
+            "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
+            "EOF\n"]),
+    )
 
-  [native.sh_binary(
-      name = tool + "_binary",
-      srcs = [tool + "_runner.sh"],
-      data = [
-          ":build_tools_libs",
-          "build-tools/%s/%s" % (build_tools_directory, tool)
-      ],
-  ) for tool in ["aapt", "aidl", "zipalign"]]
+    native.sh_binary(
+        name = tool + "_binary",
+        srcs = [tool + "_runner.sh"],
+        data = [
+            ":build_tools_libs",
+            "build-tools/%s/%s" % (build_tools_directory, tool)
+        ],
+    )
 
   native.sh_binary(
       name = "fail",
