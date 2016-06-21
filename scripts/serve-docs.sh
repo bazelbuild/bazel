@@ -31,6 +31,15 @@ function main {
   tar -xf bazel-genfiles/site/jekyll-tree.tar -C $WORKING_DIR
 
   cd $WORKING_DIR
-  jekyll serve --port $PORT
+  old_version="Jekyll 0.11.2"
+  if expr match "$(jekyll --version)" "$old_version"; then
+    # The ancient version that apt-get has.
+    echo "WARNING: Running with an old version of Jekyll, consider updating " \
+      "to 2.5.3 (\`gem install jekyll -v 2.5.3\`)"
+    jekyll serve --server $PORT
+  else
+    # Any reasonable version.
+    jekyll serve --port $PORT
+  fi
 }
 main
