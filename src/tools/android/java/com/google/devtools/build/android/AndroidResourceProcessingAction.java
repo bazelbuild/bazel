@@ -40,6 +40,7 @@ import com.android.utils.StdLogger;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -216,9 +217,11 @@ public class AndroidResourceProcessingAction {
     Path working = fileSystem.getPath("").toAbsolutePath();
     final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(STD_LOGGER);
 
-    try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("android_resources_tmp")) {
-      final Path tmp = scopedTmp.getPath();
+    try {
+      final Path tmp = Files.createTempDirectory("android_resources_tmp");
+      // Clean up the tmp file on exit to keep diskspace low.
+      tmp.toFile().deleteOnExit();
+
       final Path expandedOut = tmp.resolve("tmp-expanded");
       final Path deduplicatedOut = tmp.resolve("tmp-deduplicated");
       final Path mergedAssets = tmp.resolve("merged_assets");

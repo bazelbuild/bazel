@@ -160,10 +160,11 @@ public class ResourceShrinkerAction {
     options = optionsParser.getOptions(Options.class);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
-    // Setup temporary working directories.
-    try (ScopedTemporaryDirectory scopedTmp =
-        new ScopedTemporaryDirectory("resource_shrinker_tmp")) {
-      Path working = scopedTmp.getPath();
+    try {
+      // Setup temporary working directories.
+      Path working = Files.createTempDirectory("resource_shrinker_tmp");
+      working.toFile().deleteOnExit();
+
       final Path resourceFiles = working.resolve("resource_files");
 
       final Path shrunkResources = working.resolve("shrunk_resources");

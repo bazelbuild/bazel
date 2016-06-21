@@ -124,7 +124,7 @@ public class AarGeneratorAction {
     public boolean strictMerge;
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.parseAndExitUponError(args);
@@ -138,14 +138,15 @@ public class AarGeneratorAction {
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(
         new StdLogger(com.android.utils.StdLogger.Level.VERBOSE));
 
-    try (ScopedTemporaryDirectory scopedTmp = new ScopedTemporaryDirectory("aar_gen_tmp")) {
-      Path tmp = scopedTmp.getPath();
-      Path resourcesOut = tmp.resolve("merged_resources");
-      Files.createDirectories(resourcesOut);
-      Path assetsOut = tmp.resolve("merged_assets");
-      Files.createDirectories(assetsOut);
-      Path expandedOut = tmp.resolve("tmp-expanded");
-      Path deduplicatedOut = tmp.resolve("tmp-deduplicated");
+    try {
+      Path resourcesOut = Files.createTempDirectory("tmp-resources");
+      resourcesOut.toFile().deleteOnExit();
+      Path assetsOut = Files.createTempDirectory("tmp-assets");
+      assetsOut.toFile().deleteOnExit();
+      Path expandedOut = Files.createTempDirectory("tmp-expanded");
+      expandedOut.toFile().deleteOnExit();
+      Path deduplicatedOut = Files.createTempDirectory("tmp-deduplicated");
+      deduplicatedOut.toFile().deleteOnExit();
 
       logger.fine(String.format("Setup finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
@@ -164,6 +165,7 @@ public class AarGeneratorAction {
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
       logger.fine(
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
     } catch (IOException | MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
       System.exit(1);
