@@ -169,7 +169,8 @@ public final class NativeLibs {
             outputManifest,
             false,
             ruleContext.getConfiguration().getShExecutable(),
-            ruleContext.getConfiguration().getLocalShellEnvironment()));
+            ruleContext.getConfiguration().getLocalShellEnvironment(),
+            ruleContext.getConfiguration().runfilesEnabled()));
     return outputManifest;
   }
 

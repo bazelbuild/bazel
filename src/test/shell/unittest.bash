@@ -525,7 +525,8 @@ function __finish_test_report() {
 }
 
 # Multi-platform timestamp function
-if [ "$(uname -s | tr 'A-Z' 'a-z')" = "linux" ]; then
+UNAME=$(uname -s | tr 'A-Z' 'a-z')
+if [ "$UNAME" = "linux" ] || [ "$UNAME" = "msys_nt-6.1" ]; then
     function timestamp() {
       echo $(($(date +%s%N)/1000000))
     }

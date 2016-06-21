@@ -21,24 +21,39 @@
 BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
 
 # Load the unit-testing framework
-source "${BAZEL_RUNFILES}/src/test/shell/unittest.bash" || \
+source "$(rlocation io_bazel/src/test/shell/unittest.bash)" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 
 # Bazel
-bazel_tree="${BAZEL_RUNFILES}/src/test/shell/bazel/doc-srcs.zip"
-bazel="${BAZEL_RUNFILES}/src/bazel"
+bazel_tree="$(rlocation io_bazel/src/test/shell/bazel/doc-srcs.zip)"
+bazel="$(rlocation io_bazel/src/bazel)"
 bazel_data="${BAZEL_RUNFILES}"
 
+# Windows
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+function is_windows() {
+  # On windows, the shell test actually running on msys
+  if [ "${PLATFORM}" == "msys_nt-6.1" ]; then
+    true
+  else
+    false
+  fi
+}
+
 # Java
-jdk_dir="${TEST_SRCDIR}/local_jdk"
-langtools="${BAZEL_RUNFILES}/src/test/shell/bazel/langtools.jar"
+if is_windows; then
+  jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
+else
+  jdk_dir="${TEST_SRCDIR}/local_jdk"
+fi
+langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 
 # Tools directory location
-tools_dir="${BAZEL_RUNFILES}/tools"
-langtools_dir="${BAZEL_RUNFILES}/third_party/java/jdk/langtools"
+tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
+langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
 EXTRA_BAZELRC="build --ios_sdk_version=8.4"
 
 # Java tooling
@@ -80,7 +95,6 @@ testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
 python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 
 # Third-party
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
 if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' ]; then
@@ -152,7 +166,7 @@ function is_tools_directory() {
 
 # Copy the examples of the base workspace
 function copy_examples() {
-  EXAMPLE="$BAZEL_RUNFILES/examples"
+  EXAMPLE="$(cd $(dirname $(rlocation io_bazel/examples/cpp/BUILD))/..; pwd)"
   cp -RL ${EXAMPLE} .
   chmod -R +w .
 }

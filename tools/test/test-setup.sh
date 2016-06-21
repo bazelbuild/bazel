@@ -28,11 +28,35 @@ fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
 DIR="$TEST_SRCDIR"
+RUNFILES_MANIFEST_FILE=$DIR/MANIFEST
+
+if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
+  function rlocation() {
+    if [[ "$1" = /* ]]; then
+      echo $1
+    else
+      echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
+    fi
+  }
+else
+  function rlocation() {
+    if [[ "$1" = /* ]]; then
+      echo $1
+    else
+      echo $(grep "^$1 " $MANIFEST_FILE | awk '{ print $2 }')
+    fi
+  }
+fi
+
+export -f rlocation
+export RUNFILES_MANIFEST_FILE
 
 if [ ! -z "$TEST_WORKSPACE" ]
 then
   DIR="$DIR"/"$TEST_WORKSPACE"
 fi
+
+
 
 # normal commands are run in the exec-root where they have access to
 # the entire source tree. By chdir'ing to the runfiles root, tests only
@@ -48,8 +72,18 @@ echo "--------------------------------------------------------------------------
 # If the test is at the top of the tree, we have to add '.' to $PATH,
 PATH=".:$PATH"
 
+
+TEST_NAME=$1
+shift
+
+if [[ "$TEST_NAME" = /* ]]; then
+  EXE="${TEST_NAME}"
+else
+  EXE="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"
+fi
+
 exitCode=0
-"$@" || exitCode=$?
+"${EXE}" "$@" || exitCode=$?
 
 if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
   # Create a default XML output file if the test runner hasn't generated it
@@ -63,8 +97,8 @@ if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
   cat <<EOF >${XML_OUTPUT_FILE}
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="$1" tests="1" failures="0" errors="$errors">
-    <testcase name="$1" status="run">$error_msg</testcase>
+  <testsuite name="$TEST_NAME" tests="1" failures="0" errors="$errors">
+    <testcase name="$TEST_NAME" status="run">$error_msg</testcase>
   </testsuite>
 </testsuites>
 EOF

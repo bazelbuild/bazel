@@ -855,6 +855,14 @@ public final class BuildConfiguration {
             + "static globally defined ones")
     public boolean useDynamicConfigurations;
 
+    @Option(
+      name = "experimental_enable_runfiles",
+      defaultValue = "auto",
+      category = "undocumented",
+      help = "Enable runfiles; off on Windows, on on other platforms"
+    )
+    public TriState enableRunfiles;
+
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) getDefault();
@@ -2348,6 +2356,17 @@ public final class BuildConfiguration {
 
   public String getCpu() {
     return options.cpu;
+  }
+
+  public boolean runfilesEnabled() {
+    switch (options.enableRunfiles) {
+      case YES:
+        return true;
+      case NO:
+        return false;
+      default:
+        return OS.getCurrent() != OS.WINDOWS;
+    }
   }
 
   /**

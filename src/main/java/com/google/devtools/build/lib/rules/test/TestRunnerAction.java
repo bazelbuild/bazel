@@ -562,6 +562,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return configuration.getLocalShellEnvironment();
   }
 
+  public boolean isEnableRunfiles() {
+    return configuration.runfilesEnabled();
+  }
+
   /**
    * The same set of paths as the parent test action, resolved against a given exec root.
    */

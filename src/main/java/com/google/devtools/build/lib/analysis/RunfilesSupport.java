@@ -312,7 +312,8 @@ public final class RunfilesSupport {
                 outputManifest,
                 /*filesetTree=*/ false,
                 config.getShExecutable(),
-                config.getLocalShellEnvironment()));
+                config.getLocalShellEnvironment(),
+                config.runfilesEnabled()));
     return outputManifest;
   }
 

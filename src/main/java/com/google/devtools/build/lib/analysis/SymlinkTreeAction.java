@@ -43,11 +43,11 @@ public final class SymlinkTreeAction extends AbstractAction {
   private final boolean filesetTree;
   private final PathFragment shExecutable;
   private final ImmutableMap<String, String> shellEnviroment;
+  private final boolean enableRunfiles;
 
   /**
    * Creates SymlinkTreeAction instance.
-   *
-   * @param owner action owner
+   *  @param owner action owner
    * @param inputManifest the input runfiles manifest
    * @param artifactMiddleman the middleman artifact representing all the files the symlinks
    *                          point to (on Windows we need to know if the target of a "symlink" is
@@ -56,7 +56,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    *                       (must have "MANIFEST" base name). Symlink tree root
    *                       will be set to the artifact's parent directory.
    * @param filesetTree true if this is fileset symlink tree,
-   *                    false if this is a runfiles symlink tree.
+   * @param enableRunfiles true is the actual symlink tree needs to be created.
    */
   public SymlinkTreeAction(
       ActionOwner owner,
@@ -65,7 +65,8 @@ public final class SymlinkTreeAction extends AbstractAction {
       Artifact outputManifest,
       boolean filesetTree,
       PathFragment shExecutable,
-      ImmutableMap<String, String> shellEnvironment) {
+      ImmutableMap<String, String> shellEnvironment,
+      boolean enableRunfiles) {
     super(owner, computeInputs(inputManifest, artifactMiddleman), ImmutableList.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     this.inputManifest = inputManifest;
@@ -73,6 +74,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     this.filesetTree = filesetTree;
     this.shExecutable = shExecutable;
     this.shellEnviroment = shellEnvironment;
+    this.enableRunfiles = enableRunfiles;
   }
 
   private static ImmutableList<Artifact> computeInputs(
@@ -129,6 +131,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     actionExecutionContext
         .getExecutor()
         .getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(this, actionExecutionContext, shExecutable, shellEnviroment);
+        .createSymlinks(
+            this, actionExecutionContext, shExecutable, shellEnviroment, enableRunfiles);
   }
 }

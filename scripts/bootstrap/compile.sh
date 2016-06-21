@@ -208,7 +208,12 @@ mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 #!/bin/sh
 win_arg='--windows_compatible'
-if [ $1 == $win_arg ];
+manifest_arg='--manifest_only'
+if [ $1 == $win_arg ] || [ $1 == $manifest_arg ];
+then
+     shift
+fi
+if [ $1 == $win_arg ] || [ $1 == $manifest_arg ];
 then
      shift
 fi

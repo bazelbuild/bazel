@@ -18,7 +18,7 @@
 #
 
 # Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
+source $(rlocation io_bazel/src/test/shell/bazel/test-setup.sh) \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
 if ! is_windows; then
