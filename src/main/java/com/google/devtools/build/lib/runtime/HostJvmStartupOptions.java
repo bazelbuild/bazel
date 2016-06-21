@@ -29,26 +29,20 @@ public class HostJvmStartupOptions extends OptionsBase {
   @Option(name = "host_jvm_args",
           defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
           category = "host jvm startup",
-          help = "Flags to pass to the JVM executing Blaze. Note: Blaze " +
-                 "will ignore this option unless you are starting a new " +
-                 "instance. See also 'blaze help shutdown'.")
+          help = "Flags to pass to the JVM executing Blaze.")
   public String hostJvmArgs;
 
   @Option(name = "host_jvm_profile",
           defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
           category = "host jvm startup",
-          help = "Run the JVM executing Blaze in the given profiler. " +
-                 "Blaze will search for hardcoded paths based on the " +
-                 "profiler. Note: Blaze will ignore this option unless you " +
-                 "are starting a new instance. See also 'blaze help shutdown'.")
+          help = "Run the JVM executing Blaze in the given profiler. Blaze will search for "
+              + "certain hardcoded paths based on the profiler.")
   public String hostJvmProfile;
 
   @Option(name = "host_jvm_debug",
           defaultValue = "false", // NOTE: purely decorative!  See BlazeServerStartupOptions.
           category = "host jvm startup",
-          help = "Run the JVM executing Blaze so that it listens for a " +
-                 "connection from a JDWP-compliant debugger. Note: Blaze " +
-                 "will ignore this option unless you are starting a new " +
-                 "instance. See also 'blaze help shutdown'.")
+          help = "Run the JVM executing Blaze so that it listens for a connection from a "
+              + "JDWP-compliant debugger.")
   public boolean hostJvmDebug;
 }
