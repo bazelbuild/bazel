@@ -13,8 +13,8 @@ sh_test(
         "../local_jdk/bin/java",
         "../local_jdk/bin/jar",
         "../local_jdk/bin/javap",
-        "io_bazel/$(location //third_party/ijar)",
-        "io_bazel/$(location //tools/jdk:langtools)",
+        "$(location //third_party/ijar)",
+        "$(location //tools/jdk:langtools)",
         # We assume unzip and zip to be on the path
         "unzip",
         "zip",

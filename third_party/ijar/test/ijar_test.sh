@@ -26,9 +26,9 @@ JAR=$1
 shift
 JAVAP=$1
 shift
-IJAR=$TEST_SRCDIR/$1
+IJAR=$1
 shift
-LANGTOOLS8=$TEST_SRCDIR/$1
+LANGTOOLS8=$1
 shift
 UNZIP=$1
 shift
