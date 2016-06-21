@@ -60,7 +60,7 @@ public class ZipFileSystemTest {
 
   @Before
   public final void initializeFileSystems() throws Exception  {
-    FileSystem unixFs = FileSystems.initDefaultAsNative();
+    FileSystem unixFs = FileSystems.getNativeFileSystem();
     Path testdataDir = unixFs.getPath(BlazeTestUtils.runfilesDir()).getRelative(
         TestConstants.JAVATESTS_ROOT + "/com/google/devtools/build/lib/vfs");
     Path zPath1 = testdataDir.getChild("sample_with_dirs.zip");

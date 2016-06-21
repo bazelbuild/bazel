@@ -68,7 +68,7 @@ public class StandaloneSpawnStrategyTest {
   private FileSystem fileSystem;
 
   private Path createTestRoot() throws IOException {
-    fileSystem = FileSystems.initDefaultAsNative();
+    fileSystem = FileSystems.getNativeFileSystem();
     Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
     try {
       FileSystemUtils.deleteTreesBelow(testRoot);

@@ -53,7 +53,7 @@ public class UnixPathTest {
   private File tmpDir;
 
   protected FileSystem getUnixFileSystem() {
-    return FileSystems.initDefaultAsNative();
+    return FileSystems.getNativeFileSystem();
   }
 
   @Before

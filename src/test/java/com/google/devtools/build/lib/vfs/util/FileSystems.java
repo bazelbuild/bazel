@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.util;
 
+import com.google.common.base.Verify;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnionFileSystem;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.WindowsFileSystem;
 import com.google.devtools.build.lib.vfs.ZipFileSystem;
 
 import java.io.IOException;
@@ -34,60 +37,69 @@ public final class FileSystems {
 
   private FileSystems() {}
 
-  private static FileSystem defaultFileSystem;
+  private static FileSystem defaultNativeFileSystem;
+  private static FileSystem defaultJavaIoFileSystem;
+  private static FileSystem defaultUnionFileSystem;
 
   /**
-   * Initializes the default {@link FileSystem} instance as a platform native
-   * (Unix) file system, creating one iff needed, and returns the instance.
-   *
-   * <p>This method is idempotent as long as the initialization is of the same
-   * type (Native/JavaIo/Union).
+   * Initializes the default native {@link FileSystem} instance as a platform native
+   * (Unix or Windows) file system. If it's not initialized, then initialize it,
+   * otherwise verify if the type of the instance is correct.
    */
-  public static synchronized FileSystem initDefaultAsNative() {
-    if (!(defaultFileSystem instanceof UnixFileSystem)) {
-      defaultFileSystem = new UnixFileSystem();
+  public static synchronized FileSystem getNativeFileSystem() {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      if (defaultNativeFileSystem == null) {
+        defaultNativeFileSystem = new WindowsFileSystem();
+      } else {
+        Verify.verify(defaultNativeFileSystem instanceof WindowsFileSystem);
+      }
+    } else {
+      if (defaultNativeFileSystem == null) {
+        defaultNativeFileSystem = new UnixFileSystem();
+      } else {
+        Verify.verify(defaultNativeFileSystem instanceof UnixFileSystem);
+      }
     }
-    return defaultFileSystem;
+    return defaultNativeFileSystem;
   }
 
   /**
-   * Initializes the default {@link FileSystem} instance as a java.io.File
-   * file system, creating one iff needed, and returns the instance.
-   *
-   * <p>This method is idempotent as long as the initialization is of the same
-   * type (Native/JavaIo/Union).
+   * Initializes the default java {@link FileSystem} instance as a java.io.File
+   * file system. If it's not initialized, then initialize it,
+   * otherwise verify if the type of the instance is correct.
    */
-  public static synchronized FileSystem initDefaultAsJavaIo() {
-    if (!(defaultFileSystem instanceof JavaIoFileSystem)) {
-      defaultFileSystem = new JavaIoFileSystem();
+  public static synchronized FileSystem getJavaIoFileSystem() {
+    if (defaultJavaIoFileSystem == null) {
+      defaultJavaIoFileSystem = new JavaIoFileSystem();
+    } else {
+      Verify.verify(defaultJavaIoFileSystem instanceof JavaIoFileSystem);
     }
-    return defaultFileSystem;
+    return defaultJavaIoFileSystem;
   }
 
   /**
-   * Initializes the default {@link FileSystem} instance as a
-   * {@link UnionFileSystem}, creating one iff needed,
-   * and returns the instance.
-   *
-   * <p>This method is idempotent as long as the initialization is of the same
-   * type (Native/JavaIo/Union).
+   * Initializes the default union {@link FileSystem} instance as a
+   * {@link UnionFileSystem}. If it's not initialized, then initialize it,
+   * otherwise verify if the type of the instance is correct.
    *
    * @param prefixMapping the desired mapping of path prefixes to delegate file systems
    * @param rootFileSystem the default file system for paths that don't match any prefix map
    */
-  public static synchronized FileSystem initDefaultAsUnion(
+  public static synchronized FileSystem getUnionFileSystem(
       Map<PathFragment, FileSystem> prefixMapping, FileSystem rootFileSystem) {
-    if (!(defaultFileSystem instanceof UnionFileSystem)) {
-      defaultFileSystem = new UnionFileSystem(prefixMapping, rootFileSystem);
+    if (defaultUnionFileSystem == null) {
+      defaultUnionFileSystem = new UnionFileSystem(prefixMapping, rootFileSystem);
+    } else {
+      Verify.verify(defaultUnionFileSystem instanceof UnionFileSystem);
     }
-    return defaultFileSystem;
+    return defaultUnionFileSystem;
   }
 
   /**
    * Returns a new instance of a simple {@link FileSystem} implementation that
    * presents the contents of a zip file as a read-only file system view.
    */
-  public static FileSystem newZipFileSystem(Path zipFile) throws IOException {
+  public static FileSystem getZipFileSystem(Path zipFile) throws IOException {
     return new ZipFileSystem(zipFile);
   }
 }
