@@ -61,20 +61,20 @@ public final class SingleJarActionBuilder {
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
     NestedSet<Artifact> hostJavabaseInputs = JavaHelper.getHostJavabaseInputs(ruleContext);
     Artifact singleJar = getSingleJar(ruleContext);
-    ImmutableList<String> jvmOpts =
-        ImmutableList.of("-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", SINGLEJAR_MAX_MEMORY);
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .addOutput(outputJar)
-            .addInputs(resources.values())
-            .addInputs(resourceJars)
-            .addTransitiveInputs(hostJavabaseInputs)
-            .setJarExecutable(javaPath, singleJar, jvmOpts)
-            .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
-            .useParameterFile(ParameterFileType.SHELL_QUOTED)
-            .setProgressMessage("Building source jar " + outputJar.prettyPrint())
-            .setMnemonic("JavaSourceJar")
-            .build(ruleContext));
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .addOutput(outputJar)
+        .addInputs(resources.values())
+        .addInputs(resourceJars)
+        .addTransitiveInputs(hostJavabaseInputs)
+        .setJarExecutable(
+            javaPath,
+            singleJar,
+            ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY))
+        .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
+        .useParameterFile(ParameterFileType.SHELL_QUOTED)
+        .setProgressMessage("Building source jar " + outputJar.prettyPrint())
+        .setMnemonic("JavaSourceJar")
+        .build(ruleContext));
   }
 
   /** Returns the SingleJar deploy jar Artifact. */

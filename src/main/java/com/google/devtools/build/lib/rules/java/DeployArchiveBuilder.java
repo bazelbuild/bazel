@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -232,8 +233,7 @@ public class DeployArchiveBuilder {
         outputJar, javaStartClass, deployManifestLines, buildInfoArtifacts, classpathResources,
         runtimeClasspath, includeBuildData, compression, launcher);
 
-    ImmutableList<String> jvmArgs =
-        ImmutableList.of("-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1", SINGLEJAR_MAX_MEMORY);
+    List<String> jvmArgs = ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY);
     ResourceSet resourceSet =
         ResourceSet.createWithRamCpuIo(/*memoryMb = */200.0, /*cpuUsage = */.2, /*ioUsage=*/.2);
 
