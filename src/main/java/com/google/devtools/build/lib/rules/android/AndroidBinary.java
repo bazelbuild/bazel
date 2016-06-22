@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 
 import com.google.common.base.Function;
@@ -192,9 +191,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       LocalResourceContainer.validateRuleContext(ruleContext);
       ApplicationManifest ruleManifest = androidSemantics.getManifestForRule(ruleContext);
 
-      String applicationId = ruleContext.attributes().get("application_id", Type.STRING);
-      String versionCode = getExpandedMakeVarsForAttr(ruleContext, "version_code");
-      String versionName = getExpandedMakeVarsForAttr(ruleContext, "version_name");
+      String applicationId = null;
+      String versionCode = null;
+      String versionName = null;
       Map<String, String> manifestValues =
           ruleContext.attributes().get("manifest_values", Type.STRING_DICT);
       if (manifestValues != null) {
@@ -902,14 +901,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addRuntimeJars(common.getRuntimeJars())
         .build();
     return deployJar;
-  }
-
-  private static String getExpandedMakeVarsForAttr(RuleContext context, String attr) {
-    final String value = context.attributes().get(attr, Type.STRING);
-    if (isNullOrEmpty(value)) {
-      return null;
-    }
-    return context.expandMakeVariables(attr, value);
   }
 
   private static JavaOptimizationMode getJavaOptimizationMode(RuleContext ruleContext) {

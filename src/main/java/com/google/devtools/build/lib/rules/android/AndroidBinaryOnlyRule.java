@@ -35,40 +35,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
-//       /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(application_id) -->
-//       A full Java-language-style package name for the application. The name should be unique.
-//       The name may contain uppercase or lowercase letters ('A' through 'Z'), numbers, and
-//       underscores ('_'). However, individual package name parts may only start with letters.
-//       The package name serves as a unique identifier for the application. It's also the default
-//       name for the application process (see the &lt;application&gt; element's process attribute)
-//       and the default task affinity of an activity.
-//
-//       This overrides the value declared in the manifest.
-//       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("application_id", STRING).undocumented("not ready for production use"))
-//       /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(version_code) -->
-//       An internal version number. This number is used only to determine whether one version is
-//       more recent than another, with higher numbers indicating more recent versions. This is not
-//       the version number shown to users; that number is set by the version_name attribute.
-//       The value must be set as an integer, such as "100". Each successive version must have a
-//       higher number.
-//       This overrides the value declared in the manifest.
-//
-//       Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
-//       Suggested practice is to declare a varrdef and reference it here so that a particular build
-//       invocation will be used to generate apks for release.
-//       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("version_code", STRING).undocumented("not ready for production use"))
-//       /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(version_name) -->
-//       The version number shown to users. The string has no other purpose than to be displayed to
-//       users. The version_code attribute holds the significant version number used internally.
-//       This overrides the value declared in the manifest.
-//
-//       Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
-//       Suggested practice is to declare a varrdef and reference it here so that a particular build
-//       invocation will be used to generate apks for release.
-//       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("version_name", STRING).undocumented("not ready for production use"))
 //        /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
 //        A dictionary of values to be overridden in the manifest. Any instance of ${name} in the
 //        manifest will be replaced with the value corresponding to name in this dictionary.
