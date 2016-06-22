@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -30,6 +32,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TriState;
 
 import com.android.builder.core.VariantConfiguration;
+import com.android.builder.core.VariantConfiguration.Type;
 import com.android.ide.common.internal.AaptCruncher;
 import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.LoggedErrorException;
@@ -40,6 +43,7 @@ import com.android.utils.StdLogger;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -226,6 +230,7 @@ public class AndroidResourceProcessingAction {
       final Path filteredResources = tmp.resolve("resources-filtered");
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
       final Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
+      final Path dummyManifest = tmp.resolve("manifest-aapt-dummy/AndroidManifest.xml");
 
       Path generatedSources = null;
       if (options.srcJarOutput != null || options.rOutput != null
@@ -266,7 +271,7 @@ public class AndroidResourceProcessingAction {
       LOGGER.fine(String.format("Density filtering finished at %sms",
           timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      final MergedAndroidData processedManifestData = resourceProcessor.processManifest(
+      MergedAndroidData processedData = resourceProcessor.processManifest(
           options.packageType,
           options.packageForR,
           options.applicationId,
@@ -274,6 +279,24 @@ public class AndroidResourceProcessingAction {
           options.versionName,
           filteredData,
           processedManifest);
+
+      // Write manifestOutput now before the dummy manifest is created.
+      if (options.manifestOutput != null) {
+        resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
+      }
+
+      if (options.packageType == Type.LIBRARY) {
+        Files.createDirectories(dummyManifest.getParent());
+        Files.write(dummyManifest, String.format(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
+            + " package=\"%s\">"
+            + "</manifest>", options.packageForR).getBytes(UTF_8));
+        processedData = new MergedAndroidData(
+            processedData.getResourceDir(),
+            processedData.getAssetDir(),
+            dummyManifest);
+      }
 
       resourceProcessor.processResources(
           aaptConfigOptions.aapt,
@@ -285,20 +308,17 @@ public class AndroidResourceProcessingAction {
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
           aaptConfigOptions.splits,
-          processedManifestData,
+          processedData,
           data,
           generatedSources,
           options.packagePath,
           options.proguardOutput,
           options.mainDexProguardOutput,
           options.resourcesOutput != null
-              ? processedManifestData.getResourceDir().resolve("values").resolve("public.xml")
+              ? processedData.getResourceDir().resolve("values").resolve("public.xml")
               : null);
       LOGGER.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      if (options.manifestOutput != null) {
-        resourceProcessor.copyManifestToOutput(processedManifestData, options.manifestOutput);
-      }
       if (options.srcJarOutput != null) {
         resourceProcessor.createSrcJar(generatedSources, options.srcJarOutput,
             VariantConfiguration.Type.LIBRARY == options.packageType);
@@ -312,8 +332,8 @@ public class AndroidResourceProcessingAction {
             VariantConfiguration.Type.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
-        resourceProcessor.createResourcesZip(processedManifestData.getResourceDir(),
-            processedManifestData.getAssetDir(), options.resourcesOutput);
+        resourceProcessor.createResourcesZip(processedData.getResourceDir(),
+            processedData.getAssetDir(), options.resourcesOutput);
       }
       LOGGER.fine(String.format("Packaging finished at %sms",
           timer.elapsed(TimeUnit.MILLISECONDS)));

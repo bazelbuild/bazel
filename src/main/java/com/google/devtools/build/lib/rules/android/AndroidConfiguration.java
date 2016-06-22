@@ -98,6 +98,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Converter for {@link AndroidManifestMerger}
+   */
+  public static final class AndroidManifestMergerConverter
+      extends EnumConverter<AndroidManifestMerger> {
+    public AndroidManifestMergerConverter() {
+      super(AndroidManifestMerger.class, "android manifest merger");
+    }
+  }
+
+  /**
    * Value used to avoid multiple configurations from conflicting.
    *
    * <p>This is set to {@code ANDROID} in Android configurations and to {@code MAIN} otherwise. This
@@ -136,6 +146,30 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     private IncrementalDexing(AndroidBinaryType... binaryTypes) {
       this.binaryTypes = ImmutableSet.copyOf(binaryTypes);
+    }
+  }
+
+  /** Types of android manifest mergers. */
+  public enum AndroidManifestMerger {
+    LEGACY,
+    ANDROID;
+
+    public static List<String> getAttributeValues() {
+      return ImmutableList.of(LEGACY.name().toLowerCase(), ANDROID.name().toLowerCase(),
+          getRuleAttributeDefault());
+    }
+
+    public static String getRuleAttributeDefault() {
+      return "auto";
+    }
+
+    public static AndroidManifestMerger fromString(String value) {
+      for (AndroidManifestMerger merger : AndroidManifestMerger.values()) {
+        if (merger.name().equalsIgnoreCase(value)) {
+          return merger;
+        }
+      }
+      return null;
     }
   }
 
@@ -296,6 +330,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Enables the use of an obfuscation map when generating the main dex jar file")
     public boolean useProguardPreviousObfuscationMap;
 
+    @Option(name = "android_manifest_merger",
+        defaultValue = "legacy",
+        category = "semantics",
+        converter = AndroidManifestMergerConverter.class,
+        help = "Selects the manifest merger to use for android_binary rules. Flag to help the"
+            + "transition to the Android manifest merger from the legacy merger.")
+    public AndroidManifestMerger manifestMerger;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -366,6 +408,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
   private final boolean useProguardPreviousObfuscationMap;
+  private final AndroidManifestMerger manifestMerger;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -389,6 +432,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
     this.useProguardPreviousObfuscationMap = options.useProguardPreviousObfuscationMap;
+    this.manifestMerger = options.manifestMerger;
   }
 
   public String getCpu() {
@@ -463,6 +507,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useProguardPreviousObfuscationMap() {
     return useProguardPreviousObfuscationMap;
+  }
+
+  public AndroidManifestMerger getManifestMerger() {
+    return manifestMerger;
   }
 
   @Override

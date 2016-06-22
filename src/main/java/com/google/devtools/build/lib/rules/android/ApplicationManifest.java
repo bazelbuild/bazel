@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -26,6 +30,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -33,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.annotation.Nullable;
 
@@ -44,9 +50,8 @@ public final class ApplicationManifest {
       ruleContext.attributeError("manifest", "a resources or manifest attribute is mandatory.");
       return null;
     }
-    return new ApplicationManifest(Iterables.getOnlyElement(
-        resources.getDirectAndroidResources())
-        .getManifest());
+    return new ApplicationManifest(
+        ruleContext, Iterables.getOnlyElement(resources.getDirectAndroidResources()).getManifest());
   }
 
   public ApplicationManifest createSplitManifest(
@@ -67,7 +72,7 @@ public final class ApplicationManifest {
         .addArgument(splitName)
         .addArgument(hasCode ? "--hascode" : "--nohascode");
 
-    String overridePackage = getOverridePackage(ruleContext);
+    String overridePackage = manifestValues.get("applicationId");
     if (overridePackage != null) {
       builder
           .addArgument("--override_package")
@@ -75,31 +80,7 @@ public final class ApplicationManifest {
     }
 
     ruleContext.registerAction(builder.build(ruleContext));
-    return new ApplicationManifest(result);
-  }
-
-  private String getOverridePackage(RuleContext ruleContext) {
-    // It seems that we sometimes rename the app for God-knows-what reason. If that is the case,
-    // pass this information to the stubifier script.
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
-      Map<String, String> manifestValues =
-          ruleContext.attributes().get("manifest_values", Type.STRING_DICT);
-      if (manifestValues.containsKey("applicationId")) {
-        return manifestValues.get("applicationId");
-      }
-    }
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("application_id")) {
-      return ruleContext.attributes().get("application_id", Type.STRING);
-    }
-
-    AndroidResourcesProvider resourcesProvider = AndroidCommon.getAndroidResources(ruleContext);
-    if (resourcesProvider != null) {
-      ResourceContainer resourceContainer = Iterables.getOnlyElement(
-          resourcesProvider.getDirectAndroidResources());
-      return resourceContainer.getRenameManifestPackage();
-    } else {
-      return null;
-    }
+    return new ApplicationManifest(ruleContext, result);
   }
 
   public ApplicationManifest addMobileInstallStubApplication(RuleContext ruleContext)
@@ -121,7 +102,7 @@ public final class ApplicationManifest {
         .addOutputArgument(ruleContext.getImplicitOutputArtifact(
             AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA));
 
-    String overridePackage = getOverridePackage(ruleContext);
+    String overridePackage = manifestValues.get("applicationId");
     if (overridePackage != null) {
       builder.addArgument("--override_package");
       builder.addArgument(overridePackage);
@@ -129,7 +110,7 @@ public final class ApplicationManifest {
 
     ruleContext.registerAction(builder.build(ruleContext));
 
-    return new ApplicationManifest(stubManifest);
+    return new ApplicationManifest(ruleContext, stubManifest);
   }
 
   public ApplicationManifest addInstantRunStubApplication(RuleContext ruleContext)
@@ -150,15 +131,17 @@ public final class ApplicationManifest {
 
     ruleContext.registerAction(builder.build(ruleContext));
 
-    return new ApplicationManifest(stubManifest);
-  }
-  
-  public static ApplicationManifest fromRule(RuleContext ruleContext) {
-    return new ApplicationManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET));
+    return new ApplicationManifest(ruleContext, stubManifest);
   }
 
-  public static ApplicationManifest fromExplicitManifest(Artifact manifest) {
-    return new ApplicationManifest(manifest);
+  public static ApplicationManifest fromRule(RuleContext ruleContext) {
+    return new ApplicationManifest(
+        ruleContext, ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET));
+  }
+
+  public static ApplicationManifest fromExplicitManifest(
+      RuleContext ruleContext, Artifact manifest) {
+    return new ApplicationManifest(ruleContext, manifest);
   }
 
   /**
@@ -184,26 +167,78 @@ public final class ApplicationManifest {
         "</manifest>");
     ruleContext.getAnalysisEnvironment().registerAction(new FileWriteAction(
         ruleContext.getActionOwner(), generatedManifest, contents, false /* makeExecutable */));
-    return new ApplicationManifest(generatedManifest);
+    return new ApplicationManifest(ruleContext, generatedManifest);
+  }
+
+  private static ImmutableMap<String, String> getManifestValues(RuleContext context) {
+    Map<String, String> manifestValues = new TreeMap<>();
+    // applicationId is set from manifest_values or android_resources.rename_manifest_package
+    // with descending priority.
+    AndroidResourcesProvider resourcesProvider = AndroidCommon.getAndroidResources(context);
+    if (resourcesProvider != null) {
+      ResourceContainer resourceContainer = Iterables.getOnlyElement(
+          resourcesProvider.getDirectAndroidResources());
+      if (resourceContainer.getRenameManifestPackage() != null) {
+        manifestValues.put("applicationId", resourceContainer.getRenameManifestPackage());
+      }
+    }
+    if (context.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
+      manifestValues.putAll(context.attributes().get("manifest_values", Type.STRING_DICT));
+    }
+
+    for (String variable : manifestValues.keySet()) {
+      manifestValues.put(
+          variable, context.expandMakeVariables("manifest_values", manifestValues.get(variable)));
+    }
+    return ImmutableMap.copyOf(manifestValues);
   }
 
   private final Artifact manifest;
+  private final ImmutableMap<String, String> manifestValues;
 
-  private ApplicationManifest(Artifact manifest) {
+  private ApplicationManifest(RuleContext ruleContext, Artifact manifest) {
     this.manifest = manifest;
+    this.manifestValues = getManifestValues(ruleContext);
   }
 
-  public ApplicationManifest mergeWith(RuleContext ruleContext,
-      ResourceDependencies resourceDeps) {
+  public ApplicationManifest mergeWith(RuleContext ruleContext, ResourceDependencies resourceDeps) {
     Iterable<Artifact> mergeeManifests = getMergeeManifests(resourceDeps.getResources());
-    if (!Iterables.isEmpty(mergeeManifests)) {
-      Iterable<Artifact> exportedManifests = mergeeManifests;
-      Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
-          ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
-          ruleContext.getBinOrGenfilesDirectory());
-      AndroidManifestMergeHelper.createMergeManifestAction(ruleContext, getManifest(),
-          exportedManifests, ImmutableList.of("all"), outputManifest);
-      return new ApplicationManifest(outputManifest);
+
+    boolean legacy = true;
+    if (ruleContext.isLegalFragment(AndroidConfiguration.class)
+        && ruleContext.getRule().isAttrDefined("manifest_merger", STRING)) {
+      AndroidManifestMerger merger = AndroidManifestMerger.fromString(
+          ruleContext.attributes().get("manifest_merger", STRING));
+      if (merger == null) {
+        merger = ruleContext.getFragment(AndroidConfiguration.class).getManifestMerger();
+      }
+      legacy = merger == AndroidManifestMerger.LEGACY;
+    }
+
+    if (legacy) {
+      if (!Iterables.isEmpty(mergeeManifests)) {
+        Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
+            ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
+            ruleContext.getBinOrGenfilesDirectory());
+        AndroidManifestMergeHelper.createMergeManifestAction(ruleContext, getManifest(),
+            mergeeManifests, ImmutableList.of("all"), outputManifest);
+        return new ApplicationManifest(ruleContext, outputManifest);
+      }
+    } else {
+      if (!Iterables.isEmpty(mergeeManifests) || !manifestValues.isEmpty()) {
+        Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
+            ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
+            ruleContext.getBinOrGenfilesDirectory());
+        new ManifestMergerActionBuilder(ruleContext)
+            .setManifest(getManifest())
+            .setMergeeManifests(mergeeManifests)
+            .setLibrary(false)
+            .setManifestValues(manifestValues)
+            .setCustomPackage(AndroidCommon.getJavaPackage(ruleContext))
+            .setManifestOutput(outputManifest)
+            .build(ruleContext);
+        return new ApplicationManifest(ruleContext, outputManifest);
+      }
     }
     return this;
   }
@@ -218,6 +253,22 @@ public final class ApplicationManifest {
       }
     }
     return builder.build();
+  }
+
+  public ApplicationManifest renamePackage(RuleContext ruleContext, String customPackage) {
+    if (isNullOrEmpty(customPackage)) {
+      return this;
+    }
+    Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
+        ruleContext.getRule().getName() + "_renamed", "AndroidManifest.xml",
+        ruleContext.getBinOrGenfilesDirectory());
+    new ManifestMergerActionBuilder(ruleContext)
+        .setManifest(getManifest())
+        .setLibrary(true)
+        .setCustomPackage(customPackage)
+        .setManifestOutput(outputManifest)
+        .build(ruleContext);
+    return new ApplicationManifest(ruleContext, outputManifest);
   }
 
   /** Packages up the manifest with assets from the rule and dependent resources.
@@ -244,14 +295,11 @@ public final class ApplicationManifest {
         false, /* isLibrary */
         resourceDeps,
         rTxt,
-        null, /* symbolsTxt */
+        null, /* Artifact symbolsTxt */
         ImmutableList.<String>of(), /* configurationFilters */
         ImmutableList.<String>of(), /* uncompressedExtensions */
         true, /* crunchPng */
         ImmutableList.<String>of(), /* densities */
-        null, /* String applicationId */
-        null, /* String versionCode */
-        null, /* String versionName */
         incremental,
         data,
         proguardCfg,
@@ -272,9 +320,6 @@ public final class ApplicationManifest {
       List<String> uncompressedExtensions,
       boolean crunchPng,
       List<String> densities,
-      String applicationId,
-      String versionCode,
-      String versionName,
       boolean incremental,
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
@@ -307,9 +352,6 @@ public final class ApplicationManifest {
         uncompressedExtensions,
         crunchPng,
         densities,
-        applicationId,
-        versionCode,
-        versionName,
         incremental,
         data,
         proguardCfg,
@@ -329,9 +371,6 @@ public final class ApplicationManifest {
       List<String> uncompressedExtensions,
       boolean crunchPng,
       List<String> densities,
-      String applicationId,
-      String versionCode,
-      String versionName,
       boolean incremental,
       LocalResourceContainer data,
       Artifact proguardCfg,
@@ -370,9 +409,9 @@ public final class ApplicationManifest {
             .setDensities(densities)
             .setProguardOut(proguardCfg)
             .setMainDexProguardOut(mainDexProguardCfg)
-            .setApplicationId(applicationId)
-            .setVersionCode(versionCode)
-            .setVersionName(versionName);
+            .setApplicationId(manifestValues.get("applicationId"))
+            .setVersionCode(manifestValues.get("versionCode"))
+            .setVersionName(manifestValues.get("versionName"));
 
     if (!incremental) {
       builder
