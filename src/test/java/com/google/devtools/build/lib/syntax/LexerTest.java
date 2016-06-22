@@ -261,6 +261,24 @@ public class LexerTest {
   }
 
   @Test
+  public void testEscapedCrlfInString() throws Exception {
+    assertEquals("STRING(ab) NEWLINE EOF",
+                 values(tokens("'a\\\r\nb'")));
+    assertEquals("STRING(ab) NEWLINE EOF",
+                 values(tokens("\"a\\\r\nb\"")));
+    assertEquals("STRING(ab) NEWLINE EOF",
+                 values(tokens("\"\"\"a\\\r\nb\"\"\"")));
+    assertEquals("STRING(ab) NEWLINE EOF",
+                 values(tokens("'''a\\\r\nb'''")));
+    assertEquals("STRING(a\\\nb) NEWLINE EOF",
+                 values(tokens("r'a\\\r\nb'")));
+    assertEquals("STRING(a\\\nb) NEWLINE EOF",
+                 values(tokens("r\"a\\\r\nb\"")));
+    assertEquals("STRING(a\\\n\\\nb) NEWLINE EOF",
+                 values(tokens("r\"a\\\r\n\\\nb\"")));
+  }
+
+  @Test
   public void testRawString() throws Exception {
     assertEquals("STRING(abcd) NEWLINE EOF",
                  values(tokens("r'abcd'")));
@@ -414,6 +432,7 @@ public class LexerTest {
   public void testBackslash() throws Exception {
     assertEquals("IDENTIFIER IDENTIFIER NEWLINE EOF",
                  names(tokens("a\\\nb")));
+    assertEquals("IDENTIFIER IDENTIFIER NEWLINE EOF", names(tokens("a\\\r\nb")));
     assertEquals("IDENTIFIER ILLEGAL IDENTIFIER NEWLINE EOF",
                  names(tokens("a\\ b")));
     assertEquals("IDENTIFIER LPAREN INT RPAREN NEWLINE EOF",
