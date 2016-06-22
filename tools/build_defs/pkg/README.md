@@ -24,16 +24,16 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 
 pkg_tar(
     name = "bazel-bin",
-    data_path = "/src",
-    directory = "/usr/bin",
+    strip_prefix = "/src",
+    package_dir = "/usr/bin",
     files = ["//src:bazel"],
     mode = "0755",
 )
 
 pkg_tar(
     name = "bazel-tools",
-    data_path = "/",
-    directory = "/usr/share/lib/bazel/tools",
+    strip_prefix = "/",
+    package_dir = "/usr/share/lib/bazel/tools",
     files = ["//tools:package-srcs"],
     mode = "0644",
     modes = {"tools/build_defs/docker/build_test.sh": "0755"},
@@ -88,7 +88,7 @@ Here, the Debian package is built from three `pkg_tar` targets:
 ## pkg_tar
 
 ```python
-pkg_tar(name, extension, data_path, directory, strip_prefix, package_dir, files,
+pkg_tar(name, extension, strip_prefix, package_dir, files,
 mode, modes, deps, symlinks)
 ```
 
@@ -138,8 +138,8 @@ Creates a tar file from a list of inputs.
           be absolute from the workspace root if starting with a <code>/</code> or
           relative to the rule's directory. A relative path may start with "./"
           (or be ".") but cannot use ".." to go up level(s). By default, the
-          <code>data_path</code> attribute is unused and all files are supposed to have no
-          prefix. A <code>data_path</code> of "" (the empty string) means the
+          <code>strip_prefix</code> attribute is unused and all files are supposed to have no
+          prefix. A <code>strip_prefix</code> of "" (the empty string) means the
           same as the default.
         </p>
       </td>
@@ -181,7 +181,7 @@ Creates a tar file from a list of inputs.
         <p>
           A string dictionary to change default mode of specific files from
           <code>files</code>. Each key should be a path to a file before
-          appending the prefix <code>directory</code> and the corresponding
+          appending the prefix <code>package_dir</code> and the corresponding
           value the octal permission of to apply to the file.
         </p>
         <p>
