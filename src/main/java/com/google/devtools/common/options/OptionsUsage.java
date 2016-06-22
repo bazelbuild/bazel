@@ -131,10 +131,12 @@ class OptionsUsage {
    * Append the usage message for a single option-field message to 'usage'.
    */
   static void getUsageHtml(Field optionField, StringBuilder usage, Escaper escaper) {
+    String plainFlagName = optionField.getAnnotation(Option.class).name();
     String flagName = getFlagName(optionField);
     String typeDescription = getTypeDescription(optionField);
     Option annotation = optionField.getAnnotation(Option.class);
-    usage.append("<dt><code>--").append(flagName).append("</code>");
+    usage.append("<dt><code><a href=\"#flag--").append(plainFlagName).append("\"></a>--");
+    usage.append(flagName).append("</code>");
     if (annotation.abbrev() != '\0') {
       usage.append(" [<code>-").append(annotation.abbrev()).append("</code>]");
     }
@@ -164,7 +166,8 @@ class OptionsUsage {
       usage.append("<br/>\n");
       StringBuilder expandsMsg = new StringBuilder("Expands to:");
       for (String exp : annotation.expansion()) {
-        expandsMsg.append(" ").append(exp);
+        // TODO(ulfjack): Can we link to the expanded flags here?
+        expandsMsg.append(" <code>").append(exp).append("</code>");
       }
       usage.append(paragraphFill(escaper.escape(expandsMsg.toString()), 0, 80)); // (indent, width)
       usage.append('\n');
