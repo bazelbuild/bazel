@@ -419,8 +419,15 @@ final class ProtoSupport {
   }
 
   private ImmutableList<Artifact> getGeneratedHeaders() {
-    boolean useObjcName = attributes.usesObjcHeaderNames() || usesProtobufLibrary();
-    return generatedOutputArtifacts(FileType.of(".pb" + (useObjcName ? "objc.h" : ".h")));
+    ImmutableList.Builder<Artifact> headers = new ImmutableList.Builder<>();
+    headers.addAll(generatedOutputArtifacts(FileType.of(".pbobjc.h")));
+    if (!usesProtobufLibrary()) {
+      // As part of the compatibility layer between PB2 and protobuf, PB2 generates both pb.h and
+      // pbobjc.h files, easing the migration out of PB2.
+      headers.addAll(generatedOutputArtifacts(FileType.of(".pb.h")));
+    }
+
+    return headers.build();
   }
 
   private ImmutableList<Artifact> getGeneratedSources() {
