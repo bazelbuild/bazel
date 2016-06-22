@@ -112,7 +112,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
     if (!Iterables.isEmpty(unknownKeys)) {
-      LOGGER.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys);
+      LOGGER.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys
+          + ". Successfully looked up " + packages.keySet());
     }
     for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
         graph.getMissingAndExceptions(unknownKeys).entrySet()) {
