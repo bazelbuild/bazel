@@ -375,9 +375,8 @@ public class AndroidCommon {
       ImmutableList.Builder<Artifact> jarsProducedForRuntime) throws InterruptedException {
     compileResourceJar(javaSemantics, resourcesJar);
     // Add the compiled resource jar to the classpath of the main compilation.
-    NestedSet<Artifact> directJars = NestedSetBuilder.create(Order.STABLE_ORDER, resourceClassJar);
-    attributes.addDirectJars(directJars);
-    attributes.addCompileTimeClassPathEntries(directJars);
+    attributes.addDirectJars(ImmutableList.of(resourceClassJar));
+    attributes.addDirectCompileTimeClassPathEntries(ImmutableList.of(resourceClassJar));
     // Add the compiled resource jar to the classpath of consuming targets.
     artifactsBuilder.addCompileTimeJar(resourceClassJar);
     // Combined resource constants needs to come even before our own classes that may contain

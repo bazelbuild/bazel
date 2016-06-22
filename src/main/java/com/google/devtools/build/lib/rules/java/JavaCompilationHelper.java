@@ -157,7 +157,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.addProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorNames(attributes.getProcessorNames());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.setDirectJars(attributes.getDirectJars());
+    builder.addDirectJars(attributes.getDirectJars());
     builder.addCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());
@@ -279,7 +279,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.addCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
-    builder.setDirectJars(attributes.getDirectJars());
+    builder.addDirectJars(attributes.getDirectJars());
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());
     builder.setJavaBaseInputs(getHostJavabaseInputsNonStatic(ruleContext));
@@ -521,11 +521,10 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     return jar;
   }
 
-  private void addArgsAndJarsToAttributes(
-      JavaCompilationArgs args, NestedSet<Artifact> directJars) {
+  private void addArgsAndJarsToAttributes(JavaCompilationArgs args, Iterable<Artifact> directJars) {
     // Can only be non-null when isStrict() returns true.
     if (directJars != null) {
-      attributes.addCompileTimeClassPathEntries(directJars);
+      attributes.addDirectCompileTimeClassPathEntries(directJars);
       attributes.addDirectJars(directJars);
     }
 
