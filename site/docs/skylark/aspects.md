@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Skylark Aspects
+title: Aspects
 ---
 # Aspects
 

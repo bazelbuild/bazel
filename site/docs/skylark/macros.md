@@ -6,10 +6,10 @@ title: Macros
 
 ## Macro creation
 
-A macro is a function called from the BUILD file. It can instantiate native
-or Skylark rules. Macros don't give additional power, they are just used for
-encapsulation and code reuse. By the end of the loading phase, macros don't
-exist anymore, and Bazel sees only the set of rules they created.
+A macro is a function called from the BUILD file that can instantiate rules.
+Macros don't give additional power, they are just used for encapsulation and
+code reuse. By the end of the loading phase, macros don't exist anymore, and
+Bazel sees only the set of rules they created.
 
 Native rules can be instantiated from the `native` module, e.g.
 

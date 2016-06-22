@@ -1,13 +1,13 @@
 ---
 layout: documentation
-title: Skylark - Concepts
+title: Extensions - Overview
 ---
-# Concepts
+# Overview
 
-## Loading a Skylark extension
+## Loading an extension
 
-Use the `load` statement to import a symbol from a `.bzl` Skylark
-extension.
+Extensions are files with the `.bzl` extension. Use the `load` statement to
+import a symbol from an extension.
 
 ```python
 load("//build_tools/rules:maprule.bzl", "maprule")
@@ -37,20 +37,19 @@ load("/path/to:my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 
 Symbols starting with `_` are private and cannot be loaded from other files.
 Visibility doesn't affect loading: you don't need to use `exports_files` to make
-a Skylark file visible.
+a `.bzl` file visible.
 
 ## Macros and rules
 
-A [macro](macros.md) in Skylark is a function that instantiates rules. The
+A [macro](macros.md) is a function that instantiates rules. The
 function is evaluated as soon as the BUILD file is read. Bazel has little
 information about macros: if your macro generates a `genrule`, Bazel will behave
 as if you wrote the `genrule`. As a result, `bazel query` will only list the
 generated genrule.
 
-A [rule](rules.md) in Skylark is more powerful than a macro, as it can access
+A [rule](rules.md) is more powerful than a macro, as it can access
 Bazel internals and have full control over what is going on. It may for example
-pass information to other rules. A rule defined in Skylark will behave in a
-similar way as a native rule.
+pass information to other rules.
 
 If a macro becomes complex, it is often a good idea to make it a rule.
 
@@ -58,7 +57,7 @@ If a macro becomes complex, it is often a good idea to make it a rule.
 
 A build consists of three phases.
 
-* **Loading phase**. First, we load and evaluate all Skylark extensions and all BUILD
+* **Loading phase**. First, we load and evaluate all extensions and all BUILD
   files that are needed for the build. The execution of the BUILD files simply
   instantiates rules. This is where macros are evaluated.
 
@@ -78,10 +77,11 @@ cached and reused. A file is evaluated only once all its dependencies (`load()`
 statements) have been resolved. By design, loading a `.bzl` file has no visible
 side-effect, it only defines values and functions.
 
-## Language
+## Syntax
 
-Skylark is a superset of the core build language and its syntax is a subset of
-Python.
+The extension language (sometimes referred as "Skylark") is a superset of the
+[Core Build Language](/docs/build-ref.html#core_build_language)
+and its syntax is a subset of Python.
 It is designed to be simple, thread-safe and integrated with the
 BUILD language. It is not a general-purpose language and most Python
 features are not included.

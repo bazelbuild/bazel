@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Skylark Repository Rules
+title: Repository Rules
 ---
 # Repository Rules
 
@@ -16,7 +16,7 @@ specific to the host Bazel is running on.
 
 ## Repository Rule creation
 
-In a Skylark extension, use the
+In a `.bzl` file, use the
 [repository_rule](lib/globals.html#repository_rule) function to create a new
 repository rule and store it in a global variable.
 
@@ -72,7 +72,7 @@ local_repository = repository_rule(
 For now, we only have one full example of usage of the `repository_rule`:
 [C++ auto-configured toolchain](https://github.com/bazelbuild/bazel/blob/9116b3e99af2fd31d92c9bb7c37905a1675456c1/tools/cpp/cc_configure.bzl#L288).
 
-This example uses a Skylark repository rule to automatically create the
+This example uses a repository rule to automatically create the
 C++ configuration files for Bazel by looking for the local C++ compiler, the
 environment and the flags the C++ compiler supports.
 

@@ -16,7 +16,7 @@
       <li><a href="${path}/predefined-python-variables.html">Predefined Python Variables</a></li>
     </ul>
   </li>
-  <li class="sidebar-nav-heading">Built-in Rules</li>
+  <li class="sidebar-nav-heading">Rules</li>
   <li><a href="${path}/functions.html">Functions</a></li>
 #foreach ($ruleFamily in $ruleFamilies)
   #if ($ruleFamily.size() > 0)
@@ -24,7 +24,6 @@
   #end
 #end
 
-  <li class="sidebar-nav-heading">Skylark Rules</li>
   <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">Java AppEngine</a></li>
   <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank">C#</a></li>
   <li><a href="${bazelbuildGithub}/rules_d" target="_blank">D</a></li>
