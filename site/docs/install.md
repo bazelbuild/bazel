@@ -11,19 +11,34 @@ Supported platforms:
 
 *   Ubuntu Linux (Wily 15.10 and Trusty 14.04 LTS)
 *   Mac OS X
+*   Windows (highly experimental)
 
 Java:
 
 *   Java JDK 8 or later ([JDK 7](#jdk7) is still supported
     but deprecated).
 
-Windows Support
 
-*   Currently, Windows support is highly experimental. For more information, see
-    [Building Bazel on Windows](windows.html).
+## Guidance
+
+#### Ubuntu
+
+  * Using our custom APT repostiory, see [Install on Ubuntu](#install-on-ubuntu)
+  * Using binary installer, see [Install with installer](#install-with-installer)
+  * Compiling Bazel from source, see [Compiling from source](#compiling-from-source)
+
+#### Mac OS X
+
+  * Using Homebrew, see [Install on Mac OS X](#install-on-mac-ox-x)
+  * Using binary installer, see [Install with installer](#install-with-installer)
+  * Compiling Bazel from source, see [Compiling from source](#compiling-from-source)
+
+#### Windows
+
+  * Windows is not fully supported yet; for experimental instructions, see [Building Bazel on Windows](windows.html)
 
 
-## Install on Ubuntu
+## <a name="install-on-ubuntu"></a>Install on Ubuntu
 
 #### Install JDK 8
 
@@ -38,7 +53,7 @@ $ sudo apt-get install oracle-java8-installer
 
 Note: You might need to `sudo apt-get install software-properties-common` if you don't have the `add-apt-repository` command. See [here](http://manpages.ubuntu.com/manpages/wily/man1/add-apt-repository.1.html).
 
-##### 1. Add Bazel distribution URI as a package source (one time setup)
+#### 1. Add Bazel distribution URI as a package source (one time setup)
 
 ```
 $ echo "deb http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
@@ -47,7 +62,7 @@ $ curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-k
 
 If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you want to install the testing version of Bazel, replace `stable` with `testing`.
 
-##### 2. Update and install Bazel
+#### 2. Update and install Bazel
 
 `$ sudo apt-get update && sudo apt-get install bazel`
 
@@ -55,13 +70,13 @@ Once installed, you can upgrade to newer version of Bazel with:
 
 `$ sudo apt-get upgrade bazel`
 
-## Install on Mac OS X
+## <a name="install-on-mac-ox-x"></a>Install on Mac OS X
 
-##### 1. Install Homebrew on Mac OS X (one time setup)
+#### 1. Install Homebrew on Mac OS X (one time setup)
 
 `$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`
 
-##### 2. Install Bazel using Homebrew
+#### 2. Install Bazel using Homebrew
 
 `$ brew install bazel`
 
@@ -70,7 +85,9 @@ Once installed, you can upgrade to newer version of Bazel with:
 `$ brew upgrade bazel`
 
 
-## Install with installer
+## <a name="install-with-installer"></a>Install with installer
+
+The installer only contains Bazel binary, some additional libraries are required to be installed on the machine to work.
 
 ### Install dependencies
 
@@ -163,9 +180,9 @@ Bazel version _0.1.0_ runs without any change with JDK 7. However, future
 version will stop supporting JDK 7 when our CI cannot build for it anymore.
 The installer for JDK 7 for Bazel versions after _0.1.0_ is labeled
 <pre>
-./install-<em>version</em>-<em>os</em>-<b>jdk7</b>.sh
+./bazel-<em>version</em>-jdk7-installer-<em>os</em>.sh
 </pre>
-If you wish to use JDK 7, follow the same steps as for JDK 8 but with the _jdk7_ installer.
+If you wish to use JDK 7, follow the same steps as for JDK 8 but with the _jdk7_ installer or using a different APT repository as described [here](#1-add-bazel-distribution-uri-as-a-package-source-one-time-setup).
 
 ### Getting bash completion
 
@@ -199,7 +216,7 @@ Bazel also comes with a zsh completion script. To install it:
     zstyle ':completion:*' cache-path ~/.zsh/cache
     ```
 
-## Compiling from source
+## <a name="compiling-from-source"></a>Compiling from source
 
 If you would like to build Bazel from source, clone the source from GitHub and
 run `./compile.sh` to build it:
