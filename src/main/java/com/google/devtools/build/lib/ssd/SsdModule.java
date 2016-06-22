@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.ssd;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 
@@ -26,7 +25,7 @@ import com.google.devtools.common.options.OptionsProvider;
  */
 public final class SsdModule extends BlazeModule {
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.<Class<? extends OptionsBase>>of(SsdOptions.class);
   }
 

@@ -106,7 +106,7 @@ public class DashModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return (command.name().equals("build") || command.name().equals("test"))
+    return "build".equals(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(DashOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }

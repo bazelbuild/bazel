@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -59,8 +60,14 @@ public class BlazeCommandUtils {
     return ImmutableList.copyOf(options);
   }
 
-  public static ImmutableList<Class<? extends OptionsBase>> getCommonOptions() {
-    return COMMON_COMMAND_OPTIONS;
+  public static ImmutableSet<Class<? extends OptionsBase>> getCommonOptions(
+      Iterable<BlazeModule> modules) {
+    ImmutableSet.Builder<Class<? extends OptionsBase>> builder = ImmutableSet.builder();
+    builder.addAll(COMMON_COMMAND_OPTIONS);
+    for (BlazeModule blazeModule : modules) {
+      builder.addAll(blazeModule.getCommonCommandOptions());
+    }
+    return builder.build();
   }
 
   /**
@@ -80,7 +87,7 @@ public class BlazeCommandUtils {
     }
 
     Set<Class<? extends OptionsBase>> options = new HashSet<>();
-    options.addAll(COMMON_COMMAND_OPTIONS);
+    options.addAll(getCommonOptions(modules));
     Collections.addAll(options, commandAnnotation.options());
 
     if (commandAnnotation.usesConfigurationOptions()) {

@@ -245,12 +245,37 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the extra options this module contributes to a specific command.
+   * Returns extra options this module contributes to a specific command. Note that option
+   * inheritance applies: if this method returns a non-empty list, then the returned options are
+   * added to every command that depends on this command.
    *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   * <p>This method may be called at any time, and the returned value may be cached. Implementations
+   * must be thread-safe and never return different lists for the same command object. Typical
+   * implementations look like this:
+   * <pre>
+   * return "build".equals(command.name())
+   *     ? ImmutableList.<Class<? extends OptionsBase>>of(MyOptions.class)
+   *     : ImmutableList.<Class<? extends OptionsBase>>of();
+   * </pre>
+   * Note that this example adds options to all commands that inherit from the build command.
+   *
+   * <p>This method is also used to generate command-line documentation; in order to avoid
+   * duplicated options descriptions, this method should never return the same options class for two
+   * different commands if one of them inherits the other.
+   *
+   * <p>If you want to add options to all commands, override {@link #getCommonCommandOptions}
+   * instead.
+   *
+   * @param command the command
    */
-  @SuppressWarnings("unused")
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return ImmutableList.of();
+  }
+
+  /**
+   * Returns extra options this module contributes to all commands.
+   */
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of();
   }
 
