@@ -18,28 +18,52 @@ set -eu
 readonly PORT=${1-12345}
 
 readonly WORKING_DIR=$(mktemp -d)
-trap "rm -rf $WORKING_DIR" EXIT
 
 function check {
   which $1 > /dev/null || (echo "$1 not installed. Please install $1."; exit 1)
 }
 
+function build_and_serve {
+  bazel build //site:jekyll-tree.tar
+  rm -rf $WORKING_DIR/*
+  tar -xf bazel-genfiles/site/jekyll-tree.tar -C $WORKING_DIR
+
+  pkill -9 jekyll || true
+  jekyll serve --detach --quiet --port $PORT --source $WORKING_DIR
+}
+
 function main {
   check jekyll
 
-  bazel build //site:jekyll-tree.tar
-  tar -xf bazel-genfiles/site/jekyll-tree.tar -C $WORKING_DIR
-
-  cd $WORKING_DIR
   old_version="Jekyll 0.11.2"
   if expr match "$(jekyll --version)" "$old_version"; then
     # The ancient version that apt-get has.
-    echo "WARNING: Running with an old version of Jekyll, consider updating " \
-      "to 2.5.3 (\`gem install jekyll -v 2.5.3\`)"
-    jekyll serve --server $PORT
-  else
-    # Any reasonable version.
-    jekyll serve --port $PORT
+    echo "ERROR: Running with an old version of Jekyll, update " \
+      "to 2.5.3 with \`sudo gem install jekyll -v 2.5.3\`"
+    exit 1
   fi
+
+  build_and_serve
+
+  echo "Type q to quit, r to rebuild docs and restart jekyll"
+  while true; do
+
+    read -n 1 -s user_input
+    if [ "$user_input" == "q" ]; then
+      echo "Quitting"
+      exit 0
+    elif [ "$user_input" == "r" ]; then
+      echo "Rebuilding docs and restarting jekyll"
+      build_and_serve
+      echo "Rebuilt docs and restarted jekyll"
+    fi
+  done
 }
+
+function cleanup {
+  rm -rf $WORKING_DIR
+  pkill -9 jekyll
+}
+trap cleanup EXIT
+
 main
