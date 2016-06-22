@@ -144,9 +144,9 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "experimental_ui",
       defaultValue = "false",
-      category = "hidden",
-      help = "Enable the experimental new Bazel UI."
-    )
+      category = "verbosity",
+      help = "Switches to an alternative progress bar that more explicitly shows progress, such "
+          + "as loaded packages and executed actions.")
     public boolean experimentalUi;
 
     @Option(
