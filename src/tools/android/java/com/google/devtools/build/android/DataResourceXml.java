@@ -32,6 +32,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import com.android.resources.ResourceType;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +79,9 @@ public class DataResourceXml implements DataResource {
       KeyValueConsumer<DataKey, DataResource> combiningConsumer)
       throws XMLStreamException, FactoryConfigurationError, IOException {
     XMLEventReader eventReader =
-        xmlInputFactory.createXMLEventReader(Files.newBufferedReader(path, StandardCharsets.UTF_8));
+        xmlInputFactory.createXMLEventReader(
+            new BufferedInputStream(Files.newInputStream(path)),
+              StandardCharsets.UTF_8.toString());
     try {
       // TODO(corysmith): Make the xml parsing more readable.
       while (XmlResourceValues.moveToResources(eventReader)) {
