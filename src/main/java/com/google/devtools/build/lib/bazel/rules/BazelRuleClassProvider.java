@@ -276,11 +276,7 @@ public class BazelRuleClassProvider {
         .setSkylarkAccessibleTopLevels(SKYLARK_BUILT_IN_JAVA_OBJECTS)
         .setSkylarkProviderRegistry(SKYLARK_PROVIDERS_TO_REGISTER);
 
-    builder.addBuildOptions(BUILD_OPTIONS);
-
-    for (Class<? extends FragmentOptions> fragmentOptions : BUILD_OPTIONS) {
-      builder.addConfigurationOptions(fragmentOptions);
-    }
+    builder.addConfigurationOptions(BUILD_OPTIONS);
 
     AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
     DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(TOOLS_REPOSITORY);

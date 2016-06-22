@@ -384,6 +384,18 @@ public final class HelpCommand implements BlazeCommand {
         }
         appendOptionsHtml(result, options);
         result.append("\n");
+
+        // For now, we print all the configuration options in a list after all the non-configuration
+        // options. Note that usesConfigurationOptions is only true for the build command right now.
+        if (annotation.usesConfigurationOptions()) {
+          options.clear();
+          Collections.addAll(options, annotation.options());
+          if (annotation.usesConfigurationOptions()) {
+            options.addAll(runtime.getRuleClassProvider().getConfigurationOptions());
+          }
+          appendOptionsHtml(result, options);
+          result.append("\n");
+        }
       }
       outErr.printOut(result.toString());
     }

@@ -61,7 +61,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private BuildOptions createBuildOptionsForTest(String... args) {
     ImmutableList<Class<? extends FragmentOptions>> testFragments =
-        TestRuleClassProvider.getRuleClassProvider().getOptionFragments();
+        TestRuleClassProvider.getRuleClassProvider().getConfigurationOptions();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(testFragments);
     try {
       optionsParser.parse(args);
