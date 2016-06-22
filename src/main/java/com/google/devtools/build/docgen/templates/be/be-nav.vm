@@ -16,7 +16,14 @@
       <li><a href="${path}/predefined-python-variables.html">Predefined Python Variables</a></li>
     </ul>
   </li>
-  <li class="sidebar-nav-heading">Rules</li>
+
+  <li>
+
+    <a data-toggle="collapse" href="#be-rules" aria-expanded="false"
+        aria-controls="be-rules">
+      Rules <span class="caret"></span>
+    </a>
+    <ul class="collapse sidebar-nav sidebar-submenu" id="be-rules">
   <li><a href="${path}/functions.html">Functions</a></li>
 #foreach ($ruleFamily in $ruleFamilies)
   #if ($ruleFamily.size() > 0)
@@ -36,4 +43,7 @@
   <li><a href="${bazelbuildGithub}/rules_rust" target="_blank">Rust</a></li>
   <li><a href="${bazelbuildGithub}/rules_sass" target="_blank">Sass</a></li>
   <li><a href="${bazelbuildGithub}/rules_scala" target="_blank">Scala</a></li>
+  </ul>
+  </li>
+
 </ul>
