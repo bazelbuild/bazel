@@ -813,10 +813,11 @@ public final class CompilationSupport {
   }
 
   private Action objFilelistAction(Iterable<Artifact> objFiles, Artifact objList) {
+    ImmutableSet<Artifact> dedupedObjFiles = ImmutableSet.copyOf(objFiles);
     return new FileWriteAction(
         ruleContext.getActionOwner(),
         objList,
-        Artifact.joinExecPaths("\n", objFiles),
+        Artifact.joinExecPaths("\n", dedupedObjFiles),
         /*makeExecutable=*/ false);
   }
 
