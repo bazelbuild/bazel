@@ -178,13 +178,16 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * Returns the most specific containing directory of the patterns that could be matched by this
-   * pattern.
+   * Returns a {@link PackageIdentifier} identifying the most specific containing directory of the
+   * patterns that could be matched by this pattern.
    *
-   * <p>For patterns of type {@code Type.TARGETS_BELOW_DIRECTORY}, this returns the referred-to
-   * directory. For example, for "//foo/bar/...", this returns "foo/bar".
+   * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
+   * actually be a package corresponding to this directory!
    *
-   * <p>The returned value always has no leading "//" and no trailing "/".
+   * <p>For patterns of type {@code Type.TARGETS_BELOW_DIRECTORY}, this returns a
+   * {@link PackageIdentifier} that identifies the referred-to directory. For example, for a
+   * {@code Type.TARGETS_BELOW_DIRECTORY} corresponding to "//foo/bar/...", this method returns a
+   * {@link PackageIdentifier} for "foo/bar".
    */
   public abstract PackageIdentifier getDirectory();
 
