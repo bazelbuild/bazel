@@ -1592,7 +1592,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
-    return cppOptions.isLipoOptimizationOrInstrumentation();
+    return cppOptions.isLipoOptimizationOrInstrumentation() && !isLipoContextCollector();
   }
 
   /**
