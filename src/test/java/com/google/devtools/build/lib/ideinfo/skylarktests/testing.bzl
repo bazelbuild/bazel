@@ -38,6 +38,12 @@ def assert_equals(env, expected, actual):
   if not expected == actual:
     fail_test(env, "'%s' != '%s'" % (expected, actual))
 
+def assert_contains_all(env, expected, actual):
+  for e in expected:
+    if e not in actual:
+      fail_test(env, "'%s' is not in '%s'" % (e, actual))
+
+
 def assert_true(env, condition, message):
   if not condition:
     fail_test(env, message)

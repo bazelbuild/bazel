@@ -395,7 +395,7 @@ def build_java_toolchain_ide_info(target):
 
 ##### Main aspect function
 
-def _aspect_impl(target, ctx):
+def _aspect_impl_helper(target, ctx, for_test):
   """Aspect implementation function."""
   rule_attrs = ctx.rule.attr
 
@@ -427,9 +427,12 @@ def _aspect_impl(target, ctx):
   prerequisites = direct_dep_targets + runtime_dep_targets + list_omit_none(legacy_resource_target)
   ide_info_text = set()
   ide_resolve_files = set()
+  intellij_infos = dict()
   for dep in prerequisites:
     ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
     ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
+    if for_test:
+      intellij_infos.update(dep.intellij_infos)
 
   # Collect C-specific information
   (c_rule_ide_info, c_ide_resolve_files) = build_c_rule_ide_info(target, ctx)
@@ -479,9 +482,13 @@ def _aspect_impl(target, ctx):
   output = ctx.new_file(target.label.name + ".intellij-build.txt")
   ctx.file_action(output, info.to_proto())
   ide_info_text = ide_info_text | set([output])
+  if for_test:
+    intellij_infos[str(target.label)] = info
+  else:
+    intellij_infos = None
 
   # Return providers.
-  return struct(
+  return struct_omit_none(
       intellij_aspect = True,
       output_groups = {
         "ide-info-text" : ide_info_text,
@@ -491,19 +498,30 @@ def _aspect_impl(target, ctx):
         ide_info_text = ide_info_text,
         ide_resolve_files = ide_resolve_files,
       ),
+      intellij_infos = intellij_infos,
       export_deps = export_deps,
     )
 
-intellij_info_aspect = aspect(
-    attrs = {
-        "_package_parser": attr.label(
-            default = tool_label("//tools/android:PackageParser"),
-            cfg = HOST_CFG,
-            executable = True,
-            allow_files = True,
-        ),
-    },
-    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list + [LEGACY_RESOURCE_ATTR],
-    fragments = ["cpp"],
-    implementation = _aspect_impl,
-)
+def _aspect_impl(target, ctx):
+  return _aspect_impl_helper(target, ctx, for_test=False)
+
+def _test_aspect_impl(target, ctx):
+  return _aspect_impl_helper(target, ctx, for_test=True)
+
+def _aspect_def(impl):
+  return aspect(
+      attrs = {
+          "_package_parser": attr.label(
+              default = tool_label("//tools/android:PackageParser"),
+              cfg = HOST_CFG,
+              executable = True,
+              allow_files = True),
+      },
+      attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list + [LEGACY_RESOURCE_ATTR],
+      fragments = ["cpp"],
+      implementation = impl,
+  )
+
+
+intellij_info_aspect = _aspect_def(_aspect_impl)
+intellij_info_test_aspect = _aspect_def(_test_aspect_impl)
