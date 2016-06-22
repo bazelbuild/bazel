@@ -1,7 +1,14 @@
 ---
 layout: documentation
-title: Support Policy
+title: Get Support
 ---
+
+# Get Support
+
+* [User mailing list](https://groups.google.com/forum/#!forum/bazel-discuss)
+* [Issue tracker](https://github.com/bazelbuild/bazel/issues)
+* [Twitter](http://www.twitter.com/bazelbuild)
+* [IRC](irc://irc.freenode.net/bazel) (freenode.net#bazel)
 
 # Support Policy
 
