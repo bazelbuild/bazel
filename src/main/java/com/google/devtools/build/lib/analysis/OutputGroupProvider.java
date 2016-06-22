@@ -53,24 +53,31 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
   public static final String HIDDEN_OUTPUT_GROUP_PREFIX = "_";
 
   /**
+   * Suffix for output groups that are internal to bazel and may not be referenced from a filegroup.
+   */
+  public static final String INTERNAL_SUFFIX = "_INTERNAL_";
+
+  /**
    * Building these artifacts only results in the compilation (and not e.g. linking) of the
    * associated target. Mostly useful for C++, less so for e.g. Java.
    */
-  public static final String FILES_TO_COMPILE = "files_to_compile";
+  public static final String FILES_TO_COMPILE = "files_to_compile" + INTERNAL_SUFFIX;
 
   /**
    * These artifacts are the direct requirements for compilation, but building these does not
    * actually compile the target. Mostly useful when IDEs want Blaze to emit generated code so that
    * they can do the compilation in their own way.
    */
-  public static final String COMPILATION_PREREQUISITES = "compilation_prerequisites";
+  public static final String COMPILATION_PREREQUISITES =
+      "compilation_prerequisites" + INTERNAL_SUFFIX;
 
   /**
    * These files are built when a target is mentioned on the command line, but are not reported to
    * the user. This is mostly runfiles, which is necessary because we don't want a target to
    * successfully build if a file in its runfiles is broken.
    */
-  public static final String HIDDEN_TOP_LEVEL = HIDDEN_OUTPUT_GROUP_PREFIX + "hidden_top_level";
+  public static final String HIDDEN_TOP_LEVEL =
+      HIDDEN_OUTPUT_GROUP_PREFIX + "hidden_top_level" + INTERNAL_SUFFIX;
 
   /**
    * Temporary files created during building a rule, for example, .i, .d and .s files for C++
@@ -81,7 +88,7 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
    * not creating the associated actions and artifacts if we don't need them or just historical
    * baggage.
    */
-  public static final String TEMP_FILES = "temp_files";
+  public static final String TEMP_FILES = "temp_files" + INTERNAL_SUFFIX;
 
   /**
    * The default group of files built by a target when it is mentioned on the command line.

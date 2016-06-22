@@ -14,20 +14,23 @@
 
 package com.google.devtools.build.lib.rules.filegroup;
 
+import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
+
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -37,18 +40,37 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * ConfiguredTarget for "filegroup".
  */
 public class Filegroup implements RuleConfiguredTargetFactory {
 
+  /** Error message for output groups that are explicitly blacklisted for filegroup reference. */
+  public static final String ILLEGAL_OUTPUT_GROUP_ERROR =
+      "Output group %s is not permitted for " + "reference in filegroups.";
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.wrap(Order.STABLE_ORDER,
-        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
-    NestedSet<Artifact> middleman = CompilationHelper.getAggregatingMiddleman(
-        ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
+    String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
+
+    if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {
+      ruleContext.throwWithAttributeError(
+          "output_group", String.format(ILLEGAL_OUTPUT_GROUP_ERROR, outputGroupName));
+    }
+
+    NestedSet<Artifact> filesToBuild =
+        outputGroupName.isEmpty()
+            ? NestedSetBuilder.wrap(
+                Order.STABLE_ORDER,
+                ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list())
+            : getArtifactsForOutputGroup(
+                outputGroupName, ruleContext.getPrerequisites("srcs", Mode.TARGET));
+
+    NestedSet<Artifact> middleman =
+        CompilationHelper.getAggregatingMiddleman(
+            ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
 
     InstrumentedFilesProvider instrumentedFilesProvider =
         InstrumentedFilesCollector.collect(ruleContext,
@@ -101,5 +123,20 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     } else {
       return ruleContext.getLabel().getPackageIdentifier().getPathFragment().getRelative(attr);
     }
+  }
+
+  /** Returns the artifacts from the given targets that are members of the given output group. */
+  private static NestedSet<Artifact> getArtifactsForOutputGroup(
+      String outputGroupName, List<? extends TransitiveInfoCollection> deps) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+
+    for (TransitiveInfoCollection dep : deps) {
+      OutputGroupProvider outputGroupProvider = dep.getProvider(OutputGroupProvider.class);
+      if (outputGroupProvider != null) {
+        result.addTransitive(outputGroupProvider.getOutputGroup(outputGroupName));
+      }
+    }
+
+    return result.build();
   }
 }

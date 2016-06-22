@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylark;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -36,8 +37,8 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -254,7 +255,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
-        "   f = target.output_group('_hidden_top_level')",
+        "   f = target.output_group('_hidden_top_level" + INTERNAL_SUFFIX + "')",
         "   return struct(output_groups = { 'my_result' : f })",
         "",
         "MyAspect = aspect(",

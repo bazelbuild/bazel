@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.rules.filegroup;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileType;
 
 import org.junit.Test;
@@ -144,5 +147,44 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
                 "filegroup(name = 'file_or_rule', srcs = ['a.txt'])",
                 "filegroup(name = 'my_rule', srcs = glob(['file_or_rule']))");
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(target))).containsExactly("a.txt");
+  }
+
+  @Test
+  public void testOutputGroupExtractsCorrectArtifacts() throws Exception {
+    scratch.file("pkg/a.java");
+    scratch.file("pkg/b.java");
+    scratch.file("pkg/in_ouput_group_a");
+    scratch.file("pkg/in_ouput_group_b");
+
+    scratch.file(
+        "pkg/BUILD",
+        "java_library(name='lib_a', srcs=['a.java'])",
+        "java_library(name='lib_b', srcs=['b.java'])",
+        "filegroup(name='group', srcs=[':lib_a', ':lib_b'],"
+            + String.format("output_group='%s')", JavaSemantics.SOURCE_JARS_OUTPUT_GROUP));
+
+    ConfiguredTarget group = getConfiguredTarget("//pkg:group");
+    assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(group)))
+        .containsExactly("pkg/liblib_a-src.jar", "pkg/liblib_b-src.jar");
+  }
+
+  @Test
+  public void testErrorForIllegalOutputGroup() throws Exception {
+    scratch.file("pkg/a.cc");
+    scratch.file(
+        "pkg/BUILD",
+        "cc_library(name='lib_a', srcs=['a.cc'])",
+        String.format(
+            "filegroup(name='group', srcs=[':lib_a'], output_group='%s')",
+            OutputGroupProvider.HIDDEN_TOP_LEVEL));
+    try {
+      getConfiguredTarget("//pkg:group");
+      fail("Should throw AssertionError");
+    } catch (AssertionError e) {
+      assertThat(e.getMessage())
+          .contains(
+              String.format(
+                  Filegroup.ILLEGAL_OUTPUT_GROUP_ERROR, OutputGroupProvider.HIDDEN_TOP_LEVEL));
+    }
   }
 }

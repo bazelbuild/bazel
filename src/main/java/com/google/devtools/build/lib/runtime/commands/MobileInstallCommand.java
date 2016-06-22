@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
@@ -88,9 +90,11 @@ public class MobileInstallCommand implements BlazeCommand {
       throws AbruptExitException {
     try {
       String outputGroup =
-          optionsParser.getOptions(Options.class).splitApks ? "mobile_install_split"
-          : optionsParser.getOptions(Options.class).incremental ? "mobile_install_incremental"
-          : "mobile_install_full";
+          optionsParser.getOptions(Options.class).splitApks
+              ? "mobile_install_split" + INTERNAL_SUFFIX
+              : optionsParser.getOptions(Options.class).incremental
+                  ? "mobile_install_incremental" + INTERNAL_SUFFIX
+                  : "mobile_install_full" + INTERNAL_SUFFIX;
 
       optionsParser.parse(OptionPriority.COMMAND_LINE,
           "Options required by the mobile-install command",

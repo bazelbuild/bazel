@@ -46,6 +46,15 @@ public final class BazelFilegroupRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(output_group) -->
+        The output group from which to gather artifacts from sources.  If this attribute is
+        specified, artifacts from the specified output group of the dependencies will be exported
+        instead of the default output group.
+        <p>An "output group" is a category of output artifacts of a target, specified in that
+          rule's implementation.
+        </p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("output_group", STRING))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(data) -->
         The list of files needed by this rule at runtime.
         <p>
@@ -67,8 +76,10 @@ public final class BazelFilegroupRule implements RuleDefinition {
           <code>filegroup</code> to find the name of the directory holding the files.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("path", STRING)
-            .undocumented("only used to expose FilegroupPathProvider, which is not currently used"))
+        .add(
+            attr("path", STRING)
+                .undocumented(
+                    "only used to expose FilegroupPathProvider, which is not currently used"))
         .build();
   }
 

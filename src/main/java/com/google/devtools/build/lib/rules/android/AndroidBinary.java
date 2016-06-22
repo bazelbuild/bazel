@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -718,8 +719,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             RunfilesProvider.class,
             RunfilesProvider.simple(
                 new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(),
-                    ruleContext.getConfiguration().legacyExternalRunfiles())
+                        ruleContext.getWorkspaceName(),
+                        ruleContext.getConfiguration().legacyExternalRunfiles())
                     .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
@@ -731,12 +732,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             new ApkProvider(
                 NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk),
                 coverageMetadata,
-                NestedSetBuilder.create(Order.STABLE_ORDER, applicationManifest.getManifest())
-            ))
+                NestedSetBuilder.create(Order.STABLE_ORDER, applicationManifest.getManifest())))
         .add(AndroidPreDexJarProvider.class, new AndroidPreDexJarProvider(jarToDex))
-        .addOutputGroup("mobile_install_full", fullInstallOutputGroup)
-        .addOutputGroup("mobile_install_incremental", incrementalInstallOutputGroup)
-        .addOutputGroup("mobile_install_split", splitInstallOutputGroup)
+        .addOutputGroup("mobile_install_full" + INTERNAL_SUFFIX, fullInstallOutputGroup)
+        .addOutputGroup(
+            "mobile_install_incremental" + INTERNAL_SUFFIX, incrementalInstallOutputGroup)
+        .addOutputGroup("mobile_install_split" + INTERNAL_SUFFIX, splitInstallOutputGroup)
         .addOutputGroup("apk_manifest", apkManifest)
         .addOutputGroup("apk_manifest_text", apkManifestText)
         .addOutputGroup("android_deploy_info", deployInfo);
