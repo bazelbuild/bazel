@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -51,6 +52,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by {@code
@@ -63,6 +65,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   private final WalkableGraph graph;
   private final PathPackageLocator pkgPath;
   private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
+
+  private static final Logger LOGGER = Logger
+      .getLogger(GraphBackedRecursivePackageProvider.class.getName());
 
   public GraphBackedRecursivePackageProvider(WalkableGraph graph,
       ImmutableList<TargetPatternKey> universeTargetPatternKeys,
@@ -106,6 +111,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     }
 
     SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
+    if (!Iterables.isEmpty(unknownKeys)) {
+      LOGGER.warning("Unable to find " + unknownKeys + " in the batch lookup of " + pkgKeys);
+    }
     for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
         graph.getMissingAndExceptions(unknownKeys).entrySet()) {
       PackageIdentifier pkgIdentifier =
@@ -114,7 +122,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       if (exception == null) {
         // If the package key does not exist in the graph, then it must not correspond to any
         // package, because the SkyQuery environment has already loaded the universe.
-        throw new BuildFileNotFoundException(pkgIdentifier, "BUILD file not found on package path");
+        throw new BuildFileNotFoundException(pkgIdentifier, "Package not found");
       }
       Throwables.propagateIfInstanceOf(exception, NoSuchPackageException.class);
       Throwables.propagate(exception);
