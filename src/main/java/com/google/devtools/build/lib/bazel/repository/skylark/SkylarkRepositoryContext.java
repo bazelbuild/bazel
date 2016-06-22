@@ -189,8 +189,10 @@ public class SkylarkRepositoryContext {
   private void checkInOutputDirectory(SkylarkPath path) throws RepositoryFunctionException {
     if (!path.getPath().getPathString().startsWith(outputDirectory.getPathString())) {
       throw new RepositoryFunctionException(
-          new IOException("Cannot write outside of the output directory for path " + path),
-          Transience.TRANSIENT);
+          new EvalException(
+              Location.fromFile(path.getPath()),
+              "Cannot write outside of the output directory for path " + path),
+          Transience.PERSISTENT);
     }
   }
 
@@ -553,7 +555,7 @@ public class SkylarkRepositoryContext {
                   FileSymlinkException.class,
                   InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-      throw new EvalException(Location.BUILTIN, new IOException(e));
+      throw new EvalException(Location.BUILTIN, e);
     }
 
     if (fileValue == null) {

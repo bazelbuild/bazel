@@ -365,9 +365,17 @@ public class PackageFunction implements SkyFunction {
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
-      workspace = (PackageValue) env.getValueOrThrow(workspaceKey, IOException.class,
-      FileSymlinkException.class, InconsistentFilesystemException.class,
-      EvalException.class, SkylarkImportFailedException.class);
+      // This may throw a NoSuchPackageException if the WORKSPACE file was malformed or had other
+      // problems. Since this function can't add much context, we silently bubble it up.
+      workspace =
+          (PackageValue)
+              env.getValueOrThrow(
+                  workspaceKey,
+                  IOException.class,
+                  FileSymlinkException.class,
+                  InconsistentFilesystemException.class,
+                  EvalException.class,
+                  SkylarkImportFailedException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException
           | EvalException | SkylarkImportFailedException e) {
       throw new PackageFunctionException(

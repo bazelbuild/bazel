@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -83,7 +84,7 @@ public class WorkspaceResolver {
     try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
       new WorkspaceFactory(builder, ruleClassProvider, environmentExtensions, mutability)
           .parse(ParserInputSource.create(workspacePath));
-    } catch (IOException | InterruptedException e) {
+    } catch (IOException | BuildFileContainsErrorsException | InterruptedException e) {
       handler.handle(Event.error(Location.fromFile(workspacePath), e.getMessage()));
     }
 

@@ -128,9 +128,9 @@ public class WorkspaceFactoryTest {
       Exception exception = null;
       try {
         factory.parse(ParserInputSource.create(workspaceFilePath), eventHandler);
-      } catch (IOException e) {
+      } catch (BuildFileContainsErrorsException e) {
         exception = e;
-      } catch (InterruptedException e) {
+      } catch (IOException | InterruptedException e) {
         fail("Shouldn't happen: " + e.getMessage());
       }
       this.events = eventHandler.getEvents();
