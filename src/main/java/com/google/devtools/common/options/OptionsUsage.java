@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.escape.Escaper;
 
 import java.lang.reflect.Field;
 import java.text.BreakIterator;
@@ -124,6 +125,51 @@ class OptionsUsage {
       usage.append(paragraphFill(expandsMsg.toString(), 4, 80)); // (indent, width)
       usage.append('\n');
     }
+  }
+
+  /**
+   * Append the usage message for a single option-field message to 'usage'.
+   */
+  static void getUsageHtml(Field optionField, StringBuilder usage, Escaper escaper) {
+    String flagName = getFlagName(optionField);
+    String typeDescription = getTypeDescription(optionField);
+    Option annotation = optionField.getAnnotation(Option.class);
+    usage.append("<dt><code>--").append(flagName).append("</code>");
+    if (annotation.abbrev() != '\0') {
+      usage.append(" [<code>-").append(annotation.abbrev()).append("</code>]");
+    }
+    if (!typeDescription.isEmpty()) {
+      usage.append(" (").append(escaper.escape(typeDescription)).append("; ");
+      if (annotation.allowMultiple()) {
+        // Allow-multiple options can't have a default value.
+        usage.append("may be used multiple times");
+      } else {
+        // Don't call the annotation directly (we must allow overrides to certain defaults).
+        String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
+        if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
+          usage.append("default: see description");
+        } else {
+          usage.append("default: \"").append(escaper.escape(defaultValueString)).append("\"");
+        }
+      }
+      usage.append(")");
+    }
+    usage.append("</dt>\n");
+    usage.append("<dd>\n");
+    if (!annotation.help().isEmpty()) {
+      usage.append(paragraphFill(escaper.escape(annotation.help()), 0, 80)); // (indent, width)
+      usage.append('\n');
+    }
+    if (annotation.expansion().length > 0) {
+      usage.append("<br/>\n");
+      StringBuilder expandsMsg = new StringBuilder("Expands to:");
+      for (String exp : annotation.expansion()) {
+        expandsMsg.append(" ").append(exp);
+      }
+      usage.append(paragraphFill(escaper.escape(expandsMsg.toString()), 0, 80)); // (indent, width)
+      usage.append('\n');
+    }
+    usage.append("</dd>\n");
   }
 
   /**

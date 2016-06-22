@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
+import com.google.common.escape.Escaper;
+import com.google.common.html.HtmlEscapers;
 import com.google.devtools.build.docgen.BlazeRuleHelpPrinter;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -29,6 +33,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -38,7 +43,9 @@ import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -55,6 +62,12 @@ import java.util.Set;
          help = "resource:help.txt")
 public final class HelpCommand implements BlazeCommand {
   private static final Joiner SPACE_JOINER = Joiner.on(" ");
+
+  /**
+   * Only to be used to escape the internal hard-coded help texts when outputting HTML from help,
+   * which don't pose a security risk.
+   */
+  private static final Escaper HTML_ESCAPER = HtmlEscapers.htmlEscaper();
 
   public static class Options extends OptionsBase {
 
@@ -85,7 +98,7 @@ public final class HelpCommand implements BlazeCommand {
    * Returns a map that maps option categories to descriptive help strings for categories that
    * are not part of the Bazel core.
    */
-  private ImmutableMap<String, String> getOptionCategories(BlazeRuntime runtime) {
+  private static ImmutableMap<String, String> getOptionCategories(BlazeRuntime runtime) {
     ImmutableMap.Builder<String, String> optionCategoriesBuilder = ImmutableMap.builder();
     String name = runtime.getProductName();
     optionCategoriesBuilder
@@ -141,7 +154,7 @@ public final class HelpCommand implements BlazeCommand {
     Options helpOptions = options.getOptions(Options.class);
     if (options.getResidue().isEmpty()) {
       emitBlazeVersionInfo(outErr, runtime.getProductName());
-      emitGenericHelp(runtime, outErr);
+      emitGenericHelp(outErr, runtime);
       return ExitCode.SUCCESS;
     }
     if (options.getResidue().size() != 1) {
@@ -151,7 +164,8 @@ public final class HelpCommand implements BlazeCommand {
     String helpSubject = options.getResidue().get(0);
     if (helpSubject.equals("startup_options")) {
       emitBlazeVersionInfo(outErr, runtime.getProductName());
-      emitStartupOptions(outErr, helpOptions.helpVerbosity, runtime, getOptionCategories(runtime));
+      emitStartupOptions(
+          outErr, helpOptions.helpVerbosity, runtime, getOptionCategories(runtime));
       return ExitCode.SUCCESS;
     } else if (helpSubject.equals("target-syntax")) {
       emitBlazeVersionInfo(outErr, runtime.getProductName());
@@ -162,6 +176,9 @@ public final class HelpCommand implements BlazeCommand {
       return ExitCode.SUCCESS;
     } else if (helpSubject.equals("completion")) {
       emitCompletionHelp(runtime, outErr);
+      return ExitCode.SUCCESS;
+    } else if (helpSubject.equals("everything-as-html")) {
+      new HtmlEmitter(runtime).emit(outErr);
       return ExitCode.SUCCESS;
     }
 
@@ -196,7 +213,6 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut(String.format("%80s\n", line));
   }
 
-  @SuppressWarnings("unchecked") // varargs generic array creation
   private void emitStartupOptions(OutErr outErr, OptionsParser.HelpVerbosity helpVerbosity,
       BlazeRuntime runtime, ImmutableMap<String, String> optionCategories) {
     outErr.printOut(
@@ -213,10 +229,9 @@ public final class HelpCommand implements BlazeCommand {
     // First startup_options
     Iterable<BlazeModule> blazeModules = runtime.getBlazeModules();
     ConfiguredRuleClassProvider ruleClassProvider = runtime.getRuleClassProvider();
-    Map<String, BlazeCommand> commandsByName = runtime.getCommandMap();
-    Set<String> commands = commandsByName.keySet();
+    Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
 
-    outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commands) + "\"");
+    outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commandsByName.keySet()) + "\"");
 
     outErr.printOutLn("BAZEL_INFO_KEYS=\"");
     for (String name : InfoCommand.getHardwiredInfoItemNames(runtime.getProductName())) {
@@ -230,9 +245,9 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut(OptionsParser.newOptionsParser(options).getOptionsCompletion());
     outErr.printOutLn("\"");
 
-    for (String name : commands) {
-      BlazeCommand command = commandsByName.get(name);
-      String varName = name.toUpperCase().replace('-', '_');
+    for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
+      BlazeCommand command = e.getValue();
+      String varName = e.getKey().toUpperCase(Locale.US).replace('-', '_');
       Command annotation = command.getClass().getAnnotation(Command.class);
       if (!annotation.completion().isEmpty()) {
         outErr.printOutLn("BAZEL_COMMAND_" + varName + "_ARGUMENT=\""
@@ -243,6 +258,10 @@ public final class HelpCommand implements BlazeCommand {
       outErr.printOut(OptionsParser.newOptionsParser(options).getOptionsCompletion());
       outErr.printOutLn("\"");
     }
+  }
+
+  private static Map<String, BlazeCommand> getSortedCommands(BlazeRuntime runtime) {
+    return ImmutableSortedMap.copyOf(runtime.getCommandMap());
   }
 
   private void emitTargetSyntaxHelp(OutErr outErr, ImmutableMap<String, String> optionCategories,
@@ -264,10 +283,9 @@ public final class HelpCommand implements BlazeCommand {
     }
   }
 
-  private void emitGenericHelp(BlazeRuntime runtime, OutErr outErr) {
+  private void emitGenericHelp(OutErr outErr, BlazeRuntime runtime) {
     outErr.printOut(String.format("Usage: %s <command> <options> ...\n\n",
             runtime.getProductName()));
-
     outErr.printOut("Available commands:\n");
 
     Map<String, BlazeCommand> commandsByName = runtime.getCommandMap();
@@ -297,5 +315,88 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut("                   Explains the syntax for specifying targets.\n");
     outErr.printOut(String.format("  %s help info-keys\n", runtime.getProductName()));
     outErr.printOut("                   Displays a list of keys used by the info command.\n");
+  }
+
+  private static final class HtmlEmitter {
+    private final BlazeRuntime runtime;
+    private final ImmutableMap<String, String> optionCategories;
+
+    private HtmlEmitter(BlazeRuntime runtime) {
+      this.runtime = runtime;
+      this.optionCategories = getOptionCategories(runtime);
+    }
+
+    private void emit(OutErr outErr) {
+      Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
+      StringBuilder result = new StringBuilder();
+      result.append("<h2>Commands</h2>\n");
+      result.append("<table>\n");
+      for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
+        BlazeCommand command = e.getValue();
+        Command annotation = command.getClass().getAnnotation(Command.class);
+        if (annotation.hidden()) {
+          continue;
+        }
+        String shortDescription = annotation.shortDescription().
+            replace("%{product}", runtime.getProductName());
+
+        result.append("<tr>\n");
+        result.append(
+            String.format(
+                "  <td><a href=\"#%s\"><code>%s</code></a></td>\n", e.getKey(), e.getKey()));
+        result.append("  <td>").append(HTML_ESCAPER.escape(shortDescription)).append("</td>\n");
+        result.append("</tr>\n");
+      }
+      result.append("</table>\n");
+      result.append("\n");
+
+      result.append("<h2>Startup Options</h2>\n");
+      appendOptionsHtml(result, BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()));
+      result.append("\n");
+
+      result.append("<h2><a name=\"common_options\">Options Common to all Commands</a></h2>\n");
+      appendOptionsHtml(result, BlazeCommandUtils.getCommonOptions());
+      result.append("\n");
+
+      for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
+        result.append(
+            String.format(
+                "<h2><a name=\"%s\">%s Options</a></h2>\n", e.getKey(), capitalize(e.getKey())));
+        BlazeCommand command = e.getValue();
+        Command annotation = command.getClass().getAnnotation(Command.class);
+        if (annotation.hidden()) {
+          continue;
+        }
+        List<String> inheritedCmdNames = new ArrayList<>();
+        for (Class<? extends BlazeCommand> base : annotation.inherits()) {
+          String name = base.getAnnotation(Command.class).name();
+          inheritedCmdNames.add(String.format("<a href=\"#%s\">%s</a>", name, name));
+        }
+        if (!inheritedCmdNames.isEmpty()) {
+          result.append("<p>Inherits all options from ");
+          result.append(StringUtil.joinEnglishList(inheritedCmdNames, "and"));
+          result.append(".</p>\n\n");
+        }
+        Set<Class<? extends OptionsBase>> options = new HashSet<>();
+        Collections.addAll(options, annotation.options());
+        for (BlazeModule blazeModule : runtime.getBlazeModules()) {
+          Iterables.addAll(options, blazeModule.getCommandOptions(annotation));
+        }
+        appendOptionsHtml(result, options);
+        result.append("\n");
+      }
+      outErr.printOut(result.toString());
+    }
+
+    private void appendOptionsHtml(
+        StringBuilder result, Iterable<Class<? extends OptionsBase>> optionsClasses) {
+      OptionsParser parser = OptionsParser.newOptionsParser(optionsClasses);
+      result.append(parser.describeOptionsHtml(optionCategories, HTML_ESCAPER)
+          .replace("%{product}", runtime.getProductName()));
+    }
+
+    private static String capitalize(String s) {
+      return s.substring(0, 1).toUpperCase(Locale.US) + s.substring(1);
+    }
   }
 }

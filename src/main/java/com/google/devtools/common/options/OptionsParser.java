@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.escape.Escaper;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -436,7 +437,6 @@ public class OptionsParser implements OptionsProvider {
                                 HelpVerbosity helpVerbosity) {
     StringBuilder desc = new StringBuilder();
     if (!impl.getOptionsClasses().isEmpty()) {
-
       List<Field> allFields = Lists.newArrayList();
       for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
         allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
@@ -463,6 +463,52 @@ public class OptionsParser implements OptionsProvider {
       }
     }
     return desc.toString().trim();
+  }
+
+  /**
+   * Returns a description of all the options this parser can digest.
+   * In addition to {@link Option} annotations, this method also
+   * interprets {@link OptionsUsage} annotations which give an intuitive short
+   * description for the options.
+   *
+   * @param categoryDescriptions a mapping from category names to category
+   *   descriptions.  Options of the same category (see {@link
+   *   Option#category}) will be grouped together, preceded by the description
+   *   of the category.
+   */
+  public String describeOptionsHtml(Map<String, String> categoryDescriptions, Escaper escaper) {
+    StringBuilder desc = new StringBuilder();
+    if (!impl.getOptionsClasses().isEmpty()) {
+      List<Field> allFields = Lists.newArrayList();
+      for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
+        allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+      }
+      Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
+      String prevCategory = null;
+
+      for (Field optionField : allFields) {
+        String category = optionField.getAnnotation(Option.class).category();
+        DocumentationLevel level = documentationLevel(category);
+        if (!category.equals(prevCategory) && level == DocumentationLevel.DOCUMENTED) {
+          String description = categoryDescriptions.get(category);
+          if (description == null) {
+            description = "Options category '" + category + "'";
+          }
+          if (prevCategory != null) {
+            desc.append("</dl>\n\n");
+          }
+          desc.append(escaper.escape(description)).append(":\n");
+          desc.append("<dl>");
+          prevCategory = category;
+        }
+
+        if (level == DocumentationLevel.DOCUMENTED) {
+          OptionsUsage.getUsageHtml(optionField, desc, escaper);
+        }
+      }
+      desc.append("</dl>\n");
+    }
+    return desc.toString();
   }
 
   /**

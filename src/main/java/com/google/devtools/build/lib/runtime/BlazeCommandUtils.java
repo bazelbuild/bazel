@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,7 +34,7 @@ public class BlazeCommandUtils {
   /**
    * Options classes used as startup options in Blaze core.
    */
-  private static final List<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
+  private static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
       ImmutableList.<Class<? extends OptionsBase>>of(
           BlazeServerStartupOptions.class,
           HostJvmStartupOptions.class);
@@ -43,7 +42,7 @@ public class BlazeCommandUtils {
   /**
    * The set of option-classes that are common to all Blaze commands.
    */
-  private static final Collection<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
+  private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
       ImmutableList.of(CommonCommandOptions.class, BlazeCommandEventHandler.Options.class);
 
 
@@ -58,6 +57,10 @@ public class BlazeCommandUtils {
     }
 
     return ImmutableList.copyOf(options);
+  }
+
+  public static ImmutableList<Class<? extends OptionsBase>> getCommonOptions() {
+    return COMMON_COMMAND_OPTIONS;
   }
 
   /**
