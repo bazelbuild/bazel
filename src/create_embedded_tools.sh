@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -32,7 +32,7 @@ for i in $*; do
 
   # xcrunwrapper should come from src/tools/xcode/.  Exclude an
   # xcrunwrapper in tools/objc to avoid conflict.
-  if  [[ $i == "tools/objc/xcrunwrapper.sh" ]]
+  if  [ "$i" = "tools/objc/xcrunwrapper.sh" ]
   then
     continue
   fi
