@@ -100,6 +100,44 @@ public abstract class GraphConcurrencyTest {
     }
   }
 
+  @Test
+  public void testCreateIfAbsentWithConcurrentGet() throws Exception {
+    final SkyKey key = key("foo");
+    int numThreads = 50;
+    final CountDownLatch startThreads = new CountDownLatch(1);
+    Runnable createRunnable =
+        new Runnable() {
+          @Override
+          public void run() {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                startThreads, "threads not started");
+            graph.createIfAbsentBatch(ImmutableList.of(key));
+          }
+        };
+    Runnable noCreateRunnable =
+        new Runnable() {
+          @Override
+          public void run() {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                startThreads, "threads not started");
+            graph.get(key);
+          }
+        };
+    List<Thread> threads = new ArrayList<>(2 * numThreads);
+    for (int i = 0; i < numThreads; i++) {
+      Thread createThread = new Thread(createRunnable);
+      createThread.start();
+      threads.add(createThread);
+      Thread noCreateThread = new Thread(noCreateRunnable);
+      noCreateThread.start();
+      threads.add(noCreateThread);
+    }
+    startThreads.countDown();
+    for (Thread thread : threads) {
+      thread.join();
+    }
+  }
+
   // Tests adding and removing Rdeps of a {@link NodeEntry} while a node transitions from
   // not done to done.
   @Test
