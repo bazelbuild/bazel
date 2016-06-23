@@ -675,6 +675,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /**
    * Returns the ConfiguredTarget for the specified label, using the
    * given build configuration.
+   *
+   * <p>If the evaluation of the SkyKey corresponding to the configured target fails, this
+   * method may return null.  In that case, use a debugger to inspect the {@link ErrorInfo}
+   * for the evaluation, which is produced by the
+   * {@link MemoizingEvaluator#getExistingValueForTesting} call in
+   * {@link SkyframeExecutor#getConfiguredTargetForTesting}.  See also b/26382502.
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
