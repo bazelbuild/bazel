@@ -176,7 +176,7 @@ The following Python features are not supported:
 * `class` (see [`struct`](lib/globals.html#struct) function)
 * `import` (see [`load`](#loading-a-skylark-extension) statement)
 * `while`, `yield`
-* `lambda`
+* `lambda` and nested functions
 * `is` (use `==` instead)
 * `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
   for fatal errors).
