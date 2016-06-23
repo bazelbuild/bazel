@@ -151,7 +151,7 @@ public class MemcacheWorkExecutor implements RemoteWorkExecutor {
     }
 
     work.addAllArguments(arguments);
-    work.putAllEnvironment(environment);
+    work.getMutableEnvironment().putAll(environment);
     for (ActionInput output : outputs) {
       work.addOutputFilesBuilder().setPath(output.getExecPathString());
     }
