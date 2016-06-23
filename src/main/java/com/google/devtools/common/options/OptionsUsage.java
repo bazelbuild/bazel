@@ -164,12 +164,15 @@ class OptionsUsage {
     }
     if (annotation.expansion().length > 0) {
       usage.append("<br/>\n");
-      StringBuilder expandsMsg = new StringBuilder("Expands to:");
+      StringBuilder expandsMsg = new StringBuilder("Expands to:<br/>\n");
       for (String exp : annotation.expansion()) {
         // TODO(ulfjack): Can we link to the expanded flags here?
-        expandsMsg.append(" <code>").append(exp).append("</code>");
+        expandsMsg
+            .append("&nbsp;&nbsp;<code>")
+            .append(escaper.escape(exp))
+            .append("</code><br/>\n");
       }
-      usage.append(paragraphFill(escaper.escape(expandsMsg.toString()), 0, 80)); // (indent, width)
+      usage.append(expandsMsg.toString()); // (indent, width)
       usage.append('\n');
     }
     usage.append("</dd>\n");
