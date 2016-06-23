@@ -2101,15 +2101,28 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "type", returnType = String.class,
-      doc = "Returns the type name of its argument.",
-      parameters = {@Param(name = "x", doc = "The object to check type of.")})
-  private static final BuiltinFunction type = new BuiltinFunction("type") {
-    public String invoke(Object object) {
-      // There is no 'type' type in Skylark, so we return a string with the type name.
-      return EvalUtils.getDataTypeName(object, false);
-    }
-  };
+  @SkylarkSignature(
+    name = "type",
+    returnType = String.class,
+    doc =
+        "Returns the type name of its argument. This is useful for debugging and "
+            + "type-checking. Examples:"
+            + "<pre class=\"language-python\">"
+            + "type(2) == \"int\"\n"
+            + "type([1]) == \"list\"\n"
+            + "type(struct(a = 2)) == \"struct\"\n"
+            + "</pre>"
+            + "To write Python-compatible code, you can compare the return values: "
+            + "<code>if type(x) == type([])</code>.",
+    parameters = {@Param(name = "x", doc = "The object to check type of.")}
+  )
+  private static final BuiltinFunction type =
+      new BuiltinFunction("type") {
+        public String invoke(Object object) {
+          // There is no 'type' type in Skylark, so we return a string with the type name.
+          return EvalUtils.getDataTypeName(object, false);
+        }
+      };
 
   @SkylarkSignature(
     name = "fail",
