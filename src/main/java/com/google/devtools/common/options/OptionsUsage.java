@@ -135,7 +135,7 @@ class OptionsUsage {
     String flagName = getFlagName(optionField);
     String typeDescription = getTypeDescription(optionField);
     Option annotation = optionField.getAnnotation(Option.class);
-    usage.append("<dt><code><a href=\"#flag--").append(plainFlagName).append("\"></a>--");
+    usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
     usage.append(flagName).append("</code>");
     if (annotation.abbrev() != '\0') {
       usage.append(" [<code>-").append(annotation.abbrev()).append("</code>]");
