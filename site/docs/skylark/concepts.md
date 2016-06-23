@@ -171,6 +171,9 @@ Python:
 
 * Recursion is not allowed.
 
+* Loops iterate on a shallow copy of the elements. If the list is modified
+  during the iteration, you will only see the old values.
+
 The following Python features are not supported:
 
 * `class` (see [`struct`](lib/globals.html#struct) function)

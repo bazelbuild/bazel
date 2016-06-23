@@ -2110,10 +2110,13 @@ public class MethodLibrary {
             + "<pre class=\"language-python\">"
             + "type(2) == \"int\"\n"
             + "type([1]) == \"list\"\n"
-            + "type(struct(a = 2)) == \"struct\"\n"
+            + "type(struct(a = 2)) == \"struct\""
             + "</pre>"
-            + "To write Python-compatible code, you can compare the return values: "
-            + "<code>if type(x) == type([])</code>.",
+            + "This function might change in the future. To write Python-compatible code and "
+            + "be future-proof, use it only to compare return values: "
+            + "<pre class=\"language-python\">"
+            + "if type(x) == type([]):  # if x is a list"
+            + "</pre>",
     parameters = {@Param(name = "x", doc = "The object to check type of.")}
   )
   private static final BuiltinFunction type =
