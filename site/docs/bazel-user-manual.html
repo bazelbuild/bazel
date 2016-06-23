@@ -2641,9 +2641,9 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   order).
   In either form, zero or a negative value for any of the test sizes will
   be substituted by the default timeout for the given timeout categories as
-  defined by the
-  <a href="test-encyclopedia.html">Test Encyclopedia</a>.
-  By default, Bazel will use Test Encyclopedia timeouts for all tests by
+  defined by the page
+  <a href="test-encyclopedia.html">Writing Tests</a>.
+  By default, Bazel will use these timeouts for all tests by
   inferring the timeout limit from the test's size whether the size is
   implicitly or explicitly set.
 </p>
@@ -2789,12 +2789,11 @@ Examples:
 
 <p>
   <code>bazel run</code> can also execute test binaries, which has the effect of
-running the test, but without the setup documented in the
-<a href='test-encyclopedia.html'>Test Encyclopedia</a>, so that the test runs
+running the test, but without the setup documented on the page
+<a href='test-encyclopedia.html'>Writing Tests</a>, so that the test runs
 in an environment closer to the current shell environment. Note that none of the
 --test_* arguments have an effect when running a test in this manner.
 </p>
-
 
 <h2 id='query'>Querying the dependency graph with Bazel</h2>
 

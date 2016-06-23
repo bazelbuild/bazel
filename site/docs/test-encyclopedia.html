@@ -2,7 +2,7 @@
 layout: documentation
 title: Test Encyclopedia
 ---
-<h1>Bazel Test Encyclopedia</h1>
+<h1>Writing tests</h1>
 
 <p class="lead">An Exhaustive Specification of the Test Execution Environment</p>
 
@@ -189,7 +189,6 @@ test unless the user explicitly requests it.</p>
   <tbody>
 
     <tr><td><code>HOME</code></td><td>value of <code>$TEST_TMPDIR</code></td><td>recommended</td></tr>
-    <tr><td><code>JAVA_RUNFILES</code></td><td>value of <code>$TEST_SRCDIR</code></td><td>required</td></tr>
     <tr><td><code>LANG</code></td><td><i>unset</i></td><td>required</td></tr>
     <tr><td><code>LANGUAGE</code></td><td><i>unset</i></td><td>required</td></tr>
     <tr><td><code>LC_ALL</code></td><td><i>unset</i></td><td>required</td></tr>
@@ -200,6 +199,7 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>LC_NUMERIC</code></td><td><i>unset</i></td><td>required</td></tr>
     <tr><td><code>LC_TIME</code></td><td><i>unset</i></td><td>required</td></tr>
     <tr><td><code>LD_LIBRARY_PATH</code></td><td>colon-separated list of directories containing shared libraries</td><td>optional</td></tr>
+    <tr><td><code>JAVA_RUNFILES</code></td><td>value of <code>$TEST_SRCDIR</code></td><td>deprecated</td></tr>
 
     <tr><td><code>LOGNAME</code></td><td>value of <code>$USER</code></td><td>required</td></tr>
 
@@ -207,7 +207,7 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR/<i>workspace-name</i></code></td><td>recommended</td></tr>
     <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
     <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
-    <tr><td><code>TEST_RANDOM_SEED</code></td><td>See <a href="bazel-user-manual.html#other_options_for_blaze_test">this table</a>.</td><td>optional</td></tr>
+    <tr><td><code>TEST_RANDOM_SEED</code></td><td>Inherited from the client environment. If <code class='flag'>--runs_per_test</code> option is used and client environment does not contain this variable, it is set to the <var>run number</var> (starting with 1) for each individual test run.</td><td>optional</td></tr>
     <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
@@ -393,7 +393,7 @@ prematurely and mark it as having failed.</p>
 <h3>Tag conventions</h3>
 
 <p>
-  Some <a href="bazel-user-manual.html#tags_keywords">tags</a> in the test rules have a special
+  Some tags in the test rules have a special
   meaning.
 </p>
 
@@ -446,4 +446,38 @@ prematurely and mark it as having failed.</p>
 
   </tbody>
 </table>
+
+<h3>Runfiles</h3>
+
+<p>In the following, assume there is a *_binary() rule labeled <code>//foo/bar:unittest</code>,
+with a run-time dependency on the rule labeled <code>//deps/server:server</code>.</p>
+
+<h4>Location</h4>
+<p>The runfiles directory for a target <code>//foo/bar:unittest</code> is the directory
+<code>$(WORKSPACE)/$(BINDIR)/foo/bar/unittest.runfiles</code>. This path is referred to as the
+<code>runfiles_dir</code>.</p>
+
+<h4>Dependencies</h4>
+<p>The runfiles directory is declared as a compile-time dependency of the *_binary() rule.
+The runfiles directory itself depends on the set of BUILD files that affect the *_binary() rule
+or any of its compile-time or run-time dependencies. Modifying source files does not affect the
+structure of the runfiles directory, and thus does not trigger any rebuilding.</p>
+
+<h4>Contents</h4>
+<p>The runfiles directory contains the following:</p>
+<ul>
+  <li><b>Symlinks to run-time dependencies</b>: each OutputFile and CommandRule that is a run-time
+dependency of the *_binary() rule is represented by one symlink in the runfiles directory.
+The name of the symlink is <code>$(WORKSPACE)/package_name/rule_name</code>. For example, the
+symlink for server would be named <code>$(WORKSPACE)/deps/server/server</code>, and the full path
+would be <code>$(WORKSPACE)/foo/bar/unittest.runfiles/$(WORKSPACE)/deps/server/server</code>.
+The destination of the symlink is the OutputFileName() of the OutputFile or CommandRule,
+expressed as an absolute path. Thus, the destination of the symlink might be
+<code>$(WORKSPACE)/linux-dbg/deps/server/42/server</code>.</li>
+  <li><b>Symlinks to sub-runfiles</b>: for every *_binary() Z that is a run-time depdendency of
+*_binary() C, there is a second link in the runfiles directory of C to the runfiles of Z.
+The name of the symlink is <code>$(WORKSPACE)/package_name/rule_name.runfiles</code>.
+The target of the symlink is the runfiles directory. I.e. all subprograms share a common
+runfiles directory.</li>
+</ul>
 

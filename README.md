@@ -31,7 +31,7 @@ Find more background about Bazel in our [FAQ](http://bazel.io/faq.html).
   * The rule reference documentation is in the [build encyclopedia](http://bazel.io/docs/be/overview.html)
   * How to [use the query command](http://bazel.io/docs/query.html)
   * How to [extend Bazel](http://bazel.io/docs/skylark/index.html)
-  * The test environment is described in the [test encyclopedia](http://bazel.io/docs/test-encyclopedia.html)
+  * The test environment is described on the page [writing tests](http://bazel.io/docs/test-encyclopedia.html)
 
 ## About the Bazel project:
 
