@@ -372,7 +372,7 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   CloseHandle(pipe_write);
   CloseHandle(pipe_read);
 
-  string pid_string = ToString(getpid());
+  string pid_string = ToString(processInfo.dwProcessId);
   string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
   if (!WriteFile(pid_string, pid_file)) {
     // Not a lot we can do if this fails
@@ -630,7 +630,17 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
 
 void KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
-  // Not implemented yet. TerminateProcess should work.
+  HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+  if (process == NULL) {
+    // Cannot find the server process. Can happen if the PID file is stale.
+    return;
+  }
+
+  if (!TerminateProcess(process, /*uExitCode*/0)) {
+    fprintf(stderr, "Cannot terminate server process\n");
+  }
+
+  CloseHandle(process);
 }
 
 }  // namespace blaze
