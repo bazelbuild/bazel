@@ -87,7 +87,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     for (int i = 0; i < segments.length; i++) {
       internedSegments[i] = StringCanonicalizer.intern(segments[i]);
     }
-    return new PathFragment(driveLetter, isAbsolute, segments);
+    return new PathFragment(driveLetter, isAbsolute, internedSegments);
   }
 
   // We have 3 word-sized fields (segments, hashCode and path), and 2

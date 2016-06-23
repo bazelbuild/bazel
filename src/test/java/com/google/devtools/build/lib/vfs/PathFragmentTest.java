@@ -49,6 +49,22 @@ public class PathFragmentTest {
   }
 
   @Test
+  public void testCreateInternsPathFragments() {
+    String[] firstSegments = new String[] {"hello", "world"};
+    PathFragment first = PathFragment.create(
+        /*driveLetter=*/ '\0', /*isAbsolute=*/ false, firstSegments);
+
+    String[] secondSegments = new String[] {new String("hello"), new String("world")};
+    PathFragment second = PathFragment.create(
+        /*driveLetter=*/ '\0', /*isAbsolute=*/ false, secondSegments);
+
+    assertThat(first.segmentCount()).isEqualTo(second.segmentCount());
+    for (int i = 0; i < first.segmentCount(); i++) {
+      assertThat(first.getSegment(i)).isSameAs(second.getSegment(i));
+    }
+  }
+
+  @Test
   public void testEqualsAndHashCode() {
     InMemoryFileSystem filesystem = new InMemoryFileSystem();
 
@@ -225,7 +241,7 @@ public class PathFragmentTest {
     assertEquals(fooBarAbs,
                  new PathFragment("/foo/bar/..").getParentDirectory());
   }
-  
+
   @Test
   public void testSegmentsCount() {
     assertEquals(2, new PathFragment("foo/bar").segmentCount());
@@ -505,7 +521,7 @@ public class PathFragmentTest {
     assertEquals(".", PathFragment.EMPTY_FRAGMENT.getSafePathString());
     assertEquals("abc/def", new PathFragment("abc/def").getSafePathString());
   }
-  
+
   @Test
   public void testNormalize() {
     assertEquals(new PathFragment("/a/b"), new PathFragment("/a/b").normalize());
