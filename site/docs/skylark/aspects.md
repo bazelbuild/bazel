@@ -41,7 +41,7 @@ java_library(name = 'X', deps = [':Y',':Z'], runtime_deps = [':T'], ...)
 
 This BUILD file defines a dependency graph shown in Fig 1.
 
-![Build Graph](build-graph.png){width="250px"}
+<img src="build-graph.png" alt="Build Graph" width="250px" />
 
 Bazel analyzes this dependency graph by calling implementations of
 [rules](rules.md) (in this case "java_library" starting from leaves of
