@@ -2,23 +2,22 @@
 layout: documentation
 title: Command-Line Reference
 ---
-
 <h1>Command-Line Reference</h1>
 
 <pre>
-blaze [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;]
+bazel [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;]
 </pre>
 
 or
 
 <pre>
-blaze [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;] -- [&lt;target patterns&gt;]
+bazel [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;] -- [&lt;target patterns&gt;]
 </pre>
 
 <h2>Option Syntax</h2>
 
 <p>
-Options can be passed to Blaze in different ways. Options that require a value
+Options can be passed to Bazel in different ways. Options that require a value
 can be passed with either an equals sign or a space:
 <pre>
 --&lt;option&gt;=&lt;value&gt;
@@ -65,7 +64,7 @@ or force-disabled as follows:
 <p>
 A target pattern refers to a single or more targets, which are source files,
 output files, or rules specified in BUILD files. In addition to plain labels,
-Blaze also supports working-directory-relative labels, recursive patterns, and
+Bazel also supports working-directory-relative labels, recursive patterns, and
 target subtraction.
 </p>
 
@@ -108,7 +107,7 @@ workspace.
 Targets with <code>tags=["manual"]</code> are not included in wildcard
 target patterns (<code>...</code>, <code>:*</code>, <code>:all</code>, etc).
 Specify such test targets with explicit labels on the command line if
-you want Blaze to build/test them.
+you want Bazel to build/test them.
 </p>
 
 <p>
@@ -162,7 +161,7 @@ symlinks that are created in the root directory of the workspace.
 </p>
 
 <p>
-In addition, Blaze does not follow symlinks when evaluating recursive target
+In addition, Bazel does not follow symlinks when evaluating recursive target
 patterns in any directory that contains a file named as follows:
 <pre>
 DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN
@@ -171,14 +170,14 @@ DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTE
 
 <p>
 Target patterns may be preceded by a single dash ('<code>-</code>'), in which
-case Blaze subtracts them from the set of targets accumulated by preceding
+case Bazel subtracts them from the set of targets accumulated by preceding
 patterns. Note that this means <em>order matters</em>. In order to pass negative
-target patterns, you need to use '--' as an argument to prevent Blaze from
+target patterns, you need to use '--' as an argument to prevent Bazel from
 interpreting it as an option, e.g.:
 <pre>
-blaze build -- foo/... -foo/contrib/...
+bazel build -- foo/... -foo/contrib/...
 </pre>
-Note that Blaze may still build targets matched by a negative target pattern due
+Note that Bazel may still build targets matched by a negative target pattern due
 to dependencies, and may also load the corresponding BUILD files, even if the
 targets are never built.
 </p>
