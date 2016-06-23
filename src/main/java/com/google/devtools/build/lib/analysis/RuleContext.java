@@ -531,6 +531,24 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
+   * guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  public Artifact getBinArtifact(String relative) {
+    return getPackageRelativeArtifact(
+        new PathFragment(relative), getConfiguration().getBinDirectory());
+  }
+
+  /**
+   * Creates an artifact in a directory that is unique to the package that contains the rule, thus
+   * guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  public Artifact getGenfilesArtifact(String relative) {
+    return getPackageRelativeArtifact(
+        new PathFragment(relative), getConfiguration().getGenfilesDirectory());
+  }
+
+  /**
    * Returns an artifact that can be an output of shared actions. Only use when there is no other
    * option.
    *

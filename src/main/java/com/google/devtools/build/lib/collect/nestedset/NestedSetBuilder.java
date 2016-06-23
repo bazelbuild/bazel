@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.isEmpty;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -226,5 +227,22 @@ public final class NestedSetBuilder<E> {
 
   public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<E> set) {
     return new NestedSetBuilder<E>(set.getOrder()).addTransitive(set);
+  }
+
+  /**
+   * Creates a Builder with the contents of 'sets'.
+   *
+   * <p>If 'sets' is empty, a stable-order empty NestedSet is returned.
+   */
+  public static <E> NestedSetBuilder<E> fromNestedSets(Iterable<NestedSet<E>> sets) {
+    NestedSet<?> firstSet = Iterables.getFirst(sets, null /* defaultValue */);
+    if (firstSet == null) {
+      return stableOrder();
+    }
+    NestedSetBuilder<E> result = new NestedSetBuilder<>(firstSet.getOrder());
+    for (NestedSet<E> set : sets) {
+      result.addTransitive(set);
+    }
+    return result;
   }
 }
