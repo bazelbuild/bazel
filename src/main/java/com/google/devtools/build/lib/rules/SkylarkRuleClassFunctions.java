@@ -643,6 +643,7 @@ public class SkylarkRuleClassFunctions {
       + "The argument must refer to an absolute label. "
       + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
       returnType = Label.class,
+      objectType = Label.class,
       parameters = {@Param(name = "label_string", type = String.class,
           doc = "the label string"),
         @Param(
@@ -679,11 +680,19 @@ public class SkylarkRuleClassFunctions {
       }
     };
 
+  // We want the Label ctor to show up under the Label documentation, but to be a "global
+  // function." Thus, we create a global Label object here, which just points to the Skylark
+  // function above.
+  @SkylarkSignature(name = "Label",
+      documented = false)
+  private static final BuiltinFunction globalLabel = label;
+
   @SkylarkSignature(name = "FileType",
       doc = "Deprecated. Creates a file filter from a list of strings. For example, to match "
       + "files ending with .cc or .cpp, use: "
       + "<pre class=language-python>FileType([\".cc\", \".cpp\"])</pre>",
       returnType = SkylarkFileType.class,
+      objectType = SkylarkFileType.class,
       parameters = {
       @Param(name = "types", type = SkylarkList.class, generic1 = String.class, defaultValue = "[]",
           doc = "a list of the accepted file extensions")})
@@ -692,6 +701,13 @@ public class SkylarkRuleClassFunctions {
         return SkylarkFileType.of(types.getContents(String.class, "types"));
       }
     };
+
+  // We want the FileType ctor to show up under the FileType documentation, but to be a "global
+  // function." Thus, we create a global FileType object here, which just points to the Skylark
+  // function above.
+  @SkylarkSignature(name = "FileType",
+      documented = false)
+  private static final BuiltinFunction globalFileType = fileType;
 
   @SkylarkSignature(name = "to_proto",
       doc = "Creates a text message from the struct parameter. This method only works if all "
