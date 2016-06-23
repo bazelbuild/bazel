@@ -174,7 +174,6 @@ public final class JavaLibraryHelper {
     if (isStrict()) {
       directJars = getNonRecursiveCompileTimeJarsFromDeps();
       if (directJars != null) {
-        attributes.addDirectCompileTimeClassPathEntries(directJars);
         attributes.addDirectJars(directJars);
       }
     }
