@@ -1,7 +1,11 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 exports_files(
-    ["docs/bazel-user-manual.html"],
+    [
+        "docs/bazel-user-manual.html",
+        "command-line-reference-prefix.html",
+        "command-line-reference-suffix.html",
+    ],
 )
 
 filegroup(
@@ -18,6 +22,8 @@ filegroup(
             "BUILD",
             "jekyll-tree.sh",
             "*.swp",
+            "command-line-reference-prefix.html",
+            "command-line-reference-suffix.html",
         ],
     ),
 )
@@ -91,13 +97,15 @@ genrule(
         ":skylark-rule-docs",
         "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
         "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
+        "//src/main/java/com/google/devtools/build/lib:gen_command-line-reference",
     ],
     outs = ["jekyll-tree.tar"],
     cmd = ("$(location jekyll-tree.sh) $@ " +
            "$(location :jekyll-base) " +
            "$(location :skylark-rule-docs) " +
            "$(location //src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia) " +
-           "$(location //src/main/java/com/google/devtools/build/lib:gen_skylarklibrary)"),
+           "$(location //src/main/java/com/google/devtools/build/lib:gen_skylarklibrary) " +
+           "$(location //src/main/java/com/google/devtools/build/lib:gen_command-line-reference)"),
     tools = [
         "jekyll-tree.sh",
     ],

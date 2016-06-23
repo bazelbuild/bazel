@@ -968,6 +968,31 @@ genrule(
     ],
 )
 
+genrule(
+    name = "gen_command-line-reference",
+    srcs = [
+        "//site:command-line-reference-prefix.html",
+        "//site:command-line-reference-suffix.html",
+    ],
+    outs = ["command-line-reference.html"],
+    cmd = (
+        "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
+        "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
+        "mkdir $${TMP}/_embedded_binaries/ && " +
+        "$(location :bazel/BazelServer) " +
+        "--jvm_flag=-Dio.bazel.UnixFileSystem=0 --batch " +
+        "--install_base=$${TMP} --output_base=$${TMP}/output/ " +
+        "help everything-as-html >> $@ 2>/dev/null && " +
+        "cat $(location //site:command-line-reference-suffix.html) >> $@"
+    ),
+    tools = [
+        ":bazel/BazelServer",
+    ],
+    visibility = [
+        "//site:__pkg__",
+    ],
+)
+
 # The skylark repository classes are passed as parameter of the Skylark documentation generator.
 SKYLARK_REPOSITORY_CLASSES = [
     "com.google.devtools.build.lib.bazel.repository.skylark.SkylarkExecutionResult",
