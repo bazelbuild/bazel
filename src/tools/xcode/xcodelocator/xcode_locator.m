@@ -115,7 +115,8 @@ int main(int argc, const char * argv[]) {
              "to return the path to the appropriate developer directory.\nOmitting a version "
              "number will list all available versions in JSON format, alongside their paths.\n"
              "Passing -v will list all available fully-specified version numbers along with "
-             "their possible aliases, each on a new line. For example: '7.3.1:7,7.3,7.3.1'.\n");
+             "their possible aliases and their developer directory, each on a new line.\n"
+             "For example: '7.3.1:7,7.3,7.3.1:/Applications/Xcode.app/Contents/Developer'.\n");
       return 1;
     }
 
@@ -155,9 +156,20 @@ int main(int argc, const char * argv[]) {
 
     if (versionsOnly) {
       NSSet *distinctValues = [[NSSet alloc] initWithArray:[dict allValues]];
+      NSMutableDictionary *aliasDict = [[NSMutableDictionary alloc] init];
       for (XcodeVersionEntry *value in distinctValues) {
-        printf("%s:", value.version.UTF8String);
-        printf("%s\n", [[dict allKeysForObject:value] componentsJoinedByString: @","].UTF8String);
+        NSString *versionString = value.version;
+        if (aliasDict[versionString] == nil) {
+          aliasDict[versionString] = [[NSMutableSet alloc] init];
+        }
+        [aliasDict[versionString] addObjectsFromArray:[dict allKeysForObject:value]];
+      }
+      for (NSString *version in aliasDict) {
+        XcodeVersionEntry *entry = dict[version];
+        printf("%s:%s:%s\n",
+               version.UTF8String,
+               [[aliasDict[version] allObjects] componentsJoinedByString: @","].UTF8String,
+               entry.url.fileSystemRepresentation);
       }
     } else {
       // Print out list in json format.
