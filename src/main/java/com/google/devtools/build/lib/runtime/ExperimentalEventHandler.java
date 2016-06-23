@@ -247,9 +247,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   @Subscribe
-  public void analysisComplete(AnalysisPhaseCompleteEvent event) {
-    stateTracker.analysisComplete(event);
-    refresh();
+  public synchronized void analysisComplete(AnalysisPhaseCompleteEvent event) {
+    String analysisSummary = stateTracker.analysisComplete(event);
+    handle(Event.info(null, analysisSummary));
   }
 
   @Subscribe
