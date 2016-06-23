@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfigurationsCreatedEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
@@ -175,6 +176,7 @@ public final class BuildTool {
             env.getReporter(), runtime.getConfigurationFactory(), buildOptions,
             request.getMultiCpus(), request.getViewOptions().keepGoing);
 
+      env.getEventBus().post(new ConfigurationsCreatedEvent(configurations));
       env.throwPendingException();
       if (configurations.getTargetConfigurations().size() == 1) {
         // TODO(bazel-team): This is not optimal - we retain backwards compatibility in the case
