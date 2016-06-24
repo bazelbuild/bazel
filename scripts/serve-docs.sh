@@ -15,9 +15,30 @@
 
 set -eu
 
-readonly PORT=${1-12345}
+if [ "${1-}" == "help" ]; then
+  cat <<EOF
+Usage:
+$0 [port]
+     Builds docs and starts a web server serving docs on localhost:port
+     Default port is 12345.
+$0 <target directory> [<serving prefix>]
+     Builds docs as static web pages in <target directory>.
+     Replaces absolute paths in the resulting HTML with <serving prefix>,
+     or, if it is not specified, with <target directory>.
+EOF
+  exit 0
+fi
+
+if [[ "${1-}" == [0-9]* ]]; then
+  readonly PORT=$1
+  readonly TARGET=''
+else
+  readonly PORT=${1-12345}
+  readonly TARGET=${1-}
+fi
 
 readonly WORKING_DIR=$(mktemp -d)
+readonly SERVING_PREFIX=${2-$TARGET}
 
 function check {
   which $1 > /dev/null || (echo "$1 not installed. Please install $1."; exit 1)
@@ -29,7 +50,19 @@ function build_and_serve {
   tar -xf bazel-genfiles/site/jekyll-tree.tar -C $WORKING_DIR
 
   pkill -9 jekyll || true
-  jekyll serve --detach --quiet --port $PORT --source $WORKING_DIR
+
+  if [ -z "$TARGET" ]; then
+    jekyll serve --detach --quiet --port $PORT --source $WORKING_DIR
+  else
+    TMP_TARGET=$(mktemp -d)
+    jekyll build --source $WORKING_DIR --destination "$TMP_TARGET"
+    REPLACEMENT=$(echo $SERVING_PREFIX | sed s/\\//\\\\\\//g)
+    find $TMP_TARGET -name '*.html' | xargs sed -i s/href=\\\"\\//href=\"$REPLACEMENT\\//g
+    find $TMP_TARGET -name '*.html' | xargs sed -i s/src=\\\"\\//src=\"$REPLACEMENT\\//g
+    cp -R $TMP_TARGET/* $TARGET
+    echo "Static pages copied to $TARGET"
+    echo "Should be served from $SERVING_PREFIX"
+  fi
 }
 
 function main {
