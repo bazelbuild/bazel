@@ -146,6 +146,10 @@ void ReplaceAll(
 
 // Max command line length is per CreateProcess documentation
 // (https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx)
+//
+// Quoting rules are described here:
+// https://blogs.msdn.microsoft.com/twistylittlepassagesallalike/2011/04/23/everyone-quotes-command-line-arguments-the-wrong-way/
+
 static const int MAX_CMDLINE_LENGTH = 32768;
 
 struct CmdLine {
@@ -169,19 +173,39 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
       cmdline.append(" ");
     }
 
-    string arg = s;
-    // Quote quotes.
-    if (s.find("\"") != string::npos) {
-      ReplaceAll(&arg, "\"", "\\\"");
+    bool has_space = s.find(" ") != string::npos;
+
+    if (has_space) {
+      cmdline.append("\"");
     }
 
-    // Quotize spaces.
-    if (arg.find(" ") != string::npos) {
+    std::string::const_iterator it = s.begin();
+    while (it != s.end()) {
+      char ch = *it++;
+      switch (ch) {
+        case '"':
+          // Escape double quotes
+          cmdline.append("\\\"");
+          break;
+
+        case '\\':
+          if (it == s.end()) {
+            // Backslashes at the end of the string are quoted if we add quotes
+            cmdline.append(has_space ? "\\\\" : "\\");
+          } else {
+            // Backslashes everywhere else are quoted if they are followed by a
+            // quote or a backslash
+            cmdline.append(*it == '"' || *it == '\\' ? "\\\\" : "\\");
+          }
+          break;
+
+         default:
+           cmdline.append(1, ch);
+      }
+    }
+
+    if (has_space) {
       cmdline.append("\"");
-      cmdline.append(arg);
-      cmdline.append("\"");
-    } else {
-      cmdline.append(arg);
     }
   }
 
