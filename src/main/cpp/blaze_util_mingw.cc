@@ -308,21 +308,23 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   }
 
   SECURITY_ATTRIBUTES sa;
-
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  // We redirect stdout and stderr by telling CreateProcess to use a file handle
+  // we open below and these handles must be inheriatable
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file;
+  HANDLE output_file = CreateFile(
+      ConvertPath(daemon_output).c_str(),  // lpFileName
+      GENERIC_READ | GENERIC_WRITE,        // dwDesiredAccess
+      // So that the file can be read while the server is running
+      FILE_SHARE_READ,                     // dwShareMode
+      &sa,                                 // lpSecurityAttributes
+      CREATE_ALWAYS,                       // dwCreationDisposition
+      FILE_ATTRIBUTE_NORMAL,               // dwFlagsAndAttributes
+      NULL);                               // hTemplateFile
 
-  if (!CreateFile(
-      daemon_output.c_str(),
-      GENERIC_READ | GENERIC_WRITE,
-      0,
-      &sa,
-      CREATE_ALWAYS,
-      FILE_ATTRIBUTE_NORMAL,
-      NULL)) {
+  if (output_file == INVALID_HANDLE_VALUE) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateFile");
   }
 
