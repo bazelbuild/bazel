@@ -732,6 +732,7 @@ public final class ReleaseBundlingSupport {
         .addArtifact(releaseBundling.getIpaArtifact())
         .addArtifact(runnerScript)
         .addArtifact(attributes.iossim())
+        .addArtifact(attributes.stdRedirectDylib())
         .build();
     return RunfilesSupport.withExecutable(ruleContext, runfiles, runnerScript);
   }
