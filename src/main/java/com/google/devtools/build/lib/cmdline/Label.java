@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
-import java.util.Objects;
 
 /**
  * A class to identify a BUILD target. All targets belong to exactly one package.
@@ -274,7 +273,15 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       }
       throw e;
     }
-    this.hashCode = Objects.hash(this.name, this.packageIdentifier);
+    this.hashCode = hashCode(this.name, this.packageIdentifier);
+  }
+
+  /**
+   * A specialization of Arrays.HashCode() that does not require constructing a 2-element array.
+   */
+  private static final int hashCode(Object obj1, Object obj2) {
+    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
+    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
   }
 
   private Object writeReplace() {

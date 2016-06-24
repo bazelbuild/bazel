@@ -165,11 +165,11 @@ public final class LabelValidator {
         continue;
       }
       if (c == '/') {
-        if (targetName.substring(ii).startsWith("/../")) {
+        if (stringRegionMatch(targetName, "/../", ii)) {
           return "target names may not contain up-level references '..'";
-        } else if (targetName.substring(ii).startsWith("/./")) {
+        } else if (stringRegionMatch(targetName, "/./", ii)) {
           return "target names may not contain '.' as a path segment";
-        } else if (targetName.substring(ii).startsWith("//")) {
+        } else if (stringRegionMatch(targetName, "//", ii)) {
           return "target names may not contain '//' path separators";
         }
         continue;
@@ -192,6 +192,12 @@ public final class LabelValidator {
       return "target names may not end with '/'";
     }
     return null; // ok
+  }
+
+  // Prefer this implementation over calls to String#subString(), as the latter implies copying
+  // the subregion.
+  private static boolean stringRegionMatch(String fullString, String possibleMatch, int offset) {
+    return fullString.regionMatches(offset, possibleMatch, 0, possibleMatch.length());
   }
 
   /**
