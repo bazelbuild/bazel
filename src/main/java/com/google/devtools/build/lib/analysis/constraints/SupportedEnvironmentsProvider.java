@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Target;
 
 /**
  * A provider that advertises which environments the associated target is compatible with
@@ -39,4 +41,20 @@ public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
    * {@link ConstraintSemantics} for details.
    */
   EnvironmentCollection getRefinedEnvironments();
+
+  /**
+   * If the given environment was refined away from this target's set of supported environments,
+   * returns the dependency that originally removed the environment.
+   *
+   * <p>For example, if the current rule is restricted_to [E] and depends on D1, D1 is
+   * restricted_to [E] and depends on D2, and D2 is restricted_to [E, F] and has a select()
+   * with one path following an E-restricted dep and the other path following an F-restricted dep,
+   * then when the build chooses the F path the current rule has [E] refined to [] and D2 is the
+   * culprit.
+   *
+   * <p>If the given environment was not refined away for this rule, returns null.
+   *
+   * <p>See {@link ConstraintSemantics} class documentation for more details on refinement.
+   */
+  Target getRemovedEnvironmentCulprit(Label environment);
 }
