@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.isEmpty;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -55,6 +56,14 @@ public class ProtoCompileActionBuilder {
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
+
+  /**
+   * Build a proto compiler commandline argument for use in setXParameter methods.
+   */
+  public static String buildProtoArg(String arg, String value, Iterable<String> flags) {
+    return String.format("--%s=%s%s",
+        arg, (isEmpty(flags) ? "" : Joiner.on(',').join(flags) + ":"), value);
+  }
 
   public ProtoCompileActionBuilder setRuleContext(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
