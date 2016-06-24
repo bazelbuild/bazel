@@ -75,5 +75,5 @@ touch "${PACKAGE_DIR}/tools/defaults/BUILD"
 for i in $(find "${PACKAGE_DIR}" -name BUILD.tools); do
   mv "$i" "$(dirname "$i")/BUILD"
 done
-find "${PACKAGE_DIR}" -exec touch -t 198001010000.00 '{}' ';'
+find "${PACKAGE_DIR}" -exec touch -t 198001010000.00 '{}' '+'
 (cd "${PACKAGE_DIR}" && find . -type f | sort | zip -qDX@ "${OUTPUT}")
