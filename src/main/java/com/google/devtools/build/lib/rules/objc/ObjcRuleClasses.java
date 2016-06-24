@@ -1016,6 +1016,29 @@ public class ObjcRuleClasses {
           bundle id and <code>$(AppIdentifierPrefix)</code> with the value of the
           <code>ApplicationIdentifierPrefix</code> key from this target's provisioning profile (or
           the default provisioning profile, if none is specified).
+          <p>
+          Bazel does not currently support adding entitlements to simulator builds. This
+          means that if you rely on behavior which must be specified in entitlements (like App
+          Groups) it will only work on a device. You can work around this by inlining the
+          entitlements into your binary. e.g.
+        <pre><code>
+          #if TARGET_OS_SIMULATOR
+          __asm(&quot;.section __TEXT,__entitlements&quot;);
+          __asm(&quot;.ascii \&quot;&quot;
+          &quot;&lt;?xml version=\\\&quot;1.0\\\&quot; encoding=\\\&quot;UTF-8\\\&quot;?&gt;\n&quot;
+          &quot;&lt;!DOCTYPE plist PUBLIC \\\&quot;-//Apple//DTD PLIST 1.0//EN\\\&quot; &quot;
+              &quot;\\\&quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd\\\&quot;&gt;&quot;
+           &quot;&lt;plist version=\\\&quot;1.0\\\&quot;&gt;&quot;
+          &quot;&lt;dict&gt;&quot;
+          &quot;&lt;key&gt;com.apple.security.application-groups&lt;/key&gt;&quot;
+          &quot;&lt;array&gt;&quot;
+          &quot;&lt;string&gt;group.com.your.company&lt;/string&gt;&quot;
+          &quot;&lt;/array&gt;&quot;
+          &quot;&lt;/dict&gt;&quot;
+          &quot;&lt;/plist&gt;&quot;
+          &quot;\&quot;
+          #endif
+        </code></pre>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(ENTITLEMENTS_ATTR, LABEL).allowedFileTypes(ENTITLEMENTS_TYPE))
           .add(
