@@ -43,6 +43,13 @@ msys*|mingw*)
   EXE_EXT=".exe"
 esac
 
+# Fix TMPDIR on msys
+case "${PLATFORM}" in
+msys*|mingw*)
+  TMPDIR=${TMPDIR:-$(cygpath -m $TMP)}
+esac
+
+
 # Whether we display build messages or not.  We set this conditionally because
 # the file including us or the user may already have defined VERBOSE to their
 # liking.

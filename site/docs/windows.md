@@ -29,7 +29,6 @@ To build Bazel:
 
 ```bash
 export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
-export TMPDIR=c:/temp
 export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
 ```
 
