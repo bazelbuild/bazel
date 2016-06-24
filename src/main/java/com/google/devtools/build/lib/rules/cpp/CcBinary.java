@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -89,14 +87,15 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   @VisibleForTesting
   public static final String INTERMEDIATE_DWP_DIR = "_dwps";
 
-  private static Runfiles collectRunfiles(RuleContext context,
+  private static Runfiles collectRunfiles(
+      RuleContext context,
       CcLinkingOutputs linkingOutputs,
       CppCompilationContext cppCompilationContext,
       LinkStaticness linkStaticness,
       NestedSet<Artifact> filesToBuild,
       Iterable<Artifact> fakeLinkerInputs,
       boolean fake,
-      ImmutableList<Pair<Artifact, Label>> cAndCppSources) {
+      ImmutableSet<CppSource> cAndCppSources) {
     Runfiles.Builder builder = new Runfiles.Builder(
         context.getWorkspaceName(), context.getConfiguration().legacyExternalRunfiles());
     Function<TransitiveInfoCollection, Runfiles> runfilesMapping =
@@ -136,8 +135,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // We add the headers in the transitive closure and our own sources in the srcs
       // attribute. We do not provide the auxiliary inputs, because they are only used when we
       // do FDO compilation, and cc_fake_binary does not support FDO.
-      builder.addSymlinksToArtifacts(
-          Iterables.transform(cAndCppSources, Pair.<Artifact, Label>firstFunction()));
+      ImmutableSet.Builder<Artifact> sourcesBuilder = ImmutableSet.<Artifact>builder();
+      for (CppSource cppSource : cAndCppSources) {
+        sourcesBuilder.add(cppSource.getSource());
+      }
+      builder.addSymlinksToArtifacts(sourcesBuilder.build());
       builder.addSymlinksToArtifacts(cppCompilationContext.getDeclaredIncludeSrcs());
       // Add additional files that are referenced from the compile command, like module maps
       // or header modules.

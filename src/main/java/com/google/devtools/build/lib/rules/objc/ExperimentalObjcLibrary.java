@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -116,7 +117,8 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     ObjcCommon common = common(ruleContext, compilationAttributes, compilationArtifacts);
 
-    Collection<Artifact> sources = Sets.newHashSet(compilationArtifacts.getSrcs());
+    Collection<Artifact> arcSources = Sets.newHashSet(compilationArtifacts.getSrcs());
+    Collection<Artifact> nonArcSources = Sets.newHashSet(compilationArtifacts.getNonArcSrcs());
     Collection<Artifact> privateHdrs = Sets.newHashSet(compilationArtifacts.getPrivateHdrs());
     Collection<Artifact> publicHdrs = Sets.newHashSet(compilationAttributes.hdrs());
 
@@ -126,7 +128,8 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
                 new ObjcCppSemantics(common.getObjcProvider()),
                 getFeatureConfiguration(ruleContext),
                 CcLibraryHelper.SourceCategory.CC_AND_OBJC)
-            .addSources(sources)
+            .addSources(arcSources, ImmutableMap.of("objc_arc", ""))
+            .addSources(nonArcSources, ImmutableMap.of("no_objc_arc", ""))
             .addSources(privateHdrs)
             .enableCompileProviders()
             .addPublicHeaders(publicHdrs)

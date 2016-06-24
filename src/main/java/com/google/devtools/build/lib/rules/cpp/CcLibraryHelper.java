@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -242,12 +241,12 @@ public final class CcLibraryHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
-  private final List<Pair<Artifact, Label>> compilationUnitSources = new ArrayList<>();
+  private final Set<CppSource> compilationUnitSources = new LinkedHashSet<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
-  @Nullable private Pattern nocopts;
   private final List<String> linkopts = new ArrayList<>();
+  @Nullable private Pattern nocopts;
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> implementationDeps = new ArrayList<>();
   private final List<TransitiveInfoCollection> interfaceDeps = new ArrayList<>();
@@ -256,6 +255,7 @@ public final class CcLibraryHelper {
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
+  
   @Nullable private Artifact dynamicLibrary;
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
   private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
@@ -393,30 +393,45 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Add the corresponding files as source files. These may also be header files, in which case
-   * they will not be compiled, but also not made visible as includes to dependent rules.
+   * Add the corresponding files as source files. These may also be header files, in which case they
+   * will not be compiled, but also not made visible as includes to dependent rules. The given build
+   * variables will be added to those used for compiling this source.
+   */
+  public CcLibraryHelper addSources(
+      Collection<Artifact> sources, Map<String, String> buildVariables) {
+    Preconditions.checkNotNull(buildVariables);
+    for (Artifact source : sources) {
+      addSource(source, ruleContext.getLabel(), buildVariables);
+    }
+    return this;
+  }
+  
+  /**
+   * Add the corresponding files as source files. These may also be header files, in which case they
+   * will not be compiled, but also not made visible as includes to dependent rules. The given
+   * sources will be built without extra, source-specific build variables.
    */
   public CcLibraryHelper addSources(Collection<Artifact> sources) {
-    for (Artifact source : sources) {
-      addSource(source, ruleContext.getLabel());
-    }
+    addSources(sources, ImmutableMap.<String, String>of());
     return this;
   }
 
   /**
-   * Add the corresponding files as source files. These may also be header files, in which case
-   * they will not be compiled, but also not made visible as includes to dependent rules.
+   * Add the corresponding files as source files. These may also be header files, in which case they
+   * will not be compiled, but also not made visible as includes to dependent rules. The given
+   * sources will be built without extra, source-specific build variables.
    */
   public CcLibraryHelper addSources(Iterable<Pair<Artifact, Label>> sources) {
     for (Pair<Artifact, Label> source : sources) {
-      addSource(source.first, source.second);
+      addSource(source.first, source.second, ImmutableMap.<String, String>of());
     }
     return this;
   }
 
   /**
-   * Add the corresponding files as source files. These may also be header files, in which case
-   * they will not be compiled, but also not made visible as includes to dependent rules.
+   * Add the corresponding files as source files. These may also be header files, in which case they
+   * will not be compiled, but also not made visible as includes to dependent rules. The given
+   * sources will be built without extra, source-specific build variables.
    */
   public CcLibraryHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
@@ -433,14 +448,16 @@ public final class CcLibraryHelper {
     if (isTextualInclude || !isHeader || !shouldProcessHeaders()) {
       return;
     }
-    compilationUnitSources.add(Pair.of(header, label));
+    compilationUnitSources.add(CppSource.create(header, label, ImmutableMap.<String, String>of()));
   }
 
   /**
    * Adds a source to {@code compilationUnitSources} if it is a compiled file type (including
-   * parsed/preprocessed header) and to {@code privateHeaders} if it is a header.
+   * parsed/preprocessed header) and to {@code privateHeaders} if it is a header. The given build
+   * variables will be added to those used for compiling this source.
    */
-  private void addSource(Artifact source, Label label) {
+  private void addSource(Artifact source, Label label, Map<String, String> buildVariables) {
+    Preconditions.checkNotNull(featureConfiguration);
     boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
     boolean isCompiledSource = sourceCategory.getSourceTypes().matches(source.getExecPathString());
@@ -450,7 +467,7 @@ public final class CcLibraryHelper {
     if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
       return;
     }
-    compilationUnitSources.add(Pair.of(source, label));
+    compilationUnitSources.add(CppSource.create(source, label, buildVariables));
   }
 
   private boolean shouldProcessHeaders() {
@@ -459,11 +476,13 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Returns the compilation unit sources. That includes all compiled source files as well
-   * as headers that will be parsed or preprocessed.
+   * Returns the compilation unit sources. That includes all compiled source files as well as
+   * headers that will be parsed or preprocessed. Each source file contains the label it arises from
+   * in the build graph as well as {@code FeatureConfiguration} that should be used during its
+   * compilation.
    */
-  public ImmutableList<Pair<Artifact, Label>> getCompilationUnitSources() {
-    return ImmutableList.copyOf(this.compilationUnitSources);
+  public ImmutableSet<CppSource> getCompilationUnitSources() {
+    return ImmutableSet.copyOf(this.compilationUnitSources);
   }
 
   /**
