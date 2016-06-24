@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Tutorial - Introduction
+title: Build Mobile Application
 ---
 
-# Tutorial - Introduction
+# Build Mobile Application
 
 You can use Bazel to build a variety of software outputs, including
 Linux and Mac OS X applications written in Java, C++ and Objective-C. You can
