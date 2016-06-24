@@ -19,60 +19,60 @@ What is special about Bazel?
 Bazel was designed to fit the way software is developed at Google. It
 has the following features:
 
-* Multi-language support: Bazel supports Java, Objective-C and C++ out
-  of the box, and can be extended to support arbitrary programming
-  languages.
+*   Multi-language support: Bazel supports Java, Objective-C and C++ out
+    of the box, and can be extended to support arbitrary programming
+    languages.
 
-* High-level build language: Projects are described in the BUILD
-  language, a concise text format that describes a project as sets of
-  small interconnected libraries, binaries and tests. In contrast, with
-  tools like Make, you have to describe individual files and compiler
-  invocations.
+*   High-level build language: Projects are described in the BUILD
+    language, a concise text format that describes a project as sets of
+    small interconnected libraries, binaries and tests. In contrast, with
+    tools like Make, you have to describe individual files and compiler
+    invocations.
 
-* Multi-platform support: The same tool and the same BUILD files can
-  be used to build software for different architectures, and even
-  different platforms.  At Google, we use Bazel to build everything from
-  server applications running on systems in our data centers to client apps
-  running on mobile phones.
+*   Multi-platform support: The same tool and the same BUILD files can
+    be used to build software for different architectures, and even
+    different platforms.  At Google, we use Bazel to build everything from
+    server applications running on systems in our data centers to client apps
+    running on mobile phones.
 
-* Reproducibility: In BUILD files, each library, test and binary must
-  specify its direct dependencies completely.  Bazel uses this
-  dependency information to know what must be rebuilt when you make
-  changes to a source file, and which tasks can run in parallel.  This
-  means that all builds are incremental and will always produce the
-  same result.
+*   Reproducibility: In BUILD files, each library, test and binary must
+    specify its direct dependencies completely.  Bazel uses this
+    dependency information to know what must be rebuilt when you make
+    changes to a source file, and which tasks can run in parallel.  This
+    means that all builds are incremental and will always produce the
+    same result.
 
-* Scalable: Bazel can handle large builds; at Google, it is common for
-  a server binary to have 100k source files, and builds where no files
-  were changed take about ~200ms.
+*   Scalable: Bazel can handle large builds; at Google, it is common for
+    a server binary to have 100k source files, and builds where no files
+    were changed take about ~200ms.
 
 
 Why doesn't Google use ...?
 ---------------------------
 
-* Make, Ninja: These tools give very exact control over what commands
-  get invoked to build files, but it's up to the user to write rules
-  that are correct.
+*   Make, Ninja: These tools give very exact control over what commands
+    get invoked to build files, but it's up to the user to write rules
+    that are correct.
 
-  Users interact with Bazel on a higher level. For example, Bazel has
-  built-in rules for "Java test", "C++ binary", and notions such as
-  "target platform" and "host platform". These rules have been battle
-  tested to be foolproof.
+    Users interact with Bazel on a higher level. For example, Bazel has
+    built-in rules for "Java test", "C++ binary", and notions such as
+    "target platform" and "host platform". These rules have been battle
+    tested to be foolproof.
 
-* Ant and Maven: Ant and Maven are primarily geared toward Java, while
-  Bazel handles multiple languages.  Bazel encourages subdividing
-  codebases in smaller reusable units, and can rebuild only ones that
-  need rebuilding. This speeds up development when working with larger
-  codebases.
+*   Ant and Maven: Ant and Maven are primarily geared toward Java, while
+    Bazel handles multiple languages.  Bazel encourages subdividing
+    codebases in smaller reusable units, and can rebuild only ones that
+    need rebuilding. This speeds up development when working with larger
+    codebases.
 
-* Gradle: Bazel configuration files are much more structured than
-  Gradle's, letting Bazel understand exactly what each action does.
-  This allows for more parallelism and better reproducibility.
+*   Gradle: Bazel configuration files are much more structured than
+    Gradle's, letting Bazel understand exactly what each action does.
+    This allows for more parallelism and better reproducibility.
 
-* Pants, Buck: Both tools were created and developed by ex-Googlers at
-  Twitter and Foursquare, and Facebook respectively. They have been modeled
-  after Bazel, but their feature sets are different, so they aren't viable
-  alternatives for us.
+*   Pants, Buck: Both tools were created and developed by ex-Googlers at
+    Twitter and Foursquare, and Facebook respectively. They have been modeled
+    after Bazel, but their feature sets are different, so they aren't viable
+    alternatives for us.
 
 
 Where did Bazel come from?
@@ -112,16 +112,16 @@ How does the Google development process work?
 
 For our server code base, we use the following development workflow:
 
-* All our server code is in a single, gigantic version control
-  system.
+*   All our server code is in a single, gigantic version control
+    system.
 
-* Everybody builds their software with Bazel.
+*   Everybody builds their software with Bazel.
 
-* Different teams own different parts of the source tree, and make
-  their components available as BUILD targets.
+*   Different teams own different parts of the source tree, and make
+    their components available as BUILD targets.
 
-* Branching is primarily used for managing releases, so everybody
-  develops their software at the head revision.
+*   Branching is primarily used for managing releases, so everybody
+    develops their software at the head revision.
 
 Bazel is a cornerstone of this philosophy: since Bazel requires all
 dependencies to be fully specified, we can predict which programs and
@@ -139,18 +139,18 @@ builds take the fun out of programming.
 Why would I want to use Bazel?
 ------------------------------
 
-* Bazel may give you faster build times because it can recompile only
-  the files that need to be recompiled. Similarly, it can skip
-  re-running tests that it knows haven't changed.
+*   Bazel may give you faster build times because it can recompile only
+    the files that need to be recompiled. Similarly, it can skip
+    re-running tests that it knows haven't changed.
 
-* Bazel produces deterministic results. This eliminates skew
-  between incremental and clean builds, laptop and CI system, etc.
+*   Bazel produces deterministic results. This eliminates skew
+    between incremental and clean builds, laptop and CI system, etc.
 
-* Bazel can build different client and server apps with the same tool
-  from the same workspace. For example, you can change a client/server
-  protocol in a single commit, and test that the updated mobile app
-  works with the updated server, building both with the same tool,
-  reaping all the aforementioned benefits of Bazel.
+*   Bazel can build different client and server apps with the same tool
+    from the same workspace. For example, you can change a client/server
+    protocol in a single commit, and test that the updated mobile app
+    works with the updated server, building both with the same tool,
+    reaping all the aforementioned benefits of Bazel.
 
 Can I see examples?
 -------------------
@@ -168,10 +168,10 @@ What is Bazel best at?
 
 Bazel shines at building and testing projects with the following properties:
 
-* Projects with a large codebase
-* Projects written in (multiple) compiled languages
-* Projects that deploy on multiple platforms
-* Projects that have extensive tests
+*   Projects with a large codebase
+*   Projects written in (multiple) compiled languages
+*   Projects that deploy on multiple platforms
+*   Projects that have extensive tests
 
 Where can I run Bazel?
 ---------------------------------
@@ -192,17 +192,17 @@ ways from being usable.
 What should I not use Bazel for?
 --------------------------------
 
-* Bazel tries to be smart about caching. This means that it is not good
-  for running build operations whose outputs should not be cached. For example,
-  the following steps should not be run from Bazel:
+*   Bazel tries to be smart about caching. This means that it is not good
+    for running build operations whose outputs should not be cached. For example,
+    the following steps should not be run from Bazel:
 
-  * A compilation step that fetches data from the internet.
-  * A test step that connects to the QA instance of your site.
-  * A deployment step that changes your site's cloud configuration.
+    *   A compilation step that fetches data from the internet.
+    *   A test step that connects to the QA instance of your site.
+    *   A deployment step that changes your site's cloud configuration.
 
-* Bazel tries to minimize expensive compilation steps. If you are only
-  using interpreted languages directly, such as JavaScript or Python,
-  Bazel will likely not interest you.
+*   Bazel tries to minimize expensive compilation steps. If you are only
+    using interpreted languages directly, such as JavaScript or Python,
+    Bazel will likely not interest you.
 
 How stable is Bazel's feature set?
 ----------------------------------
@@ -275,18 +275,18 @@ toolchain. If you have build steps that involve custom recipes
 (for example, executing binaries through a shell script inside a rule), you
 will need to take some extra care:
 
-  * Do not use dependencies that were not declared. Sandboxed
-    execution (--spawn_strategy=sandboxed, only on Linux) can
-    help find undeclared dependencies.
+  *   Do not use dependencies that were not declared. Sandboxed
+      execution (--spawn_strategy=sandboxed, only on Linux) can
+      help find undeclared dependencies.
 
-  * Avoid storing timestamps and user-IDs in generated files. ZIP files and
-    other archives are especially prone to this.
+  *   Avoid storing timestamps and user-IDs in generated files. ZIP files and
+      other archives are especially prone to this.
 
-  * Avoid connecting to the network. Sandboxed execution can help here
-    too.
+  *   Avoid connecting to the network. Sandboxed execution can help here
+      too.
 
-  * Avoid processes that use random numbers, in particular, dictionary
-    traversal is randomized in many programming languages.
+  *   Avoid processes that use random numbers, in particular, dictionary
+      traversal is randomized in many programming languages.
 
 Do you have binary releases?
 ----------------------------
