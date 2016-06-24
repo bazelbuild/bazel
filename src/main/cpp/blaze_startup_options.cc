@@ -38,7 +38,8 @@ BlazeStartupOptions::BlazeStartupOptions() {
 }
 
 BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
-    : output_base(rhs.output_base),
+    : product_name(rhs.product_name),
+      output_base(rhs.output_base),
       install_base(rhs.install_base),
       output_root(rhs.output_root),
       output_user_root(rhs.output_user_root),
@@ -67,10 +68,6 @@ BlazeStartupOptions& BlazeStartupOptions::operator=(
     const BlazeStartupOptions &rhs) {
   Copy(rhs, this);
   return *this;
-}
-
-string BlazeStartupOptions::GetProductName() {
-  return "Bazel";
 }
 
 string BlazeStartupOptions::GetOutputRoot() {

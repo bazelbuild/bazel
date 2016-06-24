@@ -24,6 +24,10 @@
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 
+#ifndef PRODUCT_NAME
+#define PRODUCT_NAME "Bazel"
+#endif
+
 namespace blaze {
 
 void BlazeStartupOptions::Init() {
@@ -34,10 +38,11 @@ void BlazeStartupOptions::Init() {
     output_root = GetOutputRoot();
   }
 
-  string product = GetProductName();
-  blaze_util::ToLower(&product);
+  product_name = PRODUCT_NAME;
+  string product_name_lower = PRODUCT_NAME;
+  blaze_util::ToLower(&product_name_lower);
   output_user_root = blaze_util::JoinPath(
-      output_root, "_" + product + "_" + GetUserName());
+      output_root, "_" + product_name_lower + "_" + GetUserName());
   deep_execroot = true;
   block_for_lock = true;
   host_jvm_debug = false;
@@ -67,6 +72,7 @@ void BlazeStartupOptions::Copy(
     const BlazeStartupOptions &rhs, BlazeStartupOptions *lhs) {
   assert(lhs);
 
+  lhs->product_name = rhs.product_name;
   lhs->output_base = rhs.output_base;
   lhs->install_base = rhs.install_base;
   lhs->output_root = rhs.output_root;
@@ -265,7 +271,7 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
           error,
           "Unknown %s startup option: '%s'.\n"
           "  For more info, run '%s help startup_options'.",
-          GetProductName().c_str(), arg, GetProductName().c_str());
+          product_name.c_str(), arg, product_name.c_str());
       return blaze_exit_code::BAD_ARGV;
     }
   }

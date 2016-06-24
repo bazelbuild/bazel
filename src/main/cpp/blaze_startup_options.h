@@ -44,9 +44,6 @@ class BlazeStartupOptions {
   ~BlazeStartupOptions();
   BlazeStartupOptions& operator=(const BlazeStartupOptions &rhs);
 
-  // Returns the capitalized name of this binary.
-  string GetProductName();
-
   // Parses a single argument, either from the command line or from the .blazerc
   // "startup" options.
   //
@@ -114,6 +111,9 @@ class BlazeStartupOptions {
   blaze_exit_code::ExitCode AddJVMArguments(
     const string &host_javabase, std::vector<string> *result,
     const std::vector<string> &user_options, string *error) const;
+
+  // The capitalized name of this binary.
+  string product_name;
 
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.

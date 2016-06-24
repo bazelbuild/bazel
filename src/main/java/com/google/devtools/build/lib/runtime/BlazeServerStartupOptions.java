@@ -250,7 +250,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(name = "product_name",
       defaultValue = "bazel", // NOTE: purely decorative!
-      category = "undocumented",
+      category = "hidden",
       help = "The name of the build system. It is used as part of the name of the generated "
           + "directories (e.g. productName-bin for binaries) as well as for printing error "
           + "messages and logging")

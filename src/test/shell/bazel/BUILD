@@ -338,6 +338,13 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "client_test",
+    size = "medium",
+    srcs = ["client_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
