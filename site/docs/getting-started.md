@@ -92,5 +92,5 @@ various languages.
 
 # Next Steps
 
-Next, check out the tutorial on building [java](docs/tutorial/java.html)
+Next, check out the tutorial on building [java](/docs/tutorial/java.html)
 or [C++](/docs/tutorial/cpp.html) programs.
