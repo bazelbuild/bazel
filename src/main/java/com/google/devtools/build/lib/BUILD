@@ -70,6 +70,11 @@ java_library(
     ],
 )
 
+java_library(
+    name = "windows",
+    srcs = glob(["windows/*.java"]),
+)
+
 # Library of concurrency utilities.
 java_library(
     name = "concurrent",
