@@ -58,7 +58,11 @@ public final class NestedSetVisitor<E> {
    */
   public void visit(NestedSet<E> nestedSet) {
     Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);
-    visitRaw(nestedSet.rawChildren());
+    // We can short-circuit empty nested set visitation here, avoiding load on the shared map
+    // VisitedState#seenNodes.
+    if (!nestedSet.isEmpty()) {
+      visitRaw(nestedSet.rawChildren());
+    }
   }
 
   @SuppressWarnings("unchecked")
