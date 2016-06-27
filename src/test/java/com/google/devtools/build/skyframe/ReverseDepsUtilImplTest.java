@@ -57,11 +57,6 @@ public class ReverseDepsUtilImplTest {
         }
 
         @Override
-        void setSingleReverseDep(Example container, boolean singleObject) {
-          container.single = singleObject;
-        }
-
-        @Override
         void setDataToConsolidate(Example container, List<Object> dataToConsolidate) {
           container.dataToConsolidate = dataToConsolidate;
         }
@@ -69,11 +64,6 @@ public class ReverseDepsUtilImplTest {
         @Override
         Object getReverseDepsObject(Example container) {
           return container.reverseDeps;
-        }
-
-        @Override
-        boolean isSingleReverseDep(Example container) {
-          return container.single;
         }
 
         @Override

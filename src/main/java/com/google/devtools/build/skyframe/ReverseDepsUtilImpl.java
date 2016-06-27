@@ -50,13 +50,9 @@ public abstract class ReverseDepsUtilImpl<T> implements ReverseDepsUtil<T> {
 
   abstract void setReverseDepsObject(T container, Object object);
 
-  abstract void setSingleReverseDep(T container, boolean singleObject);
-
   abstract void setDataToConsolidate(T container, @Nullable List<Object> dataToConsolidate);
 
   abstract Object getReverseDepsObject(T container);
-
-  abstract boolean isSingleReverseDep(T container);
 
   abstract List<Object> getDataToConsolidate(T container);
 
@@ -171,6 +167,10 @@ public abstract class ReverseDepsUtilImpl<T> implements ReverseDepsUtil<T> {
     if (consolidations.size() == currentReverseDepSize) {
       consolidateData(container);
     }
+  }
+
+  private boolean isSingleReverseDep(T container) {
+    return !(getReverseDepsObject(container) instanceof List);
   }
 
   /**
@@ -389,11 +389,9 @@ public abstract class ReverseDepsUtilImpl<T> implements ReverseDepsUtil<T> {
 
   private void overwriteReverseDepsWithObject(T container, SkyKey newObject) {
     setReverseDepsObject(container, newObject);
-    setSingleReverseDep(container, true);
   }
 
   private void overwriteReverseDepsList(T container, List<SkyKey> list) {
     setReverseDepsObject(container, list);
-    setSingleReverseDep(container, false);
   }
 }

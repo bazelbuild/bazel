@@ -114,23 +114,14 @@ public class BuildingState {
    * Upon building, these reverse deps will be signaled and then stored in the permanent
    * {@code ValueEntry#reverseDeps}.
    */
-  // TODO(bazel-team): Remove this field. With eager invalidation, all direct deps on this dirty
-  // node will be removed by the time evaluation starts, so reverse deps to signal can just be
-  // reverse deps in the main ValueEntry object.
   private Object reverseDepsToSignal = ImmutableList.of();
   private List<Object> reverseDepsDataToConsolidate = null;
-  private boolean reverseDepIsSingleObject = false;
 
   private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
       new ReverseDepsUtilImpl<BuildingState>() {
         @Override
         void setReverseDepsObject(BuildingState container, Object object) {
           container.reverseDepsToSignal = object;
-        }
-
-        @Override
-        void setSingleReverseDep(BuildingState container, boolean singleObject) {
-          container.reverseDepIsSingleObject = singleObject;
         }
 
         @Override
@@ -141,11 +132,6 @@ public class BuildingState {
         @Override
         Object getReverseDepsObject(BuildingState container) {
           return container.reverseDepsToSignal;
-        }
-
-        @Override
-        boolean isSingleReverseDep(BuildingState container) {
-          return container.reverseDepIsSingleObject;
         }
 
         @Override

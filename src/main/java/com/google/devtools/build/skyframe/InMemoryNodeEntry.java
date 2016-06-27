@@ -87,12 +87,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   protected Object reverseDeps = ImmutableList.of();
 
   /**
-   * We take advantage of memory alignment to avoid doing a nasty {@code instanceof} for knowing
-   * if {@code reverseDeps} is a single object or a list.
-   */
-  protected boolean reverseDepIsSingleObject = false;
-
-  /**
    * When reverse deps are removed, checked for presence, or possibly added, we store them in this
    * object instead of directly doing the operation. That is because removals/checks in reverseDeps
    * are O(N). Originally reverseDeps was a HashSet, but because of memory consumption we switched
@@ -104,16 +98,11 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   private List<Object> reverseDepsDataToConsolidate = null;
 
-  protected static final ReverseDepsUtil<InMemoryNodeEntry> REVERSE_DEPS_UTIL =
+  private static final ReverseDepsUtil<InMemoryNodeEntry> REVERSE_DEPS_UTIL =
       new ReverseDepsUtilImpl<InMemoryNodeEntry>() {
         @Override
         void setReverseDepsObject(InMemoryNodeEntry container, Object object) {
           container.reverseDeps = object;
-        }
-
-        @Override
-        void setSingleReverseDep(InMemoryNodeEntry container, boolean singleObject) {
-          container.reverseDepIsSingleObject = singleObject;
         }
 
         @Override
@@ -124,11 +113,6 @@ public class InMemoryNodeEntry implements NodeEntry {
         @Override
         Object getReverseDepsObject(InMemoryNodeEntry container) {
           return container.reverseDeps;
-        }
-
-        @Override
-        boolean isSingleReverseDep(InMemoryNodeEntry container) {
-          return container.reverseDepIsSingleObject;
         }
 
         @Override
