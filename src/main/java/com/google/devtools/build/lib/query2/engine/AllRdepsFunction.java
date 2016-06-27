@@ -34,7 +34,6 @@ import java.util.List;
  */
 // Public because SkyQueryEnvironment needs to refer to it directly.
 public class AllRdepsFunction implements QueryFunction {
-  public AllRdepsFunction() {}
 
   @Override
   public String getName() {
@@ -43,7 +42,7 @@ public class AllRdepsFunction implements QueryFunction {
 
   @Override
   public int getMandatoryArguments() {
-    return 1;  // last argument is optional
+    return 1; // last argument is optional
   }
 
   @Override
@@ -51,45 +50,50 @@ public class AllRdepsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.INTEGER);
   }
 
-  /**
-   * Breadth-first search from the argument while sticking to nodes satisfying the {@code universe}
-   * predicate.
-   */
-  protected static <T> void eval(final QueryEnvironment<T> env, final List<Argument> args,
-      final Callback<T> callback, final Predicate<T> universe)
-      throws QueryException, InterruptedException {
-    final Uniquifier<T> uniquifier = env.createUniquifier();
-    final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
-    env.eval(args.get(0).getExpression(), new Callback<T>() {
-      @Override
-      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
-        Iterable<T> current = partialResult;
-        // We need to iterate depthBound + 1 times.
-        for (int i = 0; i <= depthBound; i++) {
-          List<T> next = new ArrayList<>();
-          // Restrict to nodes satisfying the universe predicate.
-          Iterable<T> currentInUniverse = Iterables.filter(current, universe);
-          // Filter already visited nodes: if we see a node in a later round, then we don't need to
-          // visit it again, because the depth at which we see it must be greater than or equal to
-          // the last visit.
-          next.addAll(env.getReverseDeps(uniquifier.unique(currentInUniverse)));
-          callback.process(currentInUniverse);
-          if (next.isEmpty()) {
-            // Exit when there are no more nodes to visit.
-            break;
-          }
-          current = next;
-        }
-
-      }
-    });
-
-  }
-
-  /** Breadth-first search from the argument. */
   @Override
   public <T> void eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args,
       Callback<T> callback) throws QueryException, InterruptedException {
     eval(env, args, callback, Predicates.<T>alwaysTrue());
+  }
+
+  protected <T> void eval(
+      final QueryEnvironment<T> env,
+      final List<Argument> args,
+      final Callback<T> callback,
+      final Predicate<T> universe)
+      throws QueryException, InterruptedException {
+
+    final int depth = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
+    if (env instanceof StreamableQueryEnvironment<?>) {
+      ((StreamableQueryEnvironment<T>) env)
+          .getAllRdeps(args.get(0).getExpression(), universe, callback, depth);
+    } else {
+      final Uniquifier<T> uniquifier = env.createUniquifier();
+      env.eval(
+          args.get(0).getExpression(),
+          new Callback<T>() {
+            @Override
+            public void process(Iterable<T> partialResult)
+                throws QueryException, InterruptedException {
+              Iterable<T> current = partialResult;
+              // We need to iterate depthBound + 1 times.
+              for (int i = 0; i <= depth; i++) {
+                List<T> next = new ArrayList<>();
+                // Restrict to nodes satisfying the universe predicate.
+                Iterable<T> currentInUniverse = Iterables.filter(current, universe);
+                // Filter already visited nodes: if we see a node in a later round, then we don't
+                // need to visit it again, because the depth at which we see it must be greater
+                // than or equal to the last visit.
+                next.addAll(env.getReverseDeps(uniquifier.unique(currentInUniverse)));
+                callback.process(currentInUniverse);
+                if (next.isEmpty()) {
+                  // Exit when there are no more nodes to visit.
+                  break;
+                }
+                current = next;
+              }
+            }
+          });
+    }
   }
 }
