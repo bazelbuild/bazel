@@ -216,7 +216,7 @@ function test_failure_scrollback_buffer_curses {
     --nocache_test_results pkg:false pkg:slow 2>$TEST_log \
     && fail "expected failure"
   # Some line starts with FAIL in red bold.
-  expect_log '^'$'\x1b\[31m\x1b\[1mFAIL:'
+  expect_log '^'$'\(.*\x1b\[K\)*\x1b\[31m\x1b\[1mFAIL:'
 }
 
 function test_failure_scrollback_buffer {

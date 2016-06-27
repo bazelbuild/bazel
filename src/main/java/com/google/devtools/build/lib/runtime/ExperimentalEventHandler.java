@@ -104,17 +104,29 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     ignoreRefreshLimitOnce();
   }
 
-  private synchronized void flushStdOutStdErrBuffers() {
+  /**
+   * Flush buffers for stdout and stderr. Return if either of them flushed a non-zero number of
+   * symbols.
+   */
+  private synchronized boolean flushStdOutStdErrBuffers() {
+    boolean didFlush = false;
     try {
-      outErr.getOutputStream().write(stdoutBuffer);
-      outErr.getOutputStream().flush();
-      stdoutBuffer = new byte[] {};
-      outErr.getErrorStream().write(stderrBuffer);
-      outErr.getErrorStream().flush();
-      stderrBuffer = new byte[] {};
+      if (stdoutBuffer.length > 0) {
+        outErr.getOutputStream().write(stdoutBuffer);
+        outErr.getOutputStream().flush();
+        stdoutBuffer = new byte[] {};
+        didFlush = true;
+      }
+      if (stderrBuffer.length > 0) {
+        outErr.getErrorStream().write(stderrBuffer);
+        outErr.getErrorStream().flush();
+        stderrBuffer = new byte[] {};
+        didFlush = true;
+      }
     } catch (IOException e) {
       LOG.warning("IO Error writing to output stream: " + e);
     }
+    return didFlush;
   }
 
   @Override
@@ -172,21 +184,28 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
           case WARNING:
           case INFO:
           case SUBCOMMAND:
+            boolean incompleteLine;
             if (showProgress && !buildComplete) {
               clearProgressBar();
             }
-            flushStdOutStdErrBuffers();
-            crlf();
+            incompleteLine = flushStdOutStdErrBuffers();
+            if (incompleteLine) {
+              crlf();
+            }
             setEventKindColor(event.getKind());
             terminal.writeString(event.getKind() + ": ");
             terminal.resetTerminal();
+            incompleteLine = true;
             if (event.getLocation() != null) {
               terminal.writeString(event.getLocation() + ": ");
             }
             if (event.getMessage() != null) {
               terminal.writeString(event.getMessage());
+              incompleteLine = !event.getMessage().endsWith("\n");
             }
-            crlf();
+            if (incompleteLine) {
+              crlf();
+            }
             if (showProgress && !buildComplete) {
               addProgressBar();
             }
