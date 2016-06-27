@@ -219,6 +219,13 @@ function test_failure_scrollback_buffer_curses {
   expect_log '^'$'\(.*\x1b\[K\)*\x1b\[31m\x1b\[1mFAIL:'
 }
 
+function test_terminal_title {
+  bazel test --experimental_ui --progress_in_terminal_title pkg:true \
+    2>$TEST_log || fail "bazel test failed"
+  # The terminal title is changed
+  expect_log $'\x1b\]0;.*\x07'
+}
+
 function test_failure_scrollback_buffer {
   bazel clean || fail "bazel clean failed"
   bazel test --experimental_ui --curses=no --color=yes \

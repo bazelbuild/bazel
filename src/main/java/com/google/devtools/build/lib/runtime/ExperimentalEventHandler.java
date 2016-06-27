@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
+import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -64,6 +65,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private final ExperimentalStateTracker stateTracker;
   private final long minimalUpdateInterval;
   private final boolean showProgress;
+  private final boolean progressInTermTitle;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
   private int numLinesProgressBar;
@@ -82,6 +84,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
+    this.progressInTermTitle = options.progressInTermTitle;
     this.clock = clock;
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     // If we have cursor control, we try to fit in the terminal width to avoid having
@@ -537,5 +540,10 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ !cursorControl);
     terminalWriter.newline();
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
+    if (progressInTermTitle) {
+      LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);
+      stateTracker.writeProgressBar(stringWriter, true);
+      terminal.setTitle(stringWriter.getTranscript());
+    }
   }
 }
