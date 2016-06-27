@@ -113,9 +113,14 @@ public class XmlResourceValues {
         values.put(getElementName(element.asStartElement()), eventReader.getElementText());
       }
     }
-    String parent = parseReferenceFromElementAttribute(start, ATTR_PARENT, false);
-    // Parents can be very lazily declared as just: <resource name>
-    return StyleXmlResourceValue.of(parent, values);
+    // Parents can be declared as:
+    //   ?style/parent
+    //   @style/parent
+    //   <Parent>
+    // And, in the resource name <parent>.<resource name>
+    // Here, we take a garbage in, garbage out approach and just read the xml value raw.
+    return StyleXmlResourceValue.of(getElementAttributeByName(start, ATTR_PARENT),
+        values);
   }
 
   static void parseDeclareStyleable(
@@ -287,22 +292,6 @@ public class XmlResourceValues {
 
   /* XML helper methods follow. */
   // TODO(corysmith): Move these to a wrapper class for XMLEventReader.
-  private static String parseReferenceFromElementAttribute(
-      StartElement element, QName name, boolean requiresPrefix) throws XMLStreamException {
-    String value = getElementAttributeByName(element, name);
-    if (value == null) {
-      return null;
-    }
-    if (value.startsWith("?") || value.startsWith("@")) {
-      return value.substring(1);
-    }
-    if (!requiresPrefix) {
-      return value;
-    }
-    throw new XMLStreamException(
-        String.format("Invalid resource reference from %s in %s", name, element),
-        element.getLocation());
-  }
 
   @Nullable
   public static String getElementAttributeByName(StartElement element, QName name) {

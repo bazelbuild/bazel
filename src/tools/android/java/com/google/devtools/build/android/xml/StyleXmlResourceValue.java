@@ -98,10 +98,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     if (parent.isEmpty()) {
       return "parent=''";
     }
-    if (parent.startsWith("style/")) {
-      return "parent='@" + parent + "'";
-    }
-    return "parent='@style/" + parent + "'";
+    return "parent=\"" + parent + "\"";
   }
 
   @Override
