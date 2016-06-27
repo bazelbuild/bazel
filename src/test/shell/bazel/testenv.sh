@@ -20,6 +20,17 @@
 [ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
 
+if [ ! type rlocation &> /dev/null ]; then
+  function rlocation() {
+    if [[ "$1" = /* ]]; then
+      echo $1
+    else
+      echo "$TEST_SRCDIR/$1"
+    fi
+  }
+  export -f rlocation
+fi
+
 # Load the unit-testing framework
 source "$(rlocation io_bazel/src/test/shell/unittest.bash)" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
