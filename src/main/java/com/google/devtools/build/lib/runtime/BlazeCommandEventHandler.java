@@ -160,8 +160,12 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "experimental_ui_actions_shown",
       defaultValue = "3",
-      category = "hidden",
-      help = "Number of concurrent actions shown in the experimental new Bazel UI."
+      category = "verbosity",
+      help =
+          "Number of concurrent actions shown in the alternative progress bar; each "
+              + "action is shown on a separate line. The alternative progress bar always shows "
+              + "at least one one, all numbers less than 1 are mapped to 1. "
+              + "This option has no effect unless --experimental_ui is set."
     )
     public int experimentalUiActionsShown;
 

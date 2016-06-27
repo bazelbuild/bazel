@@ -106,7 +106,11 @@ class ExperimentalStateTracker {
    * Set the maximal number of actions shown in the progress bar.
    */
   void setSampleSize(int sampleSize) {
-    this.sampleSize = sampleSize;
+    if (sampleSize >= 1) {
+      this.sampleSize = sampleSize;
+    } else {
+      this.sampleSize = 1;
+    }
   }
 
   void buildStarted(BuildStartingEvent event) {
