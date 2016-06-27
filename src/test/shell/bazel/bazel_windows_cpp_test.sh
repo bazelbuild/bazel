@@ -17,6 +17,11 @@
 # Tests the examples provided in Bazel with MSVC toolchain
 #
 
+if ! test rlocation &> /dev/null; then
+  # We do not care about this test on old Bazel releases.
+  exit 0
+fi
+
 # Load test environment
 source $(rlocation io_bazel/src/test/shell/bazel/test-setup.sh) \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
