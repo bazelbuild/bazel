@@ -462,9 +462,21 @@ public class JavaCommon {
       javaExecutable = ruleContext.getFragment(Jvm.class).getRunfilesJavaExecutable();
     }
 
-    String pathPrefix = javaExecutable.isAbsolute() ? "" : "${JAVA_RUNFILES}/"
-        + ruleContext.getRule().getWorkspaceName() + "/";
-    return "JAVABIN=${JAVABIN:-" + pathPrefix + javaExecutable.getPathString() + "}";
+    if (!javaExecutable.isAbsolute()) {
+      javaExecutable =
+          new PathFragment(new PathFragment(ruleContext.getWorkspaceName()), javaExecutable);
+    }
+    javaExecutable = javaExecutable.normalize();
+
+    if (ruleContext.getConfiguration().runfilesEnabled()) {
+      String prefix = "";
+      if (!javaExecutable.isAbsolute()) {
+        prefix = "${JAVA_RUNFILES}/";
+      }
+      return "JAVABIN=${JAVABIN:-" + prefix + javaExecutable.getPathString() + "}";
+    } else {
+      return "JAVABIN=${JAVABIN:-$(rlocation " + javaExecutable.getPathString() + ")}";
+    }
   }
 
   /**

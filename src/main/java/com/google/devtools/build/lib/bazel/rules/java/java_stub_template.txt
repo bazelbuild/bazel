@@ -73,6 +73,17 @@ die() {
   exit 1
 }
 
+# Windows
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+function is_windows() {
+  # On windows, the shell test actually running on msys
+  if [ "${PLATFORM}" == "msys_nt-6.1" ]; then
+    true
+  else
+    false
+  fi
+}
+
 # Parse arguments sequentially until the first unrecognized arg is encountered.
 # Scan the remaining args for --wrapper_script_flag=X options and process them.
 ARGS=()
@@ -142,10 +153,29 @@ if [[ "$SINGLEJAR" != 1 || "%needs_runfiles%" == 1 ]]; then
   fi
 fi
 
-# This script is running with msys on Windows, so CLASSPATH has to be unix format. If JAVA_RUNFILES
-# is like C:/blah/blah, we need convert it to /c/blah/blah, otherwise CLASSPATH doesn't work.
-if [ ${JAVA_RUNFILES:1:1} == : ]; then
-  JAVA_RUNFILES=$(cygpath --unix "$JAVA_RUNFILES")
+# If we are running on Windows, we need a windows style runfiles path for constructing CLASSPATH
+if is_windows; then
+  JAVA_RUNFILES=$(cygpath --windows "$JAVA_RUNFILES")
+fi
+
+RUNFILES_MANIFEST_FILE="${JAVA_RUNFILES}/MANIFEST"
+
+if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
+  function rlocation() {
+    if [[ "$1" = /* ]]; then
+      echo $1
+    else
+      echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
+    fi
+  }
+else
+  function rlocation() {
+    if [[ "$1" = /* ]]; then
+      echo $1
+    else
+      echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+    fi
+  }
 fi
 
 # Set JAVABIN to the path to the JVM launcher.
