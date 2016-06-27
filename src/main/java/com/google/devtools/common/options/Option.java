@@ -25,7 +25,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Option {
-
   /**
    * The name of the option ("--name").
    */
@@ -40,6 +39,12 @@ public @interface Option {
    * A help string for the usage information.
    */
   String help() default "";
+
+  /**
+   * A short text string to describe the type of the expected value. E.g., <code>regex</code>. This
+   * is ignored for boolean, tristate, boolean_or_enum, and void options.
+   */
+  String valueHelp() default "";
 
   /**
    * The default value for the option. This method should only be invoked

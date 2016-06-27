@@ -107,29 +107,6 @@ public final class OptionsUtils {
   }
 
   /**
-   * Converter from String to PathFragment.
-   *
-   * <p>Complains if the path is not absolute.
-   */
-  public static class AbsolutePathFragmentConverter
-      implements Converter<PathFragment> {
-
-    @Override
-    public PathFragment convert(String input) throws OptionsParsingException {
-      PathFragment pathFragment = new PathFragment(input);
-      if (!pathFragment.isAbsolute()) {
-        throw new OptionsParsingException("Expected absolute path, found " + input);
-      }
-      return pathFragment;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an absolute path";
-    }
-  }
-
-  /**
    * Converts from a colon-separated list of strings into a list of PathFragment instances.
    */
   public static class PathFragmentListConverter

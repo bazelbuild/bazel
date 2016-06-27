@@ -133,28 +133,37 @@ class OptionsUsage {
   static void getUsageHtml(Field optionField, StringBuilder usage, Escaper escaper) {
     String plainFlagName = optionField.getAnnotation(Option.class).name();
     String flagName = getFlagName(optionField);
+    String valueDescription = optionField.getAnnotation(Option.class).valueHelp();
     String typeDescription = getTypeDescription(optionField);
     Option annotation = optionField.getAnnotation(Option.class);
     usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
-    usage.append(flagName).append("</code>");
+    usage.append(flagName);
+    if (OptionsParserImpl.isBooleanField(optionField)
+        || OptionsParserImpl.isVoidField(optionField)) {
+      // Nothing for boolean, tristate, boolean_or_enum, or void options.
+    } else if (!valueDescription.isEmpty()) {
+      usage.append("=").append(escaper.escape(valueDescription));
+    } else if (!typeDescription.isEmpty()) {
+      // Generic fallback, which isn't very good.
+      usage.append("=&lt;").append(escaper.escape(typeDescription)).append("&gt");
+    }
+    usage.append("</code>");
     if (annotation.abbrev() != '\0') {
       usage.append(" [<code>-").append(annotation.abbrev()).append("</code>]");
     }
-    if (!typeDescription.isEmpty()) {
-      usage.append(" (").append(escaper.escape(typeDescription)).append("; ");
-      if (annotation.allowMultiple()) {
-        // Allow-multiple options can't have a default value.
-        usage.append("may be used multiple times");
+    if (annotation.allowMultiple()) {
+      // Allow-multiple options can't have a default value.
+      usage.append(" multiple uses are accumulated");
+    } else {
+      // Don't call the annotation directly (we must allow overrides to certain defaults).
+      String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
+      if (OptionsParserImpl.isVoidField(optionField)) {
+        // Void options don't have a default.
+      } else if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
+        usage.append(" default: see description");
       } else {
-        // Don't call the annotation directly (we must allow overrides to certain defaults).
-        String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
-        if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
-          usage.append("default: see description");
-        } else {
-          usage.append("default: \"").append(escaper.escape(defaultValueString)).append("\"");
-        }
+        usage.append(" default: \"").append(escaper.escape(defaultValueString)).append("\"");
       }
-      usage.append(")");
     }
     usage.append("</dt>\n");
     usage.append("<dd>\n");

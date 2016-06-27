@@ -469,6 +469,15 @@ $toc-color: #757575;
   }
 }
 
+// Command-line Reference
+dt {
+  margin-top: .5em;
+}
+
+dd {
+  margin-left: 2em;
+}
+
 // Roadmap page styles
 .roadmap-col-phase {
   width: 10%;

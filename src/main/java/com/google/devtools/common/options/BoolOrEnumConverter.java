@@ -24,7 +24,6 @@ import com.google.devtools.common.options.Converters.BooleanConverter;
  * the underlying enumeration will be taken.
  */
 public abstract class BoolOrEnumConverter<T extends Enum<T>> extends EnumConverter<T>{
-
   private T falseValue;
   private T trueValue;
 
@@ -46,6 +45,7 @@ public abstract class BoolOrEnumConverter<T extends Enum<T>> extends EnumConvert
     this.falseValue = falseValue;
   }
 
+  @Override
   public T convert(String input) throws OptionsParsingException {
     try {
       return super.convert(input);

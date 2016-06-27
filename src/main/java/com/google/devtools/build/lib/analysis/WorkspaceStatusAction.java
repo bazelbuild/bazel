@@ -59,6 +59,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     @Option(name = "embed_label",
         defaultValue = "",
         category = "misc",
+        valueHelp = "<string>",
         help = "Embed source control revision or release label in binary")
     public String embedLabel;
 
@@ -66,6 +67,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         defaultValue = "",
         category = "misc",
         converter = OptionsUtils.PathFragmentConverter.class,
+        valueHelp = "<path>",
         help = "A command invoked at the beginning of the build to provide status "
             + "information about the workspace in the form of key/value pairs.  "
             + "See the User's Manual for the full specification.")
