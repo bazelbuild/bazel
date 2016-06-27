@@ -43,10 +43,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 /**
- * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much
- * of QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
+ * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
+ * QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
  */
-public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironment<T> {
+public abstract class AbstractBlazeQueryEnvironment<T>
+    implements QueryEnvironment<T>, AutoCloseable {
   protected final ErrorSensingEventHandler eventHandler;
   private final Map<String, Set<T>> letBindings = new HashMap<>();
   protected final boolean keepGoing;
@@ -144,8 +145,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
     return new QueryEvalResult(!eventHandler.hasErrors(), empty.get());
   }
 
-  public void afterCommand() {
-  }
+  @Override
+  public abstract void close();
 
   public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     return queryExpression;

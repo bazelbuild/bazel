@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -119,9 +120,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   // TODO(janakr): Unify with RecursivePackageProviderBackedTargetPatternResolver's constant.
   private static final int BATCH_CALLBACK_SIZE = 10000;
   private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
-
-  protected WalkableGraph graph;
-  private Supplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
+  private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
+  private static final Function<Target, Label> TARGET_LABEL_FUNCTION =
+      new Function<Target, Label>() {
+        @Override
+        public Label apply(Target target) {
+          return target.getLabel();
+        }
+      };
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   private final int loadingPhaseThreads;
@@ -130,38 +136,18 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final String parserPrefix;
   private final PathPackageLocator pkgPath;
 
-  private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
-
-  private static final Function<Target, Label> TARGET_LABEL_FUNCTION =
-      new Function<Target, Label>() {
-
-    @Override
-    public Label apply(Target target) {
-      return target.getLabel();
-    }
-  };
-
+  // Note that the executor returned by Executors.newFixedThreadPool doesn't start any threads
+  // unless work is submitted to it.
   private final ListeningExecutorService threadPool =
       MoreExecutors.listeningDecorator(
           Executors.newFixedThreadPool(
               DEFAULT_THREAD_COUNT,
-              new ThreadFactoryBuilder().setNameFormat("GetPackages-%d").build()));
+              new ThreadFactoryBuilder().setNameFormat("QueryEnvironment-%d").build()));
+
+  // The following fields are set in the #beforeEvaluateQuery method.
+  protected WalkableGraph graph;
+  private Supplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
-
-  private static class BlacklistSupplier implements Supplier<ImmutableSet<PathFragment>> {
-    private final WalkableGraph graph;
-
-    BlacklistSupplier(WalkableGraph graph) {
-      this.graph = graph;
-    }
-
-    @Override
-    public ImmutableSet<PathFragment> get() {
-      return ((BlacklistedPackagePrefixesValue)
-              graph.getValue(BlacklistedPackagePrefixesValue.key()))
-          .getPatterns();
-    }
-  }
 
   public SkyQueryEnvironment(
       boolean keepGoing,
@@ -189,17 +175,19 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         "No queries can be performed with an empty universe");
   }
 
-  private void init() throws InterruptedException {
+  private void beforeEvaluateQuery() throws InterruptedException {
     EvaluationResult<SkyValue> result;
     try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", LOG)) {
-      result = graphFactory.prepareAndGet(universeScope, parserPrefix, loadingPhaseThreads,
-          eventHandler);
+      result =
+          graphFactory.prepareAndGet(
+              universeScope, parserPrefix, loadingPhaseThreads, eventHandler);
     }
-    graph = result.getWalkableGraph();
+    SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
+    checkEvaluationResult(result, universeKey);
 
+    graph = result.getWalkableGraph();
     blacklistPatternsSupplier = Suppliers.memoize(new BlacklistSupplier(graph));
 
-    SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
     ImmutableList<TargetPatternKey> universeTargetPatternKeys =
         PrepareDepsOfPatternsFunction.getTargetPatternKeys(
             PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
@@ -211,20 +199,35 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             eventHandler,
             TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
             threadPool);
+  }
 
-    // The prepareAndGet call above evaluates a single PrepareDepsOfPatterns SkyKey.
-    // We expect to see either a single successfully evaluated value or a cycle in the result.
+  /**
+   * The {@link EvaluationResult} is from the evaluation of a single PrepareDepsOfPatterns node. We
+   * expect to see either a single successfully evaluated value or a cycle in the result.
+   */
+  private void checkEvaluationResult(EvaluationResult<SkyValue> result, SkyKey universeKey) {
     Collection<SkyValue> values = result.values();
     if (!values.isEmpty()) {
-      Preconditions.checkState(values.size() == 1, "Universe query \"%s\" returned multiple"
-              + " values unexpectedly (%s values in result)", universeScope, values.size());
+      Preconditions.checkState(
+          values.size() == 1,
+          "Universe query \"%s\" returned multiple values unexpectedly (%s values in result)",
+          universeScope,
+          values.size());
       Preconditions.checkNotNull(result.get(universeKey), result);
     } else {
       // No values in the result, so there must be an error. We expect the error to be a cycle.
       boolean foundCycle = !Iterables.isEmpty(result.getError().getCycleInfo());
-      Preconditions.checkState(foundCycle, "Universe query \"%s\" failed with non-cycle error: %s",
-          universeScope, result.getError());
+      Preconditions.checkState(
+          foundCycle,
+          "Universe query \"%s\" failed with non-cycle error: %s",
+          universeScope,
+          result.getError());
     }
+  }
+
+  @Override
+  public void close() {
+    ExecutorUtil.interruptibleShutdown(threadPool);
   }
 
   @Override
@@ -270,7 +273,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // result is set to have an error iff there were errors emitted during the query, so we reset
     // errors here.
     eventHandler.resetErrors();
-    init();
+    beforeEvaluateQuery();
 
     // SkyQueryEnvironment batches callback invocations using a BatchStreamedCallback, created here
     // so that there's one per top-level evaluateQuery call. The batch size is large enough that
@@ -651,8 +654,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws QueryException, TargetParsingException {
     // SkyQueryEnvironment directly evaluates target patterns in #getTarget and similar methods
-    // using its graph, which is prepopulated using the universeScope (see #init), so no
-    // preloading of target patterns is necessary.
+    // using its graph, which is prepopulated using the universeScope (see #beforeEvaluateQuery),
+    // so no preloading of target patterns is necessary.
   }
 
   private static final Function<SkyKey, Label> SKYKEY_TO_LABEL = new Function<SkyKey, Label>() {
@@ -870,6 +873,21 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         .add(new AllRdepsFunction())
         .add(new RBuildFilesFunction())
         .build();
+  }
+
+  private static class BlacklistSupplier implements Supplier<ImmutableSet<PathFragment>> {
+    private final WalkableGraph graph;
+
+    BlacklistSupplier(WalkableGraph graph) {
+      this.graph = graph;
+    }
+
+    @Override
+    public ImmutableSet<PathFragment> get() {
+      return ((BlacklistedPackagePrefixesValue)
+              graph.getValue(BlacklistedPackagePrefixesValue.key()))
+          .getPatterns();
+    }
   }
 
   @ThreadSafe
