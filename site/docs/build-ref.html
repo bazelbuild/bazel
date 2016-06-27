@@ -1,10 +1,10 @@
 ---
 layout: documentation
-title: Concepts
+title: BUILD files
 ---
-<h1>Bazel: Concepts and Terminology</h1>
+<h1>Bazel: Build files and Terminology</h1>
 <p>
-  This document provides an overview of concepts and terminology used
+  This document provides an overview of sourte tree layout and terminology used
   in Bazel.
 </p>
 <h2>Table of Contents</h2>
@@ -14,6 +14,7 @@ title: Concepts
 
   <li><a href="#packages_targets">Workspace, Packages and Targets</a>
     <ul>
+      <li><a href="#workspace">Workspace</a></li>
       <li><a href="#packages">Packages</a></li>
       <li><a href="#targets">Targets</a></li>
       <li><a href="#labels">Labels</a></li>
@@ -44,18 +45,20 @@ title: Concepts
 <p>Bazel builds software from source code organized in a directory called
    a workspace. Source files in the workspace are organized in a nested
    hierarchy of packages, where each package is a directory that contains a set
-   of related source files and a BUILD file. The BUILD file specifies what
+   of related source files and one BUILD file. The BUILD file specifies what
    software outputs can be built from the source.
 </p>
 <h2 id="packages_targets">Workspace, Packages and Targets</h2>
-<h3 id="workspaces">Workspace</h3>
+<h3 id="workspace">Workspace</h3>
 
 <p>A <em>workspace</em> is a directory on your filesystem that contains the
    source files for the software you want to build, as well as symbolic links
    to directories that contain the build outputs. Each workspace directory has
    a text file named <code>WORKSPACE</code> which may be empty,  or may contain
    references to <a href="/docs/external.html">external dependencies</a>
-   required to build the outputs.
+   required to build the outputs. See also the <a
+   href="/docs/be/workspace.html">Workspace Rules</a> section in the Build
+   Encyclopedia.
 </p>
 <h3 id="packages">Packages</h3>
 <p>
@@ -71,7 +74,11 @@ title: Concepts
   file.
 </p>
 <p>
-  For example, in the following directory tree:
+  For example, in the following directory tree
+  there are two packages, <code>my/app</code>,
+  and the subpackage <code>my/app/tests</code>.
+  Note that <code>my/app/data</code> is not a package, but a directory
+  belonging to package <code>my/app</code>.
 </p>
 
 <pre>
@@ -220,8 +227,8 @@ src/my/app/tests/test.cc
 </p>
 
 <p>
-  The second kind of target is the <i>rule</i>.  A rule specifies a
-  relationship between a set of inputs and a set of output files,
+  The second kind of target is the <i>rule</i>.  A rule specifies the
+  relationship between a set of input and a set of output files,
   including the necessary steps to derive the outputs from the inputs.
   The outputs of a rule are always generated files.  The inputs to a
   rule may be source files, but they may be generated files also;
@@ -261,13 +268,14 @@ src/my/app/tests/test.cc
 
 <p>
   Package groups are sets of packages whose purpose is to limit accessibility
-  of certain rules. Package groups are defined by the <i>package_group</i>
-  function. They have two properties: the list of packages they contain and
-  their name. The only allowed ways to refer to them are from the
-  <i>visibility</i> attribute of rules or from the <i>default_visibility</i>
-  attribute of the <i>package</i> function; they do not generate or consume
-  files. For more information, refer to the appropriate section of the
-  <a href='be/functions.html#package_group'>Build Encyclopedia</a>.
+  of certain rules. Package groups are defined by the
+  <code>package_group</code> function. They have two properties: the list of
+  packages they contain and their name. The only allowed ways to refer to them
+  are from the <code>visibility</code> attribute of rules or from the
+  <code>default_visibility</code> attribute of the <code>package</code>
+  function; they do not generate or consume files. For more information, refer
+  to the appropriate section of the <a
+  href='be/functions.html#package_group'>Build Encyclopedia</a>.
 </p>
 
 
@@ -341,7 +349,7 @@ testdata/input.txt
 </pre>
 
 <p>
-  but from other packages, or from the command-line, these file
+  But from other packages, or from the command-line, these file
   targets must always be referred to by their complete label, e.g.
   <code>//my/app:generate.cc</code>.
 </p>
@@ -459,7 +467,7 @@ testdata/input.txt
 <h3 id="rules">Rules</h3>
 
 <p>
-  A rule specifies the relationship between inputs and output, and the
+  A rule specifies the relationship between inputs and outputs, and the
   steps to build the outputs.  Rules can be of one of many different
   kinds or <i>classes</i>, which produce compiled
   executables and libraries, test executables and other supported
@@ -507,8 +515,8 @@ testdata/input.txt
   include a package component; they must be in one of the "relative"
   forms shown above.  Secondly, the relationship implied by an
   (ordinary) label attribute is inverse to that implied by an output
-  label: a rule <i>depends on</i> its 'srcs', whereas a rule <i>is
-  depended on by</i> its outputs.  The two types of label attributes
+  label: a rule <i>depends on</i> its <code>srcs</code>, whereas a rule <i>is
+    depended on by</i> its <code>outs</code>.  The two types of label attributes
   thus assign direction to the edges between targets, giving rise to a
   dependency graph.
 </p>
@@ -807,8 +815,8 @@ arg ::= IDENTIFIER '=' expr
 </p>
 
 <ul>
-  <li><p>A <code>*_binary</code>
-      rule builds an executable program in a given language.  After a
+  <li><p><code>*_binary</code>
+      rules build executable programs in a given language.  After a
       build, the executable will reside in the build tool's binary
       output tree at the corresponding name for the rule's label,
       so <code>//my:program</code> would appear at
@@ -822,8 +830,8 @@ arg ::= IDENTIFIER '=' expr
       one place for ease of deployment to production.</p>
   </li>
 
-  <li><p>A <code>*_test</code>
-      rule is a specialization of a *_binary rule, used for automated
+  <li><p><code>*_test</code>
+      rules are a specialization of a <code>*_binary</code> rule, used for automated
       testing.  Tests are simply programs that return zero on success.
 
       </p>
@@ -844,8 +852,8 @@ arg ::= IDENTIFIER '=' expr
     </p>
   </li>
 
-  <li>A <code>*_library</code>
-    rule specifies a separately-compiled module in the given
+  <li><code>*_library</code>
+    rules specify separately-compiled modules in the given
     programming language.  Libraries can depend on other libraries,
     and binaries and tests can depend on libraries, with the expected
     separate-compilation behavior.
@@ -1100,11 +1108,11 @@ Actual dependency graph:    a --&gt; b    _c
 </p>
 
 <pre>
-# I need a config file from a directory named runfiles:
+# I need a config file from a directory named env:
 java_binary(
     name = "setenv",
     ...
-    data = [":runfiles/default_env.txt"],
+    data = [":env/default_env.txt"],
 )
 
 # I need test data from another directory
@@ -1120,7 +1128,7 @@ sh_test(
 </pre>
 
 <p>These files are available using the relative path
-<code>"path/to/data/file"</code>. In tests, it is also possible to refer to
+<code>path/to/data/file</code>. In tests, it is also possible to refer to
 them by joining the paths of the test's source directory and the workspace-relative
 path, e.g.
 
@@ -1129,7 +1137,7 @@ path, e.g.
 
    <p>As you look over our <code>BUILD</code> files, you might notice
       that some <code>data</code> labels refer to directories.
-      These labels end with "/." or "/" like so:
+      These labels end with <code>/.</code> or <code>/</code> like so:
 
 <pre>
 <span style="text-decoration: line-through">data = ["//data/regression:unittest/."]</span>  # don't use this
