@@ -16,11 +16,10 @@
 #
 # Setting up the environment for Bazel integration tests.
 #
-
 [ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
 
-if [ ! type rlocation &> /dev/null ]; then
+if ! type rlocation &> /dev/null; then
   function rlocation() {
     if [[ "$1" = /* ]]; then
       echo $1
