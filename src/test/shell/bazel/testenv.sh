@@ -46,7 +46,7 @@ bazel_data="${BAZEL_RUNFILES}"
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 function is_windows() {
   # On windows, the shell test actually running on msys
-  if [ "${PLATFORM}" == "msys_nt-6.1" ]; then
+  if [[ "${PLATFORM}" =~ msys_nt* ]]; then
     true
   else
     false
