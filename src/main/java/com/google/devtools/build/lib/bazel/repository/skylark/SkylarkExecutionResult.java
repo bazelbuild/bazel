@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
@@ -109,7 +109,7 @@ final class SkylarkExecutionResult {
 
     private final List<String> args = new ArrayList<>();
     private File directory = null;
-    private final ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+    private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
     private long timeout = -1;
     private boolean executed = false;
 
@@ -181,7 +181,7 @@ final class SkylarkExecutionResult {
         for (int i = 0; i < args.size(); i++) {
           argsArray[i] = args.get(i);
         }
-        Command command = new Command(argsArray, envBuilder.build(), directory);
+        Command command = new Command(argsArray, envBuilder, directory);
         CommandResult result = command.execute(new byte[]{}, timeout, false);
         return new SkylarkExecutionResult(result);
       } catch (BadExitStatusException e) {
