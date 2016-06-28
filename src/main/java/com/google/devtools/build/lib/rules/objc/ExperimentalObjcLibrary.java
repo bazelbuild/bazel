@@ -168,7 +168,10 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     if (ObjcCommon.shouldUseObjcModules(ruleContext)) {
       activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
     }
-    
+
+    activatedCrosstoolSelectables.addAll(
+        ruleContext.getFragment(AppleConfiguration.class).getBitcodeMode().getFeatureNames());
+
     // We create a module map by default to allow for swift interop.
     activatedCrosstoolSelectables.add(CppRuleClasses.MODULE_MAPS);
     activatedCrosstoolSelectables.add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET);

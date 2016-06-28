@@ -208,25 +208,25 @@ public class AppleCommandLineOptions extends FragmentOptions {
    */
   public enum AppleBitcodeMode {
 
+    /** Do not compile bitcode. */
+    NONE("none", ImmutableList.<String>of()),
     /**
-     * Do not compile bitcode.
+     * Compile the minimal set of bitcode markers. This is often the best option for developer/debug
+     * builds.
      */
-    NONE("none"),
-    /**
-     * Compile the minimal set of bitcode markers. This is often the best option for
-     * developer/debug builds.
-     */
-    EMBEDDED_MARKERS("embedded_markers", "-fembed-bitcode-marker"),
-    /**
-     * Fully embed bitcode in compiled files. This is often the best option for release builds.
-     */
-    EMBEDDED("embedded", "-fembed-bitcode");
+    EMBEDDED_MARKERS(
+        "embedded_markers", ImmutableList.of("bitcode_embedded_markers"), "-fembed-bitcode-marker"),
+    /** Fully embed bitcode in compiled files. This is often the best option for release builds. */
+    EMBEDDED("embedded", ImmutableList.of("bitcode_embedded"), "-fembed-bitcode");
 
     private final String mode;
+    private final ImmutableList<String> featureNames;
     private final ImmutableList<String> compilerFlags;
 
-    private AppleBitcodeMode(String mode, String... compilerFlags) {
+    private AppleBitcodeMode(
+        String mode, ImmutableList<String> featureNames, String... compilerFlags) {
       this.mode = mode;
+      this.featureNames = featureNames;
       this.compilerFlags = ImmutableList.copyOf(compilerFlags);
     }
 
@@ -235,9 +235,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
       return mode;
     }
 
-    /**
-     * Returns the flags that should be added to compile actions to use this bitcode setting.
-     */
+    /** Returns the names of any crosstool features that correspond to this bitcode mode. */
+    public ImmutableList<String> getFeatureNames() {
+      return featureNames;
+    }
+
+    /** Returns the flags that should be added to compile actions to use this bitcode setting. */
     public ImmutableList<String> getCompilerFlags() {
       return compilerFlags;
     }
