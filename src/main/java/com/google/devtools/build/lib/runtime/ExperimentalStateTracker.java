@@ -483,7 +483,7 @@ class ExperimentalStateTracker {
       if (packageProgressReceiver != null) {
         Pair<String, String> progress = packageProgressReceiver.progressState();
         terminalWriter.append(" (" + progress.getFirst() + ")");
-        if (progress.getSecond().length() > 0) {
+        if (progress.getSecond().length() > 0 && !shortVersion) {
           terminalWriter.newline().append("    " + progress.getSecond());
         }
       }
