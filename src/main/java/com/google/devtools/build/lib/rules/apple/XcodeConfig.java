@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
@@ -74,7 +73,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       String errorDescription) throws InvalidConfigurationException {
     Rule xcodeConfigRule =
         getRuleForLabel(xcodeConfigLabel, "xcode_config", env, errorDescription);
-
+    
     XcodeVersionRuleData xcodeVersion =
         resolveExplicitlyDefinedVersion(env, xcodeConfigRule, xcodeVersionOverrideFlag);
 
@@ -99,11 +98,15 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   @Nullable private static XcodeVersionRuleData resolveExplicitlyDefinedVersion(
       ConfigurationEnvironment env, Rule xcodeConfigTarget,
       Optional<DottedVersion> versionOverrideFlag) throws InvalidConfigurationException {
+
+    Map<String, XcodeVersionRuleData> aliasesToVersionMap =
+        aliasesToVersionMap(env, xcodeConfigTarget);
+
     if (versionOverrideFlag.isPresent()) {
       // The version override flag is not necessarily an actual version - it may be a version
       // alias.
       XcodeVersionRuleData explicitVersion =
-          aliasesToVersionMap(env, xcodeConfigTarget).get(versionOverrideFlag.get().toString());
+          aliasesToVersionMap.get(versionOverrideFlag.get().toString());
       if (explicitVersion != null) {
         return explicitVersion;
       }
@@ -142,6 +145,14 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
   }
 
+  /**
+   * Returns a map where keys are "names" of xcode versions as defined by the configuration
+   * target, and values are the rule data objects which contain information regarding that
+   * xcode version.
+   *
+   * @throws InvalidConfigurationException if there are duplicate aliases (if two xcode versions
+   *     were registered to the same alias)
+   */
   private static Map<String, XcodeVersionRuleData> aliasesToVersionMap(ConfigurationEnvironment env,
       Rule xcodeConfigTarget) throws InvalidConfigurationException {
     List<Label> xcodeVersionLabels = NonconfigurableAttributeMapper.of(xcodeConfigTarget)
@@ -161,9 +172,14 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
           configErrorDuplicateAlias(alias, xcodeVersionRules);
         }
       }
-      if (aliasesToXcodeRules.put(
-          xcodeVersionRule.getVersion().toString(), xcodeVersionRule) != null) {
-        configErrorDuplicateAlias(xcodeVersionRule.getVersion().toString(), xcodeVersionRules);
+      // Only add the version as an alias if it's not included in this xcode_version target's
+      // aliases (in which case it would have just been added. This offers some leniency in target
+      // definition, as it's silly to error if a version is aliased to its own version.
+      if (!xcodeVersionRule.getAliases().contains(xcodeVersionRule.getVersion().toString())) {
+        if (aliasesToXcodeRules.put(
+            xcodeVersionRule.getVersion().toString(), xcodeVersionRule) != null) {
+          configErrorDuplicateAlias(xcodeVersionRule.getVersion().toString(), xcodeVersionRules);
+        }
       }
     }
     return aliasesToXcodeRules;
