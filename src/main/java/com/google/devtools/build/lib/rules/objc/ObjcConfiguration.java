@@ -24,15 +24,18 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 
 import javax.annotation.Nullable;
 
-/**
- * A compiler configuration containing flags required for Objective-C compilation.
- */
-@SkylarkModule(name = "objc", doc = "A configuration fragment for Objective-C")
+/** A compiler configuration containing flags required for Objective-C compilation. */
+@SkylarkModule(
+  name = "objc",
+  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
+  doc = "A configuration fragment for Objective-C"
+)
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting

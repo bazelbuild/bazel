@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -91,6 +92,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @SkylarkModule(name = "File",
+    category = SkylarkModuleCategory.BUILTIN,
     doc = "<p>This type represents a file used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.</p>"
         + "<p>The File constructor is private, so you cannot call it directly to create new "

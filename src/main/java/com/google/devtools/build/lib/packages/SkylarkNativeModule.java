@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -30,7 +31,10 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 /**
  * A class for the Skylark native module.
  */
-@SkylarkModule(name = "native", namespace = true, doc =
+@SkylarkModule(name = "native", namespace = true,
+    title = "Native Module",
+    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+    doc =
     "A built-in module to support native rules and other package helper functions. "
     + "All native rules appear as functions in this module, e.g. <code>native.cc_library</code>. "
     + "Note that the native module is only available in the loading phase "
@@ -46,11 +50,11 @@ public class SkylarkNativeModule {
     returnType = SkylarkList.class,
     doc =
         "Glob returns a list of every file in the current package that:<ul>\n"
-            + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
-            + "<li>Does not match any of the patterns in <code>exclude</code> "
-            + "(default <code>[]</code>).</li></ul>\n"
-            + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
-            + " files of type directory will be omitted from the results (default <code>1</code>).",
+        + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
+        + "<li>Does not match any of the patterns in <code>exclude</code> "
+        + "(default <code>[]</code>).</li></ul>\n"
+        + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
+        + " files of type directory will be omitted from the results (default <code>1</code>).",
     parameters = {
       @Param(
         name = "include",

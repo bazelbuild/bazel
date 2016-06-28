@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 
 import javax.annotation.Nullable;
@@ -28,7 +29,9 @@ import javax.annotation.Nullable;
  */
 // Documentation can be found at ctx.fragments
 @Immutable
-@SkylarkModule(name = "fragments", doc = "Possible fields are "
+@SkylarkModule(name = "fragments",
+    category = SkylarkModuleCategory.NONE,
+    doc = "Possible fields are "
     + "<a href=\"apple.html\">apple</a>, <a href=\"cpp.html\">cpp</a>, "
     + "<a href=\"java.html\">java</a>, <a href=\"jvm.html\">jvm</a> and "
     + "<a href=\"objc.html\">objc</a>. "

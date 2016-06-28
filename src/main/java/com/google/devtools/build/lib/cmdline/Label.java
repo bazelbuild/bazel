@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintableValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -34,15 +35,20 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 
 /**
- * A class to identify a BUILD target. All targets belong to exactly one package.
- * The name of a target is called its label. A typical label looks like this:
- * //dir1/dir2:target_name where 'dir1/dir2' identifies the package containing a BUILD file,
- * and 'target_name' identifies the target within the package.
+ * A class to identify a BUILD target. All targets belong to exactly one package. The name of a
+ * target is called its label. A typical label looks like this: //dir1/dir2:target_name where
+ * 'dir1/dir2' identifies the package containing a BUILD file, and 'target_name' identifies the
+ * target within the package.
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@SkylarkModule(name = "Label", doc = "A BUILD target identifier.")
-@Immutable @ThreadSafe
+@SkylarkModule(
+  name = "Label",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc = "A BUILD target identifier."
+)
+@Immutable
+@ThreadSafe
 public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = new PathFragment("external");
   public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = new PathFragment("WORKSPACE");

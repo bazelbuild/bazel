@@ -18,17 +18,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.List;
 
-/**
- * A wrapper class for FileType and FileTypeSet functionality in Skylark.
- */
-@SkylarkModule(name = "FileType",
-    doc = "Deprecated. File type for file filtering. Can be used to filter collections of labels "
-    + "for certain file types.")
+/** A wrapper class for FileType and FileTypeSet functionality in Skylark. */
+@SkylarkModule(
+  name = "FileType",
+  category = SkylarkModuleCategory.NONE,
+  doc =
+      "Deprecated. File type for file filtering. Can be used to filter collections of labels "
+          + "for certain file types."
+)
 public class SkylarkFileType {
 
   private final FileType fileType;

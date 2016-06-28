@@ -18,15 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 import java.util.Map;
 
-/**
- * A Skylark structure to deliver information about the system we are running on.
- */
+/** A Skylark structure to deliver information about the system we are running on. */
 @Immutable
 @SkylarkModule(
   name = "repository_os",
+  category = SkylarkModuleCategory.NONE,
   doc = "Various data about the current platform Bazel is running on."
 )
 final class SkylarkOS {

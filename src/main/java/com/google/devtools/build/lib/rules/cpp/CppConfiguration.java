@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,12 +61,15 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfiguration},
- * including the host architecture, target architecture, compiler version, and
- * a standard library version. It has information about the tools locations and
- * the flags required for compiling.
+ * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
+ * architecture, target architecture, compiler version, and a standard library version. It has
+ * information about the tools locations and the flags required for compiling.
  */
-@SkylarkModule(name = "cpp", doc = "A configuration fragment for C++")
+@SkylarkModule(
+  name = "cpp",
+  doc = "A configuration fragment for C++",
+  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
+)
 @Immutable
 public class CppConfiguration extends BuildConfiguration.Fragment {
 

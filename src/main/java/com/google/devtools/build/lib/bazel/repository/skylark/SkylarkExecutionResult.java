@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -37,6 +38,7 @@ import java.util.Map;
  */
 @SkylarkModule(
   name = "exec_result",
+  category = SkylarkModuleCategory.NONE,
   doc =
       "A structure storing result of repository_ctx.execute() method. It contains the standard"
           + " output stream content, the standard error stream content and the execution return"

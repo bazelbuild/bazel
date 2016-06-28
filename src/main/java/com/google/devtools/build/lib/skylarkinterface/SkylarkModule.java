@@ -30,11 +30,15 @@ public @interface SkylarkModule {
 
   String name();
 
+  String title() default "";
+
   String doc();
 
   boolean documented() default true;
 
   boolean namespace() default false;
+
+  SkylarkModuleCategory category() default SkylarkModuleCategory.TOP_LEVEL_TYPE;
 
   /** Helper method to quickly get the SkylarkModule name of a class (if present). */
   public static final class Resolver {

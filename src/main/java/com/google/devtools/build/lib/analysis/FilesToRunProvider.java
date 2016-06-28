@@ -21,14 +21,13 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 import javax.annotation.Nullable;
 
-/**
- * Returns information about executables produced by a target and the files needed to run it.
- */
+/** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
-@SkylarkModule(name = "FilesToRunProvider", doc = "")
+@SkylarkModule(name = "FilesToRunProvider", doc = "", category = SkylarkModuleCategory.PROVIDER)
 public final class FilesToRunProvider implements TransitiveInfoProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String SKYLARK_NAME = "files_to_run";

@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableCollection;
 
 import java.util.ArrayList;
@@ -30,13 +31,14 @@ import java.util.RandomAccess;
 
 import javax.annotation.Nullable;
 
-/**
- * A class to handle lists and tuples in Skylark.
- */
-@SkylarkModule(name = "sequence", documented = false,
-    doc = "common type of lists and tuples")
-  public abstract class SkylarkList<E>
-    extends MutableCollection<E> implements List<E>, RandomAccess {
+/** A class to handle lists and tuples in Skylark. */
+@SkylarkModule(
+  name = "sequence",
+  documented = false,
+  category = SkylarkModuleCategory.BUILTIN,
+  doc = "common type of lists and tuples"
+)
+public abstract class SkylarkList<E> extends MutableCollection<E> implements List<E>, RandomAccess {
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
@@ -192,11 +194,10 @@ import javax.annotation.Nullable;
     return castList(getContentsUnsafe(), type, description);
   }
 
-  /**
-   * A class for mutable lists.
-   */
+  /** A class for mutable lists. */
   @SkylarkModule(
     name = "list",
+    category = SkylarkModuleCategory.BUILTIN,
     doc =
         "A language built-in type to support lists. Example of list literal:<br>"
             + "<pre class=language-python>x = [1, 2, 3]</pre>"
@@ -406,11 +407,10 @@ import javax.annotation.Nullable;
     public static final MutableList EMPTY = new MutableList(Tuple.EMPTY);
   }
 
-  /**
-   * An immutable tuple, e.g. in (1, 2, 3)
-   */
+  /** An immutable tuple, e.g. in (1, 2, 3) */
   @SkylarkModule(
     name = "tuple",
+    category = SkylarkModuleCategory.BUILTIN,
     doc =
         "A language built-in type to support tuples. Example of tuple literal:<br>"
             + "<pre class=language-python>x = (1, 2, 3)</pre>"

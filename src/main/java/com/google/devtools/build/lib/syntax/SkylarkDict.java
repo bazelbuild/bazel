@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
 
 import java.util.Map;
@@ -26,8 +27,9 @@ import javax.annotation.Nullable;
 /**
  * Skylark Dict module.
  */
-@SkylarkModule(name = "dict", doc =
-    "A language built-in type to support dicts. "
+@SkylarkModule(name = "dict",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "A language built-in type to support dicts. "
     + "Example of dict literal:<br>"
     + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
     + "Use brackets to access elements:<br>"

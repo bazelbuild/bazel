@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
@@ -52,8 +53,12 @@ import java.util.TreeMap;
  * A helper class that collects Skylark module documentation.
  */
 final class SkylarkDocumentationCollector {
-  @SkylarkModule(name = "globals",
-      doc = "Objects, functions and modules registered in the global environment.")
+  @SkylarkModule(
+    name = "globals",
+    title = "Globals",
+    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+    doc = "Objects, functions and modules registered in the global environment."
+  )
   private static final class TopLevelModule {}
 
   private SkylarkDocumentationCollector() {}

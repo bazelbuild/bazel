@@ -20,17 +20,21 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
- * This class represents a Java virtual machine with a host system and a path.
- * If the JVM comes from the client, it can optionally also contain a label
- * pointing to a target that contains all the necessary files.
+ * This class represents a Java virtual machine with a host system and a path. If the JVM comes from
+ * the client, it can optionally also contain a label pointing to a target that contains all the
+ * necessary files.
  */
-@SkylarkModule(name = "jvm",
-    doc = "A configuration fragment representing the Java virtual machine.")
+@SkylarkModule(
+  name = "jvm",
+  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
+  doc = "A configuration fragment representing the Java virtual machine."
+)
 @Immutable
 public final class Jvm extends BuildConfiguration.Fragment {
   private final PathFragment javaHome;

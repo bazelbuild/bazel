@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -29,15 +30,15 @@ import com.google.devtools.build.lib.util.Preconditions;
 
 import javax.annotation.Nullable;
 
-/**
- * A Skylark value that is a result of an 'aspect(..)' function call.
- */
+/** A Skylark value that is a result of an 'aspect(..)' function call. */
 @SkylarkModule(
   name = "Aspect",
+  category = SkylarkModuleCategory.NONE,
   doc =
       "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
           + "documentation of the aspect function</a> or the "
-          + "<a href=\"../aspects.md\">introduction to Aspects</a>.")
+          + "<a href=\"../aspects.md\">introduction to Aspects</a>."
+)
 public class SkylarkAspect implements SkylarkValue {
   private final BaseFunction implementation;
   private final ImmutableList<String> attributeAspects;

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -32,50 +33,52 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-/**
- * A generic type safe NestedSet wrapper for Skylark.
- */
-@SkylarkModule(name = "set",
-    doc = "A language built-in type that supports sets. "
-        + "Sets can be created using the <a href=\"globals.html#set\">set</a> function, and "
-        + "they support the <code>|</code> operator to extend the set with more elements or "
-        + "to nest other sets inside of it. Examples:<br>"
-        + "<pre class=language-python>s = set([1, 2])\n"
-        + "s = s | [3]           # s == {1, 2, 3}\n"
-        + "s = s | set([4, 5])   # s == {1, 2, 3, {4, 5}}\n"
-        + "other = set([\"a\", \"b\", \"c\"], order=\"compile\")</pre>"
-        + "Note that in these examples <code>{..}</code> is not a valid literal to create sets. "
-        + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
-        + "<code>set([1]) + set([\"a\"])</code> results in an error.<br>"
-        + "Elements in a set can neither be mutable or be of type <code>list</code>, "
-        + "<code>struct</code> or <code>dict</code>.<br>"
-        + "When aggregating data from providers, sets can take significantly less memory than "
-        + "other types as they support nesting, that is, their subsets are shared in memory.<br>"
-        + "Every set has an <code>order</code> parameter which determines the iteration order. "
-        + "There are four possible values:"
-        + "<ul><li><code>compile</code>: Defines a left-to-right post-ordering where child "
-        + "elements come after those of nested sets (parent-last). For example, "
-        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. Left-to-right order "
-        + "is preserved for both the child elements and the references to nested sets.</li>"
-        + "<li><code>stable</code>: Same behavior as <code>compile</code>.</li>"
-        + "<li><code>link</code>: Defines a variation of left-to-right pre-ordering, i.e. "
-        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
-        + "This ordering enforces that elements of the set always come before elements of "
-        + "nested sets (parent-first), which may lead to situations where left-to-right "
-        + "order cannot be preserved (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)."
-        + "</li>"
-        + "<li><code>naive_link</code>: Defines \"naive\" left-to-right pre-ordering "
-        + "(parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
-        + "Unlike <code>link</code> ordering, it will sacrifice the parent-first property in "
-        + "order to uphold left-to-right order in cases where both properties cannot be "
-        + "guaranteed (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)."
-        + "</li></ul>"
-        + "Except for <code>stable</code>, the above values are incompatible with each other. "
-        + "Consequently, two sets can only be merged via the <code>|</code> operator or via "
-        + "<code>union()</code> if either both sets have the same <code>order</code> or one of "
-        + "the sets has <code>stable</code> order. In the latter case the iteration order will be "
-        + "determined by the outer set, thus ignoring the <code>order</code> parameter of "
-        + "nested sets.")
+/** A generic type safe NestedSet wrapper for Skylark. */
+@SkylarkModule(
+  name = "set",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "A language built-in type that supports sets. "
+      + "Sets can be created using the <a href=\"globals.html#set\">set</a> function, and "
+      + "they support the <code>|</code> operator to extend the set with more elements or "
+      + "to nest other sets inside of it. Examples:<br>"
+      + "<pre class=language-python>s = set([1, 2])\n"
+      + "s = s | [3]           # s == {1, 2, 3}\n"
+      + "s = s | set([4, 5])   # s == {1, 2, 3, {4, 5}}\n"
+      + "other = set([\"a\", \"b\", \"c\"], order=\"compile\")</pre>"
+      + "Note that in these examples <code>{..}</code> is not a valid literal to create sets. "
+      + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
+      + "<code>set([1]) + set([\"a\"])</code> results in an error.<br>"
+      + "Elements in a set can neither be mutable or be of type <code>list</code>, "
+      + "<code>struct</code> or <code>dict</code>.<br>"
+      + "When aggregating data from providers, sets can take significantly less memory than "
+      + "other types as they support nesting, that is, their subsets are shared in memory.<br>"
+      + "Every set has an <code>order</code> parameter which determines the iteration order. "
+      + "There are four possible values:"
+      + "<ul><li><code>compile</code>: Defines a left-to-right post-ordering where child "
+      + "elements come after those of nested sets (parent-last). For example, "
+      + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. Left-to-right order "
+      + "is preserved for both the child elements and the references to nested sets.</li>"
+      + "<li><code>stable</code>: Same behavior as <code>compile</code>.</li>"
+      + "<li><code>link</code>: Defines a variation of left-to-right pre-ordering, i.e. "
+      + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
+      + "This ordering enforces that elements of the set always come before elements of "
+      + "nested sets (parent-first), which may lead to situations where left-to-right "
+      + "order cannot be preserved (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)."
+      + "</li>"
+      + "<li><code>naive_link</code>: Defines \"naive\" left-to-right pre-ordering "
+      + "(parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
+      + "Unlike <code>link</code> ordering, it will sacrifice the parent-first property in "
+      + "order to uphold left-to-right order in cases where both properties cannot be "
+      + "guaranteed (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)."
+      + "</li></ul>"
+      + "Except for <code>stable</code>, the above values are incompatible with each other. "
+      + "Consequently, two sets can only be merged via the <code>|</code> operator or via "
+      + "<code>union()</code> if either both sets have the same <code>order</code> or one of "
+      + "the sets has <code>stable</code> order. In the latter case the iteration order will be "
+      + "determined by the outer set, thus ignoring the <code>order</code> parameter of "
+      + "nested sets."
+)
 @Immutable
 public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue {
 

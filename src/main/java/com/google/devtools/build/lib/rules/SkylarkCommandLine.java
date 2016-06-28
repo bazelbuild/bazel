@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -27,11 +28,13 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
-/**
- * A Skylark module class to create memory efficient command lines.
- */
-@SkylarkModule(name = "cmd_helper", namespace = true,
-    doc = "Module for creating memory efficient command lines.")
+/** A Skylark module class to create memory efficient command lines. */
+@SkylarkModule(
+  name = "cmd_helper",
+  namespace = true,
+  category = SkylarkModuleCategory.BUILTIN,
+  doc = "Module for creating memory efficient command lines."
+)
 public class SkylarkCommandLine {
 
   @SkylarkSignature(name = "join_paths", objectType = SkylarkCommandLine.class,

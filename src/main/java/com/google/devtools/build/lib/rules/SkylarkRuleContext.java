@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
@@ -69,13 +70,16 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-/**
- * A Skylark API for the ruleContext.
- */
-@SkylarkModule(name = "ctx", doc = "The context of the rule containing helper functions and "
-    + "information about attributes, depending targets and outputs. "
-    + "You get a ctx object as an argument to the <code>implementation</code> function when "
-    + "you create a rule.")
+/** A Skylark API for the ruleContext. */
+@SkylarkModule(
+  name = "ctx",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "The context of the rule containing helper functions and "
+          + "information about attributes, depending targets and outputs. "
+          + "You get a ctx object as an argument to the <code>implementation</code> function when "
+          + "you create a rule."
+)
 public final class SkylarkRuleContext {
 
   private static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
@@ -330,6 +334,7 @@ public final class SkylarkRuleContext {
 
   @SkylarkModule(
     name = "rule_attributes",
+    category = SkylarkModuleCategory.NONE,
     doc = "Information about attributes of a rule an aspect is applied to."
   )
   private static class SkylarkRuleAttributesCollection {

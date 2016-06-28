@@ -20,15 +20,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 import javax.annotation.Nullable;
 
-/**
- * The collection of gen jars from the transitive closure.
- */
+/** The collection of gen jars from the transitive closure. */
 @Immutable
 @SkylarkModule(
-  name = "JavaAnnotationProcessing",
+  name = "java_annotation-processing",
+  category = SkylarkModuleCategory.NONE,
   doc = "Information about jars that are a result of annotation processing for a Java rule."
 )
 public final class JavaGenJarsProvider implements TransitiveInfoProvider {

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -2227,11 +2228,10 @@ public class MethodLibrary {
     }
   };
 
-  /**
-   * Skylark String module.
-   */
+  /** Skylark String module. */
   @SkylarkModule(
     name = "string",
+    category = SkylarkModuleCategory.BUILTIN,
     doc =
         "A language built-in type to support strings. "
             + "Examples of string literals:<br>"

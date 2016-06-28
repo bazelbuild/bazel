@@ -42,6 +42,8 @@ public class DocgenConsts {
       "com/google/devtools/build/docgen/templates/skylark-library.vm";
   public static final String SKYLARK_NAV_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-nav.vm";
+  public static final String SKYLARK_MODULE_CATEGORY_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/skylark-category.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 

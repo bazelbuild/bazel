@@ -20,25 +20,27 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import javax.annotation.Nullable;
 
-/**
- * Provides information about jar files produced by a Java rule.
- */
+/** Provides information about jar files produced by a Java rule. */
 @Immutable
-@SkylarkModule(name = "JavaOutputJars", doc = "Information about outputs of a Java rule")
+@SkylarkModule(
+  name = "java_output_jars",
+  category = SkylarkModuleCategory.NONE,
+  doc = "Information about outputs of a Java rule"
+)
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
 
   public static final JavaRuleOutputJarsProvider EMPTY =
       new JavaRuleOutputJarsProvider(ImmutableList.<OutputJar>of(), null);
 
-  /**
-   * A collection of artifacts associated with a jar output.
-   */
+  /** A collection of artifacts associated with a jar output. */
   @SkylarkModule(
-    name = "JavaOutput",
+    name = "java_output",
+    category = SkylarkModuleCategory.NONE,
     doc = "Java classes jar, together with their associated source and interface archives"
   )
   @Immutable

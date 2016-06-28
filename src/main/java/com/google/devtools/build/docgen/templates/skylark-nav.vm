@@ -1,4 +1,6 @@
-#foreach ($module in $modules)
+<li><a href="/docs/skylark/lib/skylark-builtin.html">Builtin Types and Modules</a></li>
+<li><a href="/docs/skylark/lib/skylark-configuration-fragment.html">Configuration fragments</a></li>
+<li><a href="/docs/skylark/lib/skylark-provider.html">Providers</a></li>
+<li><a href="/docs/skylark/lib/globals.html">Globals</a></li>
+<li><a href="/docs/skylark/lib/native.html">Native Module</a></li>
 
-<li><a href="/docs/skylark/lib/${module.name}.html">${module.title}</a></li>
-#end

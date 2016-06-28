@@ -21,12 +21,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /**
  * A class that provides compilation information in Java rules, for perusal of aspects and tools.
  */
 @SkylarkModule(
-  name = "JavaCompilationInfo",
+  name = "java_compilation_info",
+  category = SkylarkModuleCategory.NONE,
   doc = "Provides access to compilation information for Java rules"
 )
 @Immutable

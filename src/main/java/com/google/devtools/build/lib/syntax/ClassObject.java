@@ -22,6 +22,7 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.Serializable;
@@ -53,15 +54,17 @@ public interface ClassObject {
    */
   @Nullable String errorMessage(String name);
 
-  /**
-   * An implementation class of ClassObject for structs created in Skylark code.
-   */
+  /** An implementation class of ClassObject for structs created in Skylark code. */
   // TODO(bazel-team): maybe move the SkylarkModule annotation to the ClassObject interface?
   @Immutable
-  @SkylarkModule(name = "struct",
-      doc = "A special language element to support structs (i.e. simple value objects). "
-          + "See the global <a href=\"globals.html#struct\">struct</a> function "
-          + "for more details.")
+  @SkylarkModule(
+    name = "struct",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A special language element to support structs (i.e. simple value objects). "
+            + "See the global <a href=\"globals.html#struct\">struct</a> function "
+            + "for more details."
+  )
   public class SkylarkClassObject implements ClassObject, Serializable {
     /** Error message to use when errorMessage argument is null. */
     private static final String DEFAULT_ERROR_MESSAGE = "'struct' object has no attribute '%s'";

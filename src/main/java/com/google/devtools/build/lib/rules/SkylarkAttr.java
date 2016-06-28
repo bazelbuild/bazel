@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -54,13 +55,14 @@ import javax.annotation.Nullable;
 /**
  * A helper class to provide Attr module in Skylark.
  *
- * <p>It exposes functions (e.g. 'attr.string', 'attr.label_list', etc.) to Skylark
- * users. The functions are executed through reflection. As everywhere in Skylark,
- * arguments are type-checked with the signature and cannot be null.
+ * <p>It exposes functions (e.g. 'attr.string', 'attr.label_list', etc.) to Skylark users. The
+ * functions are executed through reflection. As everywhere in Skylark, arguments are type-checked
+ * with the signature and cannot be null.
  */
 @SkylarkModule(
   name = "attr",
   namespace = true,
+  category = SkylarkModuleCategory.BUILTIN,
   doc =
       "Module for creating new attributes. "
           + "They are only for use with the <a href=\"globals.html#rule\">rule</a> function."
@@ -1054,9 +1056,14 @@ public final class SkylarkAttr {
         }
       };
 
-  /**
-   * A descriptor of an attribute defined in Skylark.
-   */
+  /** A descriptor of an attribute defined in Skylark. */
+  @SkylarkModule(
+    name = "attr_defintion",
+    category = SkylarkModuleCategory.NONE,
+    doc =
+        "Representation of a definition of an attribute; cobnstructed by <code>attr.*</code>"
+            + " functions."
+  )
   public static final class Descriptor {
     private final Attribute.Builder<?> attributeBuilder;
     private final ImmutableList<SkylarkAspect> aspects;

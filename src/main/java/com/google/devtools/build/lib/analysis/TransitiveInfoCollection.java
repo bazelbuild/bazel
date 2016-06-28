@@ -17,26 +17,29 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 import javax.annotation.Nullable;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.
  *
- * Represents the information made available by a {@link ConfiguredTarget} to other ones that
- * depend on it. For more information about the analysis phase, see
- * {@link com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
+ * <p>Represents the information made available by a {@link ConfiguredTarget} to other ones that
+ * depend on it. For more information about the analysis phase, see {@link
+ * com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory}.
  *
- * <p>Implementations of build rules should <b>not</b> hold on to references to the
- * {@link TransitiveInfoCollection}s representing their direct prerequisites in order to reduce
- * their memory footprint (otherwise, the referenced object could refer one of its direct
- * dependencies in turn, thereby making the size of the objects reachable from a single instance
- * unbounded).
+ * <p>Implementations of build rules should <b>not</b> hold on to references to the {@link
+ * TransitiveInfoCollection}s representing their direct prerequisites in order to reduce their
+ * memory footprint (otherwise, the referenced object could refer one of its direct dependencies in
+ * turn, thereby making the size of the objects reachable from a single instance unbounded).
  *
  * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
  * @see TransitiveInfoProvider
  */
-@SkylarkModule(name = "Target", doc =
+@SkylarkModule(
+  name = "Target",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
       "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
     + "<ul>"
     + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "

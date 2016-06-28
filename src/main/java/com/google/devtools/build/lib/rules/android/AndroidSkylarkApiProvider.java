@@ -27,17 +27,21 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 import javax.annotation.Nullable;
 
 /**
- * A class that exposes the Android providers to Skylark. It is intended to provide a
- * simple and stable interface for Skylark users.
+ * A class that exposes the Android providers to Skylark. It is intended to provide a simple and
+ * stable interface for Skylark users.
  */
 @SkylarkModule(
   name = "AndroidSkylarkApiProvider",
-  doc = "Provides access to information about Android rules. Every Android-related target provides "
-  + "this struct, accessible as a 'java' field on a Target struct."
+  title = "android",
+  category = SkylarkModuleCategory.PROVIDER,
+  doc =
+      "Provides access to information about Android rules. Every Android-related target provides "
+          + "this struct, accessible as a 'android' field on a Target struct."
 )
 public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
@@ -148,12 +152,11 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
                 })));
   }
 
-  /**
-   * Helper class to provide information about IDLs related to this rule.
-   */
+  /** Helper class to provide information about IDLs related to this rule. */
   @SkylarkModule(
-      name = "AndroidSkylarkIdlInfo",
-      doc = "Provides access to information about Android rules"
+    name = "AndroidSkylarkIdlInfo",
+    category = SkylarkModuleCategory.NONE,
+    doc = "Provides access to information about Android rules"
   )
   public class IdlInfo {
     @SkylarkCallable(

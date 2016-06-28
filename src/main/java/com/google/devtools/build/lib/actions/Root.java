@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,6 +44,7 @@ import javax.annotation.Nullable;
  * that is the root of the merged directory tree.
  */
 @SkylarkModule(name = "root",
+    category = SkylarkModuleCategory.BUILTIN,
     doc = "A root for files. The roots are the directories containing files, and they are mapped "
         + "together into a single directory tree to form the execution environment.")
 public final class Root implements Comparable<Root>, Serializable {
