@@ -12,17 +12,8 @@ genrule(
     name = "javac-bootclasspath-locations",
     srcs = ["@bazel_tools//tools/jdk:bootclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
-    cmd = """
-declare -a paths=($(SRCS)) && paths=($${paths[@]#$(GENDIR)/}) &&
-paths=($$(echo $${paths[@]} | sed s_external/__g)) &&
-IFS=: &&
-cat > $@ <<EOF
-package com.google.devtools.build.java.bazel;
-public class JavacBootclasspathLocations {
-  public static final String BOOTCLASSPATH = "$${paths[*]}";
-}
-EOF
-""",
+    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) '' $(SRCS)",
+    tools = ["javac-bootclasspath-locations.sh"],
 )
 
 # Provides java-level access to the canonical javac bootclasspath
@@ -44,15 +35,8 @@ genrule(
     name = "java-langtools-location",
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["JavaLangtoolsLocation.java"],
-    cmd = """
-path=$(SRCS) && path=$${path#$(GENDIR)/} && path="io_bazel/$${path}" &&
-cat > $@ <<EOF
-package com.google.devtools.build.java.bazel;
-public class JavaLangtoolsLocation {
-  public static final String FILE = "$${path}";
-}
-EOF
-""",
+    cmd = "$(location java-langtools-location.sh) $@ $(GENDIR) io_bazel/ $(SRCS)",
+    tools = ["java-langtools-location.sh"],
 )
 
 # Provides java-level access to the canonical javac jar
