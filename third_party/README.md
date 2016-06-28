@@ -111,12 +111,12 @@ a minimal set of extra dependencies.
 ## [jFormatString](https://code.google.com/p/j-format-string/)
 
 * Version: 3.0.0
-* License: GNU GPL v2
+* License: GNU GPL v2 with Classpath exception
 
 ## [Checker Framework Dataflow](http://code.google.com/p/checker-framework/)
 
 * Version: 1.8.10
-* License: GPLv2, portions MIT
+* License: GNU GPL v2 with Classpath exception, portions MIT
 
 ## [Buck (iOS support)](http://facebook.github.io/buck/)
 
