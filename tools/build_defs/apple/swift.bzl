@@ -14,7 +14,7 @@
 
 """Skylark rules for Swift."""
 
-load("shared", "xcrun_action", "XCRUNWRAPPER_LABEL")
+load("shared", "xcrun_action", "XCRUNWRAPPER_LABEL", "module_cache_path")
 
 def _parent_dirs(dirs):
   """Returns a set of parent directories for each directory in dirs."""
@@ -64,6 +64,7 @@ def _swift_library_impl(ctx):
 
   objc_includes = set()    # Everything that needs to be included with -I
   objc_files = set()       # All inputs required for the compile action
+  objc_defines = set()
   for objc in objc_providers:
     objc_includes += objc.include
     objc_includes = objc_includes.union([x.dirname for x in objc.module_map])
@@ -74,6 +75,11 @@ def _swift_library_impl(ctx):
     files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
     objc_files += files
     framework_dirs += _parent_dirs(objc.framework_dir)
+
+    # objc_library#copts is not propagated to its dependencies and so it is not
+    # collected here. In theory this may lead to un-importable targets (since
+    # their module cannot be compiled by clang), but did not occur in practice.
+    objc_defines += objc.define
 
   # TODO(b/28005753): Currently this is not really a library, but an object
   # file, does not matter to the linker, but should be replaced with proper ar
@@ -91,10 +97,14 @@ def _swift_library_impl(ctx):
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
 
-  # Add the current directory to clang's search path.
-  # This instance of clang is spawned by swiftc to compile module maps and is
-  # not passed the current directory as a search path by default.
-  clang_args = _intersperse("-Xcc", ["-iquote", "."])
+  clang_args = _intersperse(
+      "-Xcc",
+      # Add the current directory to clang's search path.
+      # This instance of clang is spawned by swiftc to compile module maps and is
+      # not passed the current directory as a search path by default.
+      ["-iquote", "."]
+      # Pass DEFINE or copt values from objc configuration and rules to clang
+      + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts)
 
   args = [
       "swift",
@@ -107,6 +117,7 @@ def _swift_library_impl(ctx):
       "-target", target,
       "-sdk", apple_toolchain.sdk_dir(),
       "-o", output_lib.path,
+      "-module-cache-path", module_cache_path(ctx),
       ] + srcs_args + include_args + framework_args + clang_args
 
   xcrun_action(
@@ -141,7 +152,7 @@ swift_library = rule(
         "_xcrunwrapper": attr.label(
             executable=True,
             default=Label(XCRUNWRAPPER_LABEL))},
-    fragments = ["apple"],
+    fragments = ["apple", "objc"],
     output_to_genfiles=True,
 )
 """

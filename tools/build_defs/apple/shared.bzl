@@ -40,6 +40,10 @@ See :func:`apple_action`."""
 XCRUNWRAPPER_LABEL = "//external:xcrunwrapper"
 """The label for xcrunwrapper tool."""
 
+def module_cache_path(ctx):
+  """Returns the Clang module cache path to use for this rule."""
+  return ctx.configuration.genfiles_dir.path + "/_objc_module_cache"
+
 def apple_action(ctx, **kw):
   """Creates an action that only runs on MacOS/Darwin.
 

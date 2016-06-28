@@ -166,6 +166,15 @@ EOF
 
   cat >ios/ObjcClass.h <<EOF
 #import <Foundation/Foundation.h>
+
+#if !DEFINE_FOO
+#error "Define is not passed in"
+#endif
+
+#if !COPTS_FOO
+#error "Copt is not passed in
+#endif
+
 @interface ObjcClass : NSObject
 - (NSString *)foo;
 @end
@@ -187,11 +196,14 @@ swift_library(name = "swift_lib",
 
 objc_library(name = "ObjcLib",
              hdrs = ['ObjcClass.h'],
-             srcs = ['ObjcClass.m'])
+             srcs = ['ObjcClass.m'],
+             defines = ["DEFINE_FOO=1"])
 EOF
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --objccopt=-DCOPTS_FOO=1 -s \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+  expect_log "-module-cache-path bazel-out/local-fastbuild/genfiles/_objc_module_cache"
 }
 
 function test_swift_import_objc_framework() {
