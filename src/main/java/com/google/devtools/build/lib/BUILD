@@ -256,6 +256,7 @@ java_library(
         ":shell",
         ":unix",
         ":vfs",
+        ":windows",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",

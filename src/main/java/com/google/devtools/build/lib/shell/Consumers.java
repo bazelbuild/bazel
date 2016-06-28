@@ -129,8 +129,7 @@ class Consumers {
   /**
    * This consumer sends the input to a stream while consuming it.
    */
-  private static class StreamingConsumer extends FutureConsumption
-                                         implements OutputConsumer {
+  private static class StreamingConsumer extends FutureConsumption {
     private OutputStream out;
 
     StreamingConsumer(OutputStream out) {
@@ -158,8 +157,7 @@ class Consumers {
    * while consuming it. This accumulated stream can be obtained by
    * calling {@link #getAccumulatedOut()}.
    */
-  private static class AccumulatingConsumer extends FutureConsumption
-                                            implements OutputConsumer {
+  private static class AccumulatingConsumer extends FutureConsumption {
     private ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     @Override
@@ -180,8 +178,7 @@ class Consumers {
   /**
    * This consumer just discards whatever it reads.
    */
-  private static class DiscardingConsumer extends FutureConsumption
-                                          implements OutputConsumer {
+  private static class DiscardingConsumer extends FutureConsumption {
     private DiscardingConsumer() {
     }
 

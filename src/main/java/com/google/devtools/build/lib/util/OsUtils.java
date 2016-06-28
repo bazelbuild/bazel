@@ -45,11 +45,15 @@ public final class OsUtils {
   }
 
   private static boolean jniLibsAvailable() {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return true;
+    }
+
     if ("0".equals(System.getProperty("io.bazel.UnixFileSystem"))) {
       return false;
     }
-    // JNI libraries work fine on Windows, but at the moment we are not using any.
-    return OS.getCurrent() != OS.WINDOWS;
+
+    return true;
   }
 
   // Force JNI linking at a moment when we have 'installBase' handy, and print

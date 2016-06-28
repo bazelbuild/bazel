@@ -15,50 +15,13 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.windows.WindowsProcesses;
 
 /**
  * OS Process related utilities.
- *
- * <p>Default implementation forwards all requests to
- * {@link com.google.devtools.build.lib.unix.ProcessUtils}. The default implementation
- * can be overridden by {@code #setImplementation(ProcessUtilsImpl)} method.
  */
 @ThreadSafe
 public final class ProcessUtils {
-
-  /**
-   * Describes implementation to which all {@code ProcessUtils} requests are
-   * forwarded.
-   */
-  public interface ProcessUtilsImpl {
-    /** @see ProcessUtils#getgid() */
-    int getgid();
-
-    /** @see ProcessUtils#getpid() */
-    int getpid();
-
-    /** @see ProcessUtils#getuid() */
-    int getuid();
-  }
-
-  private volatile static ProcessUtilsImpl implementation = new ProcessUtilsImpl() {
-
-    @Override
-    public int getgid() {
-      return com.google.devtools.build.lib.unix.ProcessUtils.getgid();
-    }
-
-    @Override
-    public int getpid() {
-      return com.google.devtools.build.lib.unix.ProcessUtils.getpid();
-    }
-
-    @Override
-    public int getuid() {
-      return com.google.devtools.build.lib.unix.ProcessUtils.getuid();
-    }
-  };
-
   private ProcessUtils() {
     // prevent construction.
   }
@@ -67,20 +30,32 @@ public final class ProcessUtils {
    * @return the real group ID of the current process.
    */
   public static int getgid() {
-    return implementation.getgid();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      throw new UnsupportedOperationException();
+    } else {
+      return com.google.devtools.build.lib.unix.ProcessUtils.getgid();
+    }
   }
 
   /**
    * @return the process ID of this process.
    */
   public static int getpid() {
-    return implementation.getpid();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return WindowsProcesses.getpid();
+    } else {
+      return com.google.devtools.build.lib.unix.ProcessUtils.getpid();
+    }
   }
 
   /**
    * @return the real user ID of the current process.
    */
   public static int getuid() {
-    return implementation.getuid();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      throw new UnsupportedOperationException();
+    } else {
+      return com.google.devtools.build.lib.unix.ProcessUtils.getuid();
+    }
   }
 }

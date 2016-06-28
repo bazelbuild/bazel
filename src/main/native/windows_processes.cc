@@ -15,6 +15,7 @@
 #include <jni.h>
 #include <stdio.h>
 #include <string.h>
+#include <windows.h>
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_helloWorld(
@@ -25,4 +26,10 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_helloWorld(
   jstring result = env->NewStringUTF(buf);
   env->ReleaseStringUTFChars(fruit, utf_fruit);
   return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
+    JNIEnv* env, jclass clazz) {
+  return GetCurrentProcessId();
 }

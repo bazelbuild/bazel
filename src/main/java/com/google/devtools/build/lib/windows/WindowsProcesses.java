@@ -18,5 +18,25 @@ package com.google.devtools.build.lib.windows;
  * Process management on Windows.
  */
 public class WindowsProcesses {
-  public static native String helloWorld(int arg, String fruit);
+  private static boolean jniLoaded = false;
+  private WindowsProcesses() {
+    // Prevent construction
+  }
+
+  private static native String helloWorld(int arg, String fruit);
+  private static native int nativeGetpid();
+
+  public static int getpid() {
+    ensureJni();
+    return nativeGetpid();
+  }
+
+  private static synchronized void ensureJni() {
+    if (jniLoaded) {
+      return;
+    }
+
+    System.loadLibrary("windows_jni");
+    jniLoaded = true;
+  }
 }
