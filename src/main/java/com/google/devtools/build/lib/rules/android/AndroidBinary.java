@@ -412,6 +412,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         applyProguard(
             ruleContext,
             androidCommon,
+            javaSemantics,
             binaryJar,
             filesBuilder,
             proguardSpecs,
@@ -678,7 +679,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getMapping() != null) {
       builder.add(ProguardMappingProvider.class,
-          new ProguardMappingProvider(proguardOutput.getMapping()));
+          new ProguardMappingProvider(proguardOutput.getMapping(),
+                                      proguardOutput.getProtoMapping()));
     }
 
     return builder
@@ -884,6 +886,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static ProguardOutput applyProguard(
       RuleContext ruleContext,
       AndroidCommon common,
+      JavaSemantics javaSemantics,
       Artifact deployJarArtifact,
       NestedSetBuilder<Artifact> filesBuilder,
       ImmutableList<Artifact> proguardSpecs,
@@ -898,7 +901,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // still have a Proguard jar implicit output, as it is impossible to tell what a select will
       // produce at the time of implicit output determination. As a result, this artifact must
       // always be created.
-      return createEmptyProguardAction(ruleContext, proguardOutputJar, deployJarArtifact);
+      return createEmptyProguardAction(ruleContext, javaSemantics, proguardOutputJar,
+                                       deployJarArtifact);
     }
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -914,7 +918,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardMapping,
         libraryJars,
         proguardOutputJar,
-        ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN),
+        javaSemantics,
         getProguardOptimizationPasses(ruleContext));
     // Since Proguard is being run, add its output artifacts to the given filesBuilder
     result.addAllToSet(filesBuilder);
@@ -931,23 +935,22 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static ProguardOutput createEmptyProguardAction(RuleContext ruleContext,
-      Artifact proguardOutputJar, Artifact deployJarArtifact) throws InterruptedException {
-    ImmutableList.Builder<Artifact> failures = ImmutableList.<Artifact>builder()
-        .add(proguardOutputJar)
-        .add(ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG));
-    if (ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN)) {
-      failures.add(ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP));
-    }
+      JavaSemantics semantics, Artifact proguardOutputJar, Artifact deployJarArtifact)
+          throws InterruptedException {
+    NestedSetBuilder<Artifact> failures = NestedSetBuilder.<Artifact>stableOrder();
+    ProguardOutput outputs =
+        ProguardHelper.getProguardOutputs(proguardOutputJar, ruleContext, semantics);
+    outputs.addAllToSet(failures);
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     ruleContext.registerAction(
         new FailAction(
             ruleContext.getActionOwner(),
             failures.build(),
-            String.format("Can't generate Proguard jar or mapping %s.",
+            String.format("Can't run Proguard %s",
                 optMode == JavaOptimizationMode.LEGACY
                     ? "without proguard_specs"
                     : "in optimization mode " + optMode)));
-    return new ProguardOutput(deployJarArtifact, null);
+    return new ProguardOutput(deployJarArtifact, null, null, null);
   }
 
   private static ResourceApk shrinkResources(

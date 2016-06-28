@@ -70,6 +70,8 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy.jar.unstripped");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_MAP =
       fromTemplates("%{name}_proguard.map");
+  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_PROTO_MAP =
+      fromTemplates("%{name}_proguard.pbmap");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
 
@@ -363,6 +365,13 @@ public interface JavaSemantics {
    * @return main class (entry point) for the Java compiler.
    */
   String getJavaBuilderMainClass();
+
+
+  /**
+   * @return An artifact representing the protobuf-format version of the
+   * proguard mapping, or null if the proguard version doesn't support this.
+   */
+  Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException;
 
   /**
    * @return Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be
