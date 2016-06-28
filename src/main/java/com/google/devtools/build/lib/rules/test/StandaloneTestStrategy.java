@@ -139,7 +139,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           ResourceHandle handle = ResourceManager.instance().acquireResources(action, resources)) {
         TestResultData data =
             execute(actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
-        appendStderr(fileOutErr.getOutputFile(), fileOutErr.getErrorFile());
+        appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
         finalizeTest(actionExecutionContext, action, data);
       }
     } catch (IOException e) {

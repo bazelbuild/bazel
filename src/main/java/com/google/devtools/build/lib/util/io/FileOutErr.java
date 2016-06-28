@@ -106,23 +106,22 @@ public class FileOutErr extends OutErr {
   }
 
   /**
-   * Returns the file this OutErr uses to buffer stdout
+   * Returns the {@link Path} this OutErr uses to buffer stdout
    *
-   * The user must ensure that no other process is writing to the
-   * files at time of creation.
+   * <p>The user must ensure that no other process is writing to the files at time of creation.
    *
    * @return the path object with the contents of stdout
    */
-  public Path getOutputFile() {
+  public Path getOutputPath() {
     return getFileOutputStream().getFile();
   }
 
   /**
-   * Returns the file this OutErr uses to buffer stderr.
+   * Returns the {@link Path} this OutErr uses to buffer stderr.
    *
    * @return the path object with the contents of stderr
    */
-  public Path getErrorFile() {
+  public Path getErrorPath() {
     return getFileErrorStream().getFile();
   }
 
