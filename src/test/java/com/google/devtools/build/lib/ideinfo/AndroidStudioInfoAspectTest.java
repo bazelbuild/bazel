@@ -57,12 +57,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
     ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
-    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     assertThat(location.getIsSource()).isTrue();
     if (testLegacyAswbPluginVersionCompatibility()) {
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
-          .isEqualTo(buildFilePath.toString());
+          .isEqualTo(Paths.get(buildFilePath.toString()).toString());
       assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
     }
     assertThat(ruleIdeInfo.getKindString()).isEqualTo("java_library");
@@ -1082,11 +1083,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         ruleIdeInfos);
     RuleIdeInfo toolchainInfo = toolchainEntry.getValue();
     ArtifactLocation location = ruleInfo.getBuildFileArtifactLocation();
-    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     if (testLegacyAswbPluginVersionCompatibility()) {
       assertThat(ruleInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
-          .isEqualTo(buildFilePath.toString());
+          .isEqualTo(Paths.get(buildFilePath.toString()).toString());
     }
 
     assertThat(ruleInfo.hasCRuleIdeInfo()).isTrue();
@@ -1109,12 +1111,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
     ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
-    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
-
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     if (testLegacyAswbPluginVersionCompatibility()) {
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
-          .isEqualTo(buildFilePath.toString());
+          .isEqualTo(Paths.get(buildFilePath.toString()).toString());
       assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.CC_LIBRARY);
     }
 
@@ -1266,11 +1268,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
     ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
-    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     if (testLegacyAswbPluginVersionCompatibility()) {
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
-          .isEqualTo(buildFilePath.toString());
+          .isEqualTo(Paths.get(buildFilePath.toString()).toString());
       assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.CC_BINARY);
     }
     assertThat(ruleIdeInfo.getKindString()).isEqualTo("cc_binary");
@@ -1307,11 +1310,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
     ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
-    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     if (testLegacyAswbPluginVersionCompatibility()) {
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
-          .isEqualTo(buildFilePath.toString());
+          .isEqualTo(Paths.get(buildFilePath.toString()).toString());
       assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.CC_TEST);
     }
     assertThat(ruleIdeInfo.getKindString()).isEqualTo("cc_test");
@@ -1585,11 +1589,12 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         ruleIdeInfos);
     RuleIdeInfo toolchainInfo = toolchainEntry.getValue();
     ArtifactLocation location = ruleInfo.getBuildFileArtifactLocation();
-    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     if (testLegacyAswbPluginVersionCompatibility()) {
       assertThat(ruleInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
-          .isEqualTo(buildFilePath.toString());
+          .isEqualTo(Paths.get(buildFilePath.toString()).toString());
     }
 
     assertThat(ruleInfo.hasCToolchainIdeInfo()).isFalse();

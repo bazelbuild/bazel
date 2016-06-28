@@ -26,6 +26,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.nio.file.Paths;
+
 /**
  * Tests {@link ArtifactLocationConverter}.
  */
@@ -44,12 +46,13 @@ public class ArtifactLocationConverterTest {
     ArtifactLocation parsed = converter.convert(
         Joiner.on(",").join("", "test.java", "/usr/local/code")
     );
-    assertThat(parsed).isEqualTo(
-        ArtifactLocation.newBuilder()
-        .setRootPath("/usr/local/code")
-        .setRelativePath("test.java")
-        .setIsSource(true)
-        .build());
+    assertThat(parsed)
+        .isEqualTo(
+            ArtifactLocation.newBuilder()
+                .setRootPath(Paths.get("/usr/local/code").toString())
+                .setRelativePath(Paths.get("test.java").toString())
+                .setIsSource(true)
+                .build());
   }
 
   @Test
@@ -57,13 +60,14 @@ public class ArtifactLocationConverterTest {
     ArtifactLocation parsed = converter.convert(
         Joiner.on(",").join("bin", "java/com/test.java", "/usr/local/_tmp/code/bin")
     );
-    assertThat(parsed).isEqualTo(
-        ArtifactLocation.newBuilder()
-            .setRootPath("/usr/local/_tmp/code/bin")
-            .setRootExecutionPathFragment("bin")
-            .setRelativePath("java/com/test.java")
-            .setIsSource(false)
-            .build());
+    assertThat(parsed)
+        .isEqualTo(
+            ArtifactLocation.newBuilder()
+                .setRootPath(Paths.get("/usr/local/_tmp/code/bin").toString())
+                .setRootExecutionPathFragment(Paths.get("bin").toString())
+                .setRelativePath(Paths.get("java/com/test.java").toString())
+                .setIsSource(false)
+                .build());
   }
 
   @Test
@@ -75,12 +79,13 @@ public class ArtifactLocationConverterTest {
   @Test
   public void testFutureFormat() throws Exception {
     ArtifactLocation parsed = converter.convert("bin/out,java/com/test.java");
-    assertThat(parsed).isEqualTo(
-        ArtifactLocation.newBuilder()
-            .setRootExecutionPathFragment("bin/out")
-            .setRelativePath("java/com/test.java")
-            .setIsSource(false)
-            .build());
+    assertThat(parsed)
+        .isEqualTo(
+            ArtifactLocation.newBuilder()
+                .setRootExecutionPathFragment(Paths.get("bin/out").toString())
+                .setRelativePath(Paths.get("java/com/test.java").toString())
+                .setIsSource(false)
+                .build());
   }
 
 

@@ -57,7 +57,7 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
     if (!VALID_REGEX.matcher(text).find()) {
       throw new IllegalArgumentException(text + " is not in the format " + commandlineFormat(""));
     }
-    String[] parts = text.split(":");
+    String[] parts = text.split(File.pathSeparator);
     return new DependencySymbolFileProvider(getFile(parts[0], fileSystem),
         getFile(parts[1], fileSystem));
   }
