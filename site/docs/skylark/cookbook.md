@@ -1,13 +1,46 @@
 ---
 layout: documentation
-title: Skylark Cookbook
+title: Extensions examples
 ---
-# Skylark cookbook
+# Extensions examples
+
+## <a name="macro"></a>Macro creating a rule
+
+An example of a macro creating a rule.
+
+`empty.bzl`:
+
+```python
+def _impl(ctx):
+  print("This rule does nothing")
+
+empty = rule(implementation=_impl)
+```
+
+`extension.bzl`:
+
+```python
+# Loading the rule. The rule doesn't have to be in a separate file.
+load("//pkg:empty.bzl", "empty")
+
+def macro(name, visibility=None):
+  # Creating the rule.
+  empty(name = name, visibility = visibility)
+```
+
+`BUILD`:
+
+```python
+load("//pkg:extension.bzl", "macro")
+
+macro(name = "myrule")
+```
 
 ## <a name="macro_native"></a>Macro creating a native rule
 
-An example of a macro creating a native rule. Native rules are accessed using
-the <a href="lib/native.html">native</a> module.
+An example of a macro creating a native rule. Native rules are special rules
+that are automatically available (without <code>load</code>). They are
+accessed using the <a href="lib/native.html">native</a> module.
 
 `extension.bzl`:
 
@@ -30,42 +63,10 @@ load("//pkg:extension.bzl", "macro")
 macro(name = "myrule")
 ```
 
-## <a name="macro_skylark"></a>Macro creating a Skylark rule
+## <a name="macro_compound"></a>Macro multiple rules
 
-An example of a macro creating a Skylark rule.
-
-`empty.bzl`:
-
-```python
-def _impl(ctx):
-  print("This rule does nothing")
-
-empty = rule(implementation=_impl)
-```
-
-`extension.bzl`:
-
-```python
-# Loading the Skylark rule. The rule doesn't have to be in a separate file.
-load("//pkg:empty.bzl", "empty")
-
-def macro(name, visibility=None):
-  # Creating the Skylark rule.
-  empty(name = name, visibility = visibility)
-```
-
-`BUILD`:
-
-```python
-load("//pkg:extension.bzl", "macro")
-
-macro(name = "myrule")
-```
-
-## <a name="macro_compound"></a>Macro combining Skylark and native rules
-
-There's currently no easy way to create a Skylark rule that directly uses the
-action of a native rule. You can work around this using Skylark macros:
+There's currently no easy way to create a rule that directly uses the
+action of a native rule. You can work around this using macros:
 
 ```python
 def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps)
@@ -100,8 +101,6 @@ def _impl(ctx):
 _cc_and_something_else_binary = rule(implementation=_impl)
 ```
 
-In the future, Skylark will have access to the build actions of native rules
-through an API, and this sort of work-around will no longer be necessary.
 
 ## <a name="conditional-instantiation"></a>Conditional instantiation
 
@@ -885,7 +884,7 @@ macro(
 
 ## <a name="debugging-tips"></a>Debugging tips
 
-Here are some examples on how to debug Skylark macros and rules using
+Here are some examples on how to debug macros and rules using
 <a href="lib/globals.html#print">print</a>.
 
 `debug.bzl`:

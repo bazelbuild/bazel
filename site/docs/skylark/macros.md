@@ -27,11 +27,11 @@ macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
 
 ## Examples
 
+* [Macro creating rules](cookbook.md#macro).
+
 * [Macro creating native rules](cookbook.md#macro_native).
 
-* [Macro creating Skylark rules](cookbook.md#macro_skylark).
-
-* [Macro combining Skylark and native rules](cookbook.md#macro_compound).
+* [Macro combining multiple rules](cookbook.md#macro_compound).
 
 ## Debugging
 
