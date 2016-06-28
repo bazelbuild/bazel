@@ -38,7 +38,7 @@ VSVARS="C:/Program Files (x86)/$VSVERSION/VC/VCVARSALL.BAT"
 
 # Find Java. $(JAVA) in the BUILD file points to external/local_jdk/..., which
 # is not very useful for anything not MSYS-based.
-JAVA=$(ls "C:/Program Files/java" | grep -E "jdk|jre" | sort | tail -n 1)
+JAVA=$(ls "C:/Program Files/java" | grep -E "^jdk" | sort | tail -n 1)
 if [[ "$JAVA" == "" ]]; then
   echo "JDK not found"
   exit 1
