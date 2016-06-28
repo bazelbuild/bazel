@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Specifying environment variables
+title: Sandboxing
 ---
 
 # Bazel Sandboxing 2.0
