@@ -17,7 +17,7 @@
 # Tests the examples provided in Bazel with MSVC toolchain
 #
 
-if ! test rlocation &> /dev/null; then
+if ! type rlocation &> /dev/null; then
   # We do not care about this test on old Bazel releases.
   exit 0
 fi
