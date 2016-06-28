@@ -38,6 +38,8 @@ message DataKey {
   // The size of the associated value. Useful for calculating an offset.
   // Required
   optional int32 value_size = 6;
+  // Whether this DataKey is a reference to another DataKey.
+  optional bool reference = 7;
 }
 
 // The serialized format for a DataValue.
@@ -72,4 +74,5 @@ message DataValueXml {
   repeated string list_value = 4;
   optional string value = 5;
   optional string value_type = 6;
+  repeated DataKey references = 7;
 }

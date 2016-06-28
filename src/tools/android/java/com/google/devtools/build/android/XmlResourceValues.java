@@ -131,22 +131,23 @@ public class XmlResourceValues {
       XMLEventReader eventReader,
       StartElement start)
       throws XMLStreamException {
-    List<String> members = new ArrayList<>();
+    Map<FullyQualifiedName, Boolean> members = new LinkedHashMap<>();
     for (XMLEvent element = nextTag(eventReader);
         !isEndTag(element, TAG_DECLARE_STYLEABLE);
         element = nextTag(eventReader)) {
       if (isStartTag(element, TAG_ATTR)) {
         StartElement attr = element.asStartElement();
-        String attrName = getElementName(attr);
-        members.add(attrName);
+        FullyQualifiedName attrName = fqnFactory.create(ResourceType.ATTR, getElementName(attr));
         // If there is format and the next tag is a starting tag, treat it as an attr definition.
         // Without those, it will be an attr reference.
         if (XmlResourceValues.getElementAttributeByName(attr, ATTR_FORMAT) != null
             || (XmlResourceValues.peekNextTag(eventReader) != null
                 && XmlResourceValues.peekNextTag(eventReader).isStartElement())) {
           overwritingConsumer.consume(
-              fqnFactory.create(ResourceType.ATTR, attrName),
-              DataResourceXml.of(path, parseAttr(eventReader, attr)));
+              attrName, DataResourceXml.of(path, parseAttr(eventReader, attr)));
+          members.put(attrName, Boolean.TRUE);
+        } else {
+          members.put(attrName, Boolean.FALSE);
         }
       }
     }

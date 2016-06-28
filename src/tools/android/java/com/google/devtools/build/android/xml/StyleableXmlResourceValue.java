@@ -18,8 +18,9 @@ import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -30,60 +31,90 @@ import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlT
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
  * Represent an Android styleable resource.
  *
- * <p>
- * Styleable resources are groups of attributes that can be applied to views. They are, for the most
- * part, vaguely documented (http://developer.android.com/training/custom-views/create-view
- * .html#customattr). It's worth noting that attributes declared inside a &lt;declare-styleable&gt;
- * tags, for example; <code>
- *  <declare-styleable name="PieChart">
- *     <attr name="showText" format="boolean" />
- *  </declare-styleable>
- * </code>
+ * <p>Styleable resources are groups of attributes that can be applied to views. They are, for the
+ * most part, vaguely documented (http://developer.android.com/training/custom-views/create-view
+ * .html#customattr). It is important to note that attributes declared inside
+ * &lt;declare-styleable&gt; tags, for example; <code> <declare-styleable name="PieChart"> <attr
+ * name="showText" format="boolean" /> </declare-styleable> </code>
  *
- * Can also be seen as: <code>
- *  <attr name="showText" format="boolean" />
- *  <declare-styleable name="PieChart">
- *     <attr name="showText"/>
- *  </declare-styleable>
- * </code>
+ * <p>Can also be seen as: <code> <attr name="showText" format="boolean" /> <declare-styleable
+ * name="PieChart"> <attr name="showText"/> </declare-styleable> </code>
  *
- * <p>
- * The StyleableXmlValue only contains names of the attributes it holds, not definitions.
+ * <p>However, aapt will parse these two cases differently. In order to maintain the expected
+ * indexing for the styleable array
+ * (http://developer.android.com/reference/android/content/res/Resources.Theme.html
+ * #obtainStyledAttributes(android.util.AttributeSet, int[], int, int)) the styleable must track
+ * whether the attr is a reference or a definition, as aapt will sort the attributes first by attr
+ * format (the absence of format comes first, followed by alphabetical sorting by format, then
+ * sorting by declaration order in the source xml.)
  */
 @Immutable
 public class StyleableXmlResourceValue implements XmlResourceValue {
-  public static final Function<String, String> ITEM_TO_ATTR =
-      new Function<String, String>() {
-        @Nullable
+  public static final Function<FullyQualifiedName, String> ITEM_TO_ATTR =
+      new Function<FullyQualifiedName, String>() {
         @Override
-        public String apply(@Nullable String input) {
-          return String.format("<attr name='%s'/>", input);
+        public String apply(FullyQualifiedName input) {
+          return String.format("<attr name='%s'/>", input.name());
         }
       };
-  private final ImmutableList<String> attrs;
 
-  private StyleableXmlResourceValue(ImmutableList<String> attrs) {
+  static final Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>
+      FULLY_QUALIFIED_NAME_TO_DATA_KEY =
+          new Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>() {
+            @Override
+            public SerializeFormat.DataKey apply(Entry<FullyQualifiedName, Boolean> input) {
+              return input.getKey().toSerializedBuilder().setReference(input.getValue()).build();
+            }
+          };
+
+  static final Function<SerializeFormat.DataKey, Entry<FullyQualifiedName, Boolean>>
+      DATA_KEY_TO_FULLY_QUALIFIED_NAME =
+          new Function<SerializeFormat.DataKey, Entry<FullyQualifiedName, Boolean>>() {
+            @Override
+            public Entry<FullyQualifiedName, Boolean> apply(SerializeFormat.DataKey input) {
+              FullyQualifiedName key = FullyQualifiedName.fromProto(input);
+              return new SimpleEntry<FullyQualifiedName, Boolean>(key, input.getReference());
+            }
+          };
+
+  private final ImmutableMap<FullyQualifiedName, Boolean> attrs;
+
+  private StyleableXmlResourceValue(ImmutableMap<FullyQualifiedName, Boolean> attrs) {
     this.attrs = attrs;
   }
 
-  public static XmlResourceValue of(List<String> attrs) {
-    return new StyleableXmlResourceValue(ImmutableList.copyOf(attrs));
+  @VisibleForTesting
+  public static XmlResourceValue createAllAttrAsReferences(FullyQualifiedName... attrNames) {
+    return of(createAttrDefinitionMap(attrNames, Boolean.FALSE));
+  }
+
+  private static Map<FullyQualifiedName, Boolean> createAttrDefinitionMap(
+      FullyQualifiedName[] attrNames, Boolean definitionType) {
+    Builder<FullyQualifiedName, Boolean> builder = ImmutableMap.builder();
+    for (FullyQualifiedName attrName : attrNames) {
+      builder.put(attrName, definitionType);
+    }
+    return builder.build();
   }
 
   @VisibleForTesting
-  public static XmlResourceValue of(String... attrs) {
-    return new StyleableXmlResourceValue(
-        Ordering.natural().immutableSortedCopy(Arrays.asList(attrs)));
+  public static XmlResourceValue createAllAttrAsDefinitions(FullyQualifiedName... attrNames) {
+    return of(createAttrDefinitionMap(attrNames, Boolean.TRUE));
+  }
+
+  public static XmlResourceValue of(Map<FullyQualifiedName, Boolean> attrs) {
+    return new StyleableXmlResourceValue(ImmutableMap.copyOf(attrs));
   }
 
   @Override
@@ -95,7 +126,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
                 ImmutableList.of(
                     String.format("<!-- %s -->", source),
                     String.format("<declare-styleable name='%s'>", key.name())))
-            .append(FluentIterable.from(attrs).transform(ITEM_TO_ATTR))
+            .append(FluentIterable.from(attrs.keySet()).transform(ITEM_TO_ATTR))
             .append("</declare-styleable>"));
   }
 
@@ -107,11 +138,14 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
             .setXmlValue(
                 SerializeFormat.DataValueXml.newBuilder()
                     .setType(XmlType.STYLEABLE)
-                    .addAllListValue(attrs)));
+                    .addAllReferences(
+                        Iterables.transform(attrs.entrySet(), FULLY_QUALIFIED_NAME_TO_DATA_KEY))));
   }
 
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
-    return of(proto.getListValueList());
+    return of(
+        ImmutableMap.copyOf(
+            Iterables.transform(proto.getReferencesList(), DATA_KEY_TO_FULLY_QUALIFIED_NAME)));
   }
 
   @Override
@@ -152,9 +186,20 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       throw new IllegalArgumentException(value + "is not combinable with " + this);
     }
     StyleableXmlResourceValue styleable = (StyleableXmlResourceValue) value;
-    return of(
-        Ordering.natural()
-            .sortedCopy(
-                ImmutableSet.<String>builder().addAll(attrs).addAll(styleable.attrs).build()));
+    Map<FullyQualifiedName, Boolean> combined = new LinkedHashMap<>();
+    combined.putAll(attrs);
+    for (Entry<FullyQualifiedName, Boolean> attr : styleable.attrs.entrySet()) {
+      if (combined.containsKey(attr.getKey())) {
+        // if either attr is defined in the styleable, the attr will be defined in the styleable.
+        if (attr.getValue() || combined.get(attr.getKey())) {
+          combined.put(attr.getKey(), Boolean.TRUE);
+        } else {
+          combined.put(attr.getKey(), Boolean.FALSE);
+        }
+      } else {
+        combined.put(attr.getKey(), attr.getValue());
+      }
+    }
+    return of(combined);
   }
 }

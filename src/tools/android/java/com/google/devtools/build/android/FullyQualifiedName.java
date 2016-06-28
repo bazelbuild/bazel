@@ -422,13 +422,14 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
 
   @Override
   public void serializeTo(OutputStream out, int valueSize) throws IOException {
-    SerializeFormat.DataKey.newBuilder()
+    toSerializedBuilder().setValueSize(valueSize).build().writeDelimitedTo(out);
+  }
+
+  public SerializeFormat.DataKey.Builder toSerializedBuilder() {
+    return SerializeFormat.DataKey.newBuilder()
         .setKeyPackage(pkg)
-        .setValueSize(valueSize)
         .setResourceType(resourceType.getName().toUpperCase())
         .addAllQualifiers(qualifiers)
-        .setKeyValue(resourceName)
-        .build()
-        .writeDelimitedTo(out);
+        .setKeyValue(resourceName);
   }
 }
