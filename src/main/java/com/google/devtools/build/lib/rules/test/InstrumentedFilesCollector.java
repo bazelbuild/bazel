@@ -62,20 +62,23 @@ public final class InstrumentedFilesCollector {
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles) {
-    return collect(ruleContext, spec, localMetadataCollector, rootFiles, false);
+    return collect(ruleContext, spec, localMetadataCollector, rootFiles,
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), false);
   }
 
   /**
    * Collects transitive instrumentation data from dependencies, collects local source files from
    * dependencies, collects local metadata files by traversing the action graph of the current
-   * configured target, and creates baseline coverage actions for the transitive closure of source
-   * files (if <code>withBaselineCoverage</code> is true).
+   * configured target, collect rule-specific instrumentation support file sand creates baseline
+   * coverage actions for the transitive closure of source files (if
+   * <code>withBaselineCoverage</code> is true).
    */
   public static InstrumentedFilesProvider collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles,
+      NestedSet<Artifact> coverageSupportFiles,
       boolean withBaselineCoverage) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
@@ -88,6 +91,9 @@ public final class InstrumentedFilesCollector {
     NestedSetBuilder<Artifact> metadataFilesBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> baselineCoverageInstrumentedFilesBuilder =
         NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> coverageSupportFilesBuilder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(coverageSupportFiles);
 
     // Transitive instrumentation data.
     for (TransitiveInfoCollection dep :
@@ -98,6 +104,7 @@ public final class InstrumentedFilesCollector {
         metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
         baselineCoverageInstrumentedFilesBuilder.addTransitive(
             provider.getBaselineCoverageInstrumentedFiles());
+        coverageSupportFilesBuilder.addTransitive(provider.getCoverageSupportFiles());
       }
     }
 
@@ -143,7 +150,8 @@ public final class InstrumentedFilesCollector {
         instrumentedFilesBuilder.build(),
         metadataFilesBuilder.build(),
         baselineCoverageFiles,
-        baselineCoverageArtifacts);
+        baselineCoverageArtifacts,
+        coverageSupportFilesBuilder.build());
   }
 
   /**

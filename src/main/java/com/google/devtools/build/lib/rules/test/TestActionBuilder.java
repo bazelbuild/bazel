@@ -20,13 +20,11 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -201,18 +199,14 @@ public final class TestActionBuilder {
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
+      inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
       // exec paths of all source files that should be included into the code coverage output.
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
-      for (TransitiveInfoCollection dep :
-          ruleContext.getPrerequisites(":coverage_support", Mode.HOST)) {
-        inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
-      }
-      for (TransitiveInfoCollection dep :
-          ruleContext.getPrerequisites(":gcov", Mode.HOST)) {
-        inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
-      }
+      inputsBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(
+          ruleContext, "$coverage_support", Mode.HOST));
+
       Artifact instrumentedFileManifest =
           InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
               instrumentedFiles.getInstrumentedFiles(), metadataFiles);
@@ -273,8 +267,12 @@ public final class TestActionBuilder {
       }
     }
     // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
-    Artifact reportGenerator = collectCodeCoverage
-        ? ruleContext.getPrerequisiteArtifact(":coverage_report_generator", Mode.HOST) : null;
+    Artifact reportGenerator = null;
+    if (collectCodeCoverage) {
+      reportGenerator = ruleContext.getPrerequisiteArtifact(
+          "$coverage_report_generator", Mode.HOST);
+    }
+
     return new TestParams(runsPerTest, shards, TestTimeout.getTestTimeout(ruleContext.getRule()),
         ruleContext.getRule().getRuleClass(), ImmutableList.copyOf(results),
         coverageArtifacts.build(), reportGenerator);

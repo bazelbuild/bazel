@@ -497,6 +497,7 @@ public final class CcCommon {
         ? InstrumentedFilesProviderImpl.EMPTY
         : InstrumentedFilesCollector.collect(
             ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files,
+            CppHelper.getGcovFilesIfNeeded(ruleContext),
             withBaselineCoverage);
   }
 

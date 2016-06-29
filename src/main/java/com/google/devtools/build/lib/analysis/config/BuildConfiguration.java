@@ -113,7 +113,6 @@ import javax.annotation.Nullable;
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
 public final class BuildConfiguration {
-
   /**
    * An interface for language-specific configurations.
    *
@@ -178,27 +177,6 @@ public final class BuildConfiguration {
      */
     public ImmutableMap<String, String> getCommandLineDefines() {
       return ImmutableMap.of();
-    }
-
-    /**
-     * Returns the labels required to run coverage for the fragment.
-     */
-    public ImmutableList<Label> getCoverageLabels() {
-      return ImmutableList.of();
-    }
-
-    /**
-     * Returns all labels required to run gcov, if provided by this fragment.
-     */
-    public ImmutableList<Label> getGcovLabels() {
-      return ImmutableList.of();
-    }
-
-    /**
-     * Returns the coverage report generator tool labels.
-     */
-    public ImmutableList<Label> getCoverageReportGeneratorLabels() {
-      return ImmutableList.of();
     }
 
     /**
@@ -644,6 +622,23 @@ public final class BuildConfiguration {
         )
     public boolean collectMicroCoverage;
 
+    @Option(name = "coverage_support",
+        converter = LabelConverter.class,
+        defaultValue = "@bazel_tools//tools/test:coverage_support",
+        category = "testing",
+        help = "Location of support files that are required on the inputs of every test action "
+            + "that collects code coverage. Defaults to '//tools/test:coverage_support'.")
+    public Label coverageSupport;
+
+    @Option(name = "coverage_report_generator",
+        converter = LabelConverter.class,
+        defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
+        category = "testing",
+        help = "Location of the binary that is used to generate coverage reports. This must "
+            + "currently be a filegroup that contains a single file, the binary. Defaults to "
+            + "'//tools/test:coverage_report_generator'.")
+    public Label coverageReportGenerator;
+
     @Option(name = "cache_test_results",
         defaultValue = "auto",
         category = "testing",
@@ -920,6 +915,12 @@ public final class BuildConfiguration {
         labelMap.put("RunUnder", runUnder.getLabel());
       }
     }
+    @Override
+    public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+      return ImmutableMap.<String, Set<Label>>of(
+          "coverage_support", ImmutableSet.of(coverageSupport),
+          "coverage_report_generator", ImmutableSet.of(coverageReportGenerator));
+    }
   }
 
   /**
@@ -1027,10 +1028,6 @@ public final class BuildConfiguration {
 
   /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
   private final boolean actionsEnabled;
-
-  private final ImmutableSet<Label> coverageLabels;
-  private final ImmutableSet<Label> coverageReportGeneratorLabels;
-  private final ImmutableSet<Label> gcovLabels;
 
   // TODO(bazel-team): Move this to a configuration fragment.
   private final PathFragment shExecutable;
@@ -1221,18 +1218,6 @@ public final class BuildConfiguration {
     this.outputRoots = outputRoots != null
         ? outputRoots
         : new OutputRoots(directories, outputDirName);
-
-    ImmutableSet.Builder<Label> coverageLabelsBuilder = ImmutableSet.builder();
-    ImmutableSet.Builder<Label> coverageReportGeneratorLabelsBuilder = ImmutableSet.builder();
-    ImmutableSet.Builder<Label> gcovLabelsBuilder = ImmutableSet.builder();
-    for (Fragment fragment : fragments.values()) {
-      coverageLabelsBuilder.addAll(fragment.getCoverageLabels());
-      coverageReportGeneratorLabelsBuilder.addAll(fragment.getCoverageReportGeneratorLabels());
-      gcovLabelsBuilder.addAll(fragment.getGcovLabels());
-    }
-    this.coverageLabels = coverageLabelsBuilder.build();
-    this.coverageReportGeneratorLabels = coverageReportGeneratorLabelsBuilder.build();
-    this.gcovLabels = gcovLabelsBuilder.build();
 
     this.localShellEnvironment = setupShellEnvironment();
 
@@ -2053,27 +2038,6 @@ public final class BuildConfiguration {
    */
   public boolean shouldInstrumentTestTargets() {
     return options.instrumentTestTargets;
-  }
-
-  /**
-   * Returns the set of labels for coverage.
-   */
-  public Set<Label> getCoverageLabels() {
-    return coverageLabels;
-  }
-
-  /**
-   * Returns the set of labels for gcov.
-   */
-  public Set<Label> getGcovLabels() {
-    return gcovLabels;
-  }
-
-  /**
-   * Returns the set of labels for the coverage report generator.
-   */
-  public Set<Label> getCoverageReportGeneratorLabels() {
-    return coverageReportGeneratorLabels;
   }
 
   /**

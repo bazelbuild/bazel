@@ -636,8 +636,12 @@ public class JavaCommon {
   private static InstrumentedFilesProvider getInstrumentationFilesProvider(RuleContext ruleContext,
       NestedSet<Artifact> filesToBuild, InstrumentationSpec instrumentationSpec) {
     return InstrumentedFilesCollector.collect(
-        ruleContext, instrumentationSpec, JAVA_METADATA_COLLECTOR,
-        filesToBuild, /*withBaselineCoverage*/!TargetUtils.isTestRule(ruleContext.getTarget()));
+        ruleContext,
+        instrumentationSpec,
+        JAVA_METADATA_COLLECTOR,
+        filesToBuild,
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        /*withBaselineCoverage*/!TargetUtils.isTestRule(ruleContext.getTarget()));
   }
 
   public void addGenJarsProvider(RuleConfiguredTargetBuilder builder,

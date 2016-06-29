@@ -49,4 +49,12 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
   // particular because baseline coverage is language-specific (it requires a parser for the
   // specific language), and we don't want to depend on all language parsers from any single rule.
   NestedSet<Artifact> getBaselineCoverageArtifacts();
+
+  /**
+   * Extra files that are needed on the inputs of test actions for coverage collection to happen,
+   * for example, {@code gcov}.
+   *
+   * <p>They aren't mentioned in the instrumented files manifest.
+   */
+  NestedSet<Artifact> getCoverageSupportFiles();
 }

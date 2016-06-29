@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
@@ -220,6 +221,14 @@ public class CppHelper {
         .getPrerequisite(":cc_toolchain", Mode.TARGET)
         .getProvider(FdoSupportProvider.class)
         .getFdoSupport();
+  }
+
+  public static NestedSet<Artifact> getGcovFilesIfNeeded(RuleContext ruleContext) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      return CppHelper.getToolchain(ruleContext).getCrosstool();
+    } else {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
   }
 
   /**

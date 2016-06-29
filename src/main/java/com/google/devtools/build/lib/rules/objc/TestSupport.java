@@ -265,7 +265,7 @@ public class TestSupport {
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       envBuilder.put("COVERAGE_GCOV_PATH",
-          ruleContext.getHostPrerequisiteArtifact(IosTest.GCOV_ATTR).getExecPathString());
+          ruleContext.getHostPrerequisiteArtifact(IosTest.OBJC_GCOV_ATTR).getExecPathString());
       envBuilder.put("APPLE_COVERAGE", "1");
     }
 

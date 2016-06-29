@@ -132,7 +132,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "java_import(name = 'jarjar_import',",
         "            jars = [ 'jarjar.jar' ])");
 
-    config.create("/bazel_tools_workspace/tools/test/BUILD", "filegroup(name = 'runtime')");
+    config.create("/bazel_tools_workspace/tools/test/BUILD",
+        "filegroup(name = 'runtime')",
+        "filegroup(name = 'coverage_support')",
+        "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
 
     config.create(
         "/bazel_tools_workspace/tools/python/BUILD",

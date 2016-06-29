@@ -27,22 +27,26 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
   private final NestedSet<Artifact> baselineCoverageFiles;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
+  private final NestedSet<Artifact> coverageSupportFiles;
 
   public InstrumentedFilesProviderImpl(
       NestedSet<Artifact> instrumentedFiles,
       NestedSet<Artifact> instrumentationMetadataFiles,
       NestedSet<Artifact> baselineCoverageFiles,
-      NestedSet<Artifact> baselineCoverageArtifacts) {
+      NestedSet<Artifact> baselineCoverageArtifacts,
+      NestedSet<Artifact> coverageSupportFiles) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
+    this.coverageSupportFiles = coverageSupportFiles;
   }
 
   @Override
@@ -63,5 +67,10 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   @Override
   public NestedSet<Artifact> getBaselineCoverageArtifacts() {
     return baselineCoverageArtifacts;
+  }
+
+  @Override
+  public NestedSet<Artifact> getCoverageSupportFiles() {
+    return coverageSupportFiles;
   }
 }

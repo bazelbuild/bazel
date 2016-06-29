@@ -2000,14 +2000,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public ImmutableList<Label> getGcovLabels() {
-    // TODO(bazel-team): Using a gcov-specific crosstool filegroup here could reduce the number of
-    // inputs significantly. We'd also need to add logic in tools/coverage/collect_coverage.sh to
-    // drop crosstool dependency if metadataFiles does not contain *.gcno artifacts.
-    return ImmutableList.of(crosstoolTop);
-  }
-
-  @Override
   public String getOutputDirectoryName() {
     String lipoSuffix;
     if (getLipoMode() != LipoMode.OFF && !isAutoFdoLipo()) {

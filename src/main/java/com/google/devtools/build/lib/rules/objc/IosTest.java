@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -53,7 +52,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
 
   // Attributes for IosTest rules.
   // Documentation on usage is in {@link IosTestRule@}.
-  static final String GCOV_ATTR = ":gcov";
+  static final String OBJC_GCOV_ATTR = "$objc_gcov";
   static final String DEVICE_ARG_ATTR = "ios_device_arg";
   static final String IS_XCTEST_ATTR = "xctest";
   static final String MEMLEAKS_DEP_ATTR = "$memleaks_dep";
@@ -198,6 +197,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         ruleContext.getWorkspaceName(),
         ruleContext.getConfiguration().legacyExternalRunfiles())
         .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(filesToBuildSet);
 
