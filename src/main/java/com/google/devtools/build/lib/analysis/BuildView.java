@@ -449,7 +449,10 @@ public class BuildView {
         PathFragment bzlFile = new PathFragment("/" + aspect.substring(0, delimiterPosition));
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
-        for (ConfiguredTargetKey targetSpec : topLevelCtKeys) {
+        for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+          if (!(targetSpec.getTarget() instanceof Rule)) {
+            continue;
+          }
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
@@ -464,7 +467,10 @@ public class BuildView {
         final NativeAspectClass aspectFactoryClass =
             ruleClassProvider.getNativeAspectClassMap().get(aspect);
         if (aspectFactoryClass != null) {
-          for (ConfiguredTargetKey targetSpec : topLevelCtKeys) {
+          for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+            if (!(targetSpec.getTarget() instanceof Rule)) {
+              continue;
+            }
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),

@@ -1031,6 +1031,22 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     }
   }
 
+  @Test
+  public void toplevelAspectOnFile() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   print('This aspect does nothing')",
+        "   return struct()",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file("test/BUILD", "exports_files(['file.txt'])");
+    scratch.file("test/file.txt", "");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:file.txt");
+    assertThat(analysisResult.hasError()).isFalse();
+    assertThat(analysisResult.getAspects()).isEmpty();
+  }
+
 
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
