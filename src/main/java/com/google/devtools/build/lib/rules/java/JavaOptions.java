@@ -174,6 +174,14 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean headerCompilation;
 
+  @Option(
+    name = "experimental_optimize_header_compilation_annotation_processing",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "Experimental: only run api-generating java_plugins during header compilation."
+  )
+  public boolean optimizeHeaderCompilationAnnotationProcessing;
+
   @Deprecated
   @Option(name = "experimental_incremental_ijars",
       defaultValue = "false",

@@ -696,6 +696,12 @@ public class JavaCommon {
       }
       // Now get the plugin-libraries runtime classpath.
       attributes.addProcessorPath(plugin.getProcessorClasspath());
+
+      // Add api-generating plugins
+      for (String name : plugin.getApiGeneratingProcessorClasses()) {
+        attributes.addApiGeneratingProcessorName(name);
+      }
+      attributes.addApiGeneratingProcessorPath(plugin.getApiGeneratingProcessorClasspath());
     }
   }
 

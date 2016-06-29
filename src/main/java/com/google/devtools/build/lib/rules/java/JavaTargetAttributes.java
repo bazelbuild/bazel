@@ -73,6 +73,9 @@ public class JavaTargetAttributes {
 
     private final Set<Artifact> processorPath = new LinkedHashSet<>();
     private final Set<String> processorNames = new LinkedHashSet<>();
+    
+    private final Set<Artifact> apiGeneratingProcessorPath = new LinkedHashSet<>();
+    private final Set<String> apiGeneratingProcessorNames = new LinkedHashSet<>();
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final List<Artifact> messages = new ArrayList<>();
@@ -300,6 +303,18 @@ public class JavaTargetAttributes {
       Iterables.addAll(processorPath, jars);
       return this;
     }
+    
+    public Builder addApiGeneratingProcessorName(String processor) {
+      Preconditions.checkArgument(!built);
+      apiGeneratingProcessorNames.add(processor);
+      return this;
+    }
+
+    public Builder addApiGeneratingProcessorPath(Iterable<Artifact> jars) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(apiGeneratingProcessorPath, jars);
+      return this;
+    }
 
     public Builder addClassPathResources(List<Artifact> classPathResources) {
       Preconditions.checkArgument(!built);
@@ -324,6 +339,8 @@ public class JavaTargetAttributes {
           nativeLibraries,
           processorPath,
           processorNames,
+          apiGeneratingProcessorPath,
+          apiGeneratingProcessorNames,
           resources,
           messages,
           sourceJars,
@@ -373,6 +390,9 @@ public class JavaTargetAttributes {
 
   private final ImmutableSet<Artifact> processorPath;
   private final ImmutableSet<String> processorNames;
+  
+  private final ImmutableSet<Artifact> apiGeneratingProcessorPath;
+  private final ImmutableSet<String> apiGeneratingProcessorNames;
 
   private final ImmutableMap<PathFragment, Artifact> resources;
   private final ImmutableList<Artifact> messages;
@@ -398,6 +418,8 @@ public class JavaTargetAttributes {
       List<Artifact> nativeLibraries,
       Set<Artifact> processorPath,
       Set<String> processorNames,
+      Set<Artifact> apiGeneratingProcessorPath,
+      Set<String> apiGeneratingProcessorNames,
       Map<PathFragment, Artifact> resources,
       List<Artifact> messages,
       List<Artifact> sourceJars,
@@ -421,6 +443,8 @@ public class JavaTargetAttributes {
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
     this.processorPath = ImmutableSet.copyOf(processorPath);
     this.processorNames = ImmutableSet.copyOf(processorNames);
+    this.apiGeneratingProcessorPath = ImmutableSet.copyOf(apiGeneratingProcessorPath);
+    this.apiGeneratingProcessorNames = ImmutableSet.copyOf(apiGeneratingProcessorNames);
     this.resources = ImmutableMap.copyOf(resources);
     this.messages = ImmutableList.copyOf(messages);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
@@ -496,6 +520,14 @@ public class JavaTargetAttributes {
 
   public ImmutableSet<Artifact> getProcessorPath() {
     return processorPath;
+  }
+  
+  public Collection<Artifact> getApiGeneratingProcessorPath() {
+    return apiGeneratingProcessorPath;
+  }
+
+  public ImmutableSet<String> getApiGeneratingProcessorNames() {
+    return apiGeneratingProcessorNames;
   }
 
   public Set<Artifact> getSourceFiles() {
