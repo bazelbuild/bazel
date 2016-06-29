@@ -130,6 +130,7 @@ genrule(
     srcs = [
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
+        "//third_party:gpl-srcs",
         "//third_party/iossim:srcs",
         "//third_party/java/jarjar:srcs",
         "//third_party/java/jdk/langtools:srcs",

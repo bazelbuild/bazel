@@ -16,12 +16,23 @@ filegroup(
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/javascript/bootstrap:srcs",
+        "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
+    ],
+)
+
+# Filegroup to ship the sources to the Bazel embededded tools
+# This filegroup should contains all GPL with classpath exception
+# and LGPL code that we use in Bazel.
+filegroup(
+    name = "gpl-srcs",
+    srcs = [
+        "//third_party/jformatstring:srcs",
     ],
 )
 
@@ -274,9 +285,9 @@ java_import(
         ":checker_framework_dataflow",
         ":guava",
         ":jcip_annotations",
-        ":jformatstring",
         ":jsr305",
         ":pcollections",
+        "//third_party/jformatstring",
     ],
 )
 
@@ -291,13 +302,6 @@ java_import(
     name = "pcollections",
     jars = [
         "pcollections/pcollections-2.1.2.jar",
-    ],
-)
-
-java_import(
-    name = "jformatstring",
-    jars = [
-        "jformatstring/jFormatString-3.0.0.jar",
     ],
 )
 
@@ -318,9 +322,9 @@ filegroup(
         "error_prone/error_prone_core-2.0.9-20160129.jar",
         "guava/guava-19.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
-        "jformatstring/jFormatString-3.0.0.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
+        "//third_party/jformatstring:bootstrap",
     ],
 )
 
