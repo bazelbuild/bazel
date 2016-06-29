@@ -156,8 +156,16 @@ class ExperimentalStateTracker {
   void buildComplete(BuildCompleteEvent event, String additionalInfo) {
     if (event.getResult().getSuccess()) {
       status = "INFO";
-      additionalMessage =
-          additionalInfo + "Build completed successfully, " + actionsCompleted + " total actions";
+      if (failedTests == 0) {
+        additionalMessage =
+            additionalInfo + "Build completed successfully, "
+            + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
+      } else {
+        additionalMessage =
+            additionalInfo + "Build completed, "
+            + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
+            + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
+      }
     } else {
       ok = false;
       status = "FAILED";
