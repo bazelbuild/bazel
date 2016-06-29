@@ -15,13 +15,16 @@ package com.google.devtools.build.android;
 
 import com.android.ide.common.res2.MergingException;
 
+import java.io.Flushable;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map.Entry;
 
-/**
- * An interface for visiting android data for writing.
- */
-public interface AndroidDataWritingVisitor {
+import javax.annotation.CheckReturnValue;
+import javax.xml.namespace.QName;
+
+/** An interface for visiting android data for writing. */
+public interface AndroidDataWritingVisitor extends Flushable {
   /**
    * Copies the AndroidManifest to the destination directory.
    */
@@ -54,5 +57,110 @@ public interface AndroidDataWritingVisitor {
    * @param xmlFragment the xml fragment as an Iterable<String> which allows lazy generation.
    */
   // TODO(corysmith): Change this to pass in a xml writer. Safer all around.
+  @Deprecated
   void writeToValuesXml(FullyQualifiedName key, Iterable<String> xmlFragment);
+
+  /**
+   * Provides a fluent interface to generate an xml resource for the values directory.
+   *
+   * <p>Example usage: 
+   * <code>
+   *    writer.define(key)
+   *        .derivedFrom(source)
+   *        .startTag(tagName)
+   *        .named(key)
+   *        .closeTag()
+   *        .write(stringValue)
+   *        .endTag()
+   *        .save();
+   * </code>
+   */
+  // Check return value will ensure that the value is finished being written.
+  @CheckReturnValue
+  ValueResourceDefinitionMetadata define(FullyQualifiedName fqn);
+
+  /** Represents the xml values resource meta data. */
+  @CheckReturnValue
+  interface ValueResourceDefinitionMetadata {
+    ValuesResourceDefinition derivedFrom(Path source);
+  }
+
+  /** Fluent interface to define the xml value for a {@link FullyQualifiedName}. */
+  @CheckReturnValue
+  interface ValuesResourceDefinition {
+    /** Starts an xml tag with a prefix and localName. */
+    StartTag startTag(String prefix, String localName);
+
+    /** Starts an xml tag with a localName. */
+    StartTag startTag(String localName);
+
+    /** Starts an xml tag with a QName. */
+    StartTag startTag(QName name);
+
+    /** Starts an xml tag with the name "item" */
+    StartTag startItemTag();
+
+    /**
+     * Takes another values xml resource and writes it as a child tag here.
+     *
+     * <p>This allows xml elements from other {@link XmlResourceValue} to be moved in the stream.
+     * Currently, this is only necessary for {@link StyleableXmlResourceValue} which can have {@link
+     * AttrXmlResourceValue} defined as child elements (yet, they are merged and treated as
+     * independent resources.)
+     *
+     * @param fqn The {@link FullyQualifiedName} of the {@link XmlResourceValue} to be adopted. This
+     *     resource doesn't have to be defined for the adopt invocation, but it must exist when
+     *     {@link AndroidDataWritingVisitor#flush()} is called.
+     * @return The current definition.
+     */
+    ValuesResourceDefinition adopt(FullyQualifiedName fqn);
+
+    /** Adds a string as xml characters to the definition. */
+    ValuesResourceDefinition addCharactersOf(String characters);
+
+    /** Ends the last {@link StartTag}. */
+    ValuesResourceDefinition endTag();
+
+    /** Saves and validates the xml resource definition. */
+    void save();
+  }
+
+  /** Represents the start of opening tag of a resource xml. */
+  @CheckReturnValue
+  interface StartTag {
+    /** Adds name="{@link FullyQualifiedName}#name()" attribute. */
+    StartTag named(FullyQualifiedName key);
+    /** Adds "name" attribute to the {@link StartTag}. */
+    StartTag named(String key);
+    /** Adds all the {@link Entry} as key="value" to the {@link StartTag}. */
+    StartTag addAttributesFrom(Iterable<Entry<String, String>> entries);
+    /** Starts an attribute of prefix:name. */
+    Attribute attribute(String prefix, String name);
+    /** Starts an attribute of name. */
+    Attribute attribute(String string);
+    /** Indicates the next attribute will only be written if the value is not null. */
+    Optional optional();
+    /** Closes the {@link StartTag} as ">" */
+    ValuesResourceDefinition closeTag();
+    /** Closes the {@link StartTag} as "/>", indicating it is a unary xml element. */
+    ValuesResourceDefinition closeUnaryTag();
+  }
+
+  /** Adjective for an optional attribute. */
+  @CheckReturnValue
+  interface Optional {
+    /** Starts an attribute of prefix:name. */
+    Attribute attribute(String prefix, String name);
+    /** Starts an attribute of name. */
+    Attribute attribute(String string);
+  }
+
+  /** Represents an xml attribute of a start tag. */
+  @CheckReturnValue
+  interface Attribute {
+    /** Sets the attribute value. */
+    StartTag setTo(String value);
+    /** Sets the attributes values to {@linkplain FullyQualifiedName#name()}. */
+    StartTag setTo(FullyQualifiedName fqn);
+  }
 }
