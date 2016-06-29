@@ -472,6 +472,12 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   private void startUpdateThread() {
+    // Refuse to start an update thread once the build is complete; such a situation might
+    // arise if the completion of the build is reported (shortly) before the completion of
+    // the last action is reported.
+    if (buildComplete) {
+      return;
+    }
     Thread threadToStart = null;
     synchronized (this) {
       if (updateThread == null) {
