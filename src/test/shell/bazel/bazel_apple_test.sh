@@ -419,4 +419,33 @@ EOF
 
 }
 
+function test_swift_compilation_mode_flags() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/debug.swift <<EOF
+// A trick to break compilation when DEBUG is not set.
+func foo() {
+  #if DEBUG
+  var x: Int
+  #endif
+  x = 3
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["debug.swift"])
+EOF
+
+  ! bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION -c opt \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should not build"
+  expect_log "error: use of unresolved identifier 'x'"
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION -c dbg \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
 run_suite "apple_tests"

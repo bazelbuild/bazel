@@ -33,6 +33,27 @@ def _swift_target(cpu, sdk_version):
   """Returns a target triplet for Swift compiler."""
   return "%s-apple-ios%s" % (cpu, sdk_version)
 
+def _swift_compilation_mode_flags(ctx):
+  """Returns additional swiftc flags for the current compilation mode."""
+  mode = ctx.var["COMPILATION_MODE"]
+  if mode == "dbg":
+    return ["-Onone", "-DDEBUG", "-g"]
+  elif mode == "fastbuild":
+    return ["-Onone", "-DDEBUG"]
+  elif mode == "opt":
+    return ["-O", "-DNDEBUG"]
+
+def _clang_compilation_mode_flags(ctx):
+  """Returns additional clang flags for the current compilation mode."""
+
+  # In general, every compilation mode flag from native objc_ rules should be
+  # passed, but -g seems to break Clang module compilation. Since this flag does
+  # not make much sense for module compilation and only touches headers,
+  # it's ok to omit.
+  native_clang_flags = ctx.fragments.objc.copts_for_current_compilation_mode
+
+  return [x for x in native_clang_flags if x != "-g"]
+
 def _module_name(ctx):
   """Returns a module name for the given rule context."""
   return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
@@ -104,7 +125,8 @@ def _swift_library_impl(ctx):
       # not passed the current directory as a search path by default.
       ["-iquote", "."]
       # Pass DEFINE or copt values from objc configuration and rules to clang
-      + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts)
+      + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts
+      + _clang_compilation_mode_flags(ctx))
 
   args = [
       "swift",
@@ -118,7 +140,12 @@ def _swift_library_impl(ctx):
       "-sdk", apple_toolchain.sdk_dir(),
       "-o", output_lib.path,
       "-module-cache-path", module_cache_path(ctx),
-      ] + srcs_args + include_args + framework_args + clang_args
+      ] + _swift_compilation_mode_flags(ctx)
+
+  args.extend(srcs_args)
+  args.extend(include_args)
+  args.extend(framework_args)
+  args.extend(clang_args)
 
   xcrun_action(
       ctx,
