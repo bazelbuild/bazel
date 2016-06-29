@@ -738,7 +738,7 @@ public class CppCompileAction extends AbstractAction
     // Avoid immutable sets here to limit memory churn.
     Set<PathFragment> declaredIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeDirs());
     Set<PathFragment> warnIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeWarnDirs());
-    Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(context.getDeclaredIncludeSrcs());
+    Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(getDeclaredIncludeSrcs());
     for (Artifact input : inputsForValidation) {
       if (context.getTransitiveCompilationPrerequisites().contains(input)
           || allowedIncludes.contains(input)) {
@@ -1028,7 +1028,7 @@ public class CppCompileAction extends AbstractAction
   private Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {
     Map<PathFragment, Artifact> allowedDerivedInputMap = new HashMap<>();
     addToMap(allowedDerivedInputMap, mandatoryInputs);
-    addToMap(allowedDerivedInputMap, context.getDeclaredIncludeSrcs());
+    addToMap(allowedDerivedInputMap, getDeclaredIncludeSrcs());
     addToMap(allowedDerivedInputMap, context.getTransitiveCompilationPrerequisites());
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
@@ -1072,7 +1072,16 @@ public class CppCompileAction extends AbstractAction
    * Return explicit header files (i.e., header files explicitly listed). The
    * return value may contain duplicate elements.
    */
+  @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
+    if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
+      NestedSetBuilder<Artifact> srcs = NestedSetBuilder.stableOrder();
+      srcs.addTransitive(context.getDeclaredIncludeSrcs());
+      for (IncludeScannable lipoScannable : lipoScannables) {
+        srcs.addTransitive(lipoScannable.getDeclaredIncludeSrcs());
+      }
+      return srcs.build();
+    }
     return context.getDeclaredIncludeSrcs();
   }
 

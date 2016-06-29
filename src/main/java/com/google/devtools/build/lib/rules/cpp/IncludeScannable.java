@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
@@ -87,6 +88,11 @@ public interface IncludeScannable {
    * <p>Must contain {@code getMainIncludeScannerSource()}.
    */
   Collection<Artifact> getIncludeScannerSources();
+
+  /**
+   * Returns explicit header files (i.e., header files explicitly listed) of transitive deps.
+   */
+  NestedSet<Artifact> getDeclaredIncludeSrcs();
 
   /**
    * Returns additional scannables that need also be scanned when scanning this
