@@ -14,9 +14,9 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
+import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Map.Entry;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
@@ -190,32 +189,20 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
-    StringBuilder xmlString =
-        new StringBuilder("<")
-            .append(valueType.tagName.getLocalPart())
-            .append(" name=\"")
-            .append(key.name())
-            .append("\"");
-    for (Entry<String, String> entry : attributes.entrySet()) {
-      xmlString
-          .append(" ")
-          .append(entry.getKey())
-          .append("=\"")
-          .append(entry.getValue())
-          .append("\"");
-    }
+
+    StartTag startTag =
+        mergedDataWriter
+            .define(key)
+            .derivedFrom(source)
+            .startTag(valueType.tagName)
+            .named(key)
+            .addAttributesFrom(attributes.entrySet());
+
     if (value != null) {
-      xmlString
-          .append(">")
-          .append(value)
-          .append("</")
-          .append(valueType.tagName.getLocalPart())
-          .append(">");
+      startTag.closeTag().addCharactersOf(value).endTag().save();
     } else {
-      xmlString.append("/>");
+      startTag.closeUnaryTag().save();
     }
-    mergedDataWriter.writeToValuesXml(
-        key, ImmutableList.of(String.format("<!-- %s -->", source), xmlString.toString()));
   }
 
   @SuppressWarnings("deprecation")

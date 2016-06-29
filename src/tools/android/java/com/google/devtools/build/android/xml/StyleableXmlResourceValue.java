@@ -16,12 +16,11 @@ package com.google.devtools.build.android.xml;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
+import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -61,13 +60,6 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public class StyleableXmlResourceValue implements XmlResourceValue {
-  public static final Function<FullyQualifiedName, String> ITEM_TO_ATTR =
-      new Function<FullyQualifiedName, String>() {
-        @Override
-        public String apply(FullyQualifiedName input) {
-          return String.format("<attr name='%s'/>", input.name());
-        }
-      };
 
   static final Function<Entry<FullyQualifiedName, Boolean>, SerializeFormat.DataKey>
       FULLY_QUALIFIED_NAME_TO_DATA_KEY =
@@ -120,14 +112,24 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
-    mergedDataWriter.writeToValuesXml(
-        key,
-        FluentIterable.from(
-                ImmutableList.of(
-                    String.format("<!-- %s -->", source),
-                    String.format("<declare-styleable name='%s'>", key.name())))
-            .append(FluentIterable.from(attrs.keySet()).transform(ITEM_TO_ATTR))
-            .append("</declare-styleable>"));
+    ValuesResourceDefinition definition =
+        mergedDataWriter
+            .define(key)
+            .derivedFrom(source)
+            .startTag("declare-styleable")
+            .named(key)
+            .closeTag();
+    for (Entry<FullyQualifiedName, Boolean> entry : attrs.entrySet()) {
+      if (entry.getValue().booleanValue()) {
+        // Move the attr definition to this styleable.
+        definition = definition.adopt(entry.getKey());
+      } else {
+        // Make a reference to the attr.
+        definition =
+            definition.startTag("attr").attribute("name").setTo(entry.getKey()).closeUnaryTag();
+      }
+    }
+    definition.endTag().save();
   }
 
   @Override

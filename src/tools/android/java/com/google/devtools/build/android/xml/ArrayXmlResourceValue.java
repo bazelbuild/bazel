@@ -14,12 +14,11 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
+import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -31,10 +30,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Objects;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
@@ -62,17 +59,8 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   private static final QName TAG_INTEGER_ARRAY = QName.valueOf("integer-array");
   private static final QName TAG_ARRAY = QName.valueOf("array");
   private static final QName TAG_STRING_ARRAY = QName.valueOf("string-array");
-  private static final Function<String, String> ITEM_TO_XML =
-      new Function<String, String>() {
-        @Nullable
-        @Override
-        public String apply(@Nullable String item) {
-          return String.format("<item>%s</item>", item);
-        }
-      };
-
   /**
-   * Enumerates the different types of array tags.
+   * Enumerates the different types of array parentTags.
    */
   public enum ArrayType {
     INTEGER_ARRAY(TAG_INTEGER_ARRAY),
@@ -94,25 +82,6 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       }
       throw new IllegalArgumentException(
           String.format("%s not found in %s", tagQName, Arrays.toString(values())));
-    }
-
-    String openTag(FullyQualifiedName key, ImmutableMap<String, String> attributes) {
-      StringBuilder xmlString = new StringBuilder("<");
-      xmlString.append(tagName.getLocalPart());
-      xmlString.append(" name='").append(key.name()).append("'");
-      for (Entry<String, String> entry : attributes.entrySet()) {
-        xmlString
-            .append(" ")
-            .append(entry.getKey())
-            .append("=\"")
-            .append(entry.getValue())
-            .append("\"");
-      }
-      return xmlString.append(">").toString();
-    }
-
-    String closeTag() {
-      return String.format("</%s>", tagName.getLocalPart());
     }
   }
 
@@ -152,13 +121,15 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
-    mergedDataWriter.writeToValuesXml(
-        key,
-        FluentIterable.from(
-                ImmutableList.of(
-                    String.format("<!-- %s -->", source), arrayType.openTag(key, attributes)))
-            .append(FluentIterable.from(values).transform(ITEM_TO_XML))
-            .append(arrayType.closeTag()));
+    ValuesResourceDefinition definition = mergedDataWriter.define(key).derivedFrom(source)
+        .startTag(arrayType.tagName)
+        .named(key)
+        .addAttributesFrom(attributes.entrySet())
+        .closeTag();
+    for (String value : values) {
+      definition = definition.startItemTag().closeTag().addCharactersOf(value).endTag();
+    }
+    definition.endTag().save();
   }
 
   @Override

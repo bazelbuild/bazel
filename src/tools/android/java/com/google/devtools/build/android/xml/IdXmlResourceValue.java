@@ -14,8 +14,8 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
+import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -66,17 +66,18 @@ public class IdXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
-    String sourceString = String.format("<!-- %s -->", source);
+    StartTag startTag =
+        mergedDataWriter
+            .define(key)
+            .derivedFrom(source)
+            .startItemTag()
+            .named(key)
+            .attribute("type")
+            .setTo("id");
     if (value == null) {
-      mergedDataWriter.writeToValuesXml(
-          key,
-          ImmutableList.of(sourceString, String.format("<item type='id' name='%s'/>", key.name())));
+      startTag.closeUnaryTag().save();
     } else {
-      mergedDataWriter.writeToValuesXml(
-          key,
-          ImmutableList.of(
-              sourceString,
-              String.format("<item type='id' name='%s'>%s</item>", key.name(), value)));
+      startTag.closeTag().addCharactersOf(value).endTag().save();
     }
   }
 

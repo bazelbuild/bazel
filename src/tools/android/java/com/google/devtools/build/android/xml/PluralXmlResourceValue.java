@@ -15,10 +15,9 @@ package com.google.devtools.build.android.xml;
 
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
+import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -34,6 +33,7 @@ import java.util.Objects;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import javax.xml.namespace.QName;
 
 /**
  * Represents an Android Plural Resource.
@@ -52,6 +52,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public class PluralXmlResourceValue implements XmlResourceValue {
 
+  private static final QName PLURALS = QName.valueOf("plurals");
   public static final Function<Entry<String, String>, String> ENTRY_TO_PLURAL =
       new Function<Entry<String, String>, String>() {
         @Nullable
@@ -73,14 +74,19 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
-    mergedDataWriter.writeToValuesXml(
-        key,
-        FluentIterable.from(
-                ImmutableList.of(
-                    String.format("<!-- %s -->", source),
-                    String.format("<plurals name='%s'>", key.name())))
-            .append(FluentIterable.from(values.entrySet()).transform(ENTRY_TO_PLURAL))
-            .append("</plurals>"));
+    ValuesResourceDefinition definition =
+        mergedDataWriter.define(key).derivedFrom(source).startTag(PLURALS).named(key).closeTag();
+    for (Entry<String, String> plural : values.entrySet()) {
+      definition =
+          definition
+              .startItemTag()
+              .attribute("quantity")
+              .setTo(plural.getKey())
+              .closeTag()
+              .addCharactersOf(plural.getValue())
+              .endTag();
+    }
+    definition.endTag().save();
   }
 
   @Override

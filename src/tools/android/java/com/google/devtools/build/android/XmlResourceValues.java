@@ -82,7 +82,7 @@ public class XmlResourceValues {
   private static final XMLEventFactory XML_EVENT_FACTORY = XMLEventFactory.newInstance();
 
   static final String XLIFF_NAMESPACE = "urn:oasis:names:tc:xliff:document:1.2";
-  private static final String XLIFF_PREFIX = "xliff";
+  static final String XLIFF_PREFIX = "xliff";
 
   static XmlResourceValue parsePlurals(XMLEventReader eventReader) throws XMLStreamException {
     ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
