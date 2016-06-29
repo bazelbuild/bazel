@@ -39,6 +39,9 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +60,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
   static final long LONG_REFRESH_MILLIS = 5000L;
 
+  private static final DateTimeFormatter TIMESTAMP_FORMAT =
+      DateTimeFormat.forPattern("(HH:mm:ss.SSS) ");
+
   private final long minimalDelayMillis;
   private final boolean cursorControl;
   private final Clock clock;
@@ -66,6 +72,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private final long minimalUpdateInterval;
   private final boolean showProgress;
   private final boolean progressInTermTitle;
+  private final boolean showTimestamp;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
   private int numLinesProgressBar;
@@ -85,6 +92,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
     this.progressInTermTitle = options.progressInTermTitle;
+    this.showTimestamp = options.showTimestamp;
     this.clock = clock;
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     // If we have cursor control, we try to fit in the terminal width to avoid having
@@ -199,6 +207,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
             terminal.writeString(event.getKind() + ": ");
             terminal.resetTerminal();
             incompleteLine = true;
+            if (showTimestamp) {
+              terminal.writeString(TIMESTAMP_FORMAT.print(clock.currentTimeMillis()));
+            }
             if (event.getLocation() != null) {
               terminal.writeString(event.getLocation() + ": ");
             }
@@ -292,7 +303,13 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    stateTracker.buildComplete(event);
+    // The final progress bar will flow into the scroll-back buffer, to if treat
+    // it as an event and add a time stamp, if events are supposed to have a time stmap.
+    if (showTimestamp) {
+      stateTracker.buildComplete(event, TIMESTAMP_FORMAT.print(clock.currentTimeMillis()));
+    } else {
+      stateTracker.buildComplete(event);
+    }
     ignoreRefreshLimitOnce();
     refresh();
     buildComplete = true;

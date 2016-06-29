@@ -133,6 +133,13 @@ function test_fail() {
   expect_log 'pkg:false.*'$'\x1b\[31m\x1b\[1m''.*FAIL'
 }
 
+function test_timestamp() {
+  bazel test --experimental_ui --show_timestamps pkg:true 2>$TEST_log \
+    || fail "bazel test failed"
+  # expect something that looks like HH:mm:ss
+  expect_log '[0-2][0-9]:[0-5][0-9]:[0-6][0-9]'
+}
+
 function test_info_spacing() {
   # Verify that the output of "bazel info" is suitable for backtick escapes,
   # in particular free carriage-return characters.
