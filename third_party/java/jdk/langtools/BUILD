@@ -8,10 +8,12 @@ filegroup(
         "//tools/jdk:jdk7": [
             "BUILD",
             "javac7.jar",
+            "javac7.srcjar",
         ],
         "//conditions:default": [
             "BUILD",
             "javac.jar",
+            "javac.srcjar",
         ],
     }),
 )
