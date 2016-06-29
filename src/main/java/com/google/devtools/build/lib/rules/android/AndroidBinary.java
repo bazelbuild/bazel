@@ -174,10 +174,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       toolchainMap.put(config.getCpu(), CppHelper.getToolchain(ruleContext));
     }
 
-    NativeLibs nativeLibs = shouldLinkNativeDeps(ruleContext)
-        ? NativeLibs.fromLinkedNativeDeps(ruleContext, androidSemantics.getNativeDepsFileName(),
-            depsByArchitecture, toolchainMap, configurationMap)
-        : NativeLibs.fromPrecompiledObjects(ruleContext, depsByArchitecture);
+    NativeLibs nativeLibs =
+        NativeLibs.fromLinkedNativeDeps(
+            ruleContext,
+            androidSemantics.getNativeDepsFileName(),
+            depsByArchitecture,
+            toolchainMap,
+            configurationMap);
 
     // TODO(bazel-team): Resolve all the different cases of resource handling so this conditional
     // can go away: recompile from android_resources, and recompile from android_binary attributes.
@@ -1695,19 +1698,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         || ruleContext.attributes().isAttributeValueExplicitlySpecified(
             "resource_configuration_filters")
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("nocompress_extensions");
-  }
-
-  /**
-   * Returns whether to use NativeDepsHelper to link native dependencies.
-   */
-  public static boolean shouldLinkNativeDeps(RuleContext ruleContext) {
-    TriState attributeValue = ruleContext.attributes().get(
-        "legacy_native_support", BuildType.TRISTATE);
-    if (attributeValue == TriState.AUTO) {
-      return !ruleContext.getFragment(AndroidConfiguration.class).getLegacyNativeSupport();
-    } else {
-      return attributeValue == TriState.NO;
-    }
   }
 
   /**

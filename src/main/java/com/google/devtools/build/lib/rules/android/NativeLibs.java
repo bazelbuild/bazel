@@ -50,18 +50,6 @@ public final class NativeLibs {
   public static final NativeLibs EMPTY =
       new NativeLibs(ImmutableMap.<String, Iterable<Artifact>>of(), null);
 
-  public static NativeLibs fromPrecompiledObjects(
-      RuleContext ruleContext, Multimap<String, TransitiveInfoCollection> depsByArchitecture) {
-    ImmutableMap.Builder<String, Iterable<Artifact>> builder = ImmutableMap.builder();
-    for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
-        depsByArchitecture.asMap().entrySet()) {
-      NestedSet<LinkerInput> nativeLibraries =
-          AndroidCommon.collectTransitiveNativeLibraries(entry.getValue());
-      builder.put(entry.getKey(), filterUniqueSharedLibraries(ruleContext, nativeLibraries));
-    }
-    return new NativeLibs(builder.build(), null);
-  }
-
   public static NativeLibs fromLinkedNativeDeps(
       RuleContext ruleContext,
       String nativeDepsFileName,
@@ -69,20 +57,26 @@ public final class NativeLibs {
       Map<String, CcToolchainProvider> toolchainMap,
       Map<String, BuildConfiguration> configurationMap) {
     Map<String, Iterable<Artifact>> result = new LinkedHashMap<>();
+    String nativeDepsLibraryBasename = null;
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         depsByArchitecture.asMap().entrySet()) {
       CcLinkParams linkParams = AndroidCommon.getCcLinkParamsStore(entry.getValue())
           .get(/* linkingStatically */ true, /* linkShared */ true);
 
-      Artifact nativeDepsLibrary = NativeDepsHelper.maybeCreateAndroidNativeDepsAction(
-          ruleContext, linkParams, configurationMap.get(entry.getKey()),
-          toolchainMap.get(entry.getKey()));
+      Artifact nativeDepsLibrary =
+          NativeDepsHelper.linkAndroidNativeDepsIfPresent(
+              ruleContext,
+              linkParams,
+              configurationMap.get(entry.getKey()),
+              toolchainMap.get(entry.getKey()));
 
       ImmutableList.Builder<Artifact> librariesBuilder = ImmutableList.builder();
-      librariesBuilder.addAll(filterUniqueSharedLibraries(ruleContext, linkParams.getLibraries()));
       if (nativeDepsLibrary != null) {
         librariesBuilder.add(nativeDepsLibrary);
+        nativeDepsLibraryBasename = nativeDepsLibrary.getExecPath().getBaseName();
       }
+      librariesBuilder.addAll(
+          filterUniqueSharedLibraries(ruleContext, nativeDepsLibrary, linkParams.getLibraries()));
       ImmutableList<Artifact> libraries = librariesBuilder.build();
 
       if (!libraries.isEmpty()) {
@@ -91,17 +85,18 @@ public final class NativeLibs {
     }
     if (result.isEmpty()) {
       return NativeLibs.EMPTY;
+    } else if (nativeDepsLibraryBasename == null) {
+      return new NativeLibs(ImmutableMap.copyOf(result), null);
     } else {
-      Artifact anyNativeLibrary =
-          result.entrySet().iterator().next().getValue().iterator().next();
       // The native deps name file must be the only file in its directory because ApkBuilder does
       // not have an option to add a particular file to the .apk, only one to add every file in a
       // particular directory.
       Artifact nativeDepsName = ruleContext.getUniqueDirectoryArtifact(
           "nativedeps_filename", nativeDepsFileName,
           ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(new FileWriteAction(ruleContext.getActionOwner(), nativeDepsName,
-          anyNativeLibrary.getExecPath().getBaseName(), false));
+      ruleContext.registerAction(
+          new FileWriteAction(
+              ruleContext.getActionOwner(), nativeDepsName, nativeDepsLibraryBasename, false));
 
       return new NativeLibs(ImmutableMap.copyOf(result), nativeDepsName);
     }
@@ -186,9 +181,12 @@ public final class NativeLibs {
   }
 
   private static Iterable<Artifact> filterUniqueSharedLibraries(
-      RuleContext ruleContext, NestedSet<? extends LinkerInput> libraries) {
+      RuleContext ruleContext, Artifact linkedLibrary, NestedSet<? extends LinkerInput> libraries) {
     Map<String, Artifact> basenames = new HashMap<>();
     Set<Artifact> artifacts = new HashSet<>();
+    if (linkedLibrary != null) {
+      basenames.put(linkedLibrary.getExecPath().getBaseName(), linkedLibrary);
+    }
     for (LinkerInput linkerInput : libraries) {
       String name = linkerInput.getArtifact().getFilename();
       if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
@@ -206,9 +204,17 @@ public final class NativeLibs {
       if (oldArtifact != null) {
         // There may be name collisions in the libraries which were provided, so
         // check for this at this step.
-        ruleContext.ruleError("Each library in the transitive closure must have a unique "
-            + "basename, but two libraries had the basename '" + basename + "': "
-            + artifact.prettyPrint() + " and " + oldArtifact.prettyPrint());
+        ruleContext.ruleError(
+            "Each library in the transitive closure must have a unique basename to avoid "
+                + "name collisions when packaged into an apk, but two libraries have the basename '"
+                + basename
+                + "': "
+                + artifact.prettyPrint()
+                + " and "
+                + oldArtifact.prettyPrint()
+                + ((oldArtifact == linkedLibrary)
+                    ? " (the library compiled for this target)"
+                    : ""));
       }
     }
     return artifacts;

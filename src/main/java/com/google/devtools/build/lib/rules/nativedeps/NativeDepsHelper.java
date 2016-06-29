@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
+import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -82,16 +83,22 @@ public abstract class NativeDepsHelper {
    * <p>linkshared=1 means we prefer the ".pic.a" files to the ".a" files, and the LinkTargetType is
    * set to DYNAMIC_LIBRARY which causes Link.java to include "-shared" in the linker options.
    *
+   * <p>It is possible that this function may have no work to do if there are no native libraries
+   * in the transitive closure, or if the only native libraries in the transitive closure are
+   * already shared libraries. In this case, this function returns {@code null}.
+   *
    * @param ruleContext the rule context to determine the native deps library
    * @param linkParams the {@link CcLinkParams} for the rule, collected with linkstatic = 1 and
    *        linkshared = 1
-   * @return the native deps library runfiles. If the transitive deps closure of the rule contains
-   *         no native code libraries, its fields are null.
+   * @return the native deps library, or null if there was no code which needed to be linked in the
+   *         transitive closure.
    */
-  public static Artifact maybeCreateAndroidNativeDepsAction(final RuleContext ruleContext,
-      CcLinkParams linkParams, final BuildConfiguration configuration,
+  public static Artifact linkAndroidNativeDepsIfPresent(
+      final RuleContext ruleContext,
+      CcLinkParams linkParams,
+      final BuildConfiguration configuration,
       CcToolchainProvider toolchain) {
-    if (linkParams.getLibraries().isEmpty()) {
+    if (!containsCodeToLink(linkParams.getLibraries())) {
       return null;
     }
 
@@ -110,6 +117,36 @@ public abstract class NativeDepsHelper {
             configuration.getBinDirectory(),
             /*useDynamicRuntime*/ false)
         .getLibrary();
+  }
+
+  /** Determines if there is any code to be linked in the input iterable. */
+  private static boolean containsCodeToLink(Iterable<LibraryToLink> libraries) {
+    for (LibraryToLink library : libraries) {
+      if (containsCodeToLink(library)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Determines if the input library is or contains an archive which must be linked. */
+  private static boolean containsCodeToLink(LibraryToLink library) {
+    if (Link.SHARED_LIBRARY_FILETYPES.matches(library.getArtifact().getFilename())) {
+      // this is a shared library so we're going to have to copy it
+      return false;
+    }
+    if (!library.containsObjectFiles()) {
+      // this is an opaque library so we're going to have to link it
+      return true;
+    }
+    for (Artifact object : library.getObjectFiles()) {
+      if (!Link.SHARED_LIBRARY_FILETYPES.matches(object.getFilename())) {
+        // this library was built with a non-shared-library object so we should link it
+        return true;
+      }
+    }
+    // there weren't any artifacts besides shared libraries compiled in the library
+    return false;
   }
 
   public static NativeDepsRunfiles createNativeDepsAction(

@@ -231,13 +231,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             help = "Specifies Android SDK/platform that is used to build Android applications.")
     public Label sdk;
 
-    @Option(name = "legacy_android_native_support",
-        defaultValue = "true",
-        category = "semantics",
-        help = "Switches back to old native support for android_binaries. Disable to link together "
-            + "native deps of android_binaries into a single .so by default.")
-    public boolean legacyNativeSupport;
-
     // TODO(bazel-team): Maybe merge this with --android_cpu above.
     @Option(name = "fat_apk_cpu",
             converter = Converters.CommaSeparatedOptionListConverter.class,
@@ -395,7 +388,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   private final Label sdk;
   private final StrictDepsMode strictDeps;
-  private final boolean legacyNativeSupport;
   private final String cpu;
   private final boolean incrementalNativeLibs;
   private final boolean usesAndroidCrosstool;
@@ -414,7 +406,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.sdk = androidSdk;
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.strictDeps = options.strictDeps;
-    this.legacyNativeSupport = options.legacyNativeSupport;
     this.cpu = options.cpu;
     this.usesAndroidCrosstool = (options.androidCrosstoolTop != null);
     this.configurationDistinguisher = options.configurationDistinguisher;
@@ -441,10 +432,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public Label getSdk() {
     return sdk;
-  }
-
-  public boolean getLegacyNativeSupport() {
-    return legacyNativeSupport;
   }
 
   public StrictDepsMode getStrictDeps() {
