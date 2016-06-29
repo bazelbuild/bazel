@@ -83,7 +83,6 @@ public class InMemoryNodeEntry implements NodeEntry {
    * <p>In case of a single object we store the object unwrapped, without the list, for
    * memory-efficiency.
    */
-  @VisibleForTesting
   protected Object reverseDeps = ImmutableList.of();
 
   /**
@@ -194,14 +193,14 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /**
-   * Puts entry in "done" state, as checked by {@link #isDone}. Subclasses that override one should
-   * override the other.
+   * Puts entry in "done" state, as checked by {@link #isDone}. Subclasses that override one may
+   * need to override the other.
    */
   protected void markDone() {
     buildingState = null;
   }
 
-  protected synchronized Set<SkyKey> setStateFinishedAndReturnReverseDeps() {
+  protected synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
     // Get reverse deps that need to be signaled.
     ImmutableSet<SkyKey> reverseDepsToSignal = buildingState.getReverseDepsToSignal();
     getReverseDepsUtil().addReverseDeps(this, reverseDepsToSignal);
@@ -245,7 +244,7 @@ public class InMemoryNodeEntry implements NodeEntry {
       this.value = value;
     }
 
-    return setStateFinishedAndReturnReverseDeps();
+    return setStateFinishedAndReturnReverseDepsToSignal();
   }
 
   protected ReverseDepsUtil<InMemoryNodeEntry> getReverseDepsUtil() {
@@ -369,7 +368,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         this);
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!buildingState.isChanged(), "shouldn't be changed: %s", this);
-    return setStateFinishedAndReturnReverseDeps();
+    return setStateFinishedAndReturnReverseDepsToSignal();
   }
 
   @Override

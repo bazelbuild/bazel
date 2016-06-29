@@ -110,11 +110,11 @@ public class BuildingState {
   private final GroupedList<SkyKey> directDeps = new GroupedList<>();
 
   /**
-   * The set of reverse dependencies that are registered before the node has finished building.
-   * Upon building, these reverse deps will be signaled and then stored in the permanent
-   * {@code ValueEntry#reverseDeps}.
+   * The set of reverse dependencies that are registered before the node has finished building. Upon
+   * building, these reverse deps will be signaled and then stored in the permanent {@link
+   * InMemoryNodeEntry#reverseDeps}.
    */
-  private Object reverseDepsToSignal = ImmutableList.of();
+  protected Object reverseDepsToSignal = ImmutableList.of();
   private List<Object> reverseDepsDataToConsolidate = null;
 
   private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
@@ -155,7 +155,7 @@ public class BuildingState {
    * it means that this node is being built for the first time. See {@link #directDeps} for more on
    * dependency group storage.
    */
-  private final GroupedList<SkyKey> lastBuildDirectDeps;
+  protected final GroupedList<SkyKey> lastBuildDirectDeps;
 
   /**
    * Group of children to be checked next in the process of determining if this entry needs to be
@@ -386,10 +386,10 @@ public class BuildingState {
   }
 
   /**
-   * Returns the direct deps (in groups) found on this build. Should only be called when the node
-   * is done.
+   * Returns the direct deps (in groups) found on this build. Should only be called when the node is
+   * done.
    *
-   * @see InMemoryNodeEntry#setStateFinishedAndReturnReverseDeps
+   * @see InMemoryNodeEntry#setStateFinishedAndReturnReverseDepsToSignal
    */
   GroupedList<SkyKey> getFinishedDirectDeps() {
     return directDeps;
