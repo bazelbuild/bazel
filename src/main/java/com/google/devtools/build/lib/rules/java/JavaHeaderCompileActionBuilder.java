@@ -40,17 +40,16 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * Builder for Java header compilation actions, to be used if --experimental_java_header_compilation
- * is enabled.
+ * Builder for Java header compilation actions, to be used if --java_header_compilation is enabled.
  *
- * <p>The header compiler consumes the inputs of a java compilation, and produces an interface
- * jar that can be used as a compile-time jar by upstream targets. The header interface jar is
- * equivalent to the output of ijar, but unlike ijar the header compiler operates directly on
- * Java source files instead post-processing the class outputs of the compilation. Compiling the
+ * <p>The header compiler consumes the inputs of a java compilation, and produces an interface jar
+ * that can be used as a compile-time jar by upstream targets. The header interface jar is
+ * equivalent to the output of ijar, but unlike ijar the header compiler operates directly on Java
+ * source files instead post-processing the class outputs of the compilation. Compiling the
  * interface jar from source moves javac off the build's critical path.
  *
- * <p>The implementation of the header compiler tool can be found under
- * {@code //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine}.
+ * <p>The implementation of the header compiler tool can be found under {@code
+ * //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine}.
  */
 public class JavaHeaderCompileActionBuilder {
 
