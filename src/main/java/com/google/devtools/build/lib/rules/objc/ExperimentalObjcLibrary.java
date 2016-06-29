@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Builder;
@@ -42,6 +43,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
   private static final String PCH_FILE_VARIABLE_NAME = "pch_file";
   private static final String FRAMEWORKS_VARIABLE_NAME = "framework_paths";
+  private static final String VERSION_MIN_VARIABLE_NAME = "version_min";
   private static final String MODULES_MAPS_DIR_NAME = "module_maps_dir";
   private static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
   private static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
@@ -56,16 +58,23 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     private final RuleContext ruleContext;
     private final ObjcProvider objcProvider;
+    
+    private final AppleConfiguration appleConfiguration;
+    private final ObjcConfiguration objcConfiguration;
 
     public ObjcVariablesExtension(RuleContext ruleContext, ObjcProvider objcProvider) {
       this.ruleContext = ruleContext;
       this.objcProvider = objcProvider;
+      
+      this.appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+      this.objcConfiguration = ruleContext.getFragment(ObjcConfiguration.class);
     }
 
     @Override
     public void addVariables(Builder builder) {
       addPchVariables(builder);
       addFrameworkVariables(builder);
+      addArchVariables(builder);
       if (ObjcCommon.shouldUseObjcModules(ruleContext)) {
         addModuleMapVariables(builder);
       }
@@ -101,6 +110,23 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
       builder.addVariable(
           OBJC_MODULE_CACHE_KEY,
           ruleContext.getConfiguration().getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME);
+    }
+    
+    private void addArchVariables(Builder builder) {
+      Platform platform = appleConfiguration.getSingleArchPlatform();
+      switch (platform.getType()) {
+        case IOS:
+          builder.addVariable(
+              VERSION_MIN_VARIABLE_NAME, objcConfiguration.getMinimumOs().toString());
+          break;
+        case WATCHOS:
+          builder.addVariable(
+              VERSION_MIN_VARIABLE_NAME,
+              appleConfiguration.getSdkVersionForPlatform(platform).toString());
+          break;
+        default: // don't handle MACOS and TVOS
+          throw new IllegalArgumentException("Unhandled platform: " + platform);
+      }
     }
   }
 
