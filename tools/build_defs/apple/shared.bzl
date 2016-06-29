@@ -47,11 +47,6 @@ def module_cache_path(ctx):
 def apple_action(ctx, **kw):
   """Creates an action that only runs on MacOS/Darwin.
 
-  This function also passes to the action the necessary environment variables
-  that control the Xcode version and platform to build for.
-
-  Rules that use this action must require the "apple" configuration fragment.
-
   Call it similar to how you would call ctx.action:
     apple_action(ctx, outputs=[...], inputs=[...],...)
   """
@@ -59,17 +54,10 @@ def apple_action(ctx, **kw):
   execution_requirements += DARWIN_EXECUTION_REQUIREMENTS
   kw['execution_requirements'] = execution_requirements
 
-  platform = ctx.fragments.apple.ios_cpu_platform()
-  action_env = ctx.fragments.apple.target_apple_env(platform) \
-      + ctx.fragments.apple.apple_host_system_env()
-  kw['env'] = kw.get('env', {}) + action_env
-
   ctx.action(**kw)
 
 def xcrun_action(ctx, **kw):
   """Creates an apple action that executes xcrunwrapper.
-
-  Rules that use this action must require the "apple" configuration fragment.
 
   args:
     ctx: The context of the rule that owns this action.
@@ -77,4 +65,10 @@ def xcrun_action(ctx, **kw):
   This method takes the same keyword arguments as ctx.action, however you don't
   need to specify the executable.
   """
+  platform = ctx.fragments.apple.ios_cpu_platform()
+  action_env = ctx.fragments.apple.target_apple_env(platform) \
+      + ctx.fragments.apple.apple_host_system_env()
+  env = kw.get('env', {})
+  kw['env'] = env + action_env
+
   apple_action(ctx, executable=ctx.executable._xcrunwrapper, **kw)
