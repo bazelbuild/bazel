@@ -160,7 +160,15 @@ public interface AndroidDataWritingVisitor extends Flushable {
   interface Attribute {
     /** Sets the attribute value. */
     StartTag setTo(String value);
-    /** Sets the attributes values to {@linkplain FullyQualifiedName#name()}. */
+    /** Sets the attribute value to {@linkplain FullyQualifiedName#name()}. */
     StartTag setTo(FullyQualifiedName fqn);
+    /** Start the process of setting an attribute value from an iterable of strings. * */
+    ValueJoiner setFrom(Iterable<String> values);
+  }
+
+  /** Represents the concatenation step of turning an {@link Iterable} into a string. */
+  @CheckReturnValue
+  interface ValueJoiner {
+    StartTag joinedBy(String separator);
   }
 }
