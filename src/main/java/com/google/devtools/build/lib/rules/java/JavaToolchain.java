@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.java.JavaToolchainData.SupportsWorkers;
 import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.List;
@@ -51,6 +51,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     final List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
     final List<String> misc = ruleContext.getTokenizedStringListAttr("misc");
     final List<String> jvmOpts = ruleContext.attributes().get("jvm_opts", Type.STRING_LIST);
+    final boolean javacSupportsWorkers =
+        ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     Artifact javac = getArtifact("javac", ruleContext);
     Artifact javabuilder = getArtifact("javabuilder", ruleContext);
     Artifact headerCompiler = getArtifact("header_compiler", ruleContext);
@@ -69,7 +71,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             encoding,
             xlint,
             misc,
-            jvmOpts);
+            jvmOpts,
+            javacSupportsWorkers ? SupportsWorkers.YES : SupportsWorkers.NO);
     final JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
     JavaToolchainProvider provider =
         new JavaToolchainProvider(

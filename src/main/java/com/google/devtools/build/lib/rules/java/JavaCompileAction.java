@@ -149,6 +149,9 @@ public final class JavaCompileAction extends AbstractAction {
   /** The subset of classpath jars provided by direct dependencies. */
   private final NestedSet<Artifact> directJars;
 
+  /** The ExecutionInfo to be used when creating the SpawnAction for this compilation. */
+  private final ImmutableMap<String, String> executionInfo;
+
   /**
    * The level of strict dependency checks (off, warnings, or errors).
    */
@@ -192,6 +195,7 @@ public final class JavaCompileAction extends AbstractAction {
       Collection<Artifact> sourceFiles,
       List<String> javacOpts,
       NestedSet<Artifact> directJars,
+      Map<String, String> executionInfo,
       BuildConfiguration.StrictDepsMode strictJavaDeps,
       Collection<Artifact> compileTimeDependencyArtifacts) {
     super(
@@ -227,6 +231,7 @@ public final class JavaCompileAction extends AbstractAction {
     this.sourceFiles = ImmutableList.copyOf(sourceFiles);
     this.javacOpts = ImmutableList.copyOf(javacOpts);
     this.directJars = checkNotNull(directJars, "directJars must not be null");
+    this.executionInfo = ImmutableMap.copyOf(executionInfo);
     this.strictJavaDeps = strictJavaDeps;
     this.compileTimeDependencyArtifacts = ImmutableList.copyOf(compileTimeDependencyArtifacts);
   }
@@ -289,6 +294,11 @@ public final class JavaCompileAction extends AbstractAction {
   @VisibleForTesting
   public List<String> getJavacOpts() {
     return javacOpts;
+  }
+
+  @VisibleForTesting
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return executionInfo;
   }
 
   @VisibleForTesting
@@ -356,7 +366,7 @@ public final class JavaCompileAction extends AbstractAction {
     return new BaseSpawn(
         getCommand(),
         ImmutableMap.of("LC_CTYPE", "en_US.UTF-8"),
-        /*executionInfo=*/ ImmutableMap.<String, String>of(),
+        executionInfo,
         this,
         LOCAL_RESOURCES);
   }
@@ -793,6 +803,7 @@ public final class JavaCompileAction extends AbstractAction {
     private final Collection<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
     private List<String> javacOpts = new ArrayList<>();
     private ImmutableList<String> javacJvmOpts = ImmutableList.of();
+    private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean compressJar;
     private NestedSet<Artifact> classpathEntries =
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
@@ -964,6 +975,7 @@ public final class JavaCompileAction extends AbstractAction {
           sourceFiles,
           internedJcopts,
           directJars,
+          executionInfo,
           strictJavaDeps,
           compileTimeDependencyArtifacts);
     }
@@ -1065,6 +1077,11 @@ public final class JavaCompileAction extends AbstractAction {
 
     public Builder setJavacJvmOpts(ImmutableList<String> opts) {
       this.javacJvmOpts = opts;
+      return this;
+    }
+
+    public Builder setJavacExecutionInfo(ImmutableMap<String, String> executionInfo) {
+      this.executionInfo = executionInfo;
       return this;
     }
 

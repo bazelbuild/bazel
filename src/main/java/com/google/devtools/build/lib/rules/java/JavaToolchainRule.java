@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
@@ -84,6 +85,10 @@ public final class JavaToolchainRule implements RuleDefinition {
         virtual machine documentation for the extensive list of possible flags for this option.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("jvm_opts", STRING_LIST).value(ImmutableList.<String>of("-client")))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
+        True if JavaBuilder supports running as a persistent worker, false if it doesn't.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("javac_supports_workers", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

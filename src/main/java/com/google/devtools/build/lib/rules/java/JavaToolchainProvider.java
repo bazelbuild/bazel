@@ -47,6 +47,7 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
   private final String encoding;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> javacJvmOptions;
+  private final boolean javacSupportsWorkers;
   private final Artifact javac;
   private final Artifact javaBuilder;
   private final Artifact headerCompiler;
@@ -89,6 +90,7 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
             .addAll(defaultJavacFlags)
             .build();
     this.javacJvmOptions = data.getJavacJvmOptions();
+    this.javacSupportsWorkers = data.getJavacSupportsWorkers();
   }
 
   /** @return the list of default options for the java compiler */
@@ -99,6 +101,11 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
   /** @return the list of default options for the JVM running the java compiler */
   public ImmutableList<String> getJavacJvmOptions() {
     return javacJvmOptions;
+  }
+
+  /** @return whether JavaBuilders supports running as a persistent worker or not */
+  public boolean getJavacSupportsWorkers() {
+    return javacSupportsWorkers;
   }
 
   /** @return the input Java language level */

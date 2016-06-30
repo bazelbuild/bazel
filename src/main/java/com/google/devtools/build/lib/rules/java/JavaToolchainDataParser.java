@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
+import com.google.devtools.build.lib.rules.java.JavaToolchainData.SupportsWorkers;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
@@ -81,6 +82,7 @@ public class JavaToolchainDataParser {
     ImmutableList<String> xlint = ImmutableList.of();
     ImmutableList<String> misc = ImmutableList.of();
     ImmutableList<String> jvmOpts = ImmutableList.of();
+    SupportsWorkers javacSupportsWorkers = SupportsWorkers.NO;
     for (Build.Attribute attribute : rule.getAttributeList()) {
       switch (attribute.getName()) {
         case "source_version":
@@ -120,9 +122,22 @@ public class JavaToolchainDataParser {
         case "jvm_opts":
           jvmOpts = ImmutableList.copyOf(attribute.getStringListValueList());
           break;
+        case "javac_supports_workers":
+          if (attribute.getBooleanValue()) {
+            javacSupportsWorkers = SupportsWorkers.YES;
+          }
+          break;
       }
     }
     return new JavaToolchainData(
-        source, target, bootclasspath, extclasspath, encoding, xlint, misc, jvmOpts);
+        source,
+        target,
+        bootclasspath,
+        extclasspath,
+        encoding,
+        xlint,
+        misc,
+        jvmOpts,
+        javacSupportsWorkers);
   }
 }

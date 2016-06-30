@@ -31,6 +31,11 @@ import java.util.List;
 @Immutable
 public class JavaToolchainData {
 
+  public enum SupportsWorkers {
+    NO,
+    YES
+  }
+
   private final String sourceVersion;
   private final String targetVersion;
   private final Iterable<String> bootclasspath;
@@ -38,6 +43,7 @@ public class JavaToolchainData {
   private final String encoding;
   private final ImmutableList<String> options;
   private final ImmutableList<String> jvmOpts;
+  private boolean javacSupportsWorkers;
 
   public JavaToolchainData(
       String sourceVersion,
@@ -47,7 +53,8 @@ public class JavaToolchainData {
       String encoding,
       List<String> xlint,
       List<String> misc,
-      List<String> jvmOpts) {
+      List<String> jvmOpts,
+      SupportsWorkers javacSupportsWorkers) {
     this.sourceVersion = checkNotNull(sourceVersion, "sourceVersion must not be null");
     this.targetVersion = checkNotNull(targetVersion, "targetVersion must not be null");
     this.bootclasspath = checkNotNull(bootclasspath, "bootclasspath must not be null");
@@ -55,6 +62,7 @@ public class JavaToolchainData {
     this.encoding = checkNotNull(encoding, "encoding must not be null");
 
     this.jvmOpts = ImmutableList.copyOf(jvmOpts);
+    this.javacSupportsWorkers = javacSupportsWorkers.equals(SupportsWorkers.YES);
     Builder<String> builder = ImmutableList.<String>builder();
     if (!sourceVersion.isEmpty()) {
       builder.add("-source", sourceVersion);
@@ -103,5 +111,9 @@ public class JavaToolchainData {
 
   public String getEncoding() {
     return encoding;
+  }
+
+  public boolean getJavacSupportsWorkers() {
+    return javacSupportsWorkers;
   }
 }
