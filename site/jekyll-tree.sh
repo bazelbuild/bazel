@@ -58,7 +58,6 @@ function copy_skylark_rule_doc {
   local rule_family=$1
   local rule_family_name=$2
   local be_dir="$OUT_DIR/docs/be"
-  local tempf=$(mktemp -t bazel-skylark-XXXXXX)
 
   ( cat <<EOF
 ---
