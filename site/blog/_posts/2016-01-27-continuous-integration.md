@@ -92,23 +92,56 @@ A final consideration when setting up a continuous integration system is getting
 the result from the build. Bazel has the following interesting exit codes when
 using `test` and `build` commands:
 
-- 0 - Success.
-- 1 - Build failed.
-- 2 - Command Line Problem, Bad or Illegal flags or command combination, or
-  Bad Environment Variables. Your command line must be modified.
-- 2 - Command line error.
-- 3 - Build OK, but some tests failed or timed out.
-- 4 - Build successful but no tests were found even though testing was
-      requested.
-- 8 - Build interrupted (by a Ctrl+C from the user for instance) but we
-  terminated with an orderly shutdown.
+<table class="table table-condensed table-striped">
+  <thead>
+    <tr>
+      <th>Exit Code</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>Success.</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Build failed.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>
+        Command Line Problem, Bad or Illegal flags or command combination, or
+        Bad Environment Variables. Your command line must be modified.
+      </td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Build OK, but some tests failed or timed out.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>
+        Build successful but no tests were found even though testing was
+        requested.
+      </td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>
+        Build interrupted (by a <kbd><kbd>Ctrl</kbd>+<kbd>C</kbd></kbd> from the
+        user for instance) but we terminated with an orderly shutdown.
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 These return codes can be used to determine the reason for a failure
 (in [ci.bazel.io](http://ci.bazel.io), we mark builds that have exited with exit
 code 3 as unstable, and other non zero code as failed).
 
 You can also control how much information about test results Bazel prints out
-with the [--test_output flag](http://bazel.io/docs/bazel-user-manual.html#flag--test_output).
+with the [`--test_output` flag](http://bazel.io/docs/bazel-user-manual.html#flag--test_output).
 Generally, printing the output of test that fails with `--test_output=errors` is
 a good setting for a CI system.
 

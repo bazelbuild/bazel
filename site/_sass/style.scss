@@ -71,6 +71,10 @@ a {
   &:focus {
     color: $link-hover-color;
   }
+
+  code {
+    color: $link-color;
+  }
 }
 
 h1,
@@ -81,8 +85,18 @@ h5,
 h6 {
   color: $text-color;
   font-weight: 300;
-  margin-top: 25px;
+  margin-top: 30px;
   margin-bottom: 15px;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code {
+  color: $text-color;
+  background: transparent;
 }
 
 h1 {
@@ -92,14 +106,26 @@ h1 {
 h2 {
   font-size: 24px;
   margin-top: 30px;
+
+  code {
+    font-size: 24px;
+  }
 }
 
 h3 {
-  font-size: 18px;
+  font-size: 20px;
+
+  code {
+    font-size: 20px;
+  }
 }
 
 h4 {
-  font-size: 16px;
+  font-size: 18px;
+
+  code {
+    font-size: 18px;
+  }
 }
 
 p,

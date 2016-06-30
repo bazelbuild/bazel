@@ -62,8 +62,8 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   public JavaConfiguration create(JavaOptions javaOptions, Label javaToolchain, String javaCpu)
           throws InvalidConfigurationException {
 
-    boolean generateJavaDeps = javaOptions.javaDeps ||
-        javaOptions.experimentalJavaClasspath != JavaClasspathMode.OFF;
+    boolean generateJavaDeps =
+        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
 
     return new JavaConfiguration(
         generateJavaDeps, javaOptions.jvmOpts, javaOptions, javaToolchain, javaCpu);

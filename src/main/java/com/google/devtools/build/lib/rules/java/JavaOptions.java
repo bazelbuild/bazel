@@ -79,9 +79,7 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-  /**
-   * Converter for the --experimental_java_classpath option.
-   */
+  /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
     public JavaClasspathModeConverter() {
       super(JavaClasspathMode.class, "Java classpath reduction strategy");
@@ -189,13 +187,16 @@ public class JavaOptions extends FragmentOptions {
       help = "Generate dependency information (for now, compile-time classpath) per Java target.")
   public boolean javaDeps;
 
-  @Option(name = "experimental_java_classpath",
-      allowMultiple = false,
-      defaultValue = "javabuilder",
-      converter = JavaClasspathModeConverter.class,
-      category = "semantics",
-      help = "Enables reduced classpaths for Java compilations.")
-  public JavaClasspathMode experimentalJavaClasspath;
+  @Option(
+    name = "java_classpath",
+    allowMultiple = false,
+    defaultValue = "javabuilder",
+    converter = JavaClasspathModeConverter.class,
+    category = "semantics",
+    help = "Enables reduced classpaths for Java compilations.",
+    oldName = "experimental_java_classpath"
+  )
+  public JavaClasspathMode javaClasspath;
 
   @Option(name = "java_debug",
       defaultValue = "null",
@@ -364,7 +365,7 @@ public class JavaOptions extends FragmentOptions {
     host.useIjars = useIjars;
 
     host.javaDeps = javaDeps;
-    host.experimentalJavaClasspath = experimentalJavaClasspath;
+    host.javaClasspath = javaClasspath;
 
     return host;
   }

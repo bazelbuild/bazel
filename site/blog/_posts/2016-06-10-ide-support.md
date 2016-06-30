@@ -48,13 +48,13 @@ a look at a sample
 [Eclipse plugin for Bazel support, e4b](https://github.com/bazelbuild/e4b).
 
 e4b includes an aspect, defined in a file
-[e4b_aspect.bzl](https://github.com/bazelbuild/e4b/blob/master/com.google.devtools.bazel.e4b/resources/tools/must/be/unique/e4b_aspect.bzl),
+[`e4b_aspect.bzl`](https://github.com/bazelbuild/e4b/blob/master/com.google.devtools.bazel.e4b/resources/tools/must/be/unique/e4b_aspect.bzl),
 that when
 applied to a particular target, generates a small JSON file with information
 about that target relevant to Eclipse. Those JSON files are then consumed
 by the e4b plugin inside Eclipse to build [Eclipse's representation
 of a project](https://github.com/bazelbuild/e4b/blob/master/com.google.devtools.bazel.e4b/src/com/google/devtools/bazel/e4b/classpath/BazelClasspathContainer.java),
-[IClasspathContainer](http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2FIClasspathContainer.html):
+[`IClasspathContainer`](http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.jdt.doc.isv%2Freference%2Fapi%2Forg%2Feclipse%2Fjdt%2Fcore%2FIClasspathContainer.html):
 
 ![e4bazel workflow](/assets/e4b-workflow.png)
 
@@ -72,8 +72,8 @@ bazel build //java/com/company/example:main \
 [e4b source](https://github.com/bazelbuild/e4b/blob/master/com.google.devtools.bazel.e4b/src/com/google/devtools/bazel/e4b/command/BazelCommand.java) for complete
 invocation)
 
-The "--aspects" flag directs Bazel to apply e4b_aspect, exported from
-e4bazel.bzl Skylark extension, to target //java/com/company/example:main.
+The `--aspects` flag directs Bazel to apply `e4b_aspect`, exported from
+`e4bazel.bzl` Skylark extension, to target `//java/com/company/example:main`.
 
 The aspect is then applied transitively to the dependencies of the specified
 targets, producing `.e4b-build.json` files for each target in the transitive
@@ -88,7 +88,7 @@ group (and hence only to the aspect) are built, and therefore that no
 unnecessary build steps are performed.
 
 The aspect uses the
-['java' provider](/docs/skylark/lib/JavaSkylarkApiProvider.html) on the targets
+[`java` provider](/docs/skylark/lib/JavaSkylarkApiProvider.html) on the targets
 it applies to to access a variety of information about Java targets.
 
 

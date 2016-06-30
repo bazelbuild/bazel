@@ -43,9 +43,7 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public final class JavaConfiguration extends Fragment {
-  /**
-   * Values for the --experimental_java_classpath option
-   */
+  /** Values for the --java_classpath option */
   public static enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
     OFF,
@@ -133,7 +131,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean useHeaderCompilation;
   private final boolean optimizeHeaderCompilationAnnotationProcessing;
   private final boolean generateJavaDeps;
-  private final JavaClasspathMode experimentalJavaClasspath;
+  private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> javaWarns;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
@@ -161,7 +159,7 @@ public final class JavaConfiguration extends Fragment {
     this.optimizeHeaderCompilationAnnotationProcessing =
         javaOptions.optimizeHeaderCompilationAnnotationProcessing;
     this.generateJavaDeps = generateJavaDeps;
-    this.experimentalJavaClasspath = javaOptions.experimentalJavaClasspath;
+    this.javaClasspath = javaOptions.javaClasspath;
     this.javaWarns = ImmutableList.copyOf(javaOptions.javaWarns);
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
@@ -235,7 +233,7 @@ public final class JavaConfiguration extends Fragment {
   }
 
   public JavaClasspathMode getReduceJavaClasspath() {
-    return experimentalJavaClasspath;
+    return javaClasspath;
   }
 
   /**

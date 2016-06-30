@@ -873,7 +873,7 @@ public final class JavaCompileAction extends AbstractAction {
         compileTimeDependencyArtifacts.clear();
       }
 
-      // Invariant: if experimental_java_classpath is not set to 'javabuilder',
+      // Invariant: if java_classpath is not set to 'javabuilder',
       // dependencyArtifacts are ignored
       if (javaConfiguration.getReduceJavaClasspath() != JavaClasspathMode.JAVABUILDER) {
         compileTimeDependencyArtifacts.clear();

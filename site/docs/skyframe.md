@@ -1,5 +1,5 @@
 ---
-layout: documentation
+layout: contribute
 title: Skyframe
 ---
 
