@@ -412,13 +412,6 @@ static vector<string> GetArgumentArray() {
   globals->options.AddJVMArgumentPrefix(
       blaze_util::Dirname(blaze_util::Dirname(globals->jvm_path)),
       &result);
-  if (globals->options.batch) {
-    result.push_back("-client");
-    result.push_back("-Xms256m");
-    result.push_back("-XX:NewRatio=4");
-  } else {
-    result.push_back("-server");
-  }
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   string heap_crash_path = globals->options.output_base;
