@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// process-wrapper runs a subprocess with a given timeout (optional),
-// redirecting stdout and stderr to given files. Upon exit, whether
-// from normal termination or timeout, the subprocess (and any of its children)
-// is killed.
+// process-wrapper runs a subprocess with a given timeout (optional). Upon exit,
+// whether from normal termination or timeout, the subprocess (and any of its
+// children) is killed.
 //
 // The exit status of this program is whatever the child process returned,
 // unless process-wrapper receives a signal. ie, on SIGTERM this program will
@@ -49,8 +48,6 @@ static volatile sig_atomic_t global_signal;
 struct Options {
   double timeout_secs;
   double kill_delay_secs;
-  const char *stdout_path;
-  const char *stderr_path;
   char *const *args;
 };
 
@@ -59,8 +56,7 @@ struct Options {
 // string for the error message to print.
 static void Usage(char *const *argv) {
   fprintf(stderr,
-          "Usage: %s <timeout-secs> <kill-delay-secs> <stdout-redirect> "
-          "<stderr-redirect> <command> [args] ...\n",
+          "Usage: %s <timeout-secs> <kill-delay-secs> <command> [args] ...\n",
           argv[0]);
   exit(EXIT_FAILURE);
 }
@@ -68,7 +64,7 @@ static void Usage(char *const *argv) {
 // Parse the command line flags and return the result in an Options structure
 // passed as argument.
 static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
-  if (argc <= 5) {
+  if (argc <= 3) {
     Usage(argv);
   }
 
@@ -79,8 +75,6 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
   if (sscanf(*argv++, "%lf", &opt->kill_delay_secs) != 1) {
     DIE("kill_delay_secs is not a real number.\n");
   }
-  opt->stdout_path = *argv++;
-  opt->stderr_path = *argv++;
   opt->args = argv;
 }
 
@@ -159,9 +153,6 @@ int main(int argc, char *argv[]) {
 
   SwitchToEuid();
   SwitchToEgid();
-
-  RedirectStdout(opt.stdout_path);
-  RedirectStderr(opt.stderr_path);
 
   SpawnCommand(opt.args, opt.timeout_secs);
 

@@ -41,37 +41,37 @@ function assert_output() {
 }
 
 function test_basic_functionality() {
-  $process_wrapper -1 0 $OUT $ERR /bin/echo hi there &> $TEST_log || fail
+  $process_wrapper -1 0 /bin/echo hi there >$OUT 2>$ERR || fail
   assert_output "hi there" ""
 }
 
 function test_to_stderr() {
-  $process_wrapper -1 0 $OUT $ERR /bin/bash -c "/bin/echo hi there >&2" &> $TEST_log || fail
+  $process_wrapper -1 0 /bin/bash -c "/bin/echo hi there >&2" >$OUT 2>$ERR || fail
   assert_output "" "hi there"
 }
 
 function test_exit_code() {
   local code=0
-  $process_wrapper -1 0 $OUT $ERR /bin/bash -c "exit 71" &> $TEST_log || code=$?
+  $process_wrapper -1 0 /bin/bash -c "exit 71" >$OUT 2>$ERR || code=$?
   assert_equals 71 "$code"
 }
 
 function test_signal_death() {
   local code=0
-  $process_wrapper -1 0 $OUT $ERR /bin/bash -c 'kill -ABRT $$' &> $TEST_log || code=$?
+  $process_wrapper -1 0 /bin/bash -c 'kill -ABRT $$' >$OUT 2>$ERR || code=$?
   assert_equals 134 "$code" # SIGNAL_BASE + SIGABRT = 128 + 6
 }
 
 function test_signal_catcher() {
   local code=0
-  $process_wrapper 1 2 $OUT $ERR /bin/bash -c \
-    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' &> $TEST_log || code=$?
+  $process_wrapper 1 2 /bin/bash -c \
+    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' >$OUT 2>$ERR || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "later"
 }
 
 function test_basic_timeout() {
-  $process_wrapper 1 2 $OUT $ERR /bin/bash -c "echo before; sleep 10; echo after" &> $TEST_log && fail
+  $process_wrapper 1 2 /bin/bash -c "echo before; sleep 10; echo after" >$OUT 2>$ERR && fail
   assert_stdout "before"
 }
 
@@ -81,9 +81,9 @@ function test_basic_timeout() {
 # grace period, thus printing "beforeafter".
 function test_timeout_grace() {
   local code=0
-  $process_wrapper 1 10 $OUT $ERR /bin/bash -c \
+  $process_wrapper 1 10 /bin/bash -c \
     'trap "echo -n before; sleep 1; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
-    &> $TEST_log || code=$?
+    >$OUT 2>$ERR || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "beforeafter"
 }
@@ -94,16 +94,16 @@ function test_timeout_grace() {
 # trap takes longer than the grace period, thus only printing "before".
 function test_timeout_kill() {
   local code=0
-  $process_wrapper 1 2 $OUT $ERR /bin/bash -c \
+  $process_wrapper 1 2 /bin/bash -c \
     'trap "echo before; sleep 10; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
-    &> $TEST_log || code=$?
+    >$OUT 2>$ERR || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "before"
 }
 
 function test_execvp_error_message() {
   local code=0
-  $process_wrapper -1 0 $OUT $ERR /bin/notexisting &> $TEST_log || code=$?
+  $process_wrapper -1 0 /bin/notexisting >$OUT 2>$ERR || code=$?
   assert_equals 1 "$code"
   assert_contains "execvp(\"/bin/notexisting\", ...): No such file or directory" "$ERR"
 }

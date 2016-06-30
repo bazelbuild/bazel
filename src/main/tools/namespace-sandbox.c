@@ -67,8 +67,6 @@ struct Options {
   int create_netns;          // If 1, create a new network namespace (-n)
   int fake_root;             // Pretend to be root inside the namespace (-r)
   bool debug;                // Whether to print debugging messages (-D)
-  const char *stdout_path;   // Where to redirect stdout (-l)
-  const char *stderr_path;   // Where to redirect stderr (-L)
   char *const *args;         // Command to run (--)
 };
 
@@ -147,8 +145,6 @@ static void Usage(int argc, char *const *argv, const char *fmt, ...) {
       "  -n if set, a new network namespace will be created\n"
       "  -r if set, make the uid/gid be root, otherwise use nobody\n"
       "  -D  if set, debug info will be printed\n"
-      "  -l <file>  redirect stdout to a file\n"
-      "  -L <file>  redirect stderr to a file\n"
       "  @FILE read newline-separated arguments from FILE\n");
   exit(EXIT_FAILURE);
 }
@@ -264,7 +260,7 @@ static void ParseCommandLine(int argc, char *const *argv) {
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt(argc, argv, ":CS:W:T:t:d:M:m:nrDl:L:")) != -1) {
+  while ((c = getopt(argc, argv, ":CS:W:T:t:d:M:m:nrD")) != -1) {
     switch (c) {
       case 'C':
         // Shortcut for the "does this system support sandboxing" check.
@@ -339,22 +335,6 @@ static void ParseCommandLine(int argc, char *const *argv) {
         break;
       case 'D':
         opt.debug = true;
-        break;
-      case 'l':
-        if (opt.stdout_path == NULL) {
-          opt.stdout_path = optarg;
-        } else {
-          Usage(argc, argv,
-                "Cannot redirect stdout to more than one destination.");
-        }
-        break;
-      case 'L':
-        if (opt.stderr_path == NULL) {
-          opt.stderr_path = optarg;
-        } else {
-          Usage(argc, argv,
-                "Cannot redirect stderr to more than one destination.");
-        }
         break;
       case '?':
         Usage(argc, argv, "Unrecognized argument: -%c (%d)", optopt, optind);
@@ -775,9 +755,6 @@ int main(int argc, char *const argv[]) {
 
   int uid = SwitchToEuid();
   int gid = SwitchToEgid();
-
-  RedirectStdout(opt.stdout_path);
-  RedirectStderr(opt.stderr_path);
 
   PRINT_DEBUG("sandbox root is %s\n", opt.sandbox_root);
   PRINT_DEBUG("working dir is %s\n",

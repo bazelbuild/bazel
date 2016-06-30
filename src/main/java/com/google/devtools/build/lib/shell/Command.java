@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.ProcessBuilder.Redirect;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -429,42 +430,78 @@ public final class Command {
   }
 
   /**
-   * <p>Execute this command with given input to stdin; this stream is closed
-   * when the process terminates, and exceptions raised when closing this
-   * stream are ignored. This call blocks
-   * until the process completes or an error occurs. The caller provides
-   * {@link OutputStream} instances into which the process writes its
-   * stdout/stderr output; these streams are <em>not</em> closed when the
-   * process terminates. The given {@link KillableObserver} may also
-   * terminate the process early while running.</p>
+   * Like {@link #execute(byte[], KillableObserver, OutputStream, OutputStream, boolean)} but allows
+   * using files to redirect stdOut and stdErr. This gives better performance as the data doesn't
+   * flow through the JVM but instead is written directly to the corresponding file descriptors by
+   * the process.
+   *
+   * <p>If stdOut or stdErr is {@code null}, it will be redirected to /dev/null.
+   */
+  public CommandResult execute(
+      final byte[] stdinInput,
+      final KillableObserver observer,
+      final File stdOut,
+      final File stdErr,
+      final boolean killSubprocessOnInterrupt)
+      throws CommandException {
+    nullCheck(stdinInput, "stdinInput");
+    nullCheck(observer, "observer");
+    processBuilder.redirectOutput(redirectToFileOrDevNull(stdOut));
+    processBuilder.redirectError(redirectToFileOrDevNull(stdErr));
+    return doExecute(
+            new ByteArrayInputSource(stdinInput), observer, null, killSubprocessOnInterrupt, false)
+        .get();
+  }
+
+  /**
+   * Returns a {@link ProcessBuilder.Redirect} that writes process output to {@code file} or to
+   * /dev/null in case {@code file} is null. If {@code file} exists, it is deleted before
+   * redirecting to it.
+   */
+  private Redirect redirectToFileOrDevNull(File file) {
+    if (file == null) {
+      return Redirect.to(new File("/dev/null"));
+    }
+    // We need to use Redirect.appendTo() here, because on older Linux kernels writes are otherwise
+    // not atomic and might result in lost log messages: https://lkml.org/lkml/2014/3/3/308
+    if (file.exists()) {
+      file.delete();
+    }
+    return Redirect.appendTo(file);
+  }
+
+  /**
+   * Execute this command with given input to stdin; this stream is closed when the process
+   * terminates, and exceptions raised when closing this stream are ignored. This call blocks until
+   * the process completes or an error occurs. The caller provides {@link OutputStream} instances
+   * into which the process writes its stdout/stderr output; these streams are <em>not</em> closed
+   * when the process terminates. The given {@link KillableObserver} may also terminate the process
+   * early while running.
    *
    * @param stdinInput The input to this process's stdin
-   * @param observer {@link KillableObserver} that should observe the running
-   *  process, or {@link #NO_OBSERVER} if caller does not wish to kill the
-   *  process
-   * @param stdOut the process will write its standard output into this stream.
-   *  E.g., you could pass {@link System#out} as <code>stdOut</code>.
-   * @param stdErr the process will write its standard error into this stream.
-   *  E.g., you could pass {@link System#err} as <code>stdErr</code>.
-   * @return {@link CommandResult} representing result of the execution. Note
-   *  that {@link CommandResult#getStdout()} and
-   *  {@link CommandResult#getStderr()} will yield {@link IllegalStateException}
-   *  in this case, as the output is written to <code>stdOut/stdErr</code>
-   *  instead.
-   * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any
-   *  reason
-   * @throws AbnormalTerminationException if the process is interrupted (or
-   *  killed) before completion, if an {@link IOException} is encountered while
-   *  reading from the process, or the process was terminated due to a signal.
-   * @throws BadExitStatusException if the process exits with a
-   *  non-zero status
+   * @param observer {@link KillableObserver} that should observe the running process, or {@link
+   *     #NO_OBSERVER} if caller does not wish to kill the process
+   * @param stdOut the process will write its standard output into this stream. E.g., you could pass
+   *     {@link System#out} as <code>stdOut</code>.
+   * @param stdErr the process will write its standard error into this stream. E.g., you could pass
+   *     {@link System#err} as <code>stdErr</code>.
+   * @return {@link CommandResult} representing result of the execution. Note that {@link
+   *     CommandResult#getStdout()} and {@link CommandResult#getStderr()} will yield {@link
+   *     IllegalStateException} in this case, as the output is written to <code>stdOut/stdErr</code>
+   *     instead.
+   * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
+   * @throws AbnormalTerminationException if the process is interrupted (or killed) before
+   *     completion, if an {@link IOException} is encountered while reading from the process, or the
+   *     process was terminated due to a signal.
+   * @throws BadExitStatusException if the process exits with a non-zero status
    * @throws NullPointerException if any argument is null.
    */
-  public CommandResult execute(final InputStream stdinInput,
-                               final KillableObserver observer,
-                               final OutputStream stdOut,
-                               final OutputStream stdErr)
-    throws CommandException {
+  public CommandResult execute(
+      final InputStream stdinInput,
+      final KillableObserver observer,
+      final OutputStream stdOut,
+      final OutputStream stdErr)
+      throws CommandException {
     nullCheck(stdinInput, "stdinInput");
     nullCheck(observer, "observer");
     nullCheck(stdOut, "stdOut");
@@ -526,16 +563,15 @@ public final class Command {
   }
 
   /**
-   * <p>Executes this command with the given stdinInput, but does not
-   * wait for it to complete. The caller may choose to observe the status
-   * of the launched process by calling methods on the returned object.
+   * Executes this command with the given stdinInput, but does not wait for it to complete. The
+   * caller may choose to observe the status of the launched process by calling methods on the
+   * returned object.
    *
-   * @param stdinInput bytes to be written to process's stdin, or
-   * {@link #NO_INPUT} if no bytes should be written
-   * @return An object that can be used to check if the process terminated and
-   *  obtain the process results.
-   * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any
-   *  reason
+   * @param stdinInput bytes to be written to process's stdin, or {@link #NO_INPUT} if no bytes
+   *     should be written
+   * @return An object that can be used to check if the process terminated and obtain the process
+   *     results.
+   * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws NullPointerException if stdin is null
    */
   public FutureCommandResult executeAsynchronously(final byte[] stdinInput)
@@ -672,11 +708,12 @@ public final class Command {
 
     final Process process = startProcess();
 
-    outErrConsumers.logConsumptionStrategy();
+    if (outErrConsumers != null) {
+      outErrConsumers.logConsumptionStrategy();
 
-    outErrConsumers.registerInputs(process.getInputStream(),
-                                   process.getErrorStream(),
-                                   closeOutputStreams);
+      outErrConsumers.registerInputs(
+          process.getInputStream(), process.getErrorStream(), closeOutputStreams);
+    }
 
     processInput(stdinInput, process);
 
@@ -824,10 +861,12 @@ public final class Command {
     log.finer(status.toString());
 
     try {
-      if (Thread.currentThread().isInterrupted()) {
-        outErr.cancel();
-      } else {
-        outErr.waitForCompletion();
+      if (outErr != null) {
+        if (Thread.currentThread().isInterrupted()) {
+          outErr.cancel();
+        } else {
+          outErr.waitForCompletion();
+        }
       }
     } catch (IOException ioe) {
       CommandResult noOutputResult =
@@ -849,9 +888,11 @@ public final class Command {
       }
     }
 
-    CommandResult result = new CommandResult(outErr.getAccumulatedOut(),
-                                             outErr.getAccumulatedErr(),
-                                             status);
+    CommandResult result =
+        new CommandResult(
+            outErr != null ? outErr.getAccumulatedOut() : CommandResult.NO_OUTPUT_COLLECTED,
+            outErr != null ? outErr.getAccumulatedErr() : CommandResult.NO_OUTPUT_COLLECTED,
+            status);
     result.logThis();
     if (status.success()) {
       return result;

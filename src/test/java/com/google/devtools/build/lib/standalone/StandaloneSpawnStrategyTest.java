@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,6 +66,7 @@ public class StandaloneSpawnStrategyTest {
   private Reporter reporter = new Reporter(PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
   private FileSystem fileSystem;
+  private FileOutErr outErr;
 
   private Path createTestRoot() throws IOException {
     fileSystem = FileSystems.getNativeFileSystem();
@@ -84,6 +85,9 @@ public class StandaloneSpawnStrategyTest {
     Path testRoot = createTestRoot();
     Path workspaceDir = testRoot.getRelative(TestConstants.WORKSPACE_NAME);
     workspaceDir.createDirectory();
+
+    outErr =
+        new FileOutErr(testRoot.getRelative("test_out.log"), testRoot.getRelative("test_err.log"));
 
     // setup output base & directories
     Path outputBase = testRoot.getRelative("outputBase");
@@ -119,8 +123,6 @@ public class StandaloneSpawnStrategyTest {
         new ActionsTestUtil.NullAction());
   }
 
-  private TestFileOutErr outErr = new TestFileOutErr();
-
   private String out() {
     return outErr.outAsLatin1();
   }
@@ -140,6 +142,7 @@ public class StandaloneSpawnStrategyTest {
   private void run(Spawn spawn) throws Exception {
     executor.getSpawnActionContext(spawn.getMnemonic()).exec(spawn, createContext());
   }
+
   private ActionExecutionContext createContext() {
     Path execRoot = executor.getExecRoot();
     return new ActionExecutionContext(

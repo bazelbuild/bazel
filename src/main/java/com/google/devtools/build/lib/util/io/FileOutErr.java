@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -49,19 +50,6 @@ public class FileOutErr extends OutErr {
    */
   public FileOutErr(Path stdout, Path stderr) {
     this(new FileRecordingOutputStream(stdout), new FileRecordingOutputStream(stderr));
-  }
-
-  /**
-   * Creates a new FileOutErr that writes its input
-   * to the file specified by output. Both stdout/stderr will
-   * be copied into the single file.
-   *
-   * @param output The file for the both stdout and stderr of this outErr.
-   */
-  public FileOutErr(Path output) {
-    // We don't need to create a synchronized funnel here, like in the OutErr -- The
-    // respective functions in the FileRecordingOutputStream take care of locking.
-    this(new FileRecordingOutputStream(output));
   }
 
   protected FileOutErr(AbstractFileRecordingOutputStream out,
@@ -126,9 +114,32 @@ public class FileOutErr extends OutErr {
   }
 
   /**
-   * Interprets the captured out content as an {@code ISO-8859-1} encoded
-   * string.
+   * Returns the {@link File} this OutErr uses to buffer stdout
+   *
+   * <p>The user must ensure that no other process is writing to the files at time of creation.
+   *
+   * @return the file object with the contents of stdout
    */
+  public File getOutputFile() {
+    if (getFileOutputStream().getFile() != null) {
+      return getFileOutputStream().getFile().getPathFile();
+    }
+    return null;
+  }
+
+  /**
+   * Returns the {@link File} this OutErr uses to buffer stderr.
+   *
+   * @return the file object with the contents of stderr
+   */
+  public File getErrorFile() {
+    if (getFileErrorStream().getFile() != null) {
+      return getFileErrorStream().getFile().getPathFile();
+    }
+    return null;
+  }
+
+  /** Interprets the captured out content as an {@code ISO-8859-1} encoded string. */
   public String outAsLatin1() {
     return getFileOutputStream().getRecordedOutput();
   }

@@ -47,24 +47,6 @@ int SwitchToEgid() {
   return egid;
 }
 
-void Redirect(const char *target_path, int fd, const char *name) {
-  if (target_path != NULL && strcmp(target_path, "-") != 0) {
-    int fd_out;
-    const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
-    CHECK_CALL(fd_out = open(target_path, flags, 0666));
-    CHECK_CALL(dup2(fd_out, fd));
-    CHECK_CALL(close(fd_out));
-  }
-}
-
-void RedirectStdout(const char *stdout_path) {
-  Redirect(stdout_path, STDOUT_FILENO, "stdout");
-}
-
-void RedirectStderr(const char *stderr_path) {
-  Redirect(stderr_path, STDERR_FILENO, "stderr");
-}
-
 void KillEverything(int pgrp, bool gracefully, double graceful_kill_delay) {
   if (gracefully) {
     kill(-pgrp, SIGTERM);
