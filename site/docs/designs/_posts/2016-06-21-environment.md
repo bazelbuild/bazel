@@ -5,6 +5,9 @@ title: Specifying environment variables
 
 # Specifying environment variables for actions
 
+This doc was written by [aehlig@google.com](mailto:aehlig@google.com).
+Status: unimplemented.
+
 ## Current shortcomings
 
 Currently, Bazel provides a cleaned set of environment variables to the
