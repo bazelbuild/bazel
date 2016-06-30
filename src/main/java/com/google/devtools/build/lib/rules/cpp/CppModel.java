@@ -842,11 +842,12 @@ public final class CppModel {
     
     // Should we also link in any libraries that this library depends on?
     // That is required on some systems...
-    CppLinkAction action =
+    CppLinkAction.Builder linkActionBuilder =
         newLinkActionBuilder(soImpl)
             .setInterfaceOutput(soInterface)
             .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForSharedLibs))
             .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+            .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
             .setLinkStaticness(LinkStaticness.DYNAMIC)
             .addLinkopts(linkopts)
@@ -855,8 +856,22 @@ public final class CppModel {
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
             .setFeatureConfiguration(featureConfiguration)
-            .setBuildVariables(linkBuildVariables())
-            .build();
+            .setBuildVariables(linkBuildVariables());
+
+    if (!ccOutputs.getLtoBitcodeFiles().isEmpty()
+        && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
+      linkActionBuilder.setLTOIndexing(true);
+      CppLinkAction indexAction = linkActionBuilder.build();
+      env.registerAction(indexAction);
+
+      for (LTOBackendArtifacts ltoArtifacts : indexAction.getAllLTOBackendArtifacts()) {
+        ltoArtifacts.scheduleLTOBackendAction(ruleContext, usePicForSharedLibs);
+      }
+
+      linkActionBuilder.setLTOIndexing(false);
+    }
+
+    CppLinkAction action = linkActionBuilder.build();
     env.registerAction(action);
 
     LibraryToLink dynamicLibrary = action.getOutputLibrary();

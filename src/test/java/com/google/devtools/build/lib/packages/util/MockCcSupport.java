@@ -180,9 +180,7 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    flag_group {"
-          + "      flag: '-Xclang-only=-Wno-inconsistent-missing-override'"
-          + "      flag: '-flto'"
-          + "      flag: '-O2'"
+          + "      flag: '-flto=thin'"
           + "    }"
           + "  }"
           + "}";
