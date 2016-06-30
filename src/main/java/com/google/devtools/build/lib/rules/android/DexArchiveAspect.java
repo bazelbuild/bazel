@@ -26,6 +26,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -197,16 +198,18 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             args.build(),
             ParameterFile.ParameterFileType.UNQUOTED,
             ISO_8859_1));
-    SpawnAction.Builder dexbuilder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
-        // WorkerSpawnStrategy expects the last argument to be @paramfile
-        .addArgument("@" + paramFile.getExecPathString())
-        .addInput(jar)
-        .addInput(paramFile)
-        .addOutput(dexArchive)
-        .setMnemonic("DexBuilder")
-        .setProgressMessage(
-            "Dexing " + jar.prettyPrint() + " with applicable dexopts " + incrementalDexopts);
+    SpawnAction.Builder dexbuilder =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
+            // WorkerSpawnStrategy expects the last argument to be @paramfile
+            .addArgument("@" + paramFile.getExecPathString())
+            .addInput(jar)
+            .addInput(paramFile)
+            .addOutput(dexArchive)
+            .setMnemonic("DexBuilder")
+            .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
+            .setProgressMessage(
+                "Dexing " + jar.prettyPrint() + " with applicable dexopts " + incrementalDexopts);
     ruleContext.registerAction(dexbuilder.build(ruleContext));
   }
 
