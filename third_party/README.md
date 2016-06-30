@@ -118,6 +118,11 @@ a minimal set of extra dependencies.
 * Version: 1.8.10
 * License: GNU GPL v2 with Classpath exception, portions MIT
 
+## [Checker Framework Javacutil](http://code.google.com/p/checker-framework/)
+
+* Version: 1.8.10
+* License: GNU GPL v2 with Classpath exception, portions MIT
+
 ## [Buck (iOS support)](http://facebook.github.io/buck/)
 
 * Version: commit id 2ff4f45a971776afcfbe88333d78c4ca6bf03df9

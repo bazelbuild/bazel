@@ -16,6 +16,8 @@ filegroup(
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/javascript/bootstrap:srcs",
+        "//third_party/checker_framework_dataflow:srcs",
+        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/concurrent:srcs",
@@ -32,6 +34,8 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [
+        "//third_party/checker_framework_dataflow:srcs",
+        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
     ],
 )
@@ -282,11 +286,11 @@ java_import(
         "error_prone/error_prone_annotation-2.0.9-20160129.jar",
     ],
     exports = [
-        ":checker_framework_dataflow",
         ":guava",
         ":jcip_annotations",
         ":jsr305",
         ":pcollections",
+        "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
     ],
 )
@@ -305,18 +309,10 @@ java_import(
     ],
 )
 
-java_import(
-    name = "checker_framework_dataflow",
-    jars = [
-        "checker_framework_dataflow/dataflow-1.8.10.jar",
-    ],
-)
-
 # For bootstrapping JavaBuilder
 filegroup(
     name = "error_prone-jars",
     srcs = [
-        "checker_framework_dataflow/dataflow-1.8.10.jar",
         "error_prone/error_prone_annotation-2.0.9-20160129.jar",
         "error_prone/error_prone_annotations-2.0.9-20160129.jar",
         "error_prone/error_prone_core-2.0.9-20160129.jar",
@@ -324,6 +320,7 @@ filegroup(
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
+        "//third_party/checker_framework_dataflow:bootstrap",
         "//third_party/jformatstring:bootstrap",
     ],
 )
