@@ -2,10 +2,10 @@
 layout: documentation
 title: BUILD files
 ---
-<h1>Bazel: Build files and Terminology</h1>
+<h1>Bazel: Build Files and Terminology</h1>
 <p>
-  This document provides an overview of sourte tree layout and terminology used
-  in Bazel.
+  This document provides an overview of the source tree layout and the
+  terminology used in Bazel.
 </p>
 <h2>Table of Contents</h2>
 
@@ -88,16 +88,10 @@ src/my/app/data/input.txt
 src/my/app/tests/BUILD
 src/my/app/tests/test.cc
 </pre>
-<p>
-  there are two packages, <code>my/app</code>,
-  and <code>my/app/tests</code>, a subpackage;
-  <code>my/app/data</code> is not a package, but a directory belonging to package
-  <code>my/app</code>.
-</p>
 <h3 id="targets">Targets</h3>
 
 <p>
-  A package is a container.  The elements of a package are called
+  A package is a container. The elements of a package are called
   <i>targets</i>. Most targets are one of two principal kinds, <i>files</i>
   and <i>rules</i>. Additionally, there is another kind of target,
   <a href="be/functions.html#package_group">package groups</a>,
@@ -636,7 +630,7 @@ testdata/input.txt
   "target graph" or "build dependency graph", and is the domain over
   which the
 
-  <a href="query.html">Bazel Query tool</a></li>.
+  <a href="query.html">Bazel Query tool</a></li>
   operates.
 </p>
 
