@@ -18,7 +18,7 @@
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | tr "\n" " ")
-DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
+DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} third_party/java/dd_plist/java ${OUTPUT_DIR}/src)
 EXCLUDE_FILES=src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java
 
 mkdir -p ${OUTPUT_DIR}/classes
