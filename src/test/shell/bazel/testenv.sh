@@ -78,14 +78,6 @@ ijar_path="${BAZEL_RUNFILES}/third_party/ijar/ijar"
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
 namespace_sandbox="${BAZEL_RUNFILES}/src/main/tools/namespace-sandbox"
 
-# Android tooling
-aargenerator_path="${BAZEL_RUNFILES}/src/tools/android/java/com/google/devtools/build/android/AarGeneratorAction_deploy.jar"
-androidresourceprocessor_path="${BAZEL_RUNFILES}/src/tools/android/java/com/google/devtools/build/android/AndroidResourceProcessingAction_deploy.jar"
-resourceshrinker_path="${BAZEL_RUNFILES}/src/tools/android/java/com/google/devtools/build/android/ResourceShrinkerAction_deploy.jar"
-dexmapper_path="${BAZEL_RUNFILES}/src/tools/android/java/com/google/devtools/build/android/ziputils/mapper_deploy.jar"
-dexreducer_path="${BAZEL_RUNFILES}/src/tools/android/java/com/google/devtools/build/android/ziputils/reducer_deploy.jar"
-incrementaldeployment_path="${BAZEL_RUNFILES}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"
-
 # iOS and Objective-C tooling
 iossim_path="${BAZEL_RUNFILES}/third_party/iossim/iossim"
 actoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/actoolwrapper/actoolwrapper.sh"
