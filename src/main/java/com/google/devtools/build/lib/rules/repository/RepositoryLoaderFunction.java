@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -34,6 +35,7 @@ import javax.annotation.Nullable;
  * Creates a local or remote repository and checks its WORKSPACE file.
  */
 public class RepositoryLoaderFunction implements SkyFunction {
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -65,7 +67,9 @@ public class RepositoryLoaderFunction implements SkyFunction {
       throw new IllegalStateException(e);
     }
 
-    if (!workspaceName.isDefault() && !nameFromRule.equals(workspaceName)) {
+    if (!workspaceName.isDefault()
+        && !workspaceName.strippedName().equals(Label.DEFAULT_REPOSITORY_DIRECTORY)
+        && !nameFromRule.equals(workspaceName)) {
       Path workspacePath = repository.getPath().getRelative("WORKSPACE");
       env.getListener().handle(Event.warn(Location.fromFile(workspacePath),
           "Workspace name in " + workspacePath + " (" + workspaceName + ") does not match the "

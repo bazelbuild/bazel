@@ -52,6 +52,7 @@ import java.io.Serializable;
 public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = new PathFragment("external");
   public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = new PathFragment("WORKSPACE");
+  public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   /**
    * Package names that aren't made relative to the current repository because they mean special
