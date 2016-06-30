@@ -183,25 +183,11 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean optimizeHeaderCompilationAnnotationProcessing;
 
-  @Deprecated
-  @Option(name = "experimental_incremental_ijars",
-      defaultValue = "false",
-      category = "undocumented",
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean incrementalIjars;
-
   @Option(name = "java_deps",
       defaultValue = "true",
       category = "strategy",
       help = "Generate dependency information (for now, compile-time classpath) per Java target.")
   public boolean javaDeps;
-
-  @Option(name = "experimental_java_deps",
-      defaultValue = "false",
-      category = "experimental",
-      expansion = "--java_deps",
-      deprecationWarning = "Use --java_deps instead")
-  public boolean experimentalJavaDeps;
 
   @Option(name = "experimental_java_classpath",
       allowMultiple = false,
