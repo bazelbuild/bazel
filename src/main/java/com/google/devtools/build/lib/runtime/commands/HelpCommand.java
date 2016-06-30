@@ -82,14 +82,14 @@ public final class HelpCommand implements BlazeCommand {
             abbrev = 'l',
             defaultValue = "null",
             category = "help",
-            expansion = {"--help_verbosity", "long"},
+            expansion = {"--help_verbosity=long"},
             help = "Show full description of each option, instead of just its name.")
     public Void showLongFormOptions;
 
     @Option(name = "short",
             defaultValue = "null",
             category = "help",
-            expansion = {"--help_verbosity", "short"},
+            expansion = {"--help_verbosity=short"},
             help = "Show only the names of the options, not their types or meanings.")
     public Void showShortFormOptions;
   }
