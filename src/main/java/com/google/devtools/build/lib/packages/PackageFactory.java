@@ -338,23 +338,24 @@ public final class PackageFactory {
   @VisibleForTesting
   public abstract static class FactoryForTesting {
     public final PackageFactory create(RuleClassProvider ruleClassProvider, FileSystem fs) {
-      return create(ruleClassProvider, ImmutableList.<EnvironmentExtension>of(), fs);
+      return create(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of(), fs);
     }
     
     public final PackageFactory create(
         RuleClassProvider ruleClassProvider,
         EnvironmentExtension environmentExtension,
         FileSystem fs) {
-      return create(ruleClassProvider, ImmutableList.of(environmentExtension), fs);
+      return create(ruleClassProvider, null, ImmutableList.of(environmentExtension), fs);
     }
   
     public final PackageFactory create(
         RuleClassProvider ruleClassProvider,
+        Map<String, String> platformSetRegexps,
         Iterable<EnvironmentExtension> environmentExtensions,
         FileSystem fs) {
       return create(
           ruleClassProvider,
-          null,
+          platformSetRegexps,
           AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
           environmentExtensions,
           "test",

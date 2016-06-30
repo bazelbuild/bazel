@@ -204,7 +204,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
     pkgFactory = TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
-        ruleClassProvider, getEnvironmentExtensions(), scratch.getFileSystem());
+        ruleClassProvider,
+        getPlatformSetRegexps(),
+        getEnvironmentExtensions(),
+        scratch.getFileSystem());
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
@@ -228,6 +231,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
     // Also initializes ResourceManager.
     ResourceManager.instance().setAvailableResources(getStartingResources());
+  }
+
+  protected Map<String, String> getPlatformSetRegexps() {
+    return null;
   }
 
   /** To be overriden by sub classes if they want to disable loading. */
