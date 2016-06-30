@@ -32,7 +32,7 @@ public final class TargetLiteral extends QueryExpression {
 
   private final String pattern;
 
-  TargetLiteral(String pattern) {
+  public TargetLiteral(String pattern) {
     this.pattern = Preconditions.checkNotNull(pattern);
   }
 
@@ -67,7 +67,7 @@ public final class TargetLiteral extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+  public QueryExpression getMapped(QueryExpressionMapper mapper) throws QueryException {
     return mapper.map(this);
   }
 

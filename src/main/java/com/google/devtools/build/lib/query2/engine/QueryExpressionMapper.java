@@ -26,11 +26,12 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
  * override these methods in order to implement an arbitrary transformation.
  */
 public class QueryExpressionMapper {
-  public QueryExpression map(TargetLiteral targetLiteral) {
+  public QueryExpression map(TargetLiteral targetLiteral) throws QueryException {
     return targetLiteral;
   }
 
-  public QueryExpression map(BinaryOperatorExpression binaryOperatorExpression) {
+  public QueryExpression map(BinaryOperatorExpression binaryOperatorExpression)
+      throws QueryException {
     boolean changed = false;
     ImmutableList.Builder<QueryExpression> mappedOperandsBuilder = ImmutableList.builder();
     for (QueryExpression operand : binaryOperatorExpression.getOperands()) {
@@ -46,7 +47,7 @@ public class QueryExpressionMapper {
         : binaryOperatorExpression;
   }
 
-  public QueryExpression map(FunctionExpression functionExpression) {
+  public QueryExpression map(FunctionExpression functionExpression) throws QueryException {
     boolean changed = false;
     ImmutableList.Builder<Argument> mappedArgumentBuilder = ImmutableList.builder();
     for (Argument argument : functionExpression.getArgs()) {
@@ -70,7 +71,7 @@ public class QueryExpressionMapper {
         : functionExpression;
   }
 
-  public QueryExpression map(LetExpression letExpression) {
+  public QueryExpression map(LetExpression letExpression) throws QueryException {
     boolean changed = false;
     QueryExpression mappedVarExpr = letExpression.getVarExpr().getMapped(this);
     if (mappedVarExpr != letExpression.getVarExpr()) {
@@ -85,7 +86,7 @@ public class QueryExpressionMapper {
         : letExpression;
   }
 
-  public QueryExpression map(SetExpression setExpression) {
+  public QueryExpression map(SetExpression setExpression) throws QueryException {
     return setExpression;
   }
 }

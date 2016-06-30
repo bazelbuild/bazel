@@ -142,17 +142,16 @@ public final class QueryCommand implements BlazeCommand {
             queryOptions.universeScope,
             queryOptions.loadingPhaseThreads,
             settings)) {
-
       // 1. Parse and transform query:
       QueryExpression expr;
       try {
         expr = QueryExpression.parse(query, queryEnv);
+        expr = queryEnv.transformParsedQuery(expr);
       } catch (QueryException e) {
         env.getReporter()
             .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
         return ExitCode.COMMAND_LINE_ERROR;
       }
-      expr = queryEnv.transformParsedQuery(expr);
 
       PrintStream output = null;
       OutputFormatterCallback<Target> callback;

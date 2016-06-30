@@ -29,7 +29,7 @@ import java.util.Set;
  * No string escapes are allowed ("\").  Given the domain, that's not currently
  * a problem.
  */
-final class Lexer {
+public final class Lexer {
 
   /**
    * Discriminator for different kinds of tokens.

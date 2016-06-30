@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
 
@@ -73,9 +74,8 @@ public abstract class QueryExpression {
       throws QueryException, InterruptedException;
 
   /**
-   * Evaluates this query in the specified environment, as in {@link
-   * #eval(QueryEnvironment, Callback)}. If the query expression supports concurrent evaluation, it
-   * may employ {@code executorService}.
+   * If {@code canEvalConcurrently()}, evaluates this query in the specified environment, as in
+   * {@link #eval(QueryEnvironment, Callback)}, employing {@code executorService}.
    *
    * <p>The caller must ensure that both {@code env} and {@code callback} are effectively
    * threadsafe. The query expression may call their methods from multiple threads.
@@ -83,7 +83,16 @@ public abstract class QueryExpression {
   public <T> void evalConcurrently(
       QueryEnvironment<T> env, Callback<T> callback, ListeningExecutorService executorService)
       throws QueryException, InterruptedException {
-    this.eval(env, callback);
+    Preconditions.checkState(canEvalConcurrently());
+    eval(env, callback);
+  }
+
+  /**
+   * Whether the query expression can be evaluated concurrently. If so, {@link #evalConcurrently}
+   * should be preferred over {@link #eval}.
+   */
+  public boolean canEvalConcurrently() {
+    return false;
   }
 
   /**
@@ -93,7 +102,7 @@ public abstract class QueryExpression {
   public abstract void collectTargetPatterns(Collection<String> literals);
 
   /* Implementations should just be {@code return mapper.map(this)}. */
-  public abstract QueryExpression getMapped(QueryExpressionMapper mapper);
+  public abstract QueryExpression getMapped(QueryExpressionMapper mapper) throws QueryException;
 
   /**
    * Returns this query expression pretty-printed.

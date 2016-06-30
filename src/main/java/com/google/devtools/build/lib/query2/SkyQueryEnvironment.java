@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
-import com.google.devtools.build.lib.query2.engine.BinaryOperatorExpression;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -135,7 +134,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final int loadingPhaseThreads;
   private final WalkableGraphFactory graphFactory;
   private final List<String> universeScope;
-  private final String parserPrefix;
+  protected final String parserPrefix;
   private final PathPackageLocator pkgPath;
 
   // Note that the executor returned by Executors.newFixedThreadPool doesn't start any threads
@@ -227,42 +226,50 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
+  /**
+   * A {@link QueryExpressionMapper} that transforms each occurrence of an expression of the form
+   * {@literal 'rdeps(<universeScope>, <T>)'} to {@literal 'allrdeps(<T>)'}. The latter is more
+   * efficient.
+   */
+  protected static class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper {
+    protected final TargetPattern.Parser targetPatternParser;
+    private final String absoluteUniverseScopePattern;
+
+    protected RdepsToAllRdepsQueryExpressionMapper(
+        TargetPattern.Parser targetPatternParser,
+        String universeScopePattern) {
+      this.targetPatternParser = targetPatternParser;
+      this.absoluteUniverseScopePattern = targetPatternParser.absolutize(universeScopePattern);
+    }
+
+    @Override
+    public QueryExpression map(FunctionExpression functionExpression) throws QueryException {
+      if (functionExpression.getFunction().getName().equals(new RdepsFunction().getName())) {
+        List<Argument> args = functionExpression.getArgs();
+        QueryExpression universeExpression = args.get(0).getExpression();
+        if (universeExpression instanceof TargetLiteral) {
+          TargetLiteral literalUniverseExpression = (TargetLiteral) universeExpression;
+          String absolutizedUniverseExpression =
+              targetPatternParser.absolutize(literalUniverseExpression.getPattern());
+          if (absolutizedUniverseExpression.equals(absoluteUniverseScopePattern)) {
+            List<Argument> argsTail = args.subList(1, functionExpression.getArgs().size());
+            return new FunctionExpression(new AllRdepsFunction(), argsTail);
+          }
+        }
+      }
+      return super.map(functionExpression);
+    }
+  }
+
   @Override
   public void close() {
     ExecutorUtil.interruptibleShutdown(threadPool);
   }
 
   @Override
-  public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
-    // Transform each occurrence of an expressions of the form 'rdeps(<universeScope>, <T>)' to
-    // 'allrdeps(<T>)'. The latter is more efficient.
-    if (universeScope.size() != 1) {
-      return queryExpression;
-    }
-    final TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
-    String universeScopePattern = Iterables.getOnlyElement(universeScope);
-    final String absoluteUniverseScopePattern =
-        targetPatternParser.absolutize(universeScopePattern);
-    QueryExpressionMapper rdepsToAllRDepsMapper = new QueryExpressionMapper() {
-      @Override
-      public QueryExpression map(FunctionExpression functionExpression) {
-        if (functionExpression.getFunction().getName().equals(new RdepsFunction().getName())) {
-          List<Argument> args = functionExpression.getArgs();
-          QueryExpression universeExpression = args.get(0).getExpression();
-          if (universeExpression instanceof TargetLiteral) {
-            TargetLiteral literalUniverseExpression = (TargetLiteral) universeExpression;
-            String absolutizedUniverseExpression =
-                targetPatternParser.absolutize(literalUniverseExpression.getPattern());
-            if (absolutizedUniverseExpression.equals(absoluteUniverseScopePattern)) {
-              List<Argument> argsTail = args.subList(1, functionExpression.getArgs().size());
-              return new FunctionExpression(new AllRdepsFunction(), argsTail);
-            }
-          }
-        }
-        return super.map(functionExpression);
-      }
-    };
-    QueryExpression transformedQueryExpression = queryExpression.getMapped(rdepsToAllRDepsMapper);
+  public final QueryExpression transformParsedQuery(QueryExpression queryExpression)
+      throws QueryException {
+    QueryExpression transformedQueryExpression = getTransformedQueryExpression(queryExpression);
     LOG.info(String.format(
         "transformed query [%s] to [%s]",
         Ascii.truncate(
@@ -270,6 +277,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Ascii.truncate(
             transformedQueryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]")));
     return transformedQueryExpression;
+  }
+
+  protected QueryExpression getTransformedQueryExpression(QueryExpression queryExpression)
+      throws QueryException {
+    if (universeScope.size() != 1) {
+      return queryExpression;
+    }
+    TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
+    String universeScopePattern = Iterables.getOnlyElement(universeScope);
+    return queryExpression.getMapped(
+        new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern));
   }
 
   @Override
@@ -303,7 +321,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         };
     try (final AutoProfiler p = AutoProfiler.logged("evaluating query", LOG)) {
       try {
-        if (canEvalConcurrently(expr)) {
+        if (expr.canEvalConcurrently()) {
           expr.evalConcurrently(this, callbackWithEmptyCheck, threadPool);
         } else {
           expr.eval(this, callbackWithEmptyCheck);
@@ -327,26 +345,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     return new QueryEvalResult(!eventHandler.hasErrors(), empty.get());
-  }
-
-  // TODO(mschaller): This method and its use above are a quick temporary fix to a threadsafety
-  // problem that can happen when the operands of a BinaryOperatorExpression contain LetExpressions.
-  // Namely, concurrent reads and writes to AbstractBlazeQueryEnvironment#letBindings may fail or
-  // produce the wrong results.
-  // For now, this limits concurrent query expression evaluation to BinaryOperatorExpressions with
-  // TargetLiteral operands.
-  private static boolean canEvalConcurrently(QueryExpression expr) {
-    if (!(expr instanceof BinaryOperatorExpression)) {
-      return false;
-    }
-    BinaryOperatorExpression binaryExpr = (BinaryOperatorExpression) expr;
-    ImmutableList<QueryExpression> operands = binaryExpr.getOperands();
-    for (QueryExpression operand : operands) {
-      if (!(operand instanceof TargetLiteral)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
@@ -610,6 +608,18 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     } catch (NoSuchThingException e) {
       throw new TargetNotFoundException(e);
     }
+  }
+
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds) {
+    Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
+    ImmutableMap.Builder<PackageIdentifier, Package> pkgResults = ImmutableMap.builder();
+    Map<SkyKey, SkyValue> packages = graph.getSuccessfulValues(pkgKeys);
+    for (Map.Entry<SkyKey, SkyValue> pkgEntry : packages.entrySet()) {
+      PackageIdentifier pkgId = (PackageIdentifier) pkgEntry.getKey().argument();
+      PackageValue pkgValue = (PackageValue) pkgEntry.getValue();
+      pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
+    }
+    return pkgResults.build();
   }
 
   @Override

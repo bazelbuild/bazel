@@ -14,19 +14,12 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.util.Preconditions;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A binary algebraic set operation.
@@ -45,14 +38,13 @@ public class BinaryOperatorExpression extends QueryExpression {
   private final Lexer.TokenKind operator; // ::= INTERSECT/CARET | UNION/PLUS | EXCEPT/MINUS
   private final ImmutableList<QueryExpression> operands;
 
-  BinaryOperatorExpression(Lexer.TokenKind operator,
-                           List<QueryExpression> operands) {
+  public BinaryOperatorExpression(Lexer.TokenKind operator, List<QueryExpression> operands) {
     Preconditions.checkState(operands.size() > 1);
     this.operator = operator;
     this.operands = ImmutableList.copyOf(operands);
   }
 
-  Lexer.TokenKind getOperator() {
+  public Lexer.TokenKind getOperator() {
     return operator;
   }
 
@@ -63,55 +55,10 @@ public class BinaryOperatorExpression extends QueryExpression {
   @Override
   public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
       throws QueryException, InterruptedException {
-    evalConcurrently(env, callback, MoreExecutors.newDirectExecutorService());
-  }
 
-  @Override
-  public <T> void evalConcurrently(
-      final QueryEnvironment<T> env,
-      final Callback<T> callback,
-      ListeningExecutorService executorService)
-      throws QueryException, InterruptedException {
     if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
-      final AtomicReference<InterruptedException> interruptRef = new AtomicReference<>();
-      final AtomicReference<QueryException> queryExceptionRef = new AtomicReference<>();
-      ArrayList<ListenableFuture<?>> futures = new ArrayList<>(operands.size());
-      for (final QueryExpression operand : operands) {
-        // When executorService has an implementation that evaluates runnables in a non-serial
-        // order, like a fixedSizeThreadPool, the following code does not guarantee that operands'
-        // targets are emitted via the callback in the operands' order. And that's OK!
-        // BinaryOperatorExpression is a set operation. The query documentation states
-        // that set operations don't introduce any ordering constraints of their own.
-        //
-        // Ordering constraints for other kinds of expressions are enforced by the query
-        // environment.
-        futures.add(
-            executorService.submit(
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    try {
-                      env.eval(operand, callback);
-                    } catch (QueryException e) {
-                      queryExceptionRef.compareAndSet(null, e);
-                    } catch (InterruptedException e) {
-                      interruptRef.compareAndSet(null, e);
-                    }
-                  }
-                }));
-      }
-      try {
-        Futures.allAsList(futures).get();
-      } catch (ExecutionException e) {
-        throw new IllegalStateException(e);
-      }
-      InterruptedException interruptedExceptionIfAny = interruptRef.get();
-      if (interruptedExceptionIfAny != null) {
-        throw interruptedExceptionIfAny;
-      }
-      QueryException queryException = queryExceptionRef.get();
-      if (queryException != null) {
-        throw queryException;
+      for (QueryExpression operand : operands) {
+        env.eval(operand, callback);
       }
       return;
     }
@@ -145,7 +92,7 @@ public class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+  public QueryExpression getMapped(QueryExpressionMapper mapper) throws QueryException {
     return mapper.map(this);
   }
 
