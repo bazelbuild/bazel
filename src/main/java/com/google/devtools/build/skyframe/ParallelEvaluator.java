@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
@@ -105,6 +106,10 @@ import javax.annotation.Nullable;
 public final class ParallelEvaluator implements Evaluator {
 
   private static final Logger LOG = Logger.getLogger(ParallelEvaluator.class.getName());
+
+  private static final boolean PREFETCH_OLD_DEPS =
+      Boolean.parseBoolean(
+          System.getProperty("skyframe.ParallelEvaluator.PrefetchOldDeps", "true"));
 
   /** Filters out events which should not be stored. */
   public interface EventFilter extends Predicate<Event> {
@@ -294,7 +299,7 @@ public final class ParallelEvaluator implements Evaluator {
       this.skyKey = skyKey;
       this.oldDeps = oldDeps;
       this.directDeps = Collections.unmodifiableMap(
-          batchPrefetch(directDeps, /*assertDone=*/bubbleErrorInfo == null, skyKey));
+          batchPrefetch(directDeps, oldDeps, /*assertDone=*/bubbleErrorInfo == null, skyKey));
       this.bubbleErrorInfo = bubbleErrorInfo;
       this.visitor = visitor;
       Preconditions.checkState(
@@ -304,14 +309,26 @@ public final class ParallelEvaluator implements Evaluator {
     }
 
     private Map<SkyKey, NodeEntry> batchPrefetch(
-        GroupedList<SkyKey> keys, boolean assertDone, SkyKey keyForDebugging) {
-      Map<SkyKey, NodeEntry> batchMap = graph.getBatch(Iterables.concat(keys));
-      if (batchMap.size() != keys.numElements()) {
+        GroupedList<SkyKey> depKeys, Set<SkyKey> oldDeps, boolean assertDone,
+        SkyKey keyForDebugging) {
+      Iterable<SkyKey> depKeysAsIterable = Iterables.concat(depKeys);
+      Iterable<SkyKey> keysToPrefetch = depKeysAsIterable;
+      if (PREFETCH_OLD_DEPS) {
+        ImmutableSet.Builder<SkyKey> keysToPrefetchBuilder = ImmutableSet.builder();
+        keysToPrefetchBuilder.addAll(depKeysAsIterable).addAll(oldDeps);
+        keysToPrefetch = keysToPrefetchBuilder.build();
+      }
+      Map<SkyKey, NodeEntry> batchMap = graph.getBatch(keysToPrefetch);
+      if (PREFETCH_OLD_DEPS) {
+        batchMap = ImmutableMap.copyOf(
+            Maps.filterKeys(batchMap, Predicates.in(ImmutableSet.copyOf(depKeysAsIterable))));
+      }
+      if (batchMap.size() != depKeys.numElements()) {
         throw new IllegalStateException(
             "Missing keys for "
                 + keyForDebugging
                 + ": "
-                + Sets.difference(keys.toSet(), batchMap.keySet()));
+                + Sets.difference(depKeys.toSet(), batchMap.keySet()));
       }
       if (assertDone) {
         for (Map.Entry<SkyKey, NodeEntry> entry : batchMap.entrySet()) {
