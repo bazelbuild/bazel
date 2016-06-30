@@ -986,7 +986,7 @@ genrule(
         "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
         "mkdir $${TMP}/_embedded_binaries/ && " +
         "$(location :bazel/BazelServer) " +
-        "--jvm_flag=-Dio.bazel.UnixFileSystem=0 --batch " +
+        "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ " +
         "help everything-as-html >> $@ 2>/dev/null && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"

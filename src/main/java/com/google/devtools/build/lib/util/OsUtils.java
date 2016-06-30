@@ -45,7 +45,7 @@ public final class OsUtils {
   }
 
   private static boolean jniLibsAvailable() {
-    return !"0".equals(System.getProperty("io.bazel.UnixFileSystem"));
+    return !"0".equals(System.getProperty("io.bazel.EnableJni"));
   }
 
   // Force JNI linking at a moment when we have 'installBase' handy, and print

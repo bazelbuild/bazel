@@ -23,7 +23,7 @@ import java.io.IOException;
  */
 public class LocalHostResourceManagerDarwin {
   private static final Boolean JNI_UNAVAILABLE =
-      "0".equals(System.getProperty("io.bazel.UnixFileSystem"));
+      "0".equals(System.getProperty("io.bazel.EnableJni"));
   private static final double EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU = 0.6;
 
   private static int getLogicalCpuCount() throws IOException {
