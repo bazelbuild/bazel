@@ -17,7 +17,6 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
@@ -297,8 +296,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
           .derivedFrom(source)
           .startTag("attr")
           .named(key)
-          .closeTag()
-          .endTag()
+          .closeUnaryTag()
           .save();
     } else {
       ImmutableList<String> formatKeys =
@@ -316,7 +314,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
               .attribute("format")
               .setFrom(formatKeys)
               .joinedBy("|")
-              .closeTag();
+              .closeTag()
+              .addCharactersOf("\n");
       for (ResourceXmlAttrValue value : formats.values()) {
         definition = value.writeTo(definition);
       }
@@ -324,6 +323,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public int serializeTo(Path source, OutputStream output) throws IOException {
     SerializeFormat.DataValue.Builder builder =
@@ -347,7 +347,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   @CheckReturnValue
   interface ResourceXmlAttrValue {
-    FluentIterable<String> appendTo(FluentIterable<String> iterable);
 
     ValuesResourceDefinition writeTo(ValuesResourceDefinition writer);
 
@@ -360,14 +359,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   @VisibleForTesting
   public static class EnumResourceXmlAttrValue implements ResourceXmlAttrValue {
 
-    private static final Function<Entry<String, String>, String> MAP_TO_ENUM =
-        new Function<Entry<String, String>, String>() {
-          @Nullable
-          @Override
-          public String apply(Entry<String, String> entry) {
-            return String.format("<enum name='%s' value='%s'/>", entry.getKey(), entry.getValue());
-          }
-        };
     private Map<String, String> values;
 
     private EnumResourceXmlAttrValue(Map<String, String> values) {
@@ -409,11 +400,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable.append(FluentIterable.from(values.entrySet()).transform(MAP_TO_ENUM));
-    }
-
-    @Override
     public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
       return builder.putAllMappedStringValue(values).build();
     }
@@ -428,7 +414,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
                 .setTo(entry.getKey())
                 .attribute("value")
                 .setTo(entry.getValue())
-                .closeUnaryTag();
+                .closeUnaryTag()
+                .addCharactersOf("\n");
       }
       return writer;
     }
@@ -480,21 +467,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable.append(
-          FluentIterable.from(values.entrySet())
-              .transform(
-                  new Function<Entry<String, String>, String>() {
-                    @Nullable
-                    @Override
-                    public String apply(Entry<String, String> input) {
-                      return String.format(
-                          "<flag name='%s' value='%s'/>", input.getKey(), input.getValue());
-                    }
-                  }));
-    }
-
-    @Override
     public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
       return builder.putAllMappedStringValue(values).build();
     }
@@ -531,11 +503,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
-    }
-
-    @Override
     public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
       return builder.build();
     }
@@ -558,11 +525,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @VisibleForTesting
     public static BuilderEntry asEntry() {
       return new BuilderEntry(COLOR, of());
-    }
-
-    @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
     }
 
     @Override
@@ -591,11 +553,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
-    }
-
-    @Override
     public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
       return builder.build();
     }
@@ -618,11 +575,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @VisibleForTesting
     public static BuilderEntry asEntry() {
       return new BuilderEntry(FLOAT, of());
-    }
-
-    @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
     }
 
     @Override
@@ -652,11 +604,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
-    }
-
-    @Override
     public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
       return builder.build();
     }
@@ -679,11 +626,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @VisibleForTesting
     public static BuilderEntry asEntry() {
       return new BuilderEntry(INTEGER, of());
-    }
-
-    @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
     }
 
     @Override
@@ -712,11 +654,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
-    }
-
-    @Override
     public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
       return builder.build();
     }
@@ -739,11 +676,6 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @VisibleForTesting
     public static BuilderEntry asEntry() {
       return new BuilderEntry(FRACTION, of());
-    }
-
-    @Override
-    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
-      return iterable;
     }
 
     @Override

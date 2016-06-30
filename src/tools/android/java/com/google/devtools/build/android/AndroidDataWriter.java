@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
@@ -76,40 +75,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         cruncher.crunchPng(source.toFile(), destinationPath.toFile());
       } catch (InterruptedException | LoggedErrorException e) {
         throw new MergingException(e);
-      }
-      return Boolean.TRUE;
-    }
-  }
-
-  private static final class WriteValuesXmlTask implements Callable<Boolean> {
-
-    private final Path valuesPath;
-    private final Map<FullyQualifiedName, Iterable<String>> valueFragments;
-
-    WriteValuesXmlTask(Path valuesPath, Map<FullyQualifiedName, Iterable<String>> valueFragments) {
-      this.valuesPath = valuesPath;
-      this.valueFragments = valueFragments;
-    }
-
-    @Override
-    public Boolean call() throws Exception {
-      // TODO(corysmith): replace the xml writing with a real xml writing library.
-      Files.createDirectories(valuesPath.getParent());
-      try (BufferedWriter writer =
-          Files.newBufferedWriter(
-              valuesPath,
-              StandardCharsets.UTF_8,
-              StandardOpenOption.CREATE_NEW,
-              StandardOpenOption.WRITE)) {
-        writer.write(START_RESOURCES);
-        for (FullyQualifiedName key :
-            Ordering.natural().immutableSortedCopy(valueFragments.keySet())) {
-          for (String line : valueFragments.get(key)) {
-            writer.write(line);
-            writer.write(LINE_END);
-          }
-        }
-        writer.write(END_RESOURCES);
       }
       return Boolean.TRUE;
     }
@@ -263,14 +228,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
    */
   @Override
   public void flush() throws IOException {
-    for (Entry<String, Map<FullyQualifiedName, Iterable<String>>> entry :
-        valueFragments.entrySet()) {
-      writeTasks.add(
-          executorService.submit(
-              new WriteValuesXmlTask(
-                  resourceDirectory().resolve(entry.getKey()), entry.getValue())));
-    }
-    
     for (Entry<String, ResourceValuesDefinitions> entry : valueTags.entrySet()) {
       writeTasks.add(
           executorService.submit(
@@ -282,16 +239,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
     writeTasks.clear();
     valueFragments.clear();
-  }
-
-  @Override
-  public void writeToValuesXml(FullyQualifiedName key, Iterable<String> xmlFragment) {
-    String valuesPathString = key.valuesPath();
-    if (!valueFragments.containsKey(valuesPathString)) {
-      valueFragments.put(
-          valuesPathString, new TreeMap<FullyQualifiedName, Iterable<String>>(Ordering.natural()));
-    }
-    valueFragments.get(valuesPathString).put(key, xmlFragment);
   }
 
   @Override

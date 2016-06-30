@@ -91,7 +91,8 @@ public class StyleXmlResourceValue implements XmlResourceValue {
             .optional()
             .attribute("parent")
             .setTo(parent)
-            .closeTag();
+            .closeTag()
+            .addCharactersOf("\n");
     for (Entry<String, String> entry : values.entrySet()) {
       definition =
           definition
@@ -99,7 +100,8 @@ public class StyleXmlResourceValue implements XmlResourceValue {
               .named(entry.getKey())
               .closeTag()
               .addCharactersOf(entry.getValue())
-              .endTag();
+              .endTag()
+              .addCharactersOf("\n");
     }
     definition.endTag().save();
   }

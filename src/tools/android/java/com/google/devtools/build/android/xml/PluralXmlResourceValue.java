@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
@@ -31,7 +30,6 @@ import java.nio.file.Path;
 import java.util.Map.Entry;
 import java.util.Objects;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
 
@@ -53,14 +51,7 @@ import javax.xml.namespace.QName;
 public class PluralXmlResourceValue implements XmlResourceValue {
 
   private static final QName PLURALS = QName.valueOf("plurals");
-  public static final Function<Entry<String, String>, String> ENTRY_TO_PLURAL =
-      new Function<Entry<String, String>, String>() {
-        @Nullable
-        @Override
-        public String apply(Entry<String, String> input) {
-          return String.format("<item quantity='%s'>%s</item>", input.getKey(), input.getValue());
-        }
-      };
+
   private final ImmutableMap<String, String> values;
 
   private PluralXmlResourceValue(ImmutableMap<String, String> values) {
@@ -84,7 +75,8 @@ public class PluralXmlResourceValue implements XmlResourceValue {
               .setTo(plural.getKey())
               .closeTag()
               .addCharactersOf(plural.getValue())
-              .endTag();
+              .endTag()
+              .addCharactersOf("\n");
     }
     definition.endTag().save();
   }
@@ -108,6 +100,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
     return MoreObjects.toStringHelper(getClass()).add("values", values).toString();
   }
 
+  @SuppressWarnings("deprecation")
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
     return of(ImmutableMap.copyOf(proto.getMappedStringValue()));
   }

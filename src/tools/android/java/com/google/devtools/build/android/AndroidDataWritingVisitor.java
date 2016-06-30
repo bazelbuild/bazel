@@ -51,16 +51,6 @@ public interface AndroidDataWritingVisitor extends Flushable {
       throws IOException, MergingException;
 
   /**
-   * Adds a xml string fragment to the values file.
-   *
-   * @param key Used to ensure a constant order of the written xml.
-   * @param xmlFragment the xml fragment as an Iterable<String> which allows lazy generation.
-   */
-  // TODO(corysmith): Change this to pass in a xml writer. Safer all around.
-  @Deprecated
-  void writeToValuesXml(FullyQualifiedName key, Iterable<String> xmlFragment);
-
-  /**
    * Provides a fluent interface to generate an xml resource for the values directory.
    *
    * <p>Example usage: 
