@@ -68,6 +68,7 @@ genrule(
     srcs = ["windows_processes.cc"],
     outs = ["windows_jni.dll"],
     cmd = "$(location build_windows_jni.sh) $@ $(SRCS)",
+    output_to_bindir = 1,
     tools = ["build_windows_jni.sh"],
     visibility = ["//src:__subpackages__"],
 )

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.windows;
 
+import java.util.List;
+
 /**
  * Process management on Windows.
  */
@@ -23,8 +25,106 @@ public class WindowsProcesses {
     // Prevent construction
   }
 
-  private static native String helloWorld(int arg, String fruit);
-  private static native int nativeGetpid();
+  /**
+   * returns the PID of the current process.
+   */
+  static native int nativeGetpid();
+
+  /**
+   * Creates a process with the specified Windows command line.
+   *
+   * <p>Appropriately quoting arguments is the responsibility of the caller.
+   *
+   * @param commandLine the command line (needs to be quoted Windows style)
+   * @param env the environment of the new process. null means inherit that of the Bazel server
+   * @param stdoutFile the file the stdout should be redirected to. if null, nativeReadStdout will
+   *                   work.
+   * @param stderrFile the file the stdout should be redirected to. if null, nativeReadStderr will
+   *                   work.
+   * @return the opaque identifier of the created process
+   */
+  static native long nativeCreateProcess(String commandLine, byte[] env, String stdoutFile,
+      String stderrFile);
+
+  /**
+   * Writes data from the given array to the stdin of the specified process.
+   *
+   * <p>Blocks until either some data was written or the process is terminated.
+   *
+   * @return the number of bytes written
+   */
+  static native int nativeWriteStdin(long process, byte[] bytes, int offset, int length);
+
+  /**
+   * Reads data from the stdout of the specified process into the given array.
+   *
+   * <p>Blocks until either some data was read or the process is terminated.
+   *
+   * @return the number of bytes read or -1 if there was an error.
+   */
+  static native int nativeReadStdout(long process, byte[] bytes, int offset, int length);
+
+  /**
+   * Reads data from the stderr of the specified process into the given array.
+   *
+   * <p>Blocks until either some data was read or the process is terminated.
+   *
+   * @return the number of bytes read or -1 if there was an error.
+   */
+  static native int nativeReadStderr(long process, byte[] bytes, int offset, int length);
+
+  /**
+   * Interrupts a {@link #nativeWaitFor(long) call on the specified process}.
+   *
+   * <p>Should only be called once on per process and only when a {@link #nativeWaitFor(long)}
+   * call is in progress. Otherwise its behavior is undefined.
+   *
+   * <p>The {@link #nativeWaitFor(long)} call will then return an error.
+   *
+   * <p>Does not modify the error state of the process.
+   */
+  static native void nativeInterrupt(long process);
+
+  /**
+   * Returns if the given process was interrupted by a {@link #nativeInterrupt(long)} call.
+   *
+   * <p>Does not modify the error state of the process.
+   */
+  static native boolean nativeIsInterrupted(long process);
+  /**
+   * Waits until the given process terminates and returns with its exit code or -1 if there was an
+   * error.
+   */
+  static native int nativeWaitFor(long process);
+
+  /**
+   * Returns the process ID of the given process or -1 if there was an error.
+   */
+  static native int nativeGetProcessPid(long process);
+
+  /**
+   * Terminates the given process. Returns true if the termination was successful.
+   */
+  static native boolean nativeTerminate(long process);
+
+  /**
+   * Releases the native data structures associated with the process.
+   *
+   * <p>Calling any other method on the same process after this call will result in the JVM
+   * crashing or worse.
+   */
+  static native void nativeDelete(long process);
+
+  /**
+   * Returns a string representation of the last error caused by any call on the given process
+   * or the empty string if the last operation was successful.
+   *
+   * <p>Does <b>NOT</b> terminate the process if it is still running.
+   *
+   * <p>After this call returns, subsequent calls will return the empty string if there was no
+   * failed operation in between.
+   */
+  static native String nativeGetLastError(long process);
 
   public static int getpid() {
     ensureJni();
@@ -38,5 +138,54 @@ public class WindowsProcesses {
 
     System.loadLibrary("windows_jni");
     jniLoaded = true;
+  }
+
+  static String quoteCommandLine(List<String> argv) {
+    StringBuilder result = new StringBuilder();
+    for (int iArg = 0; iArg < argv.size(); iArg++) {
+      if (iArg != 0) {
+        result.append(" ");
+      }
+      String arg = argv.get(iArg);
+      boolean hasSpace = arg.contains(" ");
+      if (!arg.contains("\"") && !arg.contains("\\") && !hasSpace) {
+        // fast path. Just append the input string.
+        result.append(arg);
+      } else {
+        // We need to quote things if the argument contains a space.
+        if (hasSpace) {
+          result.append("\"");
+        }
+
+        for (int iChar = 0; iChar < arg.length(); iChar++) {
+          boolean lastChar = iChar == arg.length() - 1;
+          switch (arg.charAt(iChar)) {
+            case '"':
+              // Escape double quotes
+              result.append("\\\"");
+              break;
+            case '\\':
+              // Backslashes at the end of the string are quoted if we add quotes
+              if (lastChar) {
+                result.append(hasSpace ? "\\\\" : "\\");
+              } else {
+                // Backslashes everywhere else are quoted if they are followed by a
+                // quote or a backslash
+                result.append(arg.charAt(iChar + 1) == '"' || arg.charAt(iChar + 1) == '\\'
+                    ? "\\\\" : "\\");
+              }
+              break;
+            default:
+              result.append(arg.charAt(iChar));
+          }
+        }
+        // Add ending quotes if we added a quote at the beginning.
+        if (hasSpace) {
+          result.append("\"");
+        }
+      }
+    }
+
+    return result.toString();
   }
 }

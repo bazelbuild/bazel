@@ -133,6 +133,8 @@ java_test(
     ],
 )
 
+# Tests that test Windows-specific functionality that run on other operating
+# systems
 java_test(
     name = "windows_test",
     srcs = [
@@ -151,10 +153,37 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib:windows",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+# Tests that need to run on Windows
+java_test(
+    name = "windows-tests",
+    srcs = glob(
+        ["windows/*.java"],
+        exclude = ["windows/MockSubprocess.java"],
+    ),
+    data = [
+        ":MockSubprocess_deploy.jar",
+    ] + select({
+        "//src:windows": ["//src/main/native:windows_jni.dll"],
+        "//conditions:default": [
+            "//src/main/native:libunix.dylib",
+            "//src/main/native:libunix.so",
+        ],
+    }),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:truth",
     ],
 )
@@ -978,6 +1007,11 @@ java_test(
         "//third_party:truth",
         "//third_party/protobuf",
     ],
+)
+
+java_binary(
+    name = "MockSubprocess",
+    srcs = ["windows/MockSubprocess.java"],
 )
 
 java_library(

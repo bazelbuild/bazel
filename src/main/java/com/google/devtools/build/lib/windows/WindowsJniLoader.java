@@ -21,4 +21,8 @@ public class WindowsJniLoader {
   public static void loadJni() {
     System.loadLibrary("windows_jni");
   }
+
+  public static void loadJniForTesting(String jniDll) {
+    System.load(jniDll);
+  }
 }
