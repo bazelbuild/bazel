@@ -90,6 +90,11 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
+## [Google's Dagger](https://github.com/google/dagger)
+
+* Version: 2.5
+* License: Apache License 2.0
+
 ## [Error Prone](https://github.com/google/error-prone)
 
 * Version: 2.0.6-20151216

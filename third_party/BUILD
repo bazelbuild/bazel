@@ -242,17 +242,17 @@ java_plugin(
 
 java_import(
     name = "dagger_api",
-    jars = ["dagger/dagger-2.4.jar"],
+    jars = ["dagger/dagger-2.5.jar"],
 )
 
 java_import(
     name = "dagger_compiler",
-    jars = ["dagger/dagger-compiler-2.4.jar"],
+    jars = ["dagger/dagger-compiler-2.5.jar"],
 )
 
 java_import(
     name = "dagger_producers",
-    jars = ["dagger/dagger-producers-2.4.jar"],
+    jars = ["dagger/dagger-producers-2.5.jar"],
 )
 
 java_import(
