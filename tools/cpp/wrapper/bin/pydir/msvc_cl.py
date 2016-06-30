@@ -63,7 +63,7 @@ GCCPATTERNS = [
     ('-Wl,-rpath(.+)', []),
     ('-B(.+)', []),
     ('-static', []),
-    ('-shared', []),
+    ('-shared', ['/DLL']),
     ('-std=(.+)', []),
 ]
 

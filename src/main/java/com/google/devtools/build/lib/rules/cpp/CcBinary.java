@@ -185,9 +185,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // if cc_binary includes "linkshared=1", then gcc will be invoked with
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
-    // in ".so".
-    PathFragment binaryPath =
-        new PathFragment(ruleContext.getTarget().getName() + OsUtils.executableExtension());
+    // in ".so" or "dylib" or ".dll".
+    PathFragment binaryPath = new PathFragment(ruleContext.getTarget().getName());
+    if (!isLinkShared(ruleContext)) {
+      binaryPath = new PathFragment(binaryPath.getPathString() + OsUtils.executableExtension());
+    }
     Artifact binary = ruleContext.getPackageRelativeArtifact(
         binaryPath, ruleContext.getConfiguration().getBinDirectory());
     CppLinkAction.Builder linkActionBuilder =
