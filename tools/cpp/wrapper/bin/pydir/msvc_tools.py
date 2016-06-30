@@ -19,7 +19,6 @@ import ntpath
 import os
 import re
 import subprocess
-import sys
 
 MAX_PATH = 260  # The maximum number of characters in a Windows path.
 MAX_OPTION_LENGTH = 10  # The maximum length of a compiler/linker option.
@@ -123,10 +122,14 @@ class ArgParser(object):
     matched = []
     unmatched = []
     files = []
-    is_pch = False
     while i < len(argv):
       num_matched, action, groups = self._MatchOneArg(argv[i:])
       arg = argv[i]
+      if arg.startswith('/Fo') or arg.startswith('/Fa') or arg.startswith(
+          '/Fi'):
+        self.output_file = arg[3:]
+        self.options.append(
+            '/Fd%s.pdb' % self.NormPath(os.path.splitext(self.output_file)[0]))
       if num_matched == 0:
         # Strip out any .a's that have 0 size, they are header or intermediate
         # dependency libraries and don't contain any code. 0-length files are
@@ -155,13 +158,6 @@ class ArgParser(object):
       matched += argv[i:i + num_matched]
       # Handle special options.
       for entry in action:
-        if entry == '$CREATE_PRECOMPILED_HEADER':
-          # The PCH flag comes _first_ on blaze-generated command-lines, so all
-          # we can do is set a flag here since we have not yet parsed any other
-          # options.
-          is_pch = True
-          continue
-
         if entry == '$TARGET_ARCH':
           if arg == '-m32':
             self.target_arch = 'x86'
@@ -203,22 +199,6 @@ class ArgParser(object):
               except IOError, e:
                 print 'Could not open', value, 'for reading:', str(e)
                 exit(-1)
-              continue
-
-            # Depending on whether we are creating precompiled headers cl.exe
-            # needs different options for specifying the output file.
-            if entry == ('$COMPILE_OUTPUT%d' % g):
-              if is_pch:
-                # Just touch the PCH file so that blaze is happy.
-                with open(value, 'a'):
-                  os.utime(value, None)
-                # Exit since we don't want to actually try to process a PCH.
-                sys.exit(0)
-              else:
-                self.output_file = value
-                self.options.append('/Fo%s' % self.NormPath(value))
-                self.options.append('/Fd%s.pdb' %
-                                    self.NormPath(os.path.splitext(value)[0]))
               continue
 
             if entry == ('$GENERATE_DEPS%d' % g):
