@@ -23,7 +23,7 @@ import java.util.Deque;
 /**
  * A class that, when beeing told about start and end of a package
  * being loaded, keeps track of the loading progress and provides it
- * as a human-readable string intened for the progress bar.
+ * as a human-readable string intended for the progress bar.
  */
 public class PackageProgressReceiver {
 
@@ -34,7 +34,9 @@ public class PackageProgressReceiver {
    * Register that loading a package has started.
    */
   public synchronized void startReadPackage(PackageIdentifier packageId) {
-    pending.addLast(packageId);
+    if (!pending.contains(packageId)) {
+      pending.addLast(packageId);
+    }
   }
 
   /**
