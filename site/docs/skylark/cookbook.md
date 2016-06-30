@@ -527,9 +527,14 @@ execute(
 
 Bazel needs to know about all dependencies before doing the analysis phase and
 calling the implementation function. Dependencies can be computed based on the
-rule attributes and the configuration: to do so, use a function as the default
+rule attributes: to do so, use a function as the default
 value of an attribute (the attribute must be private and have type `label` or
-`list of labels`).
+`list of labels`). The parameters of this function must correspond to the
+attributes that are accessed in the function body.
+
+Note: For legacy reasons, the function takes the configuration as an additional
+parameter. Please do not rely on the configuration since it will be removed in
+the future.
 
 The example below computes the md5 sum of a file. The file can be preprocessed
 using a filter. The exact dependencies depend on the filter chosen by the user.
@@ -543,10 +548,10 @@ _filters = {
   "none": None,
 }
 
-def _get_filter(attr_map, cfg):
+def _get_filter(filter, cfg=None): # requires attribute "filter"
   # Return the value for the attribute "_filter_bin"
   # It can be a label or None.
-  return _filters[attr_map.filter]
+  return _filters[filter]
 
 def _impl(ctx):
   src = ctx.file.src

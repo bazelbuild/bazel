@@ -214,9 +214,11 @@ public class SkylarkRuleClassFunctions {
             + "It is a dictionary mapping from string to a template name. "
             + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
             + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
-            // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
-            + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
-            + "returning such a dictionary."),
+            + "Similar to computed dependency rule attributes, you can also specify the name of a "
+            + "function that returns the dictionary. This function can access all rule "
+            + "attributes that are listed as parameters in its function signature."
+            + "For example, <code>outputs = _my_func<code> with <code>def _my_func(srcs, deps):"
+            + "</code> has access to the attributes 'srcs' and 'deps' (if defined)."),
         @Param(name = "executable", type = Boolean.class, defaultValue = "False",
             doc = "whether this rule is marked as executable or not. If True, "
             + "there must be an action that generates <code>ctx.outputs.executable</code>."),
