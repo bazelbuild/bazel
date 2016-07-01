@@ -48,7 +48,7 @@ public class AndroidDataMerger {
 
   private static final Logger logger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
 
-  private final class ParseDependencyDataTask implements Callable<Boolean> {
+  private static final class ParseDependencyDataTask implements Callable<Boolean> {
 
     private final AndroidDataSerializer serializer;
 
@@ -157,6 +157,7 @@ public class AndroidDataMerger {
 
   private final SourceChecker deDuplicator;
   private final ListeningExecutorService executorService;
+  private boolean parseIds;
 
   /** Creates a merger with no path deduplication and a default {@link ExecutorService}. */
   public static AndroidDataMerger createWithDefaults() {
@@ -184,6 +185,10 @@ public class AndroidDataMerger {
   private AndroidDataMerger(SourceChecker deDuplicator, ListeningExecutorService executorService) {
     this.deDuplicator = deDuplicator;
     this.executorService = executorService;
+  }
+
+  void enableIdParsing() {
+    this.parseIds = true;
   }
 
   /**
@@ -299,7 +304,8 @@ public class AndroidDataMerger {
 
     try {
       // Extract the primary resources.
-      ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primaryData);
+      ParsedAndroidData parsedPrimary = parseIds ? ParsedAndroidData.parseWithIds(primaryData)
+          : ParsedAndroidData.from(primaryData);
 
       // Create the builders for the final parsed data.
       final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();

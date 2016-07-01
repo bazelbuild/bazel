@@ -273,7 +273,7 @@ public class XmlResourceValues {
     "cast",
     "unchecked"
   }) // The interface returns Iterator, force casting based on documentation.
-  private static Iterator<Attribute> iterateAttributesFrom(StartElement start) {
+  static Iterator<Attribute> iterateAttributesFrom(StartElement start) {
     return (Iterator<Attribute>) start.getAttributes();
   }
 
