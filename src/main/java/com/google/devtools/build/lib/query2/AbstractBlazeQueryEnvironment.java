@@ -148,8 +148,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   @Override
   public abstract void close();
 
-  public QueryExpression transformParsedQuery(QueryExpression queryExpression)
-      throws QueryException {
+  public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     return queryExpression;
   }
 

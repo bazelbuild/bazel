@@ -102,7 +102,7 @@ public abstract class QueryExpression {
   public abstract void collectTargetPatterns(Collection<String> literals);
 
   /* Implementations should just be {@code return mapper.map(this)}. */
-  public abstract QueryExpression getMapped(QueryExpressionMapper mapper) throws QueryException;
+  public abstract QueryExpression getMapped(QueryExpressionMapper mapper);
 
   /**
    * Returns this query expression pretty-printed.
