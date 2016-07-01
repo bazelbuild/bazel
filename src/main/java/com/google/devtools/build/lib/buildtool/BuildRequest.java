@@ -67,7 +67,8 @@ public class BuildRequest implements OptionsClassProvider {
             category = "strategy",
             help = "The number of concurrent jobs to run. "
                 + "0 means build sequentially. Values above " + MAX_JOBS
-                + " are not allowed.")
+                + " are not allowed, and values above "
+                + JOBS_TOO_HIGH_WARNING + " may cause memory issues.")
     public int jobs;
 
     @Option(name = "progress_report_interval",
@@ -470,10 +471,6 @@ public class BuildRequest implements OptionsClassProvider {
       throw new InvalidConfigurationException(String.format(
           "Invalid parameter for --jobs: %d. Only values 0 <= jobs <= %d are allowed.", jobs,
           MAX_JOBS));
-    }
-    if (jobs > JOBS_TOO_HIGH_WARNING) {
-      warnings.add(
-          String.format("High value for --jobs: %d. You may run into memory issues", jobs));
     }
 
     int localTestJobs = getExecutionOptions().localTestJobs;
