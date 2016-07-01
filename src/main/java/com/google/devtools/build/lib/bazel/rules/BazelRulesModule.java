@@ -177,6 +177,7 @@ public class BazelRulesModule extends BlazeModule {
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     BazelRuleClassProvider.setup(builder);
     try {
       // Load auto-configuration files, it is made outside of the rule class provider so that it

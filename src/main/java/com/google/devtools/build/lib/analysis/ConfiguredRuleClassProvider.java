@@ -107,7 +107,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
     private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.of();
- 
+
 
     public void addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -298,6 +298,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public Label getToolsLabel(String labelValue) {
       return getLabel(toolsRepository + labelValue);
+    }
+
+    @Override
+    public String getToolsRepository() {
+      return toolsRepository;
     }
   }
 
@@ -528,7 +533,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       getRegisteredSkylarkProviders() {
     return this.registeredSkylarkProviders;
   }
-  
+
   /**
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
