@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Var
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -938,6 +939,11 @@ public final class CcLibraryHelper {
         dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
     providers.put(TransitiveLipoInfoProvider.class, collectTransitiveLipoInfo(ccOutputs));
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
+
+    if (shouldAddLinkerOutputArtifacts(ruleContext, ccOutputs)) {
+      addLinkerOutputArtifacts(outputGroups);
+    }
+
     outputGroups.put(OutputGroupProvider.TEMP_FILES, getTemps(ccOutputs));
     if (emitCompileProviders) {
       boolean isLipoCollector =
@@ -971,6 +977,42 @@ public final class CcLibraryHelper {
     }
     return new Info(providers, outputGroups, ccOutputs, ccLinkingOutputs, originalLinkingOutputs,
         cppCompilationContext);
+  }
+
+  /**
+   * Returns true if the appropriate attributes for linker output artifacts are defined, and either
+   * the compile action produces object files or the build is configured to produce an archive or
+   * dynamic library even in the absense of object files.
+   */
+  private boolean shouldAddLinkerOutputArtifacts(
+      RuleContext ruleContext, CcCompilationOutputs ccOutputs) {
+    return (ruleContext.attributes().has("alwayslink", Type.BOOLEAN)
+        && ruleContext.attributes().has("linkstatic", Type.BOOLEAN)
+        && (emitLinkActionsIfEmpty || !ccOutputs.isEmpty()));
+  }
+
+  /**
+   * Adds linker output artifacts to the given map, to be registered on the configured target as
+   * output groups.
+   */
+  private void addLinkerOutputArtifacts(Map<String, NestedSet<Artifact>> outputGroups) {
+    NestedSetBuilder<Artifact> archiveFile = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Artifact> dynamicLibrary = new NestedSetBuilder<>(Order.STABLE_ORDER);
+
+    if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
+      archiveFile.add(
+          CppHelper.getLinkedArtifact(ruleContext, Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY));
+    } else {
+      archiveFile.add(CppHelper.getLinkedArtifact(ruleContext, Link.LinkTargetType.STATIC_LIBRARY));
+    }
+
+    if (CppRuleClasses.shouldCreateDynamicLibrary(ruleContext.attributes())) {
+      dynamicLibrary.add(
+          CppHelper.getLinkedArtifact(ruleContext, Link.LinkTargetType.DYNAMIC_LIBRARY));
+    }
+
+    outputGroups.put("archive", archiveFile.build());
+    outputGroups.put("dynamic_library", dynamicLibrary.build());
   }
 
   /**
