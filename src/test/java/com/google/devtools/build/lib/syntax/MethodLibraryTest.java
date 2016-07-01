@@ -1658,13 +1658,52 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testStatement("int('1')", 1)
         .testStatement("int('-1234')", -1234)
-        .testIfErrorContains("invalid literal for int(): \"1.5\"", "int('1.5')")
-        .testIfErrorContains("invalid literal for int(): \"ab\"", "int('ab')")
+        .testIfErrorContains("invalid literal for int() with base 10: \"1.5\"", "int('1.5')")
+        .testIfErrorContains("invalid literal for int() with base 10: \"ab\"", "int('ab')")
         .testStatement("int(42)", 42)
         .testStatement("int(-1)", -1)
         .testStatement("int(True)", 1)
         .testStatement("int(False)", 0)
         .testIfErrorContains("None is not of type string or int or bool", "int(None)");
+  }
+
+  @Test
+  public void testIntWithBase() throws Exception {
+    new BothModesTest()
+        .testStatement("int('11', 2)", 3)
+        .testStatement("int('11', 9)", 10)
+        .testStatement("int('AF', 16)", 175)
+        .testStatement("int('11', 36)", 37)
+        .testStatement("int('az', 36)", 395);
+  }
+
+  @Test
+  public void testIntWithBase_InvalidBase() throws Exception {
+    new BothModesTest()
+        .testIfExactError("invalid literal for int() with base 3: \"123\"", "int('123', 3)")
+        .testIfExactError("invalid literal for int() with base 15: \"FF\"", "int('FF', 15)")
+        .testIfExactError("int() base must be >= 2 and <= 36", "int('123', -1)")
+        .testIfExactError("int() base must be >= 2 and <= 36", "int('123', 1)")
+        .testIfExactError("int() base must be >= 2 and <= 36", "int('123', 37)");
+  }
+
+  @Test
+  public void testIntWithBase_Prefix() throws Exception {
+    new BothModesTest()
+        .testStatement("int('0b11', 0)", 3)
+        .testStatement("int('0B11', 2)", 3)
+        .testStatement("int('0o11', 0)", 9)
+        .testStatement("int('0O11', 8)", 9)
+        .testStatement("int('0XFF', 0)", 255)
+        .testStatement("int('0xFF', 16)", 255)
+        .testIfExactError("invalid literal for int() with base 8: \"0xFF\"", "int('0xFF', 8)");
+  }
+
+  @Test
+  public void testIntWithBase_NoString() throws Exception {
+    new BothModesTest()
+        .testIfExactError("int() can't convert non-string with explicit base", "int(True, 2)")
+        .testIfExactError("int() can't convert non-string with explicit base", "int(1, 2)");
   }
 
   @Test

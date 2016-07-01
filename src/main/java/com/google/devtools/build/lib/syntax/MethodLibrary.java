@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -1762,33 +1763,92 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "int", returnType = Integer.class, doc = "Converts a value to int. "
-      + "If the argument is a string, it is converted using base 10 and raises an error if the "
-      + "conversion fails. If the argument is a bool, it returns 0 (False) or 1 (True). "
-      + "If the argument is an int, it is simply returned."
-      + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
-      parameters = {
-        @Param(name = "x", type = Object.class, doc = "The string to convert.")},
-      useLocation = true)
-  private static final BuiltinFunction int_ = new BuiltinFunction("int") {
-    public Integer invoke(Object x, Location loc) throws EvalException {
-      if (x instanceof Boolean) {
-        return ((Boolean) x).booleanValue() ? 1 : 0;
-      } else if (x instanceof Integer) {
-        return (Integer) x;
-      } else if (x instanceof String) {
-        try {
-          return Integer.parseInt((String) x);
-        } catch (NumberFormatException e) {
-          throw new EvalException(loc,
-              "invalid literal for int(): " + Printer.repr(x));
+  @SkylarkSignature(
+    name = "int",
+    returnType = Integer.class,
+    doc =
+        "Converts a value to int. "
+            + "If the argument is a string, it is converted using the given base and raises an "
+            + "error if the conversion fails. "
+            + "The base can be between 2 and 36 (inclusive) and defaults to 10. "
+            + "The value can be prefixed with 0b/0o/ox to represent values in base 2/8/16. "
+            + "If such a prefix is present, a base of 0 can be used to automatically determine the "
+            + "correct base: "
+            + "<pre class=\"language-python\">int(\"0xFF\", 0) == int(\"0xFF\", 16) == 255</pre>"
+            + "If the argument is a bool, it returns 0 (False) or 1 (True). "
+            + "If the argument is an int, it is simply returned."
+            + "<pre class=\"language-python\">int(\"123\") == 123</pre>",
+    parameters = {
+      @Param(name = "x", type = Object.class, doc = "The string to convert."),
+      @Param(
+        name = "base",
+        type = Integer.class,
+        defaultValue = "10",
+        doc = "The base of the string."
+      )
+    },
+    useLocation = true
+  )
+  private static final BuiltinFunction int_ =
+      new BuiltinFunction("int") {
+        private final ImmutableMap<String, Integer> intPrefixes =
+            ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
+
+        @SuppressWarnings("unused")
+        public Integer invoke(Object x, Integer base, Location loc) throws EvalException {
+          if (x instanceof String) {
+            return fromString(x, loc, base);
+          } else {
+            if (base != 10) {
+              throw new EvalException(loc, "int() can't convert non-string with explicit base");
+            }
+            if (x instanceof Boolean) {
+              return ((Boolean) x).booleanValue() ? 1 : 0;
+            } else if (x instanceof Integer) {
+              return (Integer) x;
+            }
+            throw new EvalException(
+                loc, Printer.format("%r is not of type string or int or bool", x));
+          }
         }
-      } else {
-        throw new EvalException(loc,
-            Printer.format("%r is not of type string or int or bool", x));
-      }
-    }
-  };
+
+        private int fromString(Object x, Location loc, int base) throws EvalException {
+          String value = (String) x;
+          String prefix = getIntegerPrefix(value);
+
+          if (!prefix.isEmpty()) {
+            value = value.substring(prefix.length());
+            int expectedBase = intPrefixes.get(prefix);
+            if (base == 0) {
+              // Similar to Python, base 0 means "derive the base from the prefix".
+              base = expectedBase;
+            } else if (base != expectedBase) {
+              throw new EvalException(
+                  loc, Printer.format("invalid literal for int() with base %d: %r", base, x));
+            }
+          }
+
+          if (base < 2 || base > 36) {
+            throw new EvalException(loc, "int() base must be >= 2 and <= 36");
+          }
+          try {
+            return Integer.parseInt(value, base);
+          } catch (NumberFormatException e) {
+            throw new EvalException(
+                loc, Printer.format("invalid literal for int() with base %d: %r", base, x));
+          }
+        }
+
+        private String getIntegerPrefix(String value) {
+          value = value.toLowerCase();
+          for (String prefix : intPrefixes.keySet()) {
+            if (value.startsWith(prefix)) {
+              return prefix;
+            }
+          }
+          return "";
+        }
+      };
 
   @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as attributes. It is used to group "
