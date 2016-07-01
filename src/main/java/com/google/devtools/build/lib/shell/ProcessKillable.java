@@ -20,14 +20,14 @@ package com.google.devtools.build.lib.shell;
  */
 final class ProcessKillable implements Killable {
 
-  private final Process process;
+  private final Subprocess process;
 
-  ProcessKillable(final Process process) {
+  ProcessKillable(Subprocess process) {
     this.process = process;
   }
 
   /**
-   * Calls {@link Process#destroy()}.
+   * Calls {@link Subprocess#destroy()}.
    */
   @Override
   public void kill() {

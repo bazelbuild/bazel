@@ -15,12 +15,13 @@
 package com.google.devtools.build.lib.shell;
 
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.ProcessBuilder.Redirect;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -125,8 +126,6 @@ public final class Command {
    */
   public static final byte[] NO_INPUT = new byte[0];
 
-  private static final String[] EMPTY_STRING_ARRAY = new String[0];
-
   /**
    * Pass this to {@link #execute(byte[], KillableObserver, boolean)} to
    * indicate that you do not wish to observe / kill the underlying
@@ -143,25 +142,11 @@ public final class Command {
     }
   };
 
-  private final ProcessBuilder processBuilder;
+  private final SubprocessBuilder subprocessBuilder;
 
   // Start of public API -----------------------------------------------------
 
   /**
-   * Creates a new {@link Command} that will execute a command line that
-   * is described by a {@link ProcessBuilder}. Command line elements,
-   * environment, and working directory are taken from this object. The
-   * command line is executed exactly as given, without a shell.
-   *
-   * @param processBuilder {@link ProcessBuilder} describing command line
-   *  to execute
-   */
-  public Command(final ProcessBuilder processBuilder) {
-    this(processBuilder.command().toArray(EMPTY_STRING_ARRAY),
-         processBuilder.environment(),
-         processBuilder.directory());
-  }
-
   /**
    * Creates a new {@link Command} for the given command line elements. The
    * command line is executed exactly as given, without a shell.
@@ -214,22 +199,17 @@ public final class Command {
       commandLineElements[0] = new File(workingDirectory, commandLineElements[0]).getAbsolutePath();
     }
 
-    this.processBuilder =
-      new ProcessBuilder(commandLineElements);
-    if (environmentVariables != null) {
-      // TODO(bazel-team) remove next line eventually; it is here to mimic old
-      // Runtime.exec() behavior
-      this.processBuilder.environment().clear();
-      this.processBuilder.environment().putAll(environmentVariables);
-    }
-    this.processBuilder.directory(workingDirectory);
+    this.subprocessBuilder = new SubprocessBuilder();
+    subprocessBuilder.setArgv(ImmutableList.copyOf(commandLineElements));
+    subprocessBuilder.setEnv(environmentVariables);
+    subprocessBuilder.setWorkingDirectory(workingDirectory);
   }
 
   /**
    * @return raw command line elements to be executed
    */
   public String[] getCommandLineElements() {
-    final List<String> elements = processBuilder.command();
+    final List<String> elements = subprocessBuilder.getArgv();
     return elements.toArray(new String[elements.size()]);
   }
 
@@ -237,7 +217,7 @@ public final class Command {
    * @return (unmodifiable) {@link Map} view of command's environment variables
    */
   public Map<String, String> getEnvironmentVariables() {
-    return Collections.unmodifiableMap(processBuilder.environment());
+    return subprocessBuilder.getEnv();
   }
 
   /**
@@ -245,7 +225,7 @@ public final class Command {
    *         working directory is used
    */
   public File getWorkingDirectory() {
-    return processBuilder.directory();
+    return subprocessBuilder.getWorkingDirectory();
   }
 
   /**
@@ -446,28 +426,20 @@ public final class Command {
       throws CommandException {
     nullCheck(stdinInput, "stdinInput");
     nullCheck(observer, "observer");
-    processBuilder.redirectOutput(redirectToFileOrDevNull(stdOut));
-    processBuilder.redirectError(redirectToFileOrDevNull(stdErr));
+    if (stdOut == null) {
+      subprocessBuilder.setStdout(StreamAction.DISCARD);
+    } else {
+      subprocessBuilder.setStdout(stdOut);
+    }
+
+    if (stdErr == null) {
+      subprocessBuilder.setStderr(StreamAction.DISCARD);
+    } else {
+      subprocessBuilder.setStderr(stdErr);
+    }
     return doExecute(
             new ByteArrayInputSource(stdinInput), observer, null, killSubprocessOnInterrupt, false)
         .get();
-  }
-
-  /**
-   * Returns a {@link ProcessBuilder.Redirect} that writes process output to {@code file} or to
-   * /dev/null in case {@code file} is null. If {@code file} exists, it is deleted before
-   * redirecting to it.
-   */
-  private Redirect redirectToFileOrDevNull(File file) {
-    if (file == null) {
-      return Redirect.to(new File("/dev/null"));
-    }
-    // We need to use Redirect.appendTo() here, because on older Linux kernels writes are otherwise
-    // not atomic and might result in lost log messages: https://lkml.org/lkml/2014/3/3/308
-    if (file.exists()) {
-      file.delete();
-    }
-    return Redirect.appendTo(file);
   }
 
   /**
@@ -706,7 +678,7 @@ public final class Command {
 
     logCommand();
 
-    final Process process = startProcess();
+    final Subprocess process = startProcess();
 
     if (outErrConsumers != null) {
       outErrConsumers.logConsumptionStrategy();
@@ -745,10 +717,10 @@ public final class Command {
     };
   }
 
-  private Process startProcess()
+  private Subprocess startProcess()
     throws ExecFailedException {
     try {
-      return processBuilder.start();
+      return subprocessBuilder.start();
     } catch (IOException ioe) {
       throw new ExecFailedException(this, ioe);
     }
@@ -809,8 +781,7 @@ public final class Command {
     }
   }
 
-  private static void processInput(final InputSource stdinInput,
-                                   final Process process) {
+  private static void processInput(InputSource stdinInput, Subprocess process) {
     if (log.isLoggable(Level.FINER)) {
       log.finer(stdinInput.toLogString("stdin"));
     }
@@ -836,15 +807,15 @@ public final class Command {
     }
   }
 
-  private static Killable observeProcess(final Process process,
-                                         final KillableObserver observer) {
+  private static Killable observeProcess(Subprocess process,
+      final KillableObserver observer) {
     final Killable processKillable = new ProcessKillable(process);
     observer.startObserving(processKillable);
     return processKillable;
   }
 
   private CommandResult waitForProcessToComplete(
-    final Process process,
+    final Subprocess process,
     final KillableObserver observer,
     final Killable processKillable,
     final Consumers.OutErrConsumers outErr,
@@ -903,7 +874,7 @@ public final class Command {
     }
   }
 
-  private static TerminationStatus waitForProcess(Process process,
+  private static TerminationStatus waitForProcess(Subprocess process,
                                        boolean killSubprocessOnInterrupt) {
     boolean wasInterrupted = false;
     try {
@@ -941,15 +912,15 @@ public final class Command {
   public String toDebugString() {
     StringBuilder message = new StringBuilder(128);
     message.append("Executing (without brackets):");
-    for (final String arg : processBuilder.command()) {
+    for (String arg : subprocessBuilder.getArgv()) {
       message.append(" [");
       message.append(arg);
       message.append(']');
     }
     message.append("; environment: ");
-    message.append(processBuilder.environment());
-    final File workingDirectory = processBuilder.directory();
+    message.append(subprocessBuilder.getEnv());
     message.append("; working dir: ");
+    File workingDirectory = subprocessBuilder.getWorkingDirectory();
     message.append(workingDirectory == null ?
                    "(current)" :
                    workingDirectory.toString());
