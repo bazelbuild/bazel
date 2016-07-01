@@ -1,3 +1,14 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/android/ideinfo:srcs",
+        "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
+        "//src/test/java/com/google/devtools/build/android/resources:srcs",
+        "//src/test/java/com/google/devtools/build/android/ziputils:srcs",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 java_test(
     name = "AndroidResourceCompilationActionTest",
     size = "medium",

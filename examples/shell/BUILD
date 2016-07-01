@@ -24,5 +24,5 @@ sh_test(
 
 filegroup(
     name = "srcs",
-    srcs = ["BUILD"] + glob(["**/*.sh"]) + glob(["**/*.txt"]),
+    srcs = glob(["**"]),
 )

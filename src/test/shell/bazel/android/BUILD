@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
 sh_test(
     name = "android_integration_test",
     size = "large",

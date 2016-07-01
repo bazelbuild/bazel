@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar:__pkg__"],
+)
+
 java_test(
     name = "BazelJavaCompilerTest",
     size = "small",

@@ -1,5 +1,13 @@
 licenses(["notice"])  # Apache 2.0
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/tools/generate_workspace/src/test/java/com/google/devtools/build/workspace/maven:srcs",
+    ],
+    visibility = ["//src/tools/generate_workspace:__pkg__"],
+)
+
 java_test(
     name = "ResultWriterTest",
     srcs = ["ResultWriterTest.java"],

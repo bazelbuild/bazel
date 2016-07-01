@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
 java_library(
     name = "testutil",
     srcs = glob([

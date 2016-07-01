@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/tools/remote_worker:__pkg__"],
+)
+
 java_library(
     name = "remote",
     srcs = glob(["*.java"]),

@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/tools/generate_workspace/src/test/java/com/google/devtools/build/workspace:__pkg__"],
+)
+
 java_test(
     name = "RuleTest",
     srcs = ["RuleTest.java"],

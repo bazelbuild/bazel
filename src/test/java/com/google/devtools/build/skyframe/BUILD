@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)
+
 TESTUTIL_FILES = [
     "TrackingAwaiter.java",
     "GraphTester.java",

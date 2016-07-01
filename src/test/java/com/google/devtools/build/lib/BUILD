@@ -2,6 +2,18 @@ package(
     default_visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/skylark:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 # This should correspond to the list of "EMBEDDED_TOOLS" in TestConstants.java.bazel.
 filegroup(
     name = "embedded_scripts",

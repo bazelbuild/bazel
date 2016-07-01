@@ -1,5 +1,14 @@
 package(default_visibility = ["//visibility:private"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/test/shell/bazel/android:srcs",
+        "//src/test/shell/bazel/testdata:srcs",
+    ],
+    visibility = ["//src/test/shell:__pkg__"],
+)
+
 genrule(
     name = "langtools-copy",
     testonly = 1,
@@ -60,7 +69,7 @@ filegroup(
         "//src/test/shell:bashunit",
         "//third_party:srcs",
         "//third_party/ijar",
-        "//third_party/java/jdk/langtools:srcs",
+        "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
     ],
     visibility = [

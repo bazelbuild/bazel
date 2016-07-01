@@ -9,6 +9,9 @@ java_binary(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:srcs"],
+    srcs = glob(["**"]) + [
+        "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:srcs",
+        "//src/tools/generate_workspace/src/test/java/com/google/devtools/build/workspace:srcs",
+    ],
     visibility = ["//src:__pkg__"],
 )

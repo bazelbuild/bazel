@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:__pkg__"],
+)
+
 java_test(
     name = "JavacTurbineTest",
     srcs = ["JavacTurbineTest.java"],

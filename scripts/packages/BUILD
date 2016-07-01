@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//scripts:__pkg__"],
+)
+
 sh_binary(
     name = "package-info-generator",
     srcs = ["package_info_generator.sh"],

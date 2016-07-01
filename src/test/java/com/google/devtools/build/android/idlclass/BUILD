@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
+)
+
 java_test(
     name = "IdlClassTest",
     size = "medium",

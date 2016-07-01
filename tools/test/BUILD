@@ -19,8 +19,5 @@ filegroup(
 
 filegroup(
     name = "srcs",
-    srcs = [
-        "BUILD",
-        "test-setup.sh",
-    ],
+    srcs = glob(["*"]),
 )

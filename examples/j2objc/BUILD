@@ -42,10 +42,6 @@ objc_binary(
 
 filegroup(
     name = "srcs",
-    srcs = glob([
-        "J2ObjcExample/*",
-        "src/**",
-        "BUILD",
-    ]),
+    srcs = glob(["**"]),
     visibility = ["//examples:__pkg__"],
 )

@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//examples:__pkg__"],
+)
+
 android_library(
     name = "lib",
     srcs = ["Lib.java"],
