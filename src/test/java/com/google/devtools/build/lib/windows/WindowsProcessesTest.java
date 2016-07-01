@@ -16,22 +16,22 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.File;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Unit tests for {@link WindowsProcesses}.
@@ -83,7 +83,7 @@ public class WindowsProcessesTest {
 
   @Test
   public void testSmoke() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("Ia5", "Oa"), null, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("Ia5", "Oa"), null, null, null, null);
     assertNoError();
 
     byte[] input = "HELLO".getBytes(UTF8);
@@ -104,7 +104,7 @@ public class WindowsProcessesTest {
     }
 
     process = WindowsProcesses.nativeCreateProcess(mockArgs(args.toArray(new String[] {})), null,
-        null, null);
+        null, null, null);
     for (int i = 0; i < 100; i++) {
       byte[] input = String.format("%03d", i).getBytes(UTF8);
       assertThat(input.length).isEqualTo(3);
@@ -115,42 +115,17 @@ public class WindowsProcessesTest {
     }
   }
 
-  private void startInterruptThread(final long delayMilliseconds) {
-    Thread thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        while (true) {
-          Uninterruptibles.sleepUninterruptibly(delayMilliseconds, TimeUnit.MILLISECONDS);
-          WindowsProcesses.nativeInterrupt(process);
-        }
-      }
-    });
-
-    thread.setDaemon(true);
-    thread.start();
-  }
-
-  @Test
-  public void testInterruption() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("Ia1"), null, null, null);  // hang
-    startInterruptThread(1000);
-    // If the interruption doesn't work, this will hang indefinitely, but there isn't a lot
-    // we can do in that case because we can't just tell native code to stop whatever it's doing
-    // from Java.
-    assertThat(WindowsProcesses.nativeWaitFor(process)).isEqualTo(-1);
-    assertThat(WindowsProcesses.nativeIsInterrupted(process)).isTrue();
-  }
-
   @Test
   public void testExitCode() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("X42"), null, null, null);
-    assertThat(WindowsProcesses.nativeWaitFor(process)).isEqualTo(42);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("X42"), null, null, null, null);
+    assertThat(WindowsProcesses.nativeWaitFor(process)).isTrue();
+    assertThat(WindowsProcesses.nativeGetExitCode(process)).isEqualTo(42);
     assertNoError();
   }
 
   @Test
   public void testPartialRead() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("O-HELLO"), null, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("O-HELLO"), null, null, null, null);
     byte[] one = new byte[2];
     byte[] two = new byte[3];
 
@@ -165,7 +140,7 @@ public class WindowsProcessesTest {
 
   @Test
   public void testArrayOutOfBounds() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("O-oob"), null, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("O-oob"), null, null, null, null);
     byte[] buf = new byte[3];
     assertThat(WindowsProcesses.nativeReadStdout(process, buf, -1, 3)).isEqualTo(-1);
     assertThat(WindowsProcesses.nativeReadStdout(process, buf, 0, 5)).isEqualTo(-1);
@@ -198,7 +173,7 @@ public class WindowsProcessesTest {
 
   @Test
   public void testOffsetedOps() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("Ia3", "Oa"), null, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("Ia3", "Oa"), null, null, null, null);
     byte[] input = "01234".getBytes(UTF8);
     byte[] output = "abcde".getBytes(UTF8);
 
@@ -215,7 +190,7 @@ public class WindowsProcessesTest {
   public void testParallelStdoutAndStderr() throws Exception {
     process = WindowsProcesses.nativeCreateProcess(mockArgs(
         "O-out1", "E-err1", "O-out2", "E-err2", "E-err3", "O-out3", "E-err4", "O-out4"),
-        null, null, null);
+        null, null, null, null);
 
     byte[] buf = new byte[4];
     assertThat(WindowsProcesses.nativeReadStdout(process, buf, 0, 4)).isEqualTo(4);
@@ -241,7 +216,8 @@ public class WindowsProcessesTest {
 
   @Test
   public void testExecutableNotFound() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess("ThisExecutableDoesNotExist", null, null, null);
+    process = WindowsProcesses.nativeCreateProcess("ThisExecutableDoesNotExist",
+        null, null, null, null);
     assertThat(WindowsProcesses.nativeGetLastError(process))
         .contains("The system cannot find the file specified.");
     byte[] buf = new byte[1];
@@ -250,7 +226,7 @@ public class WindowsProcessesTest {
 
   @Test
   public void testReadingAndWritingAfterTermination() throws Exception {
-    process = WindowsProcesses.nativeCreateProcess("X42", null, null, null);
+    process = WindowsProcesses.nativeCreateProcess("X42", null, null, null, null);
     byte[] buf = new byte[1];
     assertThat(WindowsProcesses.nativeReadStdout(process, buf, 0, 1)).isEqualTo(-1);
     assertThat(WindowsProcesses.nativeReadStderr(process, buf, 0, 1)).isEqualTo(-1);
@@ -260,7 +236,8 @@ public class WindowsProcessesTest {
   @Test
   public void testNewEnvironmentVariables() throws Exception {
     byte[] data = "ONE=one\0TWO=twotwo\0\0".getBytes(UTF8);
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("O$ONE", "O$TWO"), data, null, null);
+    process = WindowsProcesses.nativeCreateProcess(
+        mockArgs("O$ONE", "O$TWO"), data, null, null, null);
     assertNoError();
     byte[] buf = new byte[3];
     assertThat(WindowsProcesses.nativeReadStdout(process, buf, 0, 3)).isEqualTo(3);
@@ -273,22 +250,36 @@ public class WindowsProcessesTest {
   @Test
   public void testNoZeroInEnvBuffer() throws Exception {
     byte[] data = "clown".getBytes(UTF8);
-    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.nativeGetLastError(process)).isNotEmpty();
   }
 
   @Test
-  public void testOneZeroInEnvBuffer() throws Exception {
+  public void testMissingFinalDoubleZeroInEnvBuffer() throws Exception {
     byte[] data = "FOO=bar\0".getBytes(UTF8);
-    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.nativeGetLastError(process)).isNotEmpty();
   }
 
   @Test
   public void testOneByteEnvBuffer() throws Exception {
     byte[] data = "a".getBytes(UTF8);
-    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.nativeGetLastError(process)).isNotEmpty();
+  }
+
+  @Test
+  public void testOneZeroEnvBuffer() throws Exception {
+    byte[] data = "\0".getBytes(UTF8);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null, null);
+    assertThat(WindowsProcesses.nativeGetLastError(process)).isNotEmpty();
+  }
+
+  @Test
+  public void testTwoZerosInEnvBuffer() throws Exception {
+    byte[] data = "\0\0".getBytes(UTF8);
+    process = WindowsProcesses.nativeCreateProcess(mockArgs(), data, null, null, null);
+    assertThat(WindowsProcesses.nativeGetLastError(process)).isEmpty();
   }
 
   @Test
@@ -297,10 +288,11 @@ public class WindowsProcessesTest {
     String stderrFile = System.getenv("TEST_TMPDIR") + "\\stderr_redirect";
 
     process = WindowsProcesses.nativeCreateProcess(mockArgs("O-one", "E-two"),
-        null, stdoutFile, stderrFile);
+        null, null, stdoutFile, stderrFile);
     assertThat(process).isGreaterThan(0L);
     assertNoError();
-    WindowsProcesses.nativeWaitFor(process);
+    assertThat(WindowsProcesses.nativeWaitFor(process)).isTrue();
+    WindowsProcesses.nativeGetExitCode(process);
     assertNoError();
     byte[] stdout = Files.readAllBytes(Paths.get(stdoutFile));
     byte[] stderr = Files.readAllBytes(Paths.get(stderrFile));
@@ -313,10 +305,11 @@ public class WindowsProcessesTest {
     String file = System.getenv("TEST_TMPDIR") + "\\captured_";
 
     process = WindowsProcesses.nativeCreateProcess(mockArgs("O-one", "E-two"),
-        null, file, file);
+        null, null, file, file);
     assertThat(process).isGreaterThan(0L);
     assertNoError();
-    WindowsProcesses.nativeWaitFor(process);
+    assertThat(WindowsProcesses.nativeWaitFor(process)).isTrue();
+    WindowsProcesses.nativeGetExitCode(process);
     assertNoError();
     byte[] bytes = Files.readAllBytes(Paths.get(file));
     assertThat(new String(bytes, UTF8)).isEqualTo("onetwo");
@@ -327,7 +320,7 @@ public class WindowsProcessesTest {
     String stdoutFile = System.getenv("TEST_TMPDIR") + "\\captured_stdout";
     String stderrFile = System.getenv("TEST_TMPDIR") + "\\captured_stderr";
 
-    process = WindowsProcesses.nativeCreateProcess(mockArgs("O-one", "E-two"), null,
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("O-one", "E-two"), null, null,
         stdoutFile, stderrFile);
     assertNoError();
     byte[] buf = new byte[1];
@@ -346,13 +339,28 @@ public class WindowsProcessesTest {
     Files.write(stderr, "err1".getBytes(UTF8));
 
     process = WindowsProcesses.nativeCreateProcess(mockArgs("O-out2", "E-err2"), null,
-        stdoutFile, stderrFile);
+        null, stdoutFile, stderrFile);
     assertNoError();
     WindowsProcesses.nativeWaitFor(process);
+    WindowsProcesses.nativeGetExitCode(process);
     assertNoError();
     byte[] stdoutBytes = Files.readAllBytes(Paths.get(stdoutFile));
     byte[] stderrBytes = Files.readAllBytes(Paths.get(stderrFile));
     assertThat(new String(stdoutBytes, UTF8)).isEqualTo("out1out2");
     assertThat(new String(stderrBytes, UTF8)).isEqualTo("err1err2");
+  }
+
+  @Test
+  public void testCwd() throws Exception {
+    String dir1 = System.getenv("TEST_TMPDIR") + "/dir1";
+    new File(dir1).mkdir();
+
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("O."), null, dir1, null, null);
+    assertNoError();
+    byte[] buf = new byte[1024];  // Windows MAX_PATH is 256, but whatever
+    int len = WindowsProcesses.nativeReadStdout(process, buf, 0, 1024);
+    assertNoError();
+    assertThat(new String(buf, 0, len, UTF8).replace("\\", "/")).isEqualTo(dir1);
+
   }
 }

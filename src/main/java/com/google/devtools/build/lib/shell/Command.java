@@ -705,14 +705,7 @@ public final class Command {
 
       @Override
       public boolean isDone() {
-        try {
-          // exitValue seems to be the only non-blocking call for
-          // checking process liveness.
-          process.exitValue();
-          return true;
-        } catch (IllegalThreadStateException e) {
-          return false;
-        }
+        return process.finished();
       }
     };
   }
@@ -880,7 +873,8 @@ public final class Command {
     try {
       while (true) {
         try {
-          return new TerminationStatus(process.waitFor());
+          process.waitFor();
+          return new TerminationStatus(process.exitValue());
         } catch (InterruptedException ie) {
           wasInterrupted = true;
           if (killSubprocessOnInterrupt) {

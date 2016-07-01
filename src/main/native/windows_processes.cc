@@ -43,12 +43,11 @@ std::string GetLastErrorString(const std::string& cause) {
         "%s: Error %d (cannot format message due to error %d)",
         cause.c_str(), last_error, GetLastError());
     buf[sizeof(buf) - 1] = 0;
-    return cause + ": " + std::string(buf);
   }
 
   std::string result = std::string(message);
   LocalFree(message);
-  return result;
+  return cause + ": " + result;
 }
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
@@ -80,10 +79,12 @@ NativeProcess::NativeProcess() {
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   JNIEnv *env, jclass clazz, jstring java_commandline, jbyteArray java_env,
-  jstring java_stdout_redirect, jstring java_stderr_redirect) {
+  jstring java_cwd, jstring java_stdout_redirect,
+  jstring java_stderr_redirect) {
   const char* commandline = env->GetStringUTFChars(java_commandline, NULL);
   const char* stdout_redirect = NULL;
   const char* stderr_redirect = NULL;
+  const char* cwd = NULL;
 
   if (java_stdout_redirect != NULL) {
     stdout_redirect = env->GetStringUTFChars(java_stdout_redirect, NULL);
@@ -91,6 +92,10 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
 
   if (java_stderr_redirect != NULL) {
     stderr_redirect = env->GetStringUTFChars(java_stderr_redirect, NULL);
+  }
+
+  if (java_cwd != NULL) {
+    cwd = env->GetStringUTFChars(java_cwd, NULL);
   }
 
   jsize env_size = -1;
@@ -118,12 +123,15 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     env_size = env->GetArrayLength(java_env);
     env_bytes = env->GetByteArrayElements(java_env, NULL);
 
-    if (env_size < 2) {
-      result->error_ = "Environment array must contain at least two bytes";
+    if (env_size < 1) {
+      result->error_ = "The environment cannot be empty";
       goto cleanup;
-    }
-
-    if (env_bytes[env_size - 1] != 0 || env_bytes[env_size - 2] != 0) {
+    } else if (env_size == 1) {
+      if (env_bytes[0] != 0) {
+        result->error_ = "Empty environment must contain a single zero byte";
+        goto cleanup;
+      }
+    } else if (env_bytes[env_size - 1] != 0 || env_bytes[env_size - 2] != 0) {
       result->error_ = "Environment array must end with two null bytes";
       goto cleanup;
     }
@@ -216,7 +224,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
           | CREATE_BREAKAWAY_FROM_JOB  // We'll put it in a new job
           | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
       env_bytes,
-      NULL,
+      cwd,
       &startup_info,
       &process_info);
 
@@ -274,6 +282,10 @@ cleanup:
 
   if (stderr_redirect != NULL) {
     env->ReleaseStringUTFChars(java_stderr_redirect, stderr_redirect);
+  }
+
+  if (cwd != NULL) {
+    env->ReleaseStringUTFChars(java_cwd, cwd);
   }
 
   return reinterpret_cast<jlong>(result);
@@ -347,50 +359,34 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStderr(
       length);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeInterrupt(
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetExitCode(
     JNIEnv *env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  SetEvent(process->event_);
+  DWORD exit_code;
+  if (!GetExitCodeProcess(process->process_, &exit_code)) {
+    process->error_ = GetLastErrorString("GetExitCodeProcess()");
+    return -1;
+  }
+
+  return exit_code;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeIsInterrupted(
-    JNIEnv *env, jclass clazz, jlong process_long) {
-  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return WaitForSingleObject(process->event_, 0) != WAIT_TIMEOUT;
-}
-
-extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWaitFor(
     JNIEnv *env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  HANDLE handles[2] = { process->process_, process->event_ };
-  switch (WaitForMultipleObjects(2, handles, FALSE, INFINITE)) {
-    case 0: {
-      // Process terminated
-      DWORD exit_code;
-      if (!GetExitCodeProcess(process->process_, &exit_code)) {
-        process->error_ = GetLastErrorString("GetExitCodeProcess()");
-        return -1;
-      }
-
-      process->error_ = "";
-      return exit_code;
-    }
-
-    case 1:
-      // Interrupted
-      process->error_ = "Interrupted";
-      return -1;
+  HANDLE handles[1] = { process->process_ };
+  switch (WaitForMultipleObjects(1, handles, FALSE, INFINITE)) {
+    case 0:
+      return true;
 
     case WAIT_FAILED:
-      process->error_ = GetLastErrorString("WaitForMultipleObjects()");
-      return -1;
+      return false;
 
     default:
       process->error_ = "WaitForMultipleObjects() returned unknown result";
-      return -1;
+      return false;
   }
 }
 

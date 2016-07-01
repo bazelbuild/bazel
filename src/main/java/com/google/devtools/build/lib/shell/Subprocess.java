@@ -42,14 +42,19 @@ public interface Subprocess {
   /**
    * Returns the exit value of the process.
    *
-   * <p>Throws {@code IllegalThreadStateException} if the process has not terminated yet.
+   * <p>Throws {@code IOException} if the process has not terminated yet.
    */
   int exitValue();
 
   /**
+   * Returns the if the process has finished.
+   */
+  boolean finished();
+
+  /**
    * Waits for the process to finish.
    */
-  int waitFor() throws InterruptedException;
+  void waitFor() throws InterruptedException;
 
   /**
    * Returns a stream into which data can be written that the process will get on its stdin.

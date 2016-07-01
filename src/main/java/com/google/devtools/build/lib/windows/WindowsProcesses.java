@@ -37,14 +37,16 @@ public class WindowsProcesses {
    *
    * @param commandLine the command line (needs to be quoted Windows style)
    * @param env the environment of the new process. null means inherit that of the Bazel server
+   * @param cwd the working directory of the new process. if null, the same as that of the current
+   *     process
    * @param stdoutFile the file the stdout should be redirected to. if null, nativeReadStdout will
-   *                   work.
+   *     work.
    * @param stderrFile the file the stdout should be redirected to. if null, nativeReadStderr will
-   *                   work.
+   *     work.
    * @return the opaque identifier of the created process
    */
-  static native long nativeCreateProcess(String commandLine, byte[] env, String stdoutFile,
-      String stderrFile);
+  static native long nativeCreateProcess(String commandLine, byte[] env,
+      String cwd, String stdoutFile, String stderrFile);
 
   /**
    * Writes data from the given array to the stdin of the specified process.
@@ -74,28 +76,17 @@ public class WindowsProcesses {
   static native int nativeReadStderr(long process, byte[] bytes, int offset, int length);
 
   /**
-   * Interrupts a {@link #nativeWaitFor(long) call on the specified process}.
+   * Waits until the given process terminates.
    *
-   * <p>Should only be called once on per process and only when a {@link #nativeWaitFor(long)}
-   * call is in progress. Otherwise its behavior is undefined.
-   *
-   * <p>The {@link #nativeWaitFor(long)} call will then return an error.
-   *
-   * <p>Does not modify the error state of the process.
+   * <p>Returns true if the process terminated or false if something went wrong.
    */
-  static native void nativeInterrupt(long process);
+  static native boolean nativeWaitFor(long process);
 
   /**
-   * Returns if the given process was interrupted by a {@link #nativeInterrupt(long)} call.
-   *
-   * <p>Does not modify the error state of the process.
+   * Returns the exit code of the process. Throws {@code IllegalStateException} if something
+   * goes wrong.
    */
-  static native boolean nativeIsInterrupted(long process);
-  /**
-   * Waits until the given process terminates and returns with its exit code or -1 if there was an
-   * error.
-   */
-  static native int nativeWaitFor(long process);
+  static native int nativeGetExitCode(long process);
 
   /**
    * Returns the process ID of the given process or -1 if there was an error.

@@ -73,6 +73,10 @@ java_library(
 java_library(
     name = "windows",
     srcs = glob(["windows/*.java"]),
+    deps = [
+        ":shell",
+        "//third_party:guava",
+    ],
 )
 
 # Library of concurrency utilities.

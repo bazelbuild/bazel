@@ -49,8 +49,19 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
     }
 
     @Override
-    public int waitFor() throws InterruptedException {
-      return process.waitFor();
+    public boolean finished() {
+      try {
+        // this seems to be the only non-blocking call for checking liveness
+        process.exitValue();
+        return true;
+      } catch (IllegalThreadStateException e) {
+        return false;
+      }
+    }
+
+    @Override
+    public void waitFor() throws InterruptedException {
+      process.waitFor();
     }
 
     @Override

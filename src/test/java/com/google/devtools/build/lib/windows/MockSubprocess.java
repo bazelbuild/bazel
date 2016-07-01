@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.windows;
 
 import java.io.PrintStream;
 import java.nio.charset.Charset;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,6 +29,8 @@ import java.util.Map;
  *   <li><code>E-&lt;string&gt;</code>: Write a string to stderr</li>
  *   <li><code>O$&lt;variable&gt;</code>: Write an environment variable to stdout</li>
  *   <li><code>E$&lt;variable&gt;</code>: Write an environment variable to stderr</li>
+ *   <li><code>O.</code>: Write the cwd stdout</li>
+ *   <li><code>E.</code>: Write the cwd stderr</li>
  *   <li><code>O&lt;register&gt;</code>: Write the contents of a register to stdout</li>
  *   <li><code>E&lt;register&gt;</code>: Write the contents of a register to stderr</li>
  *   <li><code>X&lt;exit code%gt;</code>: Exit with the specified exit code</li>
@@ -45,18 +48,24 @@ import java.util.Map;
  */
 public class MockSubprocess {
   private static Map<Character, byte[]> registers = new HashMap<>();
+  private static final Charset UTF8 = Charset.forName("UTF-8");
 
   private static void writeBytes(PrintStream stream, String arg) throws Exception {
+
     byte[] buf;
     switch (arg.charAt(1)) {
       case '-':
         // Immediate string
-        buf = arg.substring(2).getBytes(Charset.forName("UTF-8"));
+        buf = arg.substring(2).getBytes(UTF8);
         break;
 
       case '$':
         // Environment variable
-        buf = System.getenv(arg.substring(2)).getBytes(Charset.forName("UTF-8"));
+        buf = System.getenv(arg.substring(2)).getBytes(UTF8);
+        break;
+
+      case '.':
+        buf = Paths.get(".").toAbsolutePath().normalize().toString().getBytes(UTF8);
         break;
 
       default:
