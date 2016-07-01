@@ -49,6 +49,9 @@ import javax.annotation.concurrent.GuardedBy;
  * imported/inlined. The additional input files for each backend action are then written to an
  * imports file. Therefore these new inputs must be discovered here by subsetting the imports paths
  * from the set of all bitcode artifacts, before executing the backend action.
+ *
+ * <p>For more information on ThinLTO see
+ * http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html.
  */
 public final class LTOBackendAction extends SpawnAction {
   // This can be read/written from multiple threads, and so accesses should be synchronized.
