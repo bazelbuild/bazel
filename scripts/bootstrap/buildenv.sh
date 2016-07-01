@@ -99,8 +99,9 @@ function tempdir() {
   local tmp=${TMPDIR:-/tmp}
   local DIR="$(mktemp -d ${tmp%%/}/bazel.XXXXXXXX)"
   mkdir -p "${DIR}"
-  eval "cleanup_tempdir() { rm -rf '${DIR}'; }"
-  atexit cleanup_tempdir
+  local DIRBASE=$(basename "${DIR}")
+  eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}'; }"
+  atexit cleanup_tempdir_${DIRBASE}
   NEW_TMPDIR="${DIR}"
 }
 tempdir
