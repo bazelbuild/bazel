@@ -26,22 +26,16 @@ from third_party.py import gflags
 # list of debian fields : (name, mandatory, wrap[, default])
 # see http://www.debian.org/doc/debian-policy/ch-controlfields.html
 DEBIAN_FIELDS = [
-    ('Package', True, False),
-    ('Version', True, False),
+    ('Package', True, False), ('Version', True, False),
     ('Section', False, False, 'contrib/devel'),
     ('Priority', False, False, 'optional'),
-    ('Architecture', True, False, 'all'),
-    ('Depends', False, True, []),
-    ('Recommends', False, True, []),
-    ('Suggests', False, True, []),
-    ('Enhances', False, True, []),
-    ('Pre-Depends', False, True, []),
-    ('Installed-Size', False, False),
-    ('Maintainer', True, False),
-    ('Description', True, True),
-    ('Homepage', False, False),
-    ('Built-Using', False, False, 'Bazel')
-    ]
+    ('Architecture', True, False, 'all'), ('Depends', False, True, []),
+    ('Recommends', False, True, []), ('Suggests', False, True, []),
+    ('Enhances', False, True, []), ('Conflicts', False, True, []),
+    ('Pre-Depends', False, True, []), ('Installed-Size', False, False),
+    ('Maintainer', True, False), ('Description', True, True),
+    ('Homepage', False, False), ('Built-Using', False, False, 'Bazel')
+]
 
 gflags.DEFINE_string('output', None, 'The output file, mandatory')
 gflags.MarkFlagAsRequired('output')
@@ -254,20 +248,27 @@ def GetFlagValue(flagvalue, strip=True):
 
 
 def main(unused_argv):
-  CreateDeb(FLAGS.output, FLAGS.data,
+  CreateDeb(FLAGS.output,
+            FLAGS.data,
             preinst=GetFlagValue(FLAGS.preinst, False),
             postinst=GetFlagValue(FLAGS.postinst, False),
             prerm=GetFlagValue(FLAGS.prerm, False),
             postrm=GetFlagValue(FLAGS.postrm, False),
-            package=FLAGS.package, version=GetFlagValue(FLAGS.version),
+            package=FLAGS.package,
+            version=GetFlagValue(FLAGS.version),
             description=GetFlagValue(FLAGS.description),
             maintainer=FLAGS.maintainer,
-            section=FLAGS.section, architecture=FLAGS.architecture,
-            depends=FLAGS.depends, suggests=FLAGS.suggests,
-            enhances=FLAGS.enhances, preDepends=FLAGS.pre_depends,
-            recommends=FLAGS.recommends, homepage=FLAGS.homepage,
+            section=FLAGS.section,
+            architecture=FLAGS.architecture,
+            depends=FLAGS.depends,
+            suggests=FLAGS.suggests,
+            enhances=FLAGS.enhances,
+            preDepends=FLAGS.pre_depends,
+            recommends=FLAGS.recommends,
+            homepage=FLAGS.homepage,
             builtUsing=GetFlagValue(FLAGS.built_using),
             priority=FLAGS.priority,
+            conflicts=FLAGS.conflicts,
             installedSize=GetFlagValue(FLAGS.installed_size))
   CreateChanges(
       FLAGS.changes,

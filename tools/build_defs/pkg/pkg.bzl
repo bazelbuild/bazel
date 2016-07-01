@@ -117,6 +117,7 @@ def _pkg_deb_impl(ctx):
   args += ["--depends=" + d for d in ctx.attr.depends]
   args += ["--suggests=" + d for d in ctx.attr.suggests]
   args += ["--enhances=" + d for d in ctx.attr.enhances]
+  args += ["--conflicts=" + d for d in ctx.attr.conflicts]
   args += ["--pre_depends=" + d for d in ctx.attr.predepends]
   args += ["--recommends=" + d for d in ctx.attr.recommends]
 
@@ -181,6 +182,7 @@ pkg_deb = rule(
         "depends": attr.string_list(default=[]),
         "suggests": attr.string_list(default=[]),
         "enhances": attr.string_list(default=[]),
+        "conflicts": attr.string_list(default=[]),
         "predepends": attr.string_list(default=[]),
         "recommends": attr.string_list(default=[]),
         # Implicit dependencies.

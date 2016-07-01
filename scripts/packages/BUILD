@@ -111,6 +111,9 @@ pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
     built_using = "bazel (HEAD)",
+    conflicts = [
+        "openjdk-9-jdk",
+    ],
     data = ":debian-data",
     depends = select({
         "//tools/jdk:jdk7": [

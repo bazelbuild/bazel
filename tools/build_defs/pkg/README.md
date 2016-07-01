@@ -227,7 +227,7 @@ Creates a tar file from a list of inputs.
 ### pkg_deb
 
 ```python
-pkg_deb(name, data, package, architecture, maintainer, preinst, postinst, prerm, postrm, version, version_file, description, description_file, built_using, built_using_file, priority, section, homepage, depends, suggests, enhances, predepends, recommends)
+pkg_deb(name, data, package, architecture, maintainer, preinst, postinst, prerm, postrm, version, version_file, description, description_file, built_using, built_using_file, priority, section, homepage, depends, suggests, enhances, conflicts, predepends, recommends)
 ```
 
 Create a debian package. See <a
@@ -358,7 +358,7 @@ for more details on this.
     <tr>
       <td>
         <code>depends</code>, <code>suggests</code>, <code>enhances</code>,
-        <code>predepends</code> and <code>recommends</code>.
+        <code>conflicts</code>, <code>predepends</code> and <code>recommends</code>.
       </td>
       <td>
         <code>String list, optional</code>
