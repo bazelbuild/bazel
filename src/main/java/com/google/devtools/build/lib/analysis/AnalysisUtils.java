@@ -44,14 +44,17 @@ public final class AnalysisUtils {
    * host configuration. Otherwise it returns the value of the stamp attribute,
    * or of the stamp option if the attribute value is -1.
    */
-  public static boolean isStampingEnabled(RuleContext ruleContext) {
-    BuildConfiguration config = ruleContext.getConfiguration();
+  public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
     if (config.isHostConfiguration()
         || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
       return false;
     }
     TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
     return stamp == TriState.YES || (stamp == TriState.AUTO && config.stampBinaries());
+  }
+
+  public static boolean isStampingEnabled(RuleContext ruleContext) {
+    return isStampingEnabled(ruleContext, ruleContext.getConfiguration());
   }
 
   // TODO(bazel-team): These need Iterable<? extends TransitiveInfoCollection> because they need to

@@ -174,8 +174,9 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key) {
-      return original.getBuildInfo(ruleContext, key);
+    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key,
+        BuildConfiguration config) {
+      return original.getBuildInfo(ruleContext, key, config);
     }
 
     @Override
@@ -373,7 +374,8 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key) {
+    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key,
+        BuildConfiguration config) {
       return ImmutableList.of();
     }
 

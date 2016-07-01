@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.LTOBackendAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -73,16 +74,16 @@ public final class LTOBackendArtifacts {
       Artifact bitcodeFile,
       Map<PathFragment, Artifact> allBitCodeFiles,
       RuleContext ruleContext,
+      BuildConfiguration configuration,
       CppLinkAction.LinkArtifactFactory linkArtifactFactory) {
     this.bitcodeFile = bitcodeFile;
     PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getRootRelativePath());
 
-    objectFile = linkArtifactFactory.create(ruleContext, obj);
-    imports =
-        linkArtifactFactory.create(ruleContext, FileSystemUtils.appendExtension(obj, ".imports"));
-    index =
-        linkArtifactFactory.create(
-            ruleContext, FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
+    objectFile = linkArtifactFactory.create(ruleContext, configuration, obj);
+    imports = linkArtifactFactory.create(
+        ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".imports"));
+    index = linkArtifactFactory.create(
+        ruleContext, configuration, FileSystemUtils.appendExtension(obj, ".thinlto.bc"));
 
     bitcodeFiles = allBitCodeFiles;
   }

@@ -390,7 +390,7 @@ public final class RuleContext extends TargetContext
   }
 
   public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) {
-    return getAnalysisEnvironment().getBuildInfo(this, key);
+    return getAnalysisEnvironment().getBuildInfo(this, key, getConfiguration());
   }
 
   @VisibleForTesting

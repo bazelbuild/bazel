@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -137,10 +138,11 @@ public interface AnalysisEnvironment extends ActionRegistry {
   /**
    * Returns the Artifacts that contain the workspace status for the current build request.
    *
-   * @param ruleContext the rule to use for error reporting and to determine the
-   *        configuration
+   * @param ruleContext the rule to use for error reporting.
+   * @param config the current build configuration.
    */
-  ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key);
+  ImmutableList<Artifact> getBuildInfo(
+      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config);
 
   /**
    * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be
