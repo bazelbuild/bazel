@@ -1012,6 +1012,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_APK))
           .setShrunkResourcesOut(ruleContext.getImplicitOutputArtifact(
               AndroidRuleClasses.ANDROID_RESOURCES_SHRUNK_ZIP))
+          .setLogOut(ruleContext.getImplicitOutputArtifact(
+              AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG))
           .withResourceFiles(ruleContext.getImplicitOutputArtifact(
               AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
           .withShrunkJar(shrunkJar)
