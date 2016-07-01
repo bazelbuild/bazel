@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * A helper class for calling Skylark functions from Java.
@@ -51,12 +50,6 @@ public class SkylarkCallbackFunction {
     }
   }
 
-  // For legacy reasons: these names are used in the depot to signal that the first parameter of
-  // the callback function should be an attribute map.
-  // TODO(fwe): remove once this CL is part of a Blaze release and the depot is clean.
-  private static final ImmutableSet<String> LEGACY_ATTR_MAP_NAMES =
-      ImmutableSet.<String>of("attr_map", "attrs", "attr");
-
   /**
    * Creates a list of actual arguments that contains the given arguments and all attribute values
    * required from the specified context.
@@ -69,14 +62,7 @@ public class SkylarkCallbackFunction {
       String name = names.get(pos);
       Object value = ctx.getValue(name);
       if (value == null) {
-        if (requiredParameters == 1 && LEGACY_ATTR_MAP_NAMES.contains(name)) {
-          // Legacy mode: some bzl files still expect the attribute map as the first parameter.
-          // TODO(fwe): remove this branch once this CL is part of a Blaze release and the depot
-          // is clean.
-          value = ctx;
-        } else {
           throw new IllegalArgumentException(ctx.errorMessage(name));
-        }
       }
       builder.add(value);
     }
