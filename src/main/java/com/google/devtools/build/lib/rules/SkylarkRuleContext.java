@@ -311,7 +311,7 @@ public final class SkylarkRuleContext {
       filesBuilder.put(
           skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), Mode.DONT_CHECK).list());
       List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
-      if (type == BuildType.LABEL) {
+      if (type == BuildType.LABEL && !a.hasSplitConfigurationTransition()) {
         Object prereq = ruleContext.getPrerequisite(a.getName(), Mode.DONT_CHECK);
         if (prereq == null) {
           prereq = Runtime.NONE;
