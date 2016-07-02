@@ -1325,6 +1325,58 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void nodeInvalidatedThenDoubleCycle() throws InterruptedException {
+    makeGraphDeterministic();
+    // When topKey depends on depKey, and both are top-level nodes in the graph,
+    final SkyKey topKey = skyKey("bKey");
+    final SkyKey depKey = skyKey("aKey");
+    tester.getOrCreate(topKey).addDependency(depKey).setConstantValue(new StringValue("a"));
+    tester.getOrCreate(depKey).setConstantValue(new StringValue("b"));
+    // Then evaluation is as expected.
+    EvaluationResult<StringValue> result1 = tester.eval(/*keepGoing=*/ true, topKey, depKey);
+    assertThatEvaluationResult(result1).hasEntryThat(topKey).isEqualTo(new StringValue("a"));
+    assertThatEvaluationResult(result1).hasEntryThat(depKey).isEqualTo(new StringValue("b"));
+    assertThatEvaluationResult(result1).hasNoError();
+    // When both nodes acquire self-edges, with topKey still also depending on depKey, in the same
+    // group,
+    tester.getOrCreate(depKey, /*markAsModified=*/ true).addDependency(depKey);
+    tester
+        .getOrCreate(topKey, /*markAsModified=*/ true)
+        .setConstantValue(null)
+        .removeDependency(depKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env)
+                  throws SkyFunctionException, InterruptedException {
+                env.getValues(ImmutableList.of(topKey, depKey));
+                assertThat(env.valuesMissing()).isTrue();
+                return null;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    tester.invalidate();
+    // Then evaluation is as expected -- topKey has removed its dep on depKey (since depKey was not
+    // done when topKey found its cycle), and both topKey and depKey have cycles.
+    EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, topKey, depKey);
+    assertThatEvaluationResult(result2)
+        .hasErrorEntryForKeyThat(topKey)
+        .hasCycleInfoThat()
+        .containsExactly(new CycleInfo(ImmutableList.of(topKey)));
+    assertThatEvaluationResult(result2).hasDirectDepsInGraphThat(topKey).containsExactly(topKey);
+    assertThatEvaluationResult(result2)
+        .hasErrorEntryForKeyThat(depKey)
+        .hasCycleInfoThat()
+        .containsExactly(new CycleInfo(ImmutableList.of(depKey)));
+  }
+
+  @Test
   public void limitEvaluatorThreads() throws Exception {
     initializeTester();
 

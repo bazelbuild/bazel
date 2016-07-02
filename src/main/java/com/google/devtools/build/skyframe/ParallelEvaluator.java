@@ -247,6 +247,17 @@ public final class ParallelEvaluator implements Evaluator {
     private boolean building = true;
     private SkyKey depErrorKey = null;
     private final SkyKey skyKey;
+    /**
+     * The deps requested during the previous build of this node. Used for two reasons: (1) They are
+     * fetched eagerly before the node is built, to potentially prime the graph and speed up
+     * requests for them during evaluation. (2) When the node finishes building, any deps from the
+     * previous build that are not deps from this build must have this node removed from them as a
+     * reverse dep. Thus, it is important that all nodes in this set have the property that they
+     * have this node as a reverse dep from the last build, but that this node has not added them as
+     * a reverse dep on this build. That set is normally {@link
+     * NodeEntry#getAllRemainingDirtyDirectDeps()}, but in certain corner cases, like cycles,
+     * further filtering may be needed.
+     */
     private final Set<SkyKey> oldDeps;
     private SkyValue value = null;
     private ErrorInfo errorInfo = null;
@@ -1760,13 +1771,15 @@ public final class ParallelEvaluator implements Evaluator {
           // -- it just hadn't finished evaluating. So skip it.
           continue;
         }
+        Set<SkyKey> removedDeps = ImmutableSet.of();
         if (cyclesFound < MAX_CYCLES) {
           // Value must be ready, because all of its children have finished, so we can build its
           // error.
           Preconditions.checkState(entry.isReady(), "%s not ready. ValueEntry: %s", key, entry);
         } else if (!entry.isReady()) {
-          removeIncompleteChildrenForCycle(
-              key, entry, Iterables.concat(entry.getTemporaryDirectDeps()));
+          removedDeps =
+              removeIncompleteChildrenForCycle(
+                  key, entry, Iterables.concat(entry.getTemporaryDirectDeps()));
         }
         maybeMarkRebuilding(entry);
         GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
@@ -1777,7 +1790,10 @@ public final class ParallelEvaluator implements Evaluator {
             entry);
         SkyFunctionEnvironment env =
             new SkyFunctionEnvironment(
-                key, directDeps, entry.getAllRemainingDirtyDirectDeps(), visitor);
+                key,
+                directDeps,
+                Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
+                visitor);
         env.setError(ErrorInfo.fromChildErrors(key, errorDeps), /*isDirectlyTransient=*/false);
         env.commit(/*enqueueParents=*/false);
       } else {
@@ -1814,8 +1830,9 @@ public final class ParallelEvaluator implements Evaluator {
           // since this node is about to be done. Thus, the only child worth visiting is the one in
           // this cycle, the cycleChild (which may == key if this cycle is a self-edge).
           SkyKey cycleChild = selectCycleChild(key, graphPath, cycleStart);
-          removeDescendantsOfCycleValue(key, entry, cycleChild, toVisit,
-                  graphPath.size() - cycleStart);
+          Set<SkyKey> removedDeps =
+              removeDescendantsOfCycleValue(
+                  key, entry, cycleChild, toVisit, graphPath.size() - cycleStart);
           ValueWithMetadata dummyValue = ValueWithMetadata.wrapWithMetadata(new SkyValue() {});
 
 
@@ -1824,15 +1841,15 @@ public final class ParallelEvaluator implements Evaluator {
                   key,
                   entry.getTemporaryDirectDeps(),
                   ImmutableMap.of(cycleChild, dummyValue),
-                  entry.getAllRemainingDirtyDirectDeps(),
+                  Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
                   visitor);
 
           // Construct error info for this node. Get errors from children, which are all done
           // except possibly for the cycleChild.
           List<ErrorInfo> allErrors =
               getChildrenErrors(
-                  Iterables.concat(entry.getTemporaryDirectDeps()), /*unfinishedChild=*/
-                  cycleChild);
+                  Iterables.concat(entry.getTemporaryDirectDeps()),
+                  /*unfinishedChild=*/ cycleChild);
           CycleInfo cycleInfo = new CycleInfo(cycle);
           // Add in this cycle.
           allErrors.add(ErrorInfo.fromCycle(cycleInfo));
@@ -1947,8 +1964,12 @@ public final class ParallelEvaluator implements Evaluator {
    * @param toVisit list of remaining nodes to visit by the cycle-checker.
    * @param cycleLength the length of the cycle found.
    */
-  private void removeDescendantsOfCycleValue(SkyKey key, NodeEntry entry,
-      @Nullable SkyKey cycleChild, Iterable<SkyKey> toVisit, int cycleLength) {
+  private Set<SkyKey> removeDescendantsOfCycleValue(
+      SkyKey key,
+      NodeEntry entry,
+      @Nullable SkyKey cycleChild,
+      Iterable<SkyKey> toVisit,
+      int cycleLength) {
     GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
     Set<SkyKey> unvisitedDeps = Sets.newHashSetWithExpectedSize(directDeps.numElements());
     Iterables.addAll(unvisitedDeps, Iterables.concat(directDeps));
@@ -1956,7 +1977,7 @@ public final class ParallelEvaluator implements Evaluator {
     // Remove any children from this node that are not part of the cycle we just found. They are
     // irrelevant to the node as it stands, and if they are deleted from the graph because they are
     // not built by the end of cycle-checking, we would have dangling references.
-    removeIncompleteChildrenForCycle(key, entry, unvisitedDeps);
+    Set<SkyKey> removedDeps = removeIncompleteChildrenForCycle(key, entry, unvisitedDeps);
     if (!entry.isReady()) {
       // The entry has at most one undone dep now, its cycleChild. Signal to make entry ready. Note
       // that the entry can conceivably be ready if its cycleChild already found a different cycle
@@ -1974,7 +1995,7 @@ public final class ParallelEvaluator implements Evaluator {
         if (cycleLength == 0) {
           // We have seen #cycleLength-1 marker values, and have arrived at the one for this value,
           // so we are done.
-          return;
+          return removedDeps;
         }
         continue; // Don't remove marker values.
       }
@@ -1989,8 +2010,8 @@ public final class ParallelEvaluator implements Evaluator {
         + toVisit + " when trying to remove children of " + key + " other than " + cycleChild);
   }
 
-  private void removeIncompleteChildrenForCycle(SkyKey key, NodeEntry entry,
-      Iterable<SkyKey> children) {
+  private Set<SkyKey> removeIncompleteChildrenForCycle(
+      SkyKey key, NodeEntry entry, Iterable<SkyKey> children) {
     Set<SkyKey> unfinishedDeps = new HashSet<>();
     for (SkyKey child : children) {
       if (removeIncompleteChild(key, child)) {
@@ -1998,6 +2019,7 @@ public final class ParallelEvaluator implements Evaluator {
       }
     }
     entry.removeUnfinishedDeps(unfinishedDeps);
+    return unfinishedDeps;
   }
 
   private NodeEntry getAndCheckDone(SkyKey key) {
