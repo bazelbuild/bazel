@@ -344,7 +344,7 @@ EOF
   worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
   hash1=$(fgrep "INPUT input.txt " bazel-bin/hello_world_1.out | cut -d' ' -f3)
 
-  bazel build -s --worker_verbose --strategy=Work=worker --worker_max_instances=1 :hello_world_2 &> $TEST_log \
+  bazel build -s --worker_verbose --strategy=Work=worker --worker_max_instances=1 :hello_world_2 >> $TEST_log 2>&1 \
     || fail "build failed"
   worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
   hash2=$(fgrep "INPUT input.txt " bazel-bin/hello_world_2.out | cut -d' ' -f3)
@@ -354,7 +354,7 @@ EOF
 
   echo "changeddata" > input.txt
 
-  bazel build -s --worker_verbose --strategy=Work=worker --worker_max_instances=1 :hello_world_3 &> $TEST_log \
+  bazel build -s --worker_verbose --strategy=Work=worker --worker_max_instances=1 :hello_world_3 >> $TEST_log 2>&1 \
     || fail "build failed"
   worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
   hash3=$(fgrep "INPUT input.txt " bazel-bin/hello_world_3.out | cut -d' ' -f3)
