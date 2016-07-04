@@ -26,11 +26,16 @@ progname="$0"
 echo "Bazel installer"
 echo "---------------"
 echo
+echo "Bazel is bundled with software licensed under the GPLv2 with Classpath exception."
+echo "You can find the sources next to the installer on our release page:"
+echo "   https://github.com/bazelbuild/bazel/releases"
+echo
+
 cat <<'EOF'
 %release_info%
 EOF
 
-function usage() {
+usage() {
   echo "Usage: $progname [options]" >&2
   echo "Options are:" >&2
   echo "  --prefix=/some/path set the prefix path (default=/usr/local)." >&2
@@ -73,7 +78,7 @@ done
 bin="${bin//%prefix%/${prefix}}"
 base="${base//%prefix%/${prefix}}"
 
-function test_write() {
+test_write() {
   local file="$1"
   while [ "$file" != "/" ] && [ -n "${file}" ] && [ ! -e "$file" ]; do
     file="$(dirname "${file}")"
