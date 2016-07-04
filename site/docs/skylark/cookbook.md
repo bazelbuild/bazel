@@ -438,7 +438,7 @@ def _impl(ctx):
 execute = rule(
   implementation=_impl,
   attrs={
-      "binary": attr.label(cfg=HOST_CFG, mandatory=True, allow_files=True,
+      "binary": attr.label(cfg="host", mandatory=True, allow_files=True,
                            executable=True),
       "input_content": attr.string(),
       "out": attr.output(mandatory=True),
@@ -497,7 +497,7 @@ execute = rule(
   executable=True,
   attrs={
       "command": attr.string(),
-      "data": attr.label_list(cfg=DATA_CFG, allow_files=True),
+      "data": attr.label_list(cfg="data", allow_files=True),
       },
 )
 ```

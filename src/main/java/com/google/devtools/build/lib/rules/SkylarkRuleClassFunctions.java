@@ -99,13 +99,22 @@ import java.util.concurrent.ExecutionException;
  */
 public class SkylarkRuleClassFunctions {
 
-  //TODO(bazel-team): proper enum support
-  @SkylarkSignature(name = "DATA_CFG", returnType = ConfigurationTransition.class,
-      doc = "Experimental. Specifies a transition to the data configuration.")
+  @SkylarkSignature(
+    name = "DATA_CFG",
+    returnType = ConfigurationTransition.class,
+    doc =
+        "Deprecated. Use string \"data\" instead. "
+            + "Specifies a transition to the data configuration."
+  )
   private static final Object dataTransition = ConfigurationTransition.DATA;
 
-  @SkylarkSignature(name = "HOST_CFG", returnType = ConfigurationTransition.class,
-      doc = "Specifies a transition to the host configuration.")
+  @SkylarkSignature(
+    name = "HOST_CFG",
+    returnType = ConfigurationTransition.class,
+    doc =
+        "Deprecated. Use string \"host\" instead. "
+            + "Specifies a transition to the host configuration."
+  )
   private static final Object hostTransition = ConfigurationTransition.HOST;
 
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in

@@ -87,7 +87,7 @@ public final class SkylarkAttr {
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. For example, use DATA_CFG or HOST_CFG.";
+      "configuration of the attribute. It can be either \"data\" or \"host\".";
 
   private static final String DEFAULT_ARG = "default";
   private static final String DEFAULT_DOC = "the default value of the attribute.";
@@ -219,7 +219,17 @@ public final class SkylarkAttr {
     }
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
-      builder.cfg((ConfigurationTransition) arguments.get(CONFIGURATION_ARG));
+      Object trans = arguments.get(CONFIGURATION_ARG);
+      if (trans instanceof ConfigurationTransition) {
+        // TODO(laurentlb): Deprecated, to be removed in August 2016.
+        builder.cfg((ConfigurationTransition) trans);
+      } else if (trans.equals("data")) {
+        builder.cfg(ConfigurationTransition.DATA);
+      } else if (trans.equals("host")) {
+        builder.cfg(ConfigurationTransition.HOST);
+      } else {
+        throw new EvalException(ast.getLocation(), "cfg must be either 'data' or 'host'.");
+      }
     }
     return builder;
   }
@@ -474,7 +484,7 @@ public final class SkylarkAttr {
       ),
       @Param(
         name = CONFIGURATION_ARG,
-        type = ConfigurationTransition.class,
+        type = Object.class,
         noneable = true,
         defaultValue = "None",
         named = true,
@@ -691,7 +701,7 @@ public final class SkylarkAttr {
       ),
       @Param(
         name = CONFIGURATION_ARG,
-        type = ConfigurationTransition.class,
+        type = Object.class,
         noneable = true,
         defaultValue = "None",
         named = true,

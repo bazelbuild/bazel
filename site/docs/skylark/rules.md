@@ -260,11 +260,11 @@ In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
 
 Tools that are executed as part of the build (e.g., compilers, code generators)
-should be built for the host configuration. In this case, specify `cfg=HOST_CFG`
+should be built for the host configuration. In this case, specify `cfg="host"`
 in the attribute.
 
-`DATA_CFG` is present for legacy reasons and should be used for `data`
-attributes.
+The configuration `"data"` is present for legacy reasons and should be used for
+the `data` attributes.
 
 
 ## <a name="fragments"></a> Configuration Fragments
