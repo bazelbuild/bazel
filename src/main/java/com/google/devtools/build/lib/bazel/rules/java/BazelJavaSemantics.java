@@ -169,7 +169,9 @@ public class BazelJavaSemantics implements JavaSemantics {
     String workspaceName = ruleContext.getWorkspaceName();
     final String workspacePrefix = workspaceName + (workspaceName.isEmpty() ? "" : "/");
     final boolean isRunfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
-
+    if (!isRunfilesEnabled) {
+      arguments.add(Substitution.of("%runfiles_manifest_only%", "1"));
+    }
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
