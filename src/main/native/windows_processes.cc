@@ -123,14 +123,9 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     env_size = env->GetArrayLength(java_env);
     env_bytes = env->GetByteArrayElements(java_env, NULL);
 
-    if (env_size < 1) {
-      result->error_ = "The environment cannot be empty";
+    if (env_size < 2) {
+      result->error_ = "The environment must be at least two bytes long";
       goto cleanup;
-    } else if (env_size == 1) {
-      if (env_bytes[0] != 0) {
-        result->error_ = "Empty environment must contain a single zero byte";
-        goto cleanup;
-      }
     } else if (env_bytes[env_size - 1] != 0 || env_bytes[env_size - 2] != 0) {
       result->error_ = "Environment array must end with two null bytes";
       goto cleanup;
