@@ -1,3 +1,9 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//examples:__pkg__"],
+)
+
 cc_binary(
     name = "hellolib.dll",
     srcs = [

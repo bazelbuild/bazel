@@ -14,5 +14,6 @@ filegroup(
         "//examples/py_native:srcs",
         "//examples/shell:srcs",
         "//examples/swift:srcs",
+        "//examples/windows/dll:srcs",
     ],
 )

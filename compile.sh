@@ -142,11 +142,15 @@ if [ $DO_SRCS_TEST ]; then
     | sort -u >"${OUTPUT_DIR}/srcs-query"
 
   log "Finding all files"
+  # SRCS_EXCLUDES can be overriden to adds some more exceptions for the find
+  # commands (for CI systems).
+  SRCS_EXCLUDES=${SRCS_EXCLUDES-XXXXXXXXXXXXXX1268778dfsdf4}
   # See file BUILD for the list of grep -v exceptions.
   # tools/defaults package is hidden by Bazel so cannot be put in the srcs.
   find . -type f | sed 's|./||' \
     | grep -v '^bazel-' | grep -v '^WORKSPACE.user.bzl' \
     | grep -v '^\.' | grep -v '^out/' | grep -v '^output/' \
+    | grep -Ev "${SRCS_EXCLUDES}" \
     | grep -v '^tools/defaults/BUILD' \
     | sort -u >"${OUTPUT_DIR}/srcs-find"
 
