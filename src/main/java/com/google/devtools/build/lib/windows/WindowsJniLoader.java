@@ -18,11 +18,22 @@ package com.google.devtools.build.lib.windows;
  * Loads native code under Windows.
  */
 public class WindowsJniLoader {
-  public static void loadJni() {
+  private static boolean jniLoaded = false;
+  public static synchronized void loadJni() {
+    if (jniLoaded) {
+      return;
+    }
+
     System.loadLibrary("windows_jni");
+    jniLoaded = true;
   }
 
-  public static void loadJniForTesting(String jniDll) {
+  public static synchronized void loadJniForTesting(String jniDll) {
+    if (jniLoaded) {
+      return;
+    }
+
     System.load(jniDll);
+    jniLoaded = true;
   }
 }

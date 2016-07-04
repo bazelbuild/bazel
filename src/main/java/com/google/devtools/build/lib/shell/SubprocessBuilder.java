@@ -46,6 +46,12 @@ public class SubprocessBuilder {
   private File stderrFile;
   private File workingDirectory;
 
+  private static Subprocess.Factory factory = JavaSubprocessFactory.INSTANCE;
+
+  public static void setSubprocessFactory(Subprocess.Factory factory) {
+    SubprocessBuilder.factory = factory;
+  }
+
   public SubprocessBuilder() {
     stdoutAction = StreamAction.STREAM;
     stderrAction = StreamAction.STREAM;
@@ -154,6 +160,6 @@ public class SubprocessBuilder {
   }
 
   public Subprocess start() throws IOException {
-    return JavaSubprocessFactory.INSTANCE.create(this);
+    return factory.create(this);
   }
 }

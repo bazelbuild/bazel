@@ -864,6 +864,7 @@ java_library(
         ":unix",
         ":util",
         ":vfs",
+        ":windows",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/query2",

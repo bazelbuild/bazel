@@ -36,6 +36,8 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
 
   @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
+    WindowsJniLoader.loadJni();
+    
     String commandLine = WindowsProcesses.quoteCommandLine(builder.getArgv());
     byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
 

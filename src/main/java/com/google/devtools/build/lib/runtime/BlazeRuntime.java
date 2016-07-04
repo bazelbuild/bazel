@@ -71,6 +71,9 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.AfUnixServer;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
+import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
+import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
@@ -93,6 +96,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.WindowsFileSystem;
+import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Option;
@@ -893,6 +897,14 @@ public final class BlazeRuntime {
     return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
   }
 
+  private static Subprocess.Factory subprocessFactoryImplementation() {
+    if (!"0".equals(System.getProperty("io.bazel.EnableJni")) && OS.getCurrent() == OS.WINDOWS) {
+      return WindowsSubprocessFactory.INSTANCE;
+    } else {
+      return JavaSubprocessFactory.INSTANCE;
+    }
+  }
+
   /**
    * Creates and returns a new Blaze RPCServer. Call {@link RPCServer#serve()} to start the server.
    */
@@ -1028,7 +1040,9 @@ public final class BlazeRuntime {
     if (fs == null) {
       fs = fileSystemImplementation();
     }
+
     Path.setFileSystemForSerialization(fs);
+    SubprocessBuilder.setSubprocessFactory(subprocessFactoryImplementation());
 
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
