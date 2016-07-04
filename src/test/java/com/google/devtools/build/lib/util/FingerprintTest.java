@@ -101,21 +101,6 @@ public class FingerprintTest {
   }
 
   @Test
-  public void toStringTest() throws Exception {
-    Fingerprint f1 = new Fingerprint();
-    f1.addString("Hello ");
-    f1.addString("World!");
-    String fp = f1.hexDigestAndReset();
-    Fingerprint f2 = new Fingerprint();
-    f2.addString("Hello ");
-    // make sure that you can call toString on the intermediate result
-    // and continue with the operation.
-    assertThat(fp).isNotEqualTo(f2.toString());
-    f2.addString("World!");
-    assertThat(fp).isEqualTo(f2.hexDigestAndReset());
-  }
-
-  @Test
   public void addBoolean() throws Exception {
     String f1 = new Fingerprint().addBoolean(true).hexDigestAndReset();
     String f2 = new Fingerprint().addBoolean(false).hexDigestAndReset();
