@@ -116,10 +116,17 @@ done
 # Case 5 is handled like case 1.
 # Case 6 is handled like case 3.
 
-case "$0" in
-  /*) self="$0" ;;
-  *)  self="$PWD/$0" ;;
-esac
+# If we are running on Windows, convert the windows style path
+# to unix style for detecting runfiles path.
+if is_windows; then
+  self=$(cygpath --unix "$0")
+else
+  self="$0"
+fi
+
+if [[ "$self" != /* ]]; then
+  self="$PWD/$self"
+fi
 
 if [[ "$SINGLEJAR" != 1 || "%needs_runfiles%" == 1 ]]; then
   if [[ -z "$JAVA_RUNFILES" ]]; then
