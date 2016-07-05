@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -286,7 +288,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @Override
-  public WorkspaceStatusAction.Factory getWorkspaceStatusActionFactory() {
-    return new BazelStatusActionFactory();
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+    builder.setWorkspaceStatusActionFactory(new BazelStatusActionFactory());
   }
 }

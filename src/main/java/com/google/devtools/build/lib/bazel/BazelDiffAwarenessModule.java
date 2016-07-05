@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.bazel;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness;
 
@@ -23,11 +25,9 @@ import com.google.devtools.build.lib.skyframe.LocalDiffAwareness;
  */
 public class BazelDiffAwarenessModule extends BlazeModule {
   @Override
-  public Iterable<DiffAwareness.Factory> getDiffAwarenessFactories(boolean watchFS) {
-    ImmutableList.Builder<DiffAwareness.Factory> builder = ImmutableList.builder();
-    if (watchFS) {
-      builder.add(new LocalDiffAwareness.Factory(ImmutableList.<String>of()));
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+    if (builder.enableWatchFs()) {
+      builder.addDiffAwarenessFactory(new LocalDiffAwareness.Factory(ImmutableList.<String>of()));
     }
-    return builder.build();
   }
 }

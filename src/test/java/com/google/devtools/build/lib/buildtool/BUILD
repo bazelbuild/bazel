@@ -22,6 +22,7 @@ java_test(
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:runtime",

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
@@ -23,14 +22,12 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
@@ -40,18 +37,11 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 
@@ -110,17 +100,10 @@ public abstract class BlazeModule {
   }
 
   /**
-   * May yield a supplier that provides factories for the Preprocessor to apply. Only one of the
-   * configured modules may return non-null.
-   *
-   * <p>The factory yielded by the supplier will be checked with
-   * {@link Preprocessor.Factory#isStillValid} at the beginning of each incremental build. This
-   * allows modules to have preprocessors customizable by flags.
-   *
-   * <p>This method will be called during Blaze startup (after #blazeStartup).
+   * Called when Blaze initializes a new workspace.
    */
-  public Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return null;
+  @SuppressWarnings("unused")
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
   }
 
   /**
@@ -151,26 +134,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the {@link DiffAwareness} strategies this module contributes. These will be used to
-   * determine which files, if any, changed between Blaze commands.
-   *
-   * <p>This method will be called during Blaze startup (after #blazeStartup).
-   */
-  @SuppressWarnings("unused")
-  public Iterable<? extends DiffAwareness.Factory> getDiffAwarenessFactories(boolean watchFS) {
-    return ImmutableList.of();
-  }
-
-  /**
-   * Returns the workspace status action factory contributed by this module.
-   *
-   * <p>There should always be exactly one of these in a Blaze instance.
-   */
-  public WorkspaceStatusAction.Factory getWorkspaceStatusActionFactory() {
-    return null;
-  }
-
-  /**
    * PlatformSet is a group of platforms characterized by a regular expression.  For example, the
    * entry "oldlinux": "i[34]86-libc[345]-linux" might define a set of platforms representing
    * certain older linux releases.
@@ -187,10 +150,6 @@ public abstract class BlazeModule {
    */
   public Map<String, String> getPlatformSetRegexps() {
     return ImmutableMap.<String, String>of();
-  }
-
-  public Iterable<SkyValueDirtinessChecker> getCustomDirtinessCheckers() {
-    return ImmutableList.of();
   }
 
   @Nullable
@@ -341,13 +300,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Action inputs are allowed to be missing for all inputs where this predicate returns true.
-   */
-  public Predicate<PathFragment> getAllowedMissingInputs() {
-    return null;
-  }
-
-  /**
    * Perform module specific check of current command environment.
    */
   public void checkEnvironment(CommandEnvironment env) {
@@ -385,47 +337,6 @@ public abstract class BlazeModule {
    */
   public QueryEnvironmentFactory getQueryEnvironmentFactory() {
     return null;
-  }
-
-  /**
-   * Returns a factory for creating {@link SkyframeExecutor} objects. If the module does not
-   * provide any SkyframeExecutorFactory, it returns null. Note that only one factory per
-   * Bazel/Blaze runtime is allowed.
-   *
-   * @param directories the workspace directories
-   */
-  public SkyframeExecutorFactory getSkyframeExecutorFactory(BlazeDirectories directories) {
-    return null;
-  }
-
-  /** Returns a map of "extra" SkyFunctions for SkyValues that this module may want to build. */
-  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
-    return ImmutableMap.of();
-  }
-
-  /**
-   * Returns the extra precomputed values that the module makes available in Skyframe.
-   *
-   * <p>This method is called once per Blaze instance at the very beginning of its life.
-   * If it creates the injected values by using a {@code com.google.common.base.Supplier},
-   * that supplier is asked for the value it contains just before the loading phase begins. This
-   * functionality can be used to implement precomputed values that are not constant during the
-   * lifetime of a Blaze instance (naturally, they must be constant over the course of a build)
-   *
-   * <p>The following things must be done in order to define a new precomputed values:
-   * <ul>
-   * <li> Create a public static final variable of type
-   * {@link com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed}
-   * <li> Set its value by adding an {@link Injected} in this method (it can be created using the
-   * aforementioned variable and the value or a supplier of the value)
-   * <li> Reference the value in Skyframe functions by calling get {@code get} method on the
-   * {@link com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed} variable. This
-   * will never return null, because its value will have been injected before most of the Skyframe
-   * values are computed.
-   * </ul>
-   */
-  public Iterable<Injected> getPrecomputedSkyframeValues() {
-    return ImmutableList.of();
   }
 
   /**

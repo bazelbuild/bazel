@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 
 public class SubincludePreprocessorModule extends BlazeModule {
   @Override
-  public Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return new SubincludePreprocessor.FactorySupplier();
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+    builder.setPreprocessorFactorySupplier(new SubincludePreprocessor.FactorySupplier());
   }
 }

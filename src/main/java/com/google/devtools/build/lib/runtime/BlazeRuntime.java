@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +29,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -40,7 +38,6 @@ import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -74,12 +71,6 @@ import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
-import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
@@ -97,8 +88,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
@@ -218,103 +207,14 @@ public final class BlazeRuntime {
 
   public void initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
-    SkyframeExecutorFactory skyframeExecutorFactory = null;
+    boolean watchFS = startupOptionsProvider != null
+        && startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).watchFS;
+    WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools, watchFS);
     for (BlazeModule module : blazeModules) {
-      SkyframeExecutorFactory skyFactory = module.getSkyframeExecutorFactory(directories);
-      if (skyFactory != null) {
-        Preconditions.checkState(skyframeExecutorFactory == null,
-            "At most one Skyframe factory supported. But found two: %s and %s", skyFactory,
-            skyframeExecutorFactory);
-        skyframeExecutorFactory = skyFactory;
-      }
+      module.workspaceInit(directories, builder);
     }
-    if (skyframeExecutorFactory == null) {
-      skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
-    }
-
-    WorkspaceStatusAction.Factory workspaceStatusActionFactory = null;
-    for (BlazeModule module : blazeModules) {
-      WorkspaceStatusAction.Factory candidate = module.getWorkspaceStatusActionFactory();
-      if (candidate != null) {
-        Preconditions.checkState(workspaceStatusActionFactory == null,
-            "more than one module defines a workspace status action factory");
-        workspaceStatusActionFactory = candidate;
-      }
-    }
-
-    Iterable<DiffAwareness.Factory> diffAwarenessFactories;
-    {
-      ImmutableList.Builder<DiffAwareness.Factory> builder = new ImmutableList.Builder<>();
-      boolean watchFS = startupOptionsProvider != null
-          && startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).watchFS;
-      for (BlazeModule module : blazeModules) {
-        builder.addAll(module.getDiffAwarenessFactories(watchFS));
-      }
-      diffAwarenessFactories = builder.build();
-    }
-
-    // Merge filters from Blaze modules that allow some action inputs to be missing.
-    Predicate<PathFragment> allowedMissingInputs = null;
-    for (BlazeModule module : blazeModules) {
-      Predicate<PathFragment> modulePredicate = module.getAllowedMissingInputs();
-      if (modulePredicate != null) {
-        Preconditions.checkArgument(allowedMissingInputs == null,
-            "More than one Blaze module allows missing inputs.");
-        allowedMissingInputs = modulePredicate;
-      }
-    }
-    if (allowedMissingInputs == null) {
-      allowedMissingInputs = Predicates.alwaysFalse();
-    }
-
-    Preprocessor.Factory.Supplier preprocessorFactorySupplier = null;
-    for (BlazeModule module : blazeModules) {
-      Preprocessor.Factory.Supplier modulePreprocessorFactorySupplier =
-          module.getPreprocessorFactorySupplier();
-      if (modulePreprocessorFactorySupplier != null) {
-        Preconditions.checkState(preprocessorFactorySupplier == null,
-            "more than one module defines a preprocessor factory supplier");
-        preprocessorFactorySupplier = modulePreprocessorFactorySupplier;
-      }
-    }
-    if (preprocessorFactorySupplier == null) {
-      preprocessorFactorySupplier = Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
-    }
-
-    // We use an immutable map builder for the nice side effect that it throws if a duplicate key
-    // is inserted.
-    ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
-    for (BlazeModule module : blazeModules) {
-      skyFunctions.putAll(module.getSkyFunctions(directories));
-    }
-
-    ImmutableList.Builder<PrecomputedValue.Injected> precomputedValues = ImmutableList.builder();
-    for (BlazeModule module : blazeModules) {
-      precomputedValues.addAll(module.getPrecomputedSkyframeValues());
-    }
-
-    ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
-        ImmutableList.builder();
-    for (BlazeModule module : blazeModules) {
-      customDirtinessCheckers.addAll(module.getCustomDirtinessCheckers());
-    }
-
-    SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(
-        packageFactory,
-        directories,
-        binTools,
-        workspaceStatusActionFactory,
-        ruleClassProvider.getBuildInfoFactories(),
-        diffAwarenessFactories,
-        allowedMissingInputs,
-        preprocessorFactorySupplier,
-        skyFunctions.build(),
-        precomputedValues.build(),
-        customDirtinessCheckers.build(),
-        getProductName());
-    this.workspace = new BlazeWorkspace(
-        this, directories, skyframeExecutor, eventBusExceptionHandler, workspaceStatusActionFactory,
-        binTools);
+    this.workspace = builder.build(
+        this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);
   }
 
   @Nullable public CoverageReportActionFactory getCoverageReportActionFactory() {
