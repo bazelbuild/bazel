@@ -174,6 +174,13 @@ java_test(
     ],
 )
 
+java_library(
+    name = "windows_testutil",
+    srcs = [
+        "windows/util/WindowsTestUtil.java",
+    ],
+)
+
 # Tests that need to run on Windows
 java_test(
     name = "windows-tests",
@@ -194,6 +201,7 @@ java_test(
     deps = [
         ":test_runner",
         ":testutil",
+        ":windows_testutil",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:truth",
@@ -758,8 +766,10 @@ java_test(
     deps = [
         ":foundations_testutil",
         ":packages_testutil",
+        ":windows_testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//third_party:guava",
         "//third_party:guava-testlib",

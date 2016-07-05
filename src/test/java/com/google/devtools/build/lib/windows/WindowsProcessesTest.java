@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 
 import org.junit.After;
 import org.junit.Before;

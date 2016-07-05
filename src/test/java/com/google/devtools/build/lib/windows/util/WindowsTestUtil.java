@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.windows.util;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -23,11 +23,10 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Utilities for running Java tests on Windows.
- */
+/** Utilities for running Java tests on Windows. */
 public class WindowsTestUtil {
   private static Map<String, String> runfiles;
+
   public static String getRunfile(String runfilesPath) throws IOException {
     ensureRunfilesParsed();
     return runfiles.get(runfilesPath);
@@ -44,7 +43,7 @@ public class WindowsTestUtil {
     BufferedReader br = new BufferedReader(isr);
     String line;
     while ((line = br.readLine()) != null) {
-      String[] splitLine = line.split(" ");  // This is buggy when the path contains spaces
+      String[] splitLine = line.split(" "); // This is buggy when the path contains spaces
       if (splitLine.length != 2) {
         continue;
       }
