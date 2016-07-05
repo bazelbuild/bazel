@@ -52,6 +52,7 @@ function build_and_serve {
   pkill -9 jekyll || true
 
   if [ -z "$TARGET" ]; then
+    echo "Serving bazel.io site at port $PORT"
     jekyll serve --detach --quiet --port $PORT --source $WORKING_DIR
   else
     TMP_TARGET=$(mktemp -d)

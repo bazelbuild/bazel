@@ -83,7 +83,7 @@ public final class SkylarkDocumentationProcessor {
 
   private static void writeNavPage(String outputDir, List<SkylarkModuleDoc> navModules)
       throws IOException {
-    File navFile = new File(outputDir + "/" + "skylark-nav.html");
+    File navFile = new File(outputDir + "/skylark-nav.html");
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_NAV_TEMPLATE);
     page.add("modules", navModules);
     page.write(navFile);

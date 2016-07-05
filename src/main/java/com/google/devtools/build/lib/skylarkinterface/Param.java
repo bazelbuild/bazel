@@ -45,6 +45,12 @@ public @interface Param {
   Class<?> type() default Object.class;
 
   /**
+   * List of allowed types for the parameter if multiple types are allowed, and {@link #type()} is
+   * set to Object.class.
+   */
+  ParamType[] allowedTypes() default {};
+
+  /**
    * When {@link #type()} is a generic type (e.g.,
    * {@link com.google.devtools.build.lib.syntax.SkylarkList}), specify the type parameter (e.g.
    * {@link String}.class} along with {@link com.google.devtools.build.lib.syntax.SkylarkList} for

@@ -23,7 +23,7 @@ ${module.documentation}
   #if ($method.documented())
     <h2 id="${method.name}">${method.name}</h2>
     #if (!$method.signature.isEmpty())
-    <p><pre>${method.signature}</pre></p>
+    <p><pre class="rule-signature">${method.signature}</pre></p>
     #end
 
     ${method.documentation}
