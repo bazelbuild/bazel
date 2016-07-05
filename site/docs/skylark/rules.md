@@ -84,7 +84,7 @@ metal_compile = rule(
         "srcs": attr.label_list(),
         "_compiler": attr.label(
             default=Label("//tools:metalc"),
-            single_file=True,
+            allow_single_file=True,
             executable=True,
         ),
     },

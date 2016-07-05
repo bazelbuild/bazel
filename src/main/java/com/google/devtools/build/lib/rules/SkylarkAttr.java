@@ -115,6 +115,7 @@ public final class SkylarkAttr {
           + "automatically converted to a list containing one list of providers.";
 
   private static final String SINGLE_FILE_ARG = "single_file";
+  private static final String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
   private static final String VALUES_ARG = "values";
   private static final String VALUES_DOC =
@@ -123,6 +124,27 @@ public final class SkylarkAttr {
 
   private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
     return arguments.containsKey(key) && arguments.get(key) != Runtime.NONE;
+  }
+
+  private static void setAllowedFileTypes(
+      String attr, Object fileTypesObj, FuncallExpression ast, Attribute.Builder<?> builder)
+      throws EvalException {
+    if (fileTypesObj == Boolean.TRUE) {
+      builder.allowedFileTypes(FileTypeSet.ANY_FILE);
+    } else if (fileTypesObj == Boolean.FALSE) {
+      builder.allowedFileTypes(FileTypeSet.NO_FILE);
+    } else if (fileTypesObj instanceof SkylarkFileType) {
+      // TODO(laurentlb): deprecated, to be removed
+      builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
+    } else if (fileTypesObj instanceof SkylarkList) {
+      List<String> arg =
+          SkylarkList.castSkylarkListOrNoneToList(
+              fileTypesObj, String.class, "allow_files argument");
+      builder.allowedFileTypes(FileType.of(arg));
+    } else {
+      throw new EvalException(
+          ast.getLocation(), attr + " should be a boolean or a string list");
+    }
   }
 
   private static Attribute.Builder<?> createAttribute(
@@ -161,29 +183,30 @@ public final class SkylarkAttr {
       builder.setPropertyFlag("EXECUTABLE");
     }
 
+    // TODO(laurentlb): Deprecated, remove in August 2016 (use allow_single_file).
     if (containsNonNoneKey(arguments, SINGLE_FILE_ARG)
         && (Boolean) arguments.get(SINGLE_FILE_ARG)) {
+      if (containsNonNoneKey(arguments, ALLOW_SINGLE_FILE_ARG)) {
+        throw new EvalException(
+            ast.getLocation(),
+            "Cannot specify both single_file (deprecated) and allow_single_file");
+      }
       builder.setPropertyFlag("SINGLE_ARTIFACT");
+    }
+
+    if (containsNonNoneKey(arguments, ALLOW_FILES_ARG)
+        && containsNonNoneKey(arguments, ALLOW_SINGLE_FILE_ARG)) {
+      throw new EvalException(
+          ast.getLocation(), "Cannot specify both allow_files and allow_single_file");
     }
 
     if (containsNonNoneKey(arguments, ALLOW_FILES_ARG)) {
       Object fileTypesObj = arguments.get(ALLOW_FILES_ARG);
-      if (fileTypesObj == Boolean.TRUE) {
-        builder.allowedFileTypes(FileTypeSet.ANY_FILE);
-      } else if (fileTypesObj == Boolean.FALSE) {
-        builder.allowedFileTypes(FileTypeSet.NO_FILE);
-      } else if (fileTypesObj instanceof SkylarkFileType) {
-        // TODO(laurentlb): deprecated, to be removed
-        builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
-      } else if (fileTypesObj instanceof SkylarkList) {
-        List<String> arg =
-            SkylarkList.castSkylarkListOrNoneToList(
-                fileTypesObj, String.class, "allow_files argument");
-        builder.allowedFileTypes(FileType.of(arg));
-      } else {
-        throw new EvalException(
-            ast.getLocation(), "allow_files should be a boolean or a string list");
-      }
+      setAllowedFileTypes(ALLOW_FILES_ARG, fileTypesObj, ast, builder);
+    } else if (containsNonNoneKey(arguments, ALLOW_SINGLE_FILE_ARG)) {
+      Object fileTypesObj = arguments.get(ALLOW_SINGLE_FILE_ARG);
+      setAllowedFileTypes(ALLOW_SINGLE_FILE_ARG, fileTypesObj, ast, builder);
+      builder.setPropertyFlag("SINGLE_ARTIFACT");
     } else if (type.equals(BuildType.LABEL) || type.equals(BuildType.LABEL_LIST)) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
@@ -441,10 +464,20 @@ public final class SkylarkAttr {
       ),
       @Param(
         name = ALLOW_FILES_ARG,
-        defaultValue = "False",
+        defaultValue = "None",
         named = true,
         positional = false,
         doc = ALLOW_FILES_DOC
+      ),
+      @Param(
+        name = ALLOW_SINGLE_FILE_ARG,
+        defaultValue = "None",
+        named = true,
+        positional = false,
+        doc =
+            "This is similar to <code>allow_files</code>, with the restriction that the label must "
+                + "correspond to a single <a href=\"file.html\">File</a>. "
+                + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
         name = MANDATORY_ARG,
@@ -479,7 +512,8 @@ public final class SkylarkAttr {
         named = true,
         positional = false,
         doc =
-            "if True, the label must correspond to a single <a href=\"file.html\">File</a>. "
+            "Deprecated: Use <code>allow_single_file</code> instead. "
+                + "If True, the label must correspond to a single <a href=\"file.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
@@ -501,6 +535,7 @@ public final class SkylarkAttr {
             Object defaultO,
             Boolean executable,
             Object allowFiles,
+            Object allowSingleFile,
             Boolean mandatory,
             SkylarkList<?> providers,
             Object allowRules,
@@ -519,6 +554,8 @@ public final class SkylarkAttr {
                   executable,
                   ALLOW_FILES_ARG,
                   allowFiles,
+                  ALLOW_SINGLE_FILE_ARG,
+                  allowSingleFile,
                   MANDATORY_ARG,
                   mandatory,
                   PROVIDERS_ARG,
@@ -653,7 +690,7 @@ public final class SkylarkAttr {
       ),
       @Param(
         name = ALLOW_FILES_ARG, // bool or FileType filter
-        defaultValue = "False",
+        defaultValue = "None",
         named = true,
         positional = false,
         doc = ALLOW_FILES_DOC

@@ -166,11 +166,28 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrAllowedSingleFileTypesWrongType() throws Exception {
+    checkErrorContains(
+        "allow_single_file should be a boolean or a string list",
+        "attr.label(allow_single_file = 18)");
+  }
+
+  @Test
   public void testAttrWithList() throws Exception {
     Attribute attr = evalAttributeDefinition("attr.label_list(allow_files = ['.xml'])")
         .build("a1");
     assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
     assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
+    assertFalse(attr.isSingleArtifact());
+  }
+
+  @Test
+  public void testAttrSingleFileWithList() throws Exception {
+    Attribute attr = evalAttributeDefinition("attr.label(allow_single_file = ['.xml'])")
+        .build("a1");
+    assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
+    assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
+    assertTrue(attr.isSingleArtifact());
   }
 
   @Test
