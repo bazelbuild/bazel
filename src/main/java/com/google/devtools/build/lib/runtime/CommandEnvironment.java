@@ -474,7 +474,8 @@ public final class CommandEnvironment {
     }
 
     eventBus.post(
-        new CommandStartEvent(command.name(), commandId, getClientEnv(), workingDirectory));
+        new CommandStartEvent(
+            command.name(), commandId, getClientEnv(), workingDirectory, getDirectories()));
   }
 
   /** Returns the name of the file system we are writing output to. */

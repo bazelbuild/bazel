@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.Map;
@@ -28,16 +29,18 @@ public class CommandStartEvent extends CommandEvent {
   private final UUID commandId;
   private final Map<String, String> clientEnv;
   private final Path workingDirectory;
+  private final BlazeDirectories directories;
 
   /**
    * @param commandName the name of the command
    */
   public CommandStartEvent(String commandName, UUID commandId, Map<String, String> clientEnv,
-      Path workingDirectory) {
+      Path workingDirectory, BlazeDirectories directories) {
     this.commandName = commandName;
     this.commandId = commandId;
     this.clientEnv = clientEnv;
     this.workingDirectory = workingDirectory;
+    this.directories = directories;
   }
 
   public String getCommandName() {
@@ -54,5 +57,9 @@ public class CommandStartEvent extends CommandEvent {
 
   public Path getWorkingDirectory() {
     return workingDirectory;
+  }
+
+  public BlazeDirectories getBlazeDirectories() {
+    return directories;
   }
 }
