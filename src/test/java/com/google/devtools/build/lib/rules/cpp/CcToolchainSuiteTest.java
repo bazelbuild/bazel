@@ -29,13 +29,15 @@ import org.junit.runners.JUnit4;
 public class CcToolchainSuiteTest extends BuildViewTestCase {
   @Test
   public void testSmoke() throws Exception {
-    scratch.file("cc/BUILD",
+    scratch.file(
+        "cc/BUILD",
         "cc_toolchain_suite(",
         "    name = 'suite',",
         "    toolchains = { ",
         "       'cpu|cpu-compiler': ':cc-toolchain',",
         "       'k8|k8-compiler': ':cc-toolchain',",
-        "       'darwin|cpu-compiler': ':cc-toolchain' ",
+        "       'darwin|cpu-compiler': ':cc-toolchain',",
+        "       'x64_windows|cpu-compiler': ':cc-toolchain',",
         "    },",
         "    proto = \"\"\"",
         "major_version: 'v1'",
@@ -47,6 +49,10 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "}",
         "default_toolchain {",
         "  cpu: 'darwin'",
+        "  toolchain_identifier: 'cpu-toolchain'",
+        "}",
+        "default_toolchain {",
+        "  cpu: 'x64_windows'",
         "  toolchain_identifier: 'cpu-toolchain'",
         "}",
         "default_toolchain {",

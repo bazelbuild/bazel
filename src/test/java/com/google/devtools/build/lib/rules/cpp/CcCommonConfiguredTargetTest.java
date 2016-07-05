@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -123,7 +124,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testEmptyBinary() throws Exception {
     ConfiguredTarget emptybin = getConfiguredTarget("//empty:emptybinary");
-    assertEquals("emptybinary", baseNamesOf(getFilesToBuild(emptybin)));
+    assertEquals(
+        "emptybinary" + OsUtils.executableExtension(), baseNamesOf(getFilesToBuild(emptybin)));
   }
 
   private List<String> getCopts(String target) throws Exception {
