@@ -273,7 +273,7 @@ java_library(
         "exec/util/*.java",
     ]),
     resources = [
-        "MOCK_CROSSTOOL",
+        "analysis/mock/MOCK_CROSSTOOL",
     ],
     tags = ["analysis"],
     exports = [

@@ -26,8 +26,11 @@ import java.io.InputStream;
  * Bazel implementation of {@link MockCcSupport}
  */
 public final class BazelMockCcSupport extends MockCcSupport {
-
   public static final BazelMockCcSupport INSTANCE = new BazelMockCcSupport();
+
+  private static final String MOCK_CROSSTOOL_PATH =
+      "com/google/devtools/build/lib/analysis/mock/MOCK_CROSSTOOL";
+
   /** Filter to remove implicit dependencies of C/C++ rules. */
   private static final Predicate<String> CC_LABEL_NAME_FILTER =
       new Predicate<String>() {
@@ -117,8 +120,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
         ")");
 
     config.create(
-        "/bazel_tools_workspace/tools/cpp/CROSSTOOL",
-        readFromResources("com/google/devtools/build/lib/MOCK_CROSSTOOL"));
+        "/bazel_tools_workspace/tools/cpp/CROSSTOOL", readFromResources(MOCK_CROSSTOOL_PATH));
     config.create(
         "/bazel_tools_workspace/tools/objc/BUILD",
         "xcode_config(name = 'host_xcodes')");
@@ -131,7 +133,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String readCrosstoolFile() throws IOException {
-    return readFromResources("com/google/devtools/build/lib/MOCK_CROSSTOOL");
+    return readFromResources(MOCK_CROSSTOOL_PATH);
   }
 
   public static String readFromResources(String filename) throws IOException {
