@@ -817,10 +817,11 @@ public final class Command {
 
     log.finer("Waiting for process...");
 
-    TerminationStatus status =
-        waitForProcess(process, killSubprocessOnInterrupt);
-
+    TerminationStatus status = waitForProcess(process, killSubprocessOnInterrupt);
     observer.stopObserving(processKillable);
+    // #close() must be called after the #stopObserving() so that a badly-timed timeout does not
+    // try to destroy a process that is already closed
+    process.close();
 
     log.finer(status.toString());
 

@@ -78,6 +78,11 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
     public InputStream getInputStream() {
       return process.getInputStream();
     }
+
+    @Override
+    public void close() {
+      // java.lang.Process doesn't give us a way to clean things up other than #destroy()
+    }
   }
 
   public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();

@@ -40,7 +40,7 @@ public class WindowsSubprocess implements Subprocess {
 
     @Override
     public void write(int b) throws IOException {
-      byte[] buf = new byte[]{b >= 128 ? ((byte) (b - 256)) : ((byte) b)};
+      byte[] buf = new byte[]{ (byte) b };
       write(buf, 0, 1);
     }
 
@@ -66,10 +66,11 @@ public class WindowsSubprocess implements Subprocess {
       if (read(buf, 0, 1) != 1) {
         return -1;
       } else {
-        return buf[0] < 0 ? 256 + buf[0] : buf[0];
+        return buf[0] & 0xff;
       }
     }
 
+    @Override
     public int read(byte b[], int off, int len) throws IOException {
       return readStream(stream, b, off, len);
     }
@@ -122,10 +123,7 @@ public class WindowsSubprocess implements Subprocess {
 
   @Override
   public synchronized void finalize() {
-    if (nativeProcess != -1) {
-      WindowsProcesses.nativeDelete(nativeProcess);
-      nativeProcess = -1;
-    }
+    close();
   }
 
   @Override
@@ -160,6 +158,14 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public void waitFor() throws InterruptedException {
     waitLatch.await();
+  }
+
+  @Override
+  public synchronized void close() {
+    if (nativeProcess != -1) {
+      WindowsProcesses.nativeDelete(nativeProcess);
+      nativeProcess = -1;
+    }
   }
 
   @Override

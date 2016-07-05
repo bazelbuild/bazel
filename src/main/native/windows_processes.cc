@@ -203,6 +203,18 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
 
   result->job_ = job;
 
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = { 0 };
+  job_info.BasicLimitInformation.LimitFlags =
+      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  if (!SetInformationJobObject(
+      job,
+      JobObjectExtendedLimitInformation,
+      &job_info,
+      sizeof(job_info))) {
+      result->error_ = GetLastErrorString("SetInformationJobObject()");
+      goto cleanup;
+  }
+
   startup_info.hStdInput = stdin_process;
   startup_info.hStdOutput = stdout_process;
   startup_info.hStdError = stderr_process;
@@ -397,6 +409,9 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
     JNIEnv *env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
+
+  // In theory, CloseHandle() on process->job_ would work, too, since we set
+  // KILL_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, but this is a little more explicit.
   if (!TerminateJobObject(process->job_, 0)) {
     process->error_ = GetLastErrorString("TerminateJobObject()");
     return JNI_FALSE;

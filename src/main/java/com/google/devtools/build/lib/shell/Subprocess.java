@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.shell;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -21,7 +22,7 @@ import java.io.OutputStream;
 /**
  * A process started by Bazel.
  */
-public interface Subprocess {
+public interface Subprocess extends Closeable {
 
   /**
    * Something that can create subprocesses.
@@ -70,4 +71,11 @@ public interface Subprocess {
    * Returns a stream from which the stderr of the process can be read.
    */
   InputStream getErrorStream();
+
+  /*
+   * Terminates the process as thoroughly as the underlying implementation allows and releases
+   * native data structures associated with the process.
+   */
+  @Override
+  void close();
 }
