@@ -18,16 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
-import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -37,7 +33,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
@@ -45,8 +40,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -65,12 +58,9 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
    * inject the SkylarkRepositoryFunction in the list of SkyFunctions. In Bazel, this function is
    * injected by the corresponding @{code BlazeModule}.
    */
-  private class CustomAnalysisMock extends AnalysisMock {
-
-    private final AnalysisMock proxied;
-
+  private static class CustomAnalysisMock extends AnalysisMock.Delegate {
     CustomAnalysisMock(AnalysisMock proxied) {
-      this.proxied = proxied;
+      super(proxied);
     }
 
     @Override
@@ -88,41 +78,6 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
           SkyFunctions.REPOSITORY,
           new RepositoryLoaderFunction(),
           FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
-    }
-
-    @Override
-    public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
-      proxied.setupMockClient(mockToolsConfig);
-    }
-
-    @Override
-    public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
-      proxied.setupMockWorkspaceFiles(embeddedBinariesRoot);
-    }
-
-    @Override
-    public ConfigurationFactory createConfigurationFactory() {
-      return proxied.createConfigurationFactory();
-    }
-
-    @Override
-    public ConfigurationFactory createFullConfigurationFactory() {
-      return proxied.createFullConfigurationFactory();
-    }
-
-    @Override
-    public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
-      return proxied.createConfigurationCollectionFactory();
-    }
-
-    @Override
-    public Collection<String> getOptionOverrides() {
-      return proxied.getOptionOverrides();
-    }
-
-    @Override
-    public MockCcSupport ccSupport() {
-      return proxied.ccSupport();
     }
   }
 
