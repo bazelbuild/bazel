@@ -29,6 +29,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -67,10 +69,8 @@ public class IdlClassTest {
 
   @Test
   public void generatedPrefixes() {
-    Set<String> idlSources = Sets.newHashSet(
-        "c/g/Bar.java",
-        "wrong/source/dir/Baz.java"
-    );
+    Set<Path> idlSources =
+        Sets.newHashSet(Paths.get("c/g/Bar.java"), Paths.get("wrong/source/dir/Baz.java"));
     assertThat(IdlClass.getIdlPrefixes(MANIFEST, idlSources))
         .containsExactly("c/g/Bar", "c/g/Bar2", "Baz");
   }
