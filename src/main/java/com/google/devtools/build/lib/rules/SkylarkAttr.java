@@ -106,7 +106,11 @@ public final class SkylarkAttr {
   private static final String MANDATORY_DOC = "True if the value must be explicitly specified";
 
   private static final String NON_EMPTY_ARG = "non_empty";
-  private static final String NON_EMPTY_DOC = "True if the attribute must not be empty";
+  private static final String NON_EMPTY_DOC =
+      "True if the attribute must not be empty. Deprecated: Use allow_empty instead.";
+
+  private static final String ALLOW_EMPTY_ARG = "allow_empty";
+  private static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty";
 
   private static final String PROVIDERS_ARG = "providers";
   private static final String PROVIDERS_DOC =
@@ -176,7 +180,13 @@ public final class SkylarkAttr {
       builder.setPropertyFlag("MANDATORY");
     }
 
+    // TODO(laurentlb): Deprecated, remove in August 2016 (use allow_empty instead).
     if (containsNonNoneKey(arguments, NON_EMPTY_ARG) && (Boolean) arguments.get(NON_EMPTY_ARG)) {
+      builder.setPropertyFlag("NON_EMPTY");
+    }
+
+    if (containsNonNoneKey(arguments, ALLOW_EMPTY_ARG)
+        && !(Boolean) arguments.get(ALLOW_EMPTY_ARG)) {
       builder.setPropertyFlag("NON_EMPTY");
     }
 
@@ -575,8 +585,9 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string_list",
-    doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of "
-        + "<a href=\"string.html\">strings</a>.",
+    doc =
+        "Creates an attribute which is a <a href=\"list.html\">list</a> of "
+            + "<a href=\"string.html\">strings</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     parameters = {
@@ -587,9 +598,23 @@ public final class SkylarkAttr {
         defaultValue = "[]",
         doc = DEFAULT_DOC
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = MANDATORY_DOC
       ),
-      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = NON_EMPTY_DOC
       )
     },
     useAst = true,
@@ -601,6 +626,7 @@ public final class SkylarkAttr {
             SkylarkList<?> defaultList,
             Boolean mandatory,
             Boolean nonEmpty,
+            Boolean allowEmpty,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
@@ -613,7 +639,9 @@ public final class SkylarkAttr {
                   MANDATORY_ARG,
                   mandatory,
                   NON_EMPTY_ARG,
-                  nonEmpty),
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty),
               Type.STRING_LIST,
               ast,
               env);
@@ -633,9 +661,23 @@ public final class SkylarkAttr {
         defaultValue = "[]",
         doc = DEFAULT_DOC
       ),
-      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = MANDATORY_DOC
       ),
-      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = ALLOW_EMPTY_DOC
       )
     },
     useAst = true,
@@ -647,6 +689,7 @@ public final class SkylarkAttr {
             SkylarkList<?> defaultList,
             Boolean mandatory,
             Boolean nonEmpty,
+            Boolean allowEmpty,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
@@ -659,7 +702,9 @@ public final class SkylarkAttr {
                   MANDATORY_ARG,
                   mandatory,
                   NON_EMPTY_ARG,
-                  nonEmpty),
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty),
               Type.INTEGER_LIST,
               ast,
               env);
@@ -723,19 +768,27 @@ public final class SkylarkAttr {
         positional = false,
         doc = FLAGS_DOC
       ),
-      @Param(name = MANDATORY_ARG,
-          type = Boolean.class,
-          defaultValue = "False",
-          named = true,
-          positional = false,
-          doc = MANDATORY_DOC
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
       ),
-      @Param(name = NON_EMPTY_ARG,
-          type = Boolean.class,
-          defaultValue = "False",
-          named = true,
-          positional = false,
-          doc = NON_EMPTY_DOC
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = ALLOW_EMPTY_DOC
       ),
       @Param(
         name = CONFIGURATION_ARG,
@@ -769,33 +822,37 @@ public final class SkylarkAttr {
             SkylarkList<?> flags,
             Boolean mandatory,
             Boolean nonEmpty,
+            Boolean allowEmpty,
             Object cfg,
             SkylarkList<?> aspects,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.label_list", ast.getLocation());
-          SkylarkDict<String, Object> kwargs = EvalUtils.<String, Object>optionMap(
-              env,
-              DEFAULT_ARG,
-              defaultList,
-              ALLOW_FILES_ARG,
-              allowFiles,
-              ALLOW_RULES_ARG,
-              allowRules,
-              PROVIDERS_ARG,
-              providers,
-              FLAGS_ARG,
-              flags,
-              MANDATORY_ARG,
-              mandatory,
-              NON_EMPTY_ARG,
-              nonEmpty,
-              CONFIGURATION_ARG,
-              cfg);
+          SkylarkDict<String, Object> kwargs =
+              EvalUtils.<String, Object>optionMap(
+                  env,
+                  DEFAULT_ARG,
+                  defaultList,
+                  ALLOW_FILES_ARG,
+                  allowFiles,
+                  ALLOW_RULES_ARG,
+                  allowRules,
+                  PROVIDERS_ARG,
+                  providers,
+                  FLAGS_ARG,
+                  flags,
+                  MANDATORY_ARG,
+                  mandatory,
+                  NON_EMPTY_ARG,
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty,
+                  CONFIGURATION_ARG,
+                  cfg);
           try {
-            Attribute.Builder<?> attribute = createAttribute(
-                BuildType.LABEL_LIST, kwargs, ast, env);
+            Attribute.Builder<?> attribute =
+                createAttribute(BuildType.LABEL_LIST, kwargs, ast, env);
             ImmutableList<SkylarkAspect> skylarkAspects =
                 ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
             return new Descriptor(attribute, skylarkAspects);
@@ -923,6 +980,12 @@ public final class SkylarkAttr {
         named = true,
         positional = false,
         doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = ALLOW_EMPTY_DOC
       )
     },
     useAst = true,
@@ -934,6 +997,7 @@ public final class SkylarkAttr {
             SkylarkList defaultList,
             Boolean mandatory,
             Boolean nonEmpty,
+            Boolean allowEmpty,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
@@ -946,7 +1010,9 @@ public final class SkylarkAttr {
                   MANDATORY_ARG,
                   mandatory,
                   NON_EMPTY_ARG,
-                  nonEmpty),
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty),
               BuildType.OUTPUT_LIST,
               ast,
               env);
@@ -955,8 +1021,9 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string_dict",
-    doc = "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
-        + "<a href=\"string.html\">string</a> to <a href=\"string.html\">string</a>.",
+    doc =
+        "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
+            + "<a href=\"string.html\">string</a> to <a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     parameters = {
@@ -983,6 +1050,12 @@ public final class SkylarkAttr {
         named = true,
         positional = false,
         doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = ALLOW_EMPTY_DOC
       )
     },
     useAst = true,
@@ -994,13 +1067,22 @@ public final class SkylarkAttr {
             SkylarkDict<?, ?> defaultO,
             Boolean mandatory,
             Boolean nonEmpty,
+            Boolean allowEmpty,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.string_dict", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
+                  env,
+                  DEFAULT_ARG,
+                  defaultO,
+                  MANDATORY_ARG,
+                  mandatory,
+                  NON_EMPTY_ARG,
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty),
               Type.STRING_DICT,
               ast,
               env);
@@ -1009,9 +1091,10 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string_list_dict",
-    doc = "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
-        + "<a href=\"string.html\">string</a> to <a href=\"list.html\">list</a> of "
-        + "<a href=\"string.html\">string</a>.",
+    doc =
+        "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
+            + "<a href=\"string.html\">string</a> to <a href=\"list.html\">list</a> of "
+            + "<a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     parameters = {
@@ -1038,6 +1121,12 @@ public final class SkylarkAttr {
         named = true,
         positional = false,
         doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = ALLOW_EMPTY_DOC
       )
     },
     useAst = true,
@@ -1049,13 +1138,22 @@ public final class SkylarkAttr {
             SkylarkDict<?, ?> defaultO,
             Boolean mandatory,
             Boolean nonEmpty,
+            Boolean allowEmpty,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.string_list_dict", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.<String, Object>optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
+                  env,
+                  DEFAULT_ARG,
+                  defaultO,
+                  MANDATORY_ARG,
+                  mandatory,
+                  NON_EMPTY_ARG,
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty),
               Type.STRING_LIST_DICT,
               ast,
               env);

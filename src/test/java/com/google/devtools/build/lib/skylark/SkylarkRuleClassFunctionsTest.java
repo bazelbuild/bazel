@@ -386,6 +386,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrAllowEmpty() throws Exception {
+    Attribute attr = evalAttributeDefinition("attr.string_list(allow_empty=False)").build("a1");
+    assertTrue(attr.isNonEmpty());
+    assertFalse(attr.isMandatory());
+  }
+
+  @Test
   public void testAttrBadKeywordArguments() throws Exception {
     checkErrorContains(
         "unexpected keyword 'bad_keyword' in call to string", "attr.string(bad_keyword = '')");
