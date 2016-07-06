@@ -24,6 +24,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <thread>  // NOLINT (to slience Google-internal linter)
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -411,6 +412,24 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   exit(0);
 }
 
+void BatchWaiterThread(HANDLE java_handle) {
+  WaitForSingleObject(java_handle, INFINITE);
+}
+
+static void MingwSignalHandler(int signum) {
+  // Java process will be terminated because we set the job to terminate if its
+  // handle is closed.
+  //
+  // Note that this is different how interruption is handled on Unix, where the
+  // Java process sets up a signal handler for SIGINT itself. That cannot be
+  // done on Windows without using native code, and it's better to have as
+  // little JNI as possible. The most important part of the cleanup after
+  // termination (killing all child processes) happens automatically on Windows
+  // anyway, since we put the batch Java process in its own job which does not
+  // allow breakaway processes.
+  exit(blaze_exit_code::ExitCode::INTERRUPTED);
+}
+
 // Run the given program in the current working directory,
 // using the given argument vector.
 void ExecuteProgram(
@@ -426,6 +445,22 @@ void ExecuteProgram(
   // environment variables.
   SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
 
+  HANDLE job = CreateJobObject(NULL, NULL);
+  if (job == NULL) {
+    pdie(255, "Error %u while creating job\n", GetLastError());
+  }
+
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = { 0 };
+  job_info.BasicLimitInformation.LimitFlags =
+      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  if (!SetInformationJobObject(
+      job,
+      JobObjectExtendedLimitInformation,
+      &job_info,
+      sizeof(job_info))) {
+    pdie(255, "Error %u while setting up job\n", GetLastError());
+  }
+
   bool success = CreateProcess(
       NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
       //                 _Inout_opt_ LPTSTR                lpCommandLine,
@@ -433,7 +468,11 @@ void ExecuteProgram(
       NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
       NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
       true,           // _In_        BOOL                  bInheritHandles,
-      0,              // _In_        DWORD                 dwCreationFlags,
+      //                 _In_        DWORD                 dwCreationFlags,
+      DETACHED_PROCESS
+          | CREATE_NEW_PROCESS_GROUP   // So that Ctrl-Break does not affect it
+          | CREATE_BREAKAWAY_FROM_JOB  // We'll put it in a new job
+          | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
       NULL,           // _In_opt_    LPVOID                lpEnvironment,
       NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
       &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
@@ -442,8 +481,25 @@ void ExecuteProgram(
   if (!success) {
     pdie(255, "Error %u executing: %s\n", GetLastError(), cmdline);
   }
+
+  if (!AssignProcessToJobObject(job, processInfo.hProcess)) {
+    pdie(255, "Error %u while assigning process to job\n", GetLastError());
+  }
+
+  // Now that we put the process in a new job object, we can start executing it
+  if (ResumeThread(processInfo.hThread) == -1) {
+    pdie(255, "Error %u while starting Java process\n", GetLastError());
+  }
+
+  // msys doesn't deliver signals while a Win32 call is pending so we need to
+  // do the blocking call in another thread
+  signal(SIGINT, MingwSignalHandler);
+  std::thread batch_waiter_thread([=]() {
+    BatchWaiterThread(processInfo.hProcess);
+  });
+
   // The output base lock is held while waiting
-  WaitForSingleObject(processInfo.hProcess, INFINITE);
+  batch_waiter_thread.join();
   DWORD exit_code;
   GetExitCodeProcess(processInfo.hProcess, &exit_code);
   CloseHandle(processInfo.hProcess);
