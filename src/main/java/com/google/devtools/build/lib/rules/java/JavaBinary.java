@@ -98,6 +98,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Lists.<TransitiveInfoCollection>newArrayList(
             common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     semantics.checkRule(ruleContext, common);
+    semantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, common);
     String mainClass = semantics.getMainClass(ruleContext, common.getSrcsArtifacts());
     String originalMainClass = mainClass;
     if (ruleContext.hasErrors()) {

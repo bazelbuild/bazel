@@ -199,6 +199,14 @@ public interface JavaSemantics {
   void checkRule(RuleContext ruleContext, JavaCommon javaCommon);
 
   /**
+   * Verifies there are no conflicts in protos.
+   *
+   * <p>Errors should be signaled through {@link RuleContext}.
+   */
+  void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
+      RuleContext ruleContext, JavaCommon javaCommon);
+
+  /**
    * Returns the main class of a Java binary.
    */
   String getMainClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);

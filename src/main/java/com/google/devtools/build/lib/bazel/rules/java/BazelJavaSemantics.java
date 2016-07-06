@@ -91,6 +91,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {
   }
 
+  @Override
+  public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
+      RuleContext ruleContext, JavaCommon javaCommon) {}
+
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (!ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
       return null;
