@@ -14,8 +14,8 @@
 """Rules for manipulation of various packaging."""
 
 # Filetype to restrict inputs
-tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"])
-deb_filetype = FileType([".deb", ".udeb"])
+tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
+deb_filetype = [".deb", ".udeb"]
 load(":path.bzl", "dest_path", "compute_data_path")
 
 def _pkg_tar_impl(ctx):

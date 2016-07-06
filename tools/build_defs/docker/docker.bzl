@@ -14,8 +14,8 @@
 """Rules for manipulation Docker images."""
 
 # Filetype to restrict inputs
-tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz"])
-deb_filetype = FileType([".deb", ".udeb"])
+tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz"]
+deb_filetype = [".deb", ".udeb"]
 
 # Docker files are tarballs, should we allow other extensions than tar?
 docker_filetype = tar_filetype

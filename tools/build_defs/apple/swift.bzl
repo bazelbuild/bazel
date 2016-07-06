@@ -173,7 +173,7 @@ def _swift_library_impl(ctx):
 swift_library = rule(
     _swift_library_impl,
     attrs = {
-        "srcs": attr.label_list(allow_files = FileType([".swift"])),
+        "srcs": attr.label_list(allow_files = [".swift"]),
         "deps": attr.label_list(providers=[["swift"], ["objc"]]),
         "module_name": attr.string(mandatory=False),
         "_xcrunwrapper": attr.label(
