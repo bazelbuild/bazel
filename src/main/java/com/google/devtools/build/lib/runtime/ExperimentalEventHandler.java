@@ -311,7 +311,7 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public void buildComplete(BuildCompleteEvent event) {
+  public synchronized void buildComplete(BuildCompleteEvent event) {
     // The final progress bar will flow into the scroll-back buffer, to if treat
     // it as an event and add a time stamp, if events are supposed to have a time stmap.
     if (showTimestamp) {
@@ -327,7 +327,7 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public void noBuild(NoBuildEvent event) {
+  public synchronized void noBuild(NoBuildEvent event) {
     buildComplete = true;
     stopUpdateThread();
     flushStdOutStdErrBuffers();
@@ -481,15 +481,12 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   private void startUpdateThread() {
-    // Refuse to start an update thread once the build is complete; such a situation might
-    // arise if the completion of the build is reported (shortly) before the completion of
-    // the last action is reported.
-    if (buildComplete) {
-      return;
-    }
     Thread threadToStart = null;
     synchronized (this) {
-      if (updateThread == null) {
+      // Refuse to start an update thread once the build is complete; such a situation might
+      // arise if the completion of the build is reported (shortly) before the completion of
+      // the last action is reported.
+      if (!buildComplete && updateThread == null) {
         final ExperimentalEventHandler eventHandler = this;
         updateThread =
             new Thread(
@@ -512,9 +509,9 @@ public class ExperimentalEventHandler implements EventHandler {
                 });
         threadToStart = updateThread;
       }
-      if (threadToStart != null) {
-        threadToStart.start();
-      }
+    }
+    if (threadToStart != null) {
+      threadToStart.start();
     }
   }
 
@@ -528,10 +525,17 @@ public class ExperimentalEventHandler implements EventHandler {
     }
     if (threadToWaitFor != null) {
       threadToWaitFor.interrupt();
-      try {
-        threadToWaitFor.join();
-      } catch (InterruptedException e) {
-        // Ignore
+      boolean gotInterrupted = false;
+      while (true) {
+        try {
+          threadToWaitFor.join();
+          break;
+        } catch (InterruptedException e) {
+          gotInterrupted = true;
+        }
+      }
+      if (gotInterrupted) {
+        Thread.currentThread().interrupt();
       }
     }
   }
