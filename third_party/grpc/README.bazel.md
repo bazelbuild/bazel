@@ -18,4 +18,4 @@ How to update the Java code:
 
 Download it from Maven central. The jars are called `grpc-core`, `grpc-netty`,
 `grpc-protobuf`, `grpc-protobuf-lite`, `grpc-stub` and the version is
-`0.14.`.
+`0.14.1`.
