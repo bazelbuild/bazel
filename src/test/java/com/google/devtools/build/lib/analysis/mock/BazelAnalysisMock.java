@@ -239,6 +239,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
+  public boolean isThisBazel() {
+    return true;
+  }
+
+  @Override
   public MockCcSupport ccSupport() {
     return BazelMockCcSupport.INSTANCE;
   }

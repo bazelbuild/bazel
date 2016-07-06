@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -117,8 +116,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
             .isEmpty());
   }
 
-  protected static boolean emptyShouldOutputStaticLibrary() {
-    return !TestConstants.THIS_IS_BAZEL;
+  protected boolean emptyShouldOutputStaticLibrary() {
+    return !getAnalysisMock().isThisBazel();
   }
 
   @Test

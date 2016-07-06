@@ -72,6 +72,8 @@ public abstract class AnalysisMock {
 
   public abstract Collection<String> getOptionOverrides();
 
+  public abstract boolean isThisBazel();
+
   public abstract MockCcSupport ccSupport();
 
   public void setupCcSupport(MockToolsConfig config) throws IOException {
@@ -122,6 +124,11 @@ public abstract class AnalysisMock {
     @Override
     public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
       return delegate.createConfigurationCollectionFactory();
+    }
+
+    @Override
+    public boolean isThisBazel() {
+      return delegate.isThisBazel();
     }
 
     @Override
