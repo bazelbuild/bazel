@@ -282,23 +282,6 @@ public class ParsedAndroidData {
       this.parseIds = parseIds;
     }
 
-    private static String deriveRawFullyQualifiedName(Path path) {
-      if (path.getNameCount() < 2) {
-        throw new IllegalArgumentException(
-            String.format(
-                "The resource path %s is too short. "
-                    + "The path is expected to be <resource type>/<file name>.",
-                path));
-      }
-      String pathWithExtension =
-          path.subpath(path.getNameCount() - 2, path.getNameCount()).toString();
-      int extensionStart = pathWithExtension.lastIndexOf('.');
-      if (extensionStart > 0) {
-        return pathWithExtension.substring(0, extensionStart);
-      }
-      return pathWithExtension;
-    }
-
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
@@ -325,8 +308,7 @@ public class ParsedAndroidData {
             DataResourceXml.parse(
                 xmlInputFactory, path, fqnFactory, overwritingConsumer, combiningResources);
           } else if (folderType != null) {
-            String rawFqn = deriveRawFullyQualifiedName(path);
-            FullyQualifiedName key = fqnFactory.parse(rawFqn);
+            FullyQualifiedName key = fqnFactory.parse(path);
             if (parseIds
                 && ID_PROVIDING_RESOURCE_TYPES.contains(folderType)
                 && path.getFileName().toString().endsWith(SdkConstants.DOT_XML)) {
