@@ -216,7 +216,7 @@ Bazel also comes with a zsh completion script. To install it:
     zstyle ':completion:*' cache-path ~/.zsh/cache
     ```
 
-## <a name="compiling-from-source"></a>Compiling from source
+## Compiling from source
 
 If you would like to build Bazel from source, clone the source from GitHub and
 run `./compile.sh` to build it:
@@ -227,10 +227,12 @@ $ cd bazel
 $ ./compile.sh
 ```
 
-This will create a bazel binary in `bazel-bin/src/bazel`.
+This will create a bazel binary in `bazel-bin/src/bazel`. This binary is
+self-contained, so it can be copied to a directory on the PATH (e.g.,
+`/usr/local/bin`) or used in-place.
 
-Check our [continuous integration](http://ci.bazel.io) for the current status of
-the build.
+Check our [continuous integration](http://ci.bazel.io) (Bazel bootstrap and
+maintenance &gt; Bazel) for the current status of the build.
 
 For more information on using Bazel, see [Getting
 started](getting-started.html).
