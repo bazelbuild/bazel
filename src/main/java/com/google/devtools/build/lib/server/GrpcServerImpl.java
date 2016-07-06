@@ -248,7 +248,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
       }
     }
 
-    server.shutdownNow();
+    server.shutdown();
   }
 
   @Override
@@ -277,7 +277,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
           timeoutThread();
         }
       });
-      
+
       timeoutThread.setDaemon(true);
       timeoutThread.start();
     }
