@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 
@@ -85,29 +84,21 @@ public class BuildingState {
    * always check if the new value is equal to the number of required dependencies, and if so, we
    * must re-schedule the node for evaluation.
    *
-   * <p>There are two potential pitfalls here: 1) If multiple dependencies signal this node in
-   * close succession, this node should be scheduled exactly once. 2) If a thread is still working
-   * on this node, it should not be scheduled.
+   * <p>There are two potential pitfalls here: 1) If multiple dependencies signal this node in close
+   * succession, this node should be scheduled exactly once. 2) If a thread is still working on this
+   * node, it should not be scheduled.
    *
-   * <p>The first problem is solved by the {@link #signalDep} method, which also returns if the
-   * node needs to be re-scheduled, and ensures that only one thread gets a true return value.
+   * <p>The first problem is solved by the {@link #signalDep} method, which also returns if the node
+   * needs to be re-scheduled, and ensures that only one thread gets a true return value.
    *
-   * <p>The second problem is solved by first adding the newly discovered deps to a node's
-   * {@link #directDeps}, and then looping through the direct deps and registering this node as a
-   * reverse dependency. This ensures that the signaledDeps counter can only reach
-   * {@link #directDeps}.size() on the very last iteration of the loop, i.e., the thread is not
-   * working on the node anymore. Note that this requires that there is no code after the loop in
-   * {@code ParallelEvaluator.Evaluate#run}.
+   * <p>The second problem is solved by first adding the newly discovered deps to a node's {@link
+   * InMemoryNodeEntry#directDeps}, and then looping through the direct deps and registering this
+   * node as a reverse dependency. This ensures that the signaledDeps counter can only reach {@link
+   * InMemoryNodeEntry#directDeps#numElements} on the very last iteration of the loop, i.e., the
+   * thread is not working on the node anymore. Note that this requires that there is no code after
+   * the loop in {@code ParallelEvaluator.Evaluate#run}.
    */
   private int signaledDeps = 0;
-
-  /**
-   * Direct dependencies discovered during the build. They will be written to the immutable field
-   * {@code ValueEntry#directDeps} and the dependency group data to {@code ValueEntry#groupData}
-   * once the node is finished building. {@link SkyFunction}s can request deps in groups, and these
-   * groupings are preserved in this field.
-   */
-  private final GroupedList<SkyKey> directDeps = new GroupedList<>();
 
   /**
    * The set of reverse dependencies that are registered before the node has finished building. Upon
@@ -152,8 +143,8 @@ public class BuildingState {
    * The dependencies requested (with group markers) last time the node was built (and below, the
    * value last time the node was built). They will be compared to dependencies requested on this
    * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
-   * it means that this node is being built for the first time. See {@link #directDeps} for more on
-   * dependency group storage.
+   * it means that this node is being built for the first time. See {@link
+   * InMemoryNodeEntry#directDeps} for more on dependency group storage.
    */
   protected final GroupedList<SkyKey> lastBuildDirectDeps;
 
@@ -194,18 +185,18 @@ public class BuildingState {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!isChanged(), this);
     Preconditions.checkState(evaluating, this);
-    Preconditions.checkState(isReady(), this);
     Preconditions.checkState(lastBuildDirectDeps.listSize() == dirtyDirectDepIndex, this);
     dirtyState = DirtyState.REBUILDING;
   }
 
-  /**
-   * Returns whether all known children of this node have signaled that they are done.
-   */
-  boolean isReady() {
-    int directDepsSize = directDeps.numElements();
-    Preconditions.checkState(signaledDeps <= directDepsSize, "%s %s", directDeps, this);
-    return signaledDeps == directDepsSize;
+  int getSignaledDeps() {
+    return signaledDeps;
+  }
+
+  /** Returns whether all known children of this node have signaled that they are done. */
+  boolean isReady(int numDirectDeps) {
+    Preconditions.checkState(signaledDeps <= numDirectDeps, "%s %s", numDirectDeps, this);
+    return signaledDeps == numDirectDeps;
   }
 
   /**
@@ -240,7 +231,6 @@ public class BuildingState {
             || dirtyState == DirtyState.REBUILDING,
         "not done building %s",
         this);
-    Preconditions.checkState(isReady(), "not done building %s", this);
   }
 
   /**
@@ -259,14 +249,14 @@ public class BuildingState {
    * finished is equal to the number of known children.
    *
    * <p>If the node is dirty and checking its deps for changes, this also updates {@link
-   * #dirtyState} as needed -- {@link DirtyState#NEEDS_REBUILDING} if the child has changed,
-   * and {@link DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the
-   * last child to be checked (as determined by {@link #isReady} and comparing {@link
-   * #dirtyDirectDepIndex} and {@link #lastBuildDirectDeps#listSize}.
+   * #dirtyState} as needed -- {@link DirtyState#NEEDS_REBUILDING} if the child has changed, and
+   * {@link DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the last child to
+   * be checked (as determined by {@link #isReady} and comparing {@link #dirtyDirectDepIndex} and
+   * {@link #lastBuildDirectDeps#listSize}.
    *
    * @see NodeEntry#signalDep(Version)
    */
-  boolean signalDep(boolean childChanged) {
+  boolean signalDep(boolean childChanged, int numDirectDeps) {
     signaledDeps++;
     if (isDirty() && !isChanged()) {
       // Synchronization isn't needed here because the only caller is NodeEntry, which does it
@@ -274,14 +264,14 @@ public class BuildingState {
       if (childChanged) {
         dirtyState = DirtyState.NEEDS_REBUILDING;
       } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES
-          && isReady()
+          && isReady(numDirectDeps)
           && lastBuildDirectDeps.listSize() == dirtyDirectDepIndex) {
         // No other dep already marked this as NEEDS_REBUILDING, no deps outstanding, and this was
         // the last block of deps to be checked.
         dirtyState = DirtyState.VERIFIED_CLEAN;
       }
     }
-    return isReady();
+    return isReady(numDirectDeps);
   }
 
   /**
@@ -300,10 +290,10 @@ public class BuildingState {
   }
 
   /**
-   * Returns true if the deps requested during this evaluation are exactly those requested the
-   * last time this node was built, in the same order.
+   * Returns true if the deps requested during this evaluation ({@code directDeps}) are exactly
+   * those requested the last time this node was built, in the same order.
    */
-  boolean depsUnchangedFromLastBuild() {
+  boolean depsUnchangedFromLastBuild(GroupedList<SkyKey> directDeps) {
     checkFinishedBuildingWhenAboutToSetValue();
     return lastBuildDirectDeps.equals(directDeps);
   }
@@ -367,34 +357,6 @@ public class BuildingState {
     dirtyState = DirtyState.REBUILDING;
   }
 
-  void addDirectDeps(GroupedListHelper<SkyKey> depsThisRun) {
-    directDeps.append(depsThisRun);
-  }
-
-  void addDirectDepsGroup(Collection<SkyKey> group) {
-    directDeps.appendGroup(group);
-  }
-
-  /**
-   * Returns the direct deps found so far on this build. Should only be called before the node has
-   * finished building.
-   *
-   * @see NodeEntry#getTemporaryDirectDeps()
-   */
-  GroupedList<SkyKey> getDirectDepsForBuild() {
-    return directDeps;
-  }
-
-  /**
-   * Returns the direct deps (in groups) found on this build. Should only be called when the node is
-   * done.
-   *
-   * @see InMemoryNodeEntry#setStateFinishedAndReturnReverseDepsToSignal
-   */
-  GroupedList<SkyKey> getFinishedDirectDeps() {
-    return directDeps;
-  }
-
   /**
    * Returns reverse deps to signal that have been registered this build.
    *
@@ -420,24 +382,12 @@ public class BuildingState {
     REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
   }
 
-  /**
-   * Removes a set of deps from the set of known direct deps. This is complicated by the need
-   * to maintain the group data. If we remove a dep that ended a group, then its predecessor's
-   * group data must be changed to indicate that it now ends the group.
-   *
-   * @see NodeEntry#removeUnfinishedDeps
-   */
-  void removeDirectDeps(Set<SkyKey> unfinishedDeps) {
-    directDeps.remove(unfinishedDeps);
-  }
-
   protected ToStringHelper getStringHelper() {
     return MoreObjects.toStringHelper(this)
         .add("hash", System.identityHashCode(this))
         .add("evaluating", evaluating)
         .add("dirtyState", dirtyState)
         .add("signaledDeps", signaledDeps)
-        .add("directDeps", directDeps)
         .add("reverseDepsToSignal", REVERSE_DEPS_UTIL.toString(this))
         .add("lastBuildDirectDeps", lastBuildDirectDeps)
         .add("dirtyDirectDepIndex", dirtyDirectDepIndex);
