@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.VarInt;
 
 import java.io.IOException;
@@ -46,10 +44,8 @@ public class Digest {
    * Construct the digest from the given bytes.
    * @param digest an MD5 digest. Must be sized properly.
    */
-  @VisibleForTesting
-  Digest(byte[] digest) {
-    Preconditions.checkState(digest.length == MD5_SIZE);
-    this.digest = digest.clone();
+  private Digest(byte[] digest) {
+    this.digest = digest;
   }
 
   /**
@@ -88,7 +84,6 @@ public class Digest {
     Fingerprint fp = new Fingerprint();
     for (Map.Entry<String, Metadata> entry : mdMap.entrySet()) {
       xorWith(result, getDigest(fp, entry.getKey(), entry.getValue()));
-      fp.reset();
     }
     return new Digest(result);
   }
@@ -116,7 +111,7 @@ public class Digest {
   }
 
   private static byte[] getDigest(Fingerprint fp, String execPath, Metadata md) {
-    fp.addString(execPath);
+    fp.addStringLatin1(execPath);
 
     if (md == null) {
       // Move along, nothing to see here.
