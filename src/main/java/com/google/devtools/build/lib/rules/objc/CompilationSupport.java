@@ -497,6 +497,7 @@ public final class CompilationSupport {
         .add(CLANG);
     if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
       commandLine.add("-stdlib=libc++");
+      commandLine.add("-std=gnu++11");
     }
 
     if (compilationArtifacts.hasSwiftSources()) {
@@ -1155,7 +1156,8 @@ public final class CompilationSupport {
     if (objcProvider.is(USES_CPP)) {
       commandLine
           .add(CLANG_PLUSPLUS)
-          .add("-stdlib=libc++");
+          .add("-stdlib=libc++")
+          .add("-std=gnu++11");
     } else {
       commandLine.add(CLANG);
     }
