@@ -163,9 +163,9 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (isDone()) {
       return getErrorInfo() == null ? getValue() : null;
     } else if (isChanged() || isDirty()) {
-      return (buildingState.getLastBuildValue() == null)
-              ? null
-          : ValueWithMetadata.justValue(buildingState.getLastBuildValue());
+      return (getDirtyBuildingState().getLastBuildValue() == null)
+          ? null
+          : ValueWithMetadata.justValue(getDirtyBuildingState().getLastBuildValue());
     } else {
       // Value has not finished evaluating. It's probably about to be cleaned from the graph.
       return null;
@@ -192,6 +192,10 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized ErrorInfo getErrorInfo() {
     Preconditions.checkState(isDone(), "no errors until done. NodeEntry: %s", this);
     return ValueWithMetadata.getMaybeErrorInfo(value);
+  }
+
+  private DirtyBuildingState getDirtyBuildingState() {
+    return (DirtyBuildingState) Preconditions.checkNotNull(buildingState, this);
   }
 
   /**
@@ -235,10 +239,10 @@ public class InMemoryNodeEntry implements NodeEntry {
         this.lastEvaluatedVersion.atMost(version), "%s %s %s", this, version, value);
     this.lastEvaluatedVersion = version;
 
-    if (isDirty() && buildingState.unchangedFromLastBuild(value)) {
+    if (isDirty() && getDirtyBuildingState().unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
       // value, because preserving == equality is even better than .equals() equality.
-      this.value = buildingState.getLastBuildValue();
+      this.value = getDirtyBuildingState().getLastBuildValue();
     } else {
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
@@ -345,7 +349,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     assertKeepEdges();
     if (isDone()) {
       buildingState =
-          BuildingState.newDirtyState(isChanged, GroupedList.<SkyKey>create(directDeps), value);
+          DirtyBuildingState.create(isChanged, GroupedList.<SkyKey>create(directDeps), value);
       value = null;
       directDeps = null;
       return new MarkedDirtyResult(getReverseDepsUtil().getReverseDeps(this));
@@ -360,17 +364,17 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (isChanged) {
       // If the changed marker lost the race, we just need to mark changed in this method -- all
       // other work was done by the dirty marker.
-      buildingState.markChanged();
+      getDirtyBuildingState().markChanged();
     }
     return null;
   }
 
   @Override
   public synchronized Set<SkyKey> markClean() {
-    this.value = buildingState.getLastBuildValue();
+    this.value = getDirtyBuildingState().getLastBuildValue();
     Preconditions.checkState(isReady(), "Should be ready when clean: %s", this);
     Preconditions.checkState(
-        buildingState.depsUnchangedFromLastBuild(getTemporaryDirectDeps()),
+        getDirtyBuildingState().depsUnchangedFromLastBuild(getTemporaryDirectDeps()),
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
         this);
     Preconditions.checkState(isDirty(), this);
@@ -381,8 +385,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized void forceRebuild() {
     Preconditions.checkState(
-        getTemporaryDirectDeps().numElements() == buildingState.getSignaledDeps(), this);
-    buildingState.forceChanged();
+        getTemporaryDirectDeps().numElements() == getDirtyBuildingState().getSignaledDeps(), this);
+    getDirtyBuildingState().forceChanged();
   }
 
   @Override
@@ -390,17 +394,17 @@ public class InMemoryNodeEntry implements NodeEntry {
     return lastChangedVersion;
   }
 
-  /**  @see BuildingState#getDirtyState() */
+  /** @see DirtyBuildingState#getDirtyState() */
   @Override
   public synchronized NodeEntry.DirtyState getDirtyState() {
-    return buildingState.getDirtyState();
+    return getDirtyBuildingState().getDirtyState();
   }
 
-  /**  @see BuildingState#getNextDirtyDirectDeps() */
+  /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
   @Override
   public synchronized Collection<SkyKey> getNextDirtyDirectDeps() {
     Preconditions.checkState(isReady(), this);
-    return buildingState.getNextDirtyDirectDeps();
+    return getDirtyBuildingState().getNextDirtyDirectDeps();
   }
 
   @Override
@@ -414,7 +418,8 @@ public class InMemoryNodeEntry implements NodeEntry {
       for (Iterable<SkyKey> group : getTemporaryDirectDeps()) {
         result.addAll(group);
       }
-      result.addAll(buildingState.getAllRemainingDirtyDirectDeps(/*preservePosition=*/ false));
+      result.addAll(
+          getDirtyBuildingState().getAllRemainingDirtyDirectDeps(/*preservePosition=*/ false));
       return result.build();
     }
   }
@@ -422,17 +427,18 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() {
     if (isDirty()) {
-      Preconditions.checkState(buildingState.getDirtyState() == DirtyState.REBUILDING, this);
-      return buildingState.getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
+      Preconditions.checkState(
+          getDirtyBuildingState().getDirtyState() == DirtyState.REBUILDING, this);
+      return getDirtyBuildingState().getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
     } else {
-      Preconditions.checkState(buildingState.evaluating, this);
+      Preconditions.checkState(buildingState.isEvaluating(), this);
       return ImmutableSet.of();
     }
   }
 
   @Override
   public synchronized void markRebuilding() {
-    buildingState.markRebuilding();
+    getDirtyBuildingState().markRebuilding();
   }
 
   @SuppressWarnings("unchecked")
@@ -448,7 +454,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized boolean noDepsLastBuild() {
-    return buildingState.noDepsLastBuild();
+    return getDirtyBuildingState().noDepsLastBuild();
   }
 
   /**
