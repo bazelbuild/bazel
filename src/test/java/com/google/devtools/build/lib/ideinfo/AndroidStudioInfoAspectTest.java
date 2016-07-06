@@ -1141,7 +1141,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getJarsList()).isEmpty();
 
-    assertThat(getIdeResolveFiles()).isEmpty();
+    assertThat(getIdeResolveFiles()).containsExactly("com/google/example/simple/simple.h");
   }
 
   @Test

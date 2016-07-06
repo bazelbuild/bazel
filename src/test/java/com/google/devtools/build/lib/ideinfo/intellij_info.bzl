@@ -228,7 +228,7 @@ def build_c_rule_ide_info(target, ctx):
       transitive_define = cc_provider.defines,
       transitive_system_include_directory = cc_provider.system_include_directories,
   )
-  ide_resolve_files = set()
+  ide_resolve_files = cc_provider.transitive_headers
   return (c_rule_ide_info, ide_resolve_files)
 
 def build_c_toolchain_ide_info(target, ctx):

@@ -252,6 +252,9 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     NestedSet<Artifact> artifacts = outputGroupProvider.getOutputGroup(outputGroup);
 
     for (Artifact artifact : artifacts) {
+      if (artifact.isSourceArtifact()) {
+        continue;
+      }
       assertWithMessage("Artifact %s has no generating action", artifact)
           .that(getGeneratingAction(artifact))
           .isNotNull();
