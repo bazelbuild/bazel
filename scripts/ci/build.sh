@@ -212,6 +212,12 @@ function release_to_github() {
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
   local release_tool="${GITHUB_RELEASE:-$(which github-release 2>/dev/null || true)}"
+  local gpl_warning="
+
+_Notice_: Bazel installers contain binaries licensed under the GPLv2 with
+Classpath exception. Those installers should always be redistributed along with
+the source code."
+
   if [ ! -x "${release_tool}" ]; then
     echo "Please set GITHUB_RELEASE to the path to the github-release binary." >&2
     echo "This probably means you haven't installed https://github.com/c4milo/github-release " >&2
@@ -222,7 +228,7 @@ function release_to_github() {
   if [ -n "${release_name}" ] && [ -z "${rc}" ]; then
     mkdir -p "${tmpdir}/to-github"
     cp "${@}" "${tmpdir}/to-github"
-    "${GITHUB_RELEASE}" "${github_repo}" "${release_name}" "" "# $(git_commit_msg)" "${tmpdir}/to-github/"'*'
+    "${GITHUB_RELEASE}" "${github_repo}" "${release_name}" "" "# $(git_commit_msg) ${gpl_warning}" "${tmpdir}/to-github/"'*'
   fi
 }
 
