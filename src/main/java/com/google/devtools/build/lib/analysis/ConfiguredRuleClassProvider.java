@@ -102,12 +102,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private ConfigurationCollectionFactory configurationCollectionFactory;
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableMap<String, Object> skylarkAccessibleTopLevels = ImmutableMap.of();
+    private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
+        ImmutableMap.builder();
     private ImmutableList.Builder<Class<?>> skylarkModules =
         ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
-    private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-        registeredSkylarkProviders = ImmutableBiMap.of();
-
+    private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
+        registeredSkylarkProviders = ImmutableBiMap.builder();
 
     public void addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -191,8 +191,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder setSkylarkAccessibleTopLevels(ImmutableMap<String, Object> objects) {
-      this.skylarkAccessibleTopLevels = objects;
+    public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
+      this.skylarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
@@ -202,12 +202,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Registers a map that indicates which keys in structs returned by skylark rules should be
+     * Adds a mapping that determines which keys in structs returned by skylark rules should be
      * interpreted as native TransitiveInfoProvider instances of type (map value).
      */
-    public Builder setSkylarkProviderRegistry(
-        ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> providers) {
-      this.registeredSkylarkProviders = providers;
+    public Builder registerSkylarkProvider(
+        String name, Class<? extends TransitiveInfoProvider> provider) {
+      this.registeredSkylarkProviders.put(name, provider);
       return this;
     }
 
@@ -285,9 +285,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           configurationCollectionFactory,
           universalFragment,
           prerequisiteValidator,
-          skylarkAccessibleTopLevels,
+          skylarkAccessibleTopLevels.build(),
           skylarkModules.build(),
-          registeredSkylarkProviders);
+          registeredSkylarkProviders.build());
     }
 
     @Override
