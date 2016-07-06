@@ -65,7 +65,8 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.BUILTIN,
   doc =
       "Module for creating new attributes. "
-          + "They are only for use with the <a href=\"globals.html#rule\">rule</a> function."
+          + "They are only for use with <a href=\"globals.html#rule\">rule</a> or "
+          + "<a href=\"globals.html#aspect\">aspect</a>."
 )
 public final class SkylarkAttr {
 
@@ -1108,8 +1109,10 @@ public final class SkylarkAttr {
     name = "attr_defintion",
     category = SkylarkModuleCategory.NONE,
     doc =
-        "Representation of a definition of an attribute; cobnstructed by <code>attr.*</code>"
-            + " functions."
+        "Representation of a definition of an attribute; constructed by <code>attr.*</code>"
+            + " functions. They are only for use with <a href=\"globals.html#rule\">rule</a> or "
+            + "<a href=\"globals.html#aspect\">aspect</a>."
+
   )
   public static final class Descriptor {
     private final Attribute.Builder<?> attributeBuilder;
