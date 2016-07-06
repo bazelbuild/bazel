@@ -266,7 +266,7 @@ a minimal set of extra dependencies.
 
 ## [hazelcast](http://hazelcast.org/)
 
-* Version: 3.5.4
+* Version: 3.6.4
 * License: Apache License 2.0
 
 
