@@ -9,22 +9,28 @@ filegroup(
 
 java_import(
     name = "grpc-jar",
-    jars = ["grpc-all-0.13.2.jar"],
+    jars = [
+        "grpc-netty-0.14.1.jar",
+        "grpc-protobuf-0.14.1.jar",
+        "grpc-protobuf-lite-0.14.1.jar",
+        "grpc-stub-0.14.1.jar",
+        "grpc-core-0.14.1.jar",
+    ],
     runtime_deps = ["//third_party:netty"],
 )
 
 filegroup(
     name = "grpc-java-plugin",
     srcs = select({
-        "//third_party:windows_mingw": ["protoc-gen-grpc-java-0.13.2-windows-x86_32.exe"],
-        "//third_party:windows_msys64_mingw64": ["protoc-gen-grpc-java-0.13.2-windows-x86_64.exe"],
-        "//third_party:windows_msys64": ["protoc-gen-grpc-java-0.13.2-windows-x86_64.exe"],
-        "//third_party:windows_clang": ["protoc-gen-grpc-java-0.13.2-windows-x86_64.exe"],
-        "//third_party:darwin": ["protoc-gen-grpc-java-0.13.2-osx-x86_64.exe"],
-        "//third_party:k8": ["protoc-gen-grpc-java-0.13.2-linux-x86_64.exe"],
-        "//third_party:piii": ["protoc-gen-grpc-java-0.13.2-linux-x86_32.exe"],
-        "//third_party:arm": ["protoc-gen-grpc-java-0.13.2-linux-x86_32.exe"],
-        "//third_party:freebsd": ["protoc-gen-grpc-java-0.13.2-linux-x86_32.exe"],
+        "//third_party:windows_mingw": ["protoc-gen-grpc-java-0.14.1-windows-x86_32.exe"],
+        "//third_party:windows_msys64_mingw64": ["protoc-gen-grpc-java-0.14.1-windows-x86_64.exe"],
+        "//third_party:windows_msys64": ["protoc-gen-grpc-java-0.14.1-windows-x86_64.exe"],
+        "//third_party:windows_clang": ["protoc-gen-grpc-java-0.14.1-windows-x86_64.exe"],
+        "//third_party:darwin": ["protoc-gen-grpc-java-0.14.1-osx-x86_64.exe"],
+        "//third_party:k8": ["protoc-gen-grpc-java-0.14.1-linux-x86_64.exe"],
+        "//third_party:piii": ["protoc-gen-grpc-java-0.14.1-linux-x86_32.exe"],
+        "//third_party:arm": ["protoc-gen-grpc-java-0.14.1-linux-x86_32.exe"],
+        "//third_party:freebsd": ["protoc-gen-grpc-java-0.14.1-linux-x86_32.exe"],
     }),
 )
 
