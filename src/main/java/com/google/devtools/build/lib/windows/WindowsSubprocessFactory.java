@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * A subprocess factory that uses the Win32 API.
@@ -71,23 +71,46 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
     }
   }
 
+  private String getSystemRoot(Map<String, String> env) {
+    // Windows environment variables are case-insensitive, so we can't just say
+    // System.getenv().get("SystemRoot")
+    for (String key : env.keySet()) {
+      if (key.toUpperCase().equals("SYSTEMROOT")) {
+        return env.get(key);
+      }
+    }
+
+    return null;
+  }
+
   /**
    * Converts an environment map to the format expected in lpEnvironment by CreateProcess().
    */
   private byte[] convertEnvToNative(Map<String, String> env) throws IOException {
-    if (env.isEmpty()) {
+    Map<String, String> realEnv = new TreeMap<>();
+    realEnv.putAll(env == null ? System.getenv() : env);
+    if (getSystemRoot(realEnv) == null) {
+      // Some versions of MSVCRT.DLL require SystemRoot to be set. It's quite a common library to
+      // link in, so we add this environment variable regardless of whether the caller requested
+      // it or not.
+      String systemRoot = getSystemRoot(System.getenv());
+      if (systemRoot != null) {
+        realEnv.put("SystemRoot", systemRoot);
+      }
+    }
+
+    if (realEnv.isEmpty()) {
       // Special case: CreateProcess() always expects the environment block to be terminated
       // with two zeros.
       return new byte[] { 0, 0, };
     }
 
     StringBuilder result = new StringBuilder();
-
-    for (String key : Ordering.natural().sortedCopy(env.keySet())) {
-      if (key.contains("=")) {
+    for (Map.Entry<String, String> entry : realEnv.entrySet()) {
+      if (entry.getKey().contains("=")) {
         throw new IOException("Environment variable names must not contain '='");
       }
-      result.append(key + "=" + env.get(key) + "\0");
+      result.append(entry.getKey() + "=" + entry.getValue() + "\0");
     }
 
     result.append("\0");
