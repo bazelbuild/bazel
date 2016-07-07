@@ -15,18 +15,16 @@ package com.google.devtools.build.lib.analysis.mock;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -53,7 +51,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 public final class BazelAnalysisMock extends AnalysisMock {
   public static final AnalysisMock INSTANCE = new BazelAnalysisMock();
@@ -146,11 +143,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   private ImmutableList<String> createAndroidBuildContents() {
-    RuleClass androidSdkRuleClass =
-        TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("android_sdk");
-
-    List<Attribute> attrs = androidSdkRuleClass.getAttributes();
-    Builder<String> androidBuildContents = ImmutableList.builder();
+    ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
 
     BuildRuleWithDefaultsBuilder ruleBuilder =
         new BuildRuleWithDefaultsBuilder("android_sdk", "sdk")
@@ -231,6 +224,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
     return new BazelConfigurationCollection();
+  }
+
+  @Override
+  public ConfiguredRuleClassProvider createRuleClassProvider() {
+    return TestRuleClassProvider.getRuleClassProvider();
   }
 
   @Override

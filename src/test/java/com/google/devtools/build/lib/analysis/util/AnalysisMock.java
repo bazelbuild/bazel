@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -70,7 +72,13 @@ public abstract class AnalysisMock {
 
   public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
 
+  public abstract ConfiguredRuleClassProvider createRuleClassProvider();
+
   public abstract Collection<String> getOptionOverrides();
+
+  public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
+    return new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
+  }
 
   public abstract boolean isThisBazel();
 
@@ -124,6 +132,16 @@ public abstract class AnalysisMock {
     @Override
     public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
       return delegate.createConfigurationCollectionFactory();
+    }
+
+    @Override
+    public ConfiguredRuleClassProvider createRuleClassProvider() {
+      return delegate.createRuleClassProvider();
+    }
+
+    @Override
+    public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
+      return delegate.getInvocationPolicyEnforcer();
     }
 
     @Override
