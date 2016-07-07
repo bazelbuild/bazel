@@ -55,4 +55,17 @@ public class ResolverTest {
     Rule rule = rules.iterator().next();
     assertThat(rule.name()).isEqualTo("x_y");
   }
+
+  @Test
+  public void testExtractSha1() {
+    assertThat(Resolver.extractSha1("5fe28b9518e58819180a43a850fbc0dd24b7c050"))
+        .isEqualTo("5fe28b9518e58819180a43a850fbc0dd24b7c050");
+
+    assertThat(Resolver.extractSha1("5fe28b9518e58819180a43a850fbc0dd24b7c050\n"))
+        .isEqualTo("5fe28b9518e58819180a43a850fbc0dd24b7c050");
+
+    assertThat(Resolver.extractSha1(
+         "83cd2cd674a217ade95a4bb83a8a14f351f48bd0  /home/maven/repository-staging/to-ibiblio/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar"))
+        .isEqualTo("83cd2cd674a217ade95a4bb83a8a14f351f48bd0");
+  }
 }

@@ -272,11 +272,16 @@ public class Resolver {
       HttpURLConnection connection = (HttpURLConnection) new URL(sha1Url).openConnection();
       connection.setInstanceFollowRedirects(true);
       connection.connect();
-      return CharStreams.toString(
-          new InputStreamReader(connection.getInputStream(), Charset.defaultCharset())).trim();
+      return extractSha1(
+          CharStreams.toString(
+              new InputStreamReader(connection.getInputStream(), Charset.defaultCharset())));
     } catch (IOException e) {
       handler.handle(Event.warn("Failed to download the sha1 at " + sha1Url));
     }
     return null;
+  }
+
+  static String extractSha1(String sha1Contents) {
+    return sha1Contents.split("\\s+")[0];
   }
 }
