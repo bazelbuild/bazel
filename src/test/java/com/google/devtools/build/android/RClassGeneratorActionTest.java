@@ -38,10 +38,10 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Tests for {@link AndroidResourceCompilationAction}.
+ * Tests for {@link RClassGeneratorAction}.
  */
 @RunWith(JUnit4.class)
-public class AndroidResourceCompilationActionTest {
+public class RClassGeneratorActionTest {
 
   private Path tempDir;
 
@@ -112,7 +112,7 @@ public class AndroidResourceCompilationActionTest {
 
     Path jarPath = tempDir.resolve("app_resources.jar");
 
-    AndroidResourceCompilationAction.main(
+    RClassGeneratorAction.main(
         ImmutableList.<String>of(
                 "--primaryRTxt",
                 binarySymbols.toString(),
@@ -174,7 +174,7 @@ public class AndroidResourceCompilationActionTest {
 
     Path jarPath = tempDir.resolve("app_resources.jar");
 
-    AndroidResourceCompilationAction.main(ImmutableList.<String>of(
+    RClassGeneratorAction.main(ImmutableList.<String>of(
         "--primaryRTxt", binarySymbols.toString(),
         "--primaryManifest", binaryManifest.toString(),
         "--classJarOutput", jarPath.toString()
@@ -201,7 +201,7 @@ public class AndroidResourceCompilationActionTest {
   @Test
   public void noBinary() throws Exception {
     Path jarPath = tempDir.resolve("app_resources.jar");
-    AndroidResourceCompilationAction.main(ImmutableList.<String>of(
+    RClassGeneratorAction.main(ImmutableList.<String>of(
         "--classJarOutput", jarPath.toString()
     ).toArray(new String[0]));
 

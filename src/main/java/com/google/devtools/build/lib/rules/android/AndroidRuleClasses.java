@@ -169,6 +169,7 @@ public final class AndroidRuleClasses {
       "//tools/android:incremental_split_stub_application";
   public static final String DEFAULT_AAR_GENERATOR = "//tools/android:aar_generator";
   public static final String DEFAULT_MANIFEST_MERGER = "//tools/android:manifest_merger";
+  public static final String DEFAULT_RCLASS_GENERATOR = "//tools/android:rclass_generator";
   public static final String DEFAULT_RESOURCES_PROCESSOR = "//tools/android:resources_processor";
   public static final String DEFAULT_RESOURCE_SHRINKER = "//tools/android:resource_shrinker";
   public static final String DEFAULT_SDK = "//tools/android:sdk";

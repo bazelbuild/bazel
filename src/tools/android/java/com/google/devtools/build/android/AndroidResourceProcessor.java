@@ -30,7 +30,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.FullRevisionConverter;
-import com.google.devtools.build.android.resources.RClassWriter;
+import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.common.options.Converters.ColonSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -621,8 +621,8 @@ public class AndroidResourceProcessor {
       boolean finalFields) throws IOException {
     for (String packageName : libMap.keySet()) {
       Collection<SymbolLoader> symbols = libMap.get(packageName);
-      RClassWriter classWriter =
-          new RClassWriter(classesOut.toFile(), packageName, fullSymbolValues, finalFields);
+      RClassGenerator classWriter =
+          new RClassGenerator(classesOut.toFile(), packageName, fullSymbolValues, finalFields);
       for (SymbolLoader symbolLoader : symbols) {
         classWriter.addSymbolsToWrite(symbolLoader);
       }
@@ -630,8 +630,8 @@ public class AndroidResourceProcessor {
     }
     // Unlike the R.java generation, we also write the app's R.class file so that the class
     // jar file can be complete (aapt doesn't generate it for us).
-    RClassWriter classWriter =
-        new RClassWriter(classesOut.toFile(), appPackageName, fullSymbolValues, finalFields);
+    RClassGenerator classWriter =
+        new RClassGenerator(classesOut.toFile(), appPackageName, fullSymbolValues, finalFields);
     classWriter.addSymbolsToWrite(fullSymbolValues);
     classWriter.write();
   }

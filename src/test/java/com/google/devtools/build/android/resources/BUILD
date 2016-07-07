@@ -5,7 +5,7 @@ filegroup(
 )
 
 java_test(
-    name = "RClassWriterTest",
+    name = "RClassGeneratorTest",
     size = "medium",
     srcs = glob(["*.java"]),
     deps = [

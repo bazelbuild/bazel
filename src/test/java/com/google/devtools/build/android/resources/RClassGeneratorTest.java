@@ -41,10 +41,10 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Tests for {@link RClassWriter}.
+ * Tests for {@link RClassGenerator}.
  */
 @RunWith(JUnit4.class)
-public class RClassWriterTest {
+public class RClassGeneratorTest {
 
   private Path temp;
   private ILogger stdLogger;
@@ -83,7 +83,8 @@ public class RClassWriterTest {
         "int string ok 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassWriter writer = new RClassWriter(out.toFile(), "com.bar", symbolValues, finalFields);
+    RClassGenerator writer =
+        new RClassGenerator(out.toFile(), "com.bar", symbolValues, finalFields);
     writer.addSymbolsToWrite(symbolsInLibrary);
     writer.write();
 
@@ -126,8 +127,8 @@ public class RClassWriterTest {
     SymbolLoader symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassWriter writer = new RClassWriter(out.toFile(), "com.testEmptyIntArray", symbolValues,
-        finalFields);
+    RClassGenerator writer =
+        new RClassGenerator(out.toFile(), "com.testEmptyIntArray", symbolValues, finalFields);
     writer.addSymbolsToWrite(symbolsInLibrary);
     writer.write();
 
@@ -181,8 +182,8 @@ public class RClassWriterTest {
     SymbolLoader symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassWriter writer = new RClassWriter(out.toFile(), "com.intArray", symbolValues,
-        finalFields);
+    RClassGenerator writer =
+        new RClassGenerator(out.toFile(), "com.intArray", symbolValues, finalFields);
     writer.addSymbolsToWrite(symbolsInLibrary);
     writer.write();
 

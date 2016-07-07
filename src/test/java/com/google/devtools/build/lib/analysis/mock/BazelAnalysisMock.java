@@ -158,6 +158,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'manifest_merger', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'rclass_generator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resources_processor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resource_shrinker', srcs = ['empty.sh'])")
         .add("android_library(name = 'incremental_stub_application')")

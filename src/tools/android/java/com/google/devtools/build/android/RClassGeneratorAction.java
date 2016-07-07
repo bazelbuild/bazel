@@ -46,7 +46,7 @@ import java.util.logging.Logger;
  *
  * <pre>
  * Example Usage:
- *   java/com/google/build/android/AndroidResourceCompilationAction\
+ *   java/com/google/build/android/RClassGeneratorAction\
  *      --primaryRTxt path/to/R.txt\
  *      --primaryManifest path/to/AndroidManifest.xml\
  *      --libraries p/t/1/AndroidManifest.txt:p/t/1/R.txt,\
@@ -54,13 +54,12 @@ import java.util.logging.Logger;
  *      --classJarOutput path/to/write/archive_resources.jar
  * </pre>
  */
-public class AndroidResourceCompilationAction {
+public class RClassGeneratorAction {
 
   private static final StdLogger STD_LOGGER =
       new StdLogger(StdLogger.Level.WARNING);
 
-  private static final Logger LOGGER =
-      Logger.getLogger(AndroidResourceCompilationAction.class.getName());
+  private static final Logger LOGGER = Logger.getLogger(RClassGeneratorAction.class.getName());
 
   /**
    * Flag specifications for this action.

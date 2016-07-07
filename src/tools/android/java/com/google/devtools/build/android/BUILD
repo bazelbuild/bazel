@@ -26,14 +26,6 @@ java_binary(
 )
 
 java_binary(
-    name = "AndroidResourceCompilingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceCompilationAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
     name = "AndroidResourceProcessingAction",
     main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
     runtime_deps = [
@@ -44,6 +36,14 @@ java_binary(
 java_binary(
     name = "ManifestMergerAction",
     main_class = "com.google.devtools.build.android.ManifestMergerAction",
+    runtime_deps = [
+        ":android_builder_lib",
+    ],
+)
+
+java_binary(
+    name = "RClassGeneratorAction",
+    main_class = "com.google.devtools.build.android.RClassGeneratorAction",
     runtime_deps = [
         ":android_builder_lib",
     ],

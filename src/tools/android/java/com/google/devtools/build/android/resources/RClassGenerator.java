@@ -45,7 +45,7 @@ import java.util.Set;
  * ErrorProne). A difference is that this doesn't generate line number tables and other debugging
  * information. Also, the order of the constant pool tends to be different.
  */
-public class RClassWriter {
+public class RClassGenerator {
 
   private static final int JAVA_VERSION = Opcodes.V1_7;
   private static final String SUPER_CLASS = "java/lang/Object";
@@ -55,7 +55,8 @@ public class RClassWriter {
   private final SymbolLoader symbolValues;
   private final boolean finalFields;
 
-  public RClassWriter(File outFolder,
+  public RClassGenerator(
+      File outFolder,
       String packageName,
       SymbolLoader values,
       boolean finalFields) {

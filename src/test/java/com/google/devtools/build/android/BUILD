@@ -10,7 +10,7 @@ filegroup(
 )
 
 java_test(
-    name = "AndroidResourceCompilationActionTest",
+    name = "RClassGeneratorActionTest",
     size = "medium",
     srcs = glob(["*.java"]),
     deps = [
