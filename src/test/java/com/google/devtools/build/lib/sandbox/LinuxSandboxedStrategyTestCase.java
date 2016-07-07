@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +56,7 @@ public class LinuxSandboxedStrategyTestCase {
   protected BlazeExecutor executor;
   protected BlazeDirectories blazeDirs;
 
-  protected FileOutErr outErr;
+  protected TestFileOutErr outErr = new TestFileOutErr();
 
   protected String out() {
     return outErr.outAsLatin1();
@@ -69,9 +69,6 @@ public class LinuxSandboxedStrategyTestCase {
   @Before
   public final void createDirectoriesAndExecutor() throws Exception  {
     Path testRoot = createTestRoot();
-
-    outErr =
-        new FileOutErr(testRoot.getRelative("test_out.log"), testRoot.getRelative("test_err.log"));
 
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();

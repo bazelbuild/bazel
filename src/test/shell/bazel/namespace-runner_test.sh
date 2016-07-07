@@ -49,78 +49,74 @@ function assert_output() {
 }
 
 function test_basic_functionality() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/echo hi there >$OUT 2>$ERR || fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/echo hi there || fail
   assert_output "hi there" ""
 }
 
 function test_default_user_is_nobody() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id >$OUT 2>$ERR || fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /usr/bin/id || fail
   assert_output "uid=65534 gid=65534 groups=65534" ""
 }
 
 function test_user_switched_to_root() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -r -- /usr/bin/id >$OUT 2>$ERR || fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -r -l $OUT -L $ERR -- /usr/bin/id || fail
   assert_contains "uid=0 gid=0" "$OUT"
 }
 
 function test_network_namespace() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -n -- /bin/ip link ls >$OUT 2>$ERR || fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -n -l $OUT -L $ERR  -- /bin/ip link ls || fail
   assert_contains "LOOPBACK,UP" "$OUT"
 }
 
 function test_ping_loopback() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -n -r -- /bin/ping -c 1 127.0.0.1 >$OUT 2>$ERR || fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -n -r -l $OUT -L $ERR  -- /bin/ping -c 1 127.0.0.1 || fail
   assert_contains "1 received" "$OUT"
 }
 
 function test_to_stderr() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c "/bin/echo hi there >&2" >$OUT 2>$ERR || fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c "/bin/echo hi there >&2" || fail
   assert_output "" "hi there"
 }
 
 function test_exit_code() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c "exit 71" >$OUT 2>$ERR || code=$?
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c "exit 71" || code=$?
   assert_equals 71 "$code"
 }
 
 function test_signal_death() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c 'kill -ABRT $$' >$OUT 2>$ERR || code=$?
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c 'kill -ABRT $$' || code=$?
   assert_equals 134 "$code" # SIGNAL_BASE + SIGABRT = 128 + 6
 }
 
 function test_signal_catcher() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
-    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' >$OUT 2>$ERR || code=$?
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -l $OUT -L $ERR -- /bin/bash -c \
+    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "later"
 }
 
 function test_basic_timeout() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 3 -t 3 -- /bin/bash -c \
-    "echo before; sleep 1000; echo after" >$OUT 2>$ERR && fail
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 3 -t 3 -l $OUT -L $ERR -- /bin/bash -c "echo before; sleep 1000; echo after" && fail
   assert_output "before" ""
 }
 
 function test_timeout_grace() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3  -- /bin/bash -c \
-    'trap "echo -n before; sleep 1; echo -n after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' \
-    >$OUT 2>$ERR || code=$?
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -l $OUT -L $ERR -- /bin/bash -c \
+    'trap "echo -n before; sleep 1; echo -n after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "beforeafter"
 }
 
 function test_timeout_kill() {
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
-    'trap "echo before; sleep 1000; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' \
-    >$OUT 2>$ERR || code=$?
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -l $OUT -L $ERR -- /bin/bash -c \
+    'trap "echo before; sleep 1000; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "before"
 }
 
 function test_debug_logging() {
   touch ${TEST_TMPDIR}/testfile
-  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -D -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
-    -- /bin/true >$OUT 2>$ERR || code=$?
+  $namespace_sandbox $SANDBOX_DEFAULT_OPTS -D -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile -l $OUT -L $ERR -- /bin/true || code=$?
   assert_contains "mount: /usr/bin\$" "$ERR"
   assert_contains "mount: ${TEST_TMPDIR}/testfile -> <sandbox>/tmp/sandboxed_testfile\$" "$ERR"
 }

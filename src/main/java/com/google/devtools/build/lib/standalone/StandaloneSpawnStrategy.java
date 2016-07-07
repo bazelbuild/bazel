@@ -99,6 +99,11 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       args.add(processWrapper.getPathString());
       args.add(Integer.toString(timeout));
       args.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
+
+      // TODO(bazel-team): use process-wrapper redirection so we don't have to
+      // pass test logs through the Java heap.
+      args.add("-"); /* stdout. */
+      args.add("-"); /* stderr. */
     }
     args.addAll(spawn.getArguments());
 
@@ -111,8 +116,8 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       cmd.execute(
           /* stdin */ new byte[] {},
           Command.NO_OBSERVER,
-          outErr.getOutputFile(),
-          outErr.getErrorFile(),
+          outErr.getOutputStream(),
+          outErr.getErrorStream(),
           /*killSubprocessOnInterrupt*/ true);
     } catch (AbnormalTerminationException e) {
       TerminationStatus status = e.getResult().getTerminationStatus();

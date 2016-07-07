@@ -190,8 +190,8 @@ public class NamespaceSandboxRunner {
       cmd.execute(
           /* stdin */ new byte[] {},
           Command.NO_OBSERVER,
-          outErr.getOutputFile(),
-          outErr.getErrorFile(),
+          outErr.getOutputStream(),
+          outErr.getErrorStream(),
           /* killSubprocessOnInterrupt */ true);
     } catch (CommandException e) {
       boolean timedOut = false;

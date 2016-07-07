@@ -52,6 +52,12 @@ int SwitchToEuid();
 // Switch completely to the effective gid.
 int SwitchToEgid();
 
+// Redirect stdout to the file stdout_path (but not if stdout_path is "-").
+void RedirectStdout(const char *stdout_path);
+
+// Redirect stderr to the file stdout_path (but not if stderr_path is "-").
+void RedirectStderr(const char *stderr_path);
+
 // Make sure the process group "pgrp" and all its subprocesses are killed.
 // If "gracefully" is true, sends SIGTERM first and after a timeout of
 // "graceful_kill_delay" seconds, sends SIGKILL.

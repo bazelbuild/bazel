@@ -410,10 +410,12 @@ public final class Command {
   }
 
   /**
-   * Like {@link #execute(byte[], KillableObserver, OutputStream, OutputStream, boolean)} but allows
-   * using files to redirect stdOut and stdErr. This gives better performance as the data doesn't
-   * flow through the JVM but instead is written directly to the corresponding file descriptors by
-   * the process.
+   * Execute this command with given input to stdin; this stream is closed when the process
+   * terminates, and exceptions raised when closing this stream are ignored. This call blocks until
+   * the process completes or an error occurs. The caller provides {@link OutputStream} instances
+   * into which the process writes its stdout/stderr output; these streams are <em>not</em> closed
+   * when the process terminates. The given {@link KillableObserver} may also terminate the process
+   * early while running.
    *
    * <p>If stdOut or stdErr is {@code null}, it will be redirected to /dev/null.
    */
@@ -680,12 +682,10 @@ public final class Command {
 
     final Subprocess process = startProcess();
 
-    if (outErrConsumers != null) {
-      outErrConsumers.logConsumptionStrategy();
+    outErrConsumers.logConsumptionStrategy();
 
-      outErrConsumers.registerInputs(
-          process.getInputStream(), process.getErrorStream(), closeOutputStreams);
-    }
+    outErrConsumers.registerInputs(
+        process.getInputStream(), process.getErrorStream(), closeOutputStreams);
 
     processInput(stdinInput, process);
 
@@ -826,12 +826,10 @@ public final class Command {
     log.finer(status.toString());
 
     try {
-      if (outErr != null) {
-        if (Thread.currentThread().isInterrupted()) {
-          outErr.cancel();
-        } else {
-          outErr.waitForCompletion();
-        }
+      if (Thread.currentThread().isInterrupted()) {
+        outErr.cancel();
+      } else {
+        outErr.waitForCompletion();
       }
     } catch (IOException ioe) {
       CommandResult noOutputResult =
@@ -854,10 +852,7 @@ public final class Command {
     }
 
     CommandResult result =
-        new CommandResult(
-            outErr != null ? outErr.getAccumulatedOut() : CommandResult.NO_OUTPUT_COLLECTED,
-            outErr != null ? outErr.getAccumulatedErr() : CommandResult.NO_OUTPUT_COLLECTED,
-            status);
+        new CommandResult(outErr.getAccumulatedOut(), outErr.getAccumulatedErr(), status);
     result.logThis();
     if (status.success()) {
       return result;
