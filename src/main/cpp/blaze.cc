@@ -2129,7 +2129,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   if (!response.finished()) {
     fprintf(stderr, "\nServer finished RPC without an explicit exit code\n");
-    exit(blaze_exit_code::INTERNAL_ERROR);
+    return GetExitCodeForAbruptExit(*globals);
   }
 
   return response.exit_code();
