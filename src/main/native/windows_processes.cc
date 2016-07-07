@@ -226,9 +226,8 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       NULL,
       NULL,
       TRUE,
-      DETACHED_PROCESS
-          | CREATE_NEW_PROCESS_GROUP   // So that Ctrl-Break does not affect it
-          | CREATE_BREAKAWAY_FROM_JOB  // We'll put it in a new job
+      CREATE_NO_WINDOW  // Don't create a console window
+          | CREATE_NEW_PROCESS_GROUP   // So that Ctrl-Break is not propagated
           | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
       env_bytes,
       cwd,
