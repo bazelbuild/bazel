@@ -102,12 +102,29 @@ def _swift_library_impl(ctx):
     # their module cannot be compiled by clang), but did not occur in practice.
     objc_defines += objc.define
 
-  # TODO(b/28005753): Currently this is not really a library, but an object
-  # file, does not matter to the linker, but should be replaced with proper ar
-  # call.
   output_lib = ctx.new_file(module_name + ".a")
   output_module = ctx.new_file(module_name + ".swiftmodule")
   output_header = ctx.new_file(ctx.label.name + "-Swift.h")
+  output_file_map = ctx.new_file(ctx.label.name + ".output_file_map.json")
+
+  output_map = struct()
+  output_objs = []
+  for source in ctx.files.srcs:
+    obj = ctx.new_file(source.basename + ".o")
+    output_objs.append(obj)
+
+    output_map += struct(**{source.path: struct(object=obj.path)})
+
+  # Write down the output file map for this compilation, to be used with
+  # -output-file-map flag.
+  # It's a JSON file that maps each source input (.swift) to its outputs
+  # (.o, .bc, .d, ...)
+  # Example:
+  #   {'foo.swift':
+  #       {'object': 'foo.o', 'bitcode': 'foo.bc', 'dependencies': 'foo.d'}}
+  # There's currently no documentation on this option, however all of the keys
+  # are listed here https://github.com/apple/swift/blob/swift-2.2.1-RELEASE/include/swift/Driver/Types.def
+  ctx.file_action(output=output_file_map, content=output_map.to_json())
 
   srcs_args = [f.path for f in ctx.files.srcs]
 
@@ -129,33 +146,48 @@ def _swift_library_impl(ctx):
       + _clang_compilation_mode_flags(ctx))
 
   args = [
-      "swift",
-      "-frontend",
+      "swiftc",
       "-emit-object",
-      "-emit-module-path", output_module.path,
-      "-module-name", module_name,
-      "-emit-objc-header-path", output_header.path,
+      "-emit-module-path",
+      output_module.path,
+      "-module-name",
+      module_name,
+      "-emit-objc-header-path",
+      output_header.path,
       "-parse-as-library",
-      "-target", target,
-      "-sdk", apple_toolchain.sdk_dir(),
-      "-o", output_lib.path,
-      "-module-cache-path", module_cache_path(ctx),
-      ] + _swift_compilation_mode_flags(ctx)
+      "-target",
+      target,
+      "-sdk",
+      apple_toolchain.sdk_dir(),
+      "-module-cache-path",
+      module_cache_path(ctx),
+      "-output-file-map",
+      output_file_map.path,
+  ] + _swift_compilation_mode_flags(ctx)
 
   args.extend(srcs_args)
   args.extend(include_args)
   args.extend(framework_args)
   args.extend(clang_args)
 
-  xcrun_action(
-      ctx,
-      inputs = ctx.files.srcs + dep_modules + dep_libs + list(objc_files),
-      outputs = (output_lib, output_module, output_header),
-      mnemonic = "SwiftCompile",
-      arguments = args,
-      use_default_shell_env = False,
-      progress_message = ("Compiling Swift module %s (%d files)"
-                          % (ctx.label.name, len(ctx.files.srcs))))
+  xcrun_action(ctx,
+               inputs=ctx.files.srcs + dep_modules + list(objc_files) +
+               [output_file_map],
+               outputs=[output_module, output_header] + output_objs,
+               mnemonic="SwiftCompile",
+               arguments=args,
+               use_default_shell_env=False,
+               progress_message=("Compiling Swift module %s (%d files)" %
+                                 (ctx.label.name, len(ctx.files.srcs))))
+
+  xcrun_action(ctx,
+               inputs=output_objs,
+               outputs=(output_lib,),
+               mnemonic="SwiftArchive",
+               arguments=[
+                   "libtool", "-static", "-o", output_lib.path
+               ] + [x.path for x in output_objs],
+               progress_message=("Archiving Swift objects %s" % ctx.label.name))
 
   objc_provider = apple_common.new_objc_provider(
       library=set([output_lib] + dep_libs),
