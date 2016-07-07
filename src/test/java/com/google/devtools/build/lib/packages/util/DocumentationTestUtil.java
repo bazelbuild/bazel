@@ -16,18 +16,17 @@ package com.google.devtools.build.lib.packages.util;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.DocCheckerUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BuiltinCommandModule;
+import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,13 +46,13 @@ public abstract class DocumentationTestUtil {
           Pattern.CASE_INSENSITIVE);
 
   /**
-   * Validates that a user manual {@code documentationSource} contains only
-   * the flags actually provided by a given set of modules.
+   * Validates that a user manual {@code documentationSource} contains only the flags actually
+   * provided by a given set of modules.
    */
   public static void validateUserManual(
       List<Class<? extends BlazeModule>> modules,
-      ConfiguredRuleClassProvider ruleClassProvider, String documentationSource)
-      throws IOException {
+      ConfiguredRuleClassProvider ruleClassProvider,
+      String documentationSource) {
     // if there is a class missing, one can find it using
     //   find . -name "*.java" -exec grep -Hn "@Option(name = " {} \; | grep "xxx"
     // where 'xxx' is a flag name.
@@ -68,11 +67,12 @@ public abstract class DocumentationTestUtil {
     }
 
     // collect all command options
-    List<BlazeCommand> blazeCommands = new ArrayList<>();
-    blazeCommands.addAll(BlazeRuntime.getBuiltinCommandList());
+    ServerBuilder serverBuilder = new ServerBuilder();
+    new BuiltinCommandModule().serverInit(null, serverBuilder);
     for (BlazeModule module : blazeModules) {
-      Iterables.addAll(blazeCommands, module.getCommands());
+      module.serverInit(null, serverBuilder);
     }
+    List<BlazeCommand> blazeCommands = serverBuilder.getCommands();
 
     for (BlazeCommand command : blazeCommands) {
       for (Class<? extends OptionsBase> optionClass :

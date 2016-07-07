@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
@@ -24,11 +23,9 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.OutputService;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
@@ -36,7 +33,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -100,11 +96,18 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Called when Blaze initializes a new workspace.
+   * Called to initialize a new server ({@link BlazeRuntime}). Modules can override this method to
+   * affect how the server is configured. This is called after the startup options have been
+   * collected and parsed, and after the file system was setup.
+   *
+   * @param startupOptions the server startup options
+   * @param builder builder class that collects the server configuration
    */
+  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {}
+
+  /** Called when Blaze initializes a new workspace. */
   @SuppressWarnings("unused")
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
-  }
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {}
 
   /**
    * Adds the rule classes supported by this module.
@@ -116,45 +119,12 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the list of commands this module contributes to Blaze.
-   *
-   * <p>This method will be called during Blaze startup (after #blazeStartup).
-   */
-  public Iterable<? extends BlazeCommand> getCommands() {
-    return ImmutableList.of();
-  }
-
-  /**
    * Returns the list of query output formatters this module provides.
    *
    * <p>This method will be called during Blaze startup (after #blazeStartup).
    */
   public Iterable<OutputFormatter> getQueryOutputFormatters() {
     return ImmutableList.of();
-  }
-
-  /**
-   * PlatformSet is a group of platforms characterized by a regular expression.  For example, the
-   * entry "oldlinux": "i[34]86-libc[345]-linux" might define a set of platforms representing
-   * certain older linux releases.
-   *
-   * <p>Platform-set names are used in BUILD files in the third argument to <tt>vardef</tt>, to
-   * define per-platform tweaks to variables such as CFLAGS.
-   *
-   * <p>vardef is a legacy mechanism: it needs explicit support in the rule implementations,
-   * and cannot express conditional dependencies, only conditional attribute values. This
-   * mechanism will be supplanted by configuration dependent attributes, and its effect can
-   * usually also be achieved with select().
-   *
-   * <p>This method will be called during Blaze startup (after #blazeStartup).
-   */
-  public Map<String, String> getPlatformSetRegexps() {
-    return ImmutableMap.<String, String>of();
-  }
-
-  @Nullable
-  protected Function<RuleClass, AttributeContainer> getAttributeContainerSupplier() {
-    return null;
   }
 
   /**
@@ -353,14 +323,6 @@ public abstract class BlazeModule {
    */
   @Nullable
   public CoverageReportActionFactory getCoverageReportFactory() {
-    return null;
-  }
-
-  /**
-   * Optionally returns the invocation policy to override options in blaze.
-   */
-  @Nullable
-  public InvocationPolicy getInvocationPolicy() {
     return null;
   }
 }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -52,10 +51,10 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
-import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -132,6 +131,11 @@ public class BazelRepositoryModule extends BlazeModule {
       };
 
   @Override
+  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+    builder.addCommands(new FetchCommand());
+  }
+
+  @Override
   public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addCustomDirtinessChecker(REPOSITORY_VALUE_CHECKER);
     // Create the repository function everything flows through.
@@ -153,11 +157,6 @@ public class BazelRepositoryModule extends BlazeModule {
       builder.addRuleDefinition(ruleDefinition);
     }
     builder.addSkylarkModule(SkylarkRepositoryModule.class);
-  }
-
-  @Override
-  public Iterable<? extends BlazeCommand> getCommands() {
-    return ImmutableList.of(new FetchCommand());
   }
 
   @Override

@@ -493,6 +493,7 @@ public class BlazeCommandDispatcher {
       numericExitCode = e.getExitStatus();
       throw e;
     } catch (Throwable e) {
+      e.printStackTrace();
       BugReport.printBug(outErr, e);
       BugReport.sendBugReport(e, args, crashData);
       numericExitCode = e instanceof OutOfMemoryError
