@@ -136,19 +136,17 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertEquals(a.cacheKey(), b.cacheKey());
   }
 
-  private void checkInvalidCpuError(String cpuOption, Pattern messageRegex) throws Exception {
-    try {
-      create("--" + cpuOption + "=bogus");
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertThat(e.getMessage()).matches(messageRegex);
-    }
-  }
-
   @Test
   public void testInvalidCpu() throws Exception {
-    checkInvalidCpuError("cpu", Pattern.compile(
-        "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
+    // TODO(ulfjack): It would be better to get the better error message also if the Jvm is enabled.
+    // Currently: "No JVM target found under //tools/jdk:jdk that would work for bogus"
+    try {
+      create("--cpu=bogus", "--experimental_disable_jvm");
+      fail();
+    } catch (InvalidConfigurationException e) {
+      assertThat(e.getMessage()).matches(Pattern.compile(
+              "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
+    }
   }
 
   @Test

@@ -308,7 +308,7 @@ public class BazelRuleClassProvider {
 
   private static void initJava(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationOptions(JavaOptions.class);
-    builder.addConfigurationFragment(new JvmConfigurationLoader(false, JAVA_CPU_SUPPLIER));
+    builder.addConfigurationFragment(new JvmConfigurationLoader(JAVA_CPU_SUPPLIER));
     builder.addConfigurationFragment(new JavaConfigurationLoader());
 
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());

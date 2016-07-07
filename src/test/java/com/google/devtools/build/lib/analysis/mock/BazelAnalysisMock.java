@@ -208,17 +208,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new CppConfigurationLoader(Functions.<String>identity()),
         new PythonConfigurationLoader(Functions.<String>identity()),
         new BazelPythonConfiguration.Loader(),
-        new JvmConfigurationLoader(false, BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
+        new JvmConfigurationLoader(BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
         new JavaConfigurationLoader(),
         new ObjcConfigurationLoader(),
         new AppleConfiguration.Loader(),
         new J2ObjcConfiguration.Loader(),
         new AndroidConfiguration.Loader());
-  }
-
-  @Override
-  public ConfigurationFactory createFullConfigurationFactory() {
-    return createConfigurationFactory();
   }
 
   @Override
