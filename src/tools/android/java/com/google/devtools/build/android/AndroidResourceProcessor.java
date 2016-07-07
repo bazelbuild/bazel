@@ -30,8 +30,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.FullRevisionConverter;
+import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.build.android.resources.RClassGenerator;
-import com.google.devtools.common.options.Converters.ColonSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -74,6 +74,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -185,12 +186,28 @@ public class AndroidResourceProcessor {
         help = "A list of resource config filters to pass to aapt.")
     public List<String> resourceConfigs;
 
-    @Option(name = "splits",
-        defaultValue = "",
-        converter = ColonSeparatedOptionListConverter.class,
-        category = "config",
-        help = "A list of splits to pass to aapt, separated by colons."
-            + " Each split is a list of qualifiers separated by commas.")
+    private static final String ANDROID_SPLIT_DOCUMENTATION_URL =
+        "https://developer.android.com/guide/topics/resources/providing-resources.html"
+        + "#QualifierRules";
+
+    @Option(
+      name = "split",
+      defaultValue = "required but ignored due to allowMultiple",
+      category = "config",
+      allowMultiple = true,
+      help =
+          "An individual split configuration to pass to aapt."
+              + " Each split is a list of configuration filters separated by commas."
+              + " Configuration filters are lists of configuration qualifiers separated by dashes,"
+              + " as used in resource directory names and described on the Android developer site: "
+              + ANDROID_SPLIT_DOCUMENTATION_URL
+              + " For example, a split might be 'en-television,en-xxhdpi', containing English"
+              + " assets which either are for TV screens or are extra extra high resolution."
+              + " Multiple splits can be specified by passing this flag multiple times."
+              + " Each split flag will produce an additional output file, named by replacing the"
+              + " commas in the split specification with underscores, and appending the result to"
+              + " the output package name following an underscore."
+    )
     public List<String> splits;
   }
 
@@ -380,9 +397,7 @@ public class AndroidResourceProcessor {
   }
 
   // TODO(bazel-team): Clean up this method call -- 13 params is too many.
-  /**
-   * Processes resources for generated sources, configs and packaging resources.
-   */
+  /** Processes resources for generated sources, configs and packaging resources. */
   public void processResources(
       Path aapt,
       Path androidJar,
@@ -400,7 +415,7 @@ public class AndroidResourceProcessor {
       Path proguardOut,
       Path mainDexProguardOut,
       Path publicResourcesOut)
-      throws IOException, InterruptedException, LoggedErrorException {
+      throws IOException, InterruptedException, LoggedErrorException, UnrecognizedSplitsException {
     Path androidManifest = primaryData.getManifest();
     Path resourceDir = primaryData.getResourceDir();
     Path assetsDir = primaryData.getAssetDir();
@@ -470,6 +485,12 @@ public class AndroidResourceProcessor {
     }
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
+      if (!splits.isEmpty()) {
+        Iterable<Path> splitFilenames = findAndRenameSplitPackages(packageOut, splits);
+        for (Path splitFilename : splitFilenames) {
+          Files.setLastModifiedTime(splitFilename, FileTime.fromMillis(0L));
+        }
+      }
     }
     if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
       Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
@@ -634,6 +655,36 @@ public class AndroidResourceProcessor {
         new RClassGenerator(classesOut.toFile(), appPackageName, fullSymbolValues, finalFields);
     classWriter.addSymbolsToWrite(fullSymbolValues);
     classWriter.write();
+  }
+
+  /** Finds aapt's split outputs and renames them according to the input flags. */
+  private Iterable<Path> findAndRenameSplitPackages(Path packageOut, Iterable<String> splits)
+      throws UnrecognizedSplitsException, IOException {
+    String prefix = packageOut.getFileName().toString() + "_";
+    // The regex java string literal below is received as [\\{}\[\]*?] by the regex engine,
+    // which produces a character class containing \{}[]*?
+    // The replacement string literal is received as \\$0 by the regex engine, which places
+    // a backslash before the match.
+    String prefixGlob = prefix.replaceAll("[\\\\{}\\[\\]*?]", "\\\\$0") + "*";
+    Path outputDirectory = packageOut.getParent();
+    ImmutableList.Builder<String> filenameSuffixes = new ImmutableList.Builder<>();
+    try (DirectoryStream<Path> glob = Files.newDirectoryStream(outputDirectory, prefixGlob)) {
+      for (Path file : glob) {
+        filenameSuffixes.add(file.getFileName().toString().substring(prefix.length()));
+      }
+    }
+    Map<String, String> outputs =
+        SplitConfigurationFilter.mapFilenamesToSplitFlags(filenameSuffixes.build(), splits);
+    ImmutableList.Builder<Path> outputPaths = new ImmutableList.Builder<>();
+    for (Map.Entry<String, String> splitMapping : outputs.entrySet()) {
+      Path resultPath = packageOut.resolveSibling(prefix + splitMapping.getValue());
+      outputPaths.add(resultPath);
+      if (!splitMapping.getKey().equals(splitMapping.getValue())) {
+        Path sourcePath = packageOut.resolveSibling(prefix + splitMapping.getKey());
+        Files.move(sourcePath, resultPath);
+      }
+    }
+    return outputPaths.build();
   }
 
   public MergedAndroidData processManifest(
