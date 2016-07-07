@@ -13,13 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.common.options.OptionsProvider;
 
-import java.util.UUID;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
@@ -30,8 +26,7 @@ public class BazelShutdownLoggerModule extends BlazeModule {
   private Logger globalLogger;
 
   @Override
-  public void blazeStartup(OptionsProvider startupOptions, BlazeVersionInfo versionInfo,
-      UUID instanceId, BlazeDirectories directories, Clock clock) {
+  public void globalInit(OptionsProvider startupOptions) {
     LogManager.getLogManager().reset();
     globalLogger = Logger.getGlobal();
     globalLogger.setLevel(java.util.logging.Level.OFF);
