@@ -60,6 +60,7 @@ def _module_name(ctx):
 
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
+  # TODO(b/29772303): Assert xcode version.
   cpu = ctx.fragments.apple.ios_cpu()
   platform = ctx.fragments.apple.ios_cpu_platform()
   sdk_version = ctx.fragments.apple.sdk_version_for_platform(platform)
@@ -83,15 +84,17 @@ def _swift_library_impl(ctx):
     dep_libs += swift.transitive_libs
     dep_modules += swift.transitive_modules
 
-  objc_includes = set()    # Everything that needs to be included with -I
-  objc_files = set()       # All inputs required for the compile action
+  objc_includes = set()     # Everything that needs to be included with -I
+  objc_files = set()        # All inputs required for the compile action
+  objc_module_maps = set()  # Module maps for dependent targets
   objc_defines = set()
   for objc in objc_providers:
     objc_includes += objc.include
-    objc_includes = objc_includes.union([x.dirname for x in objc.module_map])
 
     objc_files += objc.header
     objc_files += objc.module_map
+
+    objc_module_maps += objc.module_map
 
     files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
     objc_files += files
@@ -137,13 +140,22 @@ def _swift_library_impl(ctx):
 
   clang_args = _intersperse(
       "-Xcc",
+
       # Add the current directory to clang's search path.
-      # This instance of clang is spawned by swiftc to compile module maps and is
-      # not passed the current directory as a search path by default.
+      # This instance of clang is spawned by swiftc to compile module maps and
+      # is not passed the current directory as a search path by default.
       ["-iquote", "."]
+
       # Pass DEFINE or copt values from objc configuration and rules to clang
       + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts
-      + _clang_compilation_mode_flags(ctx))
+      + _clang_compilation_mode_flags(ctx)
+
+      # Load module maps explicitly instead of letting Clang discover them on
+      # search paths. This is needed to avoid a case where Clang may load the
+      # same header both in modular and non-modular contexts, leading to
+      # duplicate definitions in the same file.
+      # https://llvm.org/bugs/show_bug.cgi?id=19501
+      + ["-fmodule-map-file=%s" % x.path for x in objc_module_maps])
 
   args = [
       "swiftc",
