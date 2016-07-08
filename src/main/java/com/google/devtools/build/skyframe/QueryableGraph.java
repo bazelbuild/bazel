@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
+import java.util.EnumSet;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -27,9 +28,13 @@ public interface QueryableGraph {
   NodeEntry get(SkyKey key);
 
   /**
-   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in
-   * {@code keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and
-   * {@code !m.containsKey(k)} iff {@code get(k) == null}.
+   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
+   * keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and {@code
+   * !m.containsKey(k)} iff {@code get(k) == null}. The {@code fields} parameter is a hint to the
+   * QueryableGraph implementation that allows it to possibly construct certain fields of the
+   * returned node entries more lazily. Hints may only be applied to nodes in a certain state, like
+   * done nodes.
    */
-  Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys);
+  Map<SkyKey, NodeEntry> getBatchWithFieldHints(
+      Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields);
 }

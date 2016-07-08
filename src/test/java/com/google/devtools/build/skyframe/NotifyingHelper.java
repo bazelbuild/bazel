@@ -20,6 +20,7 @@ import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -121,8 +122,10 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-      return Maps.transformEntries(delegate.getBatch(keys), notifyingHelper.wrapEntry);
+    public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
+        Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
+      return Maps.transformEntries(
+          delegate.getBatchWithFieldHints(keys, fields), notifyingHelper.wrapEntry);
     }
 
     @Nullable

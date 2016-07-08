@@ -17,6 +17,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -115,8 +116,9 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-      return makeDeterministic(super.getBatch(keys));
+    public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
+        Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
+      return makeDeterministic(super.getBatchWithFieldHints(keys, fields));
     }
   }
 

@@ -23,6 +23,11 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
+  public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
+    return getBatchWithFieldHints(keys, NodeEntryField.ALL_FIELDS);
+  }
+
+  @Override
   public Map<SkyKey, SkyValue> getValues() {
     return ((InMemoryGraph) delegate).getValues();
   }

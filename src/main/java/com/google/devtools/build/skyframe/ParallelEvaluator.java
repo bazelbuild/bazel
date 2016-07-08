@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -221,9 +222,11 @@ public final class ParallelEvaluator implements Evaluator {
     this.errorHandler = errorHandler;
   }
 
-  /**
-   * Receives the events from the NestedSet and delegates to the reporter.
-   */
+  private Map<SkyKey, NodeEntry> getBatchValues(Iterable<SkyKey> keys) {
+    return graph.getBatchWithFieldHints(keys, NodeEntryField.VALUE_ONLY);
+  }
+
+  /** Receives the events from the NestedSet and delegates to the reporter. */
   private static class NestedSetEventReceiver implements NestedSetVisitor.Receiver<TaggedEvents> {
 
     private final EventHandler reporter;
@@ -329,7 +332,7 @@ public final class ParallelEvaluator implements Evaluator {
         keysToPrefetchBuilder.addAll(depKeysAsIterable).addAll(oldDeps);
         keysToPrefetch = keysToPrefetchBuilder.build();
       }
-      Map<SkyKey, NodeEntry> batchMap = graph.getBatch(keysToPrefetch);
+      Map<SkyKey, NodeEntry> batchMap = getBatchValues(keysToPrefetch);
       if (PREFETCH_OLD_DEPS) {
         batchMap = ImmutableMap.copyOf(
             Maps.filterKeys(batchMap, Predicates.in(ImmutableSet.copyOf(depKeysAsIterable))));
@@ -464,7 +467,7 @@ public final class ParallelEvaluator implements Evaluator {
           missingKeys.add(key);
         }
       }
-      Map<SkyKey, NodeEntry> missingEntries = graph.getBatch(missingKeys);
+      Map<SkyKey, NodeEntry> missingEntries = getBatchValues(missingKeys);
       for (SkyKey key : missingKeys) {
         builder.put(key, maybeGetValueFromError(key, missingEntries.get(key), bubbleErrorInfo));
       }
@@ -660,7 +663,11 @@ public final class ParallelEvaluator implements Evaluator {
         // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
         Set<SkyKey> depsToRemove =
             Sets.difference(oldDeps, primaryEntry.getTemporaryDirectDeps().toSet());
-        for (NodeEntry oldDepEntry : graph.getBatch(depsToRemove).values()) {
+        for (NodeEntry oldDepEntry :
+            graph
+                .getBatchWithFieldHints(
+                    depsToRemove, EnumSet.of(NodeEntryField.INDIVIDUAL_REVERSE_DEPS))
+                .values()) {
           oldDepEntry.removeReverseDep(skyKey);
         }
       }
@@ -916,7 +923,10 @@ public final class ParallelEvaluator implements Evaluator {
             // is done, then it is the parent's responsibility to notice that, which we do here.
             // We check the deps for errors so that we don't continue building this node if it has
             // a child error.
-            Map<SkyKey, NodeEntry> entriesToCheck = graph.getBatch(directDepsToCheck);
+            Map<SkyKey, NodeEntry> entriesToCheck =
+                graph.getBatchWithFieldHints(
+                    directDepsToCheck,
+                    EnumSet.of(NodeEntryField.VALUE, NodeEntryField.INDIVIDUAL_REVERSE_DEPS));
             for (Map.Entry<SkyKey, NodeEntry> entry : entriesToCheck.entrySet()) {
               if (entry.getValue().isDone() && entry.getValue().getErrorInfo() != null) {
                 // If any child has an error, we arbitrarily add a dep on the first one (needed
@@ -1021,7 +1031,7 @@ public final class ParallelEvaluator implements Evaluator {
             }
           }
 
-          Map<SkyKey, NodeEntry> newlyRequestedDeps = graph.getBatch(env.newlyRequestedDeps);
+          Map<SkyKey, NodeEntry> newlyRequestedDeps = getBatchValues(env.newlyRequestedDeps);
           boolean isTransitivelyTransient = reifiedBuilderException.isTransient();
           for (NodeEntry depEntry
               : Iterables.concat(env.directDeps.values(), newlyRequestedDeps.values())) {
@@ -1075,7 +1085,12 @@ public final class ParallelEvaluator implements Evaluator {
             skyKey, newDirectDeps, state);
         env.setValue(value);
         registerNewlyDiscoveredDepsForDoneEntry(
-            skyKey, state, graph.getBatch(env.newlyRequestedDeps), oldDeps, env);
+            skyKey,
+            state,
+            graph.getBatchWithFieldHints(
+                env.newlyRequestedDeps, EnumSet.of(NodeEntryField.INDIVIDUAL_REVERSE_DEPS)),
+            oldDeps,
+            env);
         env.commit(/*enqueueParents=*/true);
         return;
       }
@@ -1190,7 +1205,10 @@ public final class ParallelEvaluator implements Evaluator {
    */
   private void signalValuesAndEnqueueIfReady(
       @Nullable ValueVisitor visitor, Iterable<SkyKey> keys, Version version) {
-    Map<SkyKey, NodeEntry> batch = graph.getBatch(keys);
+    // No fields of the entry are needed here, since we're just enqueuing for evaluation, but more
+    // importantly, these hints are not respected for not-done nodes. If they are, we may need to
+    // alter this hint.
+    Map<SkyKey, NodeEntry> batch = graph.getBatchWithFieldHints(keys, NodeEntryField.NO_FIELDS);
     if (visitor != null) {
       for (SkyKey key : keys) {
         NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
@@ -1224,13 +1242,13 @@ public final class ParallelEvaluator implements Evaluator {
 
   /**
    * Add any additional deps that were registered during the run of a builder that finished by
-   * creating a node or throwing an error. Builders may throw errors even if all their deps were
-   * not provided -- we trust that a SkyFunction may be know it should throw an error even if not
-   * all of its requested deps are done. However, that means we're assuming the SkyFunction would
-   * throw that same error if all of its requested deps were done. Unfortunately, there is no way to
+   * creating a node or throwing an error. Builders may throw errors even if all their deps were not
+   * provided -- we trust that a SkyFunction may be know it should throw an error even if not all of
+   * its requested deps are done. However, that means we're assuming the SkyFunction would throw
+   * that same error if all of its requested deps were done. Unfortunately, there is no way to
    * enforce that condition.
    */
-  private void registerNewlyDiscoveredDepsForDoneEntry(
+  private static void registerNewlyDiscoveredDepsForDoneEntry(
       SkyKey skyKey,
       NodeEntry entry,
       Map<SkyKey, NodeEntry> newlyRequestedDepMap,
@@ -1288,7 +1306,7 @@ public final class ParallelEvaluator implements Evaluator {
     // directly without launching the heavy machinery, spawning threads, etc.
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
     boolean allAreDone = true;
-    Map<SkyKey, NodeEntry> batch = graph.getBatch(skyKeySet);
+    Map<SkyKey, NodeEntry> batch = getBatchValues(skyKeySet);
     for (SkyKey key : skyKeySet) {
       if (!isDoneForBuild(batch.get(key))) {
         allAreDone = false;
@@ -1871,8 +1889,12 @@ public final class ParallelEvaluator implements Evaluator {
         continue;
       }
       // Prefetch all children, in case our graph performs better with a primed cache. No need to
-      // recurse into done nodes.
-      Map<SkyKey, NodeEntry> childrenNodes = graph.getBatch(children);
+      // recurse into done nodes. The fields of done nodes aren't necessary, since we'll filter them
+      // out.
+      // TODO(janakr): If graph implementations start using these hints for not-done nodes, we may
+      // have to change this.
+      Map<SkyKey, NodeEntry> childrenNodes =
+          graph.getBatchWithFieldHints(children, NodeEntryField.NO_FIELDS);
       Preconditions.checkState(childrenNodes.size() == Iterables.size(children), childrenNodes);
       children = Maps.filterValues(childrenNodes, new Predicate<NodeEntry>() {
         @Override
@@ -1930,7 +1952,7 @@ public final class ParallelEvaluator implements Evaluator {
    */
   private List<ErrorInfo> getChildrenErrors(Iterable<SkyKey> children, SkyKey unfinishedChild) {
     List<ErrorInfo> allErrors = new ArrayList<>();
-    for (Entry<SkyKey, NodeEntry> childMapEntry : graph.getBatch(children).entrySet()) {
+    for (Entry<SkyKey, NodeEntry> childMapEntry : getBatchValues(children).entrySet()) {
       SkyKey childKey = childMapEntry.getKey();
       NodeEntry childNodeEntry = childMapEntry.getValue();
       ErrorInfo errorInfo = getErrorMaybe(childKey, childNodeEntry,
@@ -2033,7 +2055,7 @@ public final class ParallelEvaluator implements Evaluator {
   }
 
   private Map<SkyKey, NodeEntry> getAndCheckDoneBatch(Iterable<SkyKey> keys) {
-    Map<SkyKey, NodeEntry> nodes = graph.getBatch(keys);
+    Map<SkyKey, NodeEntry> nodes = getBatchValues(keys);
     for (Map.Entry<SkyKey, NodeEntry> nodeEntryMapEntry : nodes.entrySet()) {
       checkDone(nodeEntryMapEntry.getKey(), nodeEntryMapEntry.getValue());
     }
@@ -2042,7 +2064,7 @@ public final class ParallelEvaluator implements Evaluator {
 
   private static final SkyValue NULL_MARKER = new SkyValue() {};
 
-  private SkyValue maybeGetValueFromError(
+  private static SkyValue maybeGetValueFromError(
       SkyKey key,
       @Nullable NodeEntry entry,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
@@ -2056,11 +2078,11 @@ public final class ParallelEvaluator implements Evaluator {
   }
 
   /**
-   * Return true if the entry does not need to be re-evaluated this build. The entry will need to
-   * be re-evaluated if it is not done, but also if it was not completely evaluated last build and
-   * this build is keepGoing.
+   * Return true if the entry does not need to be re-evaluated this build. The entry will need to be
+   * re-evaluated if it is not done, but also if it was not completely evaluated last build and this
+   * build is keepGoing.
    */
-  private boolean isDoneForBuild(@Nullable NodeEntry entry) {
+  private static boolean isDoneForBuild(@Nullable NodeEntry entry) {
     return entry != null && entry.isDone();
   }
 

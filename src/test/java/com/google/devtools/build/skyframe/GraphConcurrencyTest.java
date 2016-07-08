@@ -275,8 +275,9 @@ public abstract class GraphConcurrencyTest {
   }
 
   /**
-   * Initially calling {@link NodeEntry#setValue} and then making sure concurrent calls to
-   * {@link QueryableGraph#get} and {@link QueryableGraph#getBatch} do not interfere with the node.
+   * Initially calling {@link NodeEntry#setValue} and then making sure concurrent calls to {@link
+   * QueryableGraph#get} and {@link QueryableGraph#getBatchWithFieldHints} do not interfere with the
+   * node.
    */
   @Test
   public void testDoneToDirty() throws Exception {
@@ -377,15 +378,16 @@ public abstract class GraphConcurrencyTest {
               } catch (InterruptedException e) {
                 throw new AssertionError(e);
               }
-              Map<SkyKey, NodeEntry> batchMap = graph.getBatch(batch);
+              Map<SkyKey, NodeEntry> batchMap =
+                  graph.getBatchWithFieldHints(batch, NodeEntryField.NO_FIELDS);
               getBatchCountDownLatch.countDown();
               assertThat(batchMap).hasSize(batch.size());
               for (NodeEntry entry : batchMap.values()) {
                 // Batch requests are made at the same time that the version increments from the
                 // base. Check that there is no problem in requesting the version and that the
                 // number is sane.
-                assertThat(entry.getVersion()).isAnyOf(startingVersion,
-                    getNextVersion(startingVersion));
+                assertThat(entry.getVersion())
+                    .isAnyOf(startingVersion, getNextVersion(startingVersion));
               }
             }
           };

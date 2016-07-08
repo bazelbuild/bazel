@@ -21,6 +21,7 @@ import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
@@ -64,6 +65,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       }
     }
     return builder.build();
+  }
+
+  @Override
+  public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
+      Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
+    return getBatch(keys);
   }
 
   protected NodeEntry createIfAbsent(SkyKey key) {

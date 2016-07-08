@@ -24,8 +24,9 @@ import java.util.Map;
 @ThreadSafe
 interface EvaluableGraph extends QueryableGraph, DeletableGraph {
   /**
-   * Like {@link QueryableGraph#getBatch}, except it creates a new node for each key not already
-   * present in the graph. Thus, the returned map will have an entry for each key in {@code keys}.
+   * Like {@link QueryableGraph#getBatchWithFieldHints}, except it creates a new node for each key
+   * not already present in the graph. Thus, the returned map will have an entry for each key in
+   * {@code keys}.
    */
   Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys);
 }
