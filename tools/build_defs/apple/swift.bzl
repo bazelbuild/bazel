@@ -37,9 +37,9 @@ def _swift_compilation_mode_flags(ctx):
   """Returns additional swiftc flags for the current compilation mode."""
   mode = ctx.var["COMPILATION_MODE"]
   if mode == "dbg":
-    return ["-Onone", "-DDEBUG", "-g"]
+    return ["-Onone", "-DDEBUG", "-g", "-enable-testing"]
   elif mode == "fastbuild":
-    return ["-Onone", "-DDEBUG"]
+    return ["-Onone", "-DDEBUG", "-enable-testing"]
   elif mode == "opt":
     return ["-O", "-DNDEBUG"]
 

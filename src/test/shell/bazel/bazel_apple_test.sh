@@ -391,11 +391,19 @@ EOF
 function test_swift_tests() {
   make_app
 
+  cat >ios/internal.swift <<EOF
+internal class InternalClass {
+  func foo() -> String { return "bar" }
+}
+EOF
+
   cat >ios/tests.swift <<EOF
   import XCTest
+  @testable import ios_SwiftMain
 
 class FooTest: XCTestCase {
   func testFoo() { XCTAssertEqual(2, 3) }
+  func testInternalClass() { XCTAssertEqual(InternalClass().foo(), "bar") }
 }
 EOF
 
@@ -403,7 +411,7 @@ EOF
 load("//tools/build_defs/apple:swift.bzl", "swift_library")
 
 swift_library(name = "SwiftMain",
-              srcs = ["app.swift"])
+              srcs = ["app.swift", "internal.swift"])
 
 objc_binary(name = "bin",
             srcs = ["//tools/objc:dummy.c"],
@@ -414,7 +422,8 @@ ios_application(name = "app",
                 infoplist = 'App-Info.plist')
 
 swift_library(name = "SwiftTest",
-              srcs = ["tests.swift"])
+              srcs = ["tests.swift"],
+              deps = [":SwiftMain"])
 
 ios_test(name = "app_test",
          srcs = ["//tools/objc:dummy.c"],
