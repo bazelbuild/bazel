@@ -406,6 +406,12 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
     }
   }
 
+  private void restartIdleTimeout() {
+    synchronized (runningCommands) {
+      runningCommands.notify();
+    }
+  }
+
   @Override
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
     Preconditions.checkState(serving);
@@ -417,6 +423,8 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
 
     streamObserver.onNext(response.build());
     streamObserver.onCompleted();
+
+    restartIdleTimeout();
   }
 
   @Override
@@ -437,5 +445,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
 
     streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
     streamObserver.onCompleted();
+
+    restartIdleTimeout();
   }
 }

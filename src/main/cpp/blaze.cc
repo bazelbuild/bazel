@@ -1854,9 +1854,10 @@ int main(int argc, const char *argv[]) {
   EnsureFiniteStackLimit();
 
   ExtractData(self_path);
+  VerifyJavaVersionAndSetJvm();
+
   blaze_server->Connect();
   EnsureCorrectRunningVersion(blaze_server);
-  VerifyJavaVersionAndSetJvm();
   KillRunningServerIfDifferentStartupOptions(blaze_server);
 
   if (globals->options.batch) {
