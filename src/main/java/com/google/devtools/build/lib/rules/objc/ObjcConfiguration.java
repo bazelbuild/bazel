@@ -112,10 +112,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the type of device (e.g. 'iPhone 6') to simulate when running on the simulator.
    */
+  @SkylarkCallable(name = "ios_simulator_device", structField = true,
+      doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
   public String getIosSimulatorDevice() {
     return iosSimulatorDevice;
   }
 
+  @SkylarkCallable(name = "ios_simulator_version", structField = true,
+      doc = "The SDK version of the iOS simulator to use when running on the simulator.")
   public DottedVersion getIosSimulatorVersion() {
     return iosSimulatorVersion;
   }
