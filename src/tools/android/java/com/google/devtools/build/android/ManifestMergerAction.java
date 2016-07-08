@@ -139,7 +139,9 @@ public class ManifestMergerAction {
         }
       }
     }
-    Path output = outputDir.resolve(manifest.getFileName());
+    // Write resulting manifest to the output directory, maintaining full path to prevent collisions
+    Path output = outputDir.resolve(manifest.toString().replaceFirst("^/", ""));
+    Files.createDirectories(output.getParent());
     TransformerFactory.newInstance().newTransformer().transform(
         new DOMSource(doc),
         new StreamResult(output.toFile()));
