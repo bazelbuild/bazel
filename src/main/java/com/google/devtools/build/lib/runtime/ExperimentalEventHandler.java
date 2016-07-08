@@ -417,6 +417,9 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   private void doRefresh() {
+    if (buildComplete) {
+      return;
+    }
     long nowMillis = clock.currentTimeMillis();
     if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
       synchronized (this) {
@@ -430,9 +433,6 @@ public class ExperimentalEventHandler implements EventHandler {
         } catch (IOException e) {
           LOG.warning("IO Error writing to output stream: " + e);
         }
-      }
-      if (!stateTracker.progressBarTimeDependent() && mustRefreshAfterMillis < lastRefreshMillis) {
-        stopUpdateThread();
       }
     } else {
       // We skipped an update due to rate limiting. If this however, turned
