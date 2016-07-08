@@ -90,6 +90,9 @@ public interface JavaSemantics {
    */
   String JAVA_TOOLCHAIN_LABEL = "//tools/defaults:java_toolchain";
 
+  /** The java_toolchain.compatible_javacopts key for Java 7 javacopts */
+  public static final String JAVA7_JAVACOPTS_KEY = "java7";
+
   LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
         @Override

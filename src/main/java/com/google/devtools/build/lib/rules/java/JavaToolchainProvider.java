@@ -172,12 +172,8 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
 
   /** @return the map of target environment-specific javacopts. */
   public ImmutableList<String> getCompatibleJavacOptions(String key) {
-    return getCompatibleJavacOptions(key, ImmutableList.<String>of());
-  }
-
-  /** @return the map of target environment-specific javacopts. */
-  public ImmutableList<String> getCompatibleJavacOptions(
-      String key, ImmutableList<String> defaultValue) {
-    return compatibleJavacOptions.containsKey(key) ? compatibleJavacOptions.get(key) : defaultValue;
+    return compatibleJavacOptions.containsKey(key)
+        ? compatibleJavacOptions.get(key)
+        : ImmutableList.<String>of();
   }
 }
