@@ -338,6 +338,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + "transition to the Android manifest merger from the legacy merger.")
     public AndroidManifestMerger manifestMerger;
 
+    // Do not use on the command line.
+    // The idea is that once this option works, we'll flip the default value in a config file, then
+    // once it is proven that it works, remove it from Bazel and said config file.
+    @Option(name = "experimental_use_rclass_generator",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Use the specialized R class generator to build the final app and lib R classes.")
+    public boolean useRClassGenerator;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -408,6 +417,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
   private final boolean useProguardPreviousObfuscationMap;
+  private final boolean useRClassGenerator;
   private final AndroidManifestMerger manifestMerger;
 
   AndroidConfiguration(Options options, Label androidSdk) {
@@ -432,6 +442,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
     this.useProguardPreviousObfuscationMap = options.useProguardPreviousObfuscationMap;
+    this.useRClassGenerator = options.useRClassGenerator;
     this.manifestMerger = options.manifestMerger;
   }
 
@@ -507,6 +518,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useProguardPreviousObfuscationMap() {
     return useProguardPreviousObfuscationMap;
+  }
+
+  public boolean useRClassGenerator() {
+    return useRClassGenerator;
   }
 
   public AndroidManifestMerger getManifestMerger() {

@@ -404,6 +404,8 @@ public final class AndroidRuleClasses {
               env.getToolsLabel(DEFAULT_AAR_GENERATOR)))
           .add(attr("$android_manifest_merger", LABEL).cfg(HOST).exec().value(
               env.getToolsLabel(DEFAULT_MANIFEST_MERGER)))
+          .add(attr("$android_rclass_generator", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RCLASS_GENERATOR)))
           .add(attr("$android_resources_processor", LABEL).cfg(HOST).exec().value(
               env.getToolsLabel(DEFAULT_RESOURCES_PROCESSOR)))
           .add(attr("$android_resource_shrinker", LABEL).cfg(HOST).exec().value(
