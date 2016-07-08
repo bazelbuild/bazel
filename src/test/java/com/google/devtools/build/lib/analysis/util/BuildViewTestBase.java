@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.DeterministicGraph;
+import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.NotifyingGraph.Listener;
+import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -131,7 +131,7 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     InMemoryMemoizingEvaluator memoizingEvaluator =
         (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting();
     memoizingEvaluator.injectGraphTransformerForTesting(
-        DeterministicGraph.makeTransformer(listener, deterministic));
+        DeterministicHelper.makeTransformer(listener, deterministic));
   }
 
   protected void runTestForMultiCpuAnalysisFailure(String badCpu, String goodCpu) throws Exception {

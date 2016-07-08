@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
@@ -28,36 +27,34 @@ import javax.annotation.Nullable;
 
 /**
  * Class that allows clients to be notified on each access of the graph. Clients can simply track
- * accesses, or they can block to achieve desired synchronization. Clients should call
- * {@link TrackingAwaiter#INSTANCE#assertNoErrors} at the end of tests in case exceptions were
- * swallowed in async threads.
- *
- * <p>While this class nominally always implements a {@link ProcessableGraph}, it will throw if any
- * of the methods in {@link ProcessableGraph} that are not in {@link ThinNodeQueryableGraph} are
- * called on it and its {@link #delegate} is not a {@link ProcessableGraph}. This lack of type
- * safety is so that a {@code NotifyingGraph} can be returned by {@link #makeNotifyingTransformer}
- * and used in {@link MemoizingEvaluator#injectGraphTransformerForTesting}.
+ * accesses, or they can block to achieve desired synchronization. Clients should call {@link
+ * TrackingAwaiter#INSTANCE#assertNoErrors} at the end of tests in case exceptions were swallowed in
+ * async threads.
  */
-public class NotifyingGraph<TGraph extends ThinNodeQueryableGraph> implements ProcessableGraph {
-  public static Function<ThinNodeQueryableGraph, ProcessableGraph> makeNotifyingTransformer(
+public class NotifyingHelper {
+  public static MemoizingEvaluator.GraphTransformerForTesting makeNotifyingTransformer(
       final Listener listener) {
-    return new Function<ThinNodeQueryableGraph, ProcessableGraph>() {
-      @Nullable
+    return new MemoizingEvaluator.GraphTransformerForTesting() {
       @Override
-      public ProcessableGraph apply(ThinNodeQueryableGraph queryableGraph) {
-        if (queryableGraph instanceof InMemoryGraph) {
-          return new NotifyingInMemoryGraph((InMemoryGraph) queryableGraph, listener);
-        } else {
-          return new NotifyingGraph<>(queryableGraph, listener);
-        }
+      public InMemoryGraph transform(InMemoryGraph graph) {
+        return new NotifyingInMemoryGraph(graph, listener);
+      }
+
+      @Override
+      public InvalidatableGraph transform(InvalidatableGraph graph) {
+        return new NotifyingInvalidatableGraph(graph, listener);
+      }
+
+      @Override
+      public ProcessableGraph transform(ProcessableGraph graph) {
+        return new NotifyingProcessableGraph(graph, listener);
       }
     };
   }
 
-  protected final TGraph delegate;
-  private final Listener graphListener;
+  protected final Listener graphListener;
 
-  private final EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry> wrapEntry =
+  protected final EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry> wrapEntry =
       new EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry>() {
         @Nullable
         @Override
@@ -66,47 +63,73 @@ public class NotifyingGraph<TGraph extends ThinNodeQueryableGraph> implements Pr
         }
       };
 
-  NotifyingGraph(TGraph delegate, Listener graphListener) {
-    this.delegate = delegate;
+  NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
-  }
-
-  private ProcessableGraph getProcessableDelegate() {
-    return (ProcessableGraph) delegate;
-  }
-
-  @Override
-  public void remove(SkyKey key) {
-    getProcessableDelegate().remove(key);
-  }
-
-  @Override
-  public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
-    for (SkyKey key : keys) {
-      graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
-    }
-    return Maps.transformEntries(getProcessableDelegate().createIfAbsentBatch(keys), wrapEntry);
-  }
-
-  @Override
-  public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-    if (delegate instanceof ProcessableGraph) {
-      return Maps.transformEntries(getProcessableDelegate().getBatch(keys), wrapEntry);
-    } else {
-      return Maps.transformEntries(delegate.getBatch(keys), wrapEntry);
-    }
-  }
-
-  @Nullable
-  @Override
-  public NodeEntry get(SkyKey key) {
-    return wrapEntry(key, getProcessableDelegate().get(key));
   }
 
   /** Subclasses should override if they wish to subclass NotifyingNodeEntry. */
   @Nullable
   protected NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
     return entry == null ? null : new NotifyingNodeEntry(key, entry);
+  }
+
+  static class NotifyingInvalidatableGraph implements InvalidatableGraph {
+    private final InvalidatableGraph delegate;
+    private final NotifyingHelper notifyingHelper;
+
+    NotifyingInvalidatableGraph(InvalidatableGraph delegate, Listener graphListener) {
+      this.notifyingHelper = new NotifyingHelper(graphListener);
+      this.delegate = delegate;
+    }
+
+    NotifyingInvalidatableGraph(InvalidatableGraph delegate, NotifyingHelper helper) {
+      this.notifyingHelper = helper;
+      this.delegate = delegate;
+    }
+
+    @Override
+    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
+      return Maps.transformEntries(delegate.getBatch(keys), notifyingHelper.wrapEntry);
+    }
+  }
+
+  static class NotifyingProcessableGraph implements ProcessableGraph {
+    protected final ProcessableGraph delegate;
+    protected final NotifyingHelper notifyingHelper;
+
+    NotifyingProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
+      this.notifyingHelper = new NotifyingHelper(graphListener);
+      this.delegate = delegate;
+    }
+
+    NotifyingProcessableGraph(ProcessableGraph delegate, NotifyingHelper helper) {
+      this.notifyingHelper = helper;
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void remove(SkyKey key) {
+      delegate.remove(key);
+    }
+
+    @Override
+    public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
+      for (SkyKey key : keys) {
+        notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
+      }
+      return Maps.transformEntries(delegate.createIfAbsentBatch(keys), notifyingHelper.wrapEntry);
+    }
+
+    @Override
+    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
+      return Maps.transformEntries(delegate.getBatch(keys), notifyingHelper.wrapEntry);
+    }
+
+    @Nullable
+    @Override
+    public NodeEntry get(SkyKey key) {
+      return notifyingHelper.wrapEntry(key, delegate.get(key));
+    }
   }
 
   /**

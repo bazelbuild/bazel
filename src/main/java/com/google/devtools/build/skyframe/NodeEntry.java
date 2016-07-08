@@ -83,6 +83,37 @@ public interface NodeEntry extends ThinNodeEntry {
   @ThreadSafe
   SkyValue getValue();
 
+  /**
+   * Returns an immutable iterable of the direct deps of this node. This method may only be called
+   * after the evaluation of this node is complete.
+   *
+   * <p>This method is not very efficient, but is only be called in limited circumstances -- when
+   * the node is about to be deleted, or when the node is expected to have no direct deps (in which
+   * case the overhead is not so bad). It should not be called repeatedly for the same node, since
+   * each call takes time proportional to the number of direct deps of the node.
+   */
+  @ThreadSafe
+  Iterable<SkyKey> getDirectDeps();
+
+  /** Removes a reverse dependency. */
+  @ThreadSafe
+  void removeReverseDep(SkyKey reverseDep);
+
+  /**
+   * Removes a reverse dependency.
+   *
+   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@param
+   * reverseDep} is present in {@link #getReverseDeps}
+   */
+  @ThreadSafe
+  void removeInProgressReverseDep(SkyKey reverseDep);
+
+  /**
+   * Returns a copy of the set of reverse dependencies. Note that this introduces a potential
+   * check-then-act race; {@link #removeReverseDep} may fail for a key that is returned here.
+   */
+  @ThreadSafe
+  Iterable<SkyKey> getReverseDeps();
 
   /**
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
@@ -236,22 +267,22 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /**
    * Should only be called if the entry is dirty. During the examination to see if the entry must be
-   * re-evaluated, this method returns the next group of children to be checked. Callers should
-   * have already called {@link #getDirtyState} and received a return value of
-   * {@link DirtyState#CHECK_DEPENDENCIES} before calling this method -- any other
-   * return value from {@link #getDirtyState} means that this method must not be called, since
-   * whether or not the node needs to be rebuilt is already known.
+   * re-evaluated, this method returns the next group of children to be checked. Callers should have
+   * already called {@link #getDirtyState} and received a return value of {@link
+   * DirtyState#CHECK_DEPENDENCIES} before calling this method -- any other return value from {@link
+   * #getDirtyState} means that this method must not be called, since whether or not the node needs
+   * to be rebuilt is already known.
    *
-   * <p>Deps are returned in groups. The deps in each group were requested in parallel by the
-   * {@code SkyFunction} last build, meaning independently of the values of any other deps in this
-   * group (although possibly depending on deps in earlier groups). Thus the caller may check all
-   * the deps in this group in parallel, since the deps in all previous groups are verified
-   * unchanged. See {@link SkyFunction.Environment#getValues} for more on dependency groups.
+   * <p>Deps are returned in groups. The deps in each group were requested in parallel by the {@code
+   * SkyFunction} last build, meaning independently of the values of any other deps in this group
+   * (although possibly depending on deps in earlier groups). Thus the caller may check all the deps
+   * in this group in parallel, since the deps in all previous groups are verified unchanged. See
+   * {@link SkyFunction.Environment#getValues} for more on dependency groups.
    *
    * <p>The caller should register these as deps of this entry using {@link #addTemporaryDirectDeps}
    * before checking them.
    *
-   * @see BuildingState#getNextDirtyDirectDeps()
+   * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
   @ThreadSafe
   Collection<SkyKey> getNextDirtyDirectDeps();

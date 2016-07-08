@@ -19,13 +19,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
  * Interface for classes that need to remove values from graph. Currently just used by {@link
  * EagerInvalidator}.
  *
- * <p>This class is not intended for direct use, and is only exposed as public for use in
- * evaluation implementations outside of this package.
+ * <p>This class is not intended for direct use, and is only exposed as public for use in evaluation
+ * implementations outside of this package.
  */
 @ThreadSafe
-public interface DirtiableGraph extends QueryableGraph {
-  /**
-   * Remove the value with given name from the graph.
-   */
+public interface DeletableGraph {
+  /** Remove the value with given name from the graph. */
   void remove(SkyKey key);
 }

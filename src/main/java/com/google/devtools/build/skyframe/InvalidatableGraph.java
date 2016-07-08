@@ -17,20 +17,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 import java.util.Map;
 
-import javax.annotation.Nullable;
-
 /**
- * A graph that exposes thin representations of its entries and structure, for use by classes that
- * must traverse it, but not read its entries' values.
+ * A graph that exposes thin representations of its entries and structure, for use during
+ * invalidation.
+ *
+ * <p>Public only for use in alternative graph implementations.
  */
 @ThreadSafe
-public interface ThinNodeQueryableGraph {
-  /**
-   * Returns the thin node with the given name, or {@code null} if the node does not exist.
-   */
-  @Nullable
-  ThinNodeEntry get(SkyKey key);
-
+public interface InvalidatableGraph {
   /**
    * Fetches all the given thin nodes. Returns a map {@code m} such that, for all {@code k} in
    * {@code keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and

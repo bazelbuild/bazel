@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 
 import java.util.Collection;
@@ -26,38 +25,34 @@ import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
- * {@link NotifyingGraph} that returns reverse deps, temporary direct deps, and the results of
+ * {@link NotifyingHelper} that returns reverse deps, temporary direct deps, and the results of
  * batch requests ordered alphabetically by sky key string representation.
  */
-public class DeterministicGraph<TGraph extends ThinNodeQueryableGraph>
-    extends NotifyingGraph<TGraph> {
-  public static final Function<ThinNodeQueryableGraph, ProcessableGraph> MAKE_DETERMINISTIC =
-      new Function<ThinNodeQueryableGraph, ProcessableGraph>() {
-        @Override
-        public ProcessableGraph apply(ThinNodeQueryableGraph queryableGraph) {
-          if (queryableGraph instanceof InMemoryGraph) {
-            return new DeterministicInMemoryGraph((InMemoryGraph) queryableGraph);
-          } else {
-            return new DeterministicGraph<>(queryableGraph);
-          }
-        }
-      };
+public class DeterministicHelper extends NotifyingHelper {
+  static final MemoizingEvaluator.GraphTransformerForTesting MAKE_DETERMINISTIC =
+      makeTransformer(Listener.NULL_LISTENER, /*deterministic=*/ true);
 
-  public static Function<ThinNodeQueryableGraph, ProcessableGraph> makeTransformer(
+  public static MemoizingEvaluator.GraphTransformerForTesting makeTransformer(
       final Listener listener, boolean deterministic) {
     if (deterministic) {
-      return new Function<ThinNodeQueryableGraph, ProcessableGraph>() {
+      return new MemoizingEvaluator.GraphTransformerForTesting() {
         @Override
-        public ProcessableGraph apply(ThinNodeQueryableGraph queryableGraph) {
-          if (queryableGraph instanceof InMemoryGraph) {
-            return new DeterministicInMemoryGraph((InMemoryGraph) queryableGraph, listener);
-          } else {
-            return new DeterministicGraph<>(queryableGraph, listener);
-          }
+        public InMemoryGraph transform(InMemoryGraph graph) {
+          return new DeterministicInMemoryGraph(graph, listener);
+        }
+
+        @Override
+        public InvalidatableGraph transform(InvalidatableGraph graph) {
+          return new DeterministicInvalidatableGraph(graph, listener);
+        }
+
+        @Override
+        public ProcessableGraph transform(ProcessableGraph graph) {
+          return new DeterministicProcessableGraph(graph, listener);
         }
       };
     } else {
-      return NotifyingGraph.makeNotifyingTransformer(listener);
+      return NotifyingHelper.makeNotifyingTransformer(listener);
     }
   }
 
@@ -69,12 +64,12 @@ public class DeterministicGraph<TGraph extends ThinNodeQueryableGraph>
         }
       };
 
-  DeterministicGraph(TGraph delegate, Listener listener) {
-    super(delegate, listener);
+  DeterministicHelper(Listener listener) {
+    super(listener);
   }
 
-  DeterministicGraph(TGraph delegate) {
-    super(delegate, NotifyingGraph.Listener.NULL_LISTENER);
+  DeterministicHelper() {
+    super(NotifyingHelper.Listener.NULL_LISTENER);
   }
 
   @Nullable
@@ -89,14 +84,40 @@ public class DeterministicGraph<TGraph extends ThinNodeQueryableGraph>
     return result;
   }
 
-  @Override
-  public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-    return makeDeterministic(super.getBatch(keys));
+  private static class DeterministicInvalidatableGraph extends NotifyingInvalidatableGraph {
+    DeterministicInvalidatableGraph(InvalidatableGraph delegate, Listener graphListener) {
+      super(delegate, new DeterministicHelper(graphListener));
+    }
+
+    @Override
+    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
+      return makeDeterministic(super.getBatch(keys));
+    }
   }
 
-  @Override
-  public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
-    return makeDeterministic(super.createIfAbsentBatch(keys));
+  static class DeterministicProcessableGraph extends NotifyingProcessableGraph {
+    DeterministicProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
+      super(delegate, new DeterministicHelper(graphListener));
+    }
+
+    DeterministicProcessableGraph(ProcessableGraph delegate) {
+      this(delegate, Listener.NULL_LISTENER);
+    }
+
+    @Override
+    public void remove(SkyKey key) {
+      delegate.remove(key);
+    }
+
+    @Override
+    public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
+      return makeDeterministic(super.createIfAbsentBatch(keys));
+    }
+
+    @Override
+    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
+      return makeDeterministic(super.getBatch(keys));
+    }
   }
 
   /**

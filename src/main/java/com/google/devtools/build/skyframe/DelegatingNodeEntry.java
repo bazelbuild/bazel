@@ -157,22 +157,22 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
 
   @Override
   public Iterable<SkyKey> getDirectDeps() {
-    return getThinDelegate().getDirectDeps();
+    return getDelegate().getDirectDeps();
   }
 
   @Override
   public void removeReverseDep(SkyKey reverseDep) {
-    getThinDelegate().removeReverseDep(reverseDep);
+    getDelegate().removeReverseDep(reverseDep);
   }
 
   @Override
   public void removeInProgressReverseDep(SkyKey reverseDep) {
-    getThinDelegate().removeInProgressReverseDep(reverseDep);
+    getDelegate().removeInProgressReverseDep(reverseDep);
   }
 
   @Override
   public Iterable<SkyKey> getReverseDeps() {
-    return getThinDelegate().getReverseDeps();
+    return getDelegate().getReverseDeps();
   }
 
   @Override

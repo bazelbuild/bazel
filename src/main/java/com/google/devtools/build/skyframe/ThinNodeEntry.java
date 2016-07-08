@@ -32,40 +32,6 @@ public interface ThinNodeEntry {
   boolean isDone();
 
   /**
-   * Returns an immutable iterable of the direct deps of this node. This method may only be called
-   * after the evaluation of this node is complete.
-   *
-   * <p>This method is not very efficient, but is only be called in limited circumstances --
-   * when the node is about to be deleted, or when the node is expected to have no direct deps (in
-   * which case the overhead is not so bad). It should not be called repeatedly for the same node,
-   * since each call takes time proportional to the number of direct deps of the node.
-   */
-  @ThreadSafe
-  Iterable<SkyKey> getDirectDeps();
-
-  /**
-   * Removes a reverse dependency.
-   */
-  @ThreadSafe
-  void removeReverseDep(SkyKey reverseDep);
-
-  /**
-   * Removes a reverse dependency.
-   *
-   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and
-   * {@param reverseDep} is present in {@link #getReverseDeps}
-   */
-  @ThreadSafe
-  void removeInProgressReverseDep(SkyKey reverseDep);
-
-  /**
-   * Returns a copy of the set of reverse dependencies. Note that this introduces a potential
-   * check-then-act race; {@link #removeReverseDep} may fail for a key that is returned here.
-   */
-  @ThreadSafe
-  Iterable<SkyKey> getReverseDeps();
-
-  /**
    * Returns true if the entry is marked dirty, meaning that at least one of its transitive
    * dependencies is marked changed.
    */

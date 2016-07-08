@@ -16,7 +16,7 @@ package com.google.devtools.build.skyframe;
 import java.util.Map;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
-interface InMemoryGraph extends ProcessableGraph {
+interface InMemoryGraph extends ProcessableGraph, InvalidatableGraph {
   /**
    * Returns a read-only live view of the nodes in the graph. All node are included. Dirty values
    * include their Node value. Values in error have a null value.
