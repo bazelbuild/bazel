@@ -55,26 +55,36 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
   return GetCurrentProcessId();
 }
 
-struct NativeProcess {
-  HANDLE stdin_;
-  HANDLE stdout_;
-  HANDLE stderr_;
-  HANDLE process_;
-  HANDLE job_;
-  HANDLE event_;
+struct NativeOutputStream {
+  HANDLE handle_;
   std::string error_;
 
-  NativeProcess();
+  NativeOutputStream() : handle_(INVALID_HANDLE_VALUE), error_("") {}
+
+  void close() {
+    if (handle_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(handle_);
+      handle_ = INVALID_HANDLE_VALUE;
+    }
+  }
 };
 
-NativeProcess::NativeProcess() {
-  stdin_ = INVALID_HANDLE_VALUE;
-  stdout_ = INVALID_HANDLE_VALUE;
-  stderr_ = INVALID_HANDLE_VALUE;
-  process_ = INVALID_HANDLE_VALUE;
-  job_ = INVALID_HANDLE_VALUE;
-  error_ = "";
-}
+struct NativeProcess {
+  HANDLE stdin_;
+  NativeOutputStream stdout_;
+  NativeOutputStream stderr_;
+  HANDLE process_;
+  HANDLE job_;
+  std::string error_;
+
+  NativeProcess()
+      : stdin_(INVALID_HANDLE_VALUE),
+        stdout_(),
+        stderr_(),
+        process_(INVALID_HANDLE_VALUE),
+        job_(INVALID_HANDLE_VALUE),
+        error_("") {}
+};
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
@@ -132,15 +142,6 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     }
   }
 
-  event = CreateEvent(NULL, TRUE, FALSE, NULL);
-  if (event == NULL) {
-    event = INVALID_HANDLE_VALUE;
-    result->error_ = GetLastErrorString("CreateEvent()");
-    goto cleanup;
-  }
-
-  result->event_ = event;
-
   if (!CreatePipe(&stdin_process, &result->stdin_, &sa, 0)) {
     result->error_ = GetLastErrorString("CreatePipe(stdin)");
     goto cleanup;
@@ -161,7 +162,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       goto cleanup;
     }
   } else {
-    if (!CreatePipe(&result->stdout_, &stdout_process, &sa, 0)) {
+    if (!CreatePipe(&result->stdout_.handle_, &stdout_process, &sa, 0)) {
       result->error_ = GetLastErrorString("CreatePipe(stdout)");
       goto cleanup;
     }
@@ -186,7 +187,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       }
     }
   } else {
-    if (!CreatePipe(&result->stderr_, &stderr_process, &sa, 0)) {
+    if (!CreatePipe(&result->stderr_.handle_, &stderr_process, &sa, 0)) {
       result->error_ = GetLastErrorString("CreatePipe(stderr)");
       goto cleanup;
     }
@@ -322,47 +323,55 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
   return bytes_written;
 }
 
-jint ReadFromHandle(HANDLE handle, NativeProcess* process, JNIEnv* env,
-    jbyteArray java_bytes, jint offset, jint length) {
-  if (handle == INVALID_HANDLE_VALUE) {
-    process->error_ = "File handle closed";
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetStdout(
+    JNIEnv* env, jclass clazz, jlong process_long) {
+  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
+  return reinterpret_cast<jlong>(&process->stdout_);
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetStderr(
+    JNIEnv* env, jclass clazz, jlong process_long) {
+  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
+  return reinterpret_cast<jlong>(&process->stderr_);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
+    JNIEnv* env, jclass clazz, jlong stream_long, jbyteArray java_bytes,
+    jint offset, jint length) {
+  NativeOutputStream* stream =
+      reinterpret_cast<NativeOutputStream*>(stream_long);
+
+  if (stream->handle_ == INVALID_HANDLE_VALUE) {
+    stream->error_ = "File handle closed";
     return -1;
   }
 
   jsize array_size = env->GetArrayLength(java_bytes);
   if (offset < 0 || length <= 0 || offset > array_size - length) {
-    process->error_ = "Array index out of bounds";
+    stream->error_ = "Array index out of bounds";
     return -1;
   }
 
   jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
   DWORD bytes_read;
-  if (!ReadFile(handle, bytes + offset, length, &bytes_read, NULL)) {
-    process->error_ = GetLastErrorString("ReadFile()");
-    bytes_read = -1;
+  if (!ReadFile(stream->handle_, bytes + offset, length, &bytes_read, NULL)) {
+    if (GetLastError() == ERROR_BROKEN_PIPE) {
+      // End of file.
+      stream->error_ = "";
+      bytes_read = 0;
+    } else {
+      stream->error_ = GetLastErrorString("ReadFile()");
+      bytes_read = -1;
+    }
+  } else {
+    stream->error_ = "";
   }
 
   env->ReleaseByteArrayElements(java_bytes, bytes, 0);
-  process->error_ = "";
   return bytes_read;
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStdout(
-    JNIEnv *env, jclass clazz, jlong process_long, jbyteArray java_bytes,
-    jint offset, jint length) {
-  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return ReadFromHandle(process->stdout_, process, env, java_bytes, offset,
-      length);
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStderr(
-    JNIEnv *env, jclass clazz, jlong process_long, jbyteArray java_bytes,
-    jint offset, jint length) {
-  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return ReadFromHandle(process->stderr_, process, env, java_bytes, offset,
-      length);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -421,21 +430,16 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeDelete(
-    JNIEnv *env, jclass clazz, jlong process_long) {
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeDeleteProcess(
+    JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
 
   if (process->stdin_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->stdin_);
   }
 
-  if (process->stdout_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->stdout_);
-  }
-
-  if (process->stderr_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->stderr_);
-  }
+  process->stdout_.close();
+  process->stderr_.close();
 
   if (process->process_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->process_);
@@ -448,11 +452,29 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeDelete(
   delete process;
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCloseStream(
+    JNIEnv* env, jclass clazz, jlong stream_long) {
+  NativeOutputStream* stream =
+      reinterpret_cast<NativeOutputStream*>(stream_long);
+  stream->close();
+}
+
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetLastError(
-    JNIEnv *env, jclass clazz, jlong process_long) {
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeProcessGetLastError(
+    JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   jstring result = env->NewStringUTF(process->error_.c_str());
   process->error_ = "";
+  return result;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeStreamGetLastError(
+    JNIEnv* env, jclass clazz, jlong stream_long) {
+  NativeOutputStream* stream =
+      reinterpret_cast<NativeOutputStream*>(stream_long);
+  jstring result = env->NewStringUTF(stream->error_.c_str());
+  stream->error_ = "";
   return result;
 }

@@ -37,7 +37,7 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
   @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
     WindowsJniLoader.loadJni();
-    
+
     String commandLine = WindowsProcesses.quoteCommandLine(builder.getArgv());
     byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
 
@@ -46,13 +46,14 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
 
     long nativeProcess = WindowsProcesses.nativeCreateProcess(
         commandLine, env, builder.getWorkingDirectory().getPath(), stdoutPath, stderrPath);
-    String error = WindowsProcesses.nativeGetLastError(nativeProcess);
+    String error = WindowsProcesses.nativeProcessGetLastError(nativeProcess);
     if (!error.isEmpty()) {
-      WindowsProcesses.nativeDelete(nativeProcess);
+      WindowsProcesses.nativeDeleteProcess(nativeProcess);
       throw new IOException(error);
     }
 
-    return new WindowsSubprocess(nativeProcess, stdoutPath != null, stderrPath != null);
+    return new WindowsSubprocess(
+        nativeProcess, commandLine, stdoutPath != null, stderrPath != null);
   }
 
   private String getRedirectPath(StreamAction action, File file) {

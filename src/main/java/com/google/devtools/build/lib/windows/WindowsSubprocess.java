@@ -29,7 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A Windows subprocess backed by a native object.
  */
 public class WindowsSubprocess implements Subprocess {
-  private enum Stream { OUT, ERR };
+  // For debugging purposes.
+  private String commandLine;
 
   /**
    * Output stream for writing to the stdin of a Windows process.
@@ -52,12 +53,14 @@ public class WindowsSubprocess implements Subprocess {
 
   /**
    * Input stream for reading the stdout or stderr of a Windows process.
+   *
+   * <p>This class is non-static for debugging purposes.
    */
   private class ProcessInputStream extends InputStream {
-    private final Stream stream;
+    private long nativeStream;
 
-    ProcessInputStream(Stream stream) {
-      this.stream = stream;
+    ProcessInputStream(long nativeStream) {
+      this.nativeStream = nativeStream;
     }
 
     @Override
@@ -71,8 +74,35 @@ public class WindowsSubprocess implements Subprocess {
     }
 
     @Override
-    public int read(byte b[], int off, int len) throws IOException {
-      return readStream(stream, b, off, len);
+    public synchronized int read(byte b[], int off, int len) throws IOException {
+      if (nativeStream == WindowsProcesses.INVALID) {
+        throw new IllegalStateException();
+      }
+
+      int result = WindowsProcesses.nativeReadStream(nativeStream, b, off, len);
+
+      if (result == 0) {
+        return -1; // EOF
+      }
+      if (result == -1) {
+        throw new IOException(WindowsProcesses.nativeStreamGetLastError(nativeStream));
+      }
+
+      return result;
+    }
+
+    @Override
+    public synchronized void close() {
+      if (nativeStream != WindowsProcesses.INVALID) {
+        WindowsProcesses.nativeCloseStream(nativeStream);
+        nativeStream = WindowsProcesses.INVALID;
+      }
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+      close();
+      super.finalize();
     }
   }
 
@@ -89,17 +119,26 @@ public class WindowsSubprocess implements Subprocess {
         }
       });
 
-  private long nativeProcess;
-  private final OutputStream outputStream;
-  private final InputStream inputStream;
-  private final InputStream errorStream;
+  private volatile long nativeProcess;
+  private final OutputStream stdinStream;
+  private final ProcessInputStream stdoutStream;
+  private final ProcessInputStream stderrStream;
   private final CountDownLatch waitLatch;
 
-  WindowsSubprocess(long nativeProcess, boolean stdoutRedirected, boolean stderrRedirected) {
+
+  WindowsSubprocess(
+      long nativeProcess, String commandLine, boolean stdoutRedirected, boolean stderrRedirected) {
+    this.commandLine = commandLine;
     this.nativeProcess = nativeProcess;
-    inputStream = stdoutRedirected ? null : new ProcessInputStream(Stream.OUT);
-    errorStream = stderrRedirected ? null : new ProcessInputStream(Stream.ERR);
-    outputStream = new ProcessOutputStream();
+    stdoutStream =
+        stdoutRedirected
+            ? null
+            : new ProcessInputStream(WindowsProcesses.nativeGetStdout(nativeProcess));
+    stderrStream =
+        stderrRedirected
+            ? null
+            : new ProcessInputStream(WindowsProcesses.nativeGetStderr(nativeProcess));
+    stdinStream = new ProcessOutputStream();
     waitLatch = new CountDownLatch(1);
     // Every Windows process we start consumes a thread here. This is suboptimal, but seems to be
     // the sanest way to reconcile WaitForMultipleObjects() and Java-style interruption.
@@ -122,8 +161,11 @@ public class WindowsSubprocess implements Subprocess {
   }
 
   @Override
-  public synchronized void finalize() {
-    close();
+  public synchronized void finalize() throws Throwable {
+    if (nativeProcess != WindowsProcesses.INVALID) {
+      close();
+    }
+    super.finalize();
   }
 
   @Override
@@ -142,7 +184,7 @@ public class WindowsSubprocess implements Subprocess {
     checkLiveness();
 
     int result = WindowsProcesses.nativeGetExitCode(nativeProcess);
-    String error = WindowsProcesses.nativeGetLastError(nativeProcess);
+    String error = WindowsProcesses.nativeProcessGetLastError(nativeProcess);
     if (!error.isEmpty()) {
       throw new IllegalStateException(error);
     }
@@ -162,46 +204,28 @@ public class WindowsSubprocess implements Subprocess {
 
   @Override
   public synchronized void close() {
-    if (nativeProcess != -1) {
-      WindowsProcesses.nativeDelete(nativeProcess);
-      nativeProcess = -1;
+    if (nativeProcess != WindowsProcesses.INVALID) {
+      stdoutStream.close();
+      stderrStream.close();
+      long process = nativeProcess;
+      nativeProcess = WindowsProcesses.INVALID;
+      WindowsProcesses.nativeDeleteProcess(process);
     }
   }
 
   @Override
   public OutputStream getOutputStream() {
-    return outputStream;
+    return stdinStream;
   }
 
   @Override
   public InputStream getInputStream() {
-    return inputStream;
+    return stdoutStream;
   }
 
   @Override
   public InputStream getErrorStream() {
-    return errorStream;
-  }
-
-  private synchronized int readStream(Stream stream, byte b[], int off, int len)
-      throws IOException {
-    checkLiveness();
-
-    int result = -1;
-    switch (stream) {
-      case OUT:
-        result = WindowsProcesses.nativeReadStdout(nativeProcess, b, off, len);
-        break;
-      case ERR:
-        result = WindowsProcesses.nativeReadStderr(nativeProcess, b, off, len);
-        break;
-    }
-
-    if (result == -1) {
-      throw new IOException(WindowsProcesses.nativeGetLastError(nativeProcess));
-    }
-
-    return result;
+    return stderrStream;
   }
 
   private synchronized void writeStream(byte[] b, int off, int len) throws IOException {
@@ -215,7 +239,7 @@ public class WindowsSubprocess implements Subprocess {
       // I think the Windows API never returns 0 in dwNumberOfBytesWritten
       // Verify.verify(written != 0);
       if (written == -1) {
-        throw new IOException(WindowsProcesses.nativeGetLastError(nativeProcess));
+        throw new IOException(WindowsProcesses.nativeProcessGetLastError(nativeProcess));
       }
 
       remaining -= written;
@@ -224,8 +248,13 @@ public class WindowsSubprocess implements Subprocess {
   }
 
   private void checkLiveness() {
-    if (nativeProcess == -1) {
+    if (nativeProcess == WindowsProcesses.INVALID) {
       throw new IllegalStateException();
     }
+  }
+
+  @Override
+  public String toString() {
+    return String.format("%s:[%s]", super.toString(), commandLine);
   }
 }

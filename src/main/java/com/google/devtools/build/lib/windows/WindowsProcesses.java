@@ -20,6 +20,8 @@ import java.util.List;
  * Process management on Windows.
  */
 public class WindowsProcesses {
+  public static final long INVALID = -1;
+
   private static boolean jniLoaded = false;
   private WindowsProcesses() {
     // Prevent construction
@@ -57,23 +59,21 @@ public class WindowsProcesses {
    */
   static native int nativeWriteStdin(long process, byte[] bytes, int offset, int length);
 
-  /**
-   * Reads data from the stdout of the specified process into the given array.
-   *
-   * <p>Blocks until either some data was read or the process is terminated.
-   *
-   * @return the number of bytes read or -1 if there was an error.
-   */
-  static native int nativeReadStdout(long process, byte[] bytes, int offset, int length);
+  /** Returns an opaque identifier of stdout stream for the process. */
+  static native long nativeGetStdout(long process);
+
+  /** Returns am opaque identifier of stderr stream for the process. */
+  static native long nativeGetStderr(long process);
 
   /**
-   * Reads data from the stderr of the specified process into the given array.
+   * Reads data from the stream into the given array. {@code stream} should come from {@link
+   * #nativeGetStdout(long)} or {@link #nativeGetStderr(long)}.
    *
    * <p>Blocks until either some data was read or the process is terminated.
    *
-   * @return the number of bytes read or -1 if there was an error.
+   * @return the number of bytes read, 0 on EOF, or -1 if there was an error.
    */
-  static native int nativeReadStderr(long process, byte[] bytes, int offset, int length);
+  static native int nativeReadStream(long stream, byte[] bytes, int offset, int length);
 
   /**
    * Waits until the given process terminates.
@@ -101,21 +101,31 @@ public class WindowsProcesses {
   /**
    * Releases the native data structures associated with the process.
    *
-   * <p>Calling any other method on the same process after this call will result in the JVM
-   * crashing or worse.
+   * <p>Calling any other method on the same process after this call will result in the JVM crashing
+   * or worse.
    */
-  static native void nativeDelete(long process);
+  static native void nativeDeleteProcess(long process);
 
   /**
-   * Returns a string representation of the last error caused by any call on the given process
-   * or the empty string if the last operation was successful.
+   * Closes the stream
+   *
+   * @param stream should come from {@link #nativeGetStdout(long)} or {@link
+   *     #nativeGetStderr(long)}.
+   */
+  static native void nativeCloseStream(long stream);
+
+  /**
+   * Returns a string representation of the last error caused by any call on the given process or
+   * the empty string if the last operation was successful.
    *
    * <p>Does <b>NOT</b> terminate the process if it is still running.
    *
    * <p>After this call returns, subsequent calls will return the empty string if there was no
    * failed operation in between.
    */
-  static native String nativeGetLastError(long process);
+  static native String nativeProcessGetLastError(long process);
+
+  static native String nativeStreamGetLastError(long process);
 
   public static int getpid() {
     ensureJni();
