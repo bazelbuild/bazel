@@ -3,6 +3,7 @@ package(default_visibility = ["//src:__subpackages__"])
 java_library(
     name = "model",
     srcs = glob(["*.java"]),
+    compatible_with = ["//buildenv/target:appengine"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
