@@ -501,6 +501,7 @@ public class BlazeCommandDispatcher {
           : ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
       throw new ShutdownBlazeServerException(numericExitCode, ShutdownMethod.CLEAN, e);
     } finally {
+      env.getEventBus().post(new AfterCommandEvent());
       runtime.afterCommand(env, numericExitCode);
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());

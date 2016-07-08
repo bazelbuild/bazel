@@ -334,6 +334,12 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Subscribe
+  public synchronized void afterCommand(AfterCommandEvent event) {
+    buildComplete = true;
+    stopUpdateThread();
+  }
+
+  @Subscribe
   public void actionStarted(ActionStartedEvent event) {
     stateTracker.actionStarted(event);
     refresh();
