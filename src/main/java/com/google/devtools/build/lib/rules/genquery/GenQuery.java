@@ -269,9 +269,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           ruleContext.getAnalysisEnvironment().getSkyframeEnv());
       // This is a precomputed value so it should have been injected by the rules module by the
       // time we get there.
-      formatter =  OutputFormatter.getFormatter(
-          Preconditions.checkNotNull(outputFormatters), queryOptions.outputFormat, queryOptions.lineTerminator);
-
+      Iterable<OutputFormatter> filteredOutputFormatters = OutputFormatter.getFormatters(
+          Preconditions.checkNotNull(outputFormatters), queryOptions.outputFormat);
+      
+      final String lineTerm = queryOptions.getLineTerminator();
+      formatter = null;
+      for (OutputFormatter outputFormatter : filteredOutputFormatters) {
+    	  if (outputFormatter.getLineTerminator().equals(lineTerm)) {
+    		  formatter = outputFormatter;
+    		  break;
+    	  }
+      }
+      
       // All the packages are already loaded at this point, so there is no need
       // to start up many threads. 4 are started up to make good use of multiple
       // cores.

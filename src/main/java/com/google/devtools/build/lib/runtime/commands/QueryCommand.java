@@ -122,13 +122,32 @@ public final class QueryCommand implements BlazeCommand {
     }
 
     Iterable<OutputFormatter> formatters = runtime.getQueryOutputFormatters();
-    OutputFormatter formatter =
-        OutputFormatter.getFormatter(formatters, queryOptions.outputFormat, queryOptions.lineTerminator);
-    if (formatter == null) {
+    Iterable<OutputFormatter> outputFormatters =
+        OutputFormatter.getFormatters(formatters, queryOptions.outputFormat);
+    if (!outputFormatters.iterator().hasNext()) {
       env.getReporter().handle(Event.error(
           String.format("Invalid output format '%s'. Valid values are: %s",
               queryOptions.outputFormat, OutputFormatter.formatterNames(formatters))));
       return ExitCode.COMMAND_LINE_ERROR;
+    }
+    
+    // Try to match line terminators
+    OutputFormatter formatter = null;
+    
+    final String lineTerm = queryOptions.getLineTerminator();
+    
+    for( OutputFormatter outputFormatter : outputFormatters ) {
+    	if (outputFormatter.getLineTerminator().equals(lineTerm)) {
+    		formatter = outputFormatter;
+    		break;
+    	}
+    }
+    
+    if (formatter == null) {
+    	env.getReporter().handle(Event.error(
+    	  String.format("Invalid line terminator '%s'. Valid values are: %s",
+    		OutputFormatter.escapeTerminator(queryOptions.getLineTerminator()), OutputFormatter.formatterTerminators(outputFormatters))));
+    	return ExitCode.COMMAND_LINE_ERROR;
     }
 
     Set<Setting> settings = queryOptions.toSettings();

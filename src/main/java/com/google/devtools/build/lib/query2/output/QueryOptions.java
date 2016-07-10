@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.query2.output;
 
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -48,7 +50,18 @@ public class QueryOptions extends OptionsBase {
           + " Allowed values are: label, label_kind, minrank, maxrank, package, location, graph,"
           + " xml, proto, record.")
   public String outputFormat;
-  public String lineTerminator = System.lineSeparator();
+  @Option(name = "null",
+      defaultValue = "null",
+      category = "query",
+      expansion = {"--line_terminator=\0"},
+      help = "Whether each format is terminated with \0 instead of newline.")
+  public Void isNull;
+  
+  @Option(name = "line_terminator",
+	  defaultValue = "null",
+      category = "query",
+      help = "The line terminator for each line.")
+  public String lineTerminator;
 
   @Option(
     name = "order_results",
@@ -225,6 +238,16 @@ public class QueryOptions extends OptionsBase {
             + "command line. It is an error to specify a file here as well as a command-line query."
   )
   public String queryFile;
+  
+  /**
+   * Ugly workaround since line terminator option default has to be constant expression.
+   */
+  public String getLineTerminator() {
+	  if (lineTerminator == null)
+		  return System.lineSeparator();
+	  
+	  return lineTerminator;
+  }
 
   /**
    * Return the current options as a set of QueryEnvironment settings.

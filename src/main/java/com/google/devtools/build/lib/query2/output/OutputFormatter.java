@@ -103,13 +103,21 @@ public abstract class OutputFormatter implements Serializable {
   public static ImmutableList<OutputFormatter> getDefaultFormatters() {
     return ImmutableList.of(
         new LabelOutputFormatter(false, LINE_TERM),
+        new LabelOutputFormatter(false, "\0"),
         new LabelOutputFormatter(true, LINE_TERM),
+        new LabelOutputFormatter(true, "\0"),
         new BuildOutputFormatter(LINE_TERM),
+        new BuildOutputFormatter("\0"),
         new MinrankOutputFormatter(LINE_TERM),
+        new MinrankOutputFormatter("\0"),
         new MaxrankOutputFormatter(LINE_TERM),
+        new MaxrankOutputFormatter("\0"),
         new PackageOutputFormatter(LINE_TERM),
+        new PackageOutputFormatter("\0"),
         new LocationOutputFormatter(LINE_TERM),
+        new LocationOutputFormatter("\0"),
         new GraphOutputFormatter(LINE_TERM),
+        new GraphOutputFormatter("\0"),
         new XmlOutputFormatter(),
         new ProtoOutputFormatter());
   }
@@ -123,19 +131,37 @@ public abstract class OutputFormatter implements Serializable {
           }
     }));
   }
+  
+  public static String escapeTerminator(String value) {
+		return value
+			.replace("\t", "\\t")
+			.replace("\n", "\\n")
+			.replace("\0", "\\0");
+  }
+  
+  public static String formatterTerminators(Iterable<OutputFormatter> formatters) {
+    return Joiner.on(", ").join(Iterables.transform(formatters,
+      new Function<OutputFormatter, String>() {
+        @Override
+        public String apply(OutputFormatter input) {
+          return escapeTerminator(input.getLineTerminator());
+        }
+    }));
+  }
 
   /**
-   * Returns the output formatter for the specified command-line options.
+   * Returns the output formatters for the specified command-line options.
    */
-  public static OutputFormatter getFormatter(
-      Iterable<OutputFormatter> formatters, String type, final String terminator) {
+  public static Iterable<OutputFormatter> getFormatters(
+      Iterable<OutputFormatter> formatters, String type) {
+    List<OutputFormatter> result = new ArrayList<OutputFormatter>();
     for (OutputFormatter formatter : formatters) {
-      if (formatter.getName().equals(type) && formatter.getLineTerminator().equals(terminator)) {
-        return formatter;
+      if (formatter.getName().equals(type)) {
+        result.add(formatter);
       }
     }
 
-    return null;
+    return result;
   }
 
   /**
