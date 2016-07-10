@@ -48,6 +48,7 @@ public class QueryOptions extends OptionsBase {
           + " Allowed values are: label, label_kind, minrank, maxrank, package, location, graph,"
           + " xml, proto, record.")
   public String outputFormat;
+  public String lineTerminator = System.lineSeparator();
 
   @Option(
     name = "order_results",

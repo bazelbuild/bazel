@@ -41,10 +41,20 @@ import java.util.Set;
 class GraphOutputFormatter extends OutputFormatter {
 
   private int graphNodeStringLimit;
+  private final String lineTerminator;
 
+  public GraphOutputFormatter(final String lineTerminator) {
+    this.lineTerminator = lineTerminator;
+  }
+  
   @Override
   public String getName() {
     return "graph";
+  }
+  
+  @Override
+  public String getLineTerminator() {
+    return lineTerminator;
   }
 
   @Override
@@ -67,7 +77,7 @@ class GraphOutputFormatter extends OutputFormatter {
           public void beginVisit() {
             super.beginVisit();
             // TODO(bazel-team): (2009) make this the default in Digraph.
-            out.println("  node [shape=box];");
+            out.printf("  node [shape=box];%s", getLineTerminator());
           }
         },
         sortLabels ? new TargetOrdering() : null);

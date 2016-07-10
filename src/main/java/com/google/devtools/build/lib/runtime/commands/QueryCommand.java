@@ -123,7 +123,7 @@ public final class QueryCommand implements BlazeCommand {
 
     Iterable<OutputFormatter> formatters = runtime.getQueryOutputFormatters();
     OutputFormatter formatter =
-        OutputFormatter.getFormatter(formatters, queryOptions.outputFormat);
+        OutputFormatter.getFormatter(formatters, queryOptions.outputFormat, queryOptions.lineTerminator);
     if (formatter == null) {
       env.getReporter().handle(Event.error(
           String.format("Invalid output format '%s'. Valid values are: %s",

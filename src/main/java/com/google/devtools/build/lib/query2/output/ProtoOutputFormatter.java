@@ -63,6 +63,10 @@ import java.util.Set;
  */
 public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
+  public ProtoOutputFormatter() {
+    super(System.lineSeparator());
+  }
+
   /**
    * A special attribute name for the rule implementation hash code.
    */
