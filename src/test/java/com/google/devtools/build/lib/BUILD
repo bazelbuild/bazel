@@ -118,7 +118,10 @@ java_test(
         ],
     ),
     data = glob(["vfs/*.zip"]),
-    tags = ["foundations"],
+    tags = [
+        "foundations",
+        "no_windows",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
@@ -448,7 +451,10 @@ java_test(
         "analysis/*.java",
     ]),
     shard_count = 2,
-    tags = ["analysis"],
+    tags = [
+        "analysis",
+        "no_windows",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
@@ -646,7 +652,10 @@ java_test(
         ":shell/killmyself",
     ],
     flaky = True,
-    tags = ["shell"],
+    tags = [
+        "no_windows",
+        "shell",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
@@ -669,7 +678,10 @@ java_test(
     srcs = glob([
         "server/*.java",
     ]),
-    tags = ["server"],
+    tags = [
+        "no_windows",
+        "server",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
@@ -954,6 +966,7 @@ java_test(
     name = "sandbox-tests",
     srcs = glob(["sandbox/*.java"]),
     data = [":embedded_scripts"],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
@@ -981,6 +994,7 @@ java_test(
     name = "standalone-tests",
     srcs = glob(["standalone/*.java"]),
     data = [":embedded_scripts"],
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
