@@ -42,7 +42,7 @@
 # When running in Travis-CI, you can directly use the $TRAVIS_COMMIT_RANGE
 # environment variable.
 
-COMMIT_RANGE=$(git merge-base origin/master HEAD)".."
+COMMIT_RANGE=${COMMIT_RANGE:-$(git merge-base origin/master HEAD)".."}
 
 # Go to the root of the repo
 cd "$(git rev-parse --show-toplevel)"
