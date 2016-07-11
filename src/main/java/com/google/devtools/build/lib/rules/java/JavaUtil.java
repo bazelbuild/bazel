@@ -83,8 +83,7 @@ public final class JavaUtil {
     final boolean isSrc = "src".equals(path.getSegment(rootIndex));
     int checkMavenIndex = isSrc ? rootIndex : -1;
     if (rootIndex == 0 || isSrc) {
-      // Check for a nested "src" directory.
-      // Also, to support an existing case, "javatests" within "src".
+      // Check for a nested root directory.
       for (int i = rootIndex + 1, max = path.segmentCount() - 2; i <= max; i++) {
         String segment = path.getSegment(i);
         if ("src".equals(segment)
@@ -132,8 +131,8 @@ public final class JavaUtil {
    * result in "foo.bar.wiz".
    *
    * TODO(bazel-team): (2011) We need to have a more robust way to determine the Java root
-   * of a relative path rather than simply trying to find the "java" or
-   * "javatests" directory.
+   * of a relative path rather than simply trying to find the "java" or "javatests"
+   * or "src" directory.
    */
   public static String getJavaFullClassname(PathFragment path) {
     PathFragment javaPath = getJavaPath(path);
