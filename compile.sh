@@ -189,7 +189,9 @@ if [ $DO_TESTS ]; then
       fi
     fi
   fi
-  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
+  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc \
+      ${BAZEL_DIR_STARTUP_OPTIONS} \
+      test \
       --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
       --nolegacy_bazel_java_test \

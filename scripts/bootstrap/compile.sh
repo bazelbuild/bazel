@@ -277,6 +277,7 @@ function bootstrap_build() {
       --install_md5= \
       --workspace_directory=${PWD} \
       --nofatal_event_bus_exceptions \
+      ${BAZEL_DIR_STARTUP_OPTIONS} \
       build \
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
