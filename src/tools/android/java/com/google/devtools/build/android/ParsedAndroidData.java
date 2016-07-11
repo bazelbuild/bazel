@@ -45,7 +45,6 @@ import java.util.logging.Logger;
 
 import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.NotThreadSafe;
-import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 
 /**
@@ -257,7 +256,6 @@ public class ParsedAndroidData {
     private final List<Exception> errors;
     private ResourceFolderType folderType;
     private FullyQualifiedName.Factory fqnFactory;
-    private final XMLInputFactory xmlInputFactory = XMLInputFactory.newFactory();
     private final boolean parseIds;
 
     /**
@@ -306,14 +304,23 @@ public class ParsedAndroidData {
         if (!Files.isDirectory(path) && !path.getFileName().toString().startsWith(".")) {
           if (folderType == ResourceFolderType.VALUES) {
             DataResourceXml.parse(
-                xmlInputFactory, path, fqnFactory, overwritingConsumer, combiningResources);
+                XmlResourceValues.getXmlInputFactory(),
+                path,
+                fqnFactory,
+                overwritingConsumer,
+                combiningResources);
           } else if (folderType != null) {
             FullyQualifiedName key = fqnFactory.parse(path);
             if (parseIds
                 && ID_PROVIDING_RESOURCE_TYPES.contains(folderType)
                 && path.getFileName().toString().endsWith(SdkConstants.DOT_XML)) {
               DataValueFileWithIds.parse(
-                  xmlInputFactory, path, key, fqnFactory, overwritingConsumer, combiningResources);
+                  XmlResourceValues.getXmlInputFactory(),
+                  path,
+                  key,
+                  fqnFactory,
+                  overwritingConsumer,
+                  combiningResources);
             } else {
               overwritingConsumer.consume(key, DataValueFile.of(path));
             }

@@ -44,6 +44,7 @@ import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLEventWriter;
+import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
@@ -83,6 +84,17 @@ public class XmlResourceValues {
 
   static final String XLIFF_NAMESPACE = "urn:oasis:names:tc:xliff:document:1.2";
   static final String XLIFF_PREFIX = "xliff";
+
+
+  private static XMLInputFactory inputFactoryInstance = null;
+  public static XMLInputFactory getXmlInputFactory() {
+    if (inputFactoryInstance == null) {
+      inputFactoryInstance = XMLInputFactory.newInstance();
+      inputFactoryInstance.setProperty(
+          "http://java.sun.com/xml/stream/properties/report-cdata-event", Boolean.TRUE);
+    }
+    return inputFactoryInstance;
+  }
 
   static XmlResourceValue parsePlurals(XMLEventReader eventReader) throws XMLStreamException {
     ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
@@ -239,7 +251,7 @@ public class XmlResourceValues {
     StringWriter contents = new StringWriter();
     XMLEventWriter writer = XML_OUTPUT_FACTORY.createXMLEventWriter(contents);
     while (!isEndTag(eventReader.peek(), startTag)) {
-      XMLEvent xmlEvent = eventReader.nextEvent();
+      XMLEvent xmlEvent = (XMLEvent) eventReader.next();
       if (xmlEvent.isStartElement()) {
         // TODO(corysmith): Replace this with a proper representation of the contents that can be
         // serialized and reconstructed appropriately without modification.
