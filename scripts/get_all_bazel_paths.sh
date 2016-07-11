@@ -30,8 +30,10 @@ function query() {
 # Build almost everything.
 # //third_party/ijar/test/... is disabled due to #273.
 # xcode and android tools do not work out of the box.
+# native code should not be explicitly built, since it may not be compatible
+# with this platform.
 targets_to_build=(//src/{main,java_tools,test/{java,cpp}}/... //third_party/...)
-targets_to_omit=(-//third_party/ijar/test/... -//third_party/java/j2objc/...)
+targets_to_omit=(-//third_party/ijar/test/... -//third_party/java/j2objc/... -//src/main/native/...)
 ./output/bazel build -- ${targets_to_build[@]} ${targets_to_omit[@]} >&2 \
   || exit $?
 
