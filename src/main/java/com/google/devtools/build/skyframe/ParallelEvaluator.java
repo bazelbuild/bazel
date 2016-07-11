@@ -1017,8 +1017,13 @@ public final class ParallelEvaluator implements Evaluator {
       } catch (final SkyFunctionException builderException) {
         ReifiedSkyFunctionException reifiedBuilderException =
             new ReifiedSkyFunctionException(builderException, skyKey);
+        // In keep-going mode, we do not let SkyFunctions throw errors with missing deps -- we will
+        // restart them when their deps are done, so we can have a definitive error and definitive
+        // graph structure, thus avoiding non-determinism. It's completely reasonable for
+        // SkyFunctions to throw eagerly because they do not know if they are in keep-going mode.
         // Propagated transitive errors are treated the same as missing deps.
-        if (reifiedBuilderException.getRootCauseSkyKey().equals(skyKey)) {
+        if ((!keepGoing || !env.valuesMissing())
+            && reifiedBuilderException.getRootCauseSkyKey().equals(skyKey)) {
           boolean shouldFailFast = !keepGoing || builderException.isCatastrophic();
           if (shouldFailFast) {
             // After we commit this error to the graph but before the eval call completes with the
