@@ -15,7 +15,6 @@ java_library(
     name = "runner",
     testonly = 0,  # TODO(bazel-team): make it testonly
     srcs = glob(["runner/*.java"]),
-    compatible_with = ["//buildenv/target:appengine"],
     deps = [
         "//third_party:guava",
         "//third_party:junit4",

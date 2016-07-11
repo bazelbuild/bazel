@@ -11,7 +11,6 @@ package(default_visibility = ["//src:__subpackages__"])
 java_library(
     name = "api",
     srcs = glob(["*.java"]),
-    compatible_with = ["//buildenv/target:appengine"],
     deps = [
         "//third_party:junit4",
     ],

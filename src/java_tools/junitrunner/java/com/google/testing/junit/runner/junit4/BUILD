@@ -13,7 +13,6 @@ java_library(
         ["*.java"],
         exclude = ["RegExTestCaseFilter.java"],
     ),
-    compatible_with = ["//buildenv/target:appengine"],
     deps = [
         ":filter",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner",
@@ -33,7 +32,6 @@ java_library(
 java_library(
     name = "filter",
     srcs = ["RegExTestCaseFilter.java"],
-    compatible_with = ["//buildenv/target:appengine"],
     deps = [
         "//third_party:guava",
         "//third_party:junit4",

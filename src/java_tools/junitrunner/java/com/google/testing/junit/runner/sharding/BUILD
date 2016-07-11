@@ -11,7 +11,6 @@ package(default_visibility = ["//src:__subpackages__"])
 java_library(
     name = "sharding",
     srcs = glob(["*.java"]),
-    compatible_with = ["//buildenv/target:appengine"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
         "//third_party:guava",
