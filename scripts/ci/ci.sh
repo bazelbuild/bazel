@@ -32,7 +32,7 @@
 # built and tested"
 #
 # When this script is triggered by Gerrit's patchset-updated hook (for example)
-# you can replace origina/master in the COMMIT_RANGE variable initialization
+# you can replace origin/master in the COMMIT_RANGE variable initialization
 # with the branch passed as argument to the hook. When using Jenkins with the
 # Gerrit Trigger Plugin, use $GERRIT_BRANCH instead. This would make it
 # possible to have the Verified label on Gerrit patchsets populated as fast
