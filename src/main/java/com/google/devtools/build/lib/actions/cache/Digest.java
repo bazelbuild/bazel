@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.VarInt;
 
@@ -107,7 +108,7 @@ public class Digest {
 
   @Override
   public String toString() {
-    return Fingerprint.hexDigest(digest);
+    return HashCode.fromBytes(digest).toString();
   }
 
   private static byte[] getDigest(Fingerprint fp, String execPath, Metadata md) {
