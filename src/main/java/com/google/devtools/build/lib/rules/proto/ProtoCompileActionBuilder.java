@@ -190,7 +190,7 @@ public class ProtoCompileActionBuilder {
     }
 
     FilesToRunProvider compilerTarget =
-        ruleContext.getExecutablePrerequisite("$compiler", RuleConfiguredTarget.Mode.HOST);
+        ruleContext.getExecutablePrerequisite(":proto_compiler", RuleConfiguredTarget.Mode.HOST);
     if (ruleContext.hasErrors()) {
       throw new MissingPrerequisiteException();
     }
