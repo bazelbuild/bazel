@@ -131,6 +131,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean useHeaderCompilation;
   private final boolean optimizeHeaderCompilationAnnotationProcessing;
   private final boolean generateJavaDeps;
+  private final boolean javaProtoLibraryDepsAreStrict;
   private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> javaWarns;
   private final ImmutableList<String> defaultJvmFlags;
@@ -172,6 +173,7 @@ public final class JavaConfiguration extends Fragment {
     this.javaToolchain = javaToolchain;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
+    this.javaProtoLibraryDepsAreStrict = javaOptions.javaProtoLibraryDepsAreStrict;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -335,5 +337,10 @@ public final class JavaConfiguration extends Fragment {
    */
   public boolean useLegacyBazelJavaTest() {
     return legacyBazelJavaTest;
+  }
+
+  // TODO(b/29867858): Replace with a BUILD-level attribute.
+  public boolean javaProtoLibraryDepsAreStrict() {
+    return javaProtoLibraryDepsAreStrict;
   }
 }

@@ -348,6 +348,19 @@ public class JavaOptions extends FragmentOptions {
       help = "Use the legacy mode of Bazel for java_test.")
   public boolean legacyBazelJavaTest;
 
+  @Option(
+    name = "java_proto_library_deps_are_strict",
+    defaultValue = "false",
+    category = "undocumented",
+    help =
+        "This only applies to java_proto_library. "
+            + "If true: (1) if a Java file uses proto Foo, it must depend on a  "
+            + "java_{lite,...}_proto_library that directly depends on a proto_library that has Foo "
+            + "in its srcs. (2) strict-deps violations are reported for the proto_library rules "
+            + "themselves."
+  )
+  public boolean javaProtoLibraryDepsAreStrict;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();

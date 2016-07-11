@@ -717,7 +717,7 @@ java_library(
 java_library(
     name = "java-rules",
     srcs = glob(
-        ["rules/java/*.java"],
+        ["rules/java/**/*.java"],
         exclude = [
             "rules/java/JavaImplicitAttributes.java",
             "rules/java/JavaToolchainDataParser.java",
@@ -730,6 +730,7 @@ java_library(
         ":events",
         ":java-implicit-attributes",
         ":packages-internal",
+        ":proto-rules",
         ":shell",
         ":skylarkinterface",
         ":util",

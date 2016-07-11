@@ -116,17 +116,18 @@ public class BazelJavaRuleClasses {
     }
   }
 
-  static final Set<String> ALLOWED_RULES_IN_DEPS = ImmutableSet.of(
-      "cc_binary",  // NB: linkshared=1
-      "cc_library",
-      "genrule",
-      "genproto",  // TODO(bazel-team): we should filter using providers instead (skylark rule).
-      "java_import",
-      "java_library",
-      // There is no Java protoc for Bazel--yet. This is here for the benefit of J2 protos.
-      "proto_library",
-      "sh_binary",
-      "sh_library");
+  static final Set<String> ALLOWED_RULES_IN_DEPS =
+      ImmutableSet.of(
+          "cc_binary", // NB: linkshared=1
+          "cc_library",
+          "genrule",
+          "genproto", // TODO(bazel-team): we should filter using providers instead (skylark rule).
+          "java_import",
+          "java_library",
+          "java_proto_library",
+          "proto_library",
+          "sh_binary",
+          "sh_library");
 
   /**
    * Common attributes for Java rules.
