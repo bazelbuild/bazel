@@ -96,7 +96,8 @@ public class XmlResourceValues {
     return inputFactoryInstance;
   }
 
-  static XmlResourceValue parsePlurals(XMLEventReader eventReader) throws XMLStreamException {
+  static XmlResourceValue parsePlurals(XMLEventReader eventReader, StartElement start)
+      throws XMLStreamException {
     ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
     for (XMLEvent element = nextTag(eventReader);
         !isEndTag(element, TAG_PLURALS);
@@ -112,7 +113,8 @@ public class XmlResourceValues {
             contents == null ? "" : contents);
       }
     }
-    return PluralXmlResourceValue.of(values.build());
+    return PluralXmlResourceValue.createWithAttributesAndValues(
+        ImmutableMap.copyOf(parseTagAttributes(start)), values.build());
   }
 
   static XmlResourceValue parseStyle(XMLEventReader eventReader, StartElement start)

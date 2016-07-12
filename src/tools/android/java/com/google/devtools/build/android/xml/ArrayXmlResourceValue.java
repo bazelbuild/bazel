@@ -115,7 +115,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     return of(
         ArrayType.valueOf(proto.getValueType()),
         proto.getListValueList(),
-        ImmutableMap.copyOf(proto.getMappedStringValue()));
+        ImmutableMap.copyOf(proto.getAttribute()));
   }
 
   @Override
@@ -147,7 +147,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
                 SerializeFormat.DataValueXml.newBuilder()
                     .addAllListValue(values)
                     .setType(SerializeFormat.DataValueXml.XmlType.ARRAY)
-                    .putAllMappedStringValue(attributes)
+                    .putAllAttribute(attributes)
                     .setValueType(arrayType.toString())));
   }
 

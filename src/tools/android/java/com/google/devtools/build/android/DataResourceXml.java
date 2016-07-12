@@ -171,7 +171,7 @@ public class DataResourceXml implements DataResource {
       case ARRAY:
         return ArrayXmlResourceValue.parseArray(eventReader, start);
       case PLURALS:
-        return XmlResourceValues.parsePlurals(eventReader);
+        return XmlResourceValues.parsePlurals(eventReader, start);
       case ATTR:
         return XmlResourceValues.parseAttr(eventReader, start);
       case LAYOUT:

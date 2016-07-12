@@ -209,7 +209,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
     return of(
         Type.valueOf(proto.getValueType()),
-        ImmutableMap.copyOf(proto.getMappedStringValue()),
+        ImmutableMap.copyOf(proto.getAttribute()),
         proto.hasValue() ? proto.getValue() : null);
   }
 
@@ -223,7 +223,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
             .setType(SerializeFormat.DataValueXml.XmlType.SIMPLE)
             // TODO(corysmith): Find a way to avoid writing strings to the serialized format
             // it's inefficient use of space and costs more when deserializing.
-            .putAllMappedStringValue(attributes);
+            .putAllAttribute(attributes);
     if (value != null) {
       xmlValueBuilder.setValue(value);
     }

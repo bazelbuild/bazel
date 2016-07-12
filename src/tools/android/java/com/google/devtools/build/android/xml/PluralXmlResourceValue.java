@@ -54,19 +54,36 @@ public class PluralXmlResourceValue implements XmlResourceValue {
 
   private final ImmutableMap<String, String> values;
 
-  private PluralXmlResourceValue(ImmutableMap<String, String> values) {
+  private final ImmutableMap<String, String> attributes;
+
+  private PluralXmlResourceValue(
+      ImmutableMap<String, String> attributes, ImmutableMap<String, String> values) {
+    this.attributes = attributes;
     this.values = values;
   }
 
-  public static XmlResourceValue of(ImmutableMap<String, String> values) {
-    return new PluralXmlResourceValue(values);
+  public static XmlResourceValue createWithoutAttributes(ImmutableMap<String, String> values) {
+    return createWithAttributesAndValues(ImmutableMap.<String, String>of(), values);
+  }
+
+  public static XmlResourceValue createWithAttributesAndValues(
+      ImmutableMap<String, String> attributes, ImmutableMap<String, String> values) {
+    return new PluralXmlResourceValue(attributes, values);
   }
 
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+
     ValuesResourceDefinition definition =
-        mergedDataWriter.define(key).derivedFrom(source).startTag(PLURALS).named(key).closeTag();
+        mergedDataWriter
+            .define(key)
+            .derivedFrom(source)
+            .startTag(PLURALS)
+            .named(key)
+            .addAttributesFrom(attributes.entrySet())
+            .closeTag();
+
     for (Entry<String, String> plural : values.entrySet()) {
       definition =
           definition
@@ -83,7 +100,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
 
   @Override
   public int hashCode() {
-    return values.hashCode();
+    return Objects.hash(attributes, values);
   }
 
   @Override
@@ -92,17 +109,22 @@ public class PluralXmlResourceValue implements XmlResourceValue {
       return false;
     }
     PluralXmlResourceValue other = (PluralXmlResourceValue) obj;
-    return Objects.equals(values, other.values);
+    return Objects.equals(values, other.values) && Objects.equals(attributes, other.attributes);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(getClass()).add("values", values).toString();
+    return MoreObjects.toStringHelper(getClass())
+        .add("values", values)
+        .add("attributes", attributes)
+        .toString();
   }
 
   @SuppressWarnings("deprecation")
   public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
-    return of(ImmutableMap.copyOf(proto.getMappedStringValue()));
+    return createWithAttributesAndValues(
+        ImmutableMap.copyOf(proto.getAttribute()),
+        ImmutableMap.copyOf(proto.getMappedStringValue()));
   }
 
   @Override
@@ -115,6 +137,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
                 builder
                     .getXmlValueBuilder()
                     .setType(XmlType.PLURAL)
+                    .putAllAttribute(attributes)
                     .putAllMappedStringValue(values))
             .build();
     value.writeDelimitedTo(output);
