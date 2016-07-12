@@ -274,8 +274,8 @@ java_import(
 java_import(
     name = "hazelcast",
     jars = [
-        "hazelcast/hazelcast-3.5.4.jar",
-        "hazelcast/hazelcast-client-3.5.4.jar",
+        "hazelcast/hazelcast-3.6.4.jar",
+        "hazelcast/hazelcast-client-3.6.4.jar",
     ],
 )
 
