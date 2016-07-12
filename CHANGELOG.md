@@ -2,6 +2,14 @@
 
 ```
 Baseline: 759bbfe
+
+Extra cherry picks:
+   + 068a661: GPLv2 + Classpath exception compliance: ship the source code of jformatstring
+   + a18add1: Adds the source of the checker framework
+   + f6c24de: GPLv2 + Classpath exception compliance: ship the source of checker_framework
+   + c95cb5f: Add source for Javac
+   + 4017d28: Fix fallout of incorrectly merged review (3921)
+
    + 1250fda: Rollback of commit
               351475627b9e94e5afdf472cbf465f49c433a25e.
    + ba8700e: Correctly set up build variables for the correct pic
