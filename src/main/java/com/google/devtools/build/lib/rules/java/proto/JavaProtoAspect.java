@@ -264,7 +264,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       JavaToolchainProvider toolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
       ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
       listBuilder.addAll(toolchain.getJavacOptions());
-      listBuilder.add("-source", "7", "-target", "7");
+      listBuilder.addAll(toolchain.getCompatibleJavacOptions(JavaSemantics.JAVA7_JAVACOPTS_KEY));
       return listBuilder.build();
     }
 
