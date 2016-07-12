@@ -581,7 +581,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         scratch.file(
             "/rg/BUILD",
             "cc_library(name = 'ri', srcs = glob(['**/*.cc']))",
-            "cc_library(name = 're', srcs = glob(['*.cc'], ['**/*.c']))");
+            "cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))");
     Package pkg = packages.eval("rg", file);
     events.assertNoWarningsOrErrors();
 
@@ -663,8 +663,17 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobFails(
         "glob()",
         "insufficient arguments received by glob(include: sequence of strings, "
-            + "exclude: sequence of strings = [], exclude_directories: int = 1) "
+            + "*, exclude: sequence of strings = [], exclude_directories: int = 1) "
             + "(got 0, expected at least 1)");
+  }
+
+  @Test
+  public void testGlobUnamedExclude() throws Exception {
+    events.setFailFast(false);
+    assertGlobFails(
+        "glob(['a'], ['b'])",
+        "too many (2) positional arguments in call to glob(include: sequence of strings, "
+            + "*, exclude: sequence of strings = [], exclude_directories: int = 1)");
   }
 
   @Test
@@ -673,23 +682,24 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertGlobFails(
         "glob(1,2,3,4)",
         "too many (4) positional arguments in call to glob(include: sequence of strings, "
-            + "exclude: sequence of strings = [], exclude_directories: int = 1)");
+            + "*, exclude: sequence of strings = [], exclude_directories: int = 1)");
   }
 
   @Test
   public void testGlobEnforcesListArgument() throws Exception {
     events.setFailFast(false);
     assertGlobFails(
-        "glob(1,2)",
-        "Method glob(include: sequence of strings, exclude: sequence of strings, "
-            + "exclude_directories: int) is not applicable for arguments (int, int, int)");
+        "glob(1, exclude=2)",
+        "Method glob(include: sequence of strings, *, exclude: sequence of strings, "
+            + "exclude_directories: int) is not applicable for arguments (int, int, int): "
+            + "'include' is int, but should be sequence");
   }
 
   @Test
   public void testGlobEnforcesListOfStringsArguments() throws Exception {
     events.setFailFast(false);
     assertGlobFails(
-        "glob(['a', 'b'],['c', 42])",
+        "glob(['a', 'b'], exclude=['c', 42])",
         "expected value of type 'string' for element 1 of 'glob' argument, but got 42 (int)");
   }
 

@@ -477,35 +477,62 @@ public final class PackageFactory {
     return packageArguments.build();
   }
 
-  /****************************************************************************
-   * Environment function factories.
+  /**
+   * ************************************************************************** Environment function
+   * factories.
    */
 
   /**
    * Returns a function-value implementing "glob" in the specified package context.
    *
-   * @param async if true, start globs in the background but don't block on their completion.
-   *        Only use this for heuristic preloading.
+   * @param async if true, start globs in the background but don't block on their completion. Only
+   *     use this for heuristic preloading.
    */
-  @SkylarkSignature(name = "glob", objectType = Object.class, returnType = SkylarkList.class,
-      doc = "Returns a list of files that match glob search pattern",
-      parameters = {
-        @Param(name = "include", type = SkylarkList.class, generic1 = String.class,
-            doc = "a list of strings specifying patterns of files to include."),
-        @Param(name = "exclude", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]",
-            doc = "a list of strings specifying patterns of files to exclude."),
-        // TODO(bazel-team): migrate all existing code to use boolean instead?
-        @Param(name = "exclude_directories", type = Integer.class, defaultValue = "1",
-            doc = "a integer that if non-zero indicates directories should not be matched.")},
-      documented = false, useAst = true, useEnvironment = true)
+  @SkylarkSignature(
+    name = "glob",
+    objectType = Object.class,
+    returnType = SkylarkList.class,
+    doc = "Returns a list of files that match glob search pattern",
+    parameters = {
+      @Param(
+        name = "include",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        doc = "a list of strings specifying patterns of files to include."
+      ),
+      @Param(
+        name = "exclude",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        positional = false,
+        named = true,
+        doc = "a list of strings specifying patterns of files to exclude."
+      ),
+      // TODO(bazel-team): migrate all existing code to use boolean instead?
+      @Param(
+        name = "exclude_directories",
+        type = Integer.class,
+        defaultValue = "1",
+        positional = false,
+        named = true,
+        doc = "a integer that if non-zero indicates directories should not be matched."
+      )
+    },
+    documented = false,
+    useAst = true,
+    useEnvironment = true
+  )
   private static final BuiltinFunction.Factory newGlobFunction =
       new BuiltinFunction.Factory("glob") {
         public BuiltinFunction create(final PackageContext originalContext, final boolean async) {
           return new BuiltinFunction("glob", this) {
             public SkylarkList invoke(
-                SkylarkList include, SkylarkList exclude, Integer excludeDirectories,
-                FuncallExpression ast, Environment env)
+                SkylarkList include,
+                SkylarkList exclude,
+                Integer excludeDirectories,
+                FuncallExpression ast,
+                Environment env)
                 throws EvalException, ConversionException, InterruptedException {
               return callGlob(
                   originalContext, async, include, exclude, excludeDirectories != 0, ast, env);

@@ -235,7 +235,9 @@ public abstract class PackageFactoryTestBase {
     Path file =
         scratch.file(
             "/globs/BUILD",
-            Printer.format("result = glob(%r, %r, %r)", includes, excludes, excludeDirs ? 1 : 0),
+            Printer.format(
+                "result = glob(%r, exclude=%r, exclude_directories=%r)",
+                includes, excludes, excludeDirs ? 1 : 0),
             resultAssertion);
 
     return packages.evalAndReturnGlobCache("globs", file, packages.ast(file));
