@@ -329,14 +329,7 @@ public final class AfUnixServer extends RPCServer {
     // (All this extra complexity is just used in tests... *sigh*).
     if (socketFile.toString().length() >= 104) { // = UNIX_PATH_MAX
       Path socketLink = socketFile;
-      String tmpDirDefault = System.getenv("TMPDIR");
-      if (tmpDirDefault == null
-          || tmpDirDefault.length() > 104 - "/blaze-4294967296/server.socket".length()) {
-        // Default for unset TMPDIR, or if TMPDIR is so that the resulting
-        // path would be too long.
-        tmpDirDefault = "/tmp";
-      }
-      String tmpDir = System.getProperty("blaze.rpcserver.tmpdir", tmpDirDefault);
+      String tmpDir = System.getProperty("blaze.rpcserver.tmpdir", "/tmp");
       socketFile = createTempSocketDirectory(socketFile.getRelative(tmpDir)).
           getRelative("server.socket");
       LOG.info("Using symlinked socket at " + socketFile);
