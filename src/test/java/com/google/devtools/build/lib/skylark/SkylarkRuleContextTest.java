@@ -475,6 +475,24 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testExistingRuleReturnNone() throws Exception {
+    scratch.file(
+        "test/rulestr.bzl",
+        "def test_rule(name, x):",
+        "  print(native.existing_rule(x))",
+        "  if native.existing_rule(x) == None:",
+        "    native.cc_library(name = name)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rulestr.bzl', 'test_rule')",
+        "test_rule('a', 'does not exist')",
+        "test_rule('b', 'BUILD')");
+
+    assertNotNull(getConfiguredTarget("//test:a"));
+    assertNotNull(getConfiguredTarget("//test:b"));
+  }
+
+  @Test
   public void testGetRule() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(

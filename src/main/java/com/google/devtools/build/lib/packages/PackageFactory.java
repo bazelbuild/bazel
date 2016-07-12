@@ -886,7 +886,7 @@ public final class PackageFactory {
   private static SkylarkDict<String, Object> targetDict(
       Target target, Location loc, Environment env)
       throws NotRepresentableException, EvalException {
-    if (target == null && !(target instanceof Rule)) {
+    if (target == null || !(target instanceof Rule)) {
       return null;
     }
     SkylarkDict<String, Object> values = SkylarkDict.<String, Object>of(env);
