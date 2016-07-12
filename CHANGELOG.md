@@ -4,6 +4,11 @@
 Baseline: a9301fa
 
 Cherry picks:
+   + 068a661: GPLv2 + Classpath exception compliance: ship the source code of jformatstring
+   + a18add1: Adds the source of the checker framework
+   + f6c24de: GPLv2 + Classpath exception compliance: ship the source of checker_framework
+   + c95cb5f: Add source for Javac
+   + 4017d28: Fix fallout of incorrectly merged review (3921)
    + ff30a73: Turn --legacy_external_runfiles back on by default
    + aeee3b8: Fix delete[] warning on fsevents.cc
 ```
