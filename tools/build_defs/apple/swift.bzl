@@ -131,8 +131,7 @@ def _swift_library_impl(ctx):
 
   srcs_args = [f.path for f in ctx.files.srcs]
 
-  # TODO(b/28005582): Instead of including a dir for each dependecy, output to
-  # a shared dir and include that?
+  # Include each swift module's parent directory for imports to work.
   include_dirs = set([x.dirname for x in dep_modules])
 
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
