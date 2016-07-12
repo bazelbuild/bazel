@@ -229,18 +229,27 @@ genrule(
   cmd = "(echo \"PATH=$$PATH\"; echo \"TMPDIR=$$TMPDIR\") > $@",
 )
 EOF
-  local old_path="${PATH-}"
+  local old_path="${PATH}"
   local old_tmpdir="${TMPDIR-}"
+  local effective_tmpdir="${TMPDIR:-/tmp}"
+  local new_tmpdir=$(mktemp -d "${effective_tmpdir}/newfancytmpdirXXXXXX")
+  [ -d "${new_tmpdir}" ] || \
+    fail "Could not create new temporary directory ${new_tmpdir}"
   export PATH="/bin:/usr/bin:/random/path"
-  export TMPDIR="/some/path"
+  export TMPDIR="${new_tmpdir}"
   # batch mode to force reload of the environment
   bazel --batch build //pkg:test || fail "Failed to build //pkg:test"
-  export PATH="$old_path"
-  export TMPDIR="$old_tmpdir"
   assert_contains "PATH=/bin:/usr/bin:/random/path" \
     bazel-genfiles/pkg/test.out
-  assert_contains "TMPDIR=/some/path" \
+  assert_contains "TMPDIR=.*newfancytmpdir" \
     bazel-genfiles/pkg/test.out
+  if [ -n "${old_tmpdir}" ]
+  then
+    export TMPDIR="${old_tmpdir}"
+  else
+    unset TMPDIR
+  fi
+  export PATH="${old_path}"
 }
 
 function test_genrule_remote() {
