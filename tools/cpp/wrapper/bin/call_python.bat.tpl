@@ -21,6 +21,5 @@ for /F %%i in ("%arg0%") do set TOOLNAME=%%~ni
 
 set PYDIR="%DRIVER_BIN%pydir"
 
-::TODO(pcloudy): Remove hard code path, user should be able to configure
-if not defined MSVCPYTHON set MSVCPYTHON=C:\python_27_amd64\files\python.exe
+if not defined MSVCPYTHON set MSVCPYTHON=%{python_binary}
 %MSVCPYTHON% -B "%PYDIR%\%TOOLNAME%.py" %*

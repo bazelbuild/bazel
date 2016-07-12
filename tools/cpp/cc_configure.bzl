@@ -49,6 +49,24 @@ def _which(repository_ctx, cmd, default):
   result = repository_ctx.which(cmd)
   return default if result == None else str(result)
 
+# This functions can only be used on Windows
+def _to_windows_path(repository_ctx, path):
+  """Convert unix path to windows path, also works for path list."""
+  result = repository_ctx.execute(["cygpath", "-w", "-p", path])
+  if result.stderr:
+    fail(result.stderr)
+  return result.stdout.strip()
+
+# This functions can only be used on Windows
+# This function is a workaround since repository_ctx.which doesn't work on Windows for now.
+# TODO(pcloudy): Remove this function once the skylark implemented which function works.
+def _which_windows(repository_ctx, cmd):
+  """run which command to detect a binary location and return a windows path."""
+  result = repository_ctx.execute(["which", cmd])
+  if result.stderr:
+    fail("Cannot find " + cmd + " in PATH.\nPlease make sure "
+         + cmd + " is installed.\n" + result.stderr)
+  return _to_windows_path(repository_ctx, result.stdout.strip())
 
 def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools."""
@@ -239,6 +257,40 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           ],
   }
 
+# TODO(pcloudy): Remove this after MSVC CROSSTOOL becomes default on Windows
+def _get_windows_crosstool_content(repository_ctx):
+  """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
+  result = repository_ctx.execute(["cygpath", "-m", "/"])
+  if result.stderr:
+    fail(result.stderr)
+  msys_root = result.stdout.strip()
+  return (
+      '   abi_version: "local"\n' +
+      '   abi_libc_version: "local"\n' +
+      '   builtin_sysroot: ""\n' +
+      '   compiler: "windows_msys64"\n' +
+      '   host_system_name: "local"\n' +
+      "   needsPic: false\n" +
+      '   target_libc: "local"\n' +
+      '   target_cpu: "x64_windows"\n' +
+      '   target_system_name: "local"\n' +
+      '   tool_path { name: "ar" path: "%susr/bin/ar" }\n' % msys_root +
+      '   tool_path { name: "compat-ld" path: "%susr/bin/ld" }\n' % msys_root +
+      '   tool_path { name: "cpp" path: "%susr/bin/cpp" }\n' % msys_root +
+      '   tool_path { name: "dwp" path: "%susr/bin/dwp" }\n' % msys_root +
+      '   tool_path { name: "gcc" path: "%susr/bin/gcc" }\n' % msys_root +
+      '   cxx_flag: "-std=gnu++0x"\n' +
+      '   linker_flag: "-lstdc++"\n' +
+      '   cxx_builtin_include_directory: "%s"\n' % msys_root +
+      '   cxx_builtin_include_directory: "/usr/"\n' +
+      '   tool_path { name: "gcov" path: "%susr/bin/gcov" }\n' % msys_root +
+      '   tool_path { name: "ld" path: "%susr/bin/ld" }\n' % msys_root +
+      '   tool_path { name: "nm" path: "%susr/bin/nm" }\n' % msys_root +
+      '   tool_path { name: "objcopy" path: "%susr/bin/objcopy" }\n' % msys_root +
+      '   objcopy_embed_flag: "-I"\n' +
+      '   objcopy_embed_flag: "binary"\n' +
+      '   tool_path { name: "objdump" path: "%susr/bin/objdump" }\n' % msys_root +
+      '   tool_path { name: "strip" path: "%susr/bin/strip" }'% msys_root )
 
 def _opt_content(darwin):
   """Return the content of the opt specific section of the CROSSTOOL file."""
@@ -290,6 +342,33 @@ def _find_cc(repository_ctx):
   return cc
 
 
+def _find_vs_path(repository_ctx):
+  """Find Visual Studio install path."""
+  bash_bin = _which_windows(repository_ctx, "bash.exe")
+  program_files_dir = repository_ctx.os.environ["ProgramFiles(x86)"]
+  if not program_files_dir:
+    fail("'ProgramFiles(x86)' environment variable is not set")
+  vs_version = repository_ctx.execute([bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir]).stdout.strip()
+  return program_files_dir + "/" + vs_version
+
+
+def _find_env_vars(repository_ctx, vs_path):
+  """Get environment variables set by VCVARSALL.BAT."""
+  vsvars = vs_path + "/VC/VCVARSALL.BAT"
+  repository_ctx.file("wrapper/get_env.bat",
+                      "@echo off\n" +
+                      "call \"" + vsvars + "\" amd64 \n" +
+                      "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
+  envs = repository_ctx.execute(["wrapper/get_env.bat"], 600,
+                                # TODO(pcloudy): This should be removed once the environment variable format is fixed
+                                {"PATH": _to_windows_path(repository_ctx, repository_ctx.os.environ["PATH"].strip())}).stdout.strip().split(",")
+  env_map = {}
+  for env in envs:
+    key, value = env.split("=")
+    env_map[key] = value.replace("\\", "\\\\")
+  return env_map
+
+
 def _tpl(repository_ctx, tpl, substitutions={}, out=None):
   if not out:
     out = tpl
@@ -314,15 +393,48 @@ def _get_env(repository_ctx):
 def _impl(repository_ctx):
   repository_ctx.file("tools/cpp/empty.cc")
   cpu_value = _get_cpu_value(repository_ctx)
-  if cpu_value in ["freebsd", "x64_windows"]:
+  if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually do those platform too.
     # Theorically, FreeBSD should be straightforward to add but we cannot run it in a docker
     # container so escaping until we have proper tests for FreeBSD.
-    # Windows support is still experimental, let's not fiddle with autoconfiguration for now.
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
+  elif cpu_value == "x64_windows":
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
+
     msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
-    repository_ctx.symlink(msvc_wrapper, "wrapper/bin")
+    for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
+      repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/" + f)
+    msvc_wrapper = msvc_wrapper.get_child("pydir")
+    for f in ["msvc_cl.py", "msvc_link.py"]:
+      repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
+
+    python_binary = _which_windows(repository_ctx, "python.exe")
+    _tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": python_binary})
+
+    vs_path = _find_vs_path(repository_ctx)
+    env = _find_env_vars(repository_ctx, vs_path)
+    python_dir = python_binary[0:-10].replace("\\", "\\\\")
+    include_paths = env["INCLUDE"] + (python_dir + "include")
+    lib_paths = env["LIB"] + (python_dir + "libs")
+    _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
+        "%{tmp}": _to_windows_path(repository_ctx, repository_ctx.os.environ["TMP"]).replace("\\", "\\\\"),
+        "%{path}": env["PATH"],
+        "%{include}": include_paths,
+        "%{lib}": lib_paths,
+    })
+
+    cxx_include_directories = []
+    for path in include_paths.split(";"):
+      if path:
+        cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
+    _tpl(repository_ctx, "CROSSTOOL", {
+        "%{cpu}": cpu_value,
+        "%{content}": _get_windows_crosstool_content(repository_ctx),
+        "%{opt_content}": "",
+        "%{dbg_content}": "",
+        "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories)
+    })
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
@@ -346,6 +458,7 @@ def _impl(repository_ctx):
                       _build_tool_path(tool_paths),
         "%{opt_content}": _build_crosstool(opt_content, "    "),
         "%{dbg_content}": _build_crosstool(dbg_content, "    "),
+        "%{cxx_builtin_include_directory}": ""
     })
 
 
