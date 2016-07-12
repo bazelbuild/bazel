@@ -192,7 +192,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
     Artifact binary = ruleContext.getPackageRelativeArtifact(
         binaryPath, ruleContext.getConfiguration().getBinDirectory());
-    CppLinkAction.Builder linkActionBuilder =
+    CppLinkActionBuilder linkActionBuilder =
         determineLinkerArguments(
             ruleContext,
             common,
@@ -380,18 +380,23 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Given 'temps', traverse this target and its dependencies and collect up all
-   * the object files, libraries, linker options, linkstamps attributes and linker scripts.
+   * Given 'temps', traverse this target and its dependencies and collect up all the object files,
+   * libraries, linker options, linkstamps attributes and linker scripts.
    */
-  private static CppLinkAction.Builder determineLinkerArguments(RuleContext context,
-      CcCommon common, PrecompiledFiles precompiledFiles,
+  private static CppLinkActionBuilder determineLinkerArguments(
+      RuleContext context,
+      CcCommon common,
+      PrecompiledFiles precompiledFiles,
       CcCompilationOutputs compilationOutputs,
       ImmutableSet<Artifact> compilationPrerequisites,
-      boolean fake, Artifact binary,
-      LinkStaticness linkStaticness, List<String> linkopts) {
-    CppLinkAction.Builder builder = new CppLinkAction.Builder(context, binary)
-        .setCrosstoolInputs(CppHelper.getToolchain(context).getLink())
-        .addNonLibraryInputs(compilationPrerequisites);
+      boolean fake,
+      Artifact binary,
+      LinkStaticness linkStaticness,
+      List<String> linkopts) {
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(context, binary)
+            .setCrosstoolInputs(CppHelper.getToolchain(context).getLink())
+            .addNonLibraryInputs(compilationPrerequisites);
 
     // Determine the object files to link in.
     boolean usePic = CppHelper.usePic(context, !isLinkShared(context));
