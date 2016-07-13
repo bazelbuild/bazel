@@ -4,7 +4,7 @@
 configuration. If you already have a separate Hazelcast cluster you can skip
 this step.
 
-    java -cp third_party/hazelcast/hazelcast-3.5.4.jar \
+    java -cp third_party/hazelcast/hazelcast-3.6.4.jar \
         com.hazelcast.core.server.StartServer
 
 - Then you run Bazel pointing to the Hazelcast server.
