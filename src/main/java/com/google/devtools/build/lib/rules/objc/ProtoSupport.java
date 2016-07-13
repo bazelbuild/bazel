@@ -459,7 +459,7 @@ final class ProtoSupport {
             .addAll(getAllProtoSources())
             .add(getProtoInputListFile())
             .addAll(attributes.getProtoCompilerSupport())
-            .addAll(getPortableProtoFilters());
+            .addTransitive(getPortableProtoFilters());
 
     Artifact optionsFile = attributes.getOptionsFile();
     if (optionsFile != null) {
