@@ -261,7 +261,8 @@ public class CppCompileAction extends AbstractAction
             ruleContext,
             mandatoryInputs,
             context.getTransitiveCompilationPrerequisites(),
-            optionalSourceFile),
+            optionalSourceFile,
+            lipoScannables),
         CollectionUtils.asListWithoutNulls(
             outputFile, (dotdFile == null ? null : dotdFile.artifact()), gcnoFile, dwoFile));
     this.configuration = configuration;
@@ -333,7 +334,8 @@ public class CppCompileAction extends AbstractAction
       RuleContext ruleContext,
       NestedSet<Artifact> mandatoryInputs,
       Set<Artifact> prerequisites,
-      Artifact optionalSourceFile) {
+      Artifact optionalSourceFile,
+      Iterable<IncludeScannable> lipoScannables) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     if (optionalSourceFile != null) {
       builder.add(optionalSourceFile);
@@ -341,6 +343,20 @@ public class CppCompileAction extends AbstractAction
     builder.addAll(prerequisites);
     builder.addAll(CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles());
     builder.addTransitive(mandatoryInputs);
+    if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
+      // We need to add "legal generated scanner files" coming through LIPO scannables here. These
+      // usually contain pre-grepped source files, i.e. files just containing the #include lines
+      // extracted from generated files. With LIPO, some of these files can be accessed, even though
+      // there is no direct dependency on them. Adding the artifacts as inputs to this compile
+      // action ensures that the action generating them is actually executed.
+      for (IncludeScannable lipoScannable : lipoScannables) {
+        for (Artifact value : lipoScannable.getLegalGeneratedScannerFileMap().values()) {
+          if (value != null) {
+            builder.add(value);
+          }
+        }
+      }
+    }
     return builder.build();
   }
 
