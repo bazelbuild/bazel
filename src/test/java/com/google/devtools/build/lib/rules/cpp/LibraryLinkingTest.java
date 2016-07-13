@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,9 +68,9 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
         linkAction,
         "-shared",
         "-o",
-        TestConstants.PRODUCT_NAME + "-out/.+/genrule/thebinary.so",
+        analysisMock.getProductName() + "-out/.+/genrule/thebinary.so",
         "-Wl,-whole-archive",
-        TestConstants.PRODUCT_NAME + "-out/.+/genrule/genlib.a",
+        analysisMock.getProductName() + "-out/.+/genrule/genlib.a",
         "-Wl,-no-whole-archive");
   }
 

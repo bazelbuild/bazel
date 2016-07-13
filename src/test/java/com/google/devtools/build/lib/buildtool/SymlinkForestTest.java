@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -189,7 +188,7 @@ public class SymlinkForestTest {
 
     Path linkRoot = fileSystem.getPath("/linkRoot");
     createDirectoryAndParents(linkRoot);
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME).plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
 
     assertLinksTo(linkRoot, rootA, "pkgA");
     assertIsDir(linkRoot, "dir1");
@@ -216,7 +215,7 @@ public class SymlinkForestTest {
             .put(createPkg(rootX, rootY, "foo"), rootX)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME).plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
     assertLinksTo(linkRoot, rootX, "file");
   }
 
@@ -240,7 +239,7 @@ public class SymlinkForestTest {
             .put(createPkg(outputBase, "w", ""), outputBase)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME).plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
     assertFalse(linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/file").exists());
     assertLinksTo(
         linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/w"), rootY.getRelative("w"));
@@ -262,7 +261,7 @@ public class SymlinkForestTest {
             .put(Label.EXTERNAL_PACKAGE_IDENTIFIER, root)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME).plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
     assertThat(linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX).exists()).isFalse();
   }
 }

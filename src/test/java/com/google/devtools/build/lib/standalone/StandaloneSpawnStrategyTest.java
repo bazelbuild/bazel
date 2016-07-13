@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -89,27 +88,29 @@ public class StandaloneSpawnStrategyTest {
     Path outputBase = testRoot.getRelative("outputBase");
     outputBase.createDirectory();
 
-    BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, workspaceDir,
-        TestConstants.PRODUCT_NAME);
+    BlazeDirectories directories =
+        new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
     BlazeTestUtils.getIntegrationBinTools(directories);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
 
     EventBus bus = new EventBus();
 
-    this.executor = new BlazeExecutor(
-        directories.getExecRoot(),
-        directories.getOutputPath(),
-        reporter, bus,
-        BlazeClock.instance(),
-        optionsParser,
-        /* verboseFailures */ false,
-        /* showSubcommands */ false,
-        ImmutableList.<ActionContext>of(),
-        ImmutableMap.<String, SpawnActionContext>of("",
-            new StandaloneSpawnStrategy(directories.getExecRoot(), false,
-                TestConstants.PRODUCT_NAME)),
-        ImmutableList.<ActionContextProvider>of());
+    this.executor =
+        new BlazeExecutor(
+            directories.getExecRoot(),
+            directories.getOutputPath(),
+            reporter,
+            bus,
+            BlazeClock.instance(),
+            optionsParser,
+            /* verboseFailures */ false,
+            /* showSubcommands */ false,
+            ImmutableList.<ActionContext>of(),
+            ImmutableMap.<String, SpawnActionContext>of(
+                "",
+                new StandaloneSpawnStrategy(directories.getExecRoot(), false, "mock-product-name")),
+            ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectory();
   }
