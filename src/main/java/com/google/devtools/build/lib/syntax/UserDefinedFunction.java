@@ -118,8 +118,7 @@ public class UserDefinedFunction extends BaseFunction {
       }
     }
 
-    Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN,
-        getLocationPathAndLine() + "#" + getName());
+    Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN, getName());
     try {
       env.enterScope(this, ast, definitionGlobals);
       ImmutableList<String> names = signature.getSignature().getNames();
