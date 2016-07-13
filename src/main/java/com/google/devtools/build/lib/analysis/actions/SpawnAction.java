@@ -681,6 +681,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
+    /** @deprecated Use {@link #addTransitiveInputs} to avoid excessive memory use. */
+    @Deprecated
+    public Builder addInputs(NestedSet<Artifact> artifacts) {
+      // Do not delete this method, or else addInputs(Iterable) calls with a NestedSet argument
+      // will not be flagged.
+      inputsBuilder.addAll((Iterable<Artifact>) artifacts);
+      return this;
+    }
+
     /**
      * Adds transitive inputs to this action.
      */
