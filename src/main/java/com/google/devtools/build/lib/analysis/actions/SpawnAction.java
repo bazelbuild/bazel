@@ -51,14 +51,12 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
-
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
@@ -1039,6 +1037,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
+     * Force the use of a parameter file and set the encoding to ISO-8859-1 (latin1).
+     *
+     * <p>In order to use parameter files, at least one output artifact must be specified.
+     */
+    public Builder alwaysUseParameterFile(ParameterFileType parameterFileType) {
+      return useParameterFile(parameterFileType, ISO_8859_1, "@", /*always=*/ true);
+    }
+
+    /**
      * Enable or disable the use of a parameter file, set the encoding to the given value, and
      * specify the argument prefix to use in passing the parameter file name to the tool.
      *
@@ -1047,7 +1054,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder useParameterFile(
         ParameterFileType parameterFileType, Charset charset, String flagPrefix) {
-      paramFileInfo = new ParamFileInfo(parameterFileType, charset, flagPrefix);
+      return useParameterFile(parameterFileType, charset, flagPrefix, /*always=*/ false);
+    }
+
+    private Builder useParameterFile(
+        ParameterFileType parameterFileType, Charset charset, String flagPrefix, boolean always) {
+      paramFileInfo = new ParamFileInfo(parameterFileType, charset, flagPrefix, always);
       return this;
     }
   }

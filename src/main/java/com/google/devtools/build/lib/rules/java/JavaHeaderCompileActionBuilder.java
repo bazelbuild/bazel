@@ -32,11 +32,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -249,11 +247,14 @@ public class JavaHeaderCompileActionBuilder {
       builder.addOutput(outputDepsProto);
     }
 
-    builder.useParameterFile(ParameterFileType.UNQUOTED);
+    // Always use a params file. The arguments (classpath in particular) may be so large that
+    // comparing the command line length to the minimum param file size regresses analysis
+    // performance (see b/29410356).
+    builder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
     builder.setCommandLine(buildCommandLine(ruleContext.getConfiguration().getHostPathSeparator()));
 
     builder.addTransitiveInputs(javabaseInputs);
-    builder.addInputs(classpathEntries);
+    builder.addTransitiveInputs(classpathEntries);
     builder.addInputs(bootclasspathEntries);
     builder.addInputs(processorPath);
     builder.addInputs(sourceJars);

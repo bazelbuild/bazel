@@ -23,9 +23,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -65,8 +63,11 @@ public final class ParamFileHelper {
       BuildConfiguration configuration,
       AnalysisEnvironment analysisEnvironment,
       Iterable<Artifact> outputs) {
-    if (paramFileInfo == null ||
-        getParamFileSize(executableArgs, arguments, commandLine)
+    if (paramFileInfo == null) {
+      return null;
+    }
+    if (!paramFileInfo.always()
+        && getParamFileSize(executableArgs, arguments, commandLine)
             < configuration.getMinParamFileSize()) {
       return null;
     }
