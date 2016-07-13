@@ -16,7 +16,11 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,6 +31,119 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CcToolchainSuiteTest extends BuildViewTestCase {
+  @Test
+  public void testFilesToBuild() throws Exception {
+    scratch.file(
+        "cc/BUILD",
+        "cc_toolchain_suite(",
+        "    name = 'suite',",
+        "    toolchains = { ",
+        "       'k8|k8-compiler': ':k8-toolchain',",
+        "       'darwin|darwin-compiler': ':darwin-toolchain',",
+        "    },",
+        "    proto = \"\"\"",
+        "major_version: 'v1'",
+        "minor_version: '0'",
+        "default_target_cpu: 'k8'",
+        "default_toolchain {",
+        "  cpu: 'k8'",
+        "  toolchain_identifier: 'k8-toolchain'",
+        "}",
+        "default_toolchain {",
+        "  cpu: 'darwin'",
+        "  toolchain_identifier: 'darwin-toolchain'",
+        "}",
+        "toolchain {",
+        "  compiler: 'k8-compiler'",
+        "  target_cpu: 'k8'",
+        "  toolchain_identifier: 'k8-toolchain'",
+        "  host_system_name: 'linux'",
+        "  target_system_name: 'linux'",
+        "  abi_version: 'cpu-abi'",
+        "  abi_libc_version: ''",
+        "  target_libc: ''",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "  tool_path { name: 'cpu-compiler', path: 'k8/compiler' }",
+        "  tool_path { name: 'ar', path: 'k8/ar' }",
+        "  tool_path { name: 'cpp', path: 'k8/cpp' }",
+        "  tool_path { name: 'gcc', path: 'k8/gcc' }",
+        "  tool_path { name: 'gcov', path: 'k8/gcov' }",
+        "  tool_path { name: 'ld', path: 'k8/ld' }",
+        "  tool_path { name: 'nm', path: 'k8/nm' }",
+        "  tool_path { name: 'objcopy', path: 'k8/objcopy' }",
+        "  tool_path { name: 'objdump', path: 'k8/objdump' }",
+        "  tool_path { name: 'strip', path: 'k8/strip' }",
+        "}",
+        "toolchain {",
+        "  compiler: 'darwin-compiler'",
+        "  target_cpu: 'darwin'",
+        "  toolchain_identifier: 'darwin-toolchain'",
+        "  host_system_name: 'linux'",
+        "  target_system_name: 'linux'",
+        "  abi_version: ''",
+        "  abi_libc_version: ''",
+        "  target_libc: ''",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "  tool_path { name: 'darwin-compiler', path: 'darwin/compiler' }",
+        "  tool_path { name: 'ar', path: 'darwin/ar' }",
+        "  tool_path { name: 'cpp', path: 'darwin/cpp' }",
+        "  tool_path { name: 'gcc', path: 'darwin/gcc' }",
+        "  tool_path { name: 'gcov', path: 'darwin/gcov' }",
+        "  tool_path { name: 'ld', path: 'darwin/ld' }",
+        "  tool_path { name: 'nm', path: 'darwin/nm' }",
+        "  tool_path { name: 'objcopy', path: 'darwin/objcopy' }",
+        "  tool_path { name: 'objdump', path: 'darwin/objdump' }",
+        "  tool_path { name: 'strip', path: 'darwin/strip' }",
+        "}",
+        "\"\"\")",
+        "cc_toolchain(",
+        "    name = 'k8-toolchain',",
+        "    module_map = 'map',",
+        "    cpu = 'cpu',",
+        "    compiler_files = 'compile',",
+        "    dwp_files = 'dwp',",
+        "    linker_files = 'link',",
+        "    strip_files = ':strip',",
+        "    objcopy_files = 'objcopy',",
+        "    all_files = ':k8-files',",
+        "    dynamic_runtime_libs = ['k8-dynamic-runtime-libs'],",
+        "    static_runtime_libs = ['k8-static-runtime-libs'])",
+        "filegroup(",
+        "    name = 'k8-files',",
+        "    srcs = ['k8-marker', 'everything'])",
+        "",
+        "cc_toolchain(",
+        "    name = 'darwin-toolchain',",
+        "    module_map = 'map',",
+        "    cpu = 'cpu',",
+        "    compiler_files = 'compile',",
+        "    dwp_files = 'dwp',",
+        "    linker_files = 'link',",
+        "    strip_files = ':strip',",
+        "    objcopy_files = 'objcopy',",
+        "    all_files = ':darwin-files',",
+        "    dynamic_runtime_libs = ['darwin-dynamic-runtime-libs'],",
+        "    static_runtime_libs = ['darwin-static-runtime-libs'])",
+        "filegroup(",
+        "    name = 'darwin-files',",
+        "    srcs = ['darwin-marker', 'everything'])");
+
+    scratch.file("a/BUILD",
+        "genrule(name='a', srcs=[], outs=['ao'], tools=['//tools/defaults:crosstool'], cmd='x')");
+
+    invalidatePackages();
+    useConfiguration("--crosstool_top=//cc:suite");
+    Action action = getGeneratingAction(getConfiguredTarget("//a:a"), "a/ao");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
+        .containsAllOf("k8-marker", "darwin-marker");
+
+    NestedSet<Artifact> suiteFiles = getFilesToBuild(getConfiguredTarget("//cc:suite"));
+    assertThat(ActionsTestUtil.baseArtifactNames(suiteFiles))
+        .containsAllOf("k8-marker", "darwin-marker");
+  }
+
   @Test
   public void testSmoke() throws Exception {
     scratch.file(

@@ -18,9 +18,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
 /**
@@ -35,8 +34,16 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
+      CcToolchainProvider provider = dep.getProvider(CcToolchainProvider.class);
+      if (provider != null) {
+        filesToBuild.addTransitive(provider.getCrosstool());
+      }
+    }
+
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
+        .setFilesToBuild(filesToBuild.build())
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .build();
   }

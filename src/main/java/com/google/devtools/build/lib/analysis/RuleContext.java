@@ -648,6 +648,28 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from
+   * a string to a {@link TransitiveInfoCollection}.
+   */
+  public Map<String, TransitiveInfoCollection> getPrerequisiteMap(String attributeName) {
+    Attribute attributeDefinition = getAttribute(attributeName);
+    Preconditions.checkState(attributeDefinition.getType() == BuildType.LABEL_DICT_UNARY);
+
+    ImmutableMap.Builder<String, TransitiveInfoCollection> result = ImmutableMap.builder();
+    Map<String, Label> dict = attributes().get(attributeName, BuildType.LABEL_DICT_UNARY);
+    Map<Label, ConfiguredTarget> labelToDep = new HashMap<>();
+    for (ConfiguredTarget dep : targetMap.get(attributeName)) {
+      labelToDep.put(dep.getLabel(), dep);
+    }
+
+    for (Map.Entry<String, Label> entry : dict.entrySet()) {
+      result.put(entry.getKey(), Preconditions.checkNotNull(labelToDep.get(entry.getValue())));
+    }
+
+    return result.build();
+  }
+
+  /**
    * Returns the list of transitive info collections that feed into this target through the
    * specified attribute. Note that you need to specify the correct mode for the attribute,
    * otherwise an assertion will be raised.
