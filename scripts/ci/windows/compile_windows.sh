@@ -35,6 +35,7 @@ fi
 # These variables are temporarily needed for Bazel
 export BAZEL_SH="$(cygpath --windows /bin/bash)"
 export TMPDIR=${TMPDIR:-c:/bazel_ci/temp}
+export PATH="${PATH}:/c/python_27_amd64/files"
 mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 
 # Even though there are no quotes around $* in the .bat file, arguments
