@@ -54,13 +54,16 @@ public final class RdepsFunction extends AllRdepsFunction {
    * towards the universe while staying within the transitive closure.
    */
   @Override
-  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
+  public <T> void eval(QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
       List<Argument> args, Callback<T> callback)
-      throws QueryException, InterruptedException {
-    Set<T> universeValue = QueryUtil.evalAll(env, args.get(0).getExpression());
+      throws QueryException,
+      InterruptedException {
+    Set<T> universeValue = QueryUtil.evalAll(env, context, args.get(0).getExpression());
     env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
 
     Predicate<T> universe = Predicates.in(env.getTransitiveClosure(universeValue));
-    eval(env, args.subList(1, args.size()), callback, universe);
+    eval(env, context, args.subList(1, args.size()), callback, universe);
   }
 }

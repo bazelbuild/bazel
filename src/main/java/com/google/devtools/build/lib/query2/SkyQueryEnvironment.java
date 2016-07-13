@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.query2.engine.RdepsFunction;
 import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -320,9 +321,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try (final AutoProfiler p = AutoProfiler.logged("evaluating query", LOG)) {
       try {
         if (expr.canEvalConcurrently()) {
-          expr.evalConcurrently(this, callbackWithEmptyCheck, threadPool);
+          expr.evalConcurrently(
+              this, VariableContext.<Target>empty(), callbackWithEmptyCheck, threadPool);
         } else {
-          expr.eval(this, callbackWithEmptyCheck);
+          expr.eval(this, VariableContext.<Target>empty(), callbackWithEmptyCheck);
         }
       } catch (QueryException e) {
         throw new QueryException(e, expr);
@@ -487,9 +489,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public void eval(QueryExpression expr, Callback<Target> callback)
+  public void eval(QueryExpression expr, VariableContext<Target> context, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    expr.eval(this, callback);
+    expr.eval(this, context, callback);
   }
 
   @Override
@@ -979,10 +981,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public void getAllRdeps(
       QueryExpression expression,
       Predicate<Target> universe,
-      final Callback<Target> callback,
-      final int depth)
+      VariableContext<Target> context,
+      Callback<Target> callback,
+      int depth)
       throws QueryException, InterruptedException {
-    getAllRdeps(expression, universe, callback, depth, BATCH_CALLBACK_SIZE);
+    getAllRdeps(expression, universe, context, callback, depth, BATCH_CALLBACK_SIZE);
   }
 
   /**
@@ -994,13 +997,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @VisibleForTesting
   protected void getAllRdeps(
       QueryExpression expression,
-      final Predicate<Target> universe,
-      final Callback<Target> callback,
-      final int depth,
-      final int batchSize)
+      Predicate<Target> universe,
+      VariableContext<Target> context,
+      Callback<Target> callback,
+      int depth,
+      int batchSize)
       throws QueryException, InterruptedException {
     Uniquifier<Target> uniquifier = createUniquifier();
-    eval(expression, new BatchAllRdepsCallback(uniquifier, universe, callback, depth, batchSize));
+    eval(
+        expression,
+        context,
+        new BatchAllRdepsCallback(uniquifier, universe, callback, depth, batchSize));
   }
 
   private class BatchAllRdepsCallback implements Callback<Target> {

@@ -52,12 +52,16 @@ class LabelsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(final QueryEnvironment<T> env, final QueryExpression expression,
-      final List<Argument> args, final Callback<T> callback)
+  public <T> void eval(
+      final QueryEnvironment<T> env,
+      VariableContext<T> context,
+      final QueryExpression expression,
+      final List<Argument> args,
+      final Callback<T> callback)
       throws QueryException, InterruptedException {
     final String attrName = args.get(0).getWord();
     final Uniquifier<T> uniquifier = env.createUniquifier();
-    env.eval(args.get(1).getExpression(), new Callback<T>() {
+    env.eval(args.get(1).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
         for (T input : partialResult) {

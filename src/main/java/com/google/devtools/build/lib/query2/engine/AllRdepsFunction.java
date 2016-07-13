@@ -51,13 +51,18 @@ public class AllRdepsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args,
+  public <T> void eval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
       Callback<T> callback) throws QueryException, InterruptedException {
-    eval(env, args, callback, Predicates.<T>alwaysTrue());
+    eval(env, context, args, callback, Predicates.<T>alwaysTrue());
   }
 
   protected <T> void eval(
       final QueryEnvironment<T> env,
+      VariableContext<T> context,
       final List<Argument> args,
       final Callback<T> callback,
       final Predicate<T> universe)
@@ -66,11 +71,12 @@ public class AllRdepsFunction implements QueryFunction {
     final int depth = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     if (env instanceof StreamableQueryEnvironment<?>) {
       ((StreamableQueryEnvironment<T>) env)
-          .getAllRdeps(args.get(0).getExpression(), universe, callback, depth);
+          .getAllRdeps(args.get(0).getExpression(), universe, context, callback, depth);
     } else {
       final Uniquifier<T> uniquifier = env.createUniquifier();
       env.eval(
           args.get(0).getExpression(),
+          context,
           new Callback<T>() {
             @Override
             public void process(Iterable<T> partialResult)

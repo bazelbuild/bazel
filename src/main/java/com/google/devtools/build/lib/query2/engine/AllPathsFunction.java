@@ -50,11 +50,15 @@ public class AllPathsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args,
+  public <T> void eval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
       Callback<T> callback) throws QueryException, InterruptedException {
 
-    Set<T> fromValue = QueryUtil.evalAll(env, args.get(0).getExpression());
-    Set<T> toValue = QueryUtil.evalAll(env, args.get(1).getExpression());
+    Set<T> fromValue = QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    Set<T> toValue = QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
     // Algorithm: compute "reachableFromX", the forward transitive closure of
     // the "from" set, then find the intersection of "reachableFromX" with the

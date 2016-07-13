@@ -49,11 +49,14 @@ class SomeFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
-      List<Argument> args, final Callback<T> callback)
-      throws QueryException, InterruptedException {
+  public <T> void eval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      final Callback<T> callback) throws QueryException, InterruptedException {
     final AtomicBoolean someFound = new AtomicBoolean(false);
-    env.eval(args.get(0).getExpression(), new Callback<T>() {
+    env.eval(args.get(0).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
         if (someFound.get() || Iterables.isEmpty(partialResult)) {

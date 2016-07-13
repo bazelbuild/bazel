@@ -53,19 +53,19 @@ public class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
+  public <T> void eval(QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
       throws QueryException, InterruptedException {
 
     if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
       for (QueryExpression operand : operands) {
-        env.eval(operand, callback);
+        env.eval(operand, context, callback);
       }
       return;
     }
     // We cannot do differences with partial results. So we fully evaluate the operands
-    Set<T> lhsValue = QueryUtil.evalAll(env, operands.get(0));
+    Set<T> lhsValue = QueryUtil.evalAll(env, context, operands.get(0));
     for (int i = 1; i < operands.size(); i++) {
-      Set<T> rhsValue = QueryUtil.evalAll(env, operands.get(i));
+      Set<T> rhsValue = QueryUtil.evalAll(env, context, operands.get(i));
       switch (operator) {
         case INTERSECT:
         case CARET:

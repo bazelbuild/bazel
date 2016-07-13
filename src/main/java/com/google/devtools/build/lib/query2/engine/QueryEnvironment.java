@@ -116,7 +116,11 @@ public interface QueryEnvironment<T> {
      * @param args the input arguments. These are type-checked against the specification returned
      *     by {@link #getArgumentTypes} and {@link #getMandatoryArguments}
      */
-    <T> void eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args,
+    <T> void eval(
+        QueryEnvironment<T> env,
+        VariableContext<T> context,
+        QueryExpression expression,
+        List<Argument> args,
         Callback<T> callback) throws QueryException, InterruptedException;
   }
 
@@ -178,24 +182,14 @@ public interface QueryEnvironment<T> {
   Set<T> getNodesOnPath(T from, T to);
 
   /**
-   * Returns the value of the specified variable, or null if it is undefined.
-   */
-  Set<T> getVariable(String name);
-
-  /**
-   * Sets the value of the specified variable.  If value is null the variable
-   * becomes undefined.  Returns the previous value, if any.
-   */
-  Set<T> setVariable(String name, Set<T> value);
-
-  /**
    * Eval an expression {@code expr} and pass the results to the {@code callback}.
    *
    * <p>Note that this method should guarantee that the callback does not see repeated elements.
    * @param expr The expression to evaluate
    * @param callback The caller callback to notify when results are available
    */
-  void eval(QueryExpression expr, Callback<T> callback) throws QueryException, InterruptedException;
+  void eval(QueryExpression expr, VariableContext<T> context, Callback<T> callback)
+      throws QueryException, InterruptedException;
 
   /**
    * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this an

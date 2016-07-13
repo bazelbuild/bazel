@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
@@ -66,8 +67,12 @@ public class RBuildFilesFunction implements QueryFunction {
 
   @Override
   @SuppressWarnings("unchecked") // Cast from <Target> to <T>. This will only be used with <Target>.
-  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
-      List<Argument> args, Callback<T> callback) throws QueryException, InterruptedException {
+  public <T> void eval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      Callback<T> callback) throws QueryException, InterruptedException {
     if (!(env instanceof SkyQueryEnvironment)) {
       throw new QueryException("rbuildfiles can only be used with SkyQueryEnvironment");
     }

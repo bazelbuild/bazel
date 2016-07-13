@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
@@ -30,8 +31,12 @@ public abstract class RegexFilterExpression implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(final QueryEnvironment<T> env, QueryExpression expression,
-      final List<Argument> args, final Callback<T> callback)
+  public <T> void eval(
+      final QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      final List<Argument> args,
+      Callback<T> callback)
       throws QueryException, InterruptedException {
     final Pattern compiledPattern;
     try {
@@ -53,7 +58,9 @@ public abstract class RegexFilterExpression implements QueryFunction {
       }
     };
 
-    env.eval(args.get(args.size() - 1).getExpression(),
+    env.eval(
+        Iterables.getLast(args).getExpression(),
+        context,
         QueryUtil.filteredCallback(callback, matchFilter));
   }
 

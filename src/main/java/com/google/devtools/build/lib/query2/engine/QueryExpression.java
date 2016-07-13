@@ -70,21 +70,26 @@ public abstract class QueryExpression {
    * thrown.  If disabled, evaluation will stumble on to produce a (possibly
    * inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
-      throws QueryException, InterruptedException;
+  public abstract <T> void eval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      Callback<T> callback) throws QueryException, InterruptedException;
 
   /**
    * If {@code canEvalConcurrently()}, evaluates this query in the specified environment, as in
-   * {@link #eval(QueryEnvironment, Callback)}, employing {@code executorService}.
+   * {@link #eval(QueryEnvironment, VariableContext, Callback)}, employing {@code executorService}.
    *
-   * <p>The caller must ensure that both {@code env} and {@code callback} are effectively
-   * threadsafe. The query expression may call their methods from multiple threads.
+   * <p>The caller must ensure that both {@code env}, {@code context}, and {@code callback} are
+   * effectively threadsafe. The query expression may call their methods from multiple threads.
    */
   public <T> void evalConcurrently(
-      QueryEnvironment<T> env, Callback<T> callback, ListeningExecutorService executorService)
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      Callback<T> callback,
+      ListeningExecutorService executorService)
       throws QueryException, InterruptedException {
     Preconditions.checkState(canEvalConcurrently());
-    eval(env, callback);
+    eval(env, context, callback);
   }
 
   /**

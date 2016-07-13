@@ -52,11 +52,14 @@ public class VisibleFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(final QueryEnvironment<T> env, QueryExpression expression,
+  public <T> void eval(
+      final QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) throws QueryException, InterruptedException {
-    final Set<T> toSet = QueryUtil.evalAll(env, args.get(0).getExpression());
-    env.eval(args.get(1).getExpression(), new Callback<T>() {
+    final Set<T> toSet = QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    env.eval(args.get(1).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
         for (T t : partialResult) {
