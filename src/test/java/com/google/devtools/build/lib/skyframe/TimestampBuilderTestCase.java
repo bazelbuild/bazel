@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -26,6 +27,8 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -71,6 +75,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import org.junit.Before;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -354,6 +359,26 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           null);
     } finally {
       tsgm.waitForTimestampGranularity(reporter.getOutErr());
+    }
+  }
+
+  /** {@link TestAction} that copies its single input to its single output. */
+  protected static class CopyingAction extends TestAction {
+    CopyingAction(Runnable effect, Artifact input, Artifact output) {
+      super(effect, ImmutableSet.of(input), ImmutableSet.of(output));
+    }
+
+    @Override
+    public void execute(ActionExecutionContext actionExecutionContext)
+        throws ActionExecutionException {
+      super.execute(actionExecutionContext);
+      try {
+        FileSystemUtils.copyFile(
+            Iterables.getOnlyElement(getInputs()).getPath(),
+            Iterables.getOnlyElement(getOutputs()).getPath());
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
     }
   }
 

@@ -40,17 +40,6 @@ public class DigestUtils {
   private DigestUtils() {}
 
   /**
-   * Returns true iff using MD5 digests is appropriate for an artifact.
-   *
-   * @param isFile whether or not Artifact is a file versus a directory, isFile() on its stat.
-   * @param size size of Artifact on filesystem in bytes, getSize() on its stat.
-   */
-  public static boolean useFileDigest(boolean isFile, long size) {
-    // Use timestamps for directories and empty files. Use digests for everything else.
-    return isFile && size != 0;
-  }
-
-  /**
    * Obtain file's MD5 metadata using synchronized method, ensuring that system
    * is not overloaded in case when multiple threads are requesting MD5
    * calculations and underlying file system cannot provide it via extended

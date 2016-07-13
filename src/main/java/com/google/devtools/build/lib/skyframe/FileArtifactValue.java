@@ -33,9 +33,6 @@ import javax.annotation.Nullable;
  * </li><li>
  *   a directory, in which case we would expect to see an mtime;
  * </li><li>
- *   an empty file corresponding to an Artifact, where we would expect to see a size (=0), mtime,
- *   and digest;
- * </li><li>
  *   an intentionally omitted file which the build system is aware of but doesn't actually exist,
  *   where all access methods are unsupported;
  * </li><li>
@@ -107,13 +104,10 @@ public class FileArtifactValue extends ArtifactValue {
     if (isFile && digest == null) {
       digest = DigestUtils.getDigestOrFail(artifact.getPath(), size);
     }
-    if (!DigestUtils.useFileDigest(isFile, size)) {
-      // In this case, we need to store the mtime because the action cache uses mtime to determine
-      // if this artifact has changed. This is currently true for empty files and directories. We
-      // do not optimize for this code path (by storing the mtime in a FileValue) because we do not
-      // like it and may remove this special-casing for empty files in the future. We want this code
-      // path to go away somehow too for directories (maybe by implementing FileSet
-      // in Skyframe)
+    if (!isFile) {
+      // In this case, we need to store the mtime because the action cache uses mtime for
+      // directories to determine if this artifact has changed. We want this code path to go away
+      // somehow (maybe by implementing FileSet in Skyframe).
       return new FileArtifactValue(digest, artifact.getPath().getLastModifiedTime(), size);
     }
     Preconditions.checkState(digest != null, artifact);
@@ -158,11 +152,7 @@ public class FileArtifactValue extends ArtifactValue {
     return size;
   }
 
-  /**
-   * Gets last modified time of file. Should only be called if {@link DigestUtils#useFileDigest} was
-   * false for this artifact -- namely, either it is a directory or an empty file. Note that since
-   * we store directory sizes as 0, all files for which this method can be called have size 0.
-   */
+  /** Gets last modified time of file. Should only be called if this is a directory. */
   long getModifiedTime() {
     Preconditions.checkState(size == 0, "%s %s %s", digest, mtime, size);
     return mtime;

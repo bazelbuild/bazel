@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.Digest;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.TreeArtifactException;
@@ -253,10 +252,9 @@ public class ActionMetadataHandler implements MetadataHandler {
       throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
     }
     if (!artifact.hasParent()) {
-      // Artifacts may use either the "real" digest or the mtime, if the file is size 0.
+      // Artifacts may use either the "real" digest or the mtime, if the file is a directory.
       boolean isFile = data.isFile();
-      boolean useDigest = DigestUtils.useFileDigest(isFile, isFile ? data.getSize() : 0);
-      if (useDigest && data.getDigest() != null) {
+      if (isFile && data.getDigest() != null) {
         // We do not need to store the FileArtifactValue separately -- the digest is in the
         // file value and that is all that is needed for this file's metadata.
         return new Metadata(data.getDigest());

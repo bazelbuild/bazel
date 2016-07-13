@@ -260,11 +260,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertTrue(buttonTwo.pressed);
   }
 
-  /**
-   * TreeArtifacts don't care about mtime, even when the file is empty.
-   * However, actions taking input non-Tree artifacts still care about mtime
-   * (although this behavior should go away).
-   */
+  /** TreeArtifacts don't care about mtime, even when the file is empty. */
   @Test
   public void testMTimeForTreeArtifactsDoesNotMatter() throws Exception {
     // For this test, we only touch the input file.
@@ -291,9 +287,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     buttonOne.pressed = buttonTwo.pressed = false;
     touchFile(in);
     buildArtifact(outTwo);
-    // Per existing behavior, mtime matters for empty file Artifacts.
-    assertTrue(buttonOne.pressed);
-    // But this should be cached.
+    // mtime does not matter.
+    assertFalse(buttonOne.pressed);
     assertFalse(buttonTwo.pressed);
 
     // None of the below following should result in anything being built.
