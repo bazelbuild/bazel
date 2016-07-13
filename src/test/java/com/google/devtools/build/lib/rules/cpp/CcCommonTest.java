@@ -29,11 +29,17 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
@@ -51,33 +57,26 @@ import org.junit.runners.JUnit4;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * A test for {@link CcCommon}.
- */
+/** A test for {@link CcCommon}. */
 @RunWith(JUnit4.class)
-public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
+public class CcCommonTest extends BuildViewTestCase {
 
   private static final String STATIC_LIB = "statically/libstatically.a";
 
   @Before
   public final void createBuildFiles() throws Exception {
     // Having lots of setUp code leads to bad running time. Don't add anything here!
-    scratch.file("empty/BUILD",
-        "cc_library(name = 'emptylib')",
-        "cc_binary(name = 'emptybinary')");
+    scratch.file("empty/BUILD", "cc_library(name = 'emptylib')", "cc_binary(name = 'emptybinary')");
 
-    scratch.file("foo/BUILD",
-        "cc_library(name = 'foo',",
-        "           srcs = ['foo.cc'])");
+    scratch.file("foo/BUILD", "cc_library(name = 'foo',", "           srcs = ['foo.cc'])");
 
-    scratch.file("bar/BUILD",
-        "cc_library(name = 'bar',",
-        "           srcs = ['bar.cc'])");
+    scratch.file("bar/BUILD", "cc_library(name = 'bar',", "           srcs = ['bar.cc'])");
   }
 
   @Test
   public void testSameCcFileTwice() throws Exception {
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         "cc_library(name='a', srcs=['a1', 'a2'])",
         "filegroup(name='a1', srcs=['a.cc'])",
         "filegroup(name='a2', srcs=['a.cc'])");
@@ -88,7 +87,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testSameHeaderFileTwice() throws Exception {
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         "package(features=['parse_headers'])",
         "cc_library(name='a', srcs=['a1', 'a2', 'a.cc'])",
         "filegroup(name='a1', srcs=['a.h'])",
@@ -136,7 +136,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCopts() throws Exception {
-    scratch.file("copts/BUILD",
+    scratch.file(
+        "copts/BUILD",
         "cc_library(name = 'c_lib',",
         "    srcs = ['foo.cc'],",
         "    copts = [ '-Wmy-warning', '-frun-faster' ])");
@@ -145,7 +146,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCoptsTokenization() throws Exception {
-    scratch.file("copts/BUILD",
+    scratch.file(
+        "copts/BUILD",
         "cc_library(name = 'c_lib',",
         "    srcs = ['foo.cc'],",
         "    copts = ['-Wmy-warning -frun-faster'])");
@@ -156,7 +158,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCoptsNoTokenization() throws Exception {
-    scratch.file("copts/BUILD",
+    scratch.file(
+        "copts/BUILD",
         "package(features = ['no_copts_tokenization'])",
         "cc_library(name = 'c_lib',",
         "    srcs = ['foo.cc'],",
@@ -166,12 +169,10 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   }
 
   /**
-   * Test that we handle ".a" files in cc_library srcs correctly when
-   * linking dynamically.  In particular, if srcs contains only the ".a"
-   * file for a library, with no corresponding ".so", then we need
-   * to link in the ".a" file even when we're linking dynamically.
-   * If srcs contains both ".a" and ".so" then we should only link
-   * in the ".so".
+   * Test that we handle ".a" files in cc_library srcs correctly when linking dynamically. In
+   * particular, if srcs contains only the ".a" file for a library, with no corresponding ".so",
+   * then we need to link in the ".a" file even when we're linking dynamically. If srcs contains
+   * both ".a" and ".so" then we should only link in the ".so".
    */
   @Test
   public void testArchiveInCcLibrarySrcs() throws Exception {
@@ -250,8 +251,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
         CrosstoolConfig.CToolchain.newBuilder().setSupportsStartEndLib(true).buildPartial());
     useConfiguration(
         // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-        "--fat_apk_cpu=" + CrosstoolConfigurationHelper.defaultCpu(),
-        "--start_end_lib");
+        "--fat_apk_cpu=" + CrosstoolConfigurationHelper.defaultCpu(), "--start_end_lib");
     scratch.file(
         "test/BUILD",
         "cc_library(name='lib',",
@@ -359,9 +359,9 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that nocopts= "-fPIC" takes '-fPIC' out of a compile invocation even if the
-   * crosstool requires fPIC compilation (i.e. nocoopts overrides crosstool settings on
-   * a rule-specific basis).
+   * Tests that nocopts= "-fPIC" takes '-fPIC' out of a compile invocation even if the crosstool
+   * requires fPIC compilation (i.e. nocoopts overrides crosstool settings on a rule-specific
+   * basis).
    */
   @Test
   public void testNoCoptfPicOverride() throws Exception {
@@ -404,8 +404,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
         directories.getWorkspace(),
         CrosstoolConfig.CToolchain.newBuilder().setNeedsPic(true).buildPartial());
 
-    scratch.file("a/BUILD",
-        "cc_library(name='preprocess', srcs=['preprocess.S'])");
+    scratch.file("a/BUILD", "cc_library(name='preprocess', srcs=['preprocess.S'])");
 
     assertThat(getCppCompileAction("//a:preprocess").getArgv()).contains("-fPIC");
   }
@@ -433,9 +432,10 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
 
     String includesRoot = "bang/bang_includes";
-    assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs()).containsAllOf(
-        new PathFragment(includesRoot),
-        targetConfig.getGenfilesFragment().getRelative(includesRoot));
+    assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
+        .containsAllOf(
+            new PathFragment(includesRoot),
+            targetConfig.getGenfilesFragment().getRelative(includesRoot));
   }
 
   @Test
@@ -492,10 +492,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
-            "mypackage",
-            "mytest",
-            "cc_test(name = 'mytest', ",
-            "         srcs = ['mytest.cc'])");
+            "mypackage", "mytest", "cc_test(name = 'mytest', ", "         srcs = ['mytest.cc'])");
 
     Iterable<Artifact> runfiles = collectRunfiles(target);
     assertThat(baseArtifactNames(runfiles)).contains("mytest.dwp");
@@ -704,7 +701,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testStampTests() throws Exception {
-    scratch.file("test/BUILD",
+    scratch.file(
+        "test/BUILD",
         "cc_test(name ='a', srcs = ['a.cc'])",
         "cc_test(name ='b', srcs = ['b.cc'], stamp = 0)",
         "cc_test(name ='c', srcs = ['c.cc'], stamp = 1)",
@@ -809,9 +807,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     assertEquals(sharedLibraries1, sharedLibraries2);
   }
 
-  /**
-   * Tests that shared libraries of the form "libfoo.so.1.2" are permitted within "srcs".
-   */
+  /** Tests that shared libraries of the form "libfoo.so.1.2" are permitted within "srcs". */
   @Test
   public void testVersionedSharedLibrarySupport() throws Exception {
     ConfiguredTarget target =
@@ -867,6 +863,51 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     } catch (InvalidConfigurationException expected) {
       assertThat(expected.getMessage())
           .contains("Failed to load required STL target: '//blah:blah'");
+    }
+  }
+
+  @RunWith(JUnit4.class)
+  public static class OnlyCppRules extends CcCommonTest {
+    @Override
+    protected AnalysisMock getAnalysisMock() {
+      final AnalysisMock original = BazelAnalysisMock.INSTANCE;
+      return new AnalysisMock.Delegate(original) {
+        @Override
+        public ConfigurationFactory createConfigurationFactory() {
+          return new ConfigurationFactory(
+              createRuleClassProvider().getConfigurationCollectionFactory(),
+              createRuleClassProvider().getConfigurationFragments());
+        }
+
+        @Override
+        public ConfiguredRuleClassProvider createRuleClassProvider() {
+          ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+          builder.setToolsRepository("@bazel_tools");
+          BazelRuleClassProvider.initMinimal(builder);
+          BazelRuleClassProvider.initCpp(builder);
+          return builder.build();
+        }
+
+        @Override
+        public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
+          return new InvocationPolicyEnforcer(null);
+        }
+
+        @Override
+        public boolean isThisBazel() {
+          return true;
+        }
+      };
+    }
+
+    @Override
+    public void testNoCoptfPicOverride() throws Exception {
+      // Test sets --fat_apk_cpu, which doesn't exist.
+    }
+
+    @Override
+    public void testStartEndLib() throws Exception {
+      // Test sets --fat_apk_cpu, which doesn't exist.
     }
   }
 }
