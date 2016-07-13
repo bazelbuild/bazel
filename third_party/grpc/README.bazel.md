@@ -12,10 +12,10 @@ How to update the C++ sources of gRPC:
 How to update the Java plugin:
 
 Download it from Maven central. The project is called `protoc-gen-grpc-java`
-and the version is `0.14.1` .
+and the version is `0.15.0` .
 
 How to update the Java code:
 
 Download it from Maven central. The jars are called `grpc-core`, `grpc-netty`,
 `grpc-protobuf`, `grpc-protobuf-lite`, `grpc-stub` and the version is
-`0.14.1`.
+`0.15.0`.
