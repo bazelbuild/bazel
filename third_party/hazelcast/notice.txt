@@ -16,4 +16,4 @@ The name "Hazelcast" must not be used to endorse or promote products
 derived from this software without prior written permission. For
 written permission, please contact talip@hazelcast.com or fuad@hazelcast.com
 
-Copyright (c) 2008-2015 Hazelcast Inc.  All rights reserved.
+Copyright (c) 2008-2016 Hazelcast Inc.  All rights reserved.
