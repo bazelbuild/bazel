@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -712,7 +711,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testFeatures() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:cc_with_features");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.features");
-    assertThat((SkylarkList) result).containsExactly("cc_include_scanning", "f1", "f2");
+    assertThat((SkylarkList<?>) result).containsExactly("cc_include_scanning", "f1", "f2");
   }
 
 
@@ -725,9 +724,11 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testWorkspaceName() throws Exception {
+    assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
+    assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.workspace_name");
-    assertSame(result, TestConstants.WORKSPACE_NAME);
+    assertSame(result, ruleClassProvider.getRunfilesPrefix());
   }
 
   @Test

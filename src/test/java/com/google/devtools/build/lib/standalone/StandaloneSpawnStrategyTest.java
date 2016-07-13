@@ -82,7 +82,7 @@ public class StandaloneSpawnStrategyTest {
   @Before
   public final void setUp() throws Exception {
     Path testRoot = createTestRoot();
-    Path workspaceDir = testRoot.getRelative(TestConstants.WORKSPACE_NAME);
+    Path workspaceDir = testRoot.getRelative("workspace-name");
     workspaceDir.createDirectory();
 
     // setup output base & directories

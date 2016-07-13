@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -30,8 +31,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,11 +68,13 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     Path emptyPackagePath = rootDirectory.getRelative("somewhere/else");
     scratch.file("parentpackage/BUILD");
 
+    AnalysisMock analysisMock = AnalysisMock.get();
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(
         new PathPackageLocator(outputBase, ImmutableList.of(emptyPackagePath, rootDirectory)));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
-    BlazeDirectories directories = new BlazeDirectories(rootDirectory, outputBase, rootDirectory,
-        TestConstants.PRODUCT_NAME);
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            rootDirectory, outputBase, rootDirectory, analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, false, directories);
 
@@ -88,17 +89,18 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());
-    RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    skyFunctions.put(SkyFunctions.WORKSPACE_AST,
-        new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()));
+    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
+    skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
         SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(
             ruleClassProvider,
-            TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
-                ruleClassProvider,
-                new BazelRulesModule().getPackageEnvironmentExtension(),
-                scratch.getFileSystem()),
+            analysisMock
+                .getPackageFactoryForTesting()
+                .create(
+                    ruleClassProvider,
+                    new BazelRulesModule().getPackageEnvironmentExtension(),
+                    scratch.getFileSystem()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     differencer = new RecordingDifferencer();

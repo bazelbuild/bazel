@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -36,10 +39,8 @@ import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Create a mock client for the analysis phase, as well as a configuration factory.
- */
-public abstract class AnalysisMock {
+/** Create a mock client for the analysis phase, as well as a configuration factory. */
+public abstract class AnalysisMock extends LoadingMock {
 
   public static AnalysisMock get() {
     try {
@@ -49,6 +50,31 @@ public abstract class AnalysisMock {
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  @Override
+  public String getProductName() {
+    return TestConstants.PRODUCT_NAME;
+  }
+
+  public ImmutableList<String> getEmbeddedTools() {
+    return TestConstants.EMBEDDED_TOOLS;
+  }
+
+  @Override
+  public PackageFactory.FactoryForTesting getPackageFactoryForTesting() {
+    return TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING;
+  }
+
+  @Override
+  public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
+    return new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
+  }
+
+  @Override
+  public String getDefaultsPackageContent() {
+    return createRuleClassProvider()
+        .getDefaultsPackageContent(getInvocationPolicyEnforcer().getInvocationPolicy());
   }
 
   /**
@@ -67,13 +93,10 @@ public abstract class AnalysisMock {
 
   public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
 
+  @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
 
   public abstract Collection<String> getOptionOverrides();
-
-  public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
-    return new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
-  }
 
   public abstract boolean isThisBazel();
 

@@ -125,7 +125,6 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -160,6 +159,7 @@ import java.util.UUID;
 public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static final int LOADING_PHASE_THREADS = 20;
 
+  protected AnalysisMock analysisMock;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected ConfigurationFactory configurationFactory;
   protected BuildView view;
@@ -187,25 +187,28 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
-    AnalysisMock mock = getAnalysisMock();
-    directories = new BlazeDirectories(outputBase, outputBase, rootDirectory,
-        TestConstants.PRODUCT_NAME);
-    binTools = BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS);
+    analysisMock = getAnalysisMock();
+    directories =
+        new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
+    binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
-    mock.setupMockClient(mockToolsConfig);
-    mock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+    analysisMock.setupMockClient(mockToolsConfig);
+    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
-    configurationFactory = mock.createConfigurationFactory();
+    configurationFactory = analysisMock.createConfigurationFactory();
     packageCacheOptions = parsePackageCacheOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
-    pkgFactory = TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
-        ruleClassProvider,
-        getPlatformSetRegexps(),
-        getEnvironmentExtensions(),
-        scratch.getFileSystem());
+    pkgFactory =
+        analysisMock
+            .getPackageFactoryForTesting()
+            .create(
+                ruleClassProvider,
+                getPlatformSetRegexps(),
+                getEnvironmentExtensions(),
+                scratch.getFileSystem());
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
@@ -217,10 +220,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             getPreprocessorFactorySupplier(),
-            mock.getSkyFunctions(),
+            analysisMock.getSkyFunctions(),
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            TestConstants.PRODUCT_NAME);
+            analysisMock.getProductName());
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         ConstantRuleVisibility.PUBLIC, true, 7, "",

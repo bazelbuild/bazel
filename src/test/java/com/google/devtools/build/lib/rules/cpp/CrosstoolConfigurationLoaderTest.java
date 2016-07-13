@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -65,8 +66,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(testFragments);
     try {
       optionsParser.parse(args);
-      InvocationPolicyEnforcer optionsPolicyEnforcer =
-          new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
+      InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
       optionsPolicyEnforcer.enforce(optionsParser);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);

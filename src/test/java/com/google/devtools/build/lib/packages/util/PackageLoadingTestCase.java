@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -68,12 +67,14 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   private static final int GLOBBING_THREADS = 7;
 
+  protected LoadingMock loadingMock;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
+    loadingMock = LoadingMock.get();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -83,10 +84,12 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
       }
       ruleClassProvider = builder.build();
     } else {
-      ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
+      ruleClassProvider = loadingMock.createRuleClassProvider();
     }
-    packageFactory = TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
-        ruleClassProvider, null, getEnvironmentExtensions(), scratch.getFileSystem());
+    packageFactory =
+        loadingMock
+            .getPackageFactoryForTesting()
+            .create(ruleClassProvider, null, getEnvironmentExtensions(), scratch.getFileSystem());
     skyframeExecutor = createSkyframeExecutor(getPreprocessorFactorySupplier());
     setUpSkyframe(parsePackageCacheOptions());
   }
@@ -101,7 +104,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
             packageFactory,
-            new BlazeDirectories(outputBase, outputBase, rootDirectory, TestConstants.PRODUCT_NAME),
+            new BlazeDirectories(
+                outputBase, outputBase, rootDirectory, loadingMock.getProductName()),
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
             ruleClassProvider.getBuildInfoFactories(),
@@ -111,7 +115,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>of(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            TestConstants.PRODUCT_NAME);
+            loadingMock.getProductName());
     return skyframeExecutor;
   }
 
@@ -138,7 +142,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         packageCacheOptions.defaultVisibility,
         true,
         GLOBBING_THREADS,
-        ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY),
+        loadingMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));

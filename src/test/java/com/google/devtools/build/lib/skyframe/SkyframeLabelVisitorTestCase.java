@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.packages.util.PreprocessorUtils;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -282,9 +281,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
 
   @Before
   public final void initializeVisitor() throws Exception {
-    setUpSkyframe(
-        ConstantRuleVisibility.PRIVATE,
-        ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY));
+    setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
     this.visitor = skyframeExecutor.pkgLoader();
   }
 

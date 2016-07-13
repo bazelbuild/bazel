@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -43,8 +44,8 @@ import java.util.List;
  * Used to generate runfiles and fileset symlink farms.
  */
 public final class SymlinkTreeHelper {
-
-  private static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
+  @VisibleForTesting
+  public static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
 
   /**
    * These actions run faster overall when serialized, because most of their

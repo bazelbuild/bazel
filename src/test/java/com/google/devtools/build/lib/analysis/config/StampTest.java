@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,8 +39,7 @@ public class StampTest extends BuildViewTestCase {
   public void testNoStampingForTests() throws Exception {
     RuleFactory ruleFactory =
         new RuleFactory(
-            TestRuleClassProvider.getRuleClassProvider(),
-            AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+            analysisMock.createRuleClassProvider(), AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
     for (String name : ruleFactory.getRuleClassNames()) {
       RuleClass ruleClass = ruleFactory.getRuleClass(name);
       if (TargetUtils.isTestRuleName(name) && ruleClass.hasAttr("stamp", BuildType.TRISTATE)) {
