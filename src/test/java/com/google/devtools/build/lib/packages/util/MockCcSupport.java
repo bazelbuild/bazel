@@ -172,10 +172,34 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String HOST_AND_NONHOST_CONFIGURATION =
+      ""
+          + "feature { "
+          + "  name: 'host'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    flag_group {"
+          + "      flag: '-host'"
+          + "    }"
+          + "  }"
+          + "}"
+          + "feature { "
+          + "  name: 'nonhost'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    flag_group {"
+          + "      flag: '-nonhost'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String THIN_LTO_CONFIGURATION =
       ""
           + "feature { "
           + "  name: 'thin_lto'"
+          + "  requires { feature: 'nonhost' }"
           + "  flag_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"

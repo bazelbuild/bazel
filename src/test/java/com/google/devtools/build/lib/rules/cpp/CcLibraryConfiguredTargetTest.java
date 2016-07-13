@@ -931,6 +931,40 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(flags).contains("-dbg");
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
+  
+  private List<String> getHostAndTargetFlags(boolean useHost) throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
+    scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
+    useConfiguration();
+    ConfiguredTarget target;
+    String objectPath;
+    if (useHost) {
+      target = getHostConfiguredTarget("//mode:a");
+      objectPath = "_objs/a/mode/a.o";
+    } else {
+      target = getConfiguredTarget("//mode:a");
+      objectPath = "_objs/a/mode/a.pic.o";
+    }
+    Artifact objectArtifact = getBinArtifact(objectPath, target);
+    CppCompileAction action = (CppCompileAction) getGeneratingAction(objectArtifact);
+    assertThat(action).isNotNull();
+    return action.getCompilerOptions();
+  }
+
+  @Test
+  public void testHostAndNonHostFeatures() throws Exception {
+    List<String> flags;
+
+    flags = getHostAndTargetFlags(true);
+    assertThat(flags).contains("-host");
+    assertThat(flags).doesNotContain("-nonhost");
+
+    flags = getHostAndTargetFlags(false);
+    assertThat(flags).contains("-nonhost");
+    assertThat(flags).doesNotContain("-host");
+  }
 
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {

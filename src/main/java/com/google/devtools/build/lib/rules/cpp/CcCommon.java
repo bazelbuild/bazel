@@ -501,6 +501,14 @@ public final class CcCommon {
             withBaselineCoverage);
   }
 
+  private static String getHostOrNonHostFeature(RuleContext ruleContext) {
+    if (ruleContext.getConfiguration().isHostConfiguration()) {
+      return "host";
+    } else {
+      return "nonhost";
+    }
+  }
+
   /**
    * Creates the feature configuration for a given rule.
    *
@@ -530,9 +538,12 @@ public final class CcCommon {
     }
     Set<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
-    for (String feature : Iterables.concat(
-        ImmutableSet.of(toolchain.getCompilationMode().toString()), DEFAULT_FEATURES,
-        ruleContext.getFeatures())) {
+    for (String feature :
+        Iterables.concat(
+            ImmutableSet.of(toolchain.getCompilationMode().toString()),
+            ImmutableSet.of(getHostOrNonHostFeature(ruleContext)),
+            DEFAULT_FEATURES,
+            ruleContext.getFeatures())) {
       if (!unsupportedFeatures.contains(feature)) {
         requestedFeatures.add(feature);
       }
