@@ -56,7 +56,7 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 #### 1. Add Bazel distribution URI as a package source (one time setup)
 
 ```
-$ echo "deb http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+$ echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 $ curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
 ```
 
