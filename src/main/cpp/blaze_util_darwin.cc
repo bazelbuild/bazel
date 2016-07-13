@@ -124,11 +124,12 @@ string GetDefaultHostJavabase() {
 void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
 }
 
-void KillServerProcess(
+bool KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
   // TODO(lberki): This might accidentally kill an unrelated process if the
   // server died and the PID got reused.
   killpg(pid, SIGKILL);
+  return true;
 }
 
 }   // namespace blaze.

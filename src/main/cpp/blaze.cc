@@ -1021,11 +1021,11 @@ static void StartServerAndConnect(BlazeServer *server) {
   // disaster.
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
-    fprintf(stderr,
-            "Found non-responsive server process (pid=%d). Killing it.\n",
-            server_pid);
-    KillServerProcess(server_pid, globals->options.output_base,
-                      globals->options.install_base);
+    if (KillServerProcess(server_pid, globals->options.output_base,
+                          globals->options.install_base)) {
+      fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
+              server_pid);
+    }
   }
 
   SetScheduling(globals->options.batch_cpu_scheduling,

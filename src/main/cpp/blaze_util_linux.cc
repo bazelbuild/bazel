@@ -225,12 +225,14 @@ void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
 //
 // This looks complicated, but all it does is an open(), then read(), then
 // close(), all of which are safe to call from signal handlers.
-void KillServerProcess(
+bool KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
   string start_time;
   if (!GetStartTime(ToString(pid), &start_time)) {
     // Cannot read PID file from /proc . Process died in the meantime?
-    return;
+    fprintf(stderr, "Found stale PID file (pid=%d). "
+            "Server probably died abruptly, continuing...\n", pid);
+    return false;
   }
 
   string recorded_start_time;
@@ -243,11 +245,11 @@ void KillServerProcess(
   // start time files yet.
   if (file_present && recorded_start_time != start_time) {
     // This is a different process.
-    fprintf(stderr, "PID %d got reused. Not killing the process.\n", pid);
-    return;
+    return false;
   }
 
   killpg(pid, SIGKILL);
+  return true;
 }
 
 }  // namespace blaze

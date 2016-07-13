@@ -710,19 +710,21 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
   return a_real == b_real;
 }
 
-void KillServerProcess(
+bool KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
   HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
   if (process == NULL) {
     // Cannot find the server process. Can happen if the PID file is stale.
-    return;
+    return false;
   }
 
-  if (!TerminateProcess(process, /*uExitCode*/0)) {
-    fprintf(stderr, "Cannot terminate server process\n");
+  bool result = TerminateProcess(process, /*uExitCode*/0);
+  if (!result) {
+    fprintf(stderr, "Cannot terminate server process with PID %d\n", pid);
   }
 
   CloseHandle(process);
+  return result;
 }
 
 }  // namespace blaze
