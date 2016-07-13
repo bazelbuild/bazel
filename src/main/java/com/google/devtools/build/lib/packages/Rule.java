@@ -510,7 +510,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
           addOutputFile(pkgBuilder.createLabel(out), eventHandler);
         } catch (LabelSyntaxException e) {
           reportError("illegal output file name '" + out + "' in rule "
-                      + getLabel(), eventHandler);
+                      + getLabel() + " due to: " + e.getMessage(), eventHandler);
         }
       }
     } catch (EvalException e) {
