@@ -382,14 +382,16 @@ public final class CustomCommandLine extends CommandLine {
     public Builder add(String arg, Iterable<String> args) {
       if (arg != null && args != null) {
         arguments.add(arg);
-        arguments.add(InterspersingArgs.fromStrings(args, /*beforeEach=*/null, "%s"));
+        arguments.add(
+            InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder add(Iterable<String> args) {
       if (args != null) {
-        arguments.add(InterspersingArgs.fromStrings(args, /*beforeEach=*/null, "%s"));
+        arguments.add(
+            InterspersingArgs.fromStrings(args, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
@@ -405,14 +407,16 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addExecPaths(String arg, Iterable<Artifact> artifacts) {
       if (arg != null && artifacts != null) {
         arguments.add(arg);
-        arguments.add(InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/null, "%s"));
+        arguments.add(
+            InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addExecPaths(Iterable<Artifact> artifacts) {
       if (artifacts != null) {
-        arguments.add(InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/null, "%s"));
+        arguments.add(
+            InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/ null, /*formatEach=*/ null));
       }
       return this;
     }
@@ -511,21 +515,21 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder addBeforeEachPath(String repeated, Iterable<PathFragment> paths) {
       if (repeated != null && paths != null) {
-        arguments.add(InterspersingArgs.fromStrings(paths, repeated, "%s"));
+        arguments.add(InterspersingArgs.fromStrings(paths, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addBeforeEach(String repeated, Iterable<String> strings) {
       if (repeated != null && strings != null) {
-        arguments.add(InterspersingArgs.fromStrings(strings, repeated, "%s"));
+        arguments.add(InterspersingArgs.fromStrings(strings, repeated, /*formatEach=*/ null));
       }
       return this;
     }
 
     public Builder addBeforeEachExecPath(String repeated, Iterable<Artifact> artifacts) {
       if (repeated != null && artifacts != null) {
-        arguments.add(InterspersingArgs.fromExecPaths(artifacts, repeated, "%s"));
+        arguments.add(InterspersingArgs.fromExecPaths(artifacts, repeated, /*formatEach=*/ null));
       }
       return this;
     }
