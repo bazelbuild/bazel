@@ -33,8 +33,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -236,12 +239,30 @@ final class ProtoSupport {
    * @param xcodeProviderBuilder The builder for the XcodeProvider support class.
    * @return this proto support
    */
-  public ProtoSupport addXcodeProviderOptions(XcodeProvider.Builder xcodeProviderBuilder) {
+  public ProtoSupport addXcodeProviderOptions(XcodeProvider.Builder xcodeProviderBuilder)
+      throws RuleErrorException {
     xcodeProviderBuilder
         .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
-        .addCopts(ObjcRuleClasses.objcConfiguration(ruleContext).getCopts())
         .addHeaders(getGeneratedHeaders())
         .setCompilationArtifacts(getCompilationArtifacts());
+
+    if (targetType == TargetType.PROTO_TARGET) {
+      xcodeProviderBuilder.addCopts(ObjcRuleClasses.objcConfiguration(ruleContext).getCopts());
+    } else if (targetType == TargetType.LINKING_TARGET) {
+      Label protosLabel = null;
+      try {
+        protosLabel = ruleContext.getLabel().getLocalTargetLabel(
+            ruleContext.getLabel().getName() + "_BundledProtos");
+      } catch (LabelSyntaxException e) {
+        ruleContext.throwWithRuleError(e.getLocalizedMessage());
+      }
+      ObjcCommon protoCommon = getCommon();
+      new XcodeSupport(ruleContext, intermediateArtifacts, protosLabel)
+          .addXcodeSettings(xcodeProviderBuilder,
+              protoCommon.getObjcProvider(),
+              XcodeProductType.LIBRARY_STATIC)
+          .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
+    }
     return this;
   }
 
@@ -272,7 +293,7 @@ final class ProtoSupport {
     }
 
     if (experimentalAutoUnion()) {
-      if (targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary()
+      if ((targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary())
           || targetType == TargetType.LINKING_TARGET) {
         builder.addNonArcSrcs(generatedSources);
       }
