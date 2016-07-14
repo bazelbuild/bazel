@@ -415,7 +415,7 @@ static vector<string> GetArgumentArray() {
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   string heap_crash_path = globals->options.output_base;
-  result.push_back("-XX:HeapDumpPath=" + heap_crash_path);
+  result.push_back("-XX:HeapDumpPath=" + ConvertPath(heap_crash_path));
 
   result.push_back("-Xverify:none");
 
