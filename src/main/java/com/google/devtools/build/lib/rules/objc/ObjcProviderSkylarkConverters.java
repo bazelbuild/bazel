@@ -15,13 +15,18 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.BAD_SET_TYPE_ERROR;
+import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.MISSING_KEY_ERROR;
 import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.NOT_SET_ERROR;
+import static com.google.devtools.build.lib.rules.objc.BundleableFile.BUNDLED_FIELD;
+import static com.google.devtools.build.lib.rules.objc.BundleableFile.BUNDLE_PATH_FIELD;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -41,6 +46,7 @@ public class ObjcProviderSkylarkConverters {
           .put(Artifact.class, new DirectConverter())
           .put(String.class, new DirectConverter())
           .put(PathFragment.class, new PathFragmentToStringConverter())
+          .put(BundleableFile.class, new BundleableFileToStructConverter())
           .build();
 
   /**
@@ -112,6 +118,53 @@ public class ObjcProviderSkylarkConverters {
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
       for (String path : (Iterable<String>) skylarkValue) {
         result.add(new PathFragment(path));
+      }
+      return result.build();
+    }
+  }
+
+  /**
+   * A converter that that translates between a java BundleableFile and a skylark struct.
+   */
+  private static class BundleableFileToStructConverter implements Converter {
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
+      NestedSetBuilder<SkylarkClassObject> result = NestedSetBuilder.stableOrder();
+      for (BundleableFile bundleableFile : (Iterable<BundleableFile>) javaValue) {
+        result.add(new SkylarkClassObject(
+            ImmutableMap.<String, Object>of(
+                BUNDLED_FIELD, bundleableFile.getBundled(),
+                BUNDLE_PATH_FIELD, bundleableFile.getBundlePath()
+            ),
+            "No such attribute '%s'"
+        ));
+      }
+      return SkylarkNestedSet.of(SkylarkClassObject.class, result.build());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
+      validateTypes(skylarkValue, SkylarkClassObject.class, javaKey.getSkylarkKeyName());
+      NestedSetBuilder<BundleableFile> result = NestedSetBuilder.stableOrder();
+      for (SkylarkClassObject struct : (Iterable<SkylarkClassObject>) skylarkValue) {
+        Artifact artifact;
+        String path;
+        try {
+          artifact = struct.getValue(BUNDLED_FIELD, Artifact.class);
+          path = struct.getValue(BUNDLE_PATH_FIELD, String.class);
+        } catch (EvalException e) {
+          throw new IllegalArgumentException(e.getMessage());
+        }
+        if (artifact == null) {
+          throw new IllegalArgumentException(String.format(MISSING_KEY_ERROR, BUNDLED_FIELD));
+        }
+        if (path == null) {
+          throw new IllegalArgumentException(String.format(MISSING_KEY_ERROR, BUNDLE_PATH_FIELD));
+        }
+        result.add(new BundleableFile(artifact, path));
       }
       return result.build();
     }

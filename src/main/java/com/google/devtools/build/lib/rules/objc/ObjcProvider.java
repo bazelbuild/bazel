@@ -383,6 +383,8 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           INCLUDE,
           INCLUDE_SYSTEM,
           GENERAL_RESOURCE_DIR,
+          GENERAL_RESOURCE_FILE,
+          BUNDLE_FILE,
           BUNDLE_IMPORT_DIR,
           XCASSETS_DIR,
           FRAMEWORK_DIR);

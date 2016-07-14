@@ -34,6 +34,12 @@ public final class BundleableFile extends Value<BundleableFile> {
   static final int EXECUTABLE_EXTERNAL_FILE_ATTRIBUTE = 0100755 << 16;
   static final int DEFAULT_EXTERNAL_FILE_ATTRIBUTE = 0100644 << 16;
 
+  /** The field in the Skylark struct that holds the {@code bundled} artifact. */
+  static final String BUNDLED_FIELD = "file";
+
+  /** The field in the Skylark struct that holds the {@code bundlePath} string. */
+  static final String BUNDLE_PATH_FIELD = "bundle_path";
+
   private final Artifact bundled;
   private final String bundlePath;
   private final int zipExternalFileAttribute;

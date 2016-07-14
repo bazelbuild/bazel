@@ -54,7 +54,10 @@ public class AppleSkylarkCommon {
 
   @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
-  
+
+  @VisibleForTesting
+  public static final String MISSING_KEY_ERROR = "No value for required key %s was present.";
+
   @SkylarkCallable(
       name = "apple_toolchain",
       doc = "Utilities for resolving items from the apple toolchain."
