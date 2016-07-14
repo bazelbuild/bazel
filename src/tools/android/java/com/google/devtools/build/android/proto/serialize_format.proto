@@ -76,4 +76,5 @@ message DataValueXml {
   optional string value_type = 6;
   repeated DataKey references = 7;
   map<string, string> attribute = 8;
+  map<string, string> namespace = 9;
 }

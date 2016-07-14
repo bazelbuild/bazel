@@ -32,7 +32,6 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.protobuf.InvalidProtocolBufferException;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -331,12 +329,15 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   @SuppressWarnings("deprecation")
   @Override
-  public int serializeTo(Path source, OutputStream output) throws IOException {
+  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+      throws IOException {
     SerializeFormat.DataValue.Builder builder =
         XmlResourceValues.newSerializableDataValueBuilder(source);
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder();
-    xmlValueBuilder.setType(SerializeFormat.DataValueXml.XmlType.ATTR);
+    xmlValueBuilder
+        .setType(SerializeFormat.DataValueXml.XmlType.ATTR)
+        .putAllNamespace(namespaces.asMap());
     for (Entry<String, ResourceXmlAttrValue> entry : formats.entrySet()) {
       xmlValueBuilder
           .getMutableMappedXmlValue()

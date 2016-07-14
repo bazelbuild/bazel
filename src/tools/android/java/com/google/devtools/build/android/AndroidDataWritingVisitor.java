@@ -14,12 +14,13 @@
 package com.google.devtools.build.android;
 
 import com.android.ide.common.res2.MergingException;
-
+import com.google.devtools.build.android.xml.AttrXmlResourceValue;
+import com.google.devtools.build.android.xml.Namespaces;
+import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.io.Flushable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map.Entry;
-
 import javax.annotation.CheckReturnValue;
 import javax.xml.namespace.QName;
 
@@ -49,6 +50,15 @@ public interface AndroidDataWritingVisitor extends Flushable {
    */
   void copyResource(Path source, String relativeDestinationPath)
       throws IOException, MergingException;
+
+  /**
+   * Adds the namespaces associated with a {@link FullyQualifiedName}.
+   *
+   * <p>An xml namespace consists of a prefix and a uri. They are common declared on the root
+   * &lt;resources&gt; tag of each resource. The namespaces collected here will be merged together,
+   * with the last uri added taking precedence over the prefix key.
+   */
+  void defineNamespacesFor(FullyQualifiedName fqn, Namespaces namespaces);
 
   /**
    * Provides a fluent interface to generate an xml resource for the values directory.
@@ -94,8 +104,8 @@ public interface AndroidDataWritingVisitor extends Flushable {
      * Takes another values xml resource and writes it as a child tag here.
      *
      * <p>This allows xml elements from other {@link XmlResourceValue} to be moved in the stream.
-     * Currently, this is only necessary for {@link StyleableXmlResourceValue} which can have {@link
-     * AttrXmlResourceValue} defined as child elements (yet, they are merged and treated as
+     * Currently, this is only necessary for {@link StyleableXmlResourceValue} which can have 
+     * {@link AttrXmlResourceValue} defined as child elements (yet, they are merged and treated as
      * independent resources.)
      *
      * @param fqn The {@link FullyQualifiedName} of the {@link XmlResourceValue} to be adopted. This

@@ -23,12 +23,10 @@ import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import com.google.protobuf.CodedOutputStream;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -82,8 +80,12 @@ public class IdXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, OutputStream output) throws IOException {
-    Builder xmlValue = SerializeFormat.DataValueXml.newBuilder().setType(XmlType.ID);
+  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+      throws IOException {
+    Builder xmlValue =
+        SerializeFormat.DataValueXml.newBuilder()
+            .setType(XmlType.ID)
+            .putAllNamespace(namespaces.asMap());
     if (value != null) {
       xmlValue.setValue(value);
     }

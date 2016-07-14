@@ -23,14 +23,12 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -107,10 +105,12 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, OutputStream output) throws IOException {
+  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+      throws IOException {
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder()
             .setType(XmlType.STYLE)
+            .putAllNamespace(namespaces.asMap())
             .putAllMappedStringValue(values);
     if (parent != null) {
       xmlValueBuilder.setValue(parent);

@@ -13,6 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.SdkConstants;
+import com.android.annotations.NonNull;
+import com.android.ide.common.internal.LoggedErrorException;
+import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.res2.MergingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -22,13 +27,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-
-import com.android.SdkConstants;
-import com.android.annotations.NonNull;
-import com.android.ide.common.internal.LoggedErrorException;
-import com.android.ide.common.internal.PngCruncher;
-import com.android.ide.common.res2.MergingException;
-
+import com.google.devtools.build.android.xml.Namespaces;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -50,7 +49,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-
 import javax.annotation.Nullable;
 import javax.xml.namespace.QName;
 
@@ -99,12 +97,9 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
   }
 
-  public static final char[] START_RESOURCES =
-      ("<?xml version=\"1.0\" encoding='utf-8' standalone='no'?>\n"
-              + "<resources xmlns:xliff=\""
-              + XmlResourceValues.XLIFF_NAMESPACE
-              + "\">")
-          .toCharArray();
+  public static final char[] PRELUDE =
+      "<?xml version=\"1.0\" encoding='utf-8' standalone='no'?>\n".toCharArray();
+  private static final char[] START_RESOURCES_TAG = "<resources".toCharArray();
   public static final char[] END_RESOURCES = "</resources>".toCharArray();
   private static final char[] LINE_END = "\n".toCharArray();
   private static final PngCruncher NOOP_CRUNCHER =
@@ -249,46 +244,89 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
     return valueTags.get(valuesPath).resource(fqn);
   }
+  
+
+  @Override
+  public void defineNamespacesFor(FullyQualifiedName fqn, Namespaces namespaces) {
+    String valuesPath = fqn.valuesPath();
+    if (!valueTags.containsKey(valuesPath)) {
+      valueTags.put(valuesPath, new ResourceValuesDefinitions());
+    }
+    valueTags.get(valuesPath).addAllNamespaces(namespaces);
+  }
 
   /**
    * A container for the {@linkplain Segment}s of a values.xml file.
    */
   private static class ResourceValuesDefinitions {
+    private static final class WritingTask implements Callable<Boolean> {
+
+      private final Path valuesPath;
+
+      private final Multimap<FullyQualifiedName, Segment> segments;
+      private final Set<FullyQualifiedName> adopted;
+      private final Namespaces namespaces;
+
+      private WritingTask(
+          Path valuesPath,
+          Namespaces namespaces,
+          Set<FullyQualifiedName> adopted,
+          Multimap<FullyQualifiedName, Segment> segments) {
+        this.valuesPath = valuesPath;
+        this.namespaces = namespaces;
+        this.adopted = adopted;
+        this.segments = segments;
+      }
+
+      @Override
+      public Boolean call() throws Exception {
+        Files.createDirectories(valuesPath.getParent());
+        try (BufferedWriter writer =
+            Files.newBufferedWriter(
+                valuesPath,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE)) {
+          writer.write(PRELUDE);
+          writer.write(START_RESOURCES_TAG);
+          for (Entry<String, String> prefixToUri : namespaces) {
+            writer.write(" xmlns:");
+            writer.write(prefixToUri.getKey());
+            writer.write("=\"");
+            writer.write(prefixToUri.getValue());
+            writer.write("\"");
+          }
+          writer.write(">");
+          writer.write(LINE_END);
+          Path previousSource = null;
+          for (FullyQualifiedName key : Ordering.natural().immutableSortedCopy(segments.keySet())) {
+            if (!adopted.contains(key)) {
+              for (Segment segment : segments.get(key)) {
+                previousSource = segment.write(previousSource, writer);
+              }
+            }
+          }
+          writer.write(END_RESOURCES);
+        }
+        return Boolean.TRUE;
+      }
+    }
+
     final Multimap<FullyQualifiedName, Segment> segments = ArrayListMultimap.create();
     final Set<FullyQualifiedName> adopted = new HashSet<>();
+    Namespaces namespaces = Namespaces.empty();
 
     private ValueResourceDefinitionMetadata resource(final FullyQualifiedName fqn) {
       return new StringValueResourceDefinitionMetadata(segments, adopted, fqn);
     }
 
+    public void addAllNamespaces(Namespaces namespaces) {
+      this.namespaces = namespaces.union(this.namespaces);
+    }
+
     /** Generates a {@link Callable} that will write the {@link Segment} to the provided path. */
     public Callable<Boolean> createWritingTask(final Path valuesPath) {
-      return new Callable<Boolean>() {
-        @Override
-        public Boolean call() throws Exception {
-          Files.createDirectories(valuesPath.getParent());
-          try (BufferedWriter writer =
-              Files.newBufferedWriter(
-                  valuesPath,
-                  StandardCharsets.UTF_8,
-                  StandardOpenOption.CREATE_NEW,
-                  StandardOpenOption.WRITE)) {
-            writer.write(START_RESOURCES);
-            writer.write(LINE_END);
-            Path previousSource = null;
-            for (FullyQualifiedName key :
-                Ordering.natural().immutableSortedCopy(segments.keySet())) {
-              if (!adopted.contains(key)) {
-                for (Segment segment : segments.get(key)) {
-                  previousSource = segment.write(previousSource, writer);
-                }
-              }
-            }
-            writer.write(END_RESOURCES);
-          }
-          return Boolean.TRUE;
-        }
-      };
+      return new WritingTask(valuesPath, namespaces, adopted, segments);
     }
   }
 

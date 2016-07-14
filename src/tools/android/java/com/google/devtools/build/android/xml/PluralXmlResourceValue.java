@@ -23,13 +23,11 @@ import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
 import com.google.protobuf.CodedOutputStream;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Map.Entry;
 import java.util.Objects;
-
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
 
@@ -128,7 +126,8 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, OutputStream output) throws IOException {
+  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+      throws IOException {
     SerializeFormat.DataValue.Builder builder =
         XmlResourceValues.newSerializableDataValueBuilder(source);
     SerializeFormat.DataValue value =
@@ -137,6 +136,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
                 builder
                     .getXmlValueBuilder()
                     .setType(XmlType.PLURAL)
+                    .putAllNamespace(namespaces.asMap())
                     .putAllAttribute(attributes)
                     .putAllMappedStringValue(values))
             .build();

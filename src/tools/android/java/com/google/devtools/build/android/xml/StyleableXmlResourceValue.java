@@ -26,7 +26,6 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
@@ -35,7 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -138,13 +136,15 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, OutputStream output) throws IOException {
+  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+      throws IOException {
     return XmlResourceValues.serializeProtoDataValue(
         output,
         XmlResourceValues.newSerializableDataValueBuilder(source)
             .setXmlValue(
                 SerializeFormat.DataValueXml.newBuilder()
                     .setType(XmlType.STYLEABLE)
+                    .putAllNamespace(namespaces.asMap())
                     .addAllReferences(
                         Iterables.transform(attrs.entrySet(), FULLY_QUALIFIED_NAME_TO_DATA_KEY))));
   }

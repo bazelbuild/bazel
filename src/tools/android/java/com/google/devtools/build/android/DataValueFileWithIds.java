@@ -13,20 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.SdkConstants;
+import com.android.resources.ResourceType;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
-
-import com.android.SdkConstants;
-import com.android.resources.ResourceType;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
-
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -78,7 +75,7 @@ public class DataValueFileWithIds {
     for (String id : idResources) {
       combiningConsumer.consume(
           fqnFactory.create(ResourceType.ID, id),
-          DataResourceXml.of(source, IdXmlResourceValue.of()));
+          DataResourceXml.createWithNoNamespace(source, IdXmlResourceValue.of()));
     }
   }
 
