@@ -61,7 +61,7 @@ import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** Common utilities for serializing {@link Attribute}s as protocol buffers. */
-public class AttributeSerializer {
+public class AttributeFormatter {
 
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.<Type<?>>of(
@@ -70,7 +70,7 @@ public class AttributeSerializer {
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.<Type<?>>of(NODEP_LABEL_LIST, NODEP_LABEL);
 
-  private AttributeSerializer() {}
+  private AttributeFormatter() {}
 
   /**
    * Convert attribute value to proto representation.

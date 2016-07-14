@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeSerializer;
+import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -151,7 +151,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             AggregatingAttributeMapper.flattenAttributeValues(
                 attr.getType(), possibleAttributeValues);
         Build.Attribute serializedAttribute =
-            AttributeSerializer.getAttributeProto(
+            AttributeFormatter.getAttributeProto(
                 attr,
                 flattenedAttributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
@@ -186,7 +186,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         }
         Object attributeValue = getAspectAttributeValue(attribute, labels);
         Build.Attribute serializedAttribute =
-            AttributeSerializer.getAttributeProto(
+            AttributeFormatter.getAttributeProto(
                 attribute,
                 attributeValue,
                 /*explicitlySpecified=*/ false,

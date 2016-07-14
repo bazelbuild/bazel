@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleSerializer;
+import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -191,7 +191,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   private final byte[] computeRuleKey(Rule rule, byte[] ruleSpecificData) {
     return new Fingerprint()
-        .addBytes(RuleSerializer.serializeRule(rule).build().toByteArray())
+        .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
         .addBytes(ruleSpecificData)
         // This is to make the fingerprint different after adding names to the generated
         // WORKSPACE files so they will get re-created, because otherwise there are

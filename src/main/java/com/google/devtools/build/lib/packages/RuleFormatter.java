@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /** Serialize a {@link Rule} as its protobuf representation. */
-public class RuleSerializer {
+public class RuleFormatter {
 
   // Skylark doesn't support defining rule classes with ComputedDefault attributes. Therefore, the
   // only ComputedDefault attributes we expect to see for Skylark-defined rule classes are
@@ -76,7 +76,7 @@ public class RuleSerializer {
       }
 
       builder.addAttribute(
-          AttributeSerializer.getAttributeProto(
+          AttributeFormatter.getAttributeProto(
               attr,
               valueToSerialize,
               isExplicit,
