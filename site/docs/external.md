@@ -62,6 +62,8 @@ following to build the tool and see usage:
 bazel run //src/tools/generate_workspace
 ```
 
+Note that you need run this from your Bazel source folder even if you build your binary from source.
+
 You can specify directories containing Bazel projects (i.e., directories
 containing a `WORKSPACE` file), Maven projects (i.e., directories containing a
 `pom.xml` file), or Maven artifact coordinates directly. For example:
