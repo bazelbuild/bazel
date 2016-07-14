@@ -46,7 +46,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   static final ImmutableList<String> GLIBCXX_DBG_COPTS =
       ImmutableList.of(
           "-D_GLIBCXX_DEBUG", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCPP_CONCEPT_CHECKS");
-  
+
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
       ImmutableList.of(
@@ -105,6 +105,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * iOS version features or libraries will become weak dependencies which are only loaded if the
    * runtime OS supports them.
    */
+  @SkylarkCallable(name = "ios_minimum_os", structField = true,
+      doc = "The minimum compatible iOS version for target simulators and devices..")
   public DottedVersion getMinimumOs() {
     return iosMinimumOs;
   }
