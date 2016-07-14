@@ -157,6 +157,27 @@ public class TurbineOptionsTest {
   }
 
   @Test
+  public void repeatedClasspath() throws Exception {
+    String[] lines = {
+      "--classpath",
+      "liba.jar",
+      "libb.jar:libc.jar",
+      "--processorpath",
+      "libpa.jar",
+      "libpb.jar",
+      "libpc.jar",
+    };
+
+    TurbineOptions options =
+        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+
+    assertThat(options.classPath()).containsExactly("liba.jar", "libb.jar", "libc.jar").inOrder();
+    assertThat(options.processorPath())
+        .containsExactly("libpa.jar", "libpb.jar", "libpc.jar")
+        .inOrder();
+  }
+
+  @Test
   public void optionalTargetLabelAndRuleKind() throws Exception {
     String[] lines = {
       "--output",

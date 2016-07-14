@@ -251,7 +251,7 @@ public class JavaHeaderCompileActionBuilder {
     // comparing the command line length to the minimum param file size regresses analysis
     // performance (see b/29410356).
     builder.alwaysUseParameterFile(ParameterFileType.UNQUOTED);
-    builder.setCommandLine(buildCommandLine(ruleContext.getConfiguration().getHostPathSeparator()));
+    builder.setCommandLine(buildCommandLine());
 
     builder.addTransitiveInputs(javabaseInputs);
     builder.addTransitiveInputs(classpathEntries);
@@ -289,7 +289,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Builds the header compiler command line. */
-  private CommandLine buildCommandLine(String hostPathSeparator) {
+  private CommandLine buildCommandLine() {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     result.addExecPath("--output", outputJar);
@@ -300,16 +300,14 @@ public class JavaHeaderCompileActionBuilder {
 
     result.add("--temp_dir").addPath(tempDirectory);
 
-    result.addJoinExecPaths("--classpath", hostPathSeparator, classpathEntries);
-    result.addJoinExecPaths(
-        "--bootclasspath", hostPathSeparator, bootclasspathEntries);
+    result.addExecPaths("--classpath", classpathEntries);
+    result.addExecPaths("--bootclasspath", bootclasspathEntries);
 
     if (!processorNames.isEmpty()) {
       result.add("--processors", processorNames);
     }
     if (!processorPath.isEmpty()) {
-      result.addJoinExecPaths(
-          "--processorpath", hostPathSeparator, processorPath);
+      result.addExecPaths("--processorpath", processorPath);
     }
 
     result.addExecPaths("--sources", sourceFiles);

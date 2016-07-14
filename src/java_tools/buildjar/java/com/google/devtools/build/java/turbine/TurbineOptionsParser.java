@@ -94,13 +94,13 @@ public class TurbineOptionsParser {
           builder.addProcessors(readList(argumentDeque));
           break;
         case "--processorpath":
-          builder.addProcessorPathEntries(splitClasspath(readOne(argumentDeque)));
+          builder.addProcessorPathEntries(splitClasspath(readList(argumentDeque)));
           break;
         case "--classpath":
-          builder.addClassPathEntries(splitClasspath(readOne(argumentDeque)));
+          builder.addClassPathEntries(splitClasspath(readList(argumentDeque)));
           break;
         case "--bootclasspath":
-          builder.addBootClassPathEntries(splitClasspath(readOne(argumentDeque)));
+          builder.addBootClassPathEntries(splitClasspath(readList(argumentDeque)));
           break;
         case "--javacopts":
           builder.addAllJavacOpts(readList(argumentDeque));
@@ -130,10 +130,6 @@ public class TurbineOptionsParser {
           break;
         case "--target_label":
           builder.setTargetLabel(readOne(argumentDeque));
-          break;
-        case "--strict_java_deps":
-          // TODO(cushon): remove once Blaze no longer passes this flag
-          readOne(argumentDeque); // ignored
           break;
         case "--rule_kind":
           builder.setRuleKind(readOne(argumentDeque));
@@ -167,9 +163,10 @@ public class TurbineOptionsParser {
   private static final Splitter CLASSPATH_SPLITTER =
       Splitter.on(':').trimResults().omitEmptyStrings();
 
-  private static ImmutableList<String> splitClasspath(String path) {
+  // TODO(cushon): stop splitting classpaths once cl/127006119 is released
+  private static ImmutableList<String> splitClasspath(Iterable<String> paths) {
     ImmutableList.Builder<String> classpath = ImmutableList.builder();
-    if (path != null) {
+    for (String path : paths) {
       classpath.addAll(CLASSPATH_SPLITTER.split(path));
     }
     return classpath.build();
