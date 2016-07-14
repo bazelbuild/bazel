@@ -93,7 +93,7 @@ function test_tmpdir() {
   mkdir -p foo
   cat > foo/bar_test.sh <<EOF
 #!/bin/bash
-echo "I'm a test"
+echo TEST_TMPDIR=$TEST_TMPDIR
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
@@ -102,15 +102,11 @@ sh_test(
     srcs = ["bar_test.sh"],
 )
 EOF
-  bazel test --test_output=all -s //foo:bar_test >& $TEST_log || \
+  bazel test --test_output=all //foo:bar_test >& $TEST_log || \
     fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=/.*"
 
-  cat > foo/bar_test.sh <<EOF
-#!/bin/bash
-echo "I'm a different test"
-EOF
-  bazel test --test_output=all --test_tmpdir=$TEST_TMPDIR -s //foo:bar_test \
+  bazel test --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
 }

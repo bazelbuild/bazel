@@ -20,6 +20,19 @@ exec 2>&1
 # Executing the test log will page it.
 echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
 
+# Bazel sets some environment vars to relative paths, but it's easier to deal
+# with absolute paths once we're actually running the test, so let's convert
+# them.
+if [[ "$TEST_SRCDIR" != /* ]]; then
+  export TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+fi
+if [[ "$TEST_TMPDIR" != /* ]]; then
+  export TEST_TMPDIR="$PWD/$TEST_TMPDIR"
+fi
+if [[ "$XML_OUTPUT_FILE" != /* ]]; then
+  export XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
+fi
+
 # Tell googletest about Bazel sharding.
 if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   export GTEST_SHARD_INDEX="${TEST_SHARD_INDEX}"

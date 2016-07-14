@@ -224,7 +224,12 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     ImmutableSet.Builder<Path> dirs = ImmutableSet.builder();
     FileSystem fs = blazeDirs.getFileSystem();
     if (env.containsKey("TEST_TMPDIR")) {
-      dirs.add(fs.getPath(env.get("TEST_TMPDIR")));
+      PathFragment testTmpDir = new PathFragment(env.get("TEST_TMPDIR"));
+      if (testTmpDir.isAbsolute()) {
+        dirs.add(fs.getPath(testTmpDir));
+      } else {
+        dirs.add(execRoot.getRelative(testTmpDir));
+      }
     }
     dirs.add(fs.getPath("/tmp"));
     return dirs.build();

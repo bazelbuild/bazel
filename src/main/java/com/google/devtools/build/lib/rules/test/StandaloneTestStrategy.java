@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.OptionsClassProvider;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
@@ -90,7 +89,8 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Path execRoot = actionExecutionContext.getExecutor().getExecRoot();
     TestRunnerAction.ResolvedPaths resolvedPaths = action.resolve(execRoot);
-    Map<String, String> env = getEnv(action, runfilesDir, testTmpDir, resolvedPaths);
+    Map<String, String> env =
+        getEnv(action, execRoot, runfilesDir, testTmpDir, resolvedPaths.getXmlOutputPath());
 
     Map<String, String> info = new HashMap<>();
 
@@ -149,24 +149,17 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private Map<String, String> getEnv(
-      TestRunnerAction action,
-      Path runfilesDir,
-      Path tmpDir,
-      TestRunnerAction.ResolvedPaths resolvedPaths) {
+      TestRunnerAction action, Path execRoot, Path runfilesDir, Path tmpDir, Path xmlOutputPath) {
     Map<String, String> vars = getDefaultTestEnvironment(action);
     BuildConfiguration config = action.getConfiguration();
 
     vars.putAll(config.getLocalShellEnvironment());
     vars.putAll(action.getTestEnv());
 
-    /*
-     * TODO(bazel-team): the paths below are absolute,
-     * making test actions impossible to cache remotely.
-     */
-    vars.put("TEST_SRCDIR", runfilesDir.getPathString());
-    vars.put("TEST_TMPDIR", tmpDir.getPathString());
+    vars.put("TEST_SRCDIR", runfilesDir.relativeTo(execRoot).getPathString());
+    vars.put("TEST_TMPDIR", tmpDir.relativeTo(execRoot).getPathString());
     vars.put("TEST_WORKSPACE", action.getRunfilesPrefix());
-    vars.put("XML_OUTPUT_FILE", resolvedPaths.getXmlOutputPath().getPathString());
+    vars.put("XML_OUTPUT_FILE", xmlOutputPath.relativeTo(execRoot).getPathString());
     if (!action.isEnableRunfiles()) {
       vars.put("RUNFILES_MANIFEST_ONLY", "1");
     }
