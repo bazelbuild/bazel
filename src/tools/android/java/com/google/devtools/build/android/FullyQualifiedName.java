@@ -100,9 +100,8 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       List<String> unHandledDensityQualifiers = new ArrayList<>();
       List<String> unHandledUIModeQualifiers = new ArrayList<>();
       List<String> handledQualifiers = new ArrayList<>();
-      // TODO(corysmith): Remove when FolderConfiguration is updated to handle anydpi and
-      // BCP prefixes.
-      // The language/region qualifiers and anydpi cannot be currently handled.
+      // TODO(corysmith): Remove when FolderConfiguration is updated to handle BCP prefixes.
+      // TODO(corysmith): Add back in handling for anydpi
       while (rawQualifiers.hasNext()) {
         String qualifier = rawQualifiers.next();
         if (qualifier.startsWith(BCP_PREFIX)) {
@@ -122,8 +121,6 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
           unHandledLanguageRegionQualifiers.add("b+sr+Latn");
           // Consume the next value, as it's been replaced.
           rawQualifiers.next();
-        } else if (qualifier.equals("anydpi")) {
-          unHandledDensityQualifiers.add(qualifier);
         } else if (qualifier.equals("watch")) {
           unHandledUIModeQualifiers.add(qualifier);
         } else {
