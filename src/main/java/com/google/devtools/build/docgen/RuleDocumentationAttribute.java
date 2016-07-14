@@ -180,6 +180,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
     StringBuilder sb = new StringBuilder()
         .append(TYPE_DESC.get(attribute.getType()))
         .append("; " + (attribute.isMandatory() ? "required" : "optional"))
+        .append(!attribute.isConfigurable() ? "; nonconfigurable" : "")
         .append(getDefaultValue());
     return sb.toString();
   }

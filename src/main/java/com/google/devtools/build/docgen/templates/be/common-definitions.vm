@@ -109,12 +109,49 @@ labels attribute.
 <h2 id="configurable-attributes">Configurable attributes</h2>
 
 <p>
-  Most rule attributes can be "configured" so their values depend on Bazel
-  command-line flags. This can be used, for example, to declare
+  Most attributes can be "configured" so their values depend on the flags passed
+  at the command line. This can be used, for example, to declare
   platform-dependent <code>srcs</code> or custom compiler flags depending on the
   <a href="../bazel-user-manual.html#flag--compilation_mode">compilation
   mode</a>.
 </p>
+
+<h4>Example</h4>
+
+<pre class="code">
+cc_library(
+    name = "multiplatform_lib",
+    srcs = select({
+        ":x86_mode": ["x86_impl.cc"],
+        ":arm_mode": ["arm_impl.cc"]
+    })
+)
+config_setting(
+    name = "x86_mode",
+    values = { "cpu": "x86" }
+)
+config_setting(
+    name = "arm_mode",
+    values = { "cpu": "arm" }
+)
+</pre>
+
+<p>
+  An attribute is made configurable by assigning it to a <code>select</code>.
+  This makes its value depend on which <code>config_setting</code> matches
+  the build. For example, <code>bazel build :multiplatform_lib --cpu=arm</code>
+  sets <code>multiplatform_lib</code>'s <code>srcs</code> to
+  <code>["arm_impl.cc"]</code>, while <code>bazel build :multiplatform_lib
+  --cpu=x86</code> sets <code>srcs</code> to <code>["x86_impl.cc"]</code>.
+</p>
+
+<p>
+  See the definitions of
+  <a href="functions.html#select">select</a> and
+  <a href="general.html#config_setting">config_setting</a> for more details.
+  Attributes marked <code>nonconfigurable</code> in their documentation cannot
+  use this feature (usually because Bazel has to know their values before flags
+  have been parsed).
 
 </p>
 

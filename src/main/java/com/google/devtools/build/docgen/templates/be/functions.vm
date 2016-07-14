@@ -589,10 +589,9 @@ $ bazel query '//foo:all' | sort
 
 <pre>select({conditionA: valuesA, conditionB: valuesB, ...})</pre>
 
-<p><code>select()</code> is the helper function that makes an
-  attribute for a
-  rule <a href="common-definitions.html#configurable-attributes">configurable</a>. It can
-  replace the right-hand side of
+<p><code>select()</code> is the helper function that makes a rule attribute
+  <a href="common-definitions.html#configurable-attributes">configurable</a>.
+  It can replace the right-hand side of
 
   <i>almost</i>
   any attribute assignment so that the attribute's value depends on the
@@ -648,7 +647,8 @@ sh_binary(
     srcs = select({ ":conditionA": ["a.sh"]}) + select({ ":conditionB":
     ["b.sh"]})</code> are valid expressions.
   </li>
-  <li><code>select</code> works with most, but not all, attributes.
+  <li><code>select</code> works with most, but not all, attributes. Incompatible
+  attributes are marked <code>nonconfigurable</code> in their documentation.
 
   </li>
 </ul>
