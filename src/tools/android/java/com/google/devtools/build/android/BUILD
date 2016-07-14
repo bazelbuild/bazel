@@ -66,7 +66,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:package_manifest_java_proto",
-        "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_proto",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:android_common",
         "//third_party:apache_commons_compress",
