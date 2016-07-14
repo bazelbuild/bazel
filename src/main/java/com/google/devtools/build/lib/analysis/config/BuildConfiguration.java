@@ -416,8 +416,10 @@ public final class BuildConfiguration {
             switch (CPU.getCurrent()) {
               case X86_64:
                 return "x64_windows";
+              default:
+                // We only support x64 Windows for now.
+                return "unknown";
             }
-            break; // We only support x64 Windows for now.
           case LINUX:
             switch (CPU.getCurrent()) {
               case X86_32:
@@ -428,9 +430,12 @@ public final class BuildConfiguration {
                 return "ppc";
               case ARM:
                 return "arm";
+              default:
+                return "unknown";
             }
+          default:
+            return "unknown";
         }
-        return "unknown";
       }
       return input;
     }
