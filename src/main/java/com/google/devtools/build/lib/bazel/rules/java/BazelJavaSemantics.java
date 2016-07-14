@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -78,8 +77,8 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public Label getJdkLauncherLabel() {
-    return JDK_LAUNCHER_LABEL;
+  public boolean isJdkLauncher(Label label) {
+    return JDK_LAUNCHER_LABEL.equals(label);
   }
 
   private boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {

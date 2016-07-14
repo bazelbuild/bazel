@@ -46,11 +46,9 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -87,8 +85,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // TODO(cushon): disallow combining launcher=JDK_LAUNCHER_LABEL with create_executable=0
       // and use isAttributeExplicitlySpecified here
       Label launcherAttribute = ruleContext.attributes().get("launcher", BuildType.LABEL);
-      if (launcherAttribute != null
-          && !launcherAttribute.equals(semantics.getJdkLauncherLabel())) {
+      if (launcherAttribute != null && !semantics.isJdkLauncher(launcherAttribute)) {
         ruleContext.ruleError("launcher specified but create_executable is false");
       }
     }
