@@ -17,15 +17,23 @@ package com.google.devtools.build.lib.rules.java.proto;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.cmdline.Label.PARSE_ABSOLUTE_UNCHECKED;
+import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider.GET_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -54,17 +62,25 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
-
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
+  /**
+   * The attribute name for holding a list of protos for which no code should be generated because
+   * the proto-runtime already contains them.
+   */
+  private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$proto_source_file_blacklist";
+
   private final JavaSemantics javaSemantics;
   private final String protoRuntimeAttr;
   private final String protoRuntimeLabel;
+  private final ImmutableList<String> protoSourceFileBlacklistLabels;
 
   @Nullable private final String jacocoLabel;
   private final ImmutableList<String> protoCompilerPluginOptions;
@@ -73,11 +89,13 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       JavaSemantics javaSemantics,
       String protoRuntimeAttr,
       String protoRuntimeLabel,
+      ImmutableList<String> protoSourceFileBlacklistLabels,
       @Nullable String jacocoLabel,
       ImmutableList<String> protoCompilerPluginOptions) {
     this.javaSemantics = javaSemantics;
     this.protoRuntimeAttr = protoRuntimeAttr;
     this.protoRuntimeLabel = protoRuntimeLabel;
+    this.protoSourceFileBlacklistLabels = protoSourceFileBlacklistLabels;
     this.jacocoLabel = jacocoLabel;
     this.protoCompilerPluginOptions = protoCompilerPluginOptions;
   }
@@ -110,13 +128,17 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(getClass().getSimpleName())
             .attributeAspect("deps", this)
-            .requiresConfigurationFragments(
-                JavaConfiguration.class, ProtoConfiguration.class)
+            .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProvider(ProtoSourcesProvider.class)
             .add(
                 attr(protoRuntimeAttr, LABEL)
                     .legacyAllowAnyFileType()
-                    .value(Label.parseAbsoluteUnchecked(protoRuntimeLabel)))
+                    .value(parseAbsoluteUnchecked(protoRuntimeLabel)))
+            .add(
+                attr(PROTO_SOURCE_FILE_BLACKLIST_ATTR, LABEL_LIST)
+                    .cfg(HOST)
+                    .value(
+                        transformToList(protoSourceFileBlacklistLabels, PARSE_ABSOLUTE_UNCHECKED)))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
@@ -126,9 +148,25 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     Attribute.Builder<Label> jacocoAttr = attr("$jacoco_instrumentation", LABEL).cfg(HOST);
 
     if (jacocoLabel != null) {
-      jacocoAttr.value(Label.parseAbsoluteUnchecked(jacocoLabel));
+      jacocoAttr.value(parseAbsoluteUnchecked(jacocoLabel));
     }
     return result.add(jacocoAttr).build();
+  }
+
+  /** Like Iterables.transform(), except it returns a List<> instead of an Iterable<>. */
+  private static <F, T> List<T> transformToList(
+      Iterable<F> fromIterable, Function<? super F, ? extends T> function) {
+    return Lists.<T>newArrayList(transform(fromIterable, function));
+  }
+
+  @VisibleForTesting
+  public static String createBlacklistedProtosMixError(
+      Iterable<String> blacklisted, Iterable<String> nonBlacklisted, String ruleLabel) {
+    return String.format(
+        "The 'srcs' attribute of '%s' contains protos for which 'java_proto_library' "
+            + "shouldn't generate code (%s), in addition to protos for which it should (%s).\n"
+            + "Separate '%1$s' into 2 proto_library rules.",
+        ruleLabel, Joiner.on(", ").join(blacklisted), Joiner.on(", ").join(nonBlacklisted));
   }
 
   private static class Impl {
@@ -184,7 +222,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           NestedSetBuilder.fromNestedSets(
               transform(getDeps(JavaProtoLibraryTransitiveFilesToBuildProvider.class), GET_JARS));
 
-      if (supportData.hasProtoSources()) {
+      if (shouldGenerateCode()) {
         Artifact sourceJar = getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = getOutputJarArtifact();
@@ -219,6 +257,41 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               JavaCompilationArgsAspectProvider.class,
               new JavaCompilationArgsAspectProvider(generatedCompilationArgsProvider))
           .build();
+    }
+
+    /**
+     * Decides whether code should be generated for the .proto files in the currently-processed
+     * proto_library.
+     */
+    private boolean shouldGenerateCode() {
+      if (!supportData.hasProtoSources()) {
+        return false;
+      }
+
+      Set<Artifact> blacklist =
+          Sets.newHashSet(
+              ruleContext
+                  .getPrerequisiteArtifacts(PROTO_SOURCE_FILE_BLACKLIST_ATTR, Mode.HOST)
+                  .list());
+      List<Artifact> blacklisted = new ArrayList<>();
+      List<Artifact> nonBlacklisted = new ArrayList<>();
+      for (Artifact src : supportData.getDirectProtoSources()) {
+        if (blacklist.contains(src)) {
+          blacklisted.add(src);
+        } else {
+          nonBlacklisted.add(src);
+        }
+      }
+      if (!nonBlacklisted.isEmpty() && !blacklisted.isEmpty()) {
+        ruleContext.attributeError(
+            "srcs",
+            createBlacklistedProtosMixError(
+                Artifact.toRootRelativePaths(blacklisted),
+                Artifact.toRootRelativePaths(nonBlacklisted),
+                ruleContext.getLabel().toString()));
+      }
+
+      return blacklisted.isEmpty();
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {

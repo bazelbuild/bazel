@@ -29,6 +29,7 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
         BazelJavaSemantics.INSTANCE,
         SPEED_PROTO_RUNTIME_ATTR,
         SPEED_PROTO_RUNTIME_LABEL,
+        ImmutableList.<String>of(),
         null, /* jacocoAttr */
         ImmutableList.of("shared", "immutable"));
   }
