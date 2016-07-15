@@ -244,8 +244,9 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   thread = process_info.hThread;
 
   if (!AssignProcessToJobObject(result->job_, result->process_)) {
-    result->error_ = GetLastErrorString("AssignProcessToJobObject()");
-    goto cleanup;
+    // todo(lberki): Fix job control (GitHub issue #1527).
+    // result->error_ = GetLastErrorString("AssignProcessToJobObject()");
+    // goto cleanup;
   }
 
   // Now that we put the process in a new job object, we can start executing it

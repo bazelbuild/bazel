@@ -335,9 +335,10 @@ def _find_cc(repository_ctx):
 def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
   bash_bin = _which_cmd(repository_ctx, "bash.exe")
-  program_files_dir = repository_ctx.os.environ["ProgramFiles(x86)"]
-  if not program_files_dir:
-    fail("'ProgramFiles(x86)' environment variable is not set")
+  if "ProgramFiles(x86)" in repository_ctx.os.environ:
+    program_files_dir = repository_ctx.os.environ["ProgramFiles(x86)"]
+  else:
+    program_files_dir="C:\\Program Files (x86)"
   vs_version = repository_ctx.execute([bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir]).stdout.strip()
   return program_files_dir + "/" + vs_version
 
@@ -405,8 +406,12 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
+    if "TMP" in repository_ctx.os.environ:
+      tmp_dir = repository_ctx.os.environ["TMP"]
+    else:
+      tmp_dir = "c:\\Windows\\Temp"
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{tmp}": repository_ctx.os.environ["TMP"].replace("\\", "\\\\"),
+        "%{tmp}": tmp_dir.replace("\\", "\\\\"),
         "%{path}": env["PATH"],
         "%{include}": include_paths,
         "%{lib}": lib_paths,

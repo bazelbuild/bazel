@@ -33,12 +33,7 @@ echo "bazel binary is at $bazel"
 unset JAVA_RUNFILES
 
 function setup_bazelrc() {
-  # enable batch mode when running on windows
-  if is_windows; then
-    BATCH_MODE="startup --batch"
-  fi
   cat >$TEST_TMPDIR/bazelrc <<EOF
-${BATCH_MODE:-}
 startup --output_user_root=${bazel_root}
 startup --host_javabase=${bazel_javabase}
 build -j 8

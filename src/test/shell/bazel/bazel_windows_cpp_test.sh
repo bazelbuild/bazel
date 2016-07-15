@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -33,6 +33,7 @@ fi
 
 function set_up() {
   copy_examples
+  export PATH=$PATH:/c/python_27_amd64/files
 }
 
 common_args="-s --verbose_failures --cpu=x64_windows_msvc"

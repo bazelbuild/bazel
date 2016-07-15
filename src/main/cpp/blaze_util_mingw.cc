@@ -263,7 +263,9 @@ string RunProgram(
       &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
 
   if (!ok) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateProcess");
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "RunProgram/CreateProcess: Error %d while executing %s",
+         GetLastError(), cmdline.cmdline);
   }
 
   CloseHandle(pipe_write);
@@ -378,21 +380,23 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
 
   bool ok = CreateProcess(
-      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
+      NULL,  // _In_opt_    LPCTSTR               lpApplicationName,
       //                 _Inout_opt_ LPTSTR                lpCommandLine,
       cmdline.cmdline,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-      TRUE,           // _In_        BOOL                  bInheritHandles,
+      NULL,  // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+      NULL,  // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      TRUE,  // _In_        BOOL                  bInheritHandles,
       //                 _In_        DWORD                 dwCreationFlags,
-      DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB,
+      DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
       NULL,           // _In_opt_    LPVOID                lpEnvironment,
       NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
       &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
       &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
 
   if (!ok) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateProcess");
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon/CreateProcess: error %u executing: %s\n",
+         GetLastError(), cmdline.cmdline);
   }
 
   CloseHandle(output_file);
@@ -478,7 +482,8 @@ void ExecuteProgram(
       &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
 
   if (!success) {
-    pdie(255, "Error %u executing: %s\n", GetLastError(), cmdline);
+    pdie(255, "ExecuteProgram/CreateProcess: error %u executing: %s\n",
+         GetLastError(), cmdline.cmdline);
   }
 
   if (!AssignProcessToJobObject(job, processInfo.hProcess)) {
