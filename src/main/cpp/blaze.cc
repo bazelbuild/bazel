@@ -1935,7 +1935,7 @@ bool GrpcBlazeServer::Connect() {
 
   grpc::ClientContext context;
   context.set_deadline(
-      std::chrono::system_clock::now() + std::chrono::seconds(1));
+      std::chrono::system_clock::now() + std::chrono::seconds(5));
 
   command_server::PingRequest request;
   command_server::PingResponse response;
