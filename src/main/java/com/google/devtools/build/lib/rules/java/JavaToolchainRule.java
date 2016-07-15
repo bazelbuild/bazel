@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.List;
 
 /**
@@ -84,7 +83,7 @@ public final class JavaToolchainRule implements RuleDefinition {
         The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java
         virtual machine documentation for the extensive list of possible flags for this option.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("jvm_opts", STRING_LIST).value(ImmutableList.<String>of("-client")))
+        .add(attr("jvm_opts", STRING_LIST).value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers) -->
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

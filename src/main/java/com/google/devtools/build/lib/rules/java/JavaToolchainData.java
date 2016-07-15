@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.util.List;
 
 /**
@@ -87,9 +86,10 @@ public class JavaToolchainData {
   }
 
   /**
-   * @return the list of options to be given to the JVM when invoking the java compiler.
+   * @return the list of options to be given to the JVM when invoking the java compiler and
+   *     associated tools.
    */
-  public ImmutableList<String> getJavacJvmOptions() {
+  public ImmutableList<String> getJvmOptions() {
     return jvmOpts;
   }
 

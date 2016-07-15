@@ -38,13 +38,11 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,11 +52,6 @@ import javax.annotation.Nullable;
  * Also supports the creation of resource and source only Jars.
  */
 public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
-
-  /**
-   * Maximum memory to use for GenClass for generating the gen jar.
-   */
-  private static final String GENCLASS_MAX_MEMORY = "-Xmx64m";
 
   private JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
@@ -76,7 +69,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     this.implicitAttributesSuffix = implicitAttributesSuffix;
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
-    this.customJavacJvmOpts = javaToolchain.getJavacJvmOptions();
+    this.customJavacJvmOpts = javaToolchain.getJvmOptions();
     this.semantics = semantics;
   }
 
@@ -353,25 +346,32 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
    */
   public void createGenJarAction(Artifact classJar, Artifact manifestProto,
       Artifact genClassJar) {
-    getRuleContext().registerAction(new SpawnAction.Builder()
-      .addInput(manifestProto)
-      .addInput(classJar)
-      .addOutput(genClassJar)
-      .addTransitiveInputs(getHostJavabaseInputsNonStatic(getRuleContext()))
-      .setJarExecutable(
-          getRuleContext().getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
-          getGenClassJar(ruleContext),
-          ImmutableList.of("-client", GENCLASS_MAX_MEMORY))
-      .setCommandLine(CustomCommandLine.builder()
-          .addExecPath("--manifest_proto", manifestProto)
-          .addExecPath("--class_jar", classJar)
-          .addExecPath("--output_jar", genClassJar)
-          .add("--temp_dir").addPath(tempDir(genClassJar))
-          .build())
-      .useParameterFile(ParameterFileType.SHELL_QUOTED)
-      .setProgressMessage("Building genclass jar " + genClassJar.prettyPrint())
-      .setMnemonic("JavaSourceJar")
-      .build(getRuleContext()));
+    getRuleContext()
+        .registerAction(
+            new SpawnAction.Builder()
+                .addInput(manifestProto)
+                .addInput(classJar)
+                .addOutput(genClassJar)
+                .addTransitiveInputs(getHostJavabaseInputsNonStatic(getRuleContext()))
+                .setJarExecutable(
+                    getRuleContext()
+                        .getHostConfiguration()
+                        .getFragment(Jvm.class)
+                        .getJavaExecutable(),
+                    getGenClassJar(ruleContext),
+                    javaToolchain.getJvmOptions())
+                .setCommandLine(
+                    CustomCommandLine.builder()
+                        .addExecPath("--manifest_proto", manifestProto)
+                        .addExecPath("--class_jar", classJar)
+                        .addExecPath("--output_jar", genClassJar)
+                        .add("--temp_dir")
+                        .addPath(tempDir(genClassJar))
+                        .build())
+                .useParameterFile(ParameterFileType.SHELL_QUOTED)
+                .setProgressMessage("Building genclass jar " + genClassJar.prettyPrint())
+                .setMnemonic("JavaSourceJar")
+                .build(getRuleContext()));
   }
 
   /** Returns the GenClass deploy jar Artifact. */
@@ -441,7 +441,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setClassDirectory(classDir(resourceJar));
     builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
     builder.setJavacOpts(getDefaultJavacOptsFromRule(getRuleContext()));
-    builder.setJavacJvmOpts(javaToolchain.getJavacJvmOptions());
+    builder.setJavacJvmOpts(javaToolchain.getJvmOptions());
     getAnalysisEnvironment().registerAction(builder.build());
     return resourceJar;
   }

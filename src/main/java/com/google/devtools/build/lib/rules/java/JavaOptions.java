@@ -30,7 +30,6 @@ import com.google.devtools.common.options.Converters.StringSetConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.TriState;
-
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -366,7 +365,7 @@ public class JavaOptions extends FragmentOptions {
     JavaOptions host = (JavaOptions) getDefault();
 
     host.javaBase = hostJavaBase;
-    host.jvmOpts = ImmutableList.of("-client", "-XX:ErrorFile=/dev/stderr");
+    host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = javacOpts;
     host.javaToolchain = hostJavaToolchain;

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.Map;
 
@@ -35,11 +34,6 @@ import java.util.Map;
  */
 @Immutable
 public final class SingleJarActionBuilder {
-  /**
-   * Also see DeployArchiveBuilder.SINGLEJAR_MAX_MEMORY. We don't expect that anyone has more
-   * than ~500,000 files in a source jar, so 256 MB of memory should be plenty.
-   */
-  private static final String SINGLEJAR_MAX_MEMORY = "-Xmx256m";
 
   private static final ImmutableList<String> SOURCE_JAR_COMMAND_LINE_ARGS = ImmutableList.of(
       "--compression",
@@ -61,20 +55,21 @@ public final class SingleJarActionBuilder {
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
     NestedSet<Artifact> hostJavabaseInputs = JavaHelper.getHostJavabaseInputs(ruleContext);
     Artifact singleJar = getSingleJar(ruleContext);
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addOutput(outputJar)
-        .addInputs(resources.values())
-        .addInputs(resourceJars)
-        .addTransitiveInputs(hostJavabaseInputs)
-        .setJarExecutable(
-            javaPath,
-            singleJar,
-            ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY))
-        .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
-        .useParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setProgressMessage("Building source jar " + outputJar.prettyPrint())
-        .setMnemonic("JavaSourceJar")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addOutput(outputJar)
+            .addInputs(resources.values())
+            .addInputs(resourceJars)
+            .addTransitiveInputs(hostJavabaseInputs)
+            .setJarExecutable(
+                javaPath,
+                singleJar,
+                JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+            .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
+            .useParameterFile(ParameterFileType.SHELL_QUOTED)
+            .setProgressMessage("Building source jar " + outputJar.prettyPrint())
+            .setMnemonic("JavaSourceJar")
+            .build(ruleContext));
   }
 
   /** Returns the SingleJar deploy jar Artifact. */

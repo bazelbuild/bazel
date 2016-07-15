@@ -269,7 +269,7 @@ public class JavaHeaderCompileActionBuilder {
             ":java_toolchain" + implicitAttributesSuffix, Mode.TARGET, JavaToolchainProvider.class);
     List<String> jvmArgs =
         ImmutableList.<String>builder()
-            .addAll(javaToolchain.getJavacJvmOptions())
+            .addAll(javaToolchain.getJvmOptions())
             .add("-Xbootclasspath/p:" + javacJar.getExecPath().getPathString())
             .build();
     builder.setJarExecutable(

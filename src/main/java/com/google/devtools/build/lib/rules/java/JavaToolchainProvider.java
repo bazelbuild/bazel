@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +44,7 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> extclasspath;
   private final String encoding;
   private final ImmutableList<String> javacOptions;
-  private final ImmutableList<String> javacJvmOptions;
+  private final ImmutableList<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final Artifact javac;
   private final Artifact javaBuilder;
@@ -89,7 +87,7 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
             .addAll(data.getJavacOptions())
             .addAll(defaultJavacFlags)
             .build();
-    this.javacJvmOptions = data.getJavacJvmOptions();
+    this.jvmOptions = data.getJvmOptions();
     this.javacSupportsWorkers = data.getJavacSupportsWorkers();
   }
 
@@ -98,9 +96,11 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
     return javacOptions;
   }
 
-  /** @return the list of default options for the JVM running the java compiler */
-  public ImmutableList<String> getJavacJvmOptions() {
-    return javacJvmOptions;
+  /**
+   * @return the list of default options for the JVM running the java compiler and associated tools.
+   */
+  public ImmutableList<String> getJvmOptions() {
+    return jvmOptions;
   }
 
   /** @return whether JavaBuilders supports running as a persistent worker or not */
