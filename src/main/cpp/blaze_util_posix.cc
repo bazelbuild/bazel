@@ -64,6 +64,8 @@ void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
 
 std::string ConvertPath(const std::string &path) { return path; }
 
+std::string ConvertPathList(const std::string& path_list) { return path_list; }
+
 std::string ListSeparator() { return ":"; }
 
 bool SymlinkDirectories(const string &target, const string &link) {

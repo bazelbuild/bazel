@@ -460,7 +460,17 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
     command_arguments_.push_back("--ignore_client_env");
   } else {
     for (char** env = environ; *env != NULL; env++) {
-      command_arguments_.push_back("--client_env=" + string(*env));
+      string env_str(*env);
+      int pos = env_str.find("=");
+      if (pos != string::npos) {
+        string name = env_str.substr(0, pos);
+        if (name == "PATH" || name == "TMP") {
+          string value = env_str.substr(pos + 1);
+          value = ConvertPathList(value);
+          env_str = name + "=" + value;
+        }
+      }
+      command_arguments_.push_back("--client_env=" + env_str);
     }
   }
   command_arguments_.push_back("--client_cwd=" + blaze::ConvertPath(cwd));

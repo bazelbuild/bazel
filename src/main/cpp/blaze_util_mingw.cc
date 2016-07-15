@@ -510,11 +510,30 @@ void ExecuteProgram(
 string ListSeparator() { return ";"; }
 
 string ConvertPath(const string& path) {
+  // If the path looks like %USERPROFILE%/foo/bar, don't convert.
+  if (path.empty() || path[0] == '%') {
+    return path;
+  }
   char* wpath = static_cast<char*>(cygwin_create_path(
       CCP_POSIX_TO_WIN_A, static_cast<const void*>(path.c_str())));
   string result(wpath);
   free(wpath);
   return result;
+}
+
+// Convert a Unix path list to Windows path list
+string ConvertPathList(const string& path_list) {
+  string w_list = "";
+  int start = 0;
+  int pos;
+  while ((pos = path_list.find(":", start)) != string::npos) {
+    w_list += ConvertPath(path_list.substr(start, pos - start)) + ";";
+    start = pos + 1;
+  }
+  if (start < path_list.size()) {
+    w_list += ConvertPath(path_list.substr(start));
+  }
+  return w_list;
 }
 
 string ConvertPathToPosix(const string& win_path) {

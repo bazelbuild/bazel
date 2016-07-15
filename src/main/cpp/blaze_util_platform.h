@@ -84,6 +84,12 @@ string RunProgram(const string& exe, const std::vector<string>& args_vector);
 // is Windows path.
 std::string ConvertPath(const std::string& path);
 
+// Convert a path list from Bazel internal form to underlying OS form.
+// On Unixes this is an identity operation.
+// On Windows, Bazel internal form is cygwin path list, and underlying OS form
+// is Windows path list.
+std::string ConvertPathList(const std::string& path_list);
+
 // Return a string used to separate paths in a list.
 std::string ListSeparator();
 

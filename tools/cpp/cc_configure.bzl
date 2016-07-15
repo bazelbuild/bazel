@@ -49,24 +49,14 @@ def _which(repository_ctx, cmd, default):
   result = repository_ctx.which(cmd)
   return default if result == None else str(result)
 
-# This functions can only be used on Windows
-def _to_windows_path(repository_ctx, path):
-  """Convert unix path to windows path, also works for path list."""
-  result = repository_ctx.execute(["cygpath", "-w", "-p", path])
-  if result.stderr:
-    fail(result.stderr)
-  return result.stdout.strip()
 
-# This functions can only be used on Windows
-# This function is a workaround since repository_ctx.which doesn't work on Windows for now.
-# TODO(pcloudy): Remove this function once the skylark implemented which function works.
-def _which_windows(repository_ctx, cmd):
-  """run which command to detect a binary location and return a windows path."""
-  result = repository_ctx.execute(["which", cmd])
-  if result.stderr:
-    fail("Cannot find " + cmd + " in PATH.\nPlease make sure "
-         + cmd + " is installed.\n" + result.stderr)
-  return _to_windows_path(repository_ctx, result.stdout.strip())
+def _which_cmd(repository_ctx, cmd):
+  """Find cmd in PATH using repository_ctx.which() and fail if cannot find it."""
+  result = repository_ctx.which(cmd)
+  if result == None:
+    fail("Cannot find " + cmd + " in PATH=%s.\nPlease make sure "
+         + cmd + " is installed.\n" % repository_ctx.os.environ["PATH"])
+  return str(result)
 
 def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools."""
@@ -344,7 +334,7 @@ def _find_cc(repository_ctx):
 
 def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
-  bash_bin = _which_windows(repository_ctx, "bash.exe")
+  bash_bin = _which_cmd(repository_ctx, "bash.exe")
   program_files_dir = repository_ctx.os.environ["ProgramFiles(x86)"]
   if not program_files_dir:
     fail("'ProgramFiles(x86)' environment variable is not set")
@@ -359,9 +349,7 @@ def _find_env_vars(repository_ctx, vs_path):
                       "@echo off\n" +
                       "call \"" + vsvars + "\" amd64 \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  envs = repository_ctx.execute(["wrapper/get_env.bat"], 600,
-                                # TODO(pcloudy): This should be removed once the environment variable format is fixed
-                                {"PATH": _to_windows_path(repository_ctx, repository_ctx.os.environ["PATH"].strip())}).stdout.strip().split(",")
+  envs = repository_ctx.execute(["wrapper/get_env.bat"]).stdout.strip().split(",")
   env_map = {}
   for env in envs:
     key, value = env.split("=")
@@ -409,7 +397,7 @@ def _impl(repository_ctx):
     for f in ["msvc_cl.py", "msvc_link.py"]:
       repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
 
-    python_binary = _which_windows(repository_ctx, "python.exe")
+    python_binary = _which_cmd(repository_ctx, "python.exe")
     _tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": python_binary})
 
     vs_path = _find_vs_path(repository_ctx)
@@ -418,7 +406,7 @@ def _impl(repository_ctx):
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{tmp}": _to_windows_path(repository_ctx, repository_ctx.os.environ["TMP"]).replace("\\", "\\\\"),
+        "%{tmp}": repository_ctx.os.environ["TMP"].replace("\\", "\\\\"),
         "%{path}": env["PATH"],
         "%{include}": include_paths,
         "%{lib}": lib_paths,
