@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -34,14 +37,29 @@ public class AspectCompletionValue implements SkyValue {
     return aspectValue;
   }
 
-  public static Iterable<SkyKey> keys(Collection<AspectValue> targets) {
+  public static Iterable<SkyKey> keys(
+      Collection<AspectValue> targets, final TopLevelArtifactContext ctx) {
     return Iterables.transform(
         targets,
         new Function<AspectValue, SkyKey>() {
           @Override
           public SkyKey apply(AspectValue aspectValue) {
-            return SkyKey.create(SkyFunctions.ASPECT_COMPLETION, aspectValue.getKey());
+            return SkyKey.create(
+                SkyFunctions.ASPECT_COMPLETION,
+                AspectCompletionKey.create(aspectValue.getKey(), ctx));
           }
         });
+  }
+
+ @AutoValue
+ abstract static class AspectCompletionKey {
+    public static AspectCompletionKey create(
+        AspectKey aspectKey, TopLevelArtifactContext topLevelArtifactContext) {
+      return new AutoValue_AspectCompletionValue_AspectCompletionKey(
+          aspectKey, topLevelArtifactContext);
+    }
+
+    public abstract AspectKey aspectKey();
+    public abstract TopLevelArtifactContext topLevelArtifactContext();
   }
 }

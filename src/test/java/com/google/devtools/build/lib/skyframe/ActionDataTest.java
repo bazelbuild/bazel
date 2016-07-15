@@ -93,13 +93,15 @@ public class ActionDataTest extends TimestampBuilderTestCase {
     Executor executor = new DummyExecutor(scratch.dir("/"));
     amnesiacBuilder()
         .buildArtifacts(
-            reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null);
+            reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null,
+            null);
     assertSame(executor, action.executor);
 
     executor = new DummyExecutor(scratch.dir("/"));
     amnesiacBuilder()
         .buildArtifacts(
-            reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null);
+            reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null,
+            null);
     assertSame(executor, action.executor);
   }
 

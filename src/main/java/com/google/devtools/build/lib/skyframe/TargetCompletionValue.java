@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -36,18 +38,38 @@ public class TargetCompletionValue implements SkyValue {
     return ct;
   }
 
-  public static SkyKey key(LabelAndConfiguration labelAndConfiguration) {
-    return SkyKey.create(SkyFunctions.TARGET_COMPLETION, labelAndConfiguration);
+  public static SkyKey key(
+      LabelAndConfiguration labelAndConfiguration,
+      TopLevelArtifactContext topLevelArtifactContext) {
+    return SkyKey.create(
+        SkyFunctions.TARGET_COMPLETION,
+        TargetCompletionKey.create(labelAndConfiguration, topLevelArtifactContext));
   }
 
-  public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets) {
+  public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets,
+      final TopLevelArtifactContext ctx) {
     return Iterables.transform(
         targets,
         new Function<ConfiguredTarget, SkyKey>() {
           @Override
           public SkyKey apply(ConfiguredTarget ct) {
-            return SkyKey.create(SkyFunctions.TARGET_COMPLETION, LabelAndConfiguration.of(ct));
+            return SkyKey.create(
+                SkyFunctions.TARGET_COMPLETION,
+                TargetCompletionKey.create(LabelAndConfiguration.of(ct), ctx));
           }
         });
+  }
+
+  @AutoValue
+  abstract static class TargetCompletionKey {
+    public static TargetCompletionKey create(
+        LabelAndConfiguration labelAndConfiguration,
+        TopLevelArtifactContext topLevelArtifactContext) {
+      return new AutoValue_TargetCompletionValue_TargetCompletionKey(
+          labelAndConfiguration, topLevelArtifactContext);
+    }
+
+    public abstract LabelAndConfiguration labelAndConfiguration();
+    public abstract TopLevelArtifactContext topLevelArtifactContext();
   }
 }

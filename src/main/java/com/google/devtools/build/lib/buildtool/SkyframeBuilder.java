@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -101,7 +102,8 @@ public class SkyframeBuilder implements Builder {
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
       boolean explain,
-      @Nullable Range<Long> lastExecutionTimeRange)
+      @Nullable Range<Long> lastExecutionTimeRange,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution(modifiedOutputFiles, lastExecutionTimeRange);
     skyframeExecutor.setFileCache(fileCache);
@@ -146,7 +148,8 @@ public class SkyframeBuilder implements Builder {
               finalizeActionsToOutputService,
               numJobs,
               actionCacheChecker,
-              executionProgressReceiver);
+              executionProgressReceiver,
+              topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
       Optional<ExitCode> exitCode = processResult(reporter, result, keepGoing, skyframeExecutor);
 
@@ -185,7 +188,8 @@ public class SkyframeBuilder implements Builder {
                 finalizeActionsToOutputService,
                 numJobs,
                 actionCacheChecker,
-                null);
+                null,
+                topLevelArtifactContext);
         exitCode = processResult(reporter, result, keepGoing, skyframeExecutor);
         Preconditions.checkState(
             exitCode != null || !result.keyNames().isEmpty(),

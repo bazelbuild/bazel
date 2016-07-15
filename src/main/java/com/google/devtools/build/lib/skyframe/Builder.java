@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -64,6 +65,8 @@ public interface Builder {
    *        valid even if a future action throws ActionExecutionException
    * @param lastExecutionTimeRange If not null, the start/finish time of the last build that
    *        run the execution phase.
+   * @param topLevelArtifactContext contains the the options which determine the artifacts to build
+   *        for the top-level targets.
    * @throws BuildFailedException if there were problems establishing the action execution
    *         environment, if the the metadata of any file  during the build could not be obtained,
    *         if any input files are missing, or if an action fails during execution
@@ -81,6 +84,7 @@ public interface Builder {
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
       boolean explain,
-      @Nullable Range<Long> lastExecutionTimeRange)
+      @Nullable Range<Long> lastExecutionTimeRange,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 }

@@ -198,9 +198,13 @@ public final class BuildTool {
 
       // Execution phase.
       if (needsExecutionPhase(request.getBuildOptions())) {
-        env.getSkyframeExecutor().injectTopLevelContext(request.getTopLevelArtifactContext());
-        executionTool.executeBuild(request.getId(), analysisResult, result,
-            configurations, analysisResult.getPackageRoots());
+        executionTool.executeBuild(
+            request.getId(),
+            analysisResult,
+            result,
+            configurations,
+            analysisResult.getPackageRoots(),
+            request.getTopLevelArtifactContext());
       }
 
       String delayedErrorMsg = analysisResult.getError();

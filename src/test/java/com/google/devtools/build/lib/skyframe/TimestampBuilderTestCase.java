@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -219,7 +220,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Executor executor,
           Set<ConfiguredTarget> builtTargets,
           boolean explain,
-          Range<Long> lastExecutionTimeRange)
+          Range<Long> lastExecutionTimeRange,
+          TopLevelArtifactContext topLevelArtifactContext)
           throws BuildFailedException, AbruptExitException, InterruptedException,
               TestExecException {
         skyframeActionExecutor.prepareForExecution(
@@ -356,6 +358,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           new DummyExecutor(rootDirectory),
           builtArtifacts, /*explain=*/
           false,
+          null,
           null);
     } finally {
       tsgm.waitForTimestampGranularity(reporter.getOutErr());

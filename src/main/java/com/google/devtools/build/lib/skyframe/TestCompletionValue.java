@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -31,12 +33,18 @@ public class TestCompletionValue implements SkyValue {
 
   private TestCompletionValue() { }
 
-  public static SkyKey key(LabelAndConfiguration lac, boolean exclusive) {
-    return SkyKey.create(SkyFunctions.TEST_COMPLETION, new TestCompletionKey(lac, exclusive));
+  public static SkyKey key(
+      LabelAndConfiguration lac,
+      final TopLevelArtifactContext topLevelArtifactContext,
+      final boolean exclusiveTesting) {
+    return SkyKey.create(
+        SkyFunctions.TEST_COMPLETION,
+        TestCompletionKey.create(lac, topLevelArtifactContext, exclusiveTesting));
   }
 
   public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets,
-                                      final boolean exclusive) {
+                                      final TopLevelArtifactContext topLevelArtifactContext,
+                                      final boolean exclusiveTesting) {
     return Iterables.transform(
         targets,
         new Function<ConfiguredTarget, SkyKey>() {
@@ -44,26 +52,25 @@ public class TestCompletionValue implements SkyValue {
           public SkyKey apply(ConfiguredTarget ct) {
             return SkyKey.create(
                 SkyFunctions.TEST_COMPLETION,
-                new TestCompletionKey(LabelAndConfiguration.of(ct), exclusive));
+                TestCompletionKey.create(
+                    LabelAndConfiguration.of(ct), topLevelArtifactContext, exclusiveTesting));
           }
         });
   }
-  
-  static class TestCompletionKey {
-    private final LabelAndConfiguration lac;
-    private final boolean exclusiveTesting;
 
-    TestCompletionKey(LabelAndConfiguration lac, boolean exclusive) {
-      this.lac = lac;
-      this.exclusiveTesting = exclusive;
+  @AutoValue
+  abstract static class TestCompletionKey {
+
+    public static TestCompletionKey create(
+        LabelAndConfiguration labelAndConfiguration,
+        TopLevelArtifactContext topLevelArtifactContext,
+        boolean exclusiveTesting) {
+      return new AutoValue_TestCompletionValue_TestCompletionKey(
+          labelAndConfiguration, topLevelArtifactContext, exclusiveTesting);
     }
 
-    public LabelAndConfiguration getLabelAndConfiguration() {
-      return lac;
-    }
-
-    public boolean isExclusiveTesting() {
-      return exclusiveTesting;
-    }
+    public abstract LabelAndConfiguration labelAndConfiguration();
+    public abstract TopLevelArtifactContext topLevelArtifactContext();
+    public abstract boolean exclusiveTesting();
   }
 }

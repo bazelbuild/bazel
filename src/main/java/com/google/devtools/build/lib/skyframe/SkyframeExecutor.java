@@ -633,13 +633,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
   }
 
-  /**
-   * Injects the top-level artifact options.
-   */
-  public void injectTopLevelContext(TopLevelArtifactContext options) {
-    PrecomputedValue.TOP_LEVEL_CONTEXT.set(injectable(), options);
-  }
-
   public void injectWorkspaceStatusData() {
     PrecomputedValue.WORKSPACE_STATUS_KEY.set(injectable(),
         workspaceStatusActionFactory.createWorkspaceStatusAction(
@@ -1083,7 +1076,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean finalizeActionsToOutputService,
       int numJobs,
       ActionCacheChecker actionCacheChecker,
-      @Nullable EvaluationProgressReceiver executionProgressReceiver)
+      @Nullable EvaluationProgressReceiver executionProgressReceiver,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
@@ -1096,9 +1090,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
       Iterable<SkyKey> artifactKeys = ArtifactValue.mandatoryKeys(artifactsToBuild);
-      Iterable<SkyKey> targetKeys = TargetCompletionValue.keys(targetsToBuild);
-      Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects);
-      Iterable<SkyKey> testKeys = TestCompletionValue.keys(targetsToTest, exclusiveTesting);
+      Iterable<SkyKey> targetKeys =
+          TargetCompletionValue.keys(targetsToBuild, topLevelArtifactContext);
+      Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
+      Iterable<SkyKey> testKeys =
+          TestCompletionValue.keys(targetsToTest, topLevelArtifactContext, exclusiveTesting);
       return buildDriver.evaluate(
           Iterables.concat(artifactKeys, targetKeys, aspectKeys, testKeys),
           keepGoing,

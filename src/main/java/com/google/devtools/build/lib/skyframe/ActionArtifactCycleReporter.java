@@ -18,10 +18,10 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
+import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -50,9 +50,9 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return "file: " + ((OwnedArtifact) arg).getArtifact().getRootRelativePathString();
     } else if (arg instanceof Action) {
       return "action: " + ((Action) arg).getMnemonic();
-    } else if (arg instanceof LabelAndConfiguration
+    } else if (arg instanceof TargetCompletionKey
         && skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
-      return "configured target: " + ((LabelAndConfiguration) arg).getLabel();
+      return "configured target: " + ((TargetCompletionKey) arg).labelAndConfiguration().getLabel();
     }
     throw new IllegalStateException(
         "Argument is not Action, TargetCompletion,  or OwnedArtifact: " + arg);
@@ -60,7 +60,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected Label getLabel(SkyKey key) {
-    Object arg = key.argument(); 
+    Object arg = key.argument();
     if (arg instanceof OwnedArtifact) {
       return ((OwnedArtifact) arg).getArtifact().getOwner();
     } else if (arg instanceof Action) {
