@@ -52,8 +52,8 @@ void BlazeStartupOptions::Init() {
   allow_configurable_attributes = false;
   fatal_event_bus_exceptions = false;
   io_nice_level = -1;
-  // 3 hours (but only 5 seconds if used within a test)
-  max_idle_secs = testing ? 5 : (3 * 3600);
+  // 3 hours (but only 15 seconds if used within a test)
+  max_idle_secs = testing ? 15 : (3 * 3600);
   oom_more_eagerly_threshold = 100;
   command_port = -1;
   oom_more_eagerly = false;
