@@ -80,7 +80,6 @@ public class RuleFormatter {
               attr,
               valueToSerialize,
               isExplicit,
-              /*includeGlobs=*/ true,
               /*encodeBooleanAndTriStateAsIntegerAndString=*/ false));
     }
     return builder;

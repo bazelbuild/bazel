@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.syntax.Environment;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -155,7 +154,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 attr,
                 flattenedAttributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
-                /*includeGlobs=*/ false,
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
         rulePb.addAttribute(serializedAttribute);
         serializedAttributes.put(attr, serializedAttribute);
@@ -190,7 +188,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 attribute,
                 attributeValue,
                 /*explicitlySpecified=*/ false,
-                /*includeGlobs=*/ false,
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
         rulePb.addAttribute(serializedAttribute);
       }

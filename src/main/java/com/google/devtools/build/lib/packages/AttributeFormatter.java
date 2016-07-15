@@ -49,15 +49,11 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelListDictE
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringListDictEntry;
-import com.google.devtools.build.lib.syntax.GlobCriteria;
-import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.annotation.Nullable;
 
 /** Common utilities for serializing {@link Attribute}s as protocol buffers. */
@@ -78,9 +74,6 @@ public class AttributeFormatter {
    * <p>If {@param value} is null, only the {@code name}, {@code explicitlySpecified}, {@code
    * nodep} (if applicable), and {@code type} fields will be included in the proto message.
    *
-   * <p>If {@param includeGlobs} is true then {@link GlobCriteria} will be included in the proto
-   * message if present.
-   *
    * <p>If {@param encodeBooleanAndTriStateAsIntegerAndString} is true then boolean and tristate
    * values are also encoded as integers and strings.
    */
@@ -88,14 +81,12 @@ public class AttributeFormatter {
       Attribute attr,
       @Nullable Object value,
       boolean explicitlySpecified,
-      boolean includeGlobs,
       boolean encodeBooleanAndTriStateAsIntegerAndString) {
     return getAttributeProto(
         attr.getName(),
         attr.getType(),
         value,
         explicitlySpecified,
-        includeGlobs,
         encodeBooleanAndTriStateAsIntegerAndString);
   }
 
@@ -105,7 +96,6 @@ public class AttributeFormatter {
       Type<?> type,
       @Nullable Object value,
       boolean explicitlySpecified,
-      boolean includeGlobs,
       boolean encodeBooleanAndTriStateAsIntegerAndString) {
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
     attrPb.setName(name);
@@ -114,13 +104,13 @@ public class AttributeFormatter {
 
     if (value instanceof SelectorList<?>) {
       attrPb.setType(Discriminator.SELECTOR_LIST);
-      writeSelectorListToBuilder(attrPb, type, (SelectorList<?>) value, includeGlobs);
+      writeSelectorListToBuilder(attrPb, type, (SelectorList<?>) value);
     } else {
       attrPb.setType(ProtoUtils.getDiscriminatorFromType(type));
       if (value != null) {
         AttributeBuilderAdapter adapter =
             new AttributeBuilderAdapter(attrPb, encodeBooleanAndTriStateAsIntegerAndString);
-        writeAttributeValueToBuilder(adapter, type, value, includeGlobs);
+        writeAttributeValueToBuilder(adapter, type, value);
       }
     }
 
@@ -138,8 +128,7 @@ public class AttributeFormatter {
   private static void writeSelectorListToBuilder(
       Build.Attribute.Builder attrPb,
       Type<?> type,
-      SelectorList<?> selectorList,
-      boolean includeGlobs) {
+      SelectorList<?> selectorList) {
     Build.Attribute.SelectorList.Builder selectorListBuilder =
         Build.Attribute.SelectorList.newBuilder();
     selectorListBuilder.setType(ProtoUtils.getDiscriminatorFromType(type));
@@ -161,8 +150,7 @@ public class AttributeFormatter {
           writeAttributeValueToBuilder(
               new SelectorEntryBuilderAdapter(selectorEntryBuilder),
               type,
-              conditionValue,
-              includeGlobs);
+              conditionValue);
         }
         selectorBuilder.addEntries(selectorEntryBuilder);
       }
@@ -177,7 +165,7 @@ public class AttributeFormatter {
    */
   @SuppressWarnings("unchecked")
   private static void writeAttributeValueToBuilder(
-      AttributeValueBuilderAdapter builder, Type<?> type, Object value, boolean includeGlobs) {
+      AttributeValueBuilderAdapter builder, Type<?> type, Object value) {
     if (type == INTEGER) {
       builder.setIntValue((Integer) value);
     } else if (type == STRING || type == LABEL || type == NODEP_LABEL || type == OUTPUT) {
@@ -270,23 +258,6 @@ public class AttributeFormatter {
     } else {
       throw new AssertionError("Unknown type: " + type);
     }
-
-    if (includeGlobs && value instanceof GlobList<?>) {
-      GlobList<?> globList = (GlobList<?>) value;
-
-      for (GlobCriteria criteria : globList.getCriteria()) {
-        Build.GlobCriteria.Builder criteriaPb =
-            Build.GlobCriteria.newBuilder().setGlob(criteria.isGlob());
-        for (String include : criteria.getIncludePatterns()) {
-          criteriaPb.addInclude(include);
-        }
-        for (String exclude : criteria.getExcludePatterns()) {
-          criteriaPb.addExclude(exclude);
-        }
-
-        builder.addGlobCriteria(criteriaPb);
-      }
-    }
   }
 
   private static Tristate triStateToProto(TriState value) {
@@ -370,6 +341,7 @@ public class AttributeFormatter {
       this.encodeBooleanAndTriStateAsIntegerAndString = encodeBooleanAndTriStateAsIntegerAndString;
     }
 
+    @Override
     public void addStringListValue(String s) {
       attributeBuilder.addStringListValue(s);
     }
@@ -495,6 +467,7 @@ public class AttributeFormatter {
       this.selectorEntryBuilder = Preconditions.checkNotNull(selectorEntryBuilder);
     }
 
+    @Override
     public void addStringListValue(String s) {
       selectorEntryBuilder.addStringListValue(s);
     }
