@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 /** The collection of gen jars from the transitive closure. */
 @Immutable
 @SkylarkModule(
-  name = "java_annotation-processing",
+  name = "java_annotation_processing",
   category = SkylarkModuleCategory.NONE,
   doc = "Information about jars that are a result of annotation processing for a Java rule."
 )
