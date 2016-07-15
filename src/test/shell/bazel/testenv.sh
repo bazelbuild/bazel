@@ -76,7 +76,7 @@ ijar_path="${BAZEL_RUNFILES}/third_party/ijar/ijar"
 
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
-namespace_sandbox="${BAZEL_RUNFILES}/src/main/tools/namespace-sandbox"
+linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
 
 # iOS and Objective-C tooling
 iossim_path="${BAZEL_RUNFILES}/third_party/iossim/iossim"

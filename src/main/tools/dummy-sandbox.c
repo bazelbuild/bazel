@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a dummy file to compile on platforms where namespace sandboxing
-// doesn't work (ie. other than Linux). We need this for main/tools/BUILD file
-// - we can't restrict visibility of namespace-sandbox based on platform;
-// instead bazel build main/tools:namespace-sandbox is a no-op on non supported
-// platforms (if we didn't have this file, it would fail with a non-informative
-// message)
+// This is a dummy file to compile on platforms where sandboxing doesn't work.
+// We need this for main/tools/BUILD file - we can't restrict visibility of
+// linux-sandbox based on platform; instead bazel build
+// main/tools:linux-sandbox is a no-op on non supported platforms (if we didn't
+// have this file, it would fail with a non-informative message)
 
 int main(int argc, char *argv[]) {
   return 1;

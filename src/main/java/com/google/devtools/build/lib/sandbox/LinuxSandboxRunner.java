@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -40,12 +39,11 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Helper class for running the namespace sandbox. This runner prepares environment inside the
- * sandbox, handles sandbox output, performs cleanup and changes invocation if necessary.
+ * Helper class for running the Linux sandbox. This runner prepares environment inside the sandbox,
+ * handles sandbox output, performs cleanup and changes invocation if necessary.
  */
-public class NamespaceSandboxRunner {
-  private static final String NAMESPACE_SANDBOX =
-      "namespace-sandbox" + OsUtils.executableExtension();
+public class LinuxSandboxRunner {
+  private static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
   private static final String SANDBOX_TIP =
       "\n\nSandboxed execution failed, which may be legitimate (e.g. a compiler error), "
           + "or due to missing dependencies. To enter the sandbox environment for easier debugging,"
@@ -60,7 +58,7 @@ public class NamespaceSandboxRunner {
   private final boolean verboseFailures;
   private final boolean sandboxDebug;
 
-  public NamespaceSandboxRunner(
+  public LinuxSandboxRunner(
       Path execRoot,
       Path sandboxPath,
       ImmutableMap<Path, Path> mounts,
@@ -82,7 +80,7 @@ public class NamespaceSandboxRunner {
     Path execRoot = commandEnv.getExecRoot();
 
     PathFragment embeddedTool =
-        commandEnv.getBlazeWorkspace().getBinTools().getExecPath(NAMESPACE_SANDBOX);
+        commandEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
     if (embeddedTool == null) {
       // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
       // bootstrapping).
@@ -135,7 +133,7 @@ public class NamespaceSandboxRunner {
     List<String> fileArgs = new ArrayList<>();
     List<String> commandLineArgs = new ArrayList<>();
 
-    commandLineArgs.add(execRoot.getRelative("_bin/namespace-sandbox").getPathString());
+    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
 
     if (sandboxDebug) {
       fileArgs.add("-D");

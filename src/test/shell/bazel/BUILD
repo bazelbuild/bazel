@@ -65,7 +65,7 @@ filegroup(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//src/main/tools:namespace-sandbox",
+        "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
         "//third_party:srcs",
@@ -283,9 +283,9 @@ sh_test(
 )
 
 sh_test(
-    name = "namespace_runner_test",
+    name = "linux_sandbox_test",
     size = "large",
-    srcs = ["namespace-runner_test.sh"],
+    srcs = ["linux-sandbox_test.sh"],
     data = [":test-deps"],
 )
 

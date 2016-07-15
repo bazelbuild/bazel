@@ -21,7 +21,7 @@ filegroup(
     data = [
         "//src/main/tools:build-runfiles",
         "//src/main/tools:build_interface_so",
-        "//src/main/tools:namespace-sandbox",
+        "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
     ],
 )

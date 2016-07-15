@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SearchPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -155,8 +154,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     }
 
     try {
-      final NamespaceSandboxRunner runner =
-          new NamespaceSandboxRunner(
+      final LinuxSandboxRunner runner =
+          new LinuxSandboxRunner(
               execRoot,
               sandboxPath,
               mounts,
@@ -217,7 +216,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   /**
    * Most programs expect certain directories to be present, e.g. /tmp. Make sure they are.
    *
-   * <p>Note that $HOME is handled by namespace-sandbox.c, because it changes user to nobody and the
+   * <p>Note that $HOME is handled by linux-sandbox.c, because it changes user to nobody and the
    * home directory of that user is not known by us.
    */
   private ImmutableSet<Path> createImportantDirs(Map<String, String> env) {

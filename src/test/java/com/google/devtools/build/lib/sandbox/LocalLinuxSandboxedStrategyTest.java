@@ -29,17 +29,15 @@ import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.util.Arrays;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.Map;
-
 /**
- * Tests for {@code LinuxSandboxedStrategy} that must run locally, because they need to actually
- * run the namespace-sandbox binary.
+ * Tests for {@code LinuxSandboxedStrategy} that must run locally, because they need to actually run
+ * the linux-sandbox binary.
  */
 @TestSpec(localOnly = true, supportedOs = OS.LINUX)
 @RunWith(JUnit4.class)

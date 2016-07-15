@@ -33,7 +33,7 @@ public class TestConstants {
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
       "build_interface_so",
       "build-runfiles",
-      "namespace-sandbox",
+      "linux-sandbox",
       "process-wrapper",
       "xcode-locator");
 
