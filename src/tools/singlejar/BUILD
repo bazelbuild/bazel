@@ -15,6 +15,7 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
         ":input_jar",
+        ":test_util",
     ],
     copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
     data = [
@@ -31,6 +32,7 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_ziptool_test.cc",
         ":input_jar",
+        ":test_util",
     ],
     deps = ["//third_party:gtest"],
 )
@@ -40,6 +42,7 @@ cc_test(
     srcs = [
         "input_jar_bad_jar_test.cc",
         ":input_jar",
+        ":test_util",
     ],
     deps = ["//third_party:gtest"],
 )
@@ -64,6 +67,11 @@ filegroup(
         "mapped_file.h",
         "zip_headers.h",
     ],
+)
+
+filegroup(
+    name = "test_util",
+    srcs = ["test_util.h"],
 )
 
 filegroup(

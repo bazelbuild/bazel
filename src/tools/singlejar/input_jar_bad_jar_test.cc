@@ -18,6 +18,7 @@
 #include <string>
 
 #include "src/tools/singlejar/input_jar.h"
+#include "src/tools/singlejar/test_util.h"
 
 #include "gtest/gtest.h"
 
@@ -29,39 +30,18 @@ class InputJarBadJarTest : public testing::Test {
     input_jar_.reset(new InputJar);
   }
 
-  // Allocates a with given name and with given size.
-  static bool AllocateFile(const char *name, size_t size) {
-    int fd = open(name, O_CREAT | O_RDWR | O_TRUNC, 0777);
-    if (fd < 0) {
-      perror(name);
-      return false;
-    }
-    if (size) {
-      if (ftruncate(fd, size) == 0) {
-        return close(fd) == 0;
-      } else {
-        auto last_error = errno;
-        close(fd);
-        errno = last_error;
-        return false;
-      }
-    } else {
-      return close(fd) == 0;
-    }
-  }
-
   std::unique_ptr<InputJar> input_jar_;
 };
 
 TEST_F(InputJarBadJarTest, NotAJar) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
-  AllocateFile(kJar, 1000);
+  ASSERT_TRUE(TestUtil::AllocateFile(kJar, 1000));
   ASSERT_FALSE(input_jar_->Open(kJar));
 }
 
 // Check that an empty file does not cause trouble in MappedFile.
 TEST_F(InputJarBadJarTest, EmptyFile) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
-  AllocateFile(kJar, 0);
+  ASSERT_TRUE(TestUtil::AllocateFile(kJar, 0));
   ASSERT_FALSE(input_jar_->Open(kJar));
 }
