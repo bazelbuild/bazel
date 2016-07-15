@@ -469,8 +469,7 @@ void ExecuteProgram(
       NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
       true,           // _In_        BOOL                  bInheritHandles,
       //                 _In_        DWORD                 dwCreationFlags,
-      DETACHED_PROCESS
-          | CREATE_NEW_PROCESS_GROUP   // So that Ctrl-Break does not affect it
+      CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break does not affect it
           | CREATE_BREAKAWAY_FROM_JOB  // We'll put it in a new job
           | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
       NULL,           // _In_opt_    LPVOID                lpEnvironment,
