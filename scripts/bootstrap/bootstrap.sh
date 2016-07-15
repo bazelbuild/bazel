@@ -48,7 +48,7 @@ if [ -z "${BAZEL-}" ]; then
   function bazel_build() {
     bootstrap_build ${BAZEL_ARGS-} \
                     --verbose_failures \
-                    --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+                    --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
                     "${EMBED_LABEL_ARG[@]}" \
                     "${@}"
   }
@@ -57,7 +57,7 @@ else
     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} build \
            ${BAZEL_ARGS-} \
            --verbose_failures \
-           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+           --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
            "${EMBED_LABEL_ARG[@]}" \
            "${@}"
   }
@@ -99,7 +99,7 @@ function bootstrap_test() {
       ${EXTRA_BAZEL_ARGS-} ${STRATEGY} \
       --fetch --nostamp \
       --define "JAVA_VERSION=${JAVA_VERSION}" \
-      --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+      --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       ${BAZEL_TARGET} || return $?
   if [ -n "${BAZEL_SUM}" ]; then
     cat bazel-genfiles/src/java.version >${BAZEL_SUM}
