@@ -30,6 +30,14 @@ public final class RemoteOptions extends OptionsBase {
   public String hazelcastNode;
 
   @Option(
+    name = "hazelcast_client_config",
+    defaultValue = "null",
+    category = "remote",
+    help = "A file path to a hazelcast client config XML file. For client mode only."
+  )
+  public String hazelcastClientConfig;
+
+  @Option(
     name = "hazelcast_standalone_listen_port",
     defaultValue = "0",
     category = "build_worker",
