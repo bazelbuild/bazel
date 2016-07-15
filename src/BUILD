@@ -310,6 +310,7 @@ filegroup(
         "//src/tools/xcode/libtool:srcs",
         "//src/tools/xcode/momcwrapper:srcs",
         "//src/tools/xcode/realpath:srcs",
+        "//src/tools/singlejar:srcs",
         "//src/tools/xcode/stdredirect:srcs",
         "//src/tools/xcode/swiftstdlibtoolwrapper:srcs",
         "//src/tools/xcode/xcodelocator:srcs",
