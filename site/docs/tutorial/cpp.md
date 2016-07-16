@@ -6,14 +6,14 @@ title: Build C++
 Build C++
 =========
 
-You can use Bazel to build your C++ application, in this tutorial you'll learn how to:
+You can use Bazel to build your C++ application. In this tutorial you'll learn how to:
 
 * Build your first C++ target
-* Using external libraries
-* Writing and running C++ test
-* Using precompiled libraries
+* Use external libraries
+* Write and run C++ tests
+* Use precompiled libraries
 
-## Setup your workspace
+## Setting up your workspace
 
 Suppose that you have an existing project in a directory, say,
 `~/gitroot/my-project/`. Create an empty file at
@@ -110,7 +110,7 @@ cc_library(
 {% endhighlight %}
 
 Note that `visibility = ["//main:__pkg__"]` indicates `hello-greet` is visible from `main/BUILD`.
-Then we'd create following `main/BUILD` file:
+Then we'd create the following `main/BUILD` file:
 
 {% highlight python %}
 cc_library(
@@ -129,8 +129,8 @@ cc_binary(
 )
 {% endhighlight %}
 
-Note when depending on a target in the same package, we can just use `:hello-time`,
-when the target is in other package, a full path from root should be used, like `//lib:hello-greet`.
+Note when depending on a target in the same package, we can just use `:hello-time`.
+When the target is in other package, a full path from root should be used, like `//lib:hello-greet`.
 
 Now you are ready to build your hello world C++ binary:
 
@@ -152,7 +152,7 @@ Congratulations, you've just built your first Bazel target!
 
 ## Transitive includes
 
-If a file includes a header then the file's rule should depend on that header's
+If a file includes a header, then the file's rule should depend on that header's
 library.  Conversely, only direct dependencies need to be specified as
 dependencies.  For example, suppose `sandwich.h` includes `bread.h` and
 `bread.h` includes `flour.h`.  `sandwich.h` doesn't include `flour.h` (who wants
@@ -180,8 +180,8 @@ cc_library(
 )
 ```
 
-This expresses that the `sandwich` library depends on the `bread` library,
-which depends on the `flour` library.
+Here, the `sandwich` library depends on the `bread` library, which depends
+on the `flour` library.
 
 ## Adding include paths
 
@@ -301,7 +301,7 @@ cc_library(
 
 Now `cc_` rules can depend on `//external:gtest/main`.
 
-## Writing and running C++ test
+## Writing and running C++ tests
 
 For example, we could create a test `./test/hello-test.cc` such as:
 
@@ -330,7 +330,7 @@ cc_test(
 
 Note in order to make `hello-greet` visible to `hello-test`, we have to add `"//test:__pkg__",` to `visibility` attribute in `./lib/BUILD`.
 
-Now You can then use `bazel test` to run the test.
+Now you can use `bazel test` to run the test.
 
 {% highlight bash %}
 $ bazel test test:hello-test
