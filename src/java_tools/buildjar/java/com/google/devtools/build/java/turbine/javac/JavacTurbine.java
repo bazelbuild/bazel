@@ -26,16 +26,7 @@ import com.google.devtools.build.java.turbine.TurbineOptions;
 import com.google.devtools.build.java.turbine.TurbineOptionsParser;
 import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
-
 import com.sun.tools.javac.util.Context;
-
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -57,8 +48,13 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
-
 import javax.tools.StandardLocation;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * An header compiler implementation based on javac.
@@ -347,7 +343,7 @@ public class JavacTurbine implements AutoCloseable {
    * <p>WARNING: keep in sync with ErrorProneOptions#isSupportedOption
    */
   static boolean isErrorProneFlag(String opt) {
-    return opt.startsWith("-extra_checks") || opt.startsWith("-Xep");
+    return opt.startsWith("-Xep");
   }
 
   /** Extra sources in srcjars to disk. */

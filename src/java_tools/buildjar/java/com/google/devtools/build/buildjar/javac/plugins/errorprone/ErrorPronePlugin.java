@@ -27,7 +27,6 @@ import com.google.errorprone.InvalidCommandLineOptionException;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
-
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskEvent.Kind;
 import com.sun.tools.javac.comp.AttrContext;
@@ -37,12 +36,9 @@ import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
-
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ServiceLoader;
-
 import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
 
@@ -84,8 +80,8 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   @Override
   public List<String> processArgs(List<String> args) throws InvalidCommandLineException {
     // allow javacopts that reference unknown error-prone checks
-    args = ImmutableList.<String>builder().addAll(args).add("-XepIgnoreUnknownCheckNames").build();
-    return processEpOptions(processExtraChecksOption(args));
+    return processEpOptions(
+        ImmutableList.<String>builder().addAll(args).add("-XepIgnoreUnknownCheckNames").build());
   }
 
   private List<String> processEpOptions(List<String> args) throws InvalidCommandLineException {
@@ -95,24 +91,6 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       throw new InvalidCommandLineException(e.getMessage());
     }
     return Arrays.asList(epOptions.getRemainingArgs());
-  }
-
-  private List<String> processExtraChecksOption(List<String> args) {
-    List<String> arguments = new ArrayList<>();
-    for (String arg : args) {
-      switch (arg) {
-        case "-extra_checks":
-        case "-extra_checks:on":
-          enabled = true;
-          break;
-        case "-extra_checks:off":
-          enabled = false;
-          break;
-        default:
-          arguments.add(arg);
-      }
-    }
-    return arguments;
   }
 
   private static final Function<BugChecker, Class<? extends BugChecker>> GET_CLASS =
