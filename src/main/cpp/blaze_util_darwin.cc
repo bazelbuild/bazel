@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <cstdio>
 
 #include "src/main/cpp/blaze_util.h"
@@ -32,14 +33,85 @@ namespace blaze {
 using blaze_util::die;
 using blaze_util::pdie;
 using std::string;
+using std::vector;
+
+// A stack based class for RAII type handling of CF based types that need
+// CFRelease called on them. Checks for NULL before calling release.
+template <typename T> class CFScopedReleaser {
+ public:
+  explicit CFScopedReleaser(T value) : value_(value) { }
+  ~CFScopedReleaser() {
+    if (isValid()) {
+      CFRelease(value_);
+    }
+  }
+  T get() { return value_; }
+  operator T() { return value_; }
+  bool isValid() { return value_ != NULL; }
+
+ private:
+  T value_;
+
+  CFScopedReleaser() { }
+  CFScopedReleaser(const CFScopedReleaser&);
+  CFScopedReleaser& operator=(CFScopedReleaser&);
+};
+
+// Convert a CFStringRef to a UTF8 encoded c string
+static string UTF8StringFromCFStringRef(CFStringRef cf_string) {
+  std::string utf8_string;
+  if (cf_string) {
+    CFIndex length = CFStringGetLength(cf_string);
+    CFIndex max_size =
+        CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+    vector<char> buffer(max_size);
+    if (CFStringGetCString(cf_string, &buffer[0], max_size,
+                           kCFStringEncodingUTF8)) {
+      utf8_string = &buffer[0];
+    }
+  }
+  return utf8_string;
+}
+
+// Extract description from a CFError.
+static string DescriptionFromCFError(CFErrorRef cf_err) {
+  if (!cf_err) {
+    return "";
+  }
+  CFScopedReleaser<CFStringRef> cf_err_string(CFErrorCopyDescription(cf_err));
+  return UTF8StringFromCFStringRef(cf_err_string);
+}
 
 string GetOutputRoot() {
   return "/var/tmp";
 }
 
 void WarnFilesystemType(const string& output_base) {
-  // TODO(bazel-team): Should check for NFS.
-  // TODO(bazel-team): Should check for case insensitive file systems?
+  // Check to see if we are on a non-local drive.
+  CFScopedReleaser<CFURLRef> cf_url(CFURLCreateFromFileSystemRepresentation(
+      kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(output_base.c_str()),
+      output_base.length(), true));
+  CFBooleanRef cf_local = NULL;
+  CFErrorRef cf_error = NULL;
+  if (!cf_url.isValid() ||
+      !CFURLCopyResourcePropertyForKey(cf_url, kCFURLVolumeIsLocalKey,
+                                       &cf_local, &cf_error)) {
+    CFScopedReleaser<CFErrorRef> cf_error_releaser(cf_error);
+    string error_desc = DescriptionFromCFError(cf_error_releaser);
+    fprintf(stderr, "Warning: couldn't get file system type information for "
+            "'%s'", output_base.c_str());
+    if (error_desc.length() > 0) {
+      fprintf(stderr, " - '%s'", error_desc.c_str());
+    }
+    fprintf(stderr, "\n");
+    return;
+  }
+  CFScopedReleaser<CFBooleanRef> cf_local_releaser(cf_local);
+  if (!CFBooleanGetValue(cf_local_releaser)) {
+    fprintf(stderr, "Warning: Output base '%s' is on a non-local drive. This "
+            "may lead to surprising failures and undetermined behavior.\n",
+            output_base.c_str());
+  }
 }
 
 pid_t GetPeerProcessId(int socket) {

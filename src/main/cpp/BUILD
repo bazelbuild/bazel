@@ -35,8 +35,10 @@ cc_library(
     ],
     linkopts = select({
         "//src:darwin": [
+            "-framework CoreFoundation",
         ],
         "//src:darwin_x86_64": [
+            "-framework CoreFoundation",
         ],
         "//src:freebsd": [
         ],
