@@ -43,6 +43,29 @@ def _build_tool_path(d):
     lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, d[k]))
   return "\n".join(lines)
 
+def auto_configure_fail(msg):
+  """Output failure message when auto configuration fails."""
+  red = "\033[0;31m"
+  no_color = "\033[0m"
+  fail("\n%sAuto-Configuration Error:%s %s\n" % (red, no_color, msg))
+
+
+def auto_configure_warning(msg):
+  """Output warning message during auto configuration."""
+  yellow = "\033[1;33m"
+  no_color = "\033[0m"
+  print("\n%sAuto-Configuration Warning:%s %s\n" % (yellow, no_color, msg))
+
+
+def _get_env_var(repository_ctx, name, default = None):
+  """Find an environment variable in system path."""
+  if name in repository_ctx.os.environ:
+    return repository_ctx.os.environ[name]
+  if default != None:
+    auto_configure_warning("'%s' environment variable is not set, using '%s' as default" % (name, default))
+    return default
+  auto_configure_fail("'%s' environment variable is not set" % name)
+
 
 def _which(repository_ctx, cmd, default):
   """A wrapper around repository_ctx.which() to provide a fallback value."""
@@ -50,12 +73,16 @@ def _which(repository_ctx, cmd, default):
   return default if result == None else str(result)
 
 
-def _which_cmd(repository_ctx, cmd):
+def _which_cmd(repository_ctx, cmd, default = None):
   """Find cmd in PATH using repository_ctx.which() and fail if cannot find it."""
   result = repository_ctx.which(cmd)
-  if result == None:
-    fail("Cannot find " + cmd + " in PATH=%s.\nPlease make sure "
-         + cmd + " is installed.\n" % repository_ctx.os.environ["PATH"])
+  if result != None:
+    return str(result)
+  path = _get_env_var(repository_ctx, "PATH")
+  if default != None:
+    auto_configure_warning("Cannot find %s in PATH, using '%s' as default.\nPATH=%s" % (cmd, default, path))
+    return default
+  auto_configure_fail("Cannot find %s in PATH, please make sure %s is installed and add its directory in PATH.\nPATH=%s" % (cmd, cmd, path))
   return str(result)
 
 def _get_tool_paths(repository_ctx, darwin, cc):
@@ -332,13 +359,19 @@ def _find_cc(repository_ctx):
   return cc
 
 
+def _find_python(repository_ctx):
+  """Find where is python on Windows."""
+  if "BAZEL_PYTHON" in repository_ctx.os.environ:
+    return repository_ctx.os.environ["BAZEL_PYTHON"]
+  auto_configure_warning("'BAZEL_PYTHON' is not set, start finding python in PATH.")
+  python_binary = _which_cmd(repository_ctx, "python.exe", "C:\\Python27\\python.exe")
+  return python_binary
+
+
 def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
   bash_bin = _which_cmd(repository_ctx, "bash.exe")
-  if "ProgramFiles(x86)" in repository_ctx.os.environ:
-    program_files_dir = repository_ctx.os.environ["ProgramFiles(x86)"]
-  else:
-    program_files_dir="C:\\Program Files (x86)"
+  program_files_dir = _get_env_var(repository_ctx, "ProgramFiles(x86)", "C:\\Program Files (x86)")
   vs_version = repository_ctx.execute([bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir]).stdout.strip()
   return program_files_dir + "/" + vs_version
 
@@ -398,7 +431,7 @@ def _impl(repository_ctx):
     for f in ["msvc_cl.py", "msvc_link.py"]:
       repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
 
-    python_binary = _which_cmd(repository_ctx, "python.exe")
+    python_binary = _find_python(repository_ctx)
     _tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": python_binary})
 
     vs_path = _find_vs_path(repository_ctx)
@@ -406,10 +439,7 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
-    if "TMP" in repository_ctx.os.environ:
-      tmp_dir = repository_ctx.os.environ["TMP"]
-    else:
-      tmp_dir = "c:\\Windows\\Temp"
+    tmp_dir = _get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp")
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
         "%{tmp}": tmp_dir.replace("\\", "\\\\"),
         "%{path}": env["PATH"],
