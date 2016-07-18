@@ -114,12 +114,18 @@ public class MavenJarFunction extends HttpArchiveFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    MavenDownloader downloader = createMavenDownloader(directories, mapper, serverValue);
+    MavenDownloader downloader;
+    try {
+      downloader = createMavenDownloader(directories, mapper, serverValue);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
     return createOutputTree(downloader);
   }
 
   private MavenDownloader createMavenDownloader(
-      BlazeDirectories directories, AttributeMap mapper, MavenServerValue serverValue) {
+      BlazeDirectories directories, AttributeMap mapper, MavenServerValue serverValue)
+      throws IOException {
     String name = mapper.getName();
     Path outputDirectory = getExternalRepositoryDirectory(directories).getRelative(name);
     return new MavenDownloader(name, mapper, outputDirectory, serverValue);
@@ -168,12 +174,16 @@ public class MavenJarFunction extends HttpArchiveFunction {
     private final Server server;
 
     public MavenDownloader(
-        String name, AttributeMap mapper, Path outputDirectory, MavenServerValue serverValue) {
+        String name, AttributeMap mapper, Path outputDirectory, MavenServerValue serverValue)
+        throws IOException {
       this.name = name;
       this.outputDirectory = outputDirectory;
 
       this.artifact = mapper.get("artifact", Type.STRING);
       this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
+      if (!sha1.matches("\\p{XDigit}{40}")) {
+        throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
+      }
       this.url = serverValue.getUrl();
       this.server = serverValue.getServer();
     }
