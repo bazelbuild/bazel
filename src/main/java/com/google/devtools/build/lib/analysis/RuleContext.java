@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -86,7 +85,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -156,7 +154,7 @@ public final class RuleContext extends TargetContext
   private final ErrorReporter reporter;
   private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
       skylarkProviderRegistry;
-  
+
   private ActionOwner actionOwner;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
@@ -243,7 +241,7 @@ public final class RuleContext extends TargetContext
    * Returns the workspace name for the rule.
    */
   public String getWorkspaceName() {
-    return rule.getWorkspaceName();
+    return rule.getPackage().getWorkspaceName();
   }
 
   /**
@@ -254,7 +252,7 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the host configuration for this rule. 
+   * Returns the host configuration for this rule.
    */
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
@@ -282,7 +280,7 @@ public final class RuleContext extends TargetContext
       getSkylarkProviderRegistry() {
     return skylarkProviderRegistry;
   }
-  
+
   /**
    * Returns whether this instance is known to have errors at this point during analysis. Do not
    * call this method after the initializationHook has returned.
@@ -290,7 +288,7 @@ public final class RuleContext extends TargetContext
   public boolean hasErrors() {
     return getAnalysisEnvironment().hasErrors();
   }
-  
+
   /**
    * No-op if {@link #hasErrors} is false, throws {@link RuleErrorException} if it is true.
    * This provides a convenience to early-exit of configured target creation if there are errors.
@@ -417,7 +415,7 @@ public final class RuleContext extends TargetContext
   public void ruleError(String message) {
     reporter.ruleError(message);
   }
-  
+
   /**
    * Convenience function to report non-attribute-specific errors in the current rule and then
    * throw a {@link RuleErrorException}, immediately exiting the build invocation. Alternatively,

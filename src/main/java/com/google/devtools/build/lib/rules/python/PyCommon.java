@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -436,7 +435,8 @@ public final class PyCommon {
       return null;
     }
 
-    PathFragment workspaceName = new PathFragment(ruleContext.getRule().getWorkspaceName());
+    PathFragment workspaceName = new PathFragment(
+        ruleContext.getRule().getPackage().getWorkspaceName());
     return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
   }
 

@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -79,8 +78,6 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   private final Location location;
 
-  private final String workspaceName;
-
   // Initialized in the call to populateOutputFiles.
   private List<OutputFile> outputFiles;
   private ListMultimap<String, OutputFile> outputFileMap;
@@ -94,7 +91,6 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     this.attributes = attributeContainer;
     this.attributeMap = new RawAttributeMapper(pkg, ruleClass, label, attributes);
     this.containsErrors = false;
-    this.workspaceName = pkg.getWorkspaceName();
   }
 
   void setVisibility(RuleVisibility visibility) {
@@ -115,13 +111,6 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   void setContainsErrors() {
     this.containsErrors = true;
-  }
-
-  /**
-   * Returns the name of the workspace that this rule is in.
-   */
-  public String getWorkspaceName() {
-    return workspaceName;
   }
 
   @Override
@@ -325,7 +314,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    * Returns the location of the attribute definition for this rule, if known;
    * or the location of the whole rule otherwise. "attrName" need not be a
    * valid attribute name for this rule.
-   * 
+   *
    * <p>This method ignores whether the present rule was created by a macro or not.
    */
   public Location getAttributeLocationWithoutMacro(String attrName) {
