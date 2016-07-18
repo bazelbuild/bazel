@@ -40,6 +40,7 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "    toolchains = { ",
         "       'k8|k8-compiler': ':k8-toolchain',",
         "       'darwin|darwin-compiler': ':darwin-toolchain',",
+        "       'x64_windows|windows-compiler': ':windows-toolchain',",
         "    },",
         "    proto = \"\"\"",
         "major_version: 'v1'",
@@ -52,6 +53,10 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "default_toolchain {",
         "  cpu: 'darwin'",
         "  toolchain_identifier: 'darwin-toolchain'",
+        "}",
+        "default_toolchain {",
+        "  cpu: 'x64_windows'",
+        "  toolchain_identifier: 'windows-toolchain'",
         "}",
         "toolchain {",
         "  compiler: 'k8-compiler'",
@@ -97,6 +102,28 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  tool_path { name: 'objdump', path: 'darwin/objdump' }",
         "  tool_path { name: 'strip', path: 'darwin/strip' }",
         "}",
+        "toolchain {",
+        "  compiler: 'windows-compiler'",
+        "  target_cpu: 'x64_windows'",
+        "  toolchain_identifier: 'windows-toolchain'",
+        "  host_system_name: 'windows'",
+        "  target_system_name: 'windows'",
+        "  abi_version: ''",
+        "  abi_libc_version: ''",
+        "  target_libc: ''",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "  tool_path { name: 'windows-compiler', path: 'windows/compiler' }",
+        "  tool_path { name: 'ar', path: 'windows/ar' }",
+        "  tool_path { name: 'cpp', path: 'windows/cpp' }",
+        "  tool_path { name: 'gcc', path: 'windows/gcc' }",
+        "  tool_path { name: 'gcov', path: 'windows/gcov' }",
+        "  tool_path { name: 'ld', path: 'windows/ld' }",
+        "  tool_path { name: 'nm', path: 'windows/nm' }",
+        "  tool_path { name: 'objcopy', path: 'windows/objcopy' }",
+        "  tool_path { name: 'objdump', path: 'windows/objdump' }",
+        "  tool_path { name: 'strip', path: 'windows/strip' }",
+        "}",
         "\"\"\")",
         "cc_toolchain(",
         "    name = 'k8-toolchain',",
@@ -128,20 +155,34 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "    static_runtime_libs = ['darwin-static-runtime-libs'])",
         "filegroup(",
         "    name = 'darwin-files',",
-        "    srcs = ['darwin-marker', 'everything'])");
+        "    srcs = ['darwin-marker', 'everything'])",
+        "cc_toolchain(",
+        "    name = 'windows-toolchain',",
+        "    module_map = 'map',",
+        "    cpu = 'cpu',",
+        "    compiler_files = 'compile',",
+        "    dwp_files = 'dwp',",
+        "    linker_files = 'link',",
+        "    strip_files = ':strip',",
+        "    objcopy_files = 'objcopy',",
+        "    all_files = ':windows-files',",
+        "    dynamic_runtime_libs = ['windows-dynamic-runtime-libs'],",
+        "    static_runtime_libs = ['windows-static-runtime-libs'])",
+        "filegroup(",
+        "    name = 'windows-files',",
+        "    srcs = ['windows-marker', 'everything'])");
 
     scratch.file("a/BUILD",
         "genrule(name='a', srcs=[], outs=['ao'], tools=['//tools/defaults:crosstool'], cmd='x')");
-
     invalidatePackages();
     useConfiguration("--crosstool_top=//cc:suite");
     Action action = getGeneratingAction(getConfiguredTarget("//a:a"), "a/ao");
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAllOf("k8-marker", "darwin-marker");
+        .containsAllOf("k8-marker", "darwin-marker", "windows-marker");
 
     NestedSet<Artifact> suiteFiles = getFilesToBuild(getConfiguredTarget("//cc:suite"));
     assertThat(ActionsTestUtil.baseArtifactNames(suiteFiles))
-        .containsAllOf("k8-marker", "darwin-marker");
+        .containsAllOf("k8-marker", "darwin-marker", "windows-marker");
   }
 
   @Test
