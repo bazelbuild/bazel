@@ -89,6 +89,7 @@ void BlazeStartupOptions::Copy(
   lhs->max_idle_secs = rhs.max_idle_secs;
   lhs->command_port = rhs.command_port;
   lhs->oom_more_eagerly = rhs.oom_more_eagerly;
+  lhs->oom_more_eagerly_threshold = rhs.oom_more_eagerly_threshold;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
   lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
