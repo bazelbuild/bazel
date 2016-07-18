@@ -330,6 +330,109 @@ public class PackageFunctionTest extends BuildViewTestCase {
         Label.parseAbsolute("//bar:a"), Label.parseAbsolute("//baz:c"));
   }
 
+  @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
+  @Test
+  public void testGlobOrderStable() throws Exception {
+    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['**/*.txt']))");
+    scratch.file("foo/b.txt");
+    scratch.file("foo/c/c.txt");
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    PackageValue value = validPackage(skyKey);
+    assertThat(
+            (Iterable<Label>)
+                value
+                    .getPackage()
+                    .getTarget("foo")
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .containsExactly(
+            Label.parseAbsoluteUnchecked("//foo:b.txt"),
+            Label.parseAbsoluteUnchecked("//foo:c/c.txt"))
+        .inOrder();
+    scratch.file("foo/d.txt");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(new PathFragment("foo/d.txt")).build(),
+            rootDirectory);
+    value = validPackage(skyKey);
+    assertThat(
+            (Iterable<Label>)
+                value
+                    .getPackage()
+                    .getTarget("foo")
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .containsExactly(
+            Label.parseAbsoluteUnchecked("//foo:b.txt"),
+            Label.parseAbsoluteUnchecked("//foo:c/c.txt"),
+            Label.parseAbsoluteUnchecked("//foo:d.txt"))
+        .inOrder();
+  }
+
+  @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
+  @Test
+  public void testGlobOrderStableWithLegacyAndSkyframeComponents() throws Exception {
+    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.txt']))");
+    scratch.file("foo/b.txt");
+    scratch.file("foo/a.config");
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    PackageValue value = validPackage(skyKey);
+    assertThat(
+            (Iterable<Label>)
+                value
+                    .getPackage()
+                    .getTarget("foo")
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .containsExactly(Label.parseAbsoluteUnchecked("//foo:b.txt"));
+    scratch.overwriteFile(
+        "foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.txt', '*.config']))");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(new PathFragment("foo/BUILD")).build(),
+            rootDirectory);
+    value = validPackage(skyKey);
+    assertThat(
+            (Iterable<Label>)
+                value
+                    .getPackage()
+                    .getTarget("foo")
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .containsExactly(
+            Label.parseAbsoluteUnchecked("//foo:a.config"),
+            Label.parseAbsoluteUnchecked("//foo:b.txt"))
+        .inOrder();
+    scratch.overwriteFile(
+        "foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.txt', '*.config'])) # comment");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(new PathFragment("foo/BUILD")).build(),
+            rootDirectory);
+    value = validPackage(skyKey);
+    assertThat(
+            (Iterable<Label>)
+                value
+                    .getPackage()
+                    .getTarget("foo")
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .containsExactly(
+            Label.parseAbsoluteUnchecked("//foo:a.config"),
+            Label.parseAbsoluteUnchecked("//foo:b.txt"))
+        .inOrder();
+  }
+
   @Test
   public void testIncludeInMainAndDefaultRepository() throws Exception {
     scratch.file("foo/BUILD",

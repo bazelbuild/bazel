@@ -47,7 +47,8 @@ public final class GlobValue implements SkyValue {
   }
 
   /**
-   * Returns glob matches.
+   * Returns glob matches. The matches will be in a deterministic but unspecified order. If a
+   * particular order is required, the returned iterable should be sorted.
    */
   public NestedSet<PathFragment> getMatches() {
     return matches;

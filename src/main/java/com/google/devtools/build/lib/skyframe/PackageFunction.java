@@ -68,6 +68,7 @@ import com.google.devtools.build.skyframe.ValueOrException4;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1079,28 +1080,44 @@ public class PackageFunction implements SkyFunction {
 
       private List<String> resolve(Globber delegate) throws IOException, InterruptedException {
         LinkedHashSet<String> matches = Sets.newLinkedHashSet();
+        // Skyframe globbing does not sort the list of results alphabetically, while legacy globbing
+        // does. To avoid non-deterministic sorting, we sort the result if it has any skyframe
+        // globs. We must also sort if merging legacy and Skyframe globs, since the end result
+        // should be deterministically ordered.
+        boolean needsSorting = false;
         for (SkyKey includeGlobKey : includesGlobKeys) {
           // TODO(bazel-team): NestedSet expansion here is suboptimal.
           for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap)) {
+            needsSorting = true;
             matches.add(match.getPathString());
           }
         }
         matches.addAll(delegate.fetch(delegateIncludesToken));
         for (SkyKey excludeGlobKey : excludesGlobKeys) {
           for (PathFragment match : getGlobMatches(excludeGlobKey, globValueMap)) {
+            needsSorting = true;
             matches.remove(match.getPathString());
           }
         }
         for (String delegateExcludeMatch : delegate.fetch(delegateExcludesToken)) {
           matches.remove(delegateExcludeMatch);
         }
-        return Lists.newArrayList(matches);
+        List<String> result = new ArrayList<>(matches);
+        if (needsSorting) {
+          Collections.sort(result);
+        }
+        return result;
       }
 
-      private Iterable<PathFragment> getGlobMatches(SkyKey globKey,
-          Map<SkyKey, ValueOrException4<IOException, BuildFileNotFoundException,
-              FileSymlinkCycleException, InconsistentFilesystemException>> globValueMap)
-                  throws IOException {
+      private static Iterable<PathFragment> getGlobMatches(
+          SkyKey globKey,
+          Map<
+                  SkyKey,
+                  ValueOrException4<
+                      IOException, BuildFileNotFoundException, FileSymlinkCycleException,
+                      InconsistentFilesystemException>>
+              globValueMap)
+          throws IOException {
         ValueOrException4<IOException, BuildFileNotFoundException, FileSymlinkCycleException,
             InconsistentFilesystemException> valueOrException =
                 Preconditions.checkNotNull(globValueMap.get(globKey), "%s should not be missing",

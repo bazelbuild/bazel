@@ -19,10 +19,10 @@ import java.util.List;
 /** Interface for evaluating globs during package loading. */
 public interface Globber {
   /** An opaque token for fetching the result of a glob computation. */
-  abstract static class Token {}
+  abstract class Token {}
 
   /** Used to indicate an invalid glob pattern. */
-  static class BadGlobException extends Exception {
+  class BadGlobException extends Exception {
     public BadGlobException(String message) {
       super(message);
     }
@@ -38,7 +38,11 @@ public interface Globber {
   Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
       throws BadGlobException;
 
-  /** Fetches the result of a previously started glob computation. */
+  /**
+   * Fetches the result of a previously started glob computation. The returned list must be ordered
+   * deterministically. For more obvious correctness, implementations should generally sort the list
+   * they return.
+   */
   List<String> fetch(Token token) throws IOException, InterruptedException;
 
   /** Should be called when the globber is about to be discarded due to an interrupt. */
