@@ -543,14 +543,7 @@ public class SkylarkRuleClassFunctions {
       }
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
         SkylarkAttr.Descriptor descriptor = attribute.getSecond();
-        Attribute.Builder<?> attributeBuilder = descriptor.getAttributeBuilder();
-        for (SkylarkAspect skylarkAspect : descriptor.getAspects()) {
-          if (!skylarkAspect.isExported()) {
-            throw new EvalException(definitionLocation,
-                "All aspects applied to rule dependencies must be top-level values");
-          }
-          attributeBuilder.aspect(skylarkAspect);
-        }
+        descriptor.exportAspects(definitionLocation);
 
         addAttribute(definitionLocation, builder,
             descriptor.getAttributeBuilder().build(attribute.getFirst()));

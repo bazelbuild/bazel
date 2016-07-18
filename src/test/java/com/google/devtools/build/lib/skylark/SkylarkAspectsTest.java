@@ -1047,6 +1047,30 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(analysisResult.getAspects()).isEmpty();
   }
 
+  @Test
+  public void sharedAttributeDefintionWithAspects() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target,ctx):",
+        "  return struct()",
+        "my_aspect = aspect(implementation = _aspect_impl)",
+        "_ATTR = { 'deps' : attr.label_list(aspects = [my_aspect]) }",
+        "def _dummy_impl(ctx):",
+        "  pass",
+        "r1 = rule(_dummy_impl, attrs =  _ATTR)",
+        "r2 = rule(_dummy_impl, attrs =  _ATTR)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2')",
+        "r1(name = 't1')",
+        "r2(name = 't2', deps = [':t1'])"
+    );
+    AnalysisResult analysisResult = update("//test:t2");
+    assertThat(analysisResult.hasError()).isFalse();
+  }
+
 
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -1215,6 +1216,7 @@ public final class SkylarkAttr {
   public static final class Descriptor {
     private final Attribute.Builder<?> attributeBuilder;
     private final ImmutableList<SkylarkAspect> aspects;
+    boolean exported;
 
     public Descriptor(Attribute.Builder<?> attributeBuilder) {
       this(attributeBuilder, ImmutableList.<SkylarkAspect>of());
@@ -1223,6 +1225,7 @@ public final class SkylarkAttr {
     public Descriptor(Attribute.Builder<?> attributeBuilder, ImmutableList<SkylarkAspect> aspects) {
       this.attributeBuilder = attributeBuilder;
       this.aspects = aspects;
+      exported = false;
     }
 
     public Attribute.Builder<?> getAttributeBuilder() {
@@ -1231,6 +1234,22 @@ public final class SkylarkAttr {
 
     public ImmutableList<SkylarkAspect> getAspects() {
       return aspects;
+    }
+
+    public void exportAspects(Location definitionLocation) throws EvalException {
+      if (exported) {
+        // Only export an attribute definiton once.
+        return;
+      }
+      Attribute.Builder<?> attributeBuilder = getAttributeBuilder();
+      for (SkylarkAspect skylarkAspect : getAspects()) {
+        if (!skylarkAspect.isExported()) {
+          throw new EvalException(definitionLocation,
+              "All aspects applied to rule dependencies must be top-level values");
+        }
+        attributeBuilder.aspect(skylarkAspect);
+      }
+      exported = true;
     }
   }
 
