@@ -690,15 +690,15 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
     return false;
   }
 
-  char print_name[MAX_PATH];
+  vector<char> print_name(reparse_buffer->PrintNameLength * sizeof(WCHAR) + 1);
   int count = ::WideCharToMultiByte(
       CP_UTF8,
       0,
       reparse_buffer->PathBuffer +
          (reparse_buffer->PrintNameOffset / sizeof(WCHAR)),
       reparse_buffer->PrintNameLength,
-      print_name,
-      MAX_PATH,
+      &print_name[0],
+      print_name.size(),
       NULL,
       NULL);
   if (count == 0) {
@@ -706,7 +706,7 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
     *result = "";
     return false;
   } else {
-    *result = ConvertPathToPosix(print_name);
+    *result = ConvertPathToPosix(&print_name[0]);
     return true;
   }
 }
