@@ -37,7 +37,6 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return new AspectDefinition.Builder(NAME)
         .attributeAspect("deps", this)
-        .requiresConfigurationFragments(ObjcConfiguration.class)
         .build();
   }
 
@@ -46,12 +45,6 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(NAME, ruleContext);
-    ObjcConfiguration objcConfiguration = ruleContext.getFragment(ObjcConfiguration.class);
-
-    if (!objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-      // Only process the aspect if the experimental flag is set.
-      return aspectBuilder.build();
-    }
 
     ObjcProtoProvider.Builder aspectObjcProtoProvider = new ObjcProtoProvider.Builder();
 

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -69,7 +68,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean useAbsolutePathsForActions;
   private final boolean prioritizeStaticLibs;
   private final boolean debugWithGlibcxx;
-  private final boolean experimentalAutoTopLevelUnionObjCProtos;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
 
@@ -95,8 +93,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
-    this.experimentalAutoTopLevelUnionObjCProtos =
-        objcOptions.experimentalAutoTopLevelUnionObjCProtos;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
   }
 
@@ -268,14 +264,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable
   public Label getExtraEntitlements() {
     return extraEntitlements;
-  }
-
-  /**
-   * Whether the experimental feature of only generating proto sources at the linking target is
-   * enabled or not.
-   */
-  public boolean experimentalAutoTopLevelUnionObjCProtos() {
-    return experimentalAutoTopLevelUnionObjCProtos;
   }
 
   /**

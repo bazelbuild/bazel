@@ -83,14 +83,13 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-
     ObjcProvider protosObjcProvider = null;
     XcodeProvider protosXcodeProvider = null;
 
-    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
+    ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
+    if (protoSupport.hasProtos()) {
       XcodeProvider.Builder protosXcodeProviderBuilder = new XcodeProvider.Builder();
-      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET)
+      protoSupport
           .registerActions()
           .addXcodeProviderOptions(protosXcodeProviderBuilder);
 
@@ -123,7 +122,6 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     }
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
     addResourceFilesToBuild(ruleContext, common.getObjcProvider(), filesToBuild);
-
     XcodeProductType productType = getProductType(ruleContext);
     ExtraLinkArgs extraLinkArgs;
     Iterable<Artifact> extraLinkInputs;
@@ -166,6 +164,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         .addTransitive(
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
         .build();
+
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     new CompilationSupport(ruleContext)
         .registerLinkActions(

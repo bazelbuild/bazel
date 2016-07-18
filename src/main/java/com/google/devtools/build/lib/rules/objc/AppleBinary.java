@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
-
 import java.util.List;
 import java.util.Set;
 
@@ -124,10 +123,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       archivesToLipo.add(common.getCompilationArtifacts().get().getArchive().get());
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-      ObjcConfiguration objcConfiguration = childConfig.getFragment(ObjcConfiguration.class);
-      if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-        ProtoSupport protoSupport =
-            new ProtoSupport(ruleContext, TargetType.LINKING_TARGET).registerActions();
+      ProtoSupport protoSupport =
+          new ProtoSupport(ruleContext, TargetType.LINKING_TARGET, childConfig);
+      if (protoSupport.hasProtos()) {
+        protoSupport.registerActions();
 
         ObjcCommon protoCommon = protoSupport.getCommon();
         new CompilationSupport(
@@ -176,13 +175,11 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
 
-    Optional<Artifact> protoLib;
-    ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
-    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
+    ProtoSupport protoSupport =
+        new ProtoSupport(ruleContext, TargetType.LINKING_TARGET, buildConfiguration);
+    Optional<Artifact> protoLib = Optional.absent();
+    if (protoSupport.hasProtos()) {
       protoLib = protoSupport.getCommon().getCompiledArchive();
-    } else {
-      protoLib = Optional.absent();
     }
 
     return new ObjcCommon.Builder(ruleContext, buildConfiguration)

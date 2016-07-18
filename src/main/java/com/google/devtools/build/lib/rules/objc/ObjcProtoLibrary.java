@@ -35,16 +35,17 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
-    ProtoSupport protoSupport =
-        new ProtoSupport(ruleContext, TargetType.PROTO_TARGET)
-            .validate()
-            .addXcodeProviderOptions(xcodeProviderBuilder)
-            .addFilesToBuild(filesToBuild)
-            .registerActions();
+    ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.PROTO_TARGET)
+            .validate();
 
     if (ruleContext.hasErrors()) {
       return null;
     }
+
+    protoSupport
+        .addXcodeProviderOptions(xcodeProviderBuilder)
+        .addFilesToBuild(filesToBuild)
+        .registerActions();
 
     ObjcCommon common = protoSupport.getCommon();
 
@@ -59,14 +60,9 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
 
     boolean usesProtobufLibrary = protoSupport.usesProtobufLibrary();
 
-    boolean experimentalAutoUnion =
-        ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos();
-
     CompilationSupport compilationSupport = new CompilationSupport(ruleContext);
 
-    // If the experimental flag is not set, or if it's set and doesn't use the protobuf library,
-    // register the compilation actions, as the output needs to be linked in the final binary.
-    if (!experimentalAutoUnion || !usesProtobufLibrary) {
+    if (!usesProtobufLibrary) {
       compilationSupport.registerCompileAndArchiveActions(common);
     } else {
       // Even though there is nothing to compile, still generate a module map based on this target

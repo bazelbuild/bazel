@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
-
 import java.util.List;
 
 /**
@@ -184,11 +183,9 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   // TODO(b/28451644): Make this option the default behavior.
   @Option(
     name = "experimental_auto_top_level_union_objc_protos",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
-    help =
-        "Specifies whether to use the experimental proto generation scheme, in which they are all "
-            + "generated and linked into the final linking target."
+    help = "This flag is a noop and scheduled for removal."
   )
   public boolean experimentalAutoTopLevelUnionObjCProtos;
 
