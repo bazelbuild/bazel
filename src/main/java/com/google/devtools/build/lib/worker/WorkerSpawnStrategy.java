@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.protobuf.ByteString;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -61,14 +60,16 @@ import java.util.List;
   contextType = SpawnActionContext.class
 )
 public final class WorkerSpawnStrategy implements SpawnActionContext {
+  public static final String ERROR_MESSAGE_PREFIX =
+      "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
-      "Not using worker strategy, because last argument does not contain a @flagfile";
-  public static final String REASON_NO_TOOLS =
-      "Not using worker strategy, because the action has no tools";
+      "because the last argument does not contain a @flagfile";
+  public static final String REASON_NO_TOOLS = "because the action has no tools";
+  public static final String REASON_NO_EXECUTION_INFO =
+      "because the action's execution info does not contain 'supports-workers=1'";
 
   private final Path execRoot;
   private final WorkerPool workers;
-  private final WorkerOptions options;
   private final boolean verboseFailures;
   private final int maxRetries;
 
@@ -79,7 +80,6 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
       boolean verboseFailures,
       int maxRetries) {
     Preconditions.checkNotNull(optionsProvider);
-    this.options = optionsProvider.getOptions(WorkerOptions.class);
     this.workers = Preconditions.checkNotNull(workers);
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
@@ -103,24 +103,27 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
           spawn.asShellCommand(executor.getExecRoot()));
     }
 
+    if (!spawn.getExecutionInfo().containsKey("supports-workers")
+        || !spawn.getExecutionInfo().get("supports-workers").equals("1")) {
+      eventHandler.handle(
+          Event.warn(
+              String.format(ERROR_MESSAGE_PREFIX + REASON_NO_EXECUTION_INFO, spawn.getMnemonic())));
+      standaloneStrategy.exec(spawn, actionExecutionContext);
+      return;
+    }
+
     // We assume that the spawn to be executed always gets a @flagfile argument, which contains the
     // flags related to the work itself (as opposed to start-up options for the executed tool).
     // Thus, we can extract the last element from its args (which will be the @flagfile), expand it
     // and put that into the WorkRequest instead.
     if (!Iterables.getLast(spawn.getArguments()).startsWith("@")) {
-      if (options.workerVerbose) {
-        eventHandler.handle(Event.info(REASON_NO_FLAGFILE));
-      }
-      standaloneStrategy.exec(spawn, actionExecutionContext);
-      return;
+      throw new UserExecException(
+          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()));
     }
 
     if (Iterables.isEmpty(spawn.getToolFiles())) {
-      if (options.workerVerbose) {
-        eventHandler.handle(Event.info(REASON_NO_TOOLS));
-      }
-      standaloneStrategy.exec(spawn, actionExecutionContext);
-      return;
+      throw new UserExecException(
+          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()));
     }
 
     executor

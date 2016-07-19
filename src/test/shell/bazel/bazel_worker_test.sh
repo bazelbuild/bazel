@@ -99,6 +99,7 @@ def _impl(ctx):
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
       mnemonic="Work",
+      execution_requirements={"supports-workers": "1"},
       arguments=ctx.attr.worker_args + ["@" + argfile.path],
   )
 
@@ -406,6 +407,31 @@ EOF
 
   [ ! -e "$worker_log" ] \
     || fail "Worker log was not deleted"
+}
+
+function test_missing_execution_requirements_gives_warning() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+work(
+  name = "hello_world",
+  worker = ":worker",
+  args = ["--write_uuid", "--write_counter"],
+)
+EOF
+
+  sed -i.bak '/execution_requirements/d' work.bzl
+  rm -f work.bzl.bak
+
+  bazel build --worker_verbose --strategy=Work=worker --worker_max_instances=1 --worker_quit_after_build :hello_world &> $TEST_log \
+    || fail "build failed"
+
+  expect_log "Worker strategy cannot execute this Work action, because the action's execution info does not contain 'supports-workers=1'"
+  expect_not_log "Created new Work worker (id [0-9]\+)"
+  expect_not_log "Destroying Work worker (id [0-9]\+)"
+
+  # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
+  [ -e "bazel-bin/hello_world.out" ] \
+    || fail "Worker did not produce output"
 }
 
 run_suite "Worker integration tests"
