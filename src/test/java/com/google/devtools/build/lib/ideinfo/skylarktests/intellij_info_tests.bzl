@@ -83,9 +83,16 @@ def _test_simple_java_library(ctx):
             [ctx.label.package + "/skylarktests/testfiles/Simple1.java"],
             _source_paths(env, info.java_rule_ide_info.sources))
 
+    # When Java header compilation is active, the interface jar is an -hjar.jar instead of an
+    # -ijar.jar. Try to detect that and test accordingly.
+    interface_jar_name = "libsimple1-ijar.jar"
+    for jar in info.java_rule_ide_info.jars:
+      if "-hjar.jar" in getattr(jar, "interface_jar").relative_path:
+        interface_jar_name = "libsimple1-hjar.jar"
+
     assert_equals(env,
             [_jar_expected_string(ctx.label.package,
-                                 "libsimple1.jar", "libsimple1-ijar.jar", "libsimple1-src.jar")],
+                                 "libsimple1.jar", interface_jar_name, "libsimple1-src.jar")],
             [_library_artifact_string(env, a) for a in info.java_rule_ide_info.jars])
 
     assert_equals(env,
