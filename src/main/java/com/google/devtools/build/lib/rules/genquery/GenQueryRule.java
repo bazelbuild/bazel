@@ -83,10 +83,17 @@ public final class GenQueryRule implements RuleDefinition {
     <code>strict</code> is unspecified or true (if <code>strict</code> is false,
     the out of scope targets will simply be skipped with a warning). The
     easiest way to make sure this does not happen is to mention the same labels
-    in the scope as in the query expression. The only difference between the
-    queries allowed here and on the command line is that queries containing
-    wildcard target specifications (e.g. <code>//pkg:*</code> or
-    <code>//pkg:all</code>) are not allowed here.
+    in the scope as in the query expression.
+  </p>
+  <p>
+    The only difference between the queries allowed here and on the command
+    line is that queries containing wildcard target specifications (e.g.
+    <code>//pkg:*</code> or <code>//pkg:all</code>) are not allowed here.
+    The reasons for this are two-fold: first, because <code>genquery</code> has
+    to specify a scope to prevent targets outside the transitive closure of the
+    query to influence its output; and, second, because <code>BUILD</code> files
+    do not support wildcard dependencies (e.g. <code>deps=["//a/..."]</code>
+    is not allowed).
   </p>
   <p>
     The genquery's output is ordered using <code>--order_output=full</code> in
