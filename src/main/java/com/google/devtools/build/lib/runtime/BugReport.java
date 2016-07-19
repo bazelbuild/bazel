@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.OutErr;
-
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
@@ -122,7 +122,7 @@ public abstract class BugReport {
 
   /** Get exit code corresponding to throwable. */
   public static int getExitCodeForThrowable(Throwable throwable) {
-    return (throwable instanceof OutOfMemoryError)
+    return (Throwables.getRootCause(throwable) instanceof OutOfMemoryError)
         ? ExitCode.OOM_ERROR.getNumericExitCode()
         : ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
   }
