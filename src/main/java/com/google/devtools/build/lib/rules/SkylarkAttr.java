@@ -1247,7 +1247,7 @@ public final class SkylarkAttr {
           throw new EvalException(definitionLocation,
               "All aspects applied to rule dependencies must be top-level values");
         }
-        attributeBuilder.aspect(skylarkAspect);
+        attributeBuilder.aspect(skylarkAspect, definitionLocation);
       }
       exported = true;
     }

@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -37,16 +38,14 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -415,7 +414,6 @@ public final class Attribute implements Comparable<Attribute> {
    * already undocumented based on its name cannot be marked as undocumented.
    */
   public static class Builder <TYPE> {
-
     private String name;
     private final Type<TYPE> type;
     private Transition configTransition = ConfigurationTransition.NONE;
@@ -435,7 +433,7 @@ public final class Attribute implements Comparable<Attribute> {
         ImmutableList.<ImmutableSet<String>>of();
     private ImmutableList<Class<? extends TransitiveInfoProvider>> mandatoryNativeProviders =
         ImmutableList.of();
-    private Set<RuleAspect> aspects = new LinkedHashSet<>();
+    private HashMap<String, RuleAspect<?>> aspects = new LinkedHashMap<>();
 
     /**
      * Creates an attribute builder with given name and type. This attribute is optional, uses
@@ -890,7 +888,12 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> aspect(
         NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
-      this.aspects.add(new NativeRuleAspect(aspect, evaluator));
+      NativeRuleAspect nativeRuleAspect = new NativeRuleAspect(aspect, evaluator);
+      RuleAspect<?> oldAspect = this.aspects.put(nativeRuleAspect.getName(), nativeRuleAspect);
+      if (oldAspect != null) {
+        throw new AssertionError(
+            String.format("Aspect %s has already been added", oldAspect.getName()));
+      }
       return this;
     }
 
@@ -909,13 +912,25 @@ public final class Attribute implements Comparable<Attribute> {
       return this.aspect(aspect, noParameters);
     }
 
-    public Builder<TYPE> aspect(SkylarkAspect skylarkAspect) {
-      this.aspects.add(new SkylarkRuleAspect(skylarkAspect));
+    public Builder<TYPE> aspect(
+        SkylarkAspect skylarkAspect, Location location) throws EvalException {
+      SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
+      RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
+      if (oldAspect != null) {
+        throw new EvalException(location,
+            String.format("Aspect %s added more than once", skylarkAspect.getName()));
+      }
       return this;
     }
 
     public Builder<TYPE> aspect(final Aspect aspect) {
-      this.aspects.add(new PredefinedRuleAspect(aspect));
+      PredefinedRuleAspect predefinedRuleAspect = new PredefinedRuleAspect(aspect);
+      RuleAspect<?> oldAspect =
+          this.aspects.put(predefinedRuleAspect.getName(), predefinedRuleAspect);
+      if (oldAspect != null) {
+        throw new AssertionError(
+            String.format("Aspect %s has already been added", oldAspect.getName()));
+      }
       return this;
     }
 
@@ -1002,7 +1017,7 @@ public final class Attribute implements Comparable<Attribute> {
           allowedValues,
           mandatoryProvidersList,
           mandatoryNativeProviders,
-          ImmutableSet.copyOf(aspects));
+          ImmutableList.copyOf(aspects.values()));
     }
   }
 
@@ -1289,7 +1304,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final ImmutableList<Class<? extends TransitiveInfoProvider>> mandatoryNativeProviders;
 
-  private final ImmutableSet<RuleAspect> aspects;
+  private final ImmutableList<RuleAspect<?>> aspects;
 
   /**
    * Constructs a rule attribute with the specified name, type and default
@@ -1322,7 +1337,7 @@ public final class Attribute implements Comparable<Attribute> {
       PredicateWithMessage<Object> allowedValues,
       ImmutableList<ImmutableSet<String>> mandatoryProvidersList,
       ImmutableList<Class<? extends TransitiveInfoProvider>> mandatoryNativeProviders,
-      ImmutableSet<RuleAspect> aspects) {
+      ImmutableList<RuleAspect<?>> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
         (configTransition == ConfigurationTransition.NONE && configurator == null)
@@ -1695,7 +1710,10 @@ public final class Attribute implements Comparable<Attribute> {
     builder.value = defaultValue;
     builder.valueSet = false;
     builder.allowedValues = allowedValues;
-    builder.aspects = new LinkedHashSet<>(aspects);
+    builder.aspects = new LinkedHashMap<>();
+    for (RuleAspect<?> aspect : aspects) {
+      builder.aspects.put(aspect.getName(), aspect);
+    }
 
     return builder;
   }

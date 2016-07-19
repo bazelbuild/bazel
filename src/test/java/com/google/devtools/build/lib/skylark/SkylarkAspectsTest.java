@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -1071,6 +1072,34 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(analysisResult.hasError()).isFalse();
   }
 
+  @Test
+  public void multipleAspects() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target,ctx):",
+        "  return struct()",
+        "my_aspect = aspect(implementation = _aspect_impl)",
+        "def _dummy_impl(ctx):",
+        "  pass",
+        "r1 = rule(_dummy_impl, ",
+        "          attrs = { 'deps' : attr.label_list(aspects = [my_aspect, my_aspect]) })"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1')",
+        "r1(name = 't1')"
+    );
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update("//test:r1");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (TargetParsingException | ViewCreationFailedException expected) {
+      // expected.
+    }
+    assertContainsEvent("Aspect //test:aspect.bzl%my_aspect added more than once");
+  }
 
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
