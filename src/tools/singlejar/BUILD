@@ -48,6 +48,15 @@ cc_test(
 )
 
 cc_test(
+    name = "token_stream_test",
+    srcs = [
+        "token_stream_test.cc",
+        ":token_stream",
+    ],
+    deps = ["//third_party:gtest"],
+)
+
+cc_test(
     name = "zlib_interface_test",
     srcs = [
         "zlib_interface_test.cc",
@@ -72,6 +81,14 @@ filegroup(
 filegroup(
     name = "test_util",
     srcs = ["test_util.h"],
+)
+
+filegroup(
+    name = "token_stream",
+    srcs = [
+        "diag.h",
+        "token_stream.h",
+    ],
 )
 
 filegroup(
