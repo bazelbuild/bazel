@@ -69,24 +69,6 @@ public class CcLinkingOutputs {
   }
 
   /**
-   * Returns all libraries in this CcLinkingOutputs with the same library identifier - i.e., those
-   * which would be considered different forms of the same library by getPreferredLibrary.
-   */
-  public List<LibraryToLink> getLibrariesWithSameIdentifierAs(LibraryToLink input) {
-    Iterable<LibraryToLink> allLibraries =
-        Iterables.concat(
-            staticLibraries, picStaticLibraries, dynamicLibraries, executionDynamicLibraries);
-    ImmutableList.Builder<LibraryToLink> result = new ImmutableList.Builder<>();
-    for (LibraryToLink library : allLibraries) {
-      if (libraryIdentifierOf(library.getOriginalLibraryArtifact())
-          .equals(libraryIdentifierOf(input.getOriginalLibraryArtifact()))) {
-        result.add(library);
-      }
-    }
-    return result.build();
-  }
-
-  /**
    * Add the ".a", ".pic.a" and/or ".so" files in appropriate order of preference depending on the
    * link preferences.
    *
