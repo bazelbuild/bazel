@@ -57,6 +57,22 @@ cc_test(
 )
 
 cc_test(
+    name = "transient_bytes_test",
+    size = "large",
+    srcs = [
+        "transient_bytes_test.cc",
+        ":input_jar",
+        ":test_util",
+        ":transient_bytes",
+        ":zlib_interface",
+    ],
+    deps = [
+        "//third_party:gtest",
+        "//third_party/zlib",
+    ],
+)
+
+cc_test(
     name = "zlib_interface_test",
     srcs = [
         "zlib_interface_test.cc",
@@ -92,6 +108,19 @@ filegroup(
 )
 
 filegroup(
+    name = "transient_bytes",
+    srcs = [
+        "diag.h",
+        "transient_bytes.h",
+        "zip_headers.h",
+        "zlib_interface.h",
+    ],
+)
+
+filegroup(
     name = "zlib_interface",
-    srcs = ["zlib_interface.h"],
+    srcs = [
+        "diag.h",
+        "zlib_interface.h",
+    ],
 )

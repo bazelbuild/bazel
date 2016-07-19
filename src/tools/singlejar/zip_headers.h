@@ -38,6 +38,7 @@
 #error "This platform is not supported."
 #endif
 
+#include <string>
 #include <type_traits>
 
 static const uint8_t *byte_ptr(const void *ptr) {
@@ -180,6 +181,9 @@ class LH {
     return file_name_length() == name_len &&
            0 == strncmp(file_name(), name, name_len);
   }
+  std::string file_name_string() const {
+    return std::string(file_name(), file_name_length());
+  }
 
   uint16_t extra_fields_length() const { return le16toh(extra_fields_length_); }
   void extra_fields_length(uint16_t v) {
@@ -240,6 +244,7 @@ class CDH {
   void last_mod_file_date(uint16_t v) { last_mod_file_date_ = htole16(v); }
 
   void crc32(uint32_t v) { crc32_ = htole32(v); }
+  uint32_t crc32() const { return le32toh(crc32_); }
 
   size_t compressed_file_size() const {
     size_t size32 = compressed_file_size32();
@@ -286,6 +291,9 @@ class CDH {
     size_t name_len = strlen(name);
     return file_name_length() == name_len &&
            0 == strncmp(file_name(), name, name_len);
+  }
+  std::string file_name_string() const {
+    return std::string(file_name(), file_name_length());
   }
 
   uint16_t extra_fields_length() const { return le16toh(extra_fields_length_); }
