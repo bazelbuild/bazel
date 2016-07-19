@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Function;
+import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -27,10 +28,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -113,6 +112,9 @@ public class RClassGeneratorActionBuilder {
     if (primary.getManifest() != null) {
       builder.addExecPath("--primaryManifest", primary.getManifest());
       inputs.add(primary.getManifest());
+    }
+    if (!Strings.isNullOrEmpty(primary.getJavaPackage())) {
+      builder.add("--packageForR").add(primary.getJavaPackage());
     }
     if (dependencies != null) {
       Iterable<ResourceContainer> depResources = dependencies.getResources();

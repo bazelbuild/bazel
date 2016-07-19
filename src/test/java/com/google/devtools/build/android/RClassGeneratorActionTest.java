@@ -19,12 +19,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +30,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link RClassGeneratorAction}.
@@ -114,20 +112,20 @@ public class RClassGeneratorActionTest {
 
     RClassGeneratorAction.main(
         ImmutableList.<String>of(
-                "--primaryRTxt",
-                binarySymbols.toString(),
-                "--primaryManifest",
-                binaryManifest.toString(),
-                "--libraries",
-                libFooSymbols
-                    + File.pathSeparator
-                    + libFooManifest
-                    + ","
-                    + libBarSymbols
-                    + File.pathSeparator
-                    + libBarManifest,
-                "--classJarOutput",
-                jarPath.toString())
+            "--primaryRTxt",
+            binarySymbols.toString(),
+            "--primaryManifest",
+            binaryManifest.toString(),
+            "--libraries",
+            libFooSymbols
+                + File.pathSeparator
+                + libFooManifest
+                + ","
+                + libBarSymbols
+                + File.pathSeparator
+                + libBarManifest,
+            "--classJarOutput",
+            jarPath.toString())
             .toArray(new String[0]));
 
     assertThat(Files.exists(jarPath)).isTrue();
@@ -212,6 +210,86 @@ public class RClassGeneratorActionTest {
       List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
       Iterable<String> entries = getZipFilenames(zipEntries);
       assertThat(entries).containsExactly(Paths.get("META-INF/MANIFEST.MF").toString());
+    }
+  }
+
+  @Test
+  public void customPackageForR() throws Exception {
+    Path binaryManifest = ManifestBuilder.of(tempDir.resolve("binary"))
+        .createManifest("AndroidManifest.xml", "com.google.app",
+            "<application android:name=\"com.google.app\">",
+            "<activity android:name=\"com.google.foo.activityFoo\" />",
+            "</application>");
+    Path libFooManifest = ManifestBuilder.of(tempDir.resolve("libFoo"))
+        .createManifest("AndroidManifest.xml", "com.google.foo", "");
+
+    Path binarySymbols = createFile("R.txt",
+        "int attr agility 0x7f010000",
+        "int integer maxNotifications 0x7f090000",
+        "int string ok 0x7f100001");
+    Path libFooSymbols = createFile("libFoo.R.txt",
+        "int string ok 0x1");
+    Path jarPath = tempDir.resolve("app_resources.jar");
+    RClassGeneratorAction.main(
+        ImmutableList.<String>of(
+            "--primaryRTxt",
+            binarySymbols.toString(),
+            "--primaryManifest",
+            binaryManifest.toString(),
+            "--packageForR", "com.custom.er",
+            "--libraries",
+            libFooSymbols + File.pathSeparator + libFooManifest,
+            "--classJarOutput",
+            jarPath.toString())
+            .toArray(new String[0]));
+
+    assertThat(Files.exists(jarPath)).isTrue();
+    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
+
+    try (ZipFile zip = new ZipFile(jarPath.toFile())) {
+      List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
+      Iterable<String> entries = getZipFilenames(zipEntries);
+      assertThat(entries)
+          .containsExactly(
+              Paths.get("com/google/foo/R$string.class").toString(),
+              Paths.get("com/google/foo/R.class").toString(),
+              Paths.get("com/custom/er/R$attr.class").toString(),
+              Paths.get("com/custom/er/R$integer.class").toString(),
+              Paths.get("com/custom/er/R$string.class").toString(),
+              Paths.get("com/custom/er/R.class").toString(),
+              Paths.get("META-INF/MANIFEST.MF").toString());
+    }
+  }
+
+  @Test
+  public void noSymbolsNoRClass() throws Exception {
+    Path binaryManifest = ManifestBuilder.of(tempDir.resolve("binary"))
+        .createManifest("AndroidManifest.xml", "com.google.app",
+            "<application android:name=\"com.google.app\">",
+            "<activity android:name=\"com.google.foo.activityFoo\" />",
+            "</application>");
+
+    Path binarySymbols = createFile("R.txt", "");
+    Path jarPath = tempDir.resolve("app_resources.jar");
+    RClassGeneratorAction.main(
+        ImmutableList.<String>of(
+            "--primaryRTxt",
+            binarySymbols.toString(),
+            "--primaryManifest",
+            binaryManifest.toString(),
+            "--classJarOutput",
+            jarPath.toString())
+            .toArray(new String[0]));
+
+    assertThat(Files.exists(jarPath)).isTrue();
+    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
+
+    try (ZipFile zip = new ZipFile(jarPath.toFile())) {
+      List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
+      Iterable<String> entries = getZipFilenames(zipEntries);
+      assertThat(entries)
+          .containsExactly(
+              Paths.get("META-INF/MANIFEST.MF").toString());
     }
   }
 

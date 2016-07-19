@@ -109,7 +109,14 @@ public class RClassGenerator {
       packageDir = new File(packageDir, folder);
     }
     File rClassFile = new File(packageDir, SdkConstants.FN_COMPILED_RESOURCE_CLASS);
+    // At least create the outFolder that was requested. However, if there are no symbols, don't
+    // create the R.class and inner class files (no need to have an empty class).
     Files.createParentDirs(rClassFile);
+    Table<String, String, SymbolEntry> symbols = getAllSymbols();
+    if (symbols.isEmpty()) {
+      return;
+    }
+
     String packageWithSlashes = packageName.replaceAll("\\.", "/");
     String rClassName = packageWithSlashes + "/R";
     ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -119,9 +126,7 @@ public class RClassGenerator {
     classWriter.visitSource(SdkConstants.FN_RESOURCE_CLASS, null);
     writeConstructor(classWriter);
 
-    Table<String, String, SymbolEntry> symbols = getAllSymbols();
     Table<String, String, SymbolEntry> values = getSymbols(symbolValues);
-
     Set<String> rowSet = symbols.rowKeySet();
     List<String> rowList = new ArrayList<>(rowSet);
     Collections.sort(rowList);
