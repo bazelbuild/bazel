@@ -48,6 +48,9 @@ if (( $retCode != 0 )); then
   exit 0
 fi
 
+# Copy the resulting artifact.
+cp output/bazel.exe output/ci/
+
 # Run the only Windows-specific test we have.
 # todo(bazel-team): add more tests here.
 echo "Running tests"
