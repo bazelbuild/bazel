@@ -434,6 +434,31 @@ static void MingwSignalHandler(int signum) {
   exit(blaze_exit_code::ExitCode::INTERRUPTED);
 }
 
+// Returns whether assigning the given process to a job failed because nested
+// jobs are not available on the current system.
+static bool IsFailureDueToNestedJobsNotSupported(HANDLE process) {
+  BOOL is_in_job;
+  if (!IsProcessInJob(process, NULL, &is_in_job)) {
+    PrintError("IsProcessInJob()");
+    return false;
+  }
+
+  if (!is_in_job) {
+    // Not in a job.
+    return false;
+  }
+
+  OSVERSIONINFOEX version_info;
+  version_info.dwOSVersionInfoSize = sizeof(version_info);
+  if (!GetVersionEx(reinterpret_cast<OSVERSIONINFO*>(&version_info))) {
+    PrintError("GetVersionEx()");
+    return false;
+  }
+
+  return version_info.dwMajorVersion < 6
+      || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion <= 1;
+}
+
 // Run the given program in the current working directory,
 // using the given argument vector.
 void ExecuteProgram(
@@ -487,7 +512,12 @@ void ExecuteProgram(
   }
 
   if (!AssignProcessToJobObject(job, processInfo.hProcess)) {
-    pdie(255, "Error %u while assigning process to job\n", GetLastError());
+    if (!IsFailureDueToNestedJobsNotSupported(processInfo.hProcess)) {
+      pdie(255, "Error %u while assigning process to job\n", GetLastError());
+    }
+
+    // Otherwise, the OS doesn't support nested jobs so we'll just have to
+    // make do without.
   }
 
   // Now that we put the process in a new job object, we can start executing it

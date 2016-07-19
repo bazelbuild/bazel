@@ -49,6 +49,7 @@ std::string GetLastErrorString(const std::string& cause) {
   LocalFree(message);
   return cause + ": " + result;
 }
+
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
     JNIEnv* env, jclass clazz) {
@@ -85,6 +86,17 @@ struct NativeProcess {
         job_(INVALID_HANDLE_VALUE),
         error_("") {}
 };
+
+static bool NestedJobsSupported() {
+  OSVERSIONINFOEX version_info;
+  version_info.dwOSVersionInfoSize = sizeof(version_info);
+  if (!GetVersionEx(reinterpret_cast<OSVERSIONINFO*>(&version_info))) {
+    return false;
+  }
+
+  return version_info.dwMajorVersion > 6 ||
+    version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
+}
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
@@ -128,6 +140,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   HANDLE event = INVALID_HANDLE_VALUE;
   PROCESS_INFORMATION process_info = {0};
   STARTUPINFO startup_info = {0};
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
 
   if (java_env != NULL) {
     env_size = env->GetArrayLength(java_env);
@@ -204,7 +217,6 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
 
   result->job_ = job;
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = { 0 };
   job_info.BasicLimitInformation.LimitFlags =
       JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   if (!SetInformationJobObject(
@@ -244,9 +256,20 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   thread = process_info.hThread;
 
   if (!AssignProcessToJobObject(result->job_, result->process_)) {
-    // todo(lberki): Fix job control (GitHub issue #1527).
-    // result->error_ = GetLastErrorString("AssignProcessToJobObject()");
-    // goto cleanup;
+    BOOL is_in_job = false;
+    if (IsProcessInJob(result->process_, NULL, &is_in_job)
+        && is_in_job
+        && !NestedJobsSupported()) {
+      // We are on a pre-Windows 8 system and the Bazel is already in a job.
+      // We can't create nested jobs, so just revert to TerminateProcess() and
+      // hope for the best. In batch mode, the launcher puts Bazel in a job so
+      // that will take care of cleanup once the command finishes.
+      CloseHandle(result->job_);
+      result->job_ = INVALID_HANDLE_VALUE;
+    } else {
+      result->error_ = GetLastErrorString("AssignProcessToJobObject()");
+      goto cleanup;
+    }
   }
 
   // Now that we put the process in a new job object, we can start executing it
@@ -304,6 +327,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
     JNIEnv *env, jclass clazz, jlong process_long, jbyteArray java_bytes,
     jint offset, jint length) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
+
   jsize array_size = env->GetArrayLength(java_bytes);
   if (offset < 0 || length <= 0 || offset > array_size - length) {
     process->error_ = "Array index out of bounds";
@@ -419,11 +443,18 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
     JNIEnv *env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
 
-  // In theory, CloseHandle() on process->job_ would work, too, since we set
-  // KILL_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, but this is a little more explicit.
-  if (!TerminateJobObject(process->job_, 0)) {
-    process->error_ = GetLastErrorString("TerminateJobObject()");
-    return JNI_FALSE;
+  if (process->job_ != INVALID_HANDLE_VALUE) {
+    // In theory, CloseHandle() on process->job_ would work, too, since we set
+    // KILL_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, but this is a little more explicit.
+    if (!TerminateJobObject(process->job_, 0)) {
+      process->error_ = GetLastErrorString("TerminateJobObject()");
+      return JNI_FALSE;
+    }
+  } else {
+    if (!TerminateProcess(process->process_, 1)) {
+      process->error_ = GetLastErrorString("TerminateProcess()");
+      return JNI_FALSE;
+    }
   }
 
   process->error_ = "";
