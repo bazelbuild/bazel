@@ -18,10 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -68,8 +68,8 @@ public final class DependencyModule {
   }
 
   private final StrictJavaDeps strictJavaDeps;
-  private final Map<String, String> directJarsToTargets;
-  private final Map<String, String> indirectJarsToTargets;
+  private final Map<String, JarOwner> directJarsToTargets;
+  private final Map<String, JarOwner> indirectJarsToTargets;
   private final boolean strictClasspathMode;
   private final Set<String> depsArtifacts;
   private final String ruleKind;
@@ -82,16 +82,17 @@ public final class DependencyModule {
   private final String fixMessage;
   private final Set<String> exemptGenerators;
 
-  DependencyModule(StrictJavaDeps strictJavaDeps,
-                   Map<String, String> directJarsToTargets,
-                   Map<String, String> indirectJarsToTargets,
-                   boolean strictClasspathMode,
-                   Set<String> depsArtifacts,
-                   String ruleKind,
-                   String targetLabel,
-                   String outputDepsProtoFile,
-                   String fixMessage,
-                   Set<String> exemptGenerators) {
+  DependencyModule(
+      StrictJavaDeps strictJavaDeps,
+      Map<String, JarOwner> directJarsToTargets,
+      Map<String, JarOwner> indirectJarsToTargets,
+      boolean strictClasspathMode,
+      Set<String> depsArtifacts,
+      String ruleKind,
+      String targetLabel,
+      String outputDepsProtoFile,
+      String fixMessage,
+      Set<String> exemptGenerators) {
     this.strictJavaDeps = strictJavaDeps;
     this.directJarsToTargets = directJarsToTargets;
     this.indirectJarsToTargets = indirectJarsToTargets;
@@ -160,18 +161,18 @@ public final class DependencyModule {
   }
 
   /**
-   * Returns the mapping for jars of direct dependencies. The keys are full
-   * paths (as seen on the classpath), and the values are build target names.
+   * Returns the mapping for jars of direct dependencies. The keys are full paths (as seen on the
+   * classpath), and the values are build target names.
    */
-  public Map<String, String> getDirectMapping() {
+  public Map<String, JarOwner> getDirectMapping() {
     return directJarsToTargets;
   }
 
   /**
-   * Returns the mapping for jars of indirect dependencies. The keys are full
-   * paths (as seen on the classpath), and the values are build target names.
+   * Returns the mapping for jars of indirect dependencies. The keys are full paths (as seen on the
+   * classpath), and the values are build target names.
    */
-  public Map<String, String> getIndirectMapping() {
+  public Map<String, JarOwner> getIndirectMapping() {
     return indirectJarsToTargets;
   }
 
@@ -315,8 +316,8 @@ public final class DependencyModule {
   public static class Builder {
 
     private StrictJavaDeps strictJavaDeps = StrictJavaDeps.OFF;
-    private final Map<String, String> directJarsToTargets = new HashMap<>();
-    private final Map<String, String> indirectJarsToTargets = new HashMap<>();
+    private final Map<String, JarOwner> directJarsToTargets = new HashMap<>();
+    private final Map<String, JarOwner> indirectJarsToTargets = new HashMap<>();
     private final Set<String> depsArtifacts = new HashSet<>();
     private String ruleKind;
     private String targetLabel;
@@ -381,25 +382,13 @@ public final class DependencyModule {
     }
 
     /**
-     * Adds a direct mapping to the existing map for direct dependencies.
-     *
-     * @param jar path of jar artifact, as seen on classpath.
-     * @param target full name of build target providing the jar.
-     * @return this Builder instance.
-     */
-    public Builder addDirectMapping(String jar, String target) {
-      directJarsToTargets.put(jar, target);
-      return this;
-    }
-
-    /**
      * Adds direct mappings to the existing map for direct dependencies.
      *
      * @param directMappings a map of paths of jar artifacts, as seen on classpath, to full names of
      *     build targets providing the jar.
      * @return this Builder instance
      */
-    public Builder addDirectMappings(Map<String, String> directMappings) {
+    public Builder addDirectMappings(Map<String, JarOwner> directMappings) {
       directJarsToTargets.putAll(directMappings);
       return this;
     }
@@ -411,7 +400,7 @@ public final class DependencyModule {
      * @param target full name of build target providing the jar.
      * @return this Builder instance
      */
-    public Builder addIndirectMapping(String jar, String target) {
+    public Builder addIndirectMapping(String jar, JarOwner target) {
       indirectJarsToTargets.put(jar, target);
       return this;
     }
@@ -423,7 +412,7 @@ public final class DependencyModule {
      *     of build targets providing the jar.
      * @return this Builder instance
      */
-    public Builder addIndirectMappings(Map<String, String> indirectMappings) {
+    public Builder addIndirectMappings(Map<String, JarOwner> indirectMappings) {
       indirectJarsToTargets.putAll(indirectMappings);
       return this;
     }

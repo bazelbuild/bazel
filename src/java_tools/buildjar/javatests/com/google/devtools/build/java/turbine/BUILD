@@ -16,6 +16,7 @@ java_test(
     srcs = ["TurbineOptionsTest.java"],
     tags = ["jdk8"],
     deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_options_parser",
         "//third_party:guava",

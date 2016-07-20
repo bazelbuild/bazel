@@ -20,7 +20,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
+import com.google.devtools.build.buildjar.JarOwner;
 import javax.annotation.Nullable;
 
 /** Header compilation options. */
@@ -36,8 +36,8 @@ public class TurbineOptions {
   private final String tempDir;
   private final ImmutableList<String> sourceJars;
   private final Optional<String> outputDeps;
-  private final ImmutableMap<String, String> directJarsToTargets;
-  private final ImmutableMap<String, String> indirectJarsToTargets;
+  private final ImmutableMap<String, JarOwner> directJarsToTargets;
+  private final ImmutableMap<String, JarOwner> indirectJarsToTargets;
   private final Optional<String> targetLabel;
   private final ImmutableList<String> depsArtifacts;
   private final Optional<String> ruleKind;
@@ -54,8 +54,8 @@ public class TurbineOptions {
       String tempDir,
       ImmutableList<String> sourceJars,
       @Nullable String outputDeps,
-      ImmutableMap<String, String> directJarsToTargets,
-      ImmutableMap<String, String> indirectJarsToTargets,
+      ImmutableMap<String, JarOwner> directJarsToTargets,
+      ImmutableMap<String, JarOwner> indirectJarsToTargets,
       @Nullable String targetLabel,
       ImmutableList<String> depsArtifacts,
       @Nullable String ruleKind,
@@ -135,12 +135,12 @@ public class TurbineOptions {
   }
 
   /** The mapping from the path to a direct dependency to its build label. */
-  public ImmutableMap<String, String> directJarsToTargets() {
+  public ImmutableMap<String, JarOwner> directJarsToTargets() {
     return directJarsToTargets;
   }
 
   /** The mapping from the path to an indirect dependency to its build label. */
-  public ImmutableMap<String, String> indirectJarsToTargets() {
+  public ImmutableMap<String, JarOwner> indirectJarsToTargets() {
     return indirectJarsToTargets;
   }
 
@@ -181,8 +181,9 @@ public class TurbineOptions {
     private final ImmutableList.Builder<String> sourceJars = ImmutableList.builder();
     private final ImmutableList.Builder<String> bootClassPath = ImmutableList.builder();
     private String outputDeps;
-    private final ImmutableMap.Builder<String, String> directJarsToTargets = ImmutableMap.builder();
-    private final ImmutableMap.Builder<String, String> indirectJarsToTargets =
+    private final ImmutableMap.Builder<String, JarOwner> directJarsToTargets =
+        ImmutableMap.builder();
+    private final ImmutableMap.Builder<String, JarOwner> indirectJarsToTargets =
         ImmutableMap.builder();
     @Nullable private String targetLabel;
     private final ImmutableList.Builder<String> depsArtifacts = ImmutableList.builder();
@@ -259,12 +260,12 @@ public class TurbineOptions {
       return this;
     }
 
-    public Builder addDirectJarToTarget(String jar, String target) {
+    public Builder addDirectJarToTarget(String jar, JarOwner target) {
       directJarsToTargets.put(jar, target);
       return this;
     }
 
-    public Builder addIndirectJarToTarget(String jar, String target) {
+    public Builder addIndirectJarToTarget(String jar, JarOwner target) {
       indirectJarsToTargets.put(jar, target);
       return this;
     }

@@ -17,6 +17,10 @@ java_library(
         "InvalidCommandLineException.java",
         "OptionsParser.java",
     ],
+    deps = [
+        ":JarOwner",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -40,9 +44,11 @@ java_library(
         ["*.java"],
         exclude = [
             "InvalidCommandLineException.java",
+            "JarOwner.java",
         ],
     ),
     deps = [
+        ":JarOwner",
         ":invalid_command_line_exception",
         ":javac",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
@@ -86,6 +92,21 @@ java_library(
     deps = [],
 )
 
+java_library(
+    name = "JarOwner",
+    srcs = ["JarOwner.java"],
+    visibility = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__subpackages__",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:__subpackages__",
+        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:__subpackages__",
+    ],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_library(
@@ -113,13 +134,26 @@ bootstrap_java_binary(
     name = "bootstrap",
     srcs = glob(
         ["**/*.java"],
-        exclude = ["java/com/google/devtools/build/buildjar/javac/testing/**"],
+        exclude = [
+            "java/com/google/devtools/build/buildjar/javac/testing/**",
+            "JarOwner.java",
+        ],
     ),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     deps = [
         ":skylark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:bootstrap_plugins",
+    ],
+)
+
+bootstrap_java_library(
+    name = "bootstrap_JarOwner",
+    srcs = ["JarOwner.java"],
+    jars = [
+        "//third_party:jsr305-jars",
+        "//third_party:auto_value-jars",
+        "//third_party:guava-jars",
     ],
 )
 

@@ -24,11 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.java.turbine.TurbineOptions;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
-
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TaskEvent;
@@ -39,17 +39,6 @@ import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.util.Textifier;
-import org.objectweb.asm.util.TraceClassVisitor;
-
 import java.io.BufferedInputStream;
 import java.io.IOError;
 import java.io.IOException;
@@ -75,7 +64,6 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
-
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -88,6 +76,15 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardLocation;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 /** Unit tests for {@link JavacTurbine}. */
 @RunWith(JUnit4.class)
@@ -408,9 +405,9 @@ public class JavacTurbineTest {
     optionsBuilder.addClassPathEntries(
         ImmutableList.of(libA.toString(), libB.toString(), libC.toString()));
     optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
-    optionsBuilder.addDirectJarToTarget(libA.toString(), "//lib:a");
-    optionsBuilder.addDirectJarToTarget(libB.toString(), "//lib:b");
-    optionsBuilder.addIndirectJarToTarget(libC.toString(), "//lib:c");
+    optionsBuilder.addDirectJarToTarget(libA.toString(), JarOwner.create("//lib:a"));
+    optionsBuilder.addDirectJarToTarget(libB.toString(), JarOwner.create("//lib:b"));
+    optionsBuilder.addIndirectJarToTarget(libC.toString(), JarOwner.create("//lib:c"));
     optionsBuilder.setTargetLabel("//my:target");
 
     addSourceLines(
@@ -543,10 +540,10 @@ public class JavacTurbineTest {
     optionsBuilder.addClassPathEntries(
         ImmutableList.of(libA.toString(), libB.toString(), libC.toString(), libD.toString()));
     optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
-    optionsBuilder.addDirectJarToTarget(libA.toString(), "//lib:a");
-    optionsBuilder.addIndirectJarToTarget(libB.toString(), "//lib:b");
-    optionsBuilder.addIndirectJarToTarget(libC.toString(), "//lib:c");
-    optionsBuilder.addIndirectJarToTarget(libD.toString(), "//lib:d");
+    optionsBuilder.addDirectJarToTarget(libA.toString(), JarOwner.create("//lib:a"));
+    optionsBuilder.addIndirectJarToTarget(libB.toString(), JarOwner.create("//lib:b"));
+    optionsBuilder.addIndirectJarToTarget(libC.toString(), JarOwner.create("//lib:c"));
+    optionsBuilder.addIndirectJarToTarget(libD.toString(), JarOwner.create("//lib:d"));
     optionsBuilder.setTargetLabel("//my:target");
 
     addSourceLines(
@@ -635,10 +632,10 @@ public class JavacTurbineTest {
     optionsBuilder.addClassPathEntries(
         ImmutableList.of(libA.toString(), libB.toString(), libC.toString(), libD.toString()));
     optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
-    optionsBuilder.addDirectJarToTarget(libA.toString(), "//lib:a");
-    optionsBuilder.addIndirectJarToTarget(libB.toString(), "//lib:b");
-    optionsBuilder.addIndirectJarToTarget(libC.toString(), "//lib:c");
-    optionsBuilder.addIndirectJarToTarget(libD.toString(), "//lib:d");
+    optionsBuilder.addDirectJarToTarget(libA.toString(), JarOwner.create("//lib:a"));
+    optionsBuilder.addIndirectJarToTarget(libB.toString(), JarOwner.create("//lib:b"));
+    optionsBuilder.addIndirectJarToTarget(libC.toString(), JarOwner.create("//lib:c"));
+    optionsBuilder.addIndirectJarToTarget(libD.toString(), JarOwner.create("//lib:d"));
     optionsBuilder.setTargetLabel("//my:target");
 
     addSourceLines(
@@ -1231,7 +1228,7 @@ public class JavacTurbineTest {
         "}");
 
     optionsBuilder.addClassPathEntries(Collections.singleton(deps.toString()));
-    optionsBuilder.addDirectJarToTarget(deps.toString(), "//deps");
+    optionsBuilder.addDirectJarToTarget(deps.toString(), JarOwner.create("//deps"));
 
     compile();
     Map<String, byte[]> outputs = collectOutputs();
@@ -1252,7 +1249,7 @@ public class JavacTurbineTest {
         "import " + Lib.class.getCanonicalName() + ";",
         "class Hello extends Lib {}");
 
-    optionsBuilder.addIndirectJarToTarget(lib.toString(), "//lib");
+    optionsBuilder.addIndirectJarToTarget(lib.toString(), JarOwner.create("//lib"));
     optionsBuilder.addClassPathEntries(ImmutableList.of(lib.toString()));
 
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));

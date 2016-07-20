@@ -25,6 +25,7 @@ java_library(
     srcs = glob(["dependency/*.java"]),
     deps = [
         ":plugins",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//src/main/protobuf:deps_java_proto",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
@@ -76,6 +77,7 @@ bootstrap_java_library(
         ["**/*.java"],
     ),
     deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
     ],

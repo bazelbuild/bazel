@@ -17,6 +17,7 @@ package com.google.devtools.build.java.turbine;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.buildjar.JarOwner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -129,12 +130,13 @@ public class TurbineOptionsTest {
 
     assertThat(options.targetLabel()).hasValue("//java/com/google/test");
     assertThat(options.directJarsToTargets())
-        .containsExactlyEntriesIn(ImmutableMap.of("blaze-out/foo/libbar.jar", "//foo/bar"));
+        .containsExactlyEntriesIn(
+            ImmutableMap.of("blaze-out/foo/libbar.jar", JarOwner.create("//foo/bar")));
     assertThat(options.indirectJarsToTargets())
         .containsExactlyEntriesIn(
             ImmutableMap.of(
-                "blaze-out/foo/libbaz1.jar", "//foo/baz1",
-                "blaze-out/foo/libbaz2.jar", "//foo/baz2"));
+                "blaze-out/foo/libbaz1.jar", JarOwner.create("//foo/baz1"),
+                "blaze-out/foo/libbaz2.jar", JarOwner.create("//foo/baz2")));
     assertThat(options.depsArtifacts()).containsExactly("foo.jdeps", "bar.jdeps");
   }
 
