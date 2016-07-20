@@ -220,12 +220,6 @@ java_import(
     jars = ["auto/auto-value-1.2.jar"],
 )
 
-# For bootstrapping JavaBuilder
-filegroup(
-    name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.2.jar"],
-)
-
 java_library(
     name = "dagger",
     exported_plugins = [":dagger_plugin"],

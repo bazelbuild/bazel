@@ -91,11 +91,7 @@ java_library(
     name = "JavaBuilderConfig",
     srcs = ["JavaBuilderConfig.java"],
     data = ["@bazel_tools//tools/jdk:JavaBuilder_deploy.jar"],
-    deps = [
-        ":javabuilder-javacopts-lib",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
-        "//third_party:guava",
-    ],
+    deps = [":javabuilder-javacopts-lib"],
 )
 
 # Provides programmatic access to a bazel compatible javac.
@@ -112,7 +108,6 @@ java_library(
         ":JavaBuilderConfig",
         ":JavaLangtools",
         ":JavacBootclasspath",
-        "//third_party:guava",
     ],
 )
 

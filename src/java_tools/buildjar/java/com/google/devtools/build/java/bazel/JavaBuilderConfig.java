@@ -14,18 +14,18 @@
 
 package com.google.devtools.build.java.bazel;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.buildjar.javac.JavacOptions;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/** Utility class to provide Java-level access to the blessed JavaBuilder javacopts. */
+/**
+ * Utility class to provide java-level access to the blessed javabuilder javacopts.
+ */
 public class JavaBuilderConfig {
-
-  private static final ImmutableList<String> JAVACOPTS =
-      ImmutableList.copyOf(
-          JavacOptions.removeBazelSpecificFlags(JavaBuilderJavacOpts.DEFAULT_JAVACOPTS));
-
+  
   public static List<String> defaultJavacOpts() {
-    return JAVACOPTS;
+    List<String> result = new ArrayList<>();
+    Collections.addAll(result, JavaBuilderJavacOpts.DEFAULT_JAVACOPTS);
+    return result;
   }
 }

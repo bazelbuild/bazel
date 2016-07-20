@@ -21,17 +21,11 @@ java_library(
 
 java_library(
     name = "javac",
-    srcs = glob(
-        [
-            "javac/*.java",
-        ],
-        exclude = [
-            "javac/JavacOptions.java",
-        ],
-    ),
+    srcs = glob([
+        "javac/*.java",
+    ]),
     deps = [
         ":invalid_command_line_exception",
-        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -51,7 +45,6 @@ java_library(
     deps = [
         ":invalid_command_line_exception",
         ":javac",
-        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:classloader",
@@ -76,13 +69,8 @@ java_library(
     srcs = [
         "javac/JavacOptions.java",
     ],
-    visibility = [
-        "//java/com/google/devtools/build/buildjar:__pkg__",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:__pkg__",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:__pkg__",
-    ],
+    visibility = ["//java/com/google/devtools/build/buildjar:__pkg__"],
     deps = [
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -103,7 +91,6 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bo
 bootstrap_java_library(
     name = "skylark-deps",
     jars = [
-        "//third_party:auto_value-jars",
         "//third_party:error_prone-jars",
         "//third_party:guava-jars",
         "//third_party:jsr305-jars",

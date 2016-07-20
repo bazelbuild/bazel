@@ -15,10 +15,10 @@
 package com.google.devtools.build.java.turbine.javac;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
@@ -119,7 +119,7 @@ public class JavacTurbine implements AutoCloseable {
 
     ImmutableList.Builder<String> argbuilder = ImmutableList.builder();
 
-    argbuilder.addAll(JavacOptions.removeBazelSpecificFlags(turbineOptions.javacOpts()));
+    filterJavacopts(argbuilder, turbineOptions.javacOpts());
 
     // Disable compilation of implicit source files.
     // This is insurance: the sourcepath is empty, so we don't expect implicit sources.
@@ -319,6 +319,31 @@ public class JavacTurbine implements AutoCloseable {
       result.add(Paths.get(element));
     }
     return result.build();
+  }
+
+  @VisibleForTesting
+  static void filterJavacopts(
+      ImmutableList.Builder<String> javacArgs, Iterable<String> defaultJavacopts) {
+    for (String opt : defaultJavacopts) {
+
+      // TODO(cushon): temporary hack until 4149f08bcc8bd1318d4021cf372ec89240ee3dbb is released
+      opt = CharMatcher.is('\'').trimFrom(opt);
+
+      if (isErrorProneFlag(opt)) {
+        // drop Error Prone's fake javacopts
+        continue;
+      }
+      javacArgs.add(opt);
+    }
+  }
+
+  /**
+   * Returns true for flags that are specific to Error Prone.
+   *
+   * <p>WARNING: keep in sync with ErrorProneOptions#isSupportedOption
+   */
+  static boolean isErrorProneFlag(String opt) {
+    return opt.startsWith("-Xep");
   }
 
   /** Extra sources in srcjars to disk. */

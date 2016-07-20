@@ -350,6 +350,29 @@ public class JavacTurbineTest {
       };
 
   @Test
+  public void filterJavacopts() {
+    ImmutableList.Builder<String> output = ImmutableList.builder();
+    JavacTurbine.filterJavacopts(
+        output,
+        Arrays.asList(
+            "-g",
+            "-source",
+            "6",
+            "-target",
+            "6",
+            "-Xlint:all",
+            "-source",
+            "7",
+            "-target",
+            "7",
+            "-Xep:GuardedBy:ERROR"));
+    assertThat(output.build())
+        .containsExactly(
+            "-g", "-source", "6", "-target", "6", "-Xlint:all", "-source", "7", "-target", "7")
+        .inOrder();
+  }
+
+  @Test
   public void jdeps() throws Exception {
 
     Path libC = temp.newFile("libc.jar").toPath();
