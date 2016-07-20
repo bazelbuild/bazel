@@ -180,8 +180,9 @@ public class MavenJarFunction extends HttpArchiveFunction {
       this.outputDirectory = outputDirectory;
 
       this.artifact = mapper.get("artifact", Type.STRING);
-      this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
-      if (!sha1.matches("\\p{XDigit}{40}")) {
+      this.sha1 = mapper.isAttributeValueExplicitlySpecified("sha1")
+          ? mapper.get("sha1", Type.STRING) : null;
+      if (sha1 != null && !sha1.matches("\\p{XDigit}{40}")) {
         throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
       }
       this.url = serverValue.getUrl();

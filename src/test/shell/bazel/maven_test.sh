@@ -114,19 +114,20 @@ function test_maven_jar_mismatched_sha1() {
   setup_zoo
   serve_jar
 
+  wrong_sha1="0123456789012345678901234567890123456789"
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$nc_port/',
-    sha1 = '$sha256',
+    sha1 = '$wrong_sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
   bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
-  expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($sha256)"
+  expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($wrong_sha1)"
 }
 
 function test_default_repository() {

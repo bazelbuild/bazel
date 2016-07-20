@@ -65,4 +65,15 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
     AggregatingAttributeMapper map = AggregatingAttributeMapper.of(rule);
     new MavenDownloader("foo", map, scratch.dir("/whatever"), TEST_SERVER);
   }
+
+  @Test
+  public void testNoSha1() throws Exception {
+    Rule rule = scratchRule("external", "foo",
+        "maven_jar(",
+        "    name = 'foo',",
+        "    artifact = 'x',",
+        ")");
+    AggregatingAttributeMapper map = AggregatingAttributeMapper.of(rule);
+    new MavenDownloader("foo", map, scratch.dir("/whatever"), TEST_SERVER);
+  }
 }
