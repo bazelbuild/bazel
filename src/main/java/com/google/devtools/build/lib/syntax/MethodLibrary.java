@@ -2032,13 +2032,17 @@ public class MethodLibrary {
       if (step == 0) {
         throw new EvalException(loc, "step cannot be 0");
       }
-      List<Integer> result = Lists.newArrayList();
+      ArrayList<Integer> result = Lists.newArrayList();
       if (step > 0) {
+        int size = (stop - start) / step;
+        result.ensureCapacity(size);
         while (start < stop) {
           result.add(start);
           start += step;
         }
       } else {
+        int size = (start - stop) / step;
+        result.ensureCapacity(size);
         while (start > stop) {
           result.add(start);
           start += step;
