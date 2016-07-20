@@ -109,7 +109,7 @@ def Main():
 
   try:
     sys.stdout.flush()
-    exit(subprocess.call(args))
+    os.execv(args[0], args)
   except EnvironmentError as e:
     # This exception occurs when os.execv() fails for some reason.
     if not getattr(e, 'filename', None):
