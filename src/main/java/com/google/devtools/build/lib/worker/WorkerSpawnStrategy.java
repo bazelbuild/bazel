@@ -152,9 +152,12 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
               spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
 
       for (ActionInput input : inputs) {
-        ByteString digest = inputFileCache.getDigest(input);
-        if (digest == null) {
+        byte[] digestBytes = inputFileCache.getDigest(input);
+        ByteString digest;
+        if (digestBytes == null) {
           digest = ByteString.EMPTY;
+        } else {
+          digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
         }
 
         requestBuilder
@@ -208,7 +211,7 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
     Hasher hasher = Hashing.sha256().newHasher();
     for (ActionInput tool : toolFiles) {
       hasher.putString(tool.getExecPathString(), Charset.defaultCharset());
-      hasher.putBytes(actionInputFileCache.getDigest(tool).toByteArray());
+      hasher.putBytes(actionInputFileCache.getDigest(tool));
     }
     return hasher.hash();
   }

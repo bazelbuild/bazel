@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -25,8 +23,8 @@ import com.google.protobuf.ByteString;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
@@ -39,10 +37,8 @@ import javax.annotation.Nullable;
  */
 class PerActionFileCache implements ActionInputFileCache {
   private final Map<Artifact, FileArtifactValue> inputArtifactData;
-  // Populated lazily, on calls to #getDigest.
-  private final Map<ByteString, Artifact> reverseMap = new ConcurrentHashMap<>();
-
-  private static final Interner<ByteString> BYTE_INTERNER = Interners.newWeakInterner();
+  // null until first call to getInputFromDigest()
+  private volatile HashMap<ByteString, Artifact> reverseMap;
 
   /**
    * @param inputArtifactData Map from artifact to metadata, used to return metadata upon request.
@@ -74,12 +70,6 @@ class PerActionFileCache implements ActionInputFileCache {
     return -1;
   }
 
-  @Nullable
-  @Override
-  public Artifact getInputFromDigest(ByteString digest) throws IOException {
-    return reverseMap.get(digest);
-  }
-
   @Override
   public Path getInputPath(ActionInput input) {
     return ((Artifact) input).getPath();
@@ -87,16 +77,10 @@ class PerActionFileCache implements ActionInputFileCache {
 
   @Nullable
   @Override
-  public ByteString getDigest(ActionInput input) throws IOException {
+  public byte[] getDigest(ActionInput input) throws IOException {
     FileArtifactValue value = getInputFileArtifactValue(input);
     if (value != null) {
-      byte[] bytes = value.getDigest();
-      if (bytes != null) {
-        ByteString digest = ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(bytes)
-            .getBytes(StandardCharsets.US_ASCII));
-        reverseMap.put(BYTE_INTERNER.intern(digest), (Artifact) input);
-        return digest;
-      }
+      return value.getDigest();
     }
     return null;
   }
@@ -109,6 +93,38 @@ class PerActionFileCache implements ActionInputFileCache {
 
   @Override
   public boolean contentsAvailableLocally(ByteString digest) {
-    return reverseMap.containsKey(digest);
+    return getInputFromDigest(digest) != null;
+  }
+
+  @Nullable
+  @Override
+  public Artifact getInputFromDigest(ByteString digest) {
+    HashMap<ByteString, Artifact> r = reverseMap;  // volatile load
+    if (r == null) {
+      r = buildReverseMap();
+    }
+    return r.get(digest);
+  }
+
+  private synchronized HashMap<ByteString, Artifact> buildReverseMap() {
+    HashMap<ByteString, Artifact> r = reverseMap;  // volatile load
+    if (r != null) {
+      return r;
+    }
+    r = new HashMap<>(inputArtifactData.size());
+    // It would be nice to have a view of the entries which treats them as a map keyed on digest but
+    // does not require constructing another wrapper object for each entry.  Java doesn't come with
+    // any collections which can do this, but cloning RegularImmutableSet and adding the necessary
+    // features wouldn't be too bad.
+    for (Map.Entry<Artifact, FileArtifactValue> e : inputArtifactData.entrySet()) {
+      byte[] bytes = e.getValue().getDigest();
+      if (bytes != null) {
+        ByteString digest = ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(bytes)
+            .getBytes(StandardCharsets.US_ASCII));
+        r.put(digest, e.getKey());
+      }
+    }
+    reverseMap = r;  // volatile store
+    return r;
   }
 }

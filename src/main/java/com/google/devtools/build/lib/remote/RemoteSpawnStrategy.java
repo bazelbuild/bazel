@@ -118,7 +118,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         // changes. It might not be sufficient to identify the input file globally in the
         // remote action cache. Consider upgrading this to a better hash algorithm with
         // less collision.
-        hasher.putBytes(inputFileCache.getDigest(input).toByteArray());
+        hasher.putBytes(inputFileCache.getDigest(input));
       } catch (IOException e) {
         throw new UserExecException("Failed to get digest for input.", e);
       }

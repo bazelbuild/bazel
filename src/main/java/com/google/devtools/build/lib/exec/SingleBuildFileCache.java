@@ -70,13 +70,12 @@ public class SingleBuildFileCache implements ActionInputFileCache {
           Path path = null;
           try {
             path = fs.getPath(fullPath(input));
+            byte[] digest = path.getMD5Digest();
             BaseEncoding hex = BaseEncoding.base16().lowerCase();
-            ByteString digest = ByteString.copyFrom(
-                hex.encode(path.getMD5Digest())
-                   .getBytes(US_ASCII));
+            ByteString hexDigest = ByteString.copyFrom(hex.encode(digest).getBytes(US_ASCII));
             // Inject reverse mapping. Doing this unconditionally in getDigest() showed up
             // as a hotspot in CPU profiling.
-            digestToPath.put(digest, input);
+            digestToPath.put(hexDigest, input);
             return new ActionInputMetadata(digest, path.getFileSize());
           } catch (IOException e) {
             if (path != null && path.isDirectory()) {
@@ -110,7 +109,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
   }
 
   @Override
-  public ByteString getDigest(ActionInput input) throws IOException {
+  public byte[] getDigest(ActionInput input) throws IOException {
     return pathToMetadata.getUnchecked(input).getDigest();
   }
 
@@ -137,12 +136,12 @@ public class SingleBuildFileCache implements ActionInputFileCache {
 
   /** Container class for caching I/O around ActionInputs. */
   private static class ActionInputMetadata {
-    private final ByteString digest;
+    private final byte[] digest;
     private final long size;
     private final IOException exceptionOnAccess;
 
     /** Constructor for a successful lookup. */
-    ActionInputMetadata(ByteString digest, long size) {
+    ActionInputMetadata(byte[] digest, long size) {
       this.digest = digest;
       this.size = size;
       this.exceptionOnAccess = null;
@@ -156,7 +155,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
     }
 
     /** Returns digest or throws the exception encountered calculating it/ */
-    ByteString getDigest() throws IOException {
+    byte[] getDigest() throws IOException {
       maybeRaiseException();
       return digest;
     }

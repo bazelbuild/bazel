@@ -66,8 +66,7 @@ public final class MemcacheActionCache implements RemoteActionCache {
 
   @Override
   public String putFileIfNotExist(ActionInputFileCache cache, ActionInput file) throws IOException {
-    // PerActionFileCache already converted this to a lowercase ascii string.. it's not consistent!
-    String contentKey = new String(cache.getDigest(file).toByteArray());
+    String contentKey = HashCode.fromBytes(cache.getDigest(file)).toString();
     if (containsFile(contentKey)) {
       return contentKey;
     }
