@@ -86,6 +86,7 @@ test_write() {
   [ -w "${file}" ] || {
     echo >&2
     echo "The Bazel installer must have write access to $1!" >&2
+    echo "Consider using the --user flag to install Bazel under $HOME/bin instead." >&2
     echo >&2
     usage
   }
