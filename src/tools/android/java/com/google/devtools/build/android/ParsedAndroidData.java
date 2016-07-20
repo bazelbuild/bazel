@@ -185,9 +185,9 @@ public class ParsedAndroidData {
     public void consume(K key, V value) {
       if (target.containsKey(key)) {
         conflicts.add(MergeConflict.between(key, value, target.get(key)));
-      } else {
-        target.put(key, value);
       }
+      // Always record the value, conflict or not, to maintain backwards compatibility.
+      target.put(key, value);
     }
   }
 

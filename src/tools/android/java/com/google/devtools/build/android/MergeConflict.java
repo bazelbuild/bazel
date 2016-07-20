@@ -99,11 +99,13 @@ public class MergeConflict {
       return false;
     }
     MergeConflict that = (MergeConflict) other;
-    return Objects.equals(first, that.first) && Objects.equals(second, that.second);
+    return Objects.equals(dataKey, that.dataKey)
+        && Objects.equals(first, that.first)
+        && Objects.equals(second, that.second);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(first, second);
+    return Objects.hash(dataKey, first, second);
   }
 }
