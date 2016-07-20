@@ -22,15 +22,13 @@ import static org.junit.Assert.assertTrue;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Random;
 
 /**
  * Unit tests for {@link AttributeContainer}.
@@ -61,16 +59,6 @@ public class AttributeContainerTest {
     assertEquals(someValue1, container.getAttr(attribute1.getName()));
     assertEquals(someValue2, container.getAttr(attribute2.getName()));
     assertNull(container.getAttr("nomatch"));
-  }
-
-  @Test
-  public void testAttributeSettingAndRetrievalByInstance() throws Exception {
-    Object someValue1 = new Object();
-    Object someValue2 = new Object();
-    container.setAttributeValue(attribute1, someValue1, true);
-    container.setAttributeValue(attribute2, someValue2, true);
-    assertEquals(someValue1, container.getAttr(attribute1));
-    assertEquals(someValue2, container.getAttr(attribute2));
   }
 
   @Test

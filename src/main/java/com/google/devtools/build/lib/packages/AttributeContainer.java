@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.events.Location;
-
 import java.util.Arrays;
 
 /**
@@ -74,13 +73,6 @@ public class AttributeContainer {
 
   private static final byte[] EMPTY_STATE = {0};
   private static final Location[] EMPTY_LOCATIONS = {};
-
-  /**
-   * Returns an attribute value by instance, or null on no match.
-   */
-  public Object getAttr(Attribute attribute) {
-    return getAttr(attribute.getName());
-  }
 
   /**
    * Returns an attribute value by name, or null on no match.
