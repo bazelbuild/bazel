@@ -450,7 +450,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
       process->error_ = GetLastErrorString("TerminateJobObject()");
       return JNI_FALSE;
     }
-  } else {
+  } else if (process->process_ != INVALID_HANDLE_VALUE) {
     if (!TerminateProcess(process->process_, 1)) {
       process->error_ = GetLastErrorString("TerminateProcess()");
       return JNI_FALSE;

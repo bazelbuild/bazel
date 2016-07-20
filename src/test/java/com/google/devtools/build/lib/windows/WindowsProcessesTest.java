@@ -232,15 +232,15 @@ public class WindowsProcessesTest {
     assertThat(WindowsProcesses.nativeProcessGetLastError(process))
         .contains("The system cannot find the file specified.");
     byte[] buf = new byte[1];
-    assertThat(readStdout(buf, 0, 1)).isEqualTo(-1);
+    assertThat(readStdout(buf, 0, 1)).isEqualTo(0);
   }
 
   @Test
   public void testReadingAndWritingAfterTermination() throws Exception {
     process = WindowsProcesses.nativeCreateProcess("X42", null, null, null, null);
     byte[] buf = new byte[1];
-    assertThat(readStdout(buf, 0, 1)).isEqualTo(-1);
-    assertThat(readStderr(buf, 0, 1)).isEqualTo(-1);
+    assertThat(readStdout(buf, 0, 1)).isEqualTo(0);
+    assertThat(readStderr(buf, 0, 1)).isEqualTo(0);
     assertThat(WindowsProcesses.nativeWriteStdin(process, buf, 0, 1)).isEqualTo(-1);
   }
 
