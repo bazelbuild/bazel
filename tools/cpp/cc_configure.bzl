@@ -85,6 +85,16 @@ def _which_cmd(repository_ctx, cmd, default = None):
   auto_configure_fail("Cannot find %s in PATH, please make sure %s is installed and add its directory in PATH.\nPATH=%s" % (cmd, cmd, path))
   return str(result)
 
+
+def _execute(repository_ctx, command):
+  """Execute a command, return stdout if succeed and throw an error if it fails."""
+  result = repository_ctx.execute(command)
+  if result.stderr:
+    auto_configure_fail(result.stderr)
+  else:
+    return result.stdout.strip()
+
+
 def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools."""
   return {k: _which(repository_ctx, k, "/usr/bin/" + k)
@@ -277,10 +287,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
 # TODO(pcloudy): Remove this after MSVC CROSSTOOL becomes default on Windows
 def _get_windows_crosstool_content(repository_ctx):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
-  result = repository_ctx.execute(["cygpath", "-m", "/"])
-  if result.stderr:
-    fail(result.stderr)
-  msys_root = result.stdout.strip()
+  msys_root = _execute(repository_ctx, ["cygpath", "-m", "/"])
   return (
       '   abi_version: "local"\n' +
       '   abi_libc_version: "local"\n' +
@@ -372,7 +379,7 @@ def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
   bash_bin = _which_cmd(repository_ctx, "bash.exe")
   program_files_dir = _get_env_var(repository_ctx, "ProgramFiles(x86)", "C:\\Program Files (x86)")
-  vs_version = repository_ctx.execute([bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir]).stdout.strip()
+  vs_version = _execute(repository_ctx, [bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir])
   return program_files_dir + "/" + vs_version
 
 
@@ -383,7 +390,7 @@ def _find_env_vars(repository_ctx, vs_path):
                       "@echo off\n" +
                       "call \"" + vsvars + "\" amd64 \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  envs = repository_ctx.execute(["wrapper/get_env.bat"]).stdout.strip().split(",")
+  envs = _execute(repository_ctx, ["wrapper/get_env.bat"]).split(",")
   env_map = {}
   for env in envs:
     key, value = env.split("=")
