@@ -56,7 +56,7 @@ cp output/bazel.exe output/ci/
 # todo(bazel-team): add more tests here.
 echo "Running tests"
 retCode=0
-./output/bazel test --test_output=all //src/test/shell/bazel:bazel_windows_cpp_test || retCode=$?
+./output/bazel test --test_output=all //src/test/shell/bazel:bazel_windows_example_test || retCode=$?
 # Exit for failure except for test failures (exit code 3).
 if (( $retCode != 0 )); then
   echo "$retCode" > .unstable

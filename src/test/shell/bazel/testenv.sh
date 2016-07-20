@@ -118,9 +118,16 @@ case "${PLATFORM}" in
     fi
     ;;
 esac
-protoc_jar="${BAZEL_RUNFILES}/third_party/protobuf/protobuf-*.jar"
-junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
-hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
+
+if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
+  protoc_jar="${BAZEL_RUNFILES}/third_party/protobuf/protobuf-*.jar"
+  junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
+  hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
+else
+  protoc_jar=$(rlocation io_bazel/third_party/protobuf/protobuf-.*.jar)
+  junit_jar=$(rlocation io_bazel/third_party/junit/junit-.*.jar)
+  hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
+fi
 
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {

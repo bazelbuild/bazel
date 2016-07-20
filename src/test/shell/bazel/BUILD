@@ -90,9 +90,9 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_windows_cpp_test",
+    name = "bazel_windows_example_test",
     size = "large",
-    srcs = ["bazel_windows_cpp_test.sh"],
+    srcs = ["bazel_windows_example_test.sh"],
     data = [
         ":test-deps",
     ],
