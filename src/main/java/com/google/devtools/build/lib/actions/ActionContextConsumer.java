@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-
-import java.util.Map;
 
 /**
  * An object describing that actions require a particular implementation of an
@@ -53,7 +52,7 @@ public interface ActionContextConsumer {
    * present in the returned map. The easiest way to assure this is to use a map created using
    * {@code new TreeMap<>(String.CASE_INSENSITIVE_ORDER)}.
    */
-  Map<String, String> getSpawnActionContexts();
+  ImmutableMap<String, String> getSpawnActionContexts();
 
   /**
    * Returns a map from action context class to the implementation required by the module.

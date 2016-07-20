@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 
-import java.util.Map;
-
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for worker process
  * execution.
@@ -30,7 +28,7 @@ import java.util.Map;
 public class WorkerActionContextConsumer implements ActionContextConsumer {
 
   @Override
-  public Map<String, String> getSpawnActionContexts() {
+  public ImmutableMap<String, String> getSpawnActionContexts() {
     return ImmutableMap.of();
   }
 

@@ -207,7 +207,7 @@ public class ExecutionTool {
             // that actually depends on them.
             new ActionContextConsumer() {
               @Override
-              public Map<String, String> getSpawnActionContexts() {
+              public ImmutableMap<String, String> getSpawnActionContexts() {
                 return ImmutableMap.of();
               }
 

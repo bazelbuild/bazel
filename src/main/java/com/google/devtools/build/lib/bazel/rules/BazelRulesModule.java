@@ -93,15 +93,18 @@ public class BazelRulesModule extends BlazeModule {
     public List<Map.Entry<String, String>> strategy;
   }
 
-  private static class BazelActionContextConsumer implements ActionContextConsumer {
-    BazelExecutionOptions options;
+  /**
+   * An object describing the {@link ActionContext} implementation that some actions require in
+   * Bazel.
+   */
+  protected static class BazelActionContextConsumer implements ActionContextConsumer {
+    private final BazelExecutionOptions options;
 
-    private BazelActionContextConsumer(BazelExecutionOptions options) {
+    protected BazelActionContextConsumer(BazelExecutionOptions options) {
       this.options = options;
-
     }
     @Override
-    public Map<String, String> getSpawnActionContexts() {
+    public ImmutableMap<String, String> getSpawnActionContexts() {
       Map<String, String> contexts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
       contexts.put("Genrule", options.genruleStrategy);
@@ -136,7 +139,7 @@ public class BazelRulesModule extends BlazeModule {
   }
 
   private CommandEnvironment env;
-  private BazelExecutionOptions options;
+  protected BazelExecutionOptions options;
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
