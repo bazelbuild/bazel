@@ -127,7 +127,6 @@ public class TestSupport {
    */
   private ImmutableList<Substitution> substitutionsForSimulator() {
     ImmutableList.Builder<Substitution> substitutions = new ImmutableList.Builder<Substitution>()
-        .add(Substitution.of("%(iossim_path)s", iossim().getRunfilesPathString()))
         .add(Substitution.of("%(std_redirect_dylib_path)s",
             stdRedirectDylib().getRunfilesPathString()))
         .addAll(deviceSubstitutions().getSubstitutionsForTestRunnerScript());
@@ -171,10 +170,6 @@ public class TestSupport {
     } else {
       throw new IllegalStateException("Expected 0 or 1 files in xctest_app, got: " + files);
     }
-  }
-
-  private Artifact iossim() {
-    return ruleContext.getPrerequisiteArtifact(SimulatorRule.IOSSIM_ATTR, Mode.HOST);
   }
 
   private Artifact stdRedirectDylib() {
@@ -231,7 +226,6 @@ public class TestSupport {
         .addTransitiveArtifacts(plugins());
     if (!runWithLabDevice()) {
       runfilesBuilder
-          .addArtifact(iossim())
           .addArtifact(stdRedirectDylib())
           .addTransitiveArtifacts(deviceRunfiles())
           .addArtifacts(testRunner().asSet());
