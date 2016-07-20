@@ -623,19 +623,8 @@ public class CcCommonTest extends BuildViewTestCase {
 
     Iterable<Artifact> libraries = getLinkerInputs(wrapsophos);
 
-    // The "libsavi.a" below is the empty ".a" file created by Blaze for the
-    // "savi" cc_library rule (empty since it has no ".cc" files in "srcs").
-    // The "libsavi.so" below is the "lib/libsavi.so" file from "srcs".
-    //
-    // TODO(blaze-team): (2009) the order here is a bit odd; it would make more sense
-    // to put the library for the rule ("libsavi.a") before the ".so" file
-    // from "srcs" ("libsavi.so").  I think this is because we currently
-    // list all the .so files for a rule before all the .a files for the rule.
     assertThat(baseArtifactNames(libraries))
         .containsAllOf("wrapsophos.pic.o", "libsophosengine.a", "libsavi.so");
-    if (emptyShouldOutputStaticLibrary()) {
-      assertThat(baseArtifactNames(libraries)).contains("libsavi.a");
-    }
   }
 
   @Test

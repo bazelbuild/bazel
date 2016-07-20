@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -913,14 +914,50 @@ public final class CcLibraryHelper {
     CcLinkingOutputs originalLinkingOutputs = ccLinkingOutputs;
     if (!(
         staticLibraries.isEmpty() && picStaticLibraries.isEmpty() && dynamicLibraries.isEmpty())) {
+
+      CcLinkingOutputs.Builder newOutputsBuilder = new CcLinkingOutputs.Builder();
+      if (!ccOutputs.isEmpty()) {
+        // Add the linked outputs of this rule iff we had anything to put in them, but then
+        // make sure we're not colliding with some library added from the inputs.
+        newOutputsBuilder.merge(originalLinkingOutputs);
+        Iterable<LibraryToLink> allLibraries =
+            Iterables.concat(staticLibraries, picStaticLibraries, dynamicLibraries);
+        for (LibraryToLink precompiledLibrary : allLibraries) {
+          List<LibraryToLink> matchingLibs =
+              originalLinkingOutputs.getLibrariesWithSameIdentifierAs(precompiledLibrary);
+          if (!matchingLibs.isEmpty()) {
+            Iterable<String> matchingLibArtifactNames =
+                Iterables.transform(
+                    matchingLibs,
+                    new Function<LibraryToLink, String>() {
+                      @Override
+                      public String apply(LibraryToLink input) {
+                        return input.getOriginalLibraryArtifact().getFilename();
+                      }
+                    });
+            ruleContext.ruleError(
+                "Can't put "
+                    + precompiledLibrary.getArtifact().getFilename()
+                    + " into the srcs of a "
+                    + ruleContext.getRuleClassNameForLogging()
+                    + " with the same name ("
+                    + ruleContext.getRule().getName()
+                    + ") which also contains other code or objects to link; it shares a name with "
+                    + Joiner.on(", ").join(matchingLibArtifactNames)
+                    + " (output compiled and linked from the non-library sources of this rule), "
+                    + "which could cause confusion");
+          }
+        }
+      }
+
       // Merge the pre-compiled libraries (static & dynamic) into the linker outputs.
-      ccLinkingOutputs = new CcLinkingOutputs.Builder()
-          .merge(ccLinkingOutputs)
-          .addStaticLibraries(staticLibraries)
-          .addPicStaticLibraries(picStaticLibraries)
-          .addDynamicLibraries(dynamicLibraries)
-          .addExecutionDynamicLibraries(dynamicLibraries)
-          .build();
+      ccLinkingOutputs =
+          newOutputsBuilder
+              .addStaticLibraries(staticLibraries)
+              .addPicStaticLibraries(picStaticLibraries)
+              .addDynamicLibraries(dynamicLibraries)
+              .addExecutionDynamicLibraries(dynamicLibraries)
+              .build();
     }
 
     DwoArtifactsCollector dwoArtifacts =
