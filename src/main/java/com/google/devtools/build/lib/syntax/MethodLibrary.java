@@ -1998,6 +1998,24 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkSignature(name = "hash", returnType = Integer.class,
+      doc = "Return a hash value for a string. Hash values of equal strings are always equal to "
+          + "one another, but may change over different invocations of the Skylark interpreter. "
+          + "Hashing of values besides strings is not currently supported.",
+          // Java guarantees that Strings are hashed using a specific algorithm and are therefore
+          // consistent across all invocations. Rather than re-export this promise to the user,
+          // we'll just provide the same basic guarantee as Java and Python do for hashing any
+          // kind of value.
+      parameters = {
+        @Param(name = "value", type = String.class,
+            doc = "String value to hash")
+      })
+  private static final BuiltinFunction hash = new BuiltinFunction("hash") {
+    public Integer invoke(String value) throws EvalException {
+      return value.hashCode();
+    }
+  };
+
   @SkylarkSignature(name = "range", returnType = MutableList.class,
       doc = "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
           + "<code>step</code> increment. If a single argument is provided, items will "
@@ -2017,8 +2035,8 @@ public class MethodLibrary {
       useLocation = true,
       useEnvironment = true)
   private static final BuiltinFunction range = new BuiltinFunction("range") {
-      public MutableList<?> invoke(Integer startOrStop, Object stopOrNone, Integer step,
-          Location loc, Environment env)
+    public MutableList<?> invoke(Integer startOrStop, Object stopOrNone, Integer step,
+        Location loc, Environment env)
         throws EvalException, ConversionException {
       int start;
       int stop;
@@ -2327,7 +2345,7 @@ public class MethodLibrary {
   static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
           .addAll(buildGlobalFunctions)
-          .add(dir, fail, getattr, hasattr, print, struct, type)
+          .add(dir, fail, getattr, hasattr, hash, print, struct, type)
           .build();
 
   /**

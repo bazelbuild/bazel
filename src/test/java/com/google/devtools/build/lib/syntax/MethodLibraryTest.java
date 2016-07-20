@@ -1484,6 +1484,20 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testHash() throws Exception {
+    // This test is too strong, in that it tests whether the hash value of the string follows
+    // Java's specific algorithm for Strings. If our hash implementation is changed then this
+    // test will have to be modified.
+    new SkylarkTest()
+        .testStatement("hash('skylark')", "skylark".hashCode())
+        .testStatement("hash('google')", "google".hashCode())
+        .testIfErrorContains(
+            "Method hash(value: string) is not applicable for arguments (NoneType): "
+                + "'value' is NoneType, but should be string",
+            "hash(None)");
+  }
+
+  @Test
   public void testRange() throws Exception {
     new BothModesTest()
         .testStatement("str(range(5))", "[0, 1, 2, 3, 4]")
