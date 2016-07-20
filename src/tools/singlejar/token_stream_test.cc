@@ -59,7 +59,7 @@ TEST_F(TokenStreamTest, CommandFile) {
   std::string command_file_path_ = std::string(tempdir) + "/tokens";
   FILE *fp = fopen(command_file_path_.c_str(), "w");
   ASSERT_NE(nullptr, fp);
-  for (int i = 0; i < ARRAY_SIZE(lines); ++i) {
+  for (size_t i = 0; i < ARRAY_SIZE(lines); ++i) {
     fprintf(fp, "%s\n", lines[i]);
   }
   fclose(fp);
@@ -71,7 +71,7 @@ TEST_F(TokenStreamTest, CommandFile) {
   bool flag = false;
   ASSERT_TRUE(token_stream.MatchAndSet("-before_file", &flag));
   EXPECT_TRUE(flag);
-  for (int i = 0; i < ARRAY_SIZE(expected_tokens); ++i) {
+  for (size_t i = 0; i < ARRAY_SIZE(expected_tokens); ++i) {
     flag = false;
     ASSERT_TRUE(token_stream.MatchAndSet(expected_tokens[i], &flag));
     EXPECT_TRUE(flag);

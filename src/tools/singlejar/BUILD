@@ -48,6 +48,19 @@ cc_test(
 )
 
 cc_test(
+    name = "options_test",
+    srcs = [
+        "options.h",
+        "options_test.cc",
+        ":token_stream",
+    ],
+    deps = [
+        ":options",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "token_stream_test",
     srcs = [
         "token_stream_test.cc",
@@ -81,6 +94,16 @@ cc_test(
     deps = [
         "//third_party:gtest",
         "//third_party/zlib",
+    ],
+)
+
+cc_library(
+    name = "options",
+    srcs = [
+        "diag.h",
+        "options.cc",
+        "options.h",
+        ":token_stream",
     ],
 )
 
