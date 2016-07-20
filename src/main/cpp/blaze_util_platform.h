@@ -129,6 +129,9 @@ void ReleaseLock(BlazeLock* blaze_lock);
 bool KillServerProcess(
     int pid, const string& output_base, const string& install_base);
 
+// Mark path as being excluded from backups (if supported by operating system).
+void ExcludePathFromBackup(const string &path);
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

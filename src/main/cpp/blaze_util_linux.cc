@@ -254,4 +254,8 @@ bool KillServerProcess(
   return true;
 }
 
+// Not supported.
+void ExcludePathFromBackup(const string &path) {
+}
+
 }  // namespace blaze

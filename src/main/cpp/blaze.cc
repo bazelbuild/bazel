@@ -1656,28 +1656,29 @@ static void ComputeBaseDirectories(const string &self_path) {
   }
 
   struct stat buf;
-  if (stat(globals->options.output_base.c_str(), &buf) == -1) {
+  const char *output_base = globals->options.output_base.c_str();
+  if (stat(output_base, &buf) == -1) {
     if (MakeDirectories(globals->options.output_base, 0777) == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "Output base directory '%s' could not be created",
-           globals->options.output_base.c_str());
+           output_base);
     }
   } else {
     if (!S_ISDIR(buf.st_mode)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Error: Output base directory '%s' could not be created. "
           "It exists but is not a directory.",
-          globals->options.output_base.c_str());
+          output_base);
     }
   }
-  if (access(globals->options.output_base.c_str(), R_OK | W_OK | X_OK) != 0) {
+  if (access(output_base, R_OK | W_OK | X_OK) != 0) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "Error: Output base directory '%s' must be readable and writable.",
-        globals->options.output_base.c_str());
+        output_base);
   }
+  ExcludePathFromBackup(output_base);
 
-  globals->options.output_base =
-      MakeCanonical(globals->options.output_base.c_str());
+  globals->options.output_base = MakeCanonical(output_base);
   globals->lockfile = globals->options.output_base + "/lock";
   globals->jvm_log_file = globals->options.output_base + "/server/jvm.out";
 }
@@ -1810,6 +1811,8 @@ static void CreateSecureOutputRoot() {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not a directory",
         root);
   }
+
+  ExcludePathFromBackup(root);
 }
 
 // TODO(bazel-team): Execute the server as a child process and write its exit

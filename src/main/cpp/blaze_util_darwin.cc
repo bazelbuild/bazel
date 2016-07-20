@@ -204,4 +204,30 @@ bool KillServerProcess(
   return true;
 }
 
+// Sets a flag on path to exclude the path from Apple's automatic backup service
+// (Time Machine)
+void ExcludePathFromBackup(const string &path) {
+  CFScopedReleaser<CFURLRef> cf_url(CFURLCreateFromFileSystemRepresentation(
+      kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(path.c_str()),
+      path.length(), true));
+  if (!cf_url.isValid()) {
+    fprintf(stderr, "Warning: unable to exclude '%s' from backups\n",
+            path.c_str());
+    return;
+  }
+  CFErrorRef cf_error = NULL;
+  if (!CFURLSetResourcePropertyForKey(cf_url, kCFURLIsExcludedFromBackupKey,
+                                      kCFBooleanTrue, &cf_error)) {
+    CFScopedReleaser<CFErrorRef> cf_error_releaser(cf_error);
+    string error_desc = DescriptionFromCFError(cf_error_releaser);
+    fprintf(stderr, "Warning: unable to exclude '%s' from backups",
+            path.c_str());
+    if (error_desc.length() > 0) {
+      fprintf(stderr, " - '%s'", error_desc.c_str());
+    }
+    fprintf(stderr, "\n");
+    return;
+  }
+}
+
 }   // namespace blaze.
