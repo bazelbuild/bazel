@@ -213,7 +213,7 @@ if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   fi
 fi
 
-if [[ ! -r "${TEST_SRCDIR}/androidsdk/SDK Readme.txt" ]]; then
+if [[ ! -r "${TEST_SRCDIR}/androidsdk/tools/android" ]]; then
   echo "Not running Android tests due to lack of an Android SDK."
   exit 0
 fi
