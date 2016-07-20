@@ -49,6 +49,7 @@ if (( $retCode != 0 )); then
 fi
 
 # Copy the resulting artifact.
+mkdir -p output/ci
 cp output/bazel.exe output/ci/
 
 # Run the only Windows-specific test we have.
