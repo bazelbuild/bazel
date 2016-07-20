@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
@@ -202,7 +203,7 @@ public final class ApplicationManifest {
   }
 
   public ApplicationManifest mergeWith(RuleContext ruleContext, ResourceDependencies resourceDeps) {
-    Iterable<Artifact> mergeeManifests = getMergeeManifests(resourceDeps.getResources());
+    Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResources());
 
     boolean legacy = true;
     if (ruleContext.isLegalFragment(AndroidConfiguration.class)
@@ -216,16 +217,16 @@ public final class ApplicationManifest {
     }
 
     if (legacy) {
-      if (!Iterables.isEmpty(mergeeManifests)) {
+      if (!mergeeManifests.isEmpty()) {
         Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
             ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
             ruleContext.getBinOrGenfilesDirectory());
         AndroidManifestMergeHelper.createMergeManifestAction(ruleContext, getManifest(),
-            mergeeManifests, ImmutableList.of("all"), outputManifest);
+            mergeeManifests.keySet(), ImmutableList.of("all"), outputManifest);
         return new ApplicationManifest(ruleContext, outputManifest);
       }
     } else {
-      if (!Iterables.isEmpty(mergeeManifests) || !manifestValues.isEmpty()) {
+      if (!mergeeManifests.isEmpty() || !manifestValues.isEmpty()) {
         Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
             ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
             ruleContext.getBinOrGenfilesDirectory());
@@ -243,13 +244,13 @@ public final class ApplicationManifest {
     return this;
   }
 
-  private static Iterable<Artifact> getMergeeManifests(
+  private static Map<Artifact, Label> getMergeeManifests(
       Iterable<ResourceContainer> resourceContainers) {
-    ImmutableSortedSet.Builder<Artifact> builder =
-        ImmutableSortedSet.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
+    ImmutableSortedMap.Builder<Artifact, Label> builder =
+        ImmutableSortedMap.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
     for (ResourceContainer r : resourceContainers) {
       if (r.isManifestExported()) {
-        builder.add(r.getManifest());
+        builder.put(r.getManifest(), r.getLabel());
       }
     }
     return builder.build();

@@ -1,0 +1,168 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.android;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.base.Joiner;
+import com.google.devtools.build.android.Converters.ExistingPathConverter;
+import com.google.devtools.build.android.Converters.ExistingPathListConverter;
+import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
+import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.PathListConverter;
+import com.google.devtools.build.android.Converters.PathStringDictionaryConverter;
+import com.google.devtools.build.android.Converters.StringDictionaryConverter;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/**
+ * Tests for {@link Converters}.
+ */
+@RunWith(JUnit4.class)
+public final class ConvertersTest {
+
+  @Rule
+  public final TemporaryFolder tmp = new TemporaryFolder();
+
+  @Rule
+  public final ExpectedException expected = ExpectedException.none();
+
+  @Test
+  public void testPathConverter_empty() throws Exception {
+    PathConverter converter = new PathConverter();
+    Path result = converter.convert("");
+    assertThat((Object) result).isEqualTo(Paths.get(""));
+  }
+
+  @Test
+  public void testPathConverter_invalid() throws Exception {
+    String arg = "\u0000";
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage(String.format("%s is not a valid path:", arg));
+    PathConverter converter = new PathConverter();
+    converter.convert(arg);
+  }
+
+  @Test
+  public void testPathConverter_valid() throws Exception {
+    PathConverter converter = new PathConverter();
+    Path result = converter.convert("test_file");
+    assertThat((Object) result).isEqualTo(Paths.get("test_file"));
+  }
+
+  @Test
+  public void testExistingPathConverter_nonExisting() throws Exception {
+    String arg = "test_file";
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
+    ExistingPathConverter converter = new ExistingPathConverter();
+    converter.convert(arg);
+  }
+
+  @Test
+  public void testExistingPathConverter_existing() throws Exception {
+    Path testFile = tmp.newFile("test_file").toPath();
+    ExistingPathConverter converter = new ExistingPathConverter();
+    Path result = converter.convert(testFile.toString());
+    assertThat((Object) result).isEqualTo(testFile);
+  }
+
+  @Test
+  public void testPathListConverter() throws Exception {
+    PathListConverter converter = new PathListConverter();
+    List<Path> result = converter.convert("foo:bar::baz:");
+    assertThat(result)
+        .containsAllOf(Paths.get("foo"), Paths.get("bar"), Paths.get("baz")).inOrder();
+  }
+
+  @Test
+  public void testExisingPathListConverter() throws Exception {
+    String arg = "non-existing";
+    Path existingFile = tmp.newFile("existing").toPath();
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
+    ExistingPathListConverter converter = new ExistingPathListConverter();
+    converter.convert(Joiner.on(":").join(existingFile.toString(), arg));
+  }
+
+  @Test
+  public void testStringDictionaryConverter_emptyEntry() throws Exception {
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage("Dictionary entry [] does not contain both a key and a value.");
+    StringDictionaryConverter converter = new StringDictionaryConverter();
+    converter.convert("foo:bar,,baz:bar");
+  }
+
+  @Test
+  public void testStringDictionaryConverter_missingKeyOrValue() throws Exception {
+    String badEntry = "foo";
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage(String.format(
+        "Dictionary entry [%s] does not contain both a key and a value.", badEntry));
+    StringDictionaryConverter converter = new StringDictionaryConverter();
+    converter.convert(badEntry);
+  }
+
+  @Test
+  public void testStringDictionaryConverter_extraFields() throws Exception {
+    String badEntry = "foo:bar:baz";
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage(String.format(
+        "Dictionary entry [%s] contains too many fields.", badEntry));
+    StringDictionaryConverter converter = new StringDictionaryConverter();
+    converter.convert(badEntry);
+  }
+
+  @Test
+  public void testStringDictionaryConverter_duplicateKey() throws Exception {
+    String key = "foo";
+    String arg = String.format("%s:%s,%s:%s", key, "bar", key, "baz");
+    expected.expect(OptionsParsingException.class);
+    expected.expectMessage(String.format(
+        "Dictionary already contains the key [%s].", key));
+    StringDictionaryConverter converter = new StringDictionaryConverter();
+    converter.convert(arg);
+  }
+
+  @Test
+  public void testStringDictionaryConverter() throws Exception {
+    StringDictionaryConverter converter = new StringDictionaryConverter();
+    Map<String, String> result = converter.convert("foo:bar,baz:messy\\:stri\\,ng");
+    assertThat(result).containsExactly("foo", "bar", "baz", "messy:stri,ng");
+  }
+
+  @Test
+  public void testPathStringDictionaryConverter() throws Exception {
+    PathStringDictionaryConverter converter = new PathStringDictionaryConverter();
+    Map<Path, String> result = converter.convert("test_file:string");
+    assertThat(result).containsExactly(Paths.get("test_file"), "string");
+  }
+
+  @Test
+  public void testExistingPathStringDictionaryConverter() throws Exception {
+    Path existingFile = tmp.newFile("existing").toPath();
+    ExistingPathStringDictionaryConverter converter = new ExistingPathStringDictionaryConverter();
+    Map<Path, String> result = converter.convert(String.format("%s:string", existingFile));
+    assertThat(result).containsExactly(existingFile, "string");
+  }
+}

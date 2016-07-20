@@ -64,6 +64,7 @@ import com.android.manifmerger.MergingReport;
 import com.android.manifmerger.PlaceholderHandler;
 import com.android.manifmerger.XmlDocument;
 import com.android.sdklib.repository.FullRevision;
+import com.android.utils.Pair;
 import com.android.utils.StdLogger;
 
 import org.xml.sax.SAXException;
@@ -88,6 +89,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -767,7 +769,7 @@ public class AndroidResourceProcessor {
    */
   public Path mergeManifest(
       Path manifest,
-      List<Path> mergeeManifests,
+      Map<Path, String> mergeeManifests,
       MergeType mergeType,
       Map<String, String> values,
       Path output) throws IOException {
@@ -781,9 +783,11 @@ public class AndroidResourceProcessor {
     }
 
     // Add mergee manifests
-    for (Path mergeeManifest : mergeeManifests) {
-      manifestMerger.addLibraryManifest(mergeeManifest.toFile());
+    List<Pair<String, File>> libraryManifests = new ArrayList<>();
+    for (Entry<Path, String> mergeeManifest : mergeeManifests.entrySet()) {
+      libraryManifests.add(Pair.of(mergeeManifest.getValue(), mergeeManifest.getKey().toFile()));
     }
+    manifestMerger.addLibraryManifests(libraryManifests);
 
     // Extract SystemProperties from the provided values.
     Map<String, String> placeholders = new HashMap<>(values);

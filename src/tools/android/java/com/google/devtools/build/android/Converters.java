@@ -13,18 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsParsingException;
-
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantConfiguration.Type;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.sdklib.repository.FullRevision;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.lang.reflect.ParameterizedType;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -39,6 +38,16 @@ import java.util.Map;
  * Some convenient converters used by android actions. Note: These are specific to android actions.
  */
 public final class Converters {
+  private static final Converter<String> IDENTITY_CONVERTER = new Converter<String>() {
+    @Override public String convert(String input) {
+      return input;
+    }
+
+    @Override public String getTypeDescription() {
+      return "a string";
+    }
+  };
+
   /**
    * Converter for {@link UnvalidatedAndroidData}. Relies on
    * {@code UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation.
@@ -253,13 +262,21 @@ public final class Converters {
    * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
    * may contain colons and commas as long as they are escaped with a backslash.
    */
-  public static class StringDictionaryConverter implements Converter<Map<String, String>> {
+  private abstract static class DictionaryConverter<K, V> implements Converter<Map<K, V>> {
+    private final Converter<K> keyConverter;
+    private final Converter<V> valueConverter;
+
+    public DictionaryConverter(Converter<K> keyConverter, Converter<V> valueConverter) {
+      this.keyConverter = keyConverter;
+      this.valueConverter = valueConverter;
+    }
+
     @Override
-    public Map<String, String> convert(String input) throws OptionsParsingException {
+    public Map<K, V> convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
         return ImmutableMap.of();
       }
-      Map<String, String> map = new LinkedHashMap<>();
+      Map<K, V> map = new LinkedHashMap<>();
       // Only split on comma and colon that are not escaped with a backslash
       for (String entry : input.split("(?<!\\\\)\\,")) {
         String[] entryFields = entry.split("(?<!\\\\)\\:", -1);
@@ -271,21 +288,106 @@ public final class Converters {
           throw new OptionsParsingException(String.format(
               "Dictionary entry [%s] contains too many fields.",
               entry));
-        } else if (map.containsKey(entryFields[0])) {
-          throw new OptionsParsingException(String.format(
-              "Dictionary already contains the key [%s].",
-              entryFields[0]));
         }
         // Unescape any comma or colon that is not a key or value separator.
-        map.put(entryFields[0].replace("\\:", ":").replace("\\,", ","),
-            entryFields[1].replace("\\:", ":").replace("\\,", ","));
+        String keyString = entryFields[0].replace("\\:", ":").replace("\\,", ",");
+        K key = keyConverter.convert(keyString);
+        if (map.containsKey(key)) {
+          throw new OptionsParsingException(String.format(
+              "Dictionary already contains the key [%s].",
+              keyString));
+        }
+        // Unescape any comma or colon that is not a key or value separator.
+        String valueString = entryFields[1].replace("\\:", ":").replace("\\,", ",");
+        V value = valueConverter.convert(valueString);
+        map.put(key, value);
       }
       return ImmutableMap.copyOf(map);
     }
 
     @Override
     public String getTypeDescription() {
-      return "a comma-separated list of colon-separated key value pairs";
+      // Retrieve types of dictionary through reflection to avoid overriding this method in each
+      // subclass or passing types to this superclass.
+      return String.format(
+          "a comma-separated list of colon-separated key value pairs of the types %s and %s",
+          ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
+          ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1]);
+    }
+  }
+
+  /**
+   * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
+   * may contain colons and commas as long as they are escaped with a backslash. The key and value
+   * types are both String.
+   */
+  public static class StringDictionaryConverter extends DictionaryConverter<String, String> {
+    public StringDictionaryConverter() {
+      super(IDENTITY_CONVERTER, IDENTITY_CONVERTER);
+    }
+    // The way {@link OptionsData} checks for generic types requires convert to have literal type
+    // parameters and not argument type parameters.
+    @Override public Map<String, String> convert(String input) throws OptionsParsingException {
+      return super.convert(input);
+    }
+  }
+
+  /**
+   * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
+   * may contain colons and commas as long as they are escaped with a backslash. The key type is
+   * Path and the value type is String.
+   */
+  public static class PathStringDictionaryConverter extends DictionaryConverter<Path, String> {
+    public PathStringDictionaryConverter() {
+      super(new PathConverter(), IDENTITY_CONVERTER);
+    }
+    // The way {@link OptionsData} checks for generic types requires convert to have literal type
+    // parameters and not argument type parameters.
+    @Override public Map<Path, String> convert(String input) throws OptionsParsingException {
+      return super.convert(input);
+    }
+  }
+
+  /**
+   * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
+   * may contain colons and commas as long as they are escaped with a backslash. The key type is
+   * Path and the value type is String.
+   */
+  public static class ExistingPathStringDictionaryConverter
+      extends DictionaryConverter<Path, String> {
+    public ExistingPathStringDictionaryConverter() {
+      super(new ExistingPathConverter(), IDENTITY_CONVERTER);
+    }
+    // The way {@link OptionsData} checks for generic types requires convert to have literal type
+    // parameters and not argument type parameters.
+    @Override public Map<Path, String> convert(String input) throws OptionsParsingException {
+      return super.convert(input);
+    }
+  }
+
+  /**
+   * A converter to handle the migration of the --mergeeManifests flag from a list of paths to a
+   * dictionary of paths to labels.
+   */
+  public static class MergeeManifestsConverter implements Converter<Map<Path, String>> {
+    @Override
+    public Map<Path, String> convert(String input) throws OptionsParsingException {
+      try {
+        List<Path> manifests = new ExistingPathListConverter().convert(input);
+        Map<Path, String> mergeeManifests = new LinkedHashMap<>();
+        for (Path manifest : manifests) {
+          mergeeManifests.put(manifest, manifest.getFileName().toString());
+        }
+        return ImmutableMap.copyOf(mergeeManifests);
+      } catch (OptionsParsingException e) {
+        // Expected if argument change has been released.
+        return new ExistingPathStringDictionaryConverter().convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path to string dictionary with fallback to path list using filename as values";
     }
   }
 }

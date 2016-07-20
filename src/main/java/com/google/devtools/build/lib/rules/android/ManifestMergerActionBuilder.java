@@ -13,17 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -35,7 +38,7 @@ public class ManifestMergerActionBuilder {
   private final SpawnAction.Builder spawnActionBuilder;
 
   private Artifact manifest;
-  private List<Artifact> mergeeManifests;
+  private Map<Artifact, Label> mergeeManifests;
   private boolean isLibrary;
   private Map<String, String> manifestValues;
   private String customPackage;
@@ -51,8 +54,8 @@ public class ManifestMergerActionBuilder {
     return this;
   }
 
-  public ManifestMergerActionBuilder setMergeeManifests(Iterable<Artifact> mergeeManifests) {
-    this.mergeeManifests = ImmutableList.copyOf(mergeeManifests);
+  public ManifestMergerActionBuilder setMergeeManifests(Map<Artifact, Label> mergeeManifests) {
+    this.mergeeManifests = ImmutableMap.copyOf(mergeeManifests);
     return this;
   }
 
@@ -89,8 +92,15 @@ public class ManifestMergerActionBuilder {
     inputs.add(manifest);
 
     if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
-      builder.addJoinExecPaths("--mergeeManifests", ":", mergeeManifests);
-      inputs.addAll(mergeeManifests);
+      builder.add("--mergeeManifests")
+          .add(mapToDictionaryString(mergeeManifests,
+              new Function<Artifact, String>() {
+                @Override public String apply(Artifact input) {
+                  return input.getExecPathString();
+                }
+              },
+              null /* valueConverter */));
+      inputs.addAll(mergeeManifests.keySet());
     }
 
     if (isLibrary) {
@@ -120,14 +130,33 @@ public class ManifestMergerActionBuilder {
             .build(context));
   }
 
+  private static final Function<String, String> ESCAPER = new Function<String, String>() {
+    @Override public String apply(String value) {
+      return value.replace(":", "\\:").replace(",", "\\,");
+    }
+  };
+
   private <K, V> String mapToDictionaryString(Map<K, V> map) {
+    return mapToDictionaryString(map, Functions.toStringFunction(), Functions.toStringFunction());
+  }
+
+  private <K, V> String mapToDictionaryString(Map<K, V> map,
+      Function<? super K, String> keyConverter,
+      Function<? super V, String> valueConverter) {
+    if (keyConverter == null) {
+      keyConverter = Functions.toStringFunction();
+    }
+    if (valueConverter == null) {
+      valueConverter = Functions.toStringFunction();
+    }
+
     StringBuilder sb = new StringBuilder();
     Iterator<Entry<K, V>> iter = map.entrySet().iterator();
     while (iter.hasNext()) {
       Entry<K, V> entry = iter.next();
-      sb.append(entry.getKey().toString().replace(":", "\\:").replace(",", "\\,"));
+      sb.append(Functions.compose(ESCAPER, keyConverter).apply(entry.getKey()));
       sb.append(':');
-      sb.append(entry.getValue().toString().replace(":", "\\:").replace(",", "\\,"));
+      sb.append(Functions.compose(ESCAPER, valueConverter).apply(entry.getValue()));
       if (iter.hasNext()) {
         sb.append(',');
       }

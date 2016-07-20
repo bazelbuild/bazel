@@ -15,9 +15,9 @@ package com.google.devtools.build.android;
 
 import static java.util.logging.Level.SEVERE;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.ExistingPathListConverter;
+import com.google.devtools.build.android.Converters.MergeeManifestsConverter;
 import com.google.devtools.build.android.Converters.MergeTypeConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
@@ -38,8 +38,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -78,10 +78,12 @@ public class ManifestMergerAction {
 
     @Option(name = "mergeeManifests",
         defaultValue = "",
-        converter = ExistingPathListConverter.class,
+        // TODO(apell): switch to ExistingPathStringDictionaryConverter.class after argument change
+        // has been released.
+        converter = MergeeManifestsConverter.class,
         category = "input",
-        help = "A list of manifests to be merged into manifest.")
-    public List<Path> mergeeManifests;
+        help = "A dictionary of manifests, and originating target, to be merged into manifest.")
+    public Map<Path, String> mergeeManifests;
 
     @Option(name = "mergeType",
         defaultValue = "APPLICATION",
@@ -161,9 +163,11 @@ public class ManifestMergerAction {
         // Remove uses-permission tags from mergees before the merge.
         Path tmp = Files.createTempDirectory("manifest_merge_tmp");
         tmp.toFile().deleteOnExit();
-        ImmutableList.Builder<Path> mergeeManifests = ImmutableList.builder();
-        for (Path mergeeManifest : options.mergeeManifests) {
-          mergeeManifests.add(removePermissions(mergeeManifest, tmp));
+        ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
+        for (Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
+          mergeeManifests.put(
+              removePermissions(mergeeManifest.getKey(), tmp),
+              mergeeManifest.getValue());
         }
 
         // Ignore custom package at the binary level.
