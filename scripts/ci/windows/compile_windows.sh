@@ -52,11 +52,13 @@ fi
 mkdir -p output/ci
 cp output/bazel.exe output/ci/
 
-# Run the only Windows-specific test we have.
 # todo(bazel-team): add more tests here.
 echo "Running tests"
-retCode=0
-./output/bazel test --test_output=all //src/test/shell/bazel:bazel_windows_example_test || retCode=$?
+./output/bazel test -k --test_output=all \
+  //src/test/shell/bazel:bazel_windows_example_test \
+  //src/test/java/com/google/devtools/build/lib:windows-tests
+retCode=$?
+
 # Exit for failure except for test failures (exit code 3).
 if (( $retCode != 0 )); then
   echo "$retCode" > .unstable
