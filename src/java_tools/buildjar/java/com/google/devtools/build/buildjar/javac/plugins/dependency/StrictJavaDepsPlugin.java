@@ -40,7 +40,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -158,25 +160,20 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     implicitDependencyExtractor.accumulate(context, checkingTreeScanner.getSeenClasses());
 
     if (!missingTargets.isEmpty()) {
-      StringBuilder missingTargetsStr = new StringBuilder();
+      String canonicalizedLabel =
+          dependencyModule.getTargetLabel() == null
+              ? null
+              : canonicalizeTarget(dependencyModule.getTargetLabel());
+      List<JarOwner> canonicalizedMissing = new ArrayList<>();
       for (JarOwner owner :
           Ordering.natural().onResultOf(JarOwner.LABEL).immutableSortedCopy(missingTargets)) {
-        missingTargetsStr.append(canonicalizeTarget(owner.label()));
-        missingTargetsStr.append(" ");
-      }
-      String canonicalizedLabel;
-      if (dependencyModule.getTargetLabel() == null) {
-        canonicalizedLabel = null;
-      } else {
-        canonicalizedLabel = canonicalizeTarget(dependencyModule.getTargetLabel());
+        canonicalizedMissing.add(
+            JarOwner.create(canonicalizeTarget(owner.label()), owner.aspect()));
       }
       errWriter.print(
-          String.format(
-              dependencyModule.getFixMessage(),
-              USE_COLOR ? "\033[35m\033[1m" : "",
-              USE_COLOR ? "\033[0m" : "",
-              missingTargetsStr.toString(),
-              canonicalizedLabel));
+          dependencyModule
+              .getFixMessage()
+              .get(canonicalizedMissing, canonicalizedLabel, USE_COLOR));
     }
   }
 

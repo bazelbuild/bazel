@@ -79,7 +79,7 @@ public final class DependencyModule {
   private final Map<String, Deps.Dependency> explicitDependenciesMap;
   private final Map<String, Deps.Dependency> implicitDependenciesMap;
   Set<String> requiredClasspath;
-  private final String fixMessage;
+  private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
 
   DependencyModule(
@@ -91,7 +91,7 @@ public final class DependencyModule {
       String ruleKind,
       String targetLabel,
       String outputDepsProtoFile,
-      String fixMessage,
+      FixMessage fixMessage,
       Set<String> exemptGenerators) {
     this.strictJavaDeps = strictJavaDeps;
     this.directJarsToTargets = directJarsToTargets;
@@ -223,10 +223,8 @@ public final class DependencyModule {
     return usedClasspath;
   }
 
-  /**
-   * Returns a message to suggest fix when a missing indirect dependency is found.
-   */
-  public String getFixMessage() {
+  /** Returns a message to suggest fix when a missing indirect dependency is found. */
+  public FixMessage getFixMessage() {
     return fixMessage;
   }
 
@@ -311,6 +309,14 @@ public final class DependencyModule {
   }
 
   /**
+   * A functional that formats a message for the user about a missing dependency that they should
+   * add to unbreak their build.
+   */
+  public interface FixMessage {
+    String get(Iterable<JarOwner> missing, String recipient, boolean useColor);
+  }
+
+  /**
    * Builder for {@link DependencyModule}.
    */
   public static class Builder {
@@ -323,9 +329,26 @@ public final class DependencyModule {
     private String targetLabel;
     private String outputDepsProtoFile;
     private boolean strictClasspathMode = false;
-    private String fixMessage = "%s** Please add the following dependencies:%s\n"
-        + "  %s to %s\n\n";
+    private FixMessage fixMessage = new DefaultFixMessage();
     private final Set<String> exemptGenerators = new HashSet<>();
+
+    private static class DefaultFixMessage implements DependencyModule.FixMessage {
+      @Override
+      public String get(Iterable<JarOwner> missing, String recipient, boolean useColor) {
+        StringBuilder missingTargetsStr = new StringBuilder();
+        for (JarOwner owner : missing) {
+          missingTargetsStr.append(owner.label());
+          missingTargetsStr.append(" ");
+        }
+
+        return String.format(
+            "%s** Please add the following dependencies:%s\n  %s to %s\n\n",
+            useColor ? "\033[35m\033[1m" : "",
+            useColor ? "\033[0m" : "",
+            missingTargetsStr.toString(),
+            recipient);
+      }
+    }
 
     /**
      * Constructs the DependencyModule, guaranteeing that the maps are
@@ -456,7 +479,7 @@ public final class DependencyModule {
      * @param fixMessage the fix message
      * @return this Builder instance
      */
-    public Builder setFixMessage(String fixMessage) {
+    public Builder setFixMessage(FixMessage fixMessage) {
       this.fixMessage = fixMessage;
       return this;
     }
