@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
-import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
 import java.util.Map.Entry;
@@ -410,9 +409,12 @@ final class LabelVisitor {
      */
     private void visit(
         Target from, Attribute attribute, final Target target, int depth, int count) {
-      Preconditions.checkNotNull(target, String.format("'%s' attribute '%s'",
-          from == null ? "(null)" : from.getLabel().toString(),
-          attribute == null ? "(null)" : attribute.getName()));
+      if (target == null) {
+        throw new NullPointerException(
+            String.format("'%s' attribute '%s'",
+              from == null ? "(null)" : from.getLabel().toString(),
+              attribute == null ? "(null)" : attribute.getName()));
+      }
       if (depth > maxDepth) {
         return;
       }
