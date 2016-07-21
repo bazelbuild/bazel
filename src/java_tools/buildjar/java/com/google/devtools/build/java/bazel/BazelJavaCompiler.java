@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.java.bazel;
 
+import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,8 +24,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -49,27 +48,18 @@ import javax.tools.StandardLocation;
 public class BazelJavaCompiler {
 
   // The default blessed javac options.
-  
+
   private static final String DEFAULT_BOOTCLASSPATH = JavacBootclasspath.asString();
 
-  private static final String[] DEFAULT_JAVACOPTS;
-  static {
-    List<String> defaultJavacopts = new ArrayList<>();
-    for (String javacopt : JavaBuilderConfig.defaultJavacOpts()) {
-      if (javacopt.startsWith("-Xep")) {
-        // ignore Error Prone-specific flags accepted by JavaBuilder
-        continue;
-      }
-      defaultJavacopts.add(javacopt);
-    }
-
-    // The bootclasspath must be specified both via an invocation option and
-    // via fileManager.setLocation(PLATFORM_CLASS_PATH), to work around what
-    // appears to be a bug in jdk[6,8] javac.
-    defaultJavacopts.addAll(Arrays.asList("-bootclasspath", DEFAULT_BOOTCLASSPATH));
-    
-    DEFAULT_JAVACOPTS = defaultJavacopts.toArray(new String[defaultJavacopts.size()]);
-  }
+  private static final ImmutableList<String> DEFAULT_JAVACOPTS =
+      ImmutableList.<String>builder()
+          .addAll(JavaBuilderConfig.defaultJavacOpts())
+          // The bootclasspath must be specified both via an invocation option and
+          // via fileManager.setLocation(PLATFORM_CLASS_PATH), to work around what
+          // appears to be a bug in jdk[6,8] javac.
+          .add("-bootclasspath")
+          .add(DEFAULT_BOOTCLASSPATH)
+          .build();
 
   private static final Class<? extends JavaCompiler> JAVA_COMPILER_CLASS = getJavaCompilerClass();
 
@@ -109,12 +99,10 @@ public class BazelJavaCompiler {
   public static File getLangtoolsJar() {
     return JavaLangtools.file();
   }
-  
-  /**
-   * Returns the default javacopts, including the blessed bootclasspath.
-   */
+
+  /** Returns the default javacopts, including the blessed bootclasspath. */
   public static List<String> getDefaultJavacopts() {
-    return new ArrayList<>(Arrays.asList(DEFAULT_JAVACOPTS));
+    return DEFAULT_JAVACOPTS;
   }
 
   /**
@@ -186,70 +174,62 @@ public class BazelJavaCompiler {
   private static JavaCompiler newInstance(final JavaCompiler delegate) {
     // We forward most operations to the JavaCompiler implementation in langtools.jar.
     return new JavaCompiler() {
-        @Override
-        public CompilationTask getTask(
-            Writer out,
-            JavaFileManager fileManager,
-            DiagnosticListener<? super JavaFileObject> diagnosticListener,
-            Iterable<String> options,
-            Iterable<String> classes,
-            Iterable<? extends JavaFileObject> compilationUnits) {
-          // We prepend bazel's default javacopts to user javacopts,
-          // so that the user can override them. javac supports this
-          // "last option wins" style of option override.
-          List<String> fullOptions = getDefaultJavacopts();
-          if (options != null) {
-            for (String option : options) {
-              fullOptions.add(option);
-            }
-          }
-          return delegate.getTask(out,
-                                  fileManager,
-                                  diagnosticListener,
-                                  fullOptions,
-                                  classes,
-                                  compilationUnits);
+      @Override
+      public CompilationTask getTask(
+          Writer out,
+          JavaFileManager fileManager,
+          DiagnosticListener<? super JavaFileObject> diagnosticListener,
+          Iterable<String> options,
+          Iterable<String> classes,
+          Iterable<? extends JavaFileObject> compilationUnits) {
+        // We prepend bazel's default javacopts to user javacopts,
+        // so that the user can override them. javac supports this
+        // "last option wins" style of option override.
+        ImmutableList.Builder<String> fullOptions = ImmutableList.builder();
+        fullOptions.addAll(getDefaultJavacopts());
+        if (options != null) {
+          fullOptions.addAll(options);
         }
+        return delegate.getTask(
+            out, fileManager, diagnosticListener, fullOptions.build(), classes, compilationUnits);
+      }
 
-        @Override
-        public StandardJavaFileManager getStandardFileManager(
-            DiagnosticListener<? super JavaFileObject> diagnosticListener,
-            Locale locale,
-            Charset charset) {
-          StandardJavaFileManager fileManager = delegate.getStandardFileManager(
-              diagnosticListener,
-              locale,
-              charset);
+      @Override
+      public StandardJavaFileManager getStandardFileManager(
+          DiagnosticListener<? super JavaFileObject> diagnosticListener,
+          Locale locale,
+          Charset charset) {
+        StandardJavaFileManager fileManager =
+            delegate.getStandardFileManager(diagnosticListener, locale, charset);
 
-          try {
-            fileManager.setLocation(
-                StandardLocation.PLATFORM_CLASS_PATH,  // bootclasspath
-                JavacBootclasspath.asFiles());
-          } catch (IOException e) {
-            // Should never happen, according to javadocs for setLocation
-            throw new RuntimeException(e);
-          }
-          return fileManager;
+        try {
+          fileManager.setLocation(
+              StandardLocation.PLATFORM_CLASS_PATH, // bootclasspath
+              JavacBootclasspath.asFiles());
+        } catch (IOException e) {
+          // Should never happen, according to javadocs for setLocation
+          throw new RuntimeException(e);
         }
+        return fileManager;
+      }
 
-        @Override
-        public int run(InputStream in, OutputStream out, OutputStream err,
-                       String... arguments) {
-          // prepend bazel's default javacopts to user arguments
-          List<String> args = getDefaultJavacopts();
-          args.addAll(Arrays.asList(arguments));
-          return delegate.run(in, out, err, args.toArray(new String[0]));
-        }
+      @Override
+      public int run(InputStream in, OutputStream out, OutputStream err, String... arguments) {
+        // prepend bazel's default javacopts to user arguments
+        List<String> args =
+            ImmutableList.<String>builder().addAll(getDefaultJavacopts()).add(arguments).build();
+        return delegate.run(in, out, err, args.toArray(new String[0]));
+      }
 
-        @Override
-        public Set<SourceVersion> getSourceVersions() {
-          return delegate.getSourceVersions();
-        }
+      @Override
+      public Set<SourceVersion> getSourceVersions() {
+        return delegate.getSourceVersions();
+      }
 
-        @Override
-        public int isSupportedOption(String option) {
-          return delegate.isSupportedOption(option);
-        }
-      };
+      @Override
+      public int isSupportedOption(String option) {
+        return delegate.isSupportedOption(option);
+      }
+    };
   }
 }

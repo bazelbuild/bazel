@@ -14,45 +14,85 @@
 
 package com.google.devtools.build.buildjar.javac;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Preprocess javac -Xlint options. We
- * also need to make the different versions of javac treat -Xlint options
- * uniformly.
+ * Preprocess javac -Xlint options. We also need to make the different versions of javac treat
+ * -Xlint options uniformly.
  *
- * <p>Some versions of javac now process the -Xlint options without allowing
- * later options to override earlier ones on the command line. For example,
- * {@code -Xlint:All -Xlint:None} results in all warnings being enabled.
+ * <p>Some versions of javac now process the -Xlint options without allowing later options to
+ * override earlier ones on the command line. For example, {@code -Xlint:All -Xlint:None} results in
+ * all warnings being enabled.
  *
- * <p>This class preprocesses the -Xlint options within the javac options to
- * achieve a command line that is sensitive to ordering. That is, with this
- * preprocessing step, {@code -Xlint:all -Xlint:none} results in no
- * warnings being enabled.
- *
- * <p>TODO(bazel-team): Convince the current javac owners that the javac options
- * need to behave the way this class behaves. :-)
+ * <p>This class preprocesses the -Xlint options within the javac options to achieve a command line
+ * that is sensitive to ordering. That is, with this preprocessing step, {@code -Xlint:all
+ * -Xlint:none} results in no warnings being enabled.
  */
 public final class JavacOptions {
+
+  /** Returns an immutable list containing all the non-Bazel specific Javac flags. */
+  public static ImmutableList<String> removeBazelSpecificFlags(String[] javacopts) {
+    return removeBazelSpecificFlags(Arrays.asList(javacopts));
+  }
+
+  /** Returns an immutable list containing all the non-Bazel specific Javac flags. */
+  public static ImmutableList<String> removeBazelSpecificFlags(Iterable<String> javacopts) {
+    return filterJavacopts(javacopts).standardJavacopts();
+  }
+
+  /** A collection of javac flags, divided into Bazel-specific and standard options. */
+  @AutoValue
+  public abstract static class FilteredJavacopts {
+    /** Bazel-specific javac flags, e.g. Error Prone's -Xep: flags. */
+    public abstract ImmutableList<String> bazelJavacopts();
+
+    /** Standard javac flags. */
+    public abstract ImmutableList<String> standardJavacopts();
+
+    /** Creates a {@link FilteredJavacopts}. */
+    public static FilteredJavacopts create(
+        ImmutableList<String> bazelJavacopts, ImmutableList<String> standardJavacopts) {
+      return new AutoValue_JavacOptions_FilteredJavacopts(bazelJavacopts, standardJavacopts);
+    }
+  }
+
+  /** Filters a list of javac flags into Bazel-specific and standard flags. */
+  public static FilteredJavacopts filterJavacopts(Iterable<String> javacopts) {
+    ImmutableList.Builder<String> bazelJavacopts = ImmutableList.builder();
+    ImmutableList.Builder<String> standardJavacopts = ImmutableList.builder();
+    for (String opt : javacopts) {
+      if (isBazelSpecificFlag(opt)) {
+        bazelJavacopts.add(opt);
+      } else {
+        standardJavacopts.add(opt);
+      }
+    }
+    return FilteredJavacopts.create(bazelJavacopts.build(), standardJavacopts.build());
+  }
+
+  private static boolean isBazelSpecificFlag(String opt) {
+    return opt.startsWith("-Werror:") || opt.startsWith("-Xep");
+  }
 
   private static final XlintOptionNormalizer XLINT_OPTION_NORMALIZER = new XlintOptionNormalizer();
 
   /**
    * Interface to define an option normalizer. For instance, to group all -Xlint: option into one
    * place.
-   * 
-   * <p>All normalizers used by the JavacOptions class will be started by calling the
-   * {@link #start()} method when starting the parsing of a list of option. For each option, the
-   * first option normalized whose {@link #processOption(String)} method returns true stops its
-   * parsing and the option is supposed to be added at the end to the normalized list of option with
-   * the {@link #normalize(List)} method. Options not handled by a normalizer will be returned as
-   * such in the normalized option list.
+   *
+   * <p>All normalizers used by the JavacOptions class will be started by calling the {@link
+   * #start()} method when starting the parsing of a list of option. For each option, the first
+   * option normalized whose {@link #processOption(String)} method returns true stops its parsing
+   * and the option is supposed to be added at the end to the normalized list of option with the
+   * {@link #normalize(List)} method. Options not handled by a normalizer will be returned as such
+   * in the normalized option list.
    */
   public static interface JavacOptionNormalizer {
     /** Resets the state of the normalizer to start a new option parsing. */
