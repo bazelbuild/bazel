@@ -19,6 +19,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
@@ -322,43 +323,19 @@ java_library(
     ],
 )
 
-########################################################################
-#
-# The "cmdline" library: Label validation and target pattern
-# parsing. Both the label syntax and the target pattern syntax are a
-# public interface, and all changes have to be made in a
-# backwards-compatible manner. This library is intentionally
-# standalone so it can be used outside without pulling in any internal
-# code.
-#
-
-java_library(
-    name = "cmdline",
-    srcs = glob(["cmdline/*.java"]),
-    deps = [
-        ":base-util",
-        ":concurrent",
-        ":skylarkinterface",
-        ":util",
-        ":vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
 java_library(
     name = "syntax",
     srcs = glob([
         "syntax/**/*.java",
     ]),
     deps = [
-        ":cmdline",
         ":collect",
         ":concurrent",
         ":events",
         ":skylarkinterface",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-util",
@@ -395,11 +372,10 @@ java_library(
         "pkgcache/*.java",
     ]),
     exports = [
-        ":cmdline",
         ":syntax",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
     deps = [
-        ":cmdline",
         ":collect",
         ":concurrent",
         ":events",
@@ -408,6 +384,7 @@ java_library(
         ":transitive-info-provider",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
@@ -484,7 +461,6 @@ java_library(
     ],
     deps = [
         ":base-util",
-        ":cmdline",
         ":collect",
         ":concurrent",
         ":events",
@@ -501,6 +477,7 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
@@ -851,7 +828,6 @@ java_library(
     deps = [
         ":build-base",
         ":clock",
-        ":cmdline",
         ":collect",
         ":concurrent",
         ":events",
@@ -868,6 +844,7 @@ java_library(
         ":windows",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
         "//src/main/java/com/google/devtools/build/lib/query2:query-output",
