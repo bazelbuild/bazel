@@ -261,7 +261,7 @@ chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 cp src/main/tools/build_interface_so ${ARCHIVE_DIR}/_embedded_binaries/build_interface_so
 cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
-cp src/tools/xcode/xcodelocator/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
+cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 
 # bazel build using bootstrap version
 function bootstrap_build() {

@@ -168,7 +168,7 @@ function test_xcodelocator_embedded_tool() {
   cat >ios/BUILD <<EOF
 genrule(
     name = "invoke_tool",
-    srcs = ["@bazel_tools//tools/objc:xcode-locator"],
+    srcs = ["@bazel_tools//tools/osx:xcode-locator"],
     outs = ["tool_output"],
     cmd = "\$< > \$@",
     tags = ["requires-darwin"],

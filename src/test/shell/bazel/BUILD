@@ -39,7 +39,7 @@ filegroup(
             "//src/tools/xcode/stdredirect:StdRedirect.dylib",
             "//src/tools/xcode/swiftstdlibtoolwrapper",
             "//src/tools/xcode/xcrunwrapper",
-            "//src/tools/xcode/xcodelocator:xcode-locator",
+            "//tools/osx:xcode-locator",
             "//third_party/iossim",
         ],
         "//conditions:default": [],

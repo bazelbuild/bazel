@@ -20,6 +20,7 @@ filegroup(
         "//tools/cpp:srcs",
         "//tools/j2objc:srcs",
         "//tools/objc:srcs",
+        "//tools/osx:srcs",
         "//tools/osx/crosstool:srcs",
         "//tools/test:srcs",
         "//tools/python:srcs",
@@ -46,6 +47,7 @@ filegroup(
         "//tools/python:srcs",
         "//tools/test:srcs",
         "//tools/osx/crosstool:srcs",
+        "//tools/osx:srcs",
         "//tools/zip:srcs",
     ],
 )

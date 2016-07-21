@@ -33,8 +33,19 @@ function set_up() {
   # Find where Xcode 7 (any sub-version will do) is located and get the iOS SDK
   # version it contains.
   # TODO(b/27267941): This is a hack until the bug is fixed.
-  XCODE_LOCATOR="$(bazel info output_base)/external/bazel_tools/tools/objc/xcode-locator"
-  XCODE_INFO=$($XCODE_LOCATOR -v | grep -m1 7)
+  rm -rf xcodehelper
+  mkdir -p xcodehelper
+  cat > xcodehelper/BUILD <<EOF
+genrule(
+    name = "invoke_tool",
+    srcs = ["@bazel_tools//tools/osx:xcode-locator"],
+    outs = ["xcode_locations"],
+    cmd = "\$< -v > \$@",
+)
+EOF
+
+  bazel build xcodehelper:xcode_locations
+  XCODE_INFO=$(cat bazel-genfiles/xcodehelper/xcode_locations | grep -m1 7)
   XCODE_DIR=$(echo $XCODE_INFO | cut -d ':' -f3)
   XCODE_VERSION=$(echo $XCODE_INFO | cut -d ':' -f1)
   IOS_SDK_VERSION=$(DEVELOPER_DIR=$XCODE_DIR xcodebuild -sdk -version \
