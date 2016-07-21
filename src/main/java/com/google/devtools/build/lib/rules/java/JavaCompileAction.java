@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -56,12 +57,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -680,11 +681,13 @@ public final class JavaCompileAction extends AbstractAction {
   /**
    * Builds the list of mappings between jars on the classpath and their originating targets names.
    */
-  static class JarsToTargetsArgv extends CustomMultiArgv {
+  @VisibleForTesting
+  public static class JarsToTargetsArgv extends CustomMultiArgv {
     private final NestedSet<Artifact> classpath;
     private final NestedSet<Artifact> directJars;
 
-    JarsToTargetsArgv(NestedSet<Artifact> classpath, NestedSet<Artifact> directJars) {
+    @VisibleForTesting
+    public JarsToTargetsArgv(NestedSet<Artifact> classpath, NestedSet<Artifact> directJars) {
       this.classpath = classpath;
       this.directJars = directJars;
     }
@@ -696,26 +699,29 @@ public final class JavaCompileAction extends AbstractAction {
       for (Artifact jar : classpath) {
         builder.add(directJarSet.contains(jar) ? "--direct_dependency" : "--indirect_dependency");
         builder.add(jar.getExecPathString());
-        Label label = getTargetName(jar);
-        builder.add(
-            label.getPackageIdentifier().getRepository().isDefault()
-                    || label.getPackageIdentifier().getRepository().isMain()
-                ? label.toString()
-                // Escape '@' prefix for .params file.
-                : "@" + label);
+        builder.add(getArtifactOwnerGeneralizedLabel(jar));
       }
       return builder.build();
     }
-  }
 
-  /**
-   * Gets the name of the target that produced the given jar artifact.
-   *
-   * <p>When specifying jars directly in the "srcs" attribute of a rule (mostly for third_party
-   * libraries), there is no generating action, so we just return the jar name in label form.
-   */
-  private static Label getTargetName(Artifact jar) {
-    return checkNotNull(jar.getOwner(), jar);
+    private String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
+      ArtifactOwner owner = checkNotNull(artifact.getArtifactOwner(), artifact);
+      StringBuilder result = new StringBuilder();
+      Label label = owner.getLabel();
+      result.append(
+          label.getPackageIdentifier().getRepository().isDefault()
+                  || label.getPackageIdentifier().getRepository().isMain()
+              ? label.toString()
+              // Escape '@' prefix for .params file.
+              : "@" + label);
+
+      if (owner instanceof AspectValue.AspectKey) {
+        AspectValue.AspectKey aspectOwner = (AspectValue.AspectKey) owner;
+        result.append(" ").append(aspectOwner.getAspectClass().getName());
+      }
+
+      return result.toString();
+    }
   }
 
   /**

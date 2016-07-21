@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -137,9 +138,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
-
-import org.junit.Before;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -152,6 +150,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.Before;
 
 /**
  * Common test code that creates a BuildView instance.
@@ -976,32 +975,32 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner},
-   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
-   * So to specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect,
-   * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
-   * FooAspect.class. This method is necessary when an Aspect of the target, not the target itself,
-   * is creating an Artifact.
+   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}, where the
+   * given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
+   * specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect, {@code
+   * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
+   * method is necessary when an Aspect of the target, not the target itself, is creating an
+   * Artifact.
    */
-  protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner,
-      NativeAspectClass creatingAspectFactory) {
+  protected Artifact getBinArtifact(
+      String packageRelativePath, ConfiguredTarget owner, AspectClass creatingAspectFactory) {
     return getBinArtifact(
         packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
   }
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner},
-   * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
-   * So to specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect,
-   * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
-   * FooAspect.class. This method is necessary when an Aspect of the target, not the target itself,
-   * is creating an Artifact.
+   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}, where the
+   * given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
+   * specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect, {@code
+   * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
+   * method is necessary when an Aspect of the target, not the target itself, is creating an
+   * Artifact.
    */
   protected Artifact getBinArtifact(
       String packageRelativePath,
       ConfiguredTarget owner,
-      NativeAspectClass creatingAspectFactory,
+      AspectClass creatingAspectFactory,
       AspectParameters parameters) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
