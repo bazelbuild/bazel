@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.builder.core.VariantConfiguration;
+import com.android.ide.common.res2.MergingException;
+import com.android.utils.StdLogger;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
@@ -25,15 +27,9 @@ import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConver
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
-import com.android.ide.common.res2.MergingException;
-import com.android.utils.StdLogger;
-
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,7 +46,8 @@ import java.util.zip.ZipOutputStream;
 /**
  * Action to generate an AAR archive for an Android library.
  *
- * <p><pre>
+ * <p>
+ * <pre>
  * Example Usage:
  *   java/com/google/build/android/AarGeneratorAction\
  *      --primaryData path/to/resources:path/to/assets:path/to/manifest\
@@ -124,7 +121,7 @@ public class AarGeneratorAction {
     public boolean strictMerge;
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.parseAndExitUponError(args);
@@ -132,11 +129,8 @@ public class AarGeneratorAction {
 
     checkFlags(options);
 
-    FileSystem fileSystem = FileSystems.getDefault();
-    Path working = fileSystem.getPath("").toAbsolutePath();
-
-    AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(
-        new StdLogger(com.android.utils.StdLogger.Level.VERBOSE));
+    AndroidResourceProcessor resourceProcessor =
+        new AndroidResourceProcessor(new StdLogger(com.android.utils.StdLogger.Level.VERBOSE));
 
     try (ScopedTemporaryDirectory scopedTmp = new ScopedTemporaryDirectory("aar_gen_tmp")) {
       Path tmp = scopedTmp.getPath();
@@ -144,21 +138,17 @@ public class AarGeneratorAction {
       Files.createDirectories(resourcesOut);
       Path assetsOut = tmp.resolve("merged_assets");
       Files.createDirectories(assetsOut);
-      Path expandedOut = tmp.resolve("tmp-expanded");
-      Path deduplicatedOut = tmp.resolve("tmp-deduplicated");
-
       logger.fine(String.format("Setup finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
-
-      ImmutableList<DirectoryModifier> modifiers = ImmutableList.of(
-          new PackedResourceTarExpander(expandedOut, working),
-          new FileDeDuplicator(Hashing.murmur3_128(), deduplicatedOut, working));
-      MergedAndroidData mergedData = resourceProcessor.mergeData(options.mainData,
-          options.dependencyData,
-          resourcesOut,
-          assetsOut,
-          modifiers,
-          null,
-          options.strictMerge);
+      MergedAndroidData mergedData =
+          resourceProcessor.mergeData(
+              options.mainData,
+              options.dependencyData,
+              ImmutableList.<DependencyAndroidData>of(),
+              resourcesOut,
+              assetsOut,
+              null,
+              VariantConfiguration.Type.LIBRARY,
+              null);
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
@@ -184,15 +174,18 @@ public class AarGeneratorAction {
       nullFlags.add("classes");
     }
     if (!nullFlags.isEmpty()) {
-      throw new IllegalArgumentException(String.format("%s must be specified. Building an .aar "
-          + "without %s is unsupported.",
-          Joiner.on(", ").join(nullFlags), Joiner.on(", ").join(nullFlags)));
+      throw new IllegalArgumentException(
+          String.format(
+              "%s must be specified. Building an .aar without %s is unsupported.",
+              Joiner.on(", ").join(nullFlags),
+              Joiner.on(", ").join(nullFlags)));
     }
   }
 
   @VisibleForTesting
-  static void writeAar(Path aar, final MergedAndroidData data, Path manifest, Path rtxt,
-      Path classes) throws IOException {
+  static void writeAar(
+      Path aar, final MergedAndroidData data, Path manifest, Path rtxt, Path classes)
+      throws IOException {
     try (final ZipOutputStream zipOut = new ZipOutputStream(
         new BufferedOutputStream(Files.newOutputStream(aar)))) {
       ZipEntry manifestEntry = new ZipEntry("AndroidManifest.xml");
@@ -207,8 +200,8 @@ public class AarGeneratorAction {
       zipOut.write(Files.readAllBytes(classes));
       zipOut.closeEntry();
 
-      Files.walkFileTree(data.getResourceDir(),
-          new ZipDirectoryWriter(zipOut, data.getResourceDir(), "res"));
+      Files.walkFileTree(
+          data.getResourceDir(), new ZipDirectoryWriter(zipOut, data.getResourceDir(), "res"));
 
       ZipEntry r = new ZipEntry("R.txt");
       r.setTime(EPOCH);
@@ -217,24 +210,24 @@ public class AarGeneratorAction {
       zipOut.closeEntry();
 
       if (Files.exists(data.getAssetDir()) && data.getAssetDir().toFile().list().length > 0) {
-        Files.walkFileTree(data.getAssetDir(),
-            new ZipDirectoryWriter(zipOut, data.getAssetDir(), "assets"));
+        Files.walkFileTree(
+            data.getAssetDir(), new ZipDirectoryWriter(zipOut, data.getAssetDir(), "assets"));
       }
     }
     aar.toFile().setLastModified(EPOCH);
   }
-  
+
   private static class ZipDirectoryWriter extends SimpleFileVisitor<Path> {
     private final ZipOutputStream zipOut;
     private final Path root;
     private final String dirName;
-    
+
     public ZipDirectoryWriter(ZipOutputStream zipOut, Path root, String dirName) {
       this.zipOut = zipOut;
       this.root = root;
       this.dirName = dirName;
     }
-    
+
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
@@ -244,12 +237,12 @@ public class AarGeneratorAction {
       zipOut.closeEntry();
       return FileVisitResult.CONTINUE;
     }
-    
+
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
-      ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(dir).toString())
-          .toString() + "/");
+      ZipEntry entry =
+          new ZipEntry(new File(dirName, root.relativize(dir).toString()).toString() + "/");
       entry.setTime(EPOCH);
       zipOut.putNextEntry(entry);
       zipOut.closeEntry();

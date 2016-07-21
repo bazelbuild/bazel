@@ -15,8 +15,32 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.android.annotations.Nullable;
+import com.android.builder.core.VariantConfiguration;
+import com.android.builder.dependency.SymbolFileProvider;
+import com.android.builder.internal.SymbolLoader;
+import com.android.builder.internal.SymbolWriter;
+import com.android.builder.model.AaptOptions;
+import com.android.ide.common.internal.CommandLineRunner;
+import com.android.ide.common.internal.ExecutorSingleton;
+import com.android.ide.common.internal.LoggedErrorException;
+import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.res2.MergingException;
+import com.android.manifmerger.ManifestMerger2;
+import com.android.manifmerger.ManifestMerger2.Invoker;
+import com.android.manifmerger.ManifestMerger2.Invoker.Feature;
+import com.android.manifmerger.ManifestMerger2.MergeFailureException;
+import com.android.manifmerger.ManifestMerger2.MergeType;
+import com.android.manifmerger.ManifestMerger2.SystemProperty;
+import com.android.manifmerger.MergingReport;
+import com.android.manifmerger.PlaceholderHandler;
+import com.android.manifmerger.XmlDocument;
+import com.android.sdklib.repository.FullRevision;
+import com.android.utils.Pair;
+import com.android.utils.StdLogger;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -36,45 +60,13 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
-
-import com.android.annotations.Nullable;
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.dependency.SymbolFileProvider;
-import com.android.builder.internal.SymbolLoader;
-import com.android.builder.internal.SymbolWriter;
-import com.android.builder.model.AaptOptions;
-import com.android.ide.common.internal.CommandLineRunner;
-import com.android.ide.common.internal.ExecutorSingleton;
-import com.android.ide.common.internal.LoggedErrorException;
-import com.android.ide.common.internal.PngCruncher;
-import com.android.ide.common.res2.AssetMerger;
-import com.android.ide.common.res2.AssetSet;
-import com.android.ide.common.res2.MergedAssetWriter;
-import com.android.ide.common.res2.MergedResourceWriter;
-import com.android.ide.common.res2.MergingException;
-import com.android.ide.common.res2.ResourceMerger;
-import com.android.ide.common.res2.ResourceSet;
-import com.android.manifmerger.ManifestMerger2;
-import com.android.manifmerger.ManifestMerger2.Invoker;
-import com.android.manifmerger.ManifestMerger2.Invoker.Feature;
-import com.android.manifmerger.ManifestMerger2.MergeFailureException;
-import com.android.manifmerger.ManifestMerger2.MergeType;
-import com.android.manifmerger.ManifestMerger2.SystemProperty;
-import com.android.manifmerger.MergingReport;
-import com.android.manifmerger.PlaceholderHandler;
-import com.android.manifmerger.XmlDocument;
-import com.android.sdklib.repository.FullRevision;
-import com.android.utils.Pair;
-import com.android.utils.StdLogger;
-
-import org.xml.sax.SAXException;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -94,15 +86,16 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventFactory;
@@ -114,11 +107,14 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import org.xml.sax.SAXException;
 
 /**
  * Provides a wrapper around the AOSP build tools for resource processing.
  */
 public class AndroidResourceProcessor {
+  private static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
+
   /**
    * Options class containing flags for Aapt setup.
    */
@@ -303,8 +299,10 @@ public class AndroidResourceProcessor {
       final Path source = generatedSourceRoot.resolve("R.txt");
       if (Files.exists(source)) {
         if (staticIds) {
-          String contents = HEX_REGEX.matcher(Joiner.on("\n").join(
-              Files.readAllLines(source, UTF_8))).replaceAll("0x1");
+          String contents =
+              HEX_REGEX
+                  .matcher(Joiner.on("\n").join(Files.readAllLines(source, UTF_8)))
+                  .replaceAll("0x1");
           Files.write(rOutput, contents.getBytes(UTF_8));
         } else {
           Files.copy(source, rOutput);
@@ -363,7 +361,7 @@ public class AndroidResourceProcessor {
    * Copies the AndroidManifest.xml to the specified output location.
    *
    * @param androidData The MergedAndroidData which contains the manifest to be written to
-   *     manifestOut.
+   *    manifestOut.
    * @param manifestOut The Path to write the AndroidManifest.xml.
    */
   public void copyManifestToOutput(MergedAndroidData androidData, Path manifestOut) {
@@ -419,8 +417,8 @@ public class AndroidResourceProcessor {
       Path publicResourcesOut)
       throws IOException, InterruptedException, LoggedErrorException, UnrecognizedSplitsException {
     Path androidManifest = primaryData.getManifest();
-    Path resourceDir = primaryData.getResourceDir();
-    Path assetsDir = primaryData.getAssetDir();
+    final Path resourceDir = primaryData.getResourceDir();
+    final Path assetsDir = primaryData.getAssetDir();
     if (publicResourcesOut != null) {
       prepareOutputPath(publicResourcesOut.getParent());
     }
@@ -469,8 +467,13 @@ public class AndroidResourceProcessor {
         .add("-c", Joiner.on(',').join(resourceConfigs))
         // Split APKs if any splits were specified.
         .whenVersionIsAtLeast(new FullRevision(23)).thenAddRepeated("--split", splits);
-
-    new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
+    try {
+      new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
+    } catch (LoggedErrorException e) {
+      // Add context and throw the error to resume processing.
+      throw new LoggedErrorException(
+          e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
+    }
 
     // The R needs to be created for each library in the dependencies,
     // but only if the current project is not a library.
@@ -497,6 +500,46 @@ public class AndroidResourceProcessor {
     if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
       Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
+  }
+
+  /** Adds 10 lines of source to each syntax error. Very useful for debugging. */
+  private List<String> getOutputWithSourceContext(Path aapt, List<String> lines)
+      throws IOException {
+    List<String> outputWithSourceContext = new ArrayList<>();
+    for (String line : lines) {
+      if (line.contains("Duplicate file") || line.contains("Original")) {
+        String[] parts = line.split(":");
+        String fileName = parts[0].trim();
+        outputWithSourceContext.add("\n" + fileName + ":\n\t");
+        outputWithSourceContext.add(
+            Joiner.on("\n\t")
+                .join(
+                    Files.readAllLines(
+                        aapt.getFileSystem().getPath(fileName), StandardCharsets.UTF_8)));
+      } else if (line.contains("error")) {
+        String[] parts = line.split(":");
+        String fileName = parts[0].trim();
+        try {
+          int lineNumber = Integer.valueOf(parts[1].trim());
+          StringBuilder expandedError =
+              new StringBuilder("\nError at " + lineNumber + " : " + line);
+          List<String> errorSource =
+              Files.readAllLines(aapt.getFileSystem().getPath(fileName), StandardCharsets.UTF_8);
+          for (int i = Math.max(lineNumber - 5, 0);
+              i < Math.min(lineNumber + 5, errorSource.size());
+              i++) {
+            expandedError.append("\n").append(i).append("\t:  ").append(errorSource.get(i));
+          }
+          outputWithSourceContext.add(expandedError.toString());
+        } catch (IOException | NumberFormatException formatError) {
+          outputWithSourceContext.add("error parsing line" + line);
+          stdLogger.error(formatError, "error during reading source %s", fileName);
+        }
+      } else {
+        outputWithSourceContext.add(line);
+      }
+    }
+    return outputWithSourceContext;
   }
 
   /** Task to parse java package from AndroidManifest.xml */
@@ -696,13 +739,16 @@ public class AndroidResourceProcessor {
       int versionCode,
       String versionName,
       MergedAndroidData primaryData,
-      Path processedManifest) throws IOException {
+      Path processedManifest)
+      throws IOException {
 
-    ManifestMerger2.MergeType mergeType = variantType == VariantConfiguration.Type.DEFAULT
-        ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY;
+    ManifestMerger2.MergeType mergeType =
+        variantType == VariantConfiguration.Type.DEFAULT
+            ? ManifestMerger2.MergeType.APPLICATION
+            : ManifestMerger2.MergeType.LIBRARY;
 
-    String newManifestPackage = variantType == VariantConfiguration.Type.DEFAULT
-        ? applicationId : customPackageForR;
+    String newManifestPackage =
+        variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR;
 
     if (versionCode != -1 || versionName != null || newManifestPackage != null) {
       Files.createDirectories(processedManifest.getParent());
@@ -743,12 +789,14 @@ public class AndroidResourceProcessor {
           default:
             throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
         }
-      } catch (
-          IOException | SAXException | ParserConfigurationException | MergeFailureException e) {
+      } catch (IOException
+          | SAXException
+          | ParserConfigurationException
+          | MergeFailureException e) {
         throw new RuntimeException(e);
       }
-      return new MergedAndroidData(primaryData.getResourceDir(), primaryData.getAssetDir(),
-          processedManifest);
+      return new MergedAndroidData(
+          primaryData.getResourceDir(), primaryData.getAssetDir(), processedManifest);
     }
     return primaryData;
   }
@@ -772,7 +820,8 @@ public class AndroidResourceProcessor {
       Map<Path, String> mergeeManifests,
       MergeType mergeType,
       Map<String, String> values,
-      Path output) throws IOException {
+      Path output)
+      throws IOException {
     if (mergeeManifests.isEmpty() && values.isEmpty()) {
       return manifest;
     }
@@ -829,21 +878,19 @@ public class AndroidResourceProcessor {
         default:
           throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
       }
-    } catch (
-        SAXException | ParserConfigurationException | MergeFailureException e) {
+    } catch (SAXException | ParserConfigurationException | MergeFailureException e) {
       throw new RuntimeException(e);
     }
 
     return output;
   }
 
-  private void writeMergedManifest(MergingReport mergingReport,
-      Path manifestOut) throws IOException, SAXException, ParserConfigurationException {
+  private void writeMergedManifest(MergingReport mergingReport, Path manifestOut)
+      throws IOException, SAXException, ParserConfigurationException {
     XmlDocument xmlDocument = mergingReport.getMergedDocument().get();
     String annotatedDocument = mergingReport.getActions().blame(xmlDocument);
     stdLogger.verbose(annotatedDocument);
-    Files.write(
-        manifestOut, xmlDocument.prettyPrint().getBytes(UTF_8));
+    Files.write(manifestOut, xmlDocument.prettyPrint().getBytes(UTF_8));
   }
 
   /**
@@ -855,7 +902,7 @@ public class AndroidResourceProcessor {
    * @return The output manifest if generated or the input manifest if no overwriting is required.
    */
   /* TODO(apell): switch from custom xml parsing to Gradle merger with NO_PLACEHOLDER_REPLACEMENT
-   * set when android common is updated to version 2.5.0. 
+   * set when android common is updated to version 2.5.0.
    */
   public Path writeManifestPackage(Path manifest, String customPackage, Path output) {
     if (Strings.isNullOrEmpty(customPackage)) {
@@ -863,10 +910,12 @@ public class AndroidResourceProcessor {
     }
     try {
       Files.createDirectories(output.getParent());
-      XMLEventReader reader = XMLInputFactory.newInstance()
-          .createXMLEventReader(Files.newInputStream(manifest), UTF_8.name());
-      XMLEventWriter writer = XMLOutputFactory.newInstance()
-          .createXMLEventWriter(Files.newOutputStream(output), UTF_8.name());
+      XMLEventReader reader =
+          XMLInputFactory.newInstance()
+              .createXMLEventReader(Files.newInputStream(manifest), UTF_8.name());
+      XMLEventWriter writer =
+          XMLOutputFactory.newInstance()
+              .createXMLEventWriter(Files.newOutputStream(output), UTF_8.name());
       XMLEventFactory eventFactory = XMLEventFactory.newInstance();
       while (reader.hasNext()) {
         XMLEvent event = reader.nextEvent();
@@ -884,8 +933,9 @@ public class AndroidResourceProcessor {
               newAttributes.add(attr);
             }
           }
-          writer.add(eventFactory.createStartElement(
-              element.getName(), newAttributes.build().iterator(), element.getNamespaces()));
+          writer.add(
+              eventFactory.createStartElement(
+                  element.getName(), newAttributes.build().iterator(), element.getNamespaces()));
         } else {
           writer.add(event);
         }
@@ -897,88 +947,57 @@ public class AndroidResourceProcessor {
 
     return output;
   }
-
+  
   /**
    * Merges all secondary resources with the primary resources.
    */
   public MergedAndroidData mergeData(
       final UnvalidatedAndroidData primary,
-      final List<DependencyAndroidData> secondary,
+      final List<DependencyAndroidData> direct,
+      final List<DependencyAndroidData> transitive,
       final Path resourcesOut,
       final Path assetsOut,
-      final ImmutableList<DirectoryModifier> modifiers,
       @Nullable final PngCruncher cruncher,
-      final boolean strict) throws MergingException {
-
-    List<ResourceSet> resourceSets = new ArrayList<>();
-    List<AssetSet> assetSets = new ArrayList<>();
-
-    if (strict) {
-      androidDataToStrictMergeSet(primary, secondary, modifiers, resourceSets, assetSets);
-    } else {
-      androidDataToRelaxedMergeSet(primary, secondary, modifiers, resourceSets, assetSets);
+      final VariantConfiguration.Type type,
+      @Nullable final Path symbolsOut)
+      throws MergingException {
+    Stopwatch timer = Stopwatch.createStarted();
+    final ListeningExecutorService executorService =
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
+    try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+      AndroidDataMerger merger = AndroidDataMerger.createWithPathDeduplictor(executorService);
+      UnwrittenMergedAndroidData merged =
+          merger.merge(transitive, direct, primary, type != VariantConfiguration.Type.LIBRARY);
+      logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      timer.reset().start();
+      if (symbolsOut != null) {
+        AndroidDataSerializer serializer = AndroidDataSerializer.create();
+        merged.serializeTo(serializer);
+        serializer.flushTo(symbolsOut);
+        logger.fine(
+            String.format(
+                "serialize merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        timer.reset().start();
+      }
+      AndroidDataWriter writer =
+          AndroidDataWriter.createWith(
+              resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
+      return merged.write(writer);
+    } catch (IOException e) {
+      throw new MergingException(e);
+    } finally {
+      logger.fine(
+          String.format("write merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     }
-    ResourceMerger merger = new ResourceMerger();
-    for (ResourceSet set : resourceSets) {
-      set.loadFromFiles(stdLogger);
-      merger.addDataSet(set);
-    }
-
-    AssetMerger assetMerger = new AssetMerger();
-    for (AssetSet set : assetSets) {
-      set.loadFromFiles(stdLogger);
-      assetMerger.addDataSet(set);
-    }
-
-    MergedResourceWriter resourceWriter = new MergedResourceWriter(resourcesOut.toFile(), cruncher);
-    MergedAssetWriter assetWriter = new MergedAssetWriter(assetsOut.toFile());
-
-    merger.mergeData(resourceWriter, false);
-    assetMerger.mergeData(assetWriter, false);
-
-    return new MergedAndroidData(resourcesOut, assetsOut, primary.getManifest());
   }
 
   /**
    * Shutdown AOSP utilized thread-pool.
    */
   public void shutdown() {
+    FullyQualifiedName.logCacheUsage(logger);
     // AOSP code never shuts down its singleton executor and leaves the process hanging.
     ExecutorSingleton.getExecutor().shutdownNow();
-  }
-
-  private void androidDataToRelaxedMergeSet(UnvalidatedAndroidData primary,
-      List<DependencyAndroidData> secondary, ImmutableList<DirectoryModifier> modifiers,
-      List<ResourceSet> resourceSets, List<AssetSet> assetSets) {
-
-    for (DependencyAndroidData dependency : secondary) {
-      DependencyAndroidData modifiedDependency = dependency.modify(modifiers);
-      modifiedDependency.addAsResourceSets(resourceSets);
-      modifiedDependency.addAsAssetSets(assetSets);
-    }
-    UnvalidatedAndroidData modifiedPrimary = primary.modify(modifiers);
-    modifiedPrimary.addAsResourceSets(resourceSets);
-    modifiedPrimary.addAsAssetSets(assetSets);
-
-  }
-
-  private void androidDataToStrictMergeSet(UnvalidatedAndroidData primary,
-      List<DependencyAndroidData> secondary, ImmutableList<DirectoryModifier> modifiers,
-      List<ResourceSet> resourceSets, List<AssetSet> assetSets) {
-    UnvalidatedAndroidData modifiedPrimary = primary.modify(modifiers);
-    ResourceSet mainResources = modifiedPrimary.addToResourceSet(new ResourceSet("main"));
-    AssetSet mainAssets = modifiedPrimary.addToAssets(new AssetSet("main"));
-    ResourceSet dependentResources = new ResourceSet("deps");
-    AssetSet dependentAssets = new AssetSet("deps");
-    for (DependencyAndroidData dependency : secondary) {
-      DependencyAndroidData modifiedDependency = dependency.modify(modifiers);
-      modifiedDependency.addToResourceSet(dependentResources);
-      modifiedDependency.addToAssets(dependentAssets);
-    }
-    resourceSets.add(dependentResources);
-    resourceSets.add(mainResources);
-    assetSets.add(dependentAssets);
-    assetSets.add(mainAssets);
   }
 
   @Nullable
@@ -1054,12 +1073,12 @@ public class AndroidResourceProcessor {
    */
   private static final class SymbolFileSrcJarBuildingVisitor extends ZipBuilderVisitor {
 
-    static final Pattern PACKAGE_PATTERN = Pattern.compile(
-        "\\s*package ([a-zA-Z_$][a-zA-Z\\d_$]*(?:\\.[a-zA-Z_$][a-zA-Z\\d_$]*)*)");
-    static final Pattern ID_PATTERN = Pattern.compile(
-        "public static int ([\\w\\.]+)=0x[0-9A-fa-f]+;");
-    static final Pattern INNER_CLASS = Pattern.compile("public static class ([a-z_]*) \\{(.*?)\\}",
-        Pattern.DOTALL);
+    static final Pattern PACKAGE_PATTERN =
+        Pattern.compile("\\s*package ([a-zA-Z_$][a-zA-Z\\d_$]*(?:\\.[a-zA-Z_$][a-zA-Z\\d_$]*)*)");
+    static final Pattern ID_PATTERN =
+        Pattern.compile("public static int ([\\w\\.]+)=0x[0-9A-fa-f]+;");
+    static final Pattern INNER_CLASS =
+        Pattern.compile("public static class ([a-z_]*) \\{(.*?)\\}", Pattern.DOTALL);
 
     private final boolean staticIds;
 
@@ -1082,11 +1101,14 @@ public class AndroidResourceProcessor {
         StringBuffer resourceIds = new StringBuffer();
         while (idMatcher.find()) {
           String javaId = idMatcher.group(1);
-          idMatcher.appendReplacement(resourceIds, String.format("public static int %s=0x%08X;",
-              javaId, Objects.hash(pkg, resourceType, javaId)));
+          idMatcher.appendReplacement(
+              resourceIds,
+              String.format(
+                  "public static int %s=0x%08X;", javaId, Objects.hash(pkg, resourceType, javaId)));
         }
         idMatcher.appendTail(resourceIds);
-        innerClassMatcher.appendReplacement(out,
+        innerClassMatcher.appendReplacement(
+            out,
             String.format("public static class %s {%s}", resourceType, resourceIds.toString()));
       }
       innerClassMatcher.appendTail(out);
@@ -1098,8 +1120,9 @@ public class AndroidResourceProcessor {
       if (file.getFileName().endsWith("R.java")) {
         byte[] content = Files.readAllBytes(file);
         if (staticIds) {
-          content = replaceIdsWithStaticIds(UTF_8.decode(
-              ByteBuffer.wrap(content)).toString()).getBytes(UTF_8);
+          content =
+              replaceIdsWithStaticIds(UTF_8.decode(ByteBuffer.wrap(content)).toString())
+                  .getBytes(UTF_8);
         }
         addEntry(file, content);
       }
