@@ -1999,13 +1999,13 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "hash", returnType = Integer.class,
-      doc = "Return a hash value for a string. Hash values of equal strings are always equal to "
-          + "one another, but may change over different invocations of the Skylark interpreter. "
-          + "Hashing of values besides strings is not currently supported.",
-          // Java guarantees that Strings are hashed using a specific algorithm and are therefore
-          // consistent across all invocations. Rather than re-export this promise to the user,
-          // we'll just provide the same basic guarantee as Java and Python do for hashing any
-          // kind of value.
+      doc = "Return a hash value for a string. This is computed deterministically using the same "
+          + "algorithm as Java's <code>String.hashCode()</code>, namely: "
+          + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[0]"
+          + "</pre> Hashing of values besides strings is not currently supported.",
+          // Deterministic hashing is important for the consistency of builds, hence why we
+          // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
+          // Python, which promise stable hashing only within a given execution of the program.
       parameters = {
         @Param(name = "value", type = String.class,
             doc = "String value to hash")

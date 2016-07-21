@@ -1485,9 +1485,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testHash() throws Exception {
-    // This test is too strong, in that it tests whether the hash value of the string follows
-    // Java's specific algorithm for Strings. If our hash implementation is changed then this
-    // test will have to be modified.
+    // We specify the same string hashing algorithm as String.hashCode().
     new SkylarkTest()
         .testStatement("hash('skylark')", "skylark".hashCode())
         .testStatement("hash('google')", "google".hashCode())
