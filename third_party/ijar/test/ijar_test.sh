@@ -40,6 +40,11 @@ shift
 ## Test framework
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
+function cleanup() {
+  rm -fr "$TEST_TMPDIR"/*
+}
+
+trap cleanup EXIT
 
 ## Tools
 # Ensure that tooling path is absolute if not in PATH.
