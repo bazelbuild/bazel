@@ -54,8 +54,6 @@ for i in $*; do
     *xcode*StdRedirect.dylib) OUTPUT_PATH=tools/objc/StdRedirect.dylib ;;
     *xcode*realpath) OUTPUT_PATH=tools/objc/realpath ;;
     *xcode*xcode-locator) OUTPUT_PATH=tools/objc/xcode-locator ;;
-#    *xcode*xcode_locator.m) OUTPUT_PATH=tools/osx/xcode_locator.m ;;
-#    *tools/osx/BUILD) OUTPUT_PATH=tools/osx/BUILD ;;
     *src/tools/xcode/*) OUTPUT_PATH=tools/objc/${i##*/}.sh ;;
     *) OUTPUT_PATH=$(echo $i | sed 's_^.*bazel-out/[^/]*/bin/__') ;;
   esac
