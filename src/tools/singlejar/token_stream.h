@@ -15,7 +15,6 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_TOKEN_STREAM_H_
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_TOKEN_STREAM_H_ 1
 
-#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
