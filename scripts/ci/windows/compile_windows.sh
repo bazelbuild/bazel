@@ -54,9 +54,9 @@ cp output/bazel.exe output/ci/
 
 # todo(bazel-team): add more tests here.
 echo "Running tests"
-./output/bazel test -k --test_output=all \
+./output/bazel test -k --test_output=all --test_tag_filters -no_windows\
   //src/test/shell/bazel:bazel_windows_example_test \
-  //src/test/java/com/google/devtools/build/lib:windows-tests
+  //src/test/java/...
 retCode=$?
 
 # Exit for failure except for test failures (exit code 3).
