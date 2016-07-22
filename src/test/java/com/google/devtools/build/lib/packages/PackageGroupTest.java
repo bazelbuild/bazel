@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -151,7 +150,7 @@ public class PackageGroupTest {
     scratch.file("fruits/BUILD", "package_group(name = 'mango', packages = ['//...'])");
     PackageGroup packageGroup = getPackageGroup("fruits", "mango");
     assertThat(packageGroup.getPackageSpecifications())
-        .containsExactlyElementsIn(ImmutableList.of(PackageSpecification.EVERYTHING));
+        .containsExactlyElementsIn(ImmutableList.of(PackageSpecification.everything()));
   }
 
   private Package getPackage(String packageName) throws Exception {

@@ -21,16 +21,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 /**
- * This class represents a package group. It has a name and a set of packages
- * and can be asked if a specific package is included in it. The package set is
- * represented as a list of PathFragments.
+ * This class represents a package group BUILD target. It has a name, a list of {@link
+ * PackageSpecification}s, a list of {@link Label}s of other package groups this one includes, and
+ * can be asked if a specific package is included in it.
  */
 public class PackageGroup implements Target {
   private boolean containsErrors;
@@ -40,18 +39,25 @@ public class PackageGroup implements Target {
   private final List<PackageSpecification> packageSpecifications;
   private final List<Label> includes;
 
-  public PackageGroup(Label label, Package pkg, Collection<String> packages,
-      Collection<Label> includes, EventHandler eventHandler, Location location) {
+  public PackageGroup(
+      Label label,
+      Package pkg,
+      Collection<String> packageSpecifications,
+      Collection<Label> includes,
+      EventHandler eventHandler,
+      Location location) {
     this.label = label;
     this.location = location;
     this.containingPackage = pkg;
     this.includes = ImmutableList.copyOf(includes);
 
     ImmutableList.Builder<PackageSpecification> packagesBuilder = ImmutableList.builder();
-    for (String containedPackage : packages) {
+    for (String packageSpecification : packageSpecifications) {
       PackageSpecification specification = null;
       try {
-        specification = PackageSpecification.fromString(label, containedPackage);
+        specification =
+            PackageSpecification.fromString(
+                label.getPackageIdentifier().getRepository(), packageSpecification);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         containsErrors = true;
         eventHandler.handle(Event.error(location, e.getMessage()));

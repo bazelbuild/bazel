@@ -80,7 +80,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -91,7 +90,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -970,15 +968,20 @@ public class BuildView {
           throws EvalException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
-        env, (Rule) target.getTarget(), null, targetConfig, configurations.getHostConfiguration(),
-        ruleClassProvider.getPrerequisiteValidator(),
-        ((Rule) target.getTarget()).getRuleClassObject().getConfigurationFragmentPolicy())
-            .setVisibility(NestedSetBuilder.<PackageSpecification>create(
-                Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
-            .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
-            .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
-            .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            .build();
+            env,
+            (Rule) target.getTarget(),
+            null,
+            targetConfig,
+            configurations.getHostConfiguration(),
+            ruleClassProvider.getPrerequisiteValidator(),
+            ((Rule) target.getTarget()).getRuleClassObject().getConfigurationFragmentPolicy())
+        .setVisibility(
+            NestedSetBuilder.<PackageSpecification>create(
+                Order.STABLE_ORDER, PackageSpecification.everything()))
+        .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
+        .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
+        .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+        .build();
   }
 
   /**
