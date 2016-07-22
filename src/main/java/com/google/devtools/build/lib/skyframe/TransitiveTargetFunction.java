@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -47,7 +46,7 @@ import com.google.devtools.common.options.Option;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -86,15 +85,18 @@ public class TransitiveTargetFunction
   private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
       ConfiguredRuleClassProvider ruleClassProvider) {
     Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
-    Set<Class<? extends FragmentOptions>> visitedOptionsClasses = new HashSet<>();
+    Map<Class<? extends FragmentOptions>, Integer> visitedOptionsClasses = new HashMap<>();
     for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-      for (Class<? extends FragmentOptions> optionsClass : factory.requiredOptions()) {
-        if (visitedOptionsClasses.contains(optionsClass)) {
+      Set<Class<? extends FragmentOptions>> requiredOpts = factory.requiredOptions();
+      for (Class<? extends FragmentOptions> optionsClass : requiredOpts) {
+        Integer previousBest = visitedOptionsClasses.get(optionsClass);
+        if (previousBest != null && previousBest <= requiredOpts.size()) {
           // Multiple config fragments may require the same options class, but we only need one of
-          // them to guarantee that class makes it into the configuration.
+          // them to guarantee that class makes it into the configuration. Pick one that depends
+          // on as few options classes as possible (not necessarily unique).
           continue;
         }
-        visitedOptionsClasses.add(optionsClass);
+        visitedOptionsClasses.put(optionsClass, requiredOpts.size());
         for (Field field : optionsClass.getFields()) {
           if (field.isAnnotationPresent(Option.class)) {
             result.put(field.getAnnotation(Option.class).name(), factory.creates());
@@ -214,6 +216,7 @@ public class TransitiveTargetFunction
     return builder.build(errorLoadingTarget);
   }
 
+  @Override
   protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
       final Environment env) {
