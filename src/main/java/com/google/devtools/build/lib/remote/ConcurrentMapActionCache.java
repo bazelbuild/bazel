@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.FileEntry;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -32,23 +31,19 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 
 /**
- * A RemoteActionCache implementation that uses memcache as a distributed storage
- * for files and action output. The memcache is accessed by the {@link ConcurrentMap}
- * interface.
+ * A RemoteActionCache implementation that uses a concurrent map as a distributed storage for files
+ * and action output.
  *
- * The thread satefy is guaranteed by the underlying memcache client.
+ * <p>The thread safety is guaranteed by the underlying map.
  */
 @ThreadSafe
-public final class MemcacheActionCache implements RemoteActionCache {
+public final class ConcurrentMapActionCache implements RemoteActionCache {
   private final Path execRoot;
   private final ConcurrentMap<String, byte[]> cache;
   private static final int MAX_MEMORY_KBYTES = 512 * 1024;
   private final Semaphore uploadMemoryAvailable = new Semaphore(MAX_MEMORY_KBYTES, true);
 
-  /**
-   * Construct an action cache using JCache API.
-   */
-  public MemcacheActionCache(
+  public ConcurrentMapActionCache(
       Path execRoot, RemoteOptions options, ConcurrentMap<String, byte[]> cache) {
     this.execRoot = execRoot;
     this.cache = cache;
@@ -147,9 +142,7 @@ public final class MemcacheActionCache implements RemoteActionCache {
     cache.put(key, actionOutput.build().toByteArray());
   }
 
-  /**
-   * Add the file to action output cache entry. Put the file to cache if necessary.
-   */
+  /** Add the file to action output cache entry. Put the file to cache if necessary. */
   private void addToActionOutput(Path file, String execPathString, CacheEntry.Builder actionOutput)
       throws IOException {
     if (file.isDirectory()) {

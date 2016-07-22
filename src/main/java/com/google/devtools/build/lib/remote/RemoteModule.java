@@ -61,19 +61,19 @@ public final class RemoteModule extends BlazeModule {
     buildRequest = event.getRequest();
     RemoteOptions options = buildRequest.getOptions(RemoteOptions.class);
 
-    MemcacheActionCache cache = null;
+    ConcurrentMapActionCache cache = null;
 
     // Don't provide the remote spawn unless at least action cache is initialized.
     if (actionCache == null) {
       if (options.hazelcastNode != null || options.hazelcastClientConfig != null) {
         cache =
-            new MemcacheActionCache(
+            new ConcurrentMapActionCache(
                 this.env.getDirectories().getExecRoot(),
                 options,
                 HazelcastCacheFactory.create(options));
       } else if (options.restCacheUrl != null) {
         cache =
-            new MemcacheActionCache(
+            new ConcurrentMapActionCache(
                 this.env.getDirectories().getExecRoot(),
                 options,
                 RestUrlCacheFactory.create(options));

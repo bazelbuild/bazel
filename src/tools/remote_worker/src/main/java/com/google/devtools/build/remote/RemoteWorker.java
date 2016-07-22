@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.remote;
 
+import com.google.devtools.build.lib.remote.ConcurrentMapActionCache;
 import com.google.devtools.build.lib.remote.HazelcastCacheFactory;
-import com.google.devtools.build.lib.remote.MemcacheActionCache;
 import com.google.devtools.build.lib.remote.MemcacheWorkExecutor;
 import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.RemoteProtocol.RemoteWorkRequest;
@@ -29,11 +29,9 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import com.google.devtools.common.options.OptionsParser;
-
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collections;
@@ -71,8 +69,8 @@ public class RemoteWorker implements RemoteWorkGrpc.RemoteWork {
     Path tempRoot = workPath.getRelative("build-" + UUID.randomUUID().toString());
     try {
       FileSystemUtils.createDirectoryAndParents(tempRoot);
-      final MemcacheActionCache actionCache =
-          new MemcacheActionCache(tempRoot, remoteOptions, cache);
+      final ConcurrentMapActionCache actionCache =
+          new ConcurrentMapActionCache(tempRoot, remoteOptions, cache);
       final MemcacheWorkExecutor workExecutor =
           MemcacheWorkExecutor.createLocalWorkExecutor(actionCache, tempRoot);
       if (LOG_FINER) {
