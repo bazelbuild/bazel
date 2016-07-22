@@ -55,6 +55,9 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
       structField = true)
   public NestedSet<Artifact> getTransitiveDeps() {
     JavaCompilationArgsProvider args = getInfo().getProvider(JavaCompilationArgsProvider.class);
+    if (args == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
     return args.getRecursiveJavaCompilationArgs().getCompileTimeJars();
   }
 
@@ -64,6 +67,9 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
       structField = true)
   public NestedSet<Artifact> getTransitiveRuntimeDeps() {
     JavaCompilationArgsProvider args = getInfo().getProvider(JavaCompilationArgsProvider.class);
+    if (args == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
     return args.getRecursiveJavaCompilationArgs().getRuntimeJars();
   }
 
