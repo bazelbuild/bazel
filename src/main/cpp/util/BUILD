@@ -17,6 +17,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":blaze_exit_code",
         ":strings",
     ],
 )
