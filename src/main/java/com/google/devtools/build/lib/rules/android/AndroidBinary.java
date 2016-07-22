@@ -150,29 +150,21 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // ensure determinism.
     Multimap<String, TransitiveInfoCollection> depsByArchitecture =
         MultimapBuilder.treeKeys().arrayListValues().build();
-    AndroidConfiguration config = ruleContext.getFragment(AndroidConfiguration.class);
-    if (config.usesAndroidCrosstool()) {
-      for (Map.Entry<String, ? extends List<? extends TransitiveInfoCollection>> entry :
-          ruleContext.getSplitPrerequisites("deps").entrySet()) {
-        depsByArchitecture.putAll(entry.getKey(), entry.getValue());
-      }
-    } else {
-      depsByArchitecture.putAll(
-          config.getCpu(), ruleContext.getPrerequisites("deps", Mode.TARGET));
+    AndroidConfiguration androidConfig = ruleContext.getFragment(AndroidConfiguration.class);
+    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+        ruleContext.getSplitPrerequisites("deps").entrySet()) {
+      String cpu = entry.getKey().or(androidConfig.getCpu());
+      depsByArchitecture.putAll(cpu, entry.getValue());
     }
     Map<String, BuildConfiguration> configurationMap = new LinkedHashMap<>();
     Map<String, CcToolchainProvider> toolchainMap = new LinkedHashMap<>();
-    if (config.usesAndroidCrosstool()) {
-      for (Map.Entry<String, ? extends List<? extends TransitiveInfoCollection>> entry :
-          ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
-        TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
-        CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext, dep);
-        configurationMap.put(entry.getKey(), dep.getConfiguration());
-        toolchainMap.put(entry.getKey(), toolchain);
-      }
-    } else {
-      configurationMap.put(config.getCpu(), ruleContext.getConfiguration());
-      toolchainMap.put(config.getCpu(), CppHelper.getToolchain(ruleContext));
+    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+        ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
+      String cpu = entry.getKey().or(androidConfig.getCpu());
+      TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
+      CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext, dep);
+      configurationMap.put(cpu, dep.getConfiguration());
+      toolchainMap.put(cpu, toolchain);
     }
 
     NativeLibs nativeLibs = shouldLinkNativeDeps(ruleContext)
