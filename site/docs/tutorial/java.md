@@ -6,14 +6,14 @@ title: Build Java
 Build Java
 ==========
 
-You can use Bazel to build your Java application, in this tutorial you'll learn how to:
+You can use Bazel to build your Java application. In this tutorial you'll learn how to:
 
 * Build your first Java target
-* Adding dependencies to your target
-* Using multiple packages
-* Deploying your target
+* Add dependencies to your target
+* Use multiple packages
+* Deploy your target
 
-## Setup your workspace
+## Setting up your workspace
 
 Suppose that you have an existing project in a directory, say,
 `~/gitroot/my-project/`. Create an empty file at
