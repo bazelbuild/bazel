@@ -28,12 +28,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -44,7 +43,9 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.ArrayList;
+
 import javax.annotation.Nullable;
 
 /**
@@ -130,23 +131,8 @@ final class ProtoSupport {
    * @param targetType the type of target generating the protos
    */
   public ProtoSupport(RuleContext ruleContext, TargetType targetType) {
-    this(ruleContext, targetType, null);
-  }
-
-  /**
-   * Creates a new proto support.
-   *
-   * @param ruleContext context this proto library is constructed in
-   * @param targetType the type of target generating the protos
-   * @param buildConfiguration the configuration from which to get prerequisites when building proto
-   *     targets in a split configuration
-   */
-  public ProtoSupport(
-      RuleContext ruleContext,
-      TargetType targetType,
-      BuildConfiguration buildConfiguration) {
     this.ruleContext = ruleContext;
-    this.attributes = new Attributes(ruleContext, buildConfiguration);
+    this.attributes = new Attributes(ruleContext);
     this.targetType = targetType;
     if (targetType != TargetType.PROTO_TARGET) {
       // Use a a prefixed version of the intermediate artifacts to avoid naming collisions, as
@@ -172,7 +158,7 @@ final class ProtoSupport {
    * @return this proto support
    */
   public ProtoSupport validate() {
-    if (!hasProtos()) {
+    if (attributes.getProtoFiles().isEmpty()) {
       ruleContext.ruleError(NO_PROTOS_ERROR);
     }
 
@@ -213,8 +199,10 @@ final class ProtoSupport {
    * @return this proto support
    */
   public ProtoSupport registerActions() {
-    registerProtoInputListFileAction();
-    registerGenerateProtoFilesAction();
+    if (!Iterables.isEmpty(getFilteredProtoSources())) {
+      registerProtoInputListFileAction();
+      registerGenerateProtoFilesAction();
+    }
     return this;
   }
 
@@ -229,11 +217,14 @@ final class ProtoSupport {
             .setCompilationArtifacts(getCompilationArtifacts());
 
     if (targetType == TargetType.LINKING_TARGET) {
-      commonBuilder.addDepObjcProviders(attributes.getDepsObjcPrerequisites());
+      commonBuilder.addDepObjcProviders(
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
     } else if (targetType == TargetType.PROTO_TARGET) {
-      commonBuilder.addDepObjcProviders(attributes.getProtoLibObjcPrerequisites());
+      commonBuilder.addDepObjcProviders(
+          ruleContext.getPrerequisites(
+              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class));
 
-      if (usesProtobufLibrary()) {
+      if (usesProtobufLibrary() && experimentalAutoUnion()) {
         commonBuilder.addDirectDependencyHeaderSearchPaths(getUserHeaderSearchPaths());
       } else {
         commonBuilder.addUserHeaderSearchPaths(getUserHeaderSearchPaths());
@@ -301,9 +292,15 @@ final class ProtoSupport {
       builder.addAdditionalHdrs(generatedSources);
     }
 
-    if ((targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary())
-        || targetType == TargetType.LINKING_TARGET) {
-      builder.addNonArcSrcs(generatedSources);
+    if (experimentalAutoUnion()) {
+      if ((targetType == TargetType.PROTO_TARGET && !usesProtobufLibrary())
+          || targetType == TargetType.LINKING_TARGET) {
+        builder.addNonArcSrcs(generatedSources);
+      }
+    } else {
+      if (targetType == TargetType.PROTO_TARGET) {
+        builder.addNonArcSrcs(generatedSources);
+      }
     }
 
     return builder.build();
@@ -337,19 +334,13 @@ final class ProtoSupport {
     return attributes.hasPortableProtoFilters() || targetType == TargetType.LINKING_TARGET;
   }
 
-  /**
-   * Returns whether there are protos to be compiled.
-   */
-  public boolean hasProtos() {
-    return !Iterables.isEmpty(getFilteredProtoSources());
-  }
-
   private Iterable<Artifact> getAllProtoSources() {
     NestedSetBuilder<Artifact> protos = NestedSetBuilder.stableOrder();
 
-    if (targetType == TargetType.LINKING_TARGET) {
-      Iterable<ObjcProtoProvider> objcProtoPrividers = attributes.getDepsObjcProtoPrerequisites();
-      for (ObjcProtoProvider objcProtoProvider : objcProtoPrividers) {
+    if (experimentalAutoUnion() && targetType == TargetType.LINKING_TARGET) {
+      Iterable<ObjcProtoProvider> objcProtoProviders =
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+      for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
         protos.addTransitive(objcProtoProvider.getProtoSources());
       }
     }
@@ -389,14 +380,21 @@ final class ProtoSupport {
   private NestedSet<Artifact> getPortableProtoFilters() {
     NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
 
-    if (targetType == TargetType.LINKING_TARGET) {
-      for (ObjcProtoProvider objcProtoProvider : attributes.getDepsObjcProtoPrerequisites()) {
+    if (experimentalAutoUnion() && targetType == TargetType.LINKING_TARGET) {
+      Iterable<ObjcProtoProvider> objcProtoProviders =
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+      for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
         portableProtoFilters.addTransitive(objcProtoProvider.getPortableProtoFilters());
       }
     }
 
     portableProtoFilters.addAll(attributes.getPortableProtoFilters());
     return portableProtoFilters.build();
+  }
+
+  private boolean experimentalAutoUnion() {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    return objcConfiguration.experimentalAutoTopLevelUnionObjCProtos();
   }
 
   private void registerProtoInputListFileAction() {
@@ -626,78 +624,9 @@ final class ProtoSupport {
    */
   private static class Attributes {
     private final RuleContext ruleContext;
-    private final BuildConfiguration buildConfiguration;
 
-    private Attributes(RuleContext ruleContext, BuildConfiguration buildConfiguration) {
+    private Attributes(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
-      this.buildConfiguration = buildConfiguration;
-    }
-
-    /**
-     * Returns the FileProviders for the deps attribute, using the split build configuration
-     * if one is available.
-     */
-    Iterable<FileProvider> getDepsFilePrerequisites() {
-      if (buildConfiguration != null) {
-        return ruleContext
-            .getPrerequisitesByConfiguration("deps", Mode.SPLIT, FileProvider.class)
-            .get(buildConfiguration);
-      }
-      return ruleContext.getPrerequisites("deps", Mode.TARGET, FileProvider.class);
-    }
-
-    /**
-     * Returns the ProtoSourcesProviders for the deps attribute, using the split build configuration
-     * if one is available.
-     */
-    Iterable<ProtoSourcesProvider> getDepsProtoSourcesPrerequisites() {
-      if (buildConfiguration != null) {
-        return ruleContext
-            .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ProtoSourcesProvider.class)
-            .get(buildConfiguration);
-      }
-      return ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
-    }
-
-    /**
-     * Returns the ObjcProtoProviders for the deps attribute, using the split build configuration
-     * if one is available.
-     */
-    Iterable<ObjcProtoProvider> getDepsObjcProtoPrerequisites() {
-      if (buildConfiguration != null) {
-        return ruleContext
-            .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class)
-            .get(buildConfiguration);
-      }
-      return ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
-    }
-
-    /**
-     * Returns the ObjcProviders for the deps attribute, using the split build configuration
-     * if one is available.
-     */
-    Iterable<ObjcProvider> getDepsObjcPrerequisites() {
-      if (buildConfiguration != null) {
-        return ruleContext
-            .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProvider.class)
-            .get(buildConfiguration);
-      }
-      return ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class);
-    }
-
-    /**
-     * Returns the ObjcProviders for the internal proto library dependency attribute, using the
-     * split build configuration if one is available.
-     */
-    Iterable<ObjcProvider> getProtoLibObjcPrerequisites() {
-      if (buildConfiguration != null) {
-        return ruleContext
-            .getPrerequisitesByConfiguration(ObjcRuleClasses.PROTO_LIB_ATTR,
-                Mode.SPLIT, ObjcProvider.class)
-            .get(buildConfiguration);
-      }
-      return ruleContext.getPrerequisites(ObjcRuleClasses.PROTO_LIB_ATTR,
-          Mode.TARGET, ObjcProvider.class);
     }
 
     /**
@@ -812,17 +741,10 @@ final class ProtoSupport {
      * Returns the list of proto files that were added directly into the deps attributes. This way
      * of specifying the protos is deprecated, and displays a warning when the target does so.
      */
-    private Iterable<Artifact> getProtoDepsFiles() {
-      ImmutableSet.Builder<Artifact> protoFiles = new ImmutableSet.Builder<>();
-      for (FileProvider target : getDepsFilePrerequisites()) {
-        for (Artifact file : target.getFilesToBuild()) {
-          if (file.getFilename().endsWith(".proto")) {
-            protoFiles.add(file);
-          }
-        }
-      }
-
-      ImmutableSet<Artifact> protos = protoFiles.build();
+    private ImmutableList<Artifact> getProtoDepsFiles() {
+      PrerequisiteArtifacts prerequisiteArtifacts =
+          ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET);
+      ImmutableList<Artifact> protos = prerequisiteArtifacts.filter(FileType.of(".proto")).list();
       if (!protos.isEmpty()) {
         ruleContext.attributeWarning("deps", FILES_DEPRECATED_WARNING);
       }
@@ -834,7 +756,8 @@ final class ProtoSupport {
      */
     private NestedSet<Artifact> getProtoDepsSources() {
       NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.stableOrder();
-      Iterable<ProtoSourcesProvider> providers = getDepsProtoSourcesPrerequisites();
+      Iterable<ProtoSourcesProvider> providers =
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
       for (ProtoSourcesProvider provider : providers) {
         artifacts.addTransitive(provider.getTransitiveProtoSources());
       }

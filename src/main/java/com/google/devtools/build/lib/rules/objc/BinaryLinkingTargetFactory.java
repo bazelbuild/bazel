@@ -75,13 +75,14 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+
     ObjcProvider protosObjcProvider = null;
     XcodeProvider protosXcodeProvider = null;
 
-    ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
-    if (protoSupport.hasProtos()) {
+    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
       XcodeProvider.Builder protosXcodeProviderBuilder = new XcodeProvider.Builder();
-      protoSupport
+      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET)
           .registerActions()
           .addXcodeProviderOptions(protosXcodeProviderBuilder);
 
@@ -142,7 +143,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 DsymOutputType.APP)
             .validateAttributes();
 
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
     switch (hasReleaseBundlingSupport) {
