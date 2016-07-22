@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
+import com.google.devtools.build.android.AndroidResourceClassWriter;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -133,6 +134,12 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       }
     }
     definition.endTag().save();
+  }
+
+  @Override
+  public void writeResourceToClass(FullyQualifiedName key,
+      AndroidResourceClassWriter resourceClassWriter) {
+    resourceClassWriter.writeStyleableResource(key, attrs);
   }
 
   @Override

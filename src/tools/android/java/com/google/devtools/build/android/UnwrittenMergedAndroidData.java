@@ -85,6 +85,25 @@ public class UnwrittenMergedAndroidData {
     }
   }
 
+  public void writeResourceClass(AndroidResourceClassWriter resourceClassWriter)
+      throws IOException {
+    writeResourceClassItems(primary, resourceClassWriter);
+    writeResourceClassItems(transitive, resourceClassWriter);
+    resourceClassWriter.flush();
+  }
+
+  private void writeResourceClassItems(
+      ParsedAndroidData resources, AndroidResourceClassWriter resourceClassWriter)
+      throws IOException {
+    for (Entry<DataKey, DataResource> entry : resources.iterateDataResourceEntries()) {
+      // TODO(corysmith): Resolve the nit of casting to a FullyQualifiedName by sorting
+      // out the type structure and generics of DataKey, ParsedAndroidData, AndroidDataMerger and
+      // MergeConflict.
+      entry.getValue()
+          .writeResourceToClass((FullyQualifiedName) entry.getKey(), resourceClassWriter);
+    }
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

@@ -388,6 +388,10 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
     return resourceName;
   }
 
+  public ResourceType type() {
+    return resourceType;
+  }
+
   private FullyQualifiedName(
       String pkg,
       ImmutableList<String> qualifiers,

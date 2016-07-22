@@ -42,4 +42,16 @@ public interface XmlResourceValue {
    * @throws IllegalArgumentException if either value cannot combine with the other.
    */
   XmlResourceValue combineWith(XmlResourceValue value);
+
+  /**
+   * Queue up writing the resource to the given {@link AndroidResourceClassWriter}.
+   * Each resource can generate one or more (in the case of styleable) fields and inner classes
+   * in the R class.
+   *
+   * @param key The FullyQualifiedName of the resource
+   * @param resourceClassWriter the R java class writer
+   */
+  void writeResourceToClass(
+      FullyQualifiedName key,
+      AndroidResourceClassWriter resourceClassWriter);
 }

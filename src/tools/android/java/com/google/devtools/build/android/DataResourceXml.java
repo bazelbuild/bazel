@@ -279,6 +279,13 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
+  public void writeResourceToClass(
+      FullyQualifiedName key,
+      AndroidResourceClassWriter resourceClassWriter) {
+    xml.writeResourceToClass(key, resourceClassWriter);
+  }
+
+  @Override
   public int serializeTo(DataKey key, OutputStream outStream) throws IOException {
     return xml.serializeTo(source, namespaces, outStream);
   }

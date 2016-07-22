@@ -687,18 +687,14 @@ public class AndroidResourceProcessor {
       boolean finalFields) throws IOException {
     for (String packageName : libMap.keySet()) {
       Collection<SymbolLoader> symbols = libMap.get(packageName);
-      RClassGenerator classWriter =
-          new RClassGenerator(classesOut.toFile(), packageName, fullSymbolValues, finalFields);
-      for (SymbolLoader symbolLoader : symbols) {
-        classWriter.addSymbolsToWrite(symbolLoader);
-      }
+      RClassGenerator classWriter = RClassGenerator.fromSymbols(
+          classesOut, packageName, fullSymbolValues, symbols, finalFields);
       classWriter.write();
     }
     // Unlike the R.java generation, we also write the app's R.class file so that the class
     // jar file can be complete (aapt doesn't generate it for us).
-    RClassGenerator classWriter =
-        new RClassGenerator(classesOut.toFile(), appPackageName, fullSymbolValues, finalFields);
-    classWriter.addSymbolsToWrite(fullSymbolValues);
+    RClassGenerator classWriter = RClassGenerator.fromSymbols(classesOut, appPackageName,
+        fullSymbolValues, ImmutableList.of(fullSymbolValues), finalFields);
     classWriter.write();
   }
 

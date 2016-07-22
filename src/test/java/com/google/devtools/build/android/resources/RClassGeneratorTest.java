@@ -26,7 +26,9 @@ import com.android.utils.ILogger;
 import com.android.utils.StdLogger;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -48,6 +50,8 @@ public class RClassGeneratorTest {
 
   private Path temp;
   private ILogger stdLogger;
+  @Rule
+  public final ExpectedException thrown = ExpectedException.none();
 
   @Before
   public void setUp() throws Exception {
@@ -83,9 +87,8 @@ public class RClassGeneratorTest {
         "int string ok 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer =
-        new RClassGenerator(out.toFile(), "com.bar", symbolValues, finalFields);
-    writer.addSymbolsToWrite(symbolsInLibrary);
+    RClassGenerator writer = RClassGenerator.fromSymbols(
+        out, "com.bar", symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
     writer.write();
 
     Path packageDir = out.resolve("com/bar");
@@ -127,9 +130,8 @@ public class RClassGeneratorTest {
     SymbolLoader symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer =
-        new RClassGenerator(out.toFile(), "com.testEmptyIntArray", symbolValues, finalFields);
-    writer.addSymbolsToWrite(symbolsInLibrary);
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.testEmptyIntArray",
+        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
     writer.write();
 
     Path packageDir = out.resolve("com/testEmptyIntArray");
@@ -146,6 +148,36 @@ public class RClassGeneratorTest {
         ),
         finalFields
     );
+  }
+
+  @Test
+  public void corruptIntArraysTrailingComma() throws Exception {
+    boolean finalFields = true;
+    // Test a few cases of what happens if the R.txt is corrupted. It shouldn't happen unless there
+    // is a bug in aapt, or R.txt is manually written the wrong way.
+    SymbolLoader symbolValues = createSymbolFile("R.txt",
+        "int[] styleable ActionMenuView { 1, }");
+    SymbolLoader symbolsInLibrary = symbolValues;
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    thrown.expect(NumberFormatException.class);
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
+        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
+    writer.write();
+  }
+
+  @Test
+  public void corruptIntArraysOmittedMiddle() throws Exception {
+    boolean finalFields = true;
+    SymbolLoader symbolValues = createSymbolFile("R.txt",
+        "int[] styleable ActionMenuView { 1, , 2 }");
+    SymbolLoader symbolsInLibrary = symbolValues;
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    thrown.expect(NumberFormatException.class);
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
+        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
+    writer.write();
   }
 
   @Test
@@ -182,9 +214,8 @@ public class RClassGeneratorTest {
     SymbolLoader symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer =
-        new RClassGenerator(out.toFile(), "com.intArray", symbolValues, finalFields);
-    writer.addSymbolsToWrite(symbolsInLibrary);
+    RClassGenerator writer = RClassGenerator.fromSymbols(
+        out, "com.intArray", symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
     writer.write();
 
     Path packageDir = out.resolve("com/intArray");
