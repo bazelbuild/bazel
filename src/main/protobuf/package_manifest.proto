@@ -19,7 +19,6 @@ package blaze;
 
 option java_package = "com.google.devtools.build.lib.ideinfo.androidstudio";
 
-option java_generate_equals_and_hash = true;
 
 // TODO(bazel-team): support proto => proto dependencies and remove this duplication
 message ArtifactLocation {

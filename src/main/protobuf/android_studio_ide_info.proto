@@ -19,7 +19,6 @@ package blaze;
 
 option java_package = "com.google.devtools.build.lib.ideinfo.androidstudio";
 
-option java_generate_equals_and_hash = true;
 
 message ArtifactLocation {
   // deprecated -- this is not machine agnostic and will be removed in a future release
