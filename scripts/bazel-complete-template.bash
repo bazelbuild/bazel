@@ -458,7 +458,7 @@ _bazel__complete_target_stdout() {
   displacement="$(_bazel__get_displacement ${workspace})"
 
   _bazel__to_compreply "$(_bazel__expand_target_pattern "$workspace" "$displacement" \
-      "$cur" "$command")"
+      "$cur" "$(_bazel__expansion_for $command)")"
 }
 
 # default completion for bazel
