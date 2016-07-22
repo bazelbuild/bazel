@@ -16,18 +16,35 @@ package com.google.devtools.build.lib.bazel.rules.java.proto;
 
 import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoAspect.SPEED_PROTO_RUNTIME_ATTR;
 import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoAspect.SPEED_PROTO_RUNTIME_LABEL;
+import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+
+import javax.annotation.Nullable;
 
 /** Declaration of the {@code java_proto_library} rule. */
 public class BazelJavaProtoLibraryRule implements RuleDefinition {
+
+  private static final Function<Rule, AspectParameters> ASPECT_PARAMETERS =
+      new Function<Rule, AspectParameters>() {
+        @Nullable
+        @Override
+        public AspectParameters apply(@Nullable Rule rule) {
+          return new AspectParameters.Builder()
+              .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "java_proto_library")
+              .build();
+        }
+      };
 
   private final BazelJavaProtoAspect javaProtoAspect;
 
@@ -48,7 +65,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
-                .aspect(javaProtoAspect))
+                .aspect(javaProtoAspect, ASPECT_PARAMETERS))
         .add(
             attr(SPEED_PROTO_RUNTIME_ATTR, LABEL)
                 .legacyAllowAnyFileType()

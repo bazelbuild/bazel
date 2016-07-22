@@ -26,6 +26,10 @@ import com.google.devtools.build.lib.util.Preconditions;
  */
 @Immutable
 public final class Aspect implements DependencyFilter.AttributeInfoProvider {
+
+  /** */
+  public static final String INJECTING_RULE_KIND_PARAMETER_KEY = "$injecting_rule_kind";
+
   // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
   // by reference. We should identify the aspect here in a way that does not rely on comparison
   // by reference so that keys can be serialized and deserialized properly.
