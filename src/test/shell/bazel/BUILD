@@ -355,6 +355,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "execroot_test",
+    size = "small",
+    srcs = ["execroot_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

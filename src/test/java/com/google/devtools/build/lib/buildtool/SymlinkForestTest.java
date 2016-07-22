@@ -27,19 +27,18 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /**
  * Tests {@link SymlinkForest}.
@@ -188,7 +187,8 @@ public class SymlinkForestTest {
 
     Path linkRoot = fileSystem.getPath("/linkRoot");
     createDirectoryAndParents(linkRoot);
-    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
 
     assertLinksTo(linkRoot, rootA, "pkgA");
     assertIsDir(linkRoot, "dir1");
@@ -215,7 +215,8 @@ public class SymlinkForestTest {
             .put(createPkg(rootX, rootY, "foo"), rootX)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
     assertLinksTo(linkRoot, rootX, "file");
   }
 
@@ -239,7 +240,8 @@ public class SymlinkForestTest {
             .put(createPkg(outputBase, "w", ""), outputBase)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
     assertFalse(linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/file").exists());
     assertLinksTo(
         linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/w"), rootY.getRelative("w"));
@@ -261,7 +263,22 @@ public class SymlinkForestTest {
             .put(Label.EXTERNAL_PACKAGE_IDENTIFIER, root)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, "mock-product-name").plantSymlinkForest();
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
     assertThat(linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX).exists()).isFalse();
+  }
+
+  @Test
+  public void testWorkspaceName() throws Exception {
+    Path root = fileSystem.getPath("/src");
+    ImmutableMap<PackageIdentifier, Path> packageRootMap =
+        ImmutableMap.<PackageIdentifier, Path>builder()
+            // Remote repo without top-level package.
+            .put(createPkg(root, "y", "w"), root)
+            .build();
+
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
+    assertThat(linkRoot.getRelative("../wsname").exists()).isTrue();
   }
 }

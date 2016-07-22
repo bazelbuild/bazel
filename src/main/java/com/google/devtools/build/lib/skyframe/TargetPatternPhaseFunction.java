@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
@@ -37,14 +38,12 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -56,6 +55,22 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   @Override
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) {
     TargetPatternList options = (TargetPatternList) key.argument();
+    PackageValue packageValue = null;
+    boolean workspaceError = false;
+    try {
+      packageValue = (PackageValue) env.getValueOrThrow(
+          PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER), NoSuchPackageException.class);
+    } catch (NoSuchPackageException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      workspaceError = true;
+    }
+    if (env.valuesMissing()) {
+      return null;
+    }
+    String workspaceName = "";
+    if (!workspaceError) {
+      workspaceName = packageValue.getPackage().getWorkspaceName();
+    }
 
     // Determine targets to build:
     ResolvedTargets<Target> targets = getTargetsToBuild(env,
@@ -163,8 +178,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     Set<Target> testSuiteTargets =
         Sets.difference(targets.getTargets(), expandedTargets.getTargets());
     return new TargetPatternPhaseValue(expandedTargets.getTargets(), testsToRun, preExpansionError,
-        expandedTargets.hasError(), filteredTargets, testFilteredTargets,
-        targets.getTargets(), ImmutableSet.copyOf(testSuiteTargets));
+        expandedTargets.hasError() || workspaceError, filteredTargets, testFilteredTargets,
+        targets.getTargets(), ImmutableSet.copyOf(testSuiteTargets), workspaceName);
   }
 
   /**

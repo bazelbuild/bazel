@@ -43,13 +43,16 @@ class SymlinkForest {
 
   private final ImmutableMap<PackageIdentifier, Path> packageRoots;
   private final Path workspace;
+  private final String workspaceName;
   private final String productName;
   private final String[] prefixes;
 
   SymlinkForest(
-      ImmutableMap<PackageIdentifier, Path> packageRoots, Path workspace, String productName) {
+      ImmutableMap<PackageIdentifier, Path> packageRoots, Path workspace, String productName,
+      String workspaceName) {
     this.packageRoots = packageRoots;
     this.workspace = workspace;
+    this.workspaceName = workspaceName;
     this.productName = productName;
     this.prefixes = new String[] { ".", "_", productName + "-"};
   }
@@ -215,6 +218,23 @@ class SymlinkForest {
           execPath.createSymbolicLink(target);
         }
       }
+    }
+
+    symlinkCorrectWorkspaceName();
+  }
+
+  /**
+   * Right now, the execution root is under the basename of the source directory, not the name
+   * defined in the WORKSPACE file. Thus, this adds a symlink with the WORKSPACE's workspace name
+   * to the old-style execution root.
+   * TODO(kchodorow): get rid of this once exec root is always under the WORKSPACE's workspace
+   * name.
+   * @throws IOException
+   */
+  private void symlinkCorrectWorkspaceName() throws IOException {
+    Path correctDirectory = workspace.getParentDirectory().getRelative(workspaceName);
+    if (!correctDirectory.exists()) {
+      correctDirectory.createSymbolicLink(workspace);
     }
   }
 

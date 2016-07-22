@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.SymlinkTreeActionContext;
@@ -94,7 +93,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -341,7 +339,7 @@ public class ExecutionTool {
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots);
+    prepare(packageRoots, analysisResult.getWorkspaceName());
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
@@ -363,9 +361,10 @@ public class ExecutionTool {
     if (targetConfigurations.size() == 1) {
       String productName = runtime.getProductName();
       OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          env.getWorkspaceName(), env.getWorkspace(), getExecRoot(),
-          env.getOutputPath(), getReporter(), targetConfiguration,
-          request.getBuildOptions().getSymlinkPrefix(productName), productName);
+          env.getWorkspaceName(), env.getWorkspace(),
+          getExecRoot(), env.getOutputPath(), getReporter(),
+          targetConfiguration, request.getBuildOptions().getSymlinkPrefix(productName),
+          productName);
     }
 
     ActionCache actionCache = getActionCache();
@@ -499,7 +498,7 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(ImmutableMap<PackageIdentifier, Path> packageRoots)
+  private void prepare(ImmutableMap<PackageIdentifier, Path> packageRoots, String workspaceName)
       throws ExecutorInitException {
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
@@ -510,7 +509,8 @@ public class ExecutionTool {
     // Plant the symlink forest.
     try {
       new SymlinkForest(
-          packageRoots, getExecRoot(), runtime.getProductName()).plantSymlinkForest();
+          packageRoots, getExecRoot(), runtime.getProductName(), workspaceName)
+          .plantSymlinkForest();
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
     }

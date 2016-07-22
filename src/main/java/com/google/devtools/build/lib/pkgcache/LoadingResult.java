@@ -27,14 +27,16 @@ public final class LoadingResult {
   private final boolean hasLoadingError;
   private final ImmutableSet<Target> targetsToAnalyze;
   private final ImmutableSet<Target> testsToRun;
+  private final String workspaceName;
 
   public LoadingResult(boolean hasTargetPatternError, boolean hasLoadingError,
-      Collection<Target> targetsToAnalyze, Collection<Target> testsToRun) {
+      Collection<Target> targetsToAnalyze, Collection<Target> testsToRun, String workspaceName) {
     this.hasTargetPatternError = hasTargetPatternError;
     this.hasLoadingError = hasLoadingError;
     this.targetsToAnalyze =
         targetsToAnalyze == null ? null : ImmutableSet.copyOf(targetsToAnalyze);
     this.testsToRun = testsToRun == null ? null : ImmutableSet.copyOf(testsToRun);
+    this.workspaceName = workspaceName;
   }
 
   /** Whether there were errors during target pattern evaluation. */
@@ -55,5 +57,10 @@ public final class LoadingResult {
   /** Successfully loaded targets that should be run as tests. Must be a subset of the targets. */
   public Collection<Target> getTestsToRun() {
     return testsToRun;
+  }
+
+  /** The name of the local workspace. */
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 }

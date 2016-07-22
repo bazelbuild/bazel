@@ -53,11 +53,12 @@ public final class TargetPatternPhaseValue implements SkyValue {
   // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
   private final ImmutableSet<Target> originalTargets;
   private final ImmutableSet<Target> testSuiteTargets;
+  private final String workspaceName;
 
   TargetPatternPhaseValue(ImmutableSet<Target> targets, @Nullable ImmutableSet<Target> testsToRun,
       boolean hasError, boolean hasPostExpansionError, ImmutableSet<Target> filteredTargets,
       ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> originalTargets,
-      ImmutableSet<Target> testSuiteTargets) {
+      ImmutableSet<Target> testSuiteTargets, String workspaceName) {
     this.targets = Preconditions.checkNotNull(targets);
     this.testsToRun = testsToRun;
     this.hasError = hasError;
@@ -66,6 +67,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     this.testFilteredTargets = Preconditions.checkNotNull(testFilteredTargets);
     this.originalTargets = Preconditions.checkNotNull(originalTargets);
     this.testSuiteTargets = Preconditions.checkNotNull(testSuiteTargets);
+    this.workspaceName = workspaceName;
   }
 
   public ImmutableSet<Target> getTargets() {
@@ -101,8 +103,13 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return testSuiteTargets;
   }
 
+  public String getWorkspaceName() {
+    return workspaceName;
+  }
+
   public LoadingResult toLoadingResult() {
-    return new LoadingResult(hasError(), hasPostExpansionError(), getTargets(), getTestsToRun());
+    return new LoadingResult(
+        hasError(), hasPostExpansionError(), getTargets(), getTestsToRun(), getWorkspaceName());
   }
 
   @SuppressWarnings("unused")
