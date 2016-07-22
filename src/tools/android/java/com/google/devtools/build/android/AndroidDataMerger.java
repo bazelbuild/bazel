@@ -73,7 +73,7 @@ public class AndroidDataMerger {
           throw new MergingException(e);
         }
         //TODO(corysmith): List the offending target here.
-        logger.warning(
+        logger.fine(
             String.format(
                 "\u001B[31mDEPRECATION:\u001B[0m Legacy resources used for %s",
                 dependency.getManifest()));
