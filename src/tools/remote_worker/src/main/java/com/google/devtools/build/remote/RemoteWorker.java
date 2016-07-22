@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.remote.MemcacheWorkExecutor;
 import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.RemoteProtocol.RemoteWorkRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.RemoteWorkResponse;
-import com.google.devtools.build.lib.remote.RemoteWorkGrpc;
+import com.google.devtools.build.lib.remote.RemoteWorkGrpc.RemoteWorkImplBase;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -41,10 +41,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Implements a remote worker that accepts work items as protobufs.
- * The server implementation is based on grpc.
+ * Implements a remote worker that accepts work items as protobufs. The server implementation is
+ * based on grpc.
  */
-public class RemoteWorker implements RemoteWorkGrpc.RemoteWork {
+public class RemoteWorker extends RemoteWorkImplBase {
   private static final Logger LOG = Logger.getLogger(RemoteWorker.class.getName());
   private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
   private final Path workPath;
@@ -126,9 +126,7 @@ public class RemoteWorker implements RemoteWorkGrpc.RemoteWork {
     FileSystemUtils.createDirectoryAndParents(workPath);
     RemoteWorker worker = new RemoteWorker(workPath, remoteOptions, remoteWorkerOptions, cache);
     final Server server =
-        ServerBuilder.forPort(remoteWorkerOptions.listenPort)
-            .addService(RemoteWorkGrpc.bindService(worker))
-            .build();
+        ServerBuilder.forPort(remoteWorkerOptions.listenPort).addService(worker).build();
     server.start();
 
     final Path pidFile;
