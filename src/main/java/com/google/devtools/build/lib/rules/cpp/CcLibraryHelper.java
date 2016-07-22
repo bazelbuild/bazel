@@ -19,7 +19,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingM
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -920,33 +923,30 @@ public final class CcLibraryHelper {
         // Add the linked outputs of this rule iff we had anything to put in them, but then
         // make sure we're not colliding with some library added from the inputs.
         newOutputsBuilder.merge(originalLinkingOutputs);
-        Iterable<LibraryToLink> allLibraries =
-            Iterables.concat(staticLibraries, picStaticLibraries, dynamicLibraries);
-        for (LibraryToLink precompiledLibrary : allLibraries) {
-          List<LibraryToLink> matchingLibs =
-              originalLinkingOutputs.getLibrariesWithSameIdentifierAs(precompiledLibrary);
-          if (!matchingLibs.isEmpty()) {
-            Iterable<String> matchingLibArtifactNames =
-                Iterables.transform(
-                    matchingLibs,
-                    new Function<LibraryToLink, String>() {
-                      @Override
-                      public String apply(LibraryToLink input) {
-                        return input.getOriginalLibraryArtifact().getFilename();
-                      }
-                    });
-            ruleContext.ruleError(
-                "Can't put "
-                    + precompiledLibrary.getArtifact().getFilename()
-                    + " into the srcs of a "
-                    + ruleContext.getRuleClassNameForLogging()
-                    + " with the same name ("
-                    + ruleContext.getRule().getName()
-                    + ") which also contains other code or objects to link; it shares a name with "
-                    + Joiner.on(", ").join(matchingLibArtifactNames)
-                    + " (output compiled and linked from the non-library sources of this rule), "
-                    + "which could cause confusion");
-          }
+        ImmutableSetMultimap<String, LibraryToLink> precompiledLibraryMap =
+            CcLinkingOutputs.getLibrariesByIdentifier(
+                Iterables.concat(staticLibraries, picStaticLibraries, dynamicLibraries));
+        ImmutableSetMultimap<String, LibraryToLink> linkedLibraryMap =
+            originalLinkingOutputs.getLibrariesByIdentifier();
+        for (String matchingIdentifier :
+            Sets.intersection(precompiledLibraryMap.keySet(), linkedLibraryMap.keySet())) {
+          Iterable<Artifact> matchingInputLibs =
+              LinkerInputs.toNonSolibArtifacts(precompiledLibraryMap.get(matchingIdentifier));
+          Iterable<Artifact> matchingOutputLibs =
+              LinkerInputs.toNonSolibArtifacts(linkedLibraryMap.get(matchingIdentifier));
+          ruleContext.ruleError(
+              "Can't put "
+                  + Joiner.on(", ")
+                      .join(Iterables.transform(matchingInputLibs, FileType.TO_FILENAME))
+                  + " into the srcs of a "
+                  + ruleContext.getRuleClassNameForLogging()
+                  + " with the same name ("
+                  + ruleContext.getRule().getName()
+                  + ") which also contains other code or objects to link; it shares a name with "
+                  + Joiner.on(", ")
+                      .join(Iterables.transform(matchingOutputLibs, FileType.TO_FILENAME))
+                  + " (output compiled and linked from the non-library sources of this rule), "
+                  + "which could cause confusion");
         }
       }
 

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -128,6 +129,14 @@ public abstract class FileType implements Predicate<String> {
      */
     String getFilename();
   }
+
+  public static final Function<HasFilename, String> TO_FILENAME =
+      new Function<HasFilename, String>() {
+        @Override
+        public String apply(HasFilename input) {
+          return input.getFilename();
+        }
+      };
 
   /**
    * Checks whether an Iterable<? extends HasFileType> contains any of the specified file types.
