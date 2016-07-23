@@ -74,7 +74,7 @@ function exit_when_app_not_running() {
 # $1: the simulator ID to boot
 function wait_for_sim_to_boot() {
   i=0
-  while [ "${i}" -lt 10 ]; do
+  while [ "${i}" -lt 60 ]; do
     # The expected output of "xcrun simctl list" is like:
     # -- iOS 8.4 --
     # iPhone 5s (E946FA1C-26AB-465C-A7AC-24750D520BEA) (Shutdown)
@@ -88,7 +88,8 @@ function wait_for_sim_to_boot() {
     sleep 1
     i=$(($i+1))
   done
-  echo "Failed to launch the simulator"
+  echo "Failed to launch the simulator. The existing simulators are:"
+  xcrun simctl list
   exit 1
 }
 
@@ -177,6 +178,20 @@ echo "Start the app ${BUNDLE_ID} on ${TEST_DEVICE_ID}."
 # Tail the file with the redirected outputs of the app.
 tail -f "${RUN_LOG}" &
 exit_when_app_not_running "${IOS_PID}" "$!"
+
+# Wait for a while for the system.log to be updated.
+sleep 5
+
+if [ ! -f "${SYSTEM_LOG}" ];then
+  output=$(cat "${RUN_LOG}")
+  # If there's no system.log or output, might be a crash.
+  if [ -z "${output}" ];then
+    echo "no output or system.log"
+    exit 1
+  else
+    exit 0
+  fi
+fi
 
 # Check the system.log to see if there was an abnormal exit.
 readonly ABNORMAL_EXIT_MSG=$(cat "${SYSTEM_LOG}" | \
