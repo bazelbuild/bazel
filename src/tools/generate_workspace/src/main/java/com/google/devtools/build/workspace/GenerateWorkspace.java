@@ -46,7 +46,8 @@ public class GenerateWorkspace {
   private final FileSystem fileSystem;
   private final Resolver resolver;
   private final List<String> inputs;
-  private final Path outputDir;
+  private final File workspaceFile;
+  private final File buildFile;
 
   public static void main(String[] args) {
     OptionsParser parser = OptionsParser.newOptionsParser(GenerateWorkspaceOptions.class);
@@ -59,7 +60,13 @@ public class GenerateWorkspace {
       return;
     }
 
-    GenerateWorkspace workspaceFileGenerator = new GenerateWorkspace(options.outputDir);
+    if ((options.buildOutputFile.isEmpty() && options.workspaceOutputFile.isEmpty())
+        != options.outputDir.isEmpty()) {
+      System.out.println("Please specify either --build_file and --workspace_file, or --output_dir.");
+      return;
+    }
+
+    GenerateWorkspace workspaceFileGenerator = new GenerateWorkspace(options.outputDir, options.buildOutputFile, options.workspaceOutputFile);
     workspaceFileGenerator.generateFromWorkspace(options.bazelProjects);
     workspaceFileGenerator.generateFromPom(options.mavenProjects);
     workspaceFileGenerator.generateFromArtifacts(options.artifacts);
@@ -73,6 +80,7 @@ public class GenerateWorkspace {
   }
 
   private static void printUsage(OptionsParser parser) {
+    // TODO(mickey): Update doc for new output flags.
     System.out.println("Usage: generate_workspace (-b PATH|-m PATH|-a coord)+ [-o PATH]\n\n"
         + "Generates a WORKSPACE file from the given projects and a BUILD file with a rule that "
         + "contains all of the transitive dependencies. At least one bazel_project, "
@@ -82,16 +90,42 @@ public class GenerateWorkspace {
         OptionsParser.HelpVerbosity.LONG));
   }
 
-  private GenerateWorkspace(String outputDir) {
+  private GenerateWorkspace(String reqOutputDir, String reqBuildOutputDir, String reqWorkspaceOutputDir) {
     this.handler = new EventHandler();
     this.fileSystem = getFileSystem();
     this.resolver = new Resolver(handler, new DefaultModelResolver());
     this.inputs = Lists.newArrayList();
-    if (outputDir.isEmpty()) {
-      this.outputDir = fileSystem.getPath(Files.createTempDir().toString());
+
+    File buildFile;
+    File workspaceFile;
+    if (!reqBuildOutputDir.isEmpty() || !reqWorkspaceOutputDir.isEmpty()) {
+      buildFile = new File(reqBuildOutputDir);
+      workspaceFile = new File(reqWorkspaceOutputDir);
     } else {
-      this.outputDir = fileSystem.getPath(outputDir);
+      Path outputDir;
+      if (reqOutputDir.isEmpty()) {
+        outputDir = fileSystem.getPath(Files.createTempDir().toString());
+        workspaceFile = outputDir.getRelative("WORKSPACE").getPathFile();
+        buildFile = outputDir.getRelative("BUILD").getPathFile();
+      } else {
+        outputDir = fileSystem.getPath(Files.createTempDir().toString());
+        workspaceFile = outputDir.getRelative("WORKSPACE").getPathFile();
+        buildFile = outputDir.getRelative("BUILD").getPathFile();
+      }
+
+      String date = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
+
+      // Don't overwrite existing files with generated ones.
+      if (workspaceFile.exists()) {
+        workspaceFile = outputDir.getRelative(date + ".WORKSPACE").getPathFile();
+      }
+      if (buildFile.exists()) {
+        buildFile = outputDir.getRelative(date + ".BUILD").getPathFile();
+      }
     }
+
+    this.workspaceFile = workspaceFile;
+    this.buildFile = buildFile;
   }
 
   static FileSystem getFileSystem() {
@@ -137,18 +171,6 @@ public class GenerateWorkspace {
   }
 
   private void writeResults() {
-    String date = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
-    File workspaceFile = outputDir.getRelative("WORKSPACE").getPathFile();
-    File buildFile = outputDir.getRelative("BUILD").getPathFile();
-
-    // Don't overwrite existing files with generated ones.
-    if (workspaceFile.exists()) {
-      workspaceFile = outputDir.getRelative(date + ".WORKSPACE").getPathFile();
-    }
-    if (buildFile.exists()) {
-      buildFile = outputDir.getRelative(date + ".BUILD").getPathFile();
-    }
-
     try (PrintStream workspaceStream = new PrintStream(workspaceFile);
          PrintStream buildStream = new PrintStream(buildFile)) {
       ResultWriter writer = new ResultWriter(inputs, resolver.getRules());
@@ -156,7 +178,8 @@ public class GenerateWorkspace {
       writer.writeBuild(buildStream);
     } catch (IOException e) {
       handler.handle(Event.error(
-          "Could not write WORKSPACE and BUILD files to " + outputDir + ": " + e.getMessage()));
+          "Could not write WORKSPACE and BUILD files to " + buildFile + " and " + workspaceFile
+              + ": " + e.getMessage()));
       return;
     }
     System.err.println("Wrote:\n" + workspaceFile + "\n" + buildFile);
