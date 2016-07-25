@@ -77,7 +77,8 @@ static const uint8_t *byte_ptr(const void *ptr) {
  * Only the entities whose value exceed 32 bits are present, and the present
  * ones are always in the order shown above. The originating 32-bit field
  * contains 0xFFFFFFFF to indicate that the value is 64-bit and is in
- * Zip64 Extra Field.
+ * Zip64 Extra Field. Section 4.5.3 of the spec mentions that Zip64 extra field
+ * of the Local Header MUST have both uncompressed and compressed sizes present.
  */
 class Zip64ExtraField {
  public:
@@ -142,9 +143,7 @@ class LH {
       return size32;
     }
     const Zip64ExtraField *z64 = zip64_extra_field();
-    return z64 == nullptr
-               ? 0xFFFFFFFF
-               : z64->attr64(uncompressed_file_size32() == 0xFFFFFFFF ? 1 : 0);
+    return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(1);
   }
   size_t compressed_file_size32() const {
     return le32toh(compressed_file_size32_);
@@ -186,17 +185,25 @@ class LH {
   }
 
   uint16_t extra_fields_length() const { return le16toh(extra_fields_length_); }
-  void extra_fields_length(uint16_t v) {
-    extra_fields_length_ = htole16(extra_fields_length_);
-  }
   const uint8_t *extra_fields() const {
-    return byte_ptr(file_name_ + file_name_length_);
+    return byte_ptr(file_name_ + file_name_length());
+  }
+  uint8_t *extra_fields() {
+    return reinterpret_cast<uint8_t *>(file_name_) + file_name_length();
+  }
+  void extra_fields(uint8_t *data, uint16_t data_length) {
+    extra_fields_length_ = htole16(data_length);
+    if (data_length) {
+      memcpy(extra_fields(), data, data_length);
+    }
   }
 
   size_t size() const {
     return sizeof(LH) + file_name_length() + extra_fields_length();
   }
   const uint8_t *data() const { return extra_fields() + extra_fields_length(); }
+  uint8_t *data() { return extra_fields() + extra_fields_length(); }
+
   size_t in_zip_size() const {
     return compression_method() ? compressed_file_size()
                                 : uncompressed_file_size();
@@ -230,17 +237,22 @@ class CDH {
   void signature() { signature_ = htole32(0x02014b50); }
   bool is() const { return 0x02014b50 == le32toh(signature_); }
 
+  uint16_t version() const { return le16toh(version_); }
   void version(uint16_t v) { version_ = htole16(v); }
 
+  uint16_t version_to_extract() const { return le16toh(version_to_extract_); }
   void version_to_extract(uint16_t v) { version_to_extract_ = htole16(v); }
 
   void bit_flag(uint16_t v) { bit_flag_ = htole16(v); }
   uint16_t bit_flag() const { return le16toh(bit_flag_); }
 
+  uint16_t compression_method() const { return le16toh(compression_method_); }
   void compression_method(uint16_t v) { compression_method_ = htole16(v); }
 
+  uint16_t last_mod_file_time() const { return le16toh(last_mod_file_time_); }
   void last_mod_file_time(uint16_t v) { last_mod_file_time_ = htole16(v); }
 
+  uint16_t last_mod_file_date() const { return le16toh(last_mod_file_date_); }
   void last_mod_file_date(uint16_t v) { last_mod_file_date_ = htole16(v); }
 
   void crc32(uint32_t v) { crc32_ = htole32(v); }
@@ -298,21 +310,29 @@ class CDH {
 
   uint16_t extra_fields_length() const { return le16toh(extra_fields_length_); }
   const uint8_t *extra_fields() const {
-    return byte_ptr(file_name_ + file_name_length_);
+    return byte_ptr(file_name_ + file_name_length());
   }
-  void extra_fields_length(uint16_t v) { extra_fields_length_ = htole16(v); }
+  uint8_t *extra_fields() {
+    return reinterpret_cast<uint8_t *>(file_name_) + file_name_length();
+  }
+  void extra_fields(const uint8_t *data, uint16_t data_length) {
+    extra_fields_length_ = htole16(data_length);
+    if (data_length) {
+      memcpy(extra_fields(), data, data_length);
+    }
+  }
 
   uint16_t comment_length() const { return le16toh(comment_length_); }
   void comment_length(uint16_t v) { comment_length_ = htole16(v); }
 
   uint16_t start_disk_nr() const { return le16toh(start_disk_nr_); }
-  void disk_number(uint16_t v) { start_disk_nr_ = htole16(v); }
+  void start_disk_nr(uint16_t v) { start_disk_nr_ = htole16(v); }
 
   uint16_t internal_attributes() const { return le16toh(internal_attributes_); }
   void internal_attributes(uint16_t v) { internal_attributes_ = htole16(v); }
 
-  uint32_t external_attribute() const { return le32toh(external_attributes_); }
-  void external_attribute(uint32_t v) { external_attributes_ = htole32(v); }
+  uint32_t external_attributes() const { return le32toh(external_attributes_); }
+  void external_attributes(uint32_t v) { external_attributes_ = htole32(v); }
 
   uint64_t local_header_offset() const {
     uint32_t size32 = local_header_offset32();
@@ -374,7 +394,7 @@ class ECD64Locator {
   bool is() const { return 0x07064b50 == le32toh(signature_); }
 
   void ecd64_disk_nr(uint32_t nr) { ecd64_disk_nr_ = htole32(nr); }
-  uint32_t ecd4_disk_nr() const { return le32toh(ecd64_disk_nr_); }
+  uint32_t ecd64_disk_nr() const { return le32toh(ecd64_disk_nr_); }
 
   void ecd64_offset(uint64_t v) { ecd64_offset_ = htole64(v); }
   uint64_t ecd64_offset() const { return le64toh(ecd64_offset_); }

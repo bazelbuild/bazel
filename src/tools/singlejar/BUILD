@@ -86,6 +86,16 @@ cc_test(
 )
 
 cc_test(
+    name = "zip_headers_test",
+    size = "small",
+    srcs = [
+        "zip_headers_test.cc",
+        ":zip_headers",
+    ],
+    deps = ["//third_party:gtest"],
+)
+
+cc_test(
     name = "zlib_interface_test",
     srcs = [
         "zlib_interface_test.cc",
@@ -135,9 +145,14 @@ filegroup(
     srcs = [
         "diag.h",
         "transient_bytes.h",
-        "zip_headers.h",
         "zlib_interface.h",
+        ":zip_headers",
     ],
+)
+
+filegroup(
+    name = "zip_headers",
+    srcs = ["zip_headers.h"],
 )
 
 filegroup(
