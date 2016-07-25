@@ -23,12 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.protobuf.MessageLite;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -43,8 +37,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nonnull;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link PackageParser}
@@ -261,14 +258,17 @@ public class PackageParserTest {
 
   @Test
   public void testHandlesOldFormat() throws Exception {
-    String[] args = new String[] {
-        "--output_manifest",
-        "/tmp/out.manifest",
-        "--sources_absolute_paths",
-        "/usr/local/code/java/com/google/Foo.java:/usr/local/code/java/com/google/Bla.java",
-        "--sources_execution_paths",
-        "java/com/google/Foo.java:java/com/google/Bla.java"
-    };
+    String[] args =
+        new String[] {
+          "--output_manifest",
+          "/tmp/out.manifest",
+          "--sources_absolute_paths",
+          "/usr/local/code/java/com/google/Foo.java"
+              + File.pathSeparator
+              + "/usr/local/code/java/com/google/Bla.java",
+          "--sources_execution_paths",
+          "java/com/google/Foo.java" + File.pathSeparator + "java/com/google/Bla.java"
+        };
     PackageParser.PackageParserOptions options = PackageParser.parseArgs(args);
     assertThat(options.outputManifest.toString())
         .isEqualTo(Paths.get("/tmp/out.manifest").toString());
