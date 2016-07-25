@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -50,7 +51,6 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -1340,8 +1339,17 @@ public final class RuleClass {
       Location location,
       AttributeContainer attributeContainer)
       throws LabelSyntaxException, InterruptedException {
-    Rule rule = createRuleUnchecked(
-        pkgBuilder, ruleLabel, attributeValues, eventHandler, ast, location, attributeContainer);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
+    checkAspectAllowedValues(rule, eventHandler);
+    rule.populateOutputFiles(eventHandler, pkgBuilder);
+    if (ast != null) {
+      populateAttributeLocations(rule, ast);
+    }
+    checkForDuplicateLabels(rule, eventHandler);
+    checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
+    checkForValidSizeAndTimeoutValues(rule, eventHandler);
+    rule.checkValidityPredicate(eventHandler);
     rule.checkForNullLabels();
     return rule;
   }
@@ -1355,22 +1363,12 @@ public final class RuleClass {
       Package.Builder pkgBuilder,
       Label ruleLabel,
       AttributeValuesMap attributeValues,
-      EventHandler eventHandler,
-      @Nullable FuncallExpression ast,
       Location location,
       AttributeContainer attributeContainer)
       throws LabelSyntaxException, InterruptedException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
-    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
-    checkAspectAllowedValues(rule, eventHandler);
-    rule.populateOutputFiles(eventHandler, pkgBuilder);
-    if (ast != null) {
-      populateAttributeLocations(rule, ast);
-    }
-    checkForDuplicateLabels(rule, eventHandler);
-    checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
-    checkForValidSizeAndTimeoutValues(rule, eventHandler);
-    rule.checkValidityPredicate(eventHandler);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
+    rule.populateOutputFiles(NullEventHandler.INSTANCE, pkgBuilder);
     return rule;
   }
 
