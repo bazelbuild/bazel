@@ -13,21 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.builder.dependency.SymbolFileProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-
-import com.android.builder.dependency.SymbolFileProvider;
-import com.android.ide.common.res2.AssetSet;
-import com.android.ide.common.res2.ResourceSet;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -124,48 +119,6 @@ class DependencyAndroidData {
     return manifest;
   }
 
-  public AssetSet addToAssets(AssetSet assets) {
-    for (Path assetDir : assetDirs) {
-      assets.addSource(assetDir.toFile());
-    }
-    return assets;
-  }
-
-  public ResourceSet addToResourceSet(ResourceSet resources) {
-    for (Path resourceDir : resourceDirs) {
-      resources.addSource(resourceDir.toFile());
-    }
-    return resources;
-  }
-
-  /**
-   * Adds all the resource directories as ResourceSets. This acts a loose merge strategy as it does
-   * not test for overrides.
-   *
-   * @param resourceSets A list of resource sets to append to.
-   */
-  void addAsResourceSets(List<ResourceSet> resourceSets) {
-    for (Path resourceDir : resourceDirs) {
-      ResourceSet set = new ResourceSet("dependency:" + resourceDir.toString());
-      set.addSource(resourceDir.toFile());
-      resourceSets.add(set);
-    }
-  }
-
-  /**
-   * Adds all the asset directories as AssetSets. This acts a loose merge strategy as it does not
-   * test for overrides.
-   *
-   * @param assetSets A list of asset sets to append to.
-   */
-  void addAsAssetSets(List<AssetSet> assetSets) {
-    for (Path assetDir : assetDirs) {
-      AssetSet set = new AssetSet("dependency:" + assetDir.toString());
-      set.addSource(assetDir.toFile());
-      assetSets.add(set);
-    }
-  }
-
   @Override
   public String toString() {
     return String.format(
@@ -194,16 +147,6 @@ class DependencyAndroidData {
         && Objects.equals(other.rTxt, rTxt)
         && Objects.equals(other.symbolsTxt, symbolsTxt)
         && Objects.equals(other.manifest, manifest);
-  }
-
-  public DependencyAndroidData modify(ImmutableList<DirectoryModifier> modifiers) {
-    ImmutableList<Path> modifiedResources = resourceDirs;
-    ImmutableList<Path> modifiedAssets = assetDirs;
-    for (DirectoryModifier modifier : modifiers) {
-      modifiedAssets = modifier.modify(modifiedAssets);
-      modifiedResources = modifier.modify(modifiedResources);
-    }
-    return new DependencyAndroidData(modifiedResources, modifiedAssets, manifest, rTxt, null);
   }
 
   public void walk(final AndroidDataPathWalker pathWalker) throws IOException {
