@@ -24,6 +24,7 @@ import static com.android.SdkConstants.DOT_GIF;
 import static com.android.SdkConstants.DOT_JPEG;
 import static com.android.SdkConstants.DOT_JPG;
 import static com.android.SdkConstants.DOT_PNG;
+import static com.android.SdkConstants.DOT_SVG;
 import static com.android.SdkConstants.DOT_XML;
 import static com.android.SdkConstants.FD_RES_VALUES;
 import static com.android.SdkConstants.PREFIX_ANDROID;
@@ -638,7 +639,8 @@ public class ResourceShrinker {
             || endsWith(path, DOT_PNG) //also true for endsWith(name, DOT_9PNG)
             || endsWith(path, DOT_JPG)
             || endsWith(path, DOT_GIF)
-            || endsWith(path, DOT_JPEG))) {
+            || endsWith(path, DOT_JPEG)
+            || endsWith(path, DOT_SVG))) {
           List<ResourceType> types = FolderTypeRelationship.getRelatedResourceTypes(
               folderType);
           ResourceType type = types.get(0);
