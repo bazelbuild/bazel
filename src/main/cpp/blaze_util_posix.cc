@@ -100,7 +100,9 @@ static void Daemonize(const string& daemon_output) {
     // In a daemon, no-one can hear you scream.
     open("/dev/null", O_WRONLY);
   }
-  dup(STDOUT_FILENO);  // stderr (2>&1)
+  if (dup(STDOUT_FILENO)) {  // stderr (2>&1)
+    // Placate the compiler.
+  }
 }
 
 class PipeBlazeServerStartup : public BlazeServerStartup {
@@ -200,6 +202,7 @@ string RunProgram(const string& exe, const std::vector<string>& args_vector) {
     ExecuteProgram(exe, args_vector);
     pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run %s", exe.c_str());
   }
+  return string("");  //  We cannot reach here, just placate the compiler.
 }
 
 bool ReadDirectorySymlink(const string &name, string* result) {

@@ -411,13 +411,16 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   }
 
   // Identify ourselves in the lockfile.
-  ftruncate(lockfd, 0);
+  if (ftruncate(lockfd, 0)) {
+    // Placate the compiler.
+  }
   const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
   string msg = "owner=launcher\npid="
       + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
-  // Don't bother checking for error, since it's unlikely and unimportant.
   // The contents are currently meant only for debugging.
-  write(lockfd, msg.data(), msg.size());
+  if (write(lockfd, msg.data(), msg.size()) <= 0) {
+    // Placate the compiler.
+  }
   blaze_lock->lockfd = lockfd;
   return wait_time;
 }

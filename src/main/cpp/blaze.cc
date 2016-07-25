@@ -829,8 +829,9 @@ static int ForwardServerOutput(int socket, int output) {
     }
 
     remaining -= bytes;
-    // Not much we can do if this doesn't work
-    write(output, server_output_buffer, bytes);
+    if (write(output, server_output_buffer, bytes) != bytes) {
+      // Not much we can do if this doesn't work, just placate the compiler.
+    }
   }
 
   return 0;
@@ -1454,7 +1455,9 @@ static void sigprintf(const char *format, ...) {
   va_start(ap, format);
   int r = vsnprintf(buf, sizeof buf, format, ap);
   va_end(ap);
-  write(STDERR_FILENO, buf, r);
+  if (write(STDERR_FILENO, buf, r) <= 0) {
+    // We don't care, just placate the compiler.
+  }
 }
 
 // Signal handler.
@@ -2111,13 +2114,17 @@ unsigned int GrpcBlazeServer::Communicate() {
     }
 
     if (response.standard_output().size() > 0) {
-      write(1, response.standard_output().c_str(),
-            response.standard_output().size());
+      if (write(1, response.standard_output().c_str(),
+                response.standard_output().size()) <= 0) {
+        // Placate the compiler.
+      }
     }
 
     if (response.standard_error().size() > 0) {
-      write(2, response.standard_error().c_str(),
-            response.standard_error().size());
+      if (write(2, response.standard_error().c_str(),
+            response.standard_error().size()) <= 0) {
+        // Placate the compiler.
+      }
     }
 
     if (!command_id_set && response.command_id().size() > 0) {
@@ -2150,7 +2157,9 @@ void GrpcBlazeServer::Disconnect() {
 
 void GrpcBlazeServer::SendAction(CancelThreadAction action) {
   char msg = action;
-  write(send_socket_, &msg, 1);  // We assume this always works
+  if (write(send_socket_, &msg, 1) <= 0) {
+    // We assume this always works, just placate the compiler.
+  }
 }
 
 void GrpcBlazeServer::Cancel() {
