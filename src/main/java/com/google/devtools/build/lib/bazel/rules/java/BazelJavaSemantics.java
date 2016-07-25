@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Co
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -70,15 +69,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static final String JAVABUILDER_CLASS_NAME =
       "com.google.devtools.build.buildjar.BazelJavaBuilder";
 
-  private static final Label JDK_LAUNCHER_LABEL =
-      Label.parseAbsoluteUnchecked("@bazel_tools//third_party/java/jdk:jdk_launcher");
-
   private BazelJavaSemantics() {
-  }
-
-  @Override
-  public boolean isJdkLauncher(Label label) {
-    return JDK_LAUNCHER_LABEL.equals(label);
   }
 
   private boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {

@@ -84,7 +84,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // TODO(cushon): disallow combining launcher=JDK_LAUNCHER_LABEL with create_executable=0
       // and use isAttributeExplicitlySpecified here
       Label launcherAttribute = ruleContext.attributes().get("launcher", BuildType.LABEL);
-      if (launcherAttribute != null && !semantics.isJdkLauncher(launcherAttribute)) {
+      if (launcherAttribute != null && !JavaHelper.isJdkLauncher(ruleContext, launcherAttribute)) {
         ruleContext.ruleError("launcher specified but create_executable is false");
       }
     }
