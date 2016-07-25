@@ -313,6 +313,22 @@ java_library(
     ],
 )
 
+# Skylark language for configuration files.
+#
+# IMPORTANT:  NOT A PUBLIC INTERFACE. TARGETS SHOULDN'T DEPEND ON THIS.
+#
+java_library(
+    name = "skylark-lang",
+    visibility = ["//visibility:public"],
+    exports = [
+        ":events",
+        ":inmemoryfs",
+        ":skylarkinterface",
+        ":syntax",
+        ":vfs",
+    ],
+)
+
 java_library(
     name = "skylarkinterface",
     srcs = glob([
