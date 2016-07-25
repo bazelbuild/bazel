@@ -296,6 +296,55 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testForUpdateList() throws Exception {
+    // Check that modifying the list within the loop doesn't affect what gets iterated over.
+    // TODO(brandjon): When we support in-place assignment to a list index, also test that
+    // as a modification here.
+    new SkylarkTest().setUp("def foo():",
+        "  xs = ['a', 'b', 'c']",
+        "  s = ''",
+        "  for x in xs:",
+        "    s = s + x",
+        "    if x == 'a':",
+        "      xs.pop(0)",
+        "      xs.pop(1)",
+        "    elif x == 'c':",
+        "      xs.append('d')",
+        "  return s",
+        "s = foo()").testLookup("s", "abc");
+  }
+
+  @Test
+  public void testForUpdateDict() throws Exception {
+    // Check that modifying the dict within the loop doesn't affect what gets iterated over.
+    new SkylarkTest().setUp("def foo():",
+        "  d = {'a': 1, 'b': 2, 'c': 3}",
+        "  s = ''",
+        "  for k in d:",
+        "    s = s + k",
+        "    if k == 'a':",
+        "      d.pop('a')",
+        "      d.pop('b')",
+        "    d.update({'d': 4})",
+        "  return s",
+        "s = foo()").testLookup("s", "abc");
+  }
+
+  @Test
+  public void testForDeepUpdate() throws Exception {
+    // Check that indirectly reachable values can still be manipulated as normal.
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [['a'], ['b'], ['c']]",
+        "  ys = []",
+        "  for x in xs:",
+        "    for y in x:",
+        "      ys.append(y)",
+        "    xs[2].append(x[0])",
+        "  return ys",
+        "ys = foo()").testLookup("ys", MutableList.of(null, "a", "b", "c", "a", "b"));
+  }
+
+  @Test
   public void testForNotIterable() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())

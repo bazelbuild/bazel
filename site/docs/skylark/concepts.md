@@ -171,8 +171,10 @@ Python:
 
 * Recursion is not allowed.
 
-* Loops iterate on a shallow copy of the elements. If the list is modified
-  during the iteration, you will only see the old values.
+* Loops iterate over a shallow copy of the collection. If the collection is a
+  list or dictionary that is modified during iteration, this will not affect
+  what values get bound to the loop variable or variables. The changes are
+  still visible if you directly access the collection.
 
 The following Python features are not supported:
 
