@@ -181,8 +181,8 @@ public class CustomCommandLineTest {
     Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
     CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
-        .addTreeFileArtifactExecPath("--argOne", treeArtifactOne)
-        .addTreeFileArtifactExecPath("--argTwo", treeArtifactTwo)
+        .addPlaceholderTreeArtifactExecPath("--argOne", treeArtifactOne)
+        .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
         .build();
 
     TreeFileArtifact treeFileArtifactOne = createTreeFileArtifact(
@@ -204,23 +204,20 @@ public class CustomCommandLineTest {
 
   @Test
   public void testTreeFileArtifactExecPathWithTemplateArgs() {
-    Artifact treeArtifactOne = createTreeArtifact("myArtifact/treeArtifact1");
-    Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
+    Artifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact1");
 
     CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
-        .addTreeFileArtifactExecPaths("%s:%s", treeArtifactOne, treeArtifactTwo)
+        .addPlaceholderTreeArtifactFormattedExecPath("path:%s", treeArtifact)
         .build();
 
-    TreeFileArtifact treeFileArtifactOne = createTreeFileArtifact(
-        treeArtifactOne, "children/child1");
-    TreeFileArtifact treeFileArtifactTwo = createTreeFileArtifact(
-        treeArtifactTwo, "children/child2");
+    TreeFileArtifact treeFileArtifact = createTreeFileArtifact(
+        treeArtifact, "children/child1");
 
     CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
-        ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
+        ImmutableList.of(treeFileArtifact));
 
     assertThat(commandLine.arguments()).containsExactly(
-        "myArtifact/treeArtifact1/children/child1:myArtifact/treeArtifact2/children/child2");
+        "path:myArtifact/treeArtifact1/children/child1");
   }
 
   @Test
@@ -229,8 +226,8 @@ public class CustomCommandLineTest {
     Artifact treeArtifactTwo = createTreeArtifact("myArtifact/treeArtifact2");
 
     CustomCommandLine commandLineTemplate = CustomCommandLine.builder()
-        .addTreeFileArtifactExecPath("--argOne", treeArtifactOne)
-        .addTreeFileArtifactExecPath("--argTwo", treeArtifactTwo)
+        .addPlaceholderTreeArtifactExecPath("--argOne", treeArtifactOne)
+        .addPlaceholderTreeArtifactExecPath("--argTwo", treeArtifactTwo)
         .build();
 
     try {
