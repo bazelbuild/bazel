@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+
 import javax.annotation.Nullable;
 
 /**
@@ -357,6 +359,11 @@ public final class CppModel {
     return result;
   }
 
+  private CcToolchainFeatures.Variables linkBuildVariables() {
+    return new CcToolchainFeatures.Variables.Builder()
+        .addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables()).build();
+  }
+  
   private void setupCompileBuildVariables(
       CppCompileActionBuilder builder,
       boolean usePic,
@@ -784,6 +791,7 @@ public final class CppModel {
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .setFeatureConfiguration(featureConfiguration)
+            .setBuildVariables(linkBuildVariables())
             .build();
     env.registerAction(maybePicAction);
     result.addStaticLibrary(maybePicAction.getOutputLibrary());
@@ -805,6 +813,7 @@ public final class CppModel {
               .setLinkType(picLinkType)
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
               .setFeatureConfiguration(featureConfiguration)
+              .setBuildVariables(linkBuildVariables())
               .build();
       env.registerAction(picAction);
       result.addPicStaticLibrary(picAction.getOutputLibrary());
@@ -846,7 +855,8 @@ public final class CppModel {
             .setRuntimeInputs(
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
-            .setFeatureConfiguration(featureConfiguration);
+            .setFeatureConfiguration(featureConfiguration)
+            .setBuildVariables(linkBuildVariables());
 
     if (!ccOutputs.getLtoBitcodeFiles().isEmpty()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {

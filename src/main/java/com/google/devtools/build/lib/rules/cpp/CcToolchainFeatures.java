@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.Tool;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -700,17 +702,15 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   public static class Variables {
-   
-    /** An empty variables instance. */
-    public static final Variables EMPTY = new Variables.Builder().build();
-
+    
     /**
-     * Variables can be set as an arbitrarily deeply nested recursive sequence, which we represent
-     * as a tree of {@code Sequence} nodes. The nodes are {@code NestedSequence} objects, while the
-     * leafs are {@code ValueSequence} objects. We do not allow {@code Value} objects in the tree,
-     * as the object memory overhead is too large when we have millions of values. If we find single
-     * element {@code ValueSequence} in memory profiles in the future, we can introduce another
-     * special case type.
+     * Variables can be set as an arbitrarily deeply nested recursive sequence, which
+     * we represent as a tree of {@code Sequence} nodes.
+     * The nodes are {@code NestedSequence} objects, while the leafs are {@code ValueSequence}
+     * objects. We do not allow {@code Value} objects in the tree, as the object memory overhead
+     * is too large when we have millions of values.
+     * If we find single element {@code ValueSequence} in memory profiles in the future, we
+     * can introduce another special case type.
      */
     interface Sequence {
 
@@ -1035,8 +1035,10 @@ public class CcToolchainFeatures implements Serializable {
       return new NestedView(viewMap, sequenceName, sequenceVariables.get(sequenceName));
     }
 
-    /** Returns whether {@code variable} is set. */
-    boolean isAvailable(String variable) {
+    /**
+     * Returns whether {@code variable} is set.
+     */
+    private boolean isAvailable(String variable) {
       return variables.containsKey(variable) || sequenceVariables.containsKey(variable);
     }
   }
