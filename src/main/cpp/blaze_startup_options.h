@@ -203,8 +203,10 @@ class BlazeStartupOptions {
   // Returns the basename for the rc file.
   static string RcBasename();
 
-  // Returns the path for the system-wide rc file.
-  static string SystemWideRcPath();
+  // Returns the candidate pathnames for the RC files.
+  static void FindCandidateBlazercPaths(const string& workspace,
+                                        const string& cwd, const string& arg0,
+                                        std::vector<string>* result);
 
   // Returns the candidate pathnames for the RC file in the workspace,
   // the first readable one of which will be chosen.

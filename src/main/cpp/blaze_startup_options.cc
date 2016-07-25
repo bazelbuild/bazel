@@ -182,6 +182,47 @@ string BlazeStartupOptions::RcBasename() {
   return ".bazelrc";
 }
 
+static string FindDepotBlazerc(const string& workspace) {
+  // Package semantics are ignored here, but that's acceptable because
+  // blaze.blazerc is a configuration file.
+  vector<string> candidates;
+  BlazeStartupOptions::WorkspaceRcFileSearchPath(&candidates);
+  for (const auto& candidate : candidates) {
+    string blazerc = blaze_util::JoinPath(workspace, candidate);
+    if (!access(blazerc.c_str(), R_OK)) {
+      return blazerc;
+    }
+  }
+  return "";
+}
+
+static string FindAlongsideBinaryBlazerc(const string& cwd,
+                                                   const string& arg0) {
+  string path = arg0[0] == '/' ? arg0 : blaze_util::JoinPath(cwd, arg0);
+  string base = blaze_util::Basename(arg0);
+  string binary_blazerc_path = path + "." + base + "rc";
+  if (!access(binary_blazerc_path.c_str(), R_OK)) {
+    return binary_blazerc_path;
+  }
+  return "";
+}
+
+static string FindSystemWideBlazerc() {
+  string path = "/etc/bazel.bazelrc";
+  if (!access(path.c_str(), R_OK)) {
+    return path;
+  }
+  return "";
+}
+
+void BlazeStartupOptions::FindCandidateBlazercPaths(
+    const string& workspace, const string& cwd, const string& arg0,
+    std::vector<string>* result) {
+  result->push_back(FindDepotBlazerc(workspace));
+  result->push_back(FindAlongsideBinaryBlazerc(cwd, arg0));
+  result->push_back(FindSystemWideBlazerc());
+}
+
 void BlazeStartupOptions::WorkspaceRcFileSearchPath(
     vector<string>* candidates) {
   candidates->push_back("tools/bazel.rc");
@@ -195,10 +236,6 @@ bool BlazeStartupOptions::WorkspaceRelativizeRcFilePath(const string &workspace,
       blaze_util::JoinPath(workspace,
                            path_fragment->substr(WorkspacePrefixLength)));
   return true;
-}
-
-string BlazeStartupOptions::SystemWideRcPath() {
-  return "/etc/bazel.bazelrc";
 }
 
 }  // namespace blaze
