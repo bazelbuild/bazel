@@ -75,15 +75,16 @@ def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps)
    native.cc_binary(
       name = cc_binary_name,
       srcs = csrcs,
-      deps = cdeps
+      deps = cdeps,
+      visibility = ["//visibility:private"]
   )
 
   _cc_and_something_else_binary(
     name = name,
     srcs = srcs,
     deps = deps,
-    # A label attribute so that this depends on the internal rule
-    cc_binary = cc_binary,
+    # A label attribute so that this depends on the internal rule.
+    cc_binary = cc_binary_name,
     # Redundant labels attributes so that the rule with this target name knows
     # about everything it would know about if cc_and_something_else_binary
     # were an actual rule instead of a macro.
