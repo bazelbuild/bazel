@@ -100,6 +100,7 @@ sh_test(
 
 sh_test(
     name = "bazel_apple_test",
+    size = "large",
     srcs = ["bazel_apple_test.sh"],
     data = [
         ":objc-deps",
