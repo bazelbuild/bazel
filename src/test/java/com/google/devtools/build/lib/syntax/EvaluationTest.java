@@ -575,6 +575,15 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListComprehensionUpdate() throws Exception {
+    new BuildTest()
+        .setUp("xs = [1, 2, 3]")
+        .testStatement("[xs.append(4) for x in xs]",
+            MutableList.of(env, Runtime.NONE, Runtime.NONE, Runtime.NONE))
+        .testLookup("xs", MutableList.of(env, 1, 2, 3));
+  }
+
+  @Test
   public void testInOperator() throws Exception {
     newTest()
         .testStatement("'b' in ['a', 'b']", Boolean.TRUE)

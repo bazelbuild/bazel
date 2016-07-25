@@ -121,7 +121,7 @@ public abstract class AbstractComprehension extends Expression {
       Object listValueObject = list.eval(env);
       Location loc = getLocation();
       Iterable<?> listValue = EvalUtils.toIterable(listValueObject, loc);
-      for (Object listElement : listValue) {
+      for (Object listElement : ImmutableList.copyOf(listValue)) {
         variables.assign(env, loc, listElement);
         evalStep(env, collector, step);
       }
