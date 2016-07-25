@@ -63,7 +63,8 @@ public final class LabelExpander {
       CharMatcher.inRange('a', 'z')
       .or(CharMatcher.inRange('A', 'Z'))
       .or(CharMatcher.inRange('0', '9'))
-      .or(CharMatcher.anyOf(":/_.-+" + PathFragment.SEPARATOR_CHAR));
+      .or(CharMatcher.anyOf(":/_.-+" + PathFragment.SEPARATOR_CHAR))
+      .precomputed();
 
   /**
    * Expands all references to labels embedded within a string using the

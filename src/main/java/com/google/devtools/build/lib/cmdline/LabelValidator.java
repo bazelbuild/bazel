@@ -48,7 +48,8 @@ public final class LabelValidator {
   private static final CharMatcher ALWAYS_ALLOWED_TARGET_CHARACTERS =
       CharMatcher.javaLetterOrDigit()
           .or(PUNCTUATION_REQUIRING_QUOTING)
-          .or(PUNCTUATION_NOT_REQUIRING_QUOTING);
+          .or(PUNCTUATION_NOT_REQUIRING_QUOTING)
+          .precomputed();
 
   @VisibleForTesting
   static final String PACKAGE_NAME_ERROR =
