@@ -193,7 +193,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("$is_executable", BOOLEAN)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
             .value(
-            new Attribute.ComputedDefault("outs", "executable") {
+            new Attribute.ComputedDefault() {
               @Override
               public Object getDefault(AttributeMap rule) {
                 return (rule.get("outs", BuildType.OUTPUT_LIST).size() == 1)
