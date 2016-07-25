@@ -357,7 +357,7 @@ sh_test(
 
 sh_test(
     name = "execroot_test",
-    size = "small",
+    size = "medium",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
 )
