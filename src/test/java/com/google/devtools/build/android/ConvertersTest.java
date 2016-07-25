@@ -24,6 +24,7 @@ import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.PathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -41,8 +42,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConvertersTest {
 
-  @Rule
-  public final TemporaryFolder tmp = new TemporaryFolder();
+  private static final String SEPARATOR = File.pathSeparator;
+
+  @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
   @Rule
   public final ExpectedException expected = ExpectedException.none();
@@ -90,9 +92,11 @@ public final class ConvertersTest {
   @Test
   public void testPathListConverter() throws Exception {
     PathListConverter converter = new PathListConverter();
-    List<Path> result = converter.convert("foo:bar::baz:");
+    List<Path> result =
+        converter.convert("foo" + SEPARATOR + "bar" + SEPARATOR + SEPARATOR + "baz" + SEPARATOR);
     assertThat(result)
-        .containsAllOf(Paths.get("foo"), Paths.get("bar"), Paths.get("baz")).inOrder();
+        .containsAllOf(Paths.get("foo"), Paths.get("bar"), Paths.get("baz"))
+        .inOrder();
   }
 
   @Test
@@ -102,7 +106,7 @@ public final class ConvertersTest {
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
     ExistingPathListConverter converter = new ExistingPathListConverter();
-    converter.convert(Joiner.on(":").join(existingFile.toString(), arg));
+    converter.convert(Joiner.on(SEPARATOR).join(existingFile.toString(), arg));
   }
 
   @Test
@@ -162,7 +166,10 @@ public final class ConvertersTest {
   public void testExistingPathStringDictionaryConverter() throws Exception {
     Path existingFile = tmp.newFile("existing").toPath();
     ExistingPathStringDictionaryConverter converter = new ExistingPathStringDictionaryConverter();
-    Map<Path, String> result = converter.convert(String.format("%s:string", existingFile));
+    Map<Path, String> result =
+        converter
+            // On Windows, the path starts like C:\foo\bar\..., we need to escape the colon.
+            .convert(String.format("%s:string", existingFile.toString().replace(":", "\\:")));
     assertThat(result).containsExactly(existingFile, "string");
   }
 }

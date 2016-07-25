@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.File;
 import java.lang.reflect.ParameterizedType;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -234,7 +235,7 @@ public final class Converters {
     @Override
     public List<Path> convert(String input) throws OptionsParsingException {
       List<Path> list = new ArrayList<>();
-      for (String piece : input.split(":")) {
+      for (String piece : input.split(File.pathSeparator)) {
         if (!piece.isEmpty()) {
           list.add(baseConverter.convert(piece));
         }
