@@ -22,6 +22,8 @@ cc_test(
         "//external:jar",
         "//external:jdk-default",
     ],
+    # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
+    tags = ["manual"],
     deps = ["//third_party:gtest"],
 )
 
@@ -34,6 +36,8 @@ cc_test(
         ":input_jar",
         ":test_util",
     ],
+    # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
+    tags = ["manual"],
     deps = ["//third_party:gtest"],
 )
 
@@ -79,6 +83,8 @@ cc_test(
         ":transient_bytes",
         ":zlib_interface",
     ],
+    # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
+    tags = ["manual"],
     deps = [
         "//third_party:gtest",
         "//third_party/zlib",
