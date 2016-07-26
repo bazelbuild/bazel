@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
 import com.google.common.collect.ImmutableList;
@@ -140,22 +139,6 @@ public interface JavaSemantics {
         public Label resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return configuration.getFragment(Jvm.class).getJvmLabel();
-        }
-      };
-
-  /**
-   * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
-   * default, so it returns null for the configuration-independent default value.
-   */
-  LateBoundLabel<BuildConfiguration> JAVA_LAUNCHER =
-      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // don't read --java_launcher if this target overrides via a launcher attribute
-          if (attributes != null && attributes.isAttributeValueExplicitlySpecified("launcher")) {
-            return attributes.get("launcher", LABEL);
-          }
-          return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
         }
       };
 
