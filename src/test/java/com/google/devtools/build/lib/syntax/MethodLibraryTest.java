@@ -460,7 +460,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfExactError(
             "Object of type 'string' has no attribute \"not_there\"",
             "getattr('a string', 'not_there')")
-        .testStatement("getattr('a string', 'not_there', 'use this')", "use this");
+        .testStatement("getattr('a string', 'not_there', 'use this')", "use this")
+        .testStatement("getattr('a string', 'not there', None)", Runtime.NONE);
   }
 
   @Test

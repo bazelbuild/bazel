@@ -2120,7 +2120,7 @@ public class MethodLibrary {
       parameters = {
         @Param(name = "x", doc = "The struct whose attribute is accessed."),
         @Param(name = "name", doc = "The name of the struct attribute."),
-        @Param(name = "default", defaultValue = "None",
+        @Param(name = "default", defaultValue = "unbound",
             doc = "The default value to return in case the struct "
             + "doesn't have an attribute of the given name.")},
       useLocation = true, useEnvironment = true)
@@ -2133,7 +2133,7 @@ public class MethodLibrary {
         // 'Real' describes methods with structField() == false. Because DotExpression.eval returned
         // null in this case, we know that structField() cannot return true.
         boolean isRealMethod = hasMethod(obj, name, loc);
-        if (defaultValue != Runtime.NONE && !isRealMethod) {
+        if (defaultValue != Runtime.UNBOUND && !isRealMethod) {
           return defaultValue;
         }
         throw new EvalException(loc, Printer.format("Object of type '%s' has no attribute %r%s",
