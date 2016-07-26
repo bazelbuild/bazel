@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static org.junit.Assert.assertEquals;
+
+import com.google.devtools.build.lib.testutil.ManualClock;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,16 +29,34 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
 
+  private ManualClock clock;
+
   @Override
   public FileSystem getFreshFileSystem() {
-    return new JavaIoFileSystem();
+    clock = new ManualClock();
+    return new JavaIoFileSystem(clock);
   }
 
-  // The tests are just inherited from the FileSystemTest
+  // Tests are inherited from the FileSystemTest
 
   // JavaIoFileSystem incorrectly throws a FileNotFoundException for all IO errors. This means that
   // statIfFound incorrectly suppresses those errors.
   @Override
   @Test
   public void testBadPermissionsThrowsExceptionOnStatIfFound() {}
+
+  @Test
+  public void testSetLastModifiedTime() throws Exception {
+    Path file = xEmptyDirectory.getChild("new-file");
+    FileSystemUtils.createEmptyFile(file);
+
+    file.setLastModifiedTime(1000L);
+    assertEquals(1000L, file.getLastModifiedTime());
+    file.setLastModifiedTime(0L);
+    assertEquals(0L, file.getLastModifiedTime());
+
+    clock.advanceMillis(42000L);
+    file.setLastModifiedTime(-1L);
+    assertEquals(42000L, file.getLastModifiedTime());
+  }
 }

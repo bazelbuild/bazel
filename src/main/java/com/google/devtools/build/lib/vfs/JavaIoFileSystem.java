@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.FileAccessException;
+import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.JavaClock;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -42,11 +45,22 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
       new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
 
+  private final Clock clock;
+
   protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
   protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
   protected static final String ERR_FILE_EXISTS = " (File exists)";
   protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
   protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
+
+  public JavaIoFileSystem() {
+    this(new JavaClock());
+  }
+
+  @VisibleForTesting
+  JavaIoFileSystem(Clock clock) {
+    this.clock = clock;
+  }
 
   protected File getIoFile(Path path) {
     return new File(path.toString());
@@ -349,7 +363,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void setLastModifiedTime(Path path, long newTime) throws IOException {
     File file = getIoFile(path);
-    if (!file.setLastModified(newTime)) {
+    if (!file.setLastModified(newTime == -1L ? clock.currentTimeMillis() : newTime)) {
       if (!file.exists()) {
         throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       } else if (!file.getParentFile().canWrite()) {
