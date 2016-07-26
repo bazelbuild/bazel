@@ -269,7 +269,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
       for (SkyKey key : unvisitedKeys) {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
-      final Map<SkyKey, NodeEntry> entries = graph.getBatch(unvisitedKeys);
+      final Map<SkyKey, NodeEntry> entries = graph.getBatchForInvalidation(unvisitedKeys);
       for (final SkyKey key : unvisitedKeys) {
         executor.execute(
             new Runnable() {
@@ -305,7 +305,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
                       entry.isDone()
                           ? entry.getDirectDeps()
                           : entry.getAllDirectDepsForIncompleteNode();
-                  Map<SkyKey, NodeEntry> depMap = graph.getBatch(directDeps);
+                  Map<SkyKey, NodeEntry> depMap = graph.getBatchForInvalidation(directDeps);
                   for (Map.Entry<SkyKey, NodeEntry> directDepEntry : depMap.entrySet()) {
                     NodeEntry dep = directDepEntry.getValue();
                     if (dep != null) {
@@ -432,7 +432,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
           pendingVisitations.add(Pair.of(key, invalidationType));
         }
       }
-      final Map<SkyKey, ? extends ThinNodeEntry> entries = graph.getBatch(keysToGet);
+      final Map<SkyKey, ? extends ThinNodeEntry> entries = graph.getBatchForInvalidation(keysToGet);
       if (enqueueingKeyForExistenceCheck != null && entries.size() != keysToGet.size()) {
         Set<SkyKey> missingKeys = Sets.difference(ImmutableSet.copyOf(keysToGet), entries.keySet());
         throw new IllegalStateException(

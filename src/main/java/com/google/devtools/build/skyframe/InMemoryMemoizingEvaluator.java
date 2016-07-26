@@ -29,7 +29,7 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvali
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.ParallelEvaluator.EventFilter;
 import com.google.devtools.build.skyframe.ParallelEvaluator.Receiver;
-
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
@@ -129,7 +129,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         Sets.filter(dirtyKeyTracker.getDirtyKeys(), new Predicate<SkyKey>() {
           @Override
           public boolean apply(SkyKey skyKey) {
-            NodeEntry entry = graph.get(skyKey);
+            NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
             Preconditions.checkNotNull(entry, skyKey);
             Preconditions.checkState(entry.isDirty(), skyKey);
             return entry.getVersion().atMost(threshold);
@@ -207,7 +207,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       Entry<SkyKey, SkyValue> entry = it.next();
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue();
-      NodeEntry prevEntry = graph.get(key);
+      NodeEntry prevEntry = graph.get(null, Reason.OTHER, key);
       if (prevEntry != null && prevEntry.isDone()) {
         Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
         Preconditions.checkState(Iterables.isEmpty(directDeps),
@@ -280,7 +280,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Nullable
   @Override
   public NodeEntry getExistingEntryForTesting(SkyKey key) {
-    return graph.get(key);
+    return graph.get(null, Reason.OTHER, key);
   }
 
   @Override

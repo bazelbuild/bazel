@@ -19,7 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -70,8 +70,8 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
 
   @Override
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(Set<SkyKey> depKeys) {
-    Map<SkyKey, NodeEntry> resultMap =
-        queryableGraph.getBatchWithFieldHints(depKeys, NodeEntryField.VALUE_ONLY);
+    Map<SkyKey, NodeEntry> resultMap = queryableGraph.getBatchWithFieldHints(
+        null, Reason.DEP_REQUESTED, depKeys, NodeEntryField.VALUE_ONLY);
     Map<SkyKey, NodeEntry> resultWithMissingKeys = new HashMap<>(resultMap);
     for (SkyKey missingDep : Sets.difference(depKeys, resultMap.keySet())) {
       resultWithMissingKeys.put(missingDep, null);

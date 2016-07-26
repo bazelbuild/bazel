@@ -19,11 +19,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
-
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
+import javax.annotation.Nullable;
 
 /**
  * An in-memory graph implementation. All operations are thread-safe with ConcurrentMap semantics.
@@ -51,15 +51,15 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public NodeEntry get(SkyKey skyKey) {
+  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey skyKey) {
     return nodeMap.get(skyKey);
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
+  public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
     ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
-      NodeEntry entry = get(key);
+      NodeEntry entry = get(null, Reason.OTHER, key);
       if (entry != null) {
         builder.put(key, entry);
       }
@@ -69,8 +69,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
-      Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
-    return getBatch(keys);
+      SkyKey requestor, Reason reason, Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
+    return getBatchForInvalidation(keys);
   }
 
   protected NodeEntry createIfAbsent(SkyKey key) {
@@ -80,7 +80,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
+  public Map<SkyKey, NodeEntry> createIfAbsentBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
     ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
       builder.put(key, createIfAbsent(key));

@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
-
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -91,8 +90,8 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-      return makeDeterministic(super.getBatch(keys));
+    public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
+      return makeDeterministic(super.getBatchForInvalidation(keys));
     }
   }
 
@@ -111,14 +110,18 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
-      return makeDeterministic(super.createIfAbsentBatch(keys));
+    public Map<SkyKey, NodeEntry> createIfAbsentBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      return makeDeterministic(super.createIfAbsentBatch(requestor, reason, keys));
     }
 
     @Override
     public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
-        Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
-      return makeDeterministic(super.getBatchWithFieldHints(keys, fields));
+        @Nullable SkyKey requestor,
+        Reason reason,
+        Iterable<SkyKey> keys,
+        EnumSet<NodeEntryField> fields) {
+      return makeDeterministic(super.getBatchWithFieldHints(requestor, reason, keys, fields));
     }
   }
 

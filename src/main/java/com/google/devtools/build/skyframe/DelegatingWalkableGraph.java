@@ -18,7 +18,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +39,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   private NodeEntry getEntry(SkyKey key) {
     NodeEntry entry =
         Preconditions.checkNotNull(
-            graph.getBatchWithFieldHints(ImmutableList.of(key), NodeEntryField.VALUE_ONLY).get(key),
+            graph.getBatchWithFieldHints(
+                null, Reason.OTHER, ImmutableList.of(key), NodeEntryField.VALUE_ONLY).get(key),
             key);
     Preconditions.checkState(entry.isDone(), "%s %s", key, entry);
     return entry;
@@ -48,7 +49,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   @Override
   public boolean exists(SkyKey key) {
     NodeEntry entry =
-        graph.getBatchWithFieldHints(ImmutableList.of(key), NodeEntryField.NO_FIELDS).get(key);
+        graph.getBatchWithFieldHints(
+            null, Reason.OTHER, ImmutableList.of(key), NodeEntryField.NO_FIELDS).get(key);
     return entry != null && entry.isDone();
   }
 
@@ -71,7 +73,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys) {
     return Maps.filterValues(
         Maps.transformValues(
-            graph.getBatchWithFieldHints(keys, NodeEntryField.VALUE_ONLY), GET_SKY_VALUE_FUNCTION),
+            graph.getBatchWithFieldHints(null, Reason.OTHER, keys, NodeEntryField.VALUE_ONLY),
+            GET_SKY_VALUE_FUNCTION),
         Predicates.notNull());
   }
 
@@ -79,7 +82,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   public Map<SkyKey, Exception> getMissingAndExceptions(Iterable<SkyKey> keys) {
     Map<SkyKey, Exception> result = new HashMap<>();
     Map<SkyKey, NodeEntry> graphResult =
-        graph.getBatchWithFieldHints(keys, NodeEntryField.VALUE_ONLY);
+        graph.getBatchWithFieldHints(null, Reason.OTHER, keys, NodeEntryField.VALUE_ONLY);
     for (SkyKey key : keys) {
       NodeEntry nodeEntry = graphResult.get(key);
       if (nodeEntry == null || !nodeEntry.isDone()) {
@@ -103,8 +106,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
 
   @Override
   public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys) {
-    Map<SkyKey, NodeEntry> entries =
-        graph.getBatchWithFieldHints(keys, EnumSet.of(NodeEntryField.DIRECT_DEPS));
+    Map<SkyKey, NodeEntry> entries = graph.getBatchWithFieldHints(
+        null, Reason.OTHER, keys, EnumSet.of(NodeEntryField.DIRECT_DEPS));
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Entry<SkyKey, NodeEntry> entry : entries.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);
@@ -115,8 +118,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
 
   @Override
   public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) {
-    Map<SkyKey, NodeEntry> entries =
-        graph.getBatchWithFieldHints(keys, EnumSet.of(NodeEntryField.REVERSE_DEPS));
+    Map<SkyKey, NodeEntry> entries = graph.getBatchWithFieldHints(
+        null, Reason.OTHER, keys, EnumSet.of(NodeEntryField.REVERSE_DEPS));
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Entry<SkyKey, NodeEntry> entry : entries.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);

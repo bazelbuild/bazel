@@ -18,7 +18,7 @@ import java.util.Map;
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
 interface InMemoryGraph extends ProcessableGraph, InvalidatableGraph {
   @Override
-  Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys);
+  Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys);
 
   /**
    * Returns a read-only live view of the nodes in the graph. All node are included. Dirty values

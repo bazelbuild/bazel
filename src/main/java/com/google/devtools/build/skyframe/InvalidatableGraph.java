@@ -30,5 +30,5 @@ public interface InvalidatableGraph {
    * {@code keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and
    * {@code !m.containsKey(k)} iff {@code get(k) == null}.
    */
-  Map<SkyKey, ? extends ThinNodeEntry> getBatch(Iterable<SkyKey> keys);
+  Map<SkyKey, ? extends ThinNodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys);
 }

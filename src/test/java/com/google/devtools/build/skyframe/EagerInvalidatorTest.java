@@ -39,7 +39,7 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvali
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationType;
-
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -93,7 +93,7 @@ public class EagerInvalidatorTest {
   boolean gcExpected() { throw new UnsupportedOperationException(); }
 
   private boolean isInvalidated(SkyKey key) {
-    NodeEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(null, Reason.OTHER, key);
     if (gcExpected()) {
       return entry == null;
     } else {
@@ -102,7 +102,7 @@ public class EagerInvalidatorTest {
   }
 
   private void assertChanged(SkyKey key) {
-    NodeEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(null, Reason.OTHER, key);
     if (gcExpected()) {
       assertNull(entry);
     } else {
@@ -111,7 +111,7 @@ public class EagerInvalidatorTest {
   }
 
   private void assertDirtyAndNotChanged(SkyKey key) {
-    NodeEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(null, Reason.OTHER, key);
     if (gcExpected()) {
       assertNull(entry);
     } else {
@@ -344,10 +344,12 @@ public class EagerInvalidatorTest {
         .setComputedValue(CONCATENATE);
     eval(false, skyKey("ab_c"), skyKey("bc"));
 
-    assertThat(graph.get(skyKey("a")).getReverseDeps()).containsExactly(skyKey("ab"));
-    assertThat(graph.get(skyKey("b")).getReverseDeps()).containsExactly(skyKey("ab"), skyKey("bc"));
-    assertThat(graph.get(skyKey("c")).getReverseDeps()).containsExactly(skyKey("ab_c"),
-        skyKey("bc"));
+    assertThat(graph.get(null, Reason.OTHER, skyKey("a"))
+        .getReverseDeps()).containsExactly(skyKey("ab"));
+    assertThat(graph.get(null, Reason.OTHER, skyKey("b"))
+        .getReverseDeps()).containsExactly(skyKey("ab"), skyKey("bc"));
+    assertThat(graph.get(null, Reason.OTHER, skyKey("c"))
+        .getReverseDeps()).containsExactly(skyKey("ab_c"), skyKey("bc"));
 
     invalidateWithoutError(null, skyKey("ab"));
     eval(false);
@@ -361,15 +363,18 @@ public class EagerInvalidatorTest {
     if (reverseDepsPresent()) {
       reverseDeps.add(skyKey("ab"));
     }
-    assertThat(graph.get(skyKey("a")).getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    assertThat(graph.get(null, Reason.OTHER, skyKey("a"))
+        .getReverseDeps()).containsExactlyElementsIn(reverseDeps);
     reverseDeps.add(skyKey("bc"));
-    assertThat(graph.get(skyKey("b")).getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    assertThat(graph.get(null, Reason.OTHER, skyKey("b"))
+        .getReverseDeps()).containsExactlyElementsIn(reverseDeps);
     reverseDeps.clear();
     if (reverseDepsPresent()) {
       reverseDeps.add(skyKey("ab_c"));
     }
     reverseDeps.add(skyKey("bc"));
-    assertThat(graph.get(skyKey("c")).getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    assertThat(graph.get(null, Reason.OTHER, skyKey("c"))
+        .getReverseDeps()).containsExactlyElementsIn(reverseDeps);
   }
 
   @Test
@@ -438,7 +443,7 @@ public class EagerInvalidatorTest {
     assertFalse(state.isEmpty());
     final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     assertFalse(isInvalidated(parent));
-    assertNotNull(graph.get(parent).getValue());
+    assertNotNull(graph.get(null, Reason.OTHER, parent).getValue());
     receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyKey skyKey, InvalidationState state) {

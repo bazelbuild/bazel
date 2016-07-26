@@ -19,7 +19,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
-
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -89,8 +88,10 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(Iterable<SkyKey> keys) {
-      return Maps.transformEntries(delegate.getBatch(keys), notifyingHelper.wrapEntry);
+    public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
+      return Maps.transformEntries(
+          delegate.getBatchForInvalidation(keys),
+          notifyingHelper.wrapEntry);
     }
   }
 
@@ -114,24 +115,31 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> createIfAbsentBatch(Iterable<SkyKey> keys) {
+    public Map<SkyKey, NodeEntry> createIfAbsentBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
       }
-      return Maps.transformEntries(delegate.createIfAbsentBatch(keys), notifyingHelper.wrapEntry);
+      return Maps.transformEntries(
+          delegate.createIfAbsentBatch(requestor, reason, keys),
+          notifyingHelper.wrapEntry);
     }
 
     @Override
     public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
-        Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
+        @Nullable SkyKey requestor,
+        Reason reason,
+        Iterable<SkyKey> keys,
+        EnumSet<NodeEntryField> fields) {
       return Maps.transformEntries(
-          delegate.getBatchWithFieldHints(keys, fields), notifyingHelper.wrapEntry);
+          delegate.getBatchWithFieldHints(requestor, reason, keys, fields),
+          notifyingHelper.wrapEntry);
     }
 
     @Nullable
     @Override
-    public NodeEntry get(SkyKey key) {
-      return notifyingHelper.wrapEntry(key, delegate.get(key));
+    public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+      return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
   }
 
