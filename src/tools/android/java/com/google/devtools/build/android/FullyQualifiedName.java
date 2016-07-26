@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.ResourceQualifier;
+import com.android.resources.ResourceType;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -20,11 +23,6 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
-
-import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.ResourceQualifier;
-import com.android.resources.ResourceType;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -40,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import javax.annotation.CheckReturnValue;
 import javax.annotation.concurrent.Immutable;
 
@@ -50,7 +47,7 @@ import javax.annotation.concurrent.Immutable;
  * Each resource name consists of the resource package, name, type, and qualifiers.
  */
 @Immutable
-public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedName> {
+public class FullyQualifiedName implements DataKey {
   public static final String DEFAULT_PACKAGE = "res-auto";
   private static final Joiner DASH_JOINER = Joiner.on('-');
 
@@ -440,7 +437,11 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
   }
 
   @Override
-  public int compareTo(FullyQualifiedName other) {
+  public int compareTo(DataKey otherKey) {
+    if (!(otherKey instanceof FullyQualifiedName)) {
+      return getKeyType().compareTo(otherKey.getKeyType());
+    }
+    FullyQualifiedName other = (FullyQualifiedName) otherKey;
     if (!pkg.equals(other.pkg)) {
       return pkg.compareTo(other.pkg);
     }
@@ -458,6 +459,11 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       return qualifiers.toString().compareTo(other.qualifiers.toString());
     }
     return 0;
+  }
+
+  @Override
+  public KeyType getKeyType() {
+    return KeyType.FULL_QUALIFIED_NAME;
   }
 
   @Override

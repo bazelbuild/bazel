@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.android.proto.SerializeFormat;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.FileSystem;
@@ -32,7 +31,7 @@ import java.util.Objects;
  *
  * Note: Assets have no qualifiers or packages.
  */
-public class RelativeAssetPath implements DataKey, Comparable<RelativeAssetPath> {
+public class RelativeAssetPath implements DataKey {
   /**
    * A Factory that creates RelativeAssetsPath objects whose paths are relative to a given path.
    */
@@ -103,8 +102,17 @@ public class RelativeAssetPath implements DataKey, Comparable<RelativeAssetPath>
   }
 
   @Override
-  public int compareTo(RelativeAssetPath relativeAssetPath) {
-    return this.relativeAssetPath.compareTo(relativeAssetPath.relativeAssetPath);
+  public int compareTo(DataKey otherKey) {
+    if (!(otherKey instanceof RelativeAssetPath)) {
+      return getKeyType().compareTo(otherKey.getKeyType());
+    }
+    RelativeAssetPath otherAssetPath = (RelativeAssetPath) otherKey;
+    return this.relativeAssetPath.compareTo(otherAssetPath.relativeAssetPath);
+  }
+
+  @Override
+  public KeyType getKeyType() {
+    return KeyType.ASSET_PATH;
   }
 
   @Override
