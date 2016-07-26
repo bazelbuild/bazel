@@ -80,7 +80,7 @@ const char* GetUnaryOption(const char *arg,
 
 // Returns true iff 'arg' equals 'key'.
 // Dies with a syntax error if arg starts with 'key='.
-// Returns NULL otherwise.
+// Returns false otherwise.
 bool GetNullaryOption(const char *arg, const char *key);
 
 // Enable messages mostly of interest to developers.
