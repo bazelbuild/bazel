@@ -117,10 +117,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  /**
-   * A RuleAspect that just wraps a pre-existing Aspect that doesn't vary with the Rule.
-   * For instance, this may come from a DeserializedSkylarkAspect.
-   */
+  /** A RuleAspect that just wraps a pre-existing Aspect that doesn't vary with the Rule. */
   private static class PredefinedRuleAspect extends RuleAspect<AspectClass> {
     private Aspect aspect;
 
