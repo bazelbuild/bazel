@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -133,7 +134,6 @@ public final class CcLibraryHelper {
             Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
             Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
             Link.LinkTargetType.EXECUTABLE.getActionName()));
-
 
     private final FileTypeSet sourceTypeSet;
     private final Set<String> actionConfigSet;
@@ -851,8 +851,10 @@ public final class CcLibraryHelper {
 
   /**
    * Create the C++ compile and link actions, and the corresponding C++-related providers.
+   *
+   * @throws RuleErrorException
    */
-  public Info build() {
+  public Info build() throws RuleErrorException {
     // Fail early if there is no lipo context collector on the rule - otherwise we end up failing
     // in lipo optimization.
     Preconditions.checkState(
@@ -1038,14 +1040,16 @@ public final class CcLibraryHelper {
 
     if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
       archiveFile.add(
-          CppHelper.getLinkedArtifact(ruleContext, Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY));
+          CppHelper.getLinuxLinkedArtifact(
+              ruleContext, Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY));
     } else {
-      archiveFile.add(CppHelper.getLinkedArtifact(ruleContext, Link.LinkTargetType.STATIC_LIBRARY));
+      archiveFile.add(
+          CppHelper.getLinuxLinkedArtifact(ruleContext, Link.LinkTargetType.STATIC_LIBRARY));
     }
 
     if (CppRuleClasses.shouldCreateDynamicLibrary(ruleContext.attributes())) {
       dynamicLibrary.add(
-          CppHelper.getLinkedArtifact(ruleContext, Link.LinkTargetType.DYNAMIC_LIBRARY));
+          CppHelper.getLinuxLinkedArtifact(ruleContext, Link.LinkTargetType.DYNAMIC_LIBRARY));
     }
 
     outputGroups.put("archive", archiveFile.build());

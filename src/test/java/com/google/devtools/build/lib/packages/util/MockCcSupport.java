@@ -209,6 +209,27 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String STATIC_LINK_AS_LIB_CONFIGURATION =
+      ""
+          + "artifact_name_pattern {"
+          + "   category_name: 'static_library'"
+          + "   pattern: '%{base_name}.lib'"
+          + "}";
+
+  public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
+      ""
+          + "artifact_name_pattern {"
+          + "   category_name: 'static_library'"
+          + "   pattern: 'lib%{base_name}.a'"
+          + "}";
+
+  public static final String STATIC_LINK_BAD_TEMPLATE_CONFIGURATION =
+      ""
+          + "artifact_name_pattern {"
+          + "   category_name: 'static_library'"
+          + "   pattern: 'foo%{bad_variable}bar'"
+          + "}";
+
   /** Filter to remove implicit dependencies of C/C++ rules. */
   private final Predicate<Label> ccLabelFilter =
       new Predicate<Label>() {

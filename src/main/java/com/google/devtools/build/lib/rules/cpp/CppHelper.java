@@ -324,10 +324,8 @@ public class CppHelper {
         src.getRoot());
   }
 
-  /**
-   * Returns the linked artifact.
-   */
-  public static Artifact getLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType) {
+  /** Returns the linked artifact for linux. */
+  public static Artifact getLinuxLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
       name = name.replaceName("lib" + name.getBaseName() + linkType.getExtension());

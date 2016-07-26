@@ -208,6 +208,20 @@ message CToolchain {
     repeated string execution_requirement = 3;
   }
 
+  // The name for an artifact of a given category of input or output artifacts
+  // to an action.
+  message ArtifactNamePattern {
+    // The category of artifacts that this selection applies to.  This field
+    // is compared against a list of categories defined in bazel. Example
+    // categories include "linked_output" or "debug_symbols". An error is thrown
+    // if no category is matched.
+    required string category_name = 1;
+    // The pattern for creating the artifact for this selection.  The given
+    // pattern is templated by bazel and then used to create an artifact in
+    // a target-specific directory in bazel-bin.
+    required string pattern = 2;
+  }
+
   // An action config corresponds to a blaze action, and allows selection of
   // a tool based on activated features.  Action configs come in two varieties:
   // automatic (the blaze action will exist whether or not the action config
@@ -217,6 +231,7 @@ message CToolchain {
   // Action config activation occurs by the same semantics as features: a
   // feature can 'require' or 'imply' an action config in the same way that it
   // would another feature.
+  // Next ID: 8
   message ActionConfig {
     // The name other features will use to activate this action config.  Can
     // be the same as action_name.
@@ -261,6 +276,7 @@ message CToolchain {
 
   repeated Feature feature = 50;
   repeated ActionConfig action_config = 53;
+  repeated ArtifactNamePattern artifact_name_pattern = 54;
 
   // The unique identifier of the toolchain within the crosstool release. It
   // must be possible to use this as a directory name in a path.
@@ -401,7 +417,7 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 54
+  // Next free id: 55
 }
 
 message ToolPath {

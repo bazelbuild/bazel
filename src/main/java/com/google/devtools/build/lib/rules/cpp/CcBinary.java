@@ -156,8 +156,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return CcBinary.init(semantics, context, /*fake =*/ false, /*isTest =*/ false);
   }
 
-  public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake,
-      boolean isTest) throws InterruptedException {
+  public static ConfiguredTarget init(
+      CppSemantics semantics, RuleContext ruleContext, boolean fake, boolean isTest)
+      throws InterruptedException, RuleErrorException {
     ruleContext.checkSrcsSamePackage(true);
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
     CcCommon common = new CcCommon(ruleContext);

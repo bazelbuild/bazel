@@ -106,12 +106,16 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  public static void init(CppSemantics semantics, RuleContext ruleContext,
-      RuleConfiguredTargetBuilder targetBuilder, LinkTargetType linkType,
+  public static void init(
+      CppSemantics semantics,
+      RuleContext ruleContext,
+      RuleConfiguredTargetBuilder targetBuilder,
+      LinkTargetType linkType,
       boolean neverLink,
       boolean linkStatic,
       boolean collectLinkstamp,
-      boolean addDynamicRuntimeInputArtifactsToRunfiles) {
+      boolean addDynamicRuntimeInputArtifactsToRunfiles)
+      throws RuleErrorException {
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
     final CcCommon common = new CcCommon(ruleContext);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
@@ -186,19 +190,19 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // doesn't support it, then register an action which complains when triggered,
     // which only happens when some rule explicitly depends on the dynamic library.
     if (!createDynamicLibrary && !supportsDynamicLinker) {
-      Artifact solibArtifact = CppHelper.getLinkedArtifact(
-          ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
+      Artifact solibArtifact =
+          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           ImmutableList.of(solibArtifact), "Toolchain does not support dynamic linking"));
     } else if (!createDynamicLibrary
         && ruleContext.attributes().isConfigurable("srcs", BuildType.LABEL_LIST)) {
-    // If "srcs" is configurable, the .so output is always declared because the logic that
-    // determines implicit outs doesn't know which value of "srcs" will ultimately get chosen. Here,
-    // where we *do* have the correct value, it may not contain any source files to generate an
-    // .so with. If that's the case, register a fake generating action to prevent a "no generating
-    // action for this artifact" error.
-      Artifact solibArtifact = CppHelper.getLinkedArtifact(
-          ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
+      // If "srcs" is configurable, the .so output is always declared because the logic that
+      // determines implicit outs doesn't know which value of "srcs" will ultimately get chosen. 
+      // Here, where we *do* have the correct value, it may not contain any source files to 
+      // generate an .so with. If that's the case, register a fake generating action to prevent 
+      // a "no generating action for this artifact" error.
+      Artifact solibArtifact =
+          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           ImmutableList.of(solibArtifact), "configurable \"srcs\" triggers an implicit .so output "
           + "even though there are no sources to compile in this configuration"));
