@@ -95,6 +95,11 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             .allowedFileTypes(/*May not have files in exports!*/)
             .aspect(jackAspect)
             .aspect(androidNeverlinkAspect))
+        /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports_manifest) -->
+        Whether to export manifest entries to <code>android_binary</code> targets
+        that depend on this target. <code>uses-permissions</code> attributes are never exported.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("exports_manifest", BOOLEAN).value(false))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.

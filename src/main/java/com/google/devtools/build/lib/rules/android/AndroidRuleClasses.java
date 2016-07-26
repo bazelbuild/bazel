@@ -435,11 +435,6 @@ public final class AndroidRuleClasses {
           Must be defined if resource_files or assets are defined.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("manifest", LABEL).legacyAllowAnyFileType())
-          /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(exports_manifest) -->
-          Whether to export manifest entries to <code>android_binary</code> targets
-          that depend on this target. <code>uses-permissions</code> attributes are never exported.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("exports_manifest", BOOLEAN).value(false))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(resource_files) -->
           The list of resources to be packaged.
           This is typically a <code>glob</code> of all files under the
