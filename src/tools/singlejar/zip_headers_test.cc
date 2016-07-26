@@ -18,12 +18,10 @@
 
 namespace {
 
-class ZipHeadersTest : public ::testing::Test {
-};
+const uint8_t kPoison = 0xFB;
 
-TEST_F(ZipHeadersTest, LocalHeader) {
+TEST(ZipHeadersTest, LocalHeader) {
   uint8_t bytes[256];
-  const uint8_t kPoison = 0xFB;
   memset(bytes, kPoison, sizeof(bytes));
   LH *lh = reinterpret_cast<LH *>(bytes);
 
@@ -93,9 +91,8 @@ TEST_F(ZipHeadersTest, LocalHeader) {
   EXPECT_EQ(kPoison, *lh->data());
 }
 
-TEST_F(ZipHeadersTest, CentralDirectoryHeader) {
+TEST(ZipHeadersTest, CentralDirectoryHeader) {
   uint8_t bytes[256];
-  const uint8_t kPoison = 0xFB;
   memset(bytes, kPoison, sizeof(bytes));
   CDH *cdh = reinterpret_cast<CDH *>(bytes);
 
@@ -207,9 +204,8 @@ TEST_F(ZipHeadersTest, CentralDirectoryHeader) {
   EXPECT_EQ(42, cdh->local_header_offset());
 }
 
-TEST_F(ZipHeadersTest, ECD64Locator) {
+TEST(ZipHeadersTest, ECD64Locator) {
   uint8_t bytes[256];
-  const uint8_t kPoison = 0xFB;
   memset(bytes, kPoison, sizeof(bytes));
   ECD64Locator *ecd64loc = reinterpret_cast<ECD64Locator *>(bytes);
 
@@ -223,9 +219,8 @@ TEST_F(ZipHeadersTest, ECD64Locator) {
   EXPECT_EQ(213456, ecd64loc->total_disks());
 }
 
-TEST_F(ZipHeadersTest, Zip64EndOfCentralDirectory) {
+TEST(ZipHeadersTest, Zip64EndOfCentralDirectory) {
   uint8_t bytes[256];
-  const uint8_t kPoison = 0xFB;
   memset(bytes, kPoison, sizeof(bytes));
 
   ECD64 *ecd64 = reinterpret_cast<ECD64 *>(bytes);
@@ -251,9 +246,8 @@ TEST_F(ZipHeadersTest, Zip64EndOfCentralDirectory) {
   EXPECT_EQ(11000000000, ecd64->cen_offset());
 }
 
-TEST_F(ZipHeadersTest, EndOfCentralDirectory) {
+TEST(ZipHeadersTest, EndOfCentralDirectory) {
   uint8_t bytes[256];
-  const uint8_t kPoison = 0xFB;
   memset(bytes, kPoison, sizeof(bytes));
   ECD64Locator *ecd64loc = reinterpret_cast<ECD64Locator *>(bytes);
   ECD *ecd = reinterpret_cast<ECD *>(bytes + sizeof(ECD64Locator));
@@ -285,6 +279,21 @@ TEST_F(ZipHeadersTest, EndOfCentralDirectory) {
   ecd64loc->signature();
   ecd64loc->ecd64_offset(9876543210);
   EXPECT_EQ(9876543210, ecd->ecd64_offset());
+}
+
+TEST(ZipHeadersTest, Zip64ExtraFieldTest) {
+  uint8_t bytes[256];
+  memset(bytes, kPoison, sizeof(bytes));
+  Zip64ExtraField *z64 = reinterpret_cast<Zip64ExtraField *>(bytes);
+
+  z64->signature();
+  EXPECT_TRUE(z64->is());
+  z64->payload_size(16);
+  z64->attr64(0, 9876543210);
+  EXPECT_EQ(9876543210, z64->attr64(0));
+  z64->attr64(1, 8976543210);
+  EXPECT_EQ(8976543210, z64->attr64(1));
+  EXPECT_EQ(kPoison, bytes[z64->size()]);
 }
 
 }  // namespace

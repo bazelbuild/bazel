@@ -104,6 +104,7 @@ class Zip64ExtraField {
 
   // The value of i-th attribute
   uint64_t attr64(int index) const { return le64toh(attr_[index]); }
+  void attr64(int index, uint64_t v) { attr_[index] = htole64(v); }
 
  private:
   uint16_t tag_;
