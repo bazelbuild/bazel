@@ -33,6 +33,7 @@ import java.util.List;
 public class ResourceShrinkerActionBuilder {
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
+  private Artifact proguardMapping;
   private ResourceContainer primaryResources;
   private ResourceDependencies dependencyResources;
   private Artifact resourceApkOut;
@@ -85,6 +86,14 @@ public class ResourceShrinkerActionBuilder {
    */
   public ResourceShrinkerActionBuilder withShrunkJar(Artifact shrunkJar) {
     this.shrunkJar = shrunkJar;
+    return this;
+  }
+
+  /**
+   * @param proguardMapping The Proguard mapping between obfuscated and original code.
+   */
+  public ResourceShrinkerActionBuilder withProguardMapping(Artifact proguardMapping) {
+    this.proguardMapping = proguardMapping;
     return this;
   }
 
@@ -173,6 +182,11 @@ public class ResourceShrinkerActionBuilder {
 
     commandLine.addExecPath("--shrunkJar", shrunkJar);
     inputs.add(shrunkJar);
+
+    if (proguardMapping != null) {
+      commandLine.addExecPath("--proguardMapping", proguardMapping);
+      inputs.add(proguardMapping);
+    }
 
     commandLine.addExecPath("--rTxt", primaryResources.getRTxt());
     inputs.add(primaryResources.getRTxt());

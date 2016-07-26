@@ -93,40 +93,46 @@ import javax.xml.parsers.ParserConfigurationException;
 /**
  * Class responsible for searching through a Gradle built tree (after resource merging, compilation
  * and ProGuarding has been completed, but before final .apk assembly), which figures out which
- * resources if any are unused, and removes them. <p> It does this by examining <ul> <li>The merged
- * manifest, to find root resource references (such as drawables used for activity icons)</li>
- * <li>The merged R class (to find the actual integer constants assigned to resources)</li> <li>The
- * ProGuard log files (to find the mapping from original symbol names to short names)</li>* <li>The
- * merged resources (to find which resources reference other resources, e.g. drawable state lists
- * including other drawables, or layouts including other layouts, or styles referencing other
- * drawables, or menus items including action layouts, etc.)</li> <li>The ProGuard output classes
- * (to find resource references in code that are actually reachable)</li> </ul> From all this, it
- * builds up a reference graph, and based on the root references (e.g. from the manifest and from
- * the remaining code) it computes which resources are actually reachable in the app, and anything
- * that is not reachable is then marked for deletion. <p> A resource is referenced in code if either
- * the field R.type.name is referenced (which is the case for non-final resource references, e.g. in
- * libraries), or if the corresponding int value is referenced (for final resource values). We check
- * this by looking at the ProGuard output classes with an ASM visitor. One complication is that code
- * can also call {@code Resources#getIdentifier(String,String,String)} where they can pass in the
- * names of resources to look up. To handle this scenario, we use the ClassVisitor to see if there
- * are any calls to the specific {@code Resources#getIdentifier} method. If not, great, the usage
- * analysis is completely accurate. If we <b>do</b> find one, we check <b>all</b> the string
- * constants found anywhere in the app, and look to see if any look relevant. For example, if we
- * find the string "string/foo" or "my.pkg:string/foo", we will then mark the string resource named
- * foo (if any) as potentially used. Similarly, if we find just "foo" or "/foo", we will mark
- * <b>all</b> resources named "foo" as potentially used. However, if the string is "bar/foo" or "
- * foo " these strings are ignored. This means we can potentially miss resources usages where the
- * resource name is completed computed (e.g. by concatenating individual characters or taking
- * substrings of strings that do not look like resource names), but that seems extremely unlikely to
- * be a real-world scenario. <p> For now, for reasons detailed in the code, this only applies to
- * file-based resources like layouts, menus and drawables, not value-based resources like strings
- * and dimensions.
+ * resources if any are unused, and removes them.
+ * <p>It does this by examining
+ * <ul>
+ *   <li>The merged manifest, to find root resource references (such as drawables used for activity
+ *       icons)</li>
+ *   <li>The R.txt file (to find the actual integer constants assigned to resources)</li>
+ *   <li>The ProGuard log files (to find the mapping from original symbol names to short names)</li>
+ *   <li>The merged resources (to find which resources reference other resources, e.g. drawable
+ *       state lists including other drawables, or layouts including other layouts, or styles
+ *       referencing other drawables, or menus items including action layouts, etc.)</li>
+ *   <li>The ProGuard output classes (to find resource references in code that are actually
+ *       reachable)</li>
+ * </ul>
+ * From all this, it builds up a reference graph, and based on the root references (e.g. from the
+ * manifest and from the remaining code) it computes which resources are actually reachable in the
+ * app, and anything that is not reachable is then marked for deletion.
+ * <p>A resource is referenced in code if either the field R.type.name is referenced (which is the
+ * case for non-final resource references, e.g. in libraries), or if the corresponding int value is
+ * referenced (for final resource values). We check this by looking at the ProGuard output classes
+ * with an ASM visitor. One complication is that code can also call
+ * {@code Resources#getIdentifier(String,String,String)} where they can pass in the names of
+ * resources to look up. To handle this scenario, we use the ClassVisitor to see if there are any
+ * calls to the specific {@code Resources#getIdentifier} method. If not, great, the usage analysis
+ * is completely accurate. If we <b>do</b> find one, we check <b>all</b> the string constants found
+ * anywhere in the app, and look to see if any look relevant. For example, if we find the string
+ * "string/foo" or "my.pkg:string/foo", we will then mark the string resource named foo (if any) as
+ * potentially used. Similarly, if we find just "foo" or "/foo", we will mark <b>all</b> resources
+ * named "foo" as potentially used. However, if the string is "bar/foo" or " foo " these strings are
+ * ignored. This means we can potentially miss resources usages where the resource name is completed
+ * computed (e.g. by concatenating individual characters or taking substrings of strings that do not
+ * look like resource names), but that seems extremely unlikely to be a real-world scenario. <p> For
+ * now, for reasons detailed in the code, this only applies to file-based resources like layouts,
+ * menus and drawables, not value-based resources like strings and dimensions.
  */
 public class ResourceShrinker {
 
   public static final int TYPICAL_RESOURCE_COUNT = 200;
   private final Set<String> resourcePackages;
   private final Path rTxt;
+  private final Path proguardMapping;
   private final Path classesJar;
   private final Path mergedManifest;
   private final Path mergedResourceDir;
@@ -162,10 +168,12 @@ public class ResourceShrinker {
       @NonNull Path rTxt,
       @NonNull Path classesJar,
       @NonNull Path manifest,
+      @Nullable Path mapping,
       @NonNull Path resources,
       Path logFile) {
     this.resourcePackages = resourcePackages;
     this.rTxt = rTxt;
+    this.proguardMapping = mapping;
     this.classesJar = classesJar;
     this.mergedManifest = manifest;
     this.mergedResourceDir = resources;
@@ -191,6 +199,7 @@ public class ResourceShrinker {
   public void shrink(Path destinationDir) throws IOException,
       ParserConfigurationException, SAXException {
     parseResourceTxtFile(rTxt, resourcePackages);
+    recordMapping(proguardMapping);
     recordUsages(classesJar);
     recordManifestUsages(mergedManifest);
     recordResources(mergedResourceDir);
@@ -662,6 +671,39 @@ public class ResourceShrinker {
           recordResourcesUsages(file, isDefaultFolder, from);
         }
       }
+    }
+  }
+
+  private void recordMapping(@Nullable Path mapping) throws IOException {
+    if (mapping == null || !mapping.toFile().exists()) {
+      return;
+    }
+    final String arrowIndicator = " -> ";
+    final String resourceIndicator = ".R$";
+    for (String line : Files.readLines(mapping.toFile(), UTF_8)) {
+      if (line.startsWith(" ") || line.startsWith("\t")) {
+        continue;
+      }
+      int index = line.indexOf(resourceIndicator);
+      if (index == -1) {
+        continue;
+      }
+      int arrow = line.indexOf(arrowIndicator, index + 3);
+      if (arrow == -1) {
+        continue;
+      }
+      String typeName = line.substring(index + resourceIndicator.length(), arrow);
+      ResourceType type = ResourceType.getEnum(typeName);
+      if (type == null) {
+        continue;
+      }
+      int end = line.indexOf(':', arrow + arrowIndicator.length());
+      if (end == -1) {
+        end = line.length();
+      }
+      String target = line.substring(arrow + arrowIndicator.length(), end).trim();
+      String ownerName = target.replace('.', '/');
+      resourceClassOwners.put(ownerName, type);
     }
   }
 

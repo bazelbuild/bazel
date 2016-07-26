@@ -81,6 +81,13 @@ public class ResourceShrinkerAction {
         help = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
     public Path shrunkJar;
 
+    @Option(name = "proguardMapping",
+        defaultValue = "null",
+        category = "input",
+        converter = PathConverter.class,
+        help = "Path to the Proguard obfuscation mapping of shrunkJar.")
+    public Path proguardMapping;
+
     @Option(name = "resources",
         defaultValue = "null",
         category = "input",
@@ -201,6 +208,7 @@ public class ResourceShrinkerAction {
           options.rTxt,
           options.shrunkJar,
           options.primaryManifest,
+          options.proguardMapping,
           resourceFiles.resolve("res"),
           options.log);
 
