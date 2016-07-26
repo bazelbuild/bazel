@@ -4,3 +4,12 @@ paginate: 10
 highlighter: pygments
 sass:
   sass_dir: _sass
+
+default_version: "master"
+defaults:
+  -
+    scope:
+      path: "versions/master"
+    values:
+      version_prefix: "/versions/master"
+

@@ -25,13 +25,13 @@
           </form>
           <ul class="nav navbar-nav navbar-right">
             <li{% if page.nav == "docs" %} class="active"{% endif %}>
-              <a href="/docs/install.html">Docs</a>
+              <a href="{{ page.version_prefix }}/docs/install.html">Docs</a>
             </li>
             <li{% if page.nav == "contribute" %} class="active"{% endif %}>
-              <a href="/contributing.html">Contribute!</a>
+              <a href="{{ page.version_prefix }}/contributing.html">Contribute!</a>
             </li>
             <li{% if page.nav == "faq" %} class="active"{% endif %}>
-              <a href="/faq.html">FAQ</a></li>
+              <a href="{{ page.version_prefix }}/faq.html">FAQ</a></li>
             <li{% if page.nav == "blog" %} class="active"{% endif %}>
               <a href="/blog">Blog</a>
             </li>
