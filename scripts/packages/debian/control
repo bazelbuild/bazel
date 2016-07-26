@@ -1,0 +1,20 @@
+Source: bazel
+Section: contrib/devel
+Priority: optional
+Maintainer: The Bazel Authors <bazel-dev@googlegroups.com>
+Build-Depends: dpkg-dev, devscripts
+Standards-Version: 3.9.6
+
+Package: bazel
+Section: contrib/devel
+Priority: optional
+Architecture: amd64
+Depends: java8-jdk | java8-sdk, pkg-config, zip, g++, zlib1g-dev,
+ unzip, bash-completion
+Conflicts: openjdk-9-jdk
+Description: Bazel is a tool that automates software builds and tests.
+ Supported build tasks include running compilers and linkers to produce
+ executable programs and libraries, and assembling deployable packages
+ for Android, iOS and other target environments. Bazel is similar to
+ other tools like Make, Ant, Gradle, Buck, Pants and Maven.
+Homepage: http://bazel.io
