@@ -179,7 +179,7 @@ ERROR: Analysis of target '//src/main/java/com/example/cmdline:runner' failed; b
 INFO: Elapsed time: 0.091s
 {% endhighlight %}
 
-You can make a rule visibile to rules in other BUILD files by adding a
+You can make a rule visible to rules in other BUILD files by adding a
 `visibility = level` attribute.  Change the `greeter` rule in
 `~/gitroot/my-project/BUILD` to be visible to our new rule:
 

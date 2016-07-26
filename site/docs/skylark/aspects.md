@@ -74,7 +74,7 @@ of the original graph.
 
 ## Defining aspects
 
-Aspect defintions are similiar to rule definitions. Let's take a look at
+Aspect definitions are similiar to rule definitions. Let's take a look at
 the example:
 
 ```python
@@ -157,7 +157,7 @@ Aspect propagation can be initiated either from a rule or from the command line.
 
 ### Applying aspects to rule attributes
 
-Rules can specify that they want to apply aspects to their depenedencies.
+Rules can specify that they want to apply aspects to their dependencies.
 The aspects to be applied to a particular attribute can be specified
 using the `aspects` parameter to `attr.label` or `attr.label_list` function:
 
@@ -170,8 +170,8 @@ metal_proto_library = rule(implementation = _impl,
 ```
 
 If a rule specifies an aspect on its attributes, the values of that attribute
-will be replaced by the result of aspect application to them (similiar to
-what happens during aspect propagation). Thus implementaion of
+will be replaced by the result of aspect application to them (similar to
+what happens during aspect propagation). Thus implementation of
 `metal_proto_library` will have access to `metal_proto` providers
 on the target objects representing its `proto_deps` attribute values.
 

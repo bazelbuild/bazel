@@ -135,7 +135,7 @@ public abstract class Location implements Serializable {
    *
    * <p>This method is intentionally abstract, as a space optimisation.  Some
    * subclass instances implement sharing of common data (e.g. tables for
-   * convering offsets into line numbers) and this enables them to share the
+   * converting offsets into line numbers) and this enables them to share the
    * Path value in the same way.
    */
   public abstract PathFragment getPath();

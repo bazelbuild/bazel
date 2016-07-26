@@ -186,7 +186,7 @@ on the `flour` library.
 ## Adding include paths
 
 Sometimes you cannot (or do not want to) base include paths at the workspace
-root. Existing libaries might already have a include directory that doesn't
+root. Existing libraries might already have a include directory that doesn't
 match its path in your workspace.  For example, suppose you have the following
 directory structure:
 

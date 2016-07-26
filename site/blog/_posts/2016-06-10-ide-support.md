@@ -35,7 +35,7 @@ In the 0.3.0 Bazel release, we are adding a new concept to Bazel -
 [_aspects_](/docs/skylark/aspects.html).
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Applying an aspect to a build target creates a "shadow
-dependency graph" reflecting all transitive depenedencies of that target,
+dependency graph" reflecting all transitive dependencies of that target,
 and the aspect's implementation determines the actions that Bazel executes
 while traversing that graph.
 The [documentation on aspects](/docs/skylark/aspects.html) explains this in more

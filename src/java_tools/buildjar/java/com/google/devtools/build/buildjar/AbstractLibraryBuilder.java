@@ -17,7 +17,6 @@ package com.google.devtools.build.buildjar;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,8 +38,8 @@ import java.util.zip.ZipFile;
 public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor {
 
   /**
-   * Prepares a compilation run. This involves cleaning up temporary dircectories and
-   * writing the classpath files.
+   * Prepares a compilation run. This involves cleaning up temporary directories and writing the
+   * classpath files.
    */
   protected void prepareSourceCompilation(JavaLibraryBuildRequest build) throws IOException {
     File classDirectory = new File(build.getClassDir());

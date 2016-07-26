@@ -235,7 +235,7 @@ docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks
             that target. It is used for incremental loading of the layer.
         </p>
         <p>
-            <b>Note:</b> this target is not suitable for direct comsumption.
+            <b>Note:</b> this target is not suitable for direct consumption.
             It is used for incremental loading and non-docker rules should
             depends on the docker image (<i>name</i>.tar) instead.
         </p>

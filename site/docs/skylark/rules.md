@@ -37,7 +37,7 @@ A custom rule can be used just like a native rule. It has a mandatory `name`
 attribute, you can refer to it with a label, and you can see it in
 `bazel query`.
 
-The rule is analyzed when you explictly build it, or if it is a dependency of
+The rule is analyzed when you explicitly build it, or if it is a dependency of
 the build. In this case, Bazel will execute its `implementation` function. This
 function decides what the outputs of the rule are and how to build them (using
 `actions`). During analysis, no external command can be executed: actions will
@@ -327,7 +327,7 @@ def rule_implementation(ctx):
 ```
 
 A dependent rule might access these data as struct fields of the `target` being
-dependened upon:
+depended upon:
 
 ```python
 def dependent_rule_implementation(ctx):

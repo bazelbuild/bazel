@@ -394,7 +394,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   /**
-   * Subclasses may override this to make dynamic decisiouns about whether to run tasks
+   * Subclasses may override this to make dynamic decisions about whether to run tasks
    * asynchronously versus in-thread.
    */
   protected boolean runConcurrently() {

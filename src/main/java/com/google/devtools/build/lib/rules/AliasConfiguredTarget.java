@@ -94,7 +94,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     if (name.equals("label")) {
       return getLabel();
     } else if (name.equals("files")) {
-      // A shortcut for files to build in Skylark. FileConfiguredTarget and RunleConfiguredTarget
+      // A shortcut for files to build in Skylark. FileConfiguredTarget and RuleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
       // accessible in Skylark.
       return SkylarkNestedSet.of(Artifact.class, actual == null

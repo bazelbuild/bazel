@@ -225,7 +225,7 @@ These rules and features have known limitations that we will likely address in f
       <td><code>environment_group</code></td>
       <td>
         <ul>
-          <li>We're planning to use it more extensively, replacing several machine-enforable
+          <li>We're planning to use it more extensively, replacing several machine-enforceable
             constraint mechanism, but there's only a handful of uses so far. We fully expect it to
             work, but there's a small chance that we have to go back to the drawing board.</li>
         </ul>

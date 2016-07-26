@@ -172,7 +172,7 @@ though the rules were written by the Bazel team, i.e., by the domain experts.
 
 To make matters worse, apart from the requirements imposed by Skyframe, the
 historical constraints of using Java, and the outdatedness of the rules API,
-accidentally introducting quadratic time or memory consumption is a fundamental
+accidentally introducing quadratic time or memory consumption is a fundamental
 problem in any build system based on library and binary rules. There are two
 very common patterns that introduce quadratic memory consumption (and therefore
 quadratic time consumption).

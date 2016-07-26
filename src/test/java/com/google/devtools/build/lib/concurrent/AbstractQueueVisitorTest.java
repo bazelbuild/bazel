@@ -373,7 +373,7 @@ public class AbstractQueueVisitorTest {
         latch1.countDown();
         try {
           // Interruption is expected during a sleep. There is no sense in fail or assert call
-          // because exception is going to be swallowed inside AbstractQueueVisitior.
+          // because exception is going to be swallowed inside AbstractQueueVisitor.
           // We are using wasInterrupted flag to assert in the end of test.
           Thread.sleep(1000);
         } catch (InterruptedException e) {

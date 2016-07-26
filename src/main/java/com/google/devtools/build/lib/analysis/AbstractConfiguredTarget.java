@@ -98,7 +98,7 @@ public abstract class AbstractConfiguredTarget
       case LABEL_FIELD:
         return getLabel();
       case FILES_FIELD:
-        // A shortcut for files to build in Skylark. FileConfiguredTarget and RunleConfiguredTarget
+        // A shortcut for files to build in Skylark. FileConfiguredTarget and RuleConfiguredTarget
         // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
         // accessible in Skylark.
         return SkylarkNestedSet.of(

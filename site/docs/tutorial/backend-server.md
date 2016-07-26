@@ -80,7 +80,7 @@ appengine_repositories()
 
 [`git_repository`](/docs/be/workspace.html#git_repository) downloads the
 AppEngine rules from GitHub, then the next two lines use the
-`appengine_repostories` function defined in these rules to download the
+`appengine_repositories` function defined in these rules to download the
 libraries and SDK needed to build AppEngine applications.
 
 Now, save and close the file. You can compare your `WORKSPACE` file to the

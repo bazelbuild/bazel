@@ -33,7 +33,7 @@ public class AnalysisUtilsTest {
   }
 
   @Test
-  public void checkProviderFailsOnClassGeneratredByAutoValue() {
+  public void checkProviderFailsOnClassGeneratedByAutoValue() {
     try {
       checkProvider(AutoValue_AnalysisUtilsTest_AutoValuedClass.class);
       fail("Expected IllegalArgumentException, but nothing was thrown.");
@@ -42,7 +42,7 @@ public class AnalysisUtilsTest {
     }
   }
 
-  // Note: this has to be defined outside of checkProviderFailsOnClassGeneratredByAutoValue() so it
+  // Note: this has to be defined outside of checkProviderFailsOnClassGeneratedByAutoValue() so it
   // can be static, which is required by @AutoValue.
   @AutoValue
   abstract static class AutoValuedClass implements TransitiveInfoProvider {

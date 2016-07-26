@@ -37,7 +37,7 @@ abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
-    // This loop is a workaround for an apparent bug in FileInputStrean.open, which delegates
+    // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
     for (;;) {

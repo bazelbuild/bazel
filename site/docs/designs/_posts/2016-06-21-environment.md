@@ -11,7 +11,7 @@ Status: unimplemented.
 ## Current shortcomings
 
 Currently, Bazel provides a cleaned set of environment variables to the
-actions in order to obtain hermetic builds. This, however is not sufficent
+actions in order to obtain hermetic builds. This, however is not sufficient
 for all use cases.
 
 * Projects often want to use tools which are not part of the repository; however,
@@ -267,7 +267,7 @@ about environment variables that are essential for the build to work.
 
 These different sources of information make it hard to designate a
 single maintainer for the action environment. This makes approaches
-undesireable that are based on a single source specifying the action
+undesirable that are based on a single source specifying the action
 environment, like the `WORKSPACE` file, or the rule definitions. While
 those approaches make it easy to predict the environment an action will
 have, they all require the user to merge in the specifics of the system

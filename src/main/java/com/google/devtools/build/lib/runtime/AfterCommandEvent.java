@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 /**
  * An event that is guaranteed to be posted after every command, no matter what the command was and
- * how it terminated. Listeneres on the event bus can use this event to do any final resource clean
+ * how it terminated. Listeners on the event bus can use this event to do any final resource clean
  * up.
  */
 public class AfterCommandEvent {}
