@@ -815,7 +815,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
   private static PathFragment getOutputFilePath(ConfiguredTarget base, RuleContext ruleContext,
       String suffix) {
     PathFragment packagePathFragment =
-        ruleContext.getLabel().getPackageIdentifier().getPathFragment();
+        ruleContext.getLabel().getPackageIdentifier().getSourceRoot();
     String name = base.getLabel().getName();
     return new PathFragment(packagePathFragment, new PathFragment(name + suffix));
   }

@@ -355,7 +355,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.lipoContextCollector = cppOptions.lipoCollector;
 
 
-    this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getPathFragment();
+    this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getSourceRoot();
 
     try {
       this.staticRuntimeLibsLabel =
@@ -1009,7 +1009,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
       String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
       try {
-        pathPrefix = PackageIdentifier.parse(packageString).getPathFragment();
+        pathPrefix = PackageIdentifier.parse(packageString).getSourceRoot();
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
       }

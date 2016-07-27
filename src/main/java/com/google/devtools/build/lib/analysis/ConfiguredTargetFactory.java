@@ -144,7 +144,7 @@ public final class ConfiguredTargetFactory {
     ArtifactOwner owner =
         new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
     PathFragment rootRelativePath =
-        outputFile.getLabel().getPackageIdentifier().getPathFragment().getRelative(
+        outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
             outputFile.getLabel().getName());
     Artifact result = isFileset
         ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)

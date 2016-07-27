@@ -342,7 +342,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       return null;
     }
 
-    RepositoryName repoName = PackageIdentifier.MAIN_REPOSITORY_NAME;
+    RepositoryName repoName = RepositoryName.MAIN;
 
     Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
     if (repo != null) {

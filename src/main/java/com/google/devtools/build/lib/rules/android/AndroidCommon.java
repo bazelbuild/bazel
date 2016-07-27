@@ -479,7 +479,7 @@ public class AndroidCommon {
     // ones included in the binary, the path of the artifact has to be unique
     // per binary and per library (not only per library).
     Artifact artifact = ruleContext.getUniqueDirectoryArtifact("resource_jars",
-        container.getLabel().getPackageIdentifier().getPathFragment().getRelative(artifactName),
+        container.getLabel().getPackageIdentifier().getSourceRoot().getRelative(artifactName),
         ruleContext.getBinOrGenfilesDirectory());
     return artifact;
   }

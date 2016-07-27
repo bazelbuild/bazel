@@ -111,7 +111,7 @@ public class PathPackageLocator implements Serializable {
       // is true for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()
       // invocation in Parser#include().
       Path buildFile = outputBase.getRelative(
-          packageIdentifier.getPathFragment()).getRelative("BUILD");
+          packageIdentifier.getSourceRoot()).getRelative("BUILD");
       FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
       if (stat != null && stat.isFile()) {
         return buildFile;

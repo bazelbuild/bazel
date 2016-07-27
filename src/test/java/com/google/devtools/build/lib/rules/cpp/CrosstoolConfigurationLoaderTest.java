@@ -691,7 +691,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             TestConstants.TOOLS_REPOSITORY,
             new PathFragment(
                 new PathFragment(TestConstants.TOOLS_REPOSITORY_PATH), new PathFragment(path)));
-    return packageIdentifier.getPathFragment();
+    return packageIdentifier.getSourceRoot();
   }
 
   private void checkToolchainB(CppConfigurationLoader loader, LipoMode lipoMode, String... args)

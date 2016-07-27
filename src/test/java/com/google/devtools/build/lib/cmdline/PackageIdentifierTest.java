@@ -39,7 +39,7 @@ public class PackageIdentifierTest {
     PackageIdentifier fooA = PackageIdentifier.parse("@foo//a");
     assertThat(fooA.getRepository().strippedName()).isEqualTo("foo");
     assertThat(fooA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(fooA.getRepository().getPathFragment()).isEqualTo(
+    assertThat(fooA.getRepository().getSourceRoot()).isEqualTo(
         new PathFragment("external/foo"));
 
     PackageIdentifier absoluteA = PackageIdentifier.parse("//a");
@@ -51,9 +51,9 @@ public class PackageIdentifierTest {
     assertThat(plainA.getPackageFragment().getPathString()).isEqualTo("a");
 
     PackageIdentifier mainA = PackageIdentifier.parse("@//a");
-    assertThat(mainA.getRepository()).isEqualTo(PackageIdentifier.MAIN_REPOSITORY_NAME);
+    assertThat(mainA.getRepository()).isEqualTo(RepositoryName.MAIN);
     assertThat(mainA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(mainA.getRepository().getPathFragment()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(mainA.getRepository().getSourceRoot()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
   @Test
@@ -102,9 +102,9 @@ public class PackageIdentifierTest {
 
   @Test
   public void testRunfilesDir() throws Exception {
-    assertThat(PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getRunfilesPath())
+    assertThat(PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getPathUnderExecRoot())
         .isEqualTo(new PathFragment("../foo/bar/baz"));
-    assertThat(PackageIdentifier.create("@", new PathFragment("bar/baz")).getRunfilesPath())
+    assertThat(PackageIdentifier.create("@", new PathFragment("bar/baz")).getPathUnderExecRoot())
         .isEqualTo(new PathFragment("bar/baz"));
   }
 }
