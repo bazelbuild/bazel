@@ -50,6 +50,10 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
                     ruleContext, JavaCompilationArgsAspectProvider.class),
                 JavaCompilationArgsAspectProvider.GET_PROVIDER));
 
+    if (!StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
+      dependencyArgsProviders = StrictDepsUtils.makeNonStrict(dependencyArgsProviders);
+    }
+
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())
             .addArtifacts(

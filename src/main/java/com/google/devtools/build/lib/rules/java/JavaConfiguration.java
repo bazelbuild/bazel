@@ -30,9 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.TriState;
-
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /** A java compiler configuration containing the flags required for compilation. */
@@ -131,7 +129,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean useHeaderCompilation;
   private final boolean optimizeHeaderCompilationAnnotationProcessing;
   private final boolean generateJavaDeps;
-  private final boolean javaProtoLibraryDepsAreStrict;
+  private final boolean strictDepsJavaProtos;
   private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> javaWarns;
   private final ImmutableList<String> defaultJvmFlags;
@@ -173,7 +171,7 @@ public final class JavaConfiguration extends Fragment {
     this.javaToolchain = javaToolchain;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
-    this.javaProtoLibraryDepsAreStrict = javaOptions.javaProtoLibraryDepsAreStrict;
+    this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -339,8 +337,7 @@ public final class JavaConfiguration extends Fragment {
     return legacyBazelJavaTest;
   }
 
-  // TODO(b/29867858): Replace with a BUILD-level attribute.
-  public boolean javaProtoLibraryDepsAreStrict() {
-    return javaProtoLibraryDepsAreStrict;
+  public boolean strictDepsJavaProtos() {
+    return strictDepsJavaProtos;
   }
 }

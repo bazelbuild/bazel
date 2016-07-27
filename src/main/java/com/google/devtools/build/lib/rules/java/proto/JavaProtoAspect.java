@@ -174,7 +174,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     private final RuleContext ruleContext;
     private final SupportData supportData;
 
-    private final boolean isStrictDeps;
     private final String protoRuntimeAttr;
     private final JavaSemantics javaSemantics;
 
@@ -196,9 +195,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       this.protoRuntimeAttr = protoRuntimeAttr;
       this.protoCompilerPluginOptions = protoCompilerPluginOptions;
       this.javaSemantics = javaSemantics;
-
-      isStrictDeps =
-          ruleContext.getFragment(JavaConfiguration.class).javaProtoLibraryDepsAreStrict();
 
       dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
@@ -312,13 +308,14 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               .setOutput(outputJar)
               .addSourceJars(sourceJar)
               .setJavacOpts(constructJavacOpts());
-      helper.addDep(dependencyCompilationArgs);
       helper
+          .addDep(dependencyCompilationArgs)
           .addDep(
               ruleContext.getPrerequisite(
                   protoRuntimeAttr, Mode.TARGET, JavaCompilationArgsProvider.class))
-          .setStrictDepsMode(isStrictDeps ? StrictDepsMode.WARN : StrictDepsMode.OFF);
-      return helper.buildCompilationArgsProvider(helper.build(javaSemantics));
+          .setCompilationStrictDepsMode(StrictDepsMode.OFF);
+      return helper.buildCompilationArgsProvider(
+          helper.build(javaSemantics), true /* isReportedAsStrict */);
     }
 
     private Artifact getSourceJarArtifact() {

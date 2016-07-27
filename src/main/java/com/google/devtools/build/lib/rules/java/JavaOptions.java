@@ -351,17 +351,17 @@ public class JavaOptions extends FragmentOptions {
   public boolean legacyBazelJavaTest;
 
   @Option(
-    name = "java_proto_library_deps_are_strict",
-    defaultValue = "false",
+    name = "strict_deps_java_protos",
+    defaultValue = "true",
     category = "undocumented",
     help =
-        "This only applies to java_proto_library. "
-            + "If true: (1) if a Java file uses proto Foo, it must depend on a  "
-            + "java_{lite,...}_proto_library that directly depends on a proto_library that has Foo "
-            + "in its srcs. (2) strict-deps violations are reported for the proto_library rules "
-            + "themselves."
+        "When 'strict-deps' is on, .java files that depend on classes not declared in their rule's "
+            + "'deps' fail to build. In other words, it's forbidden to depend on classes obtained "
+            + "transitively. This flag controls the behavior of Java proto rules when their "
+            + "'strict_deps' attribute is unspecified, and its containing package doesn't specify "
+            + "'default_strict_deps_java_protos'."
   )
-  public boolean javaProtoLibraryDepsAreStrict;
+  public boolean strictDepsJavaProtos;
 
   @Override
   public FragmentOptions getHost(boolean fallback) {

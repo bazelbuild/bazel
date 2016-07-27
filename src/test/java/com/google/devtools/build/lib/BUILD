@@ -864,6 +864,18 @@ java_test(
 )
 
 java_test(
+    name = "StrictDepsUtilsTest",
+    srcs = ["rules/java/proto/StrictDepsUtilsTest.java"],
+    deps = [
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:java-rules",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "cpp-rules-tests",
     srcs = glob(["rules/cpp/*.java"]),
     tags = ["rules"],

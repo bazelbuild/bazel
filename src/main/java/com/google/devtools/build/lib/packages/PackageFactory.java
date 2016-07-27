@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -81,7 +80,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -261,6 +259,21 @@ public final class PackageFactory {
     protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
       pkgBuilder.setDefaultRestrictedTo(value, Package.DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
+    }
+  }
+
+  /**
+   * Declares the package() attribute specifying the default value for
+   * java_proto_library.strict_deps.
+   */
+  private static class DefaultStrictDepsJavaProtos extends PackageArgument<Boolean> {
+    private DefaultStrictDepsJavaProtos() {
+      super("default_strict_deps_java_protos", Type.BOOLEAN);
+    }
+
+    @Override
+    protected void process(Package.Builder pkgBuilder, Location location, Boolean value) {
+      pkgBuilder.setDefaultStrictDepsJavaProtos(value ? TriState.YES : TriState.NO);
     }
   }
 
@@ -457,14 +470,15 @@ public final class PackageFactory {
   private ImmutableMap<String, PackageArgument<?>> createPackageArguments() {
     ImmutableList.Builder<PackageArgument<?>> arguments =
         ImmutableList.<PackageArgument<?>>builder()
-           .add(new DefaultDeprecation())
-           .add(new DefaultDistribs())
-           .add(new DefaultLicenses())
-           .add(new DefaultTestOnly())
-           .add(new DefaultVisibility())
-           .add(new Features())
-           .add(new DefaultCompatibleWith())
-           .add(new DefaultRestrictedTo());
+            .add(new DefaultDeprecation())
+            .add(new DefaultStrictDepsJavaProtos())
+            .add(new DefaultDistribs())
+            .add(new DefaultLicenses())
+            .add(new DefaultTestOnly())
+            .add(new DefaultVisibility())
+            .add(new Features())
+            .add(new DefaultCompatibleWith())
+            .add(new DefaultRestrictedTo());
 
     for (EnvironmentExtension extension : environmentExtensions) {
       arguments.addAll(extension.getPackageArguments());

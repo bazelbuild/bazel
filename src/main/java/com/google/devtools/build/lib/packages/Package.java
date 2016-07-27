@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,7 +46,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -141,10 +139,10 @@ public class Package {
    */
   private String defaultHdrsCheck;
 
-  /**
-   * Default copts for cc_* rules.  The rules' individual copts will append to
-   * this value.
-   */
+  /** See getter. */
+  private TriState defaultStrictDepsJavaProtos = TriState.AUTO;
+
+  /** Default copts for cc_* rules. The rules' individual copts will append to this value. */
   private ImmutableList<String> defaultCopts;
 
   /**
@@ -590,8 +588,15 @@ public class Package {
   }
 
   /**
-   * Gets the default header checking mode.
+   * Default for 'strict_deps' of Java proto rules, when they aren't explicitly specified.
+   *
+   * <p>A value of AUTO is returned when the package didn't itself explicitly specify this value.
    */
+  public TriState getDefaultStrictDepsJavaProtos() {
+    return defaultStrictDepsJavaProtos;
+  }
+
+  /** Gets the default header checking mode. */
   public String getDefaultHdrsCheck() {
     return defaultHdrsCheck != null ? defaultHdrsCheck : "strict";
   }
@@ -907,9 +912,12 @@ public class Package {
       return this;
     }
 
-    /**
-     * Sets the default value of copts. Rule-level copts will append to this.
-     */
+    public Builder setDefaultStrictDepsJavaProtos(TriState value) {
+      pkg.defaultStrictDepsJavaProtos = value;
+      return this;
+    }
+
+    /** Sets the default value of copts. Rule-level copts will append to this. */
     public Builder setDefaultCopts(List<String> defaultCopts) {
       this.defaultCopts = defaultCopts;
       return this;
