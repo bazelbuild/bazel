@@ -112,6 +112,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_test",
+    size = "large",
+    srcs = ["bazel_java_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_rules_test",
     size = "large",
     srcs = ["bazel_rules_test.sh"],
