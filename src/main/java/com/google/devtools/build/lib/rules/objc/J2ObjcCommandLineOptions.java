@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
-
 import java.util.List;
 
 /**
@@ -51,6 +50,20 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       help = "Requires JRE dependencies to be declared in j2objc_library's jre_deps attribute."
       )
   public boolean explicitJreDeps;
+
+  @Option(name = "experimental_j2objc_annotation_processing",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Whether to enable j2objc Java annotation processing."
+      )
+  public boolean annotationProcessingEnabled;
+
+  @Option(name = "experimental_zip_tree_artifact",
+      defaultValue = "true",
+      category = "undocumented",
+      help = "Whether to enable zipping/unzipping implementation of tree artifact creation"
+      )
+  public boolean zipTreeArtifact;
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}

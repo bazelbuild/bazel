@@ -213,20 +213,33 @@ public class ObjcRuleClasses {
    */
   static SpawnAction.Builder spawnAppleEnvActionBuilder(AppleConfiguration appleConfiguration,
       Platform targetPlatform) {
-    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
-        .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
-        .putAll(appleConfiguration.getAppleHostSystemEnv());
-
     return spawnOnDarwinActionBuilder()
-        .setEnvironment(envBuilder.build());
+        .setEnvironment(appleToolchainEnvironment(appleConfiguration, targetPlatform));
+  }
+
+  /**
+   * Returns apple environment variables that are typically needed by the apple toolchain.
+   */
+  static ImmutableMap<String, String> appleToolchainEnvironment(
+      AppleConfiguration appleConfiguration, Platform targetPlatform) {
+    return ImmutableMap.<String, String>builder()
+        .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
+        .putAll(appleConfiguration.getAppleHostSystemEnv())
+        .build();
   }
 
   /**
    * Creates a new spawn action builder that requires a darwin architecture to run.
    */
   static SpawnAction.Builder spawnOnDarwinActionBuilder() {
-    return new SpawnAction.Builder()
-        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
+    return new SpawnAction.Builder().setExecutionInfo(darwinActionExecutionRequirement());
+  }
+
+  /**
+   * Returns action requirement information for darwin architecture.
+   */
+  static ImmutableMap<String, String> darwinActionExecutionRequirement() {
+    return ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "");
   }
 
   /**

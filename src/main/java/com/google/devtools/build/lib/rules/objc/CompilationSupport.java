@@ -55,9 +55,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -66,9 +66,10 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -180,10 +181,17 @@ public final class CompilationSupport {
       new Predicate<Artifact>() {
         @Override
         public boolean apply(Artifact artifact) {
-          // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
-          // have '.inc' files in the module map (since they're implictly textual).
-          // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
-          return artifact.getFilename().endsWith(".h");
+          if (artifact.isTreeArtifact()) {
+            // Tree artifact is basically a directory, which does not have any information about
+            // the contained files and their extensions. Here we assume the passed in tree artifact
+            // contains proper header files with .h extension.
+            return true;
+          } else {
+            // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
+            // have '.inc' files in the module map (since they're implictly textual).
+            // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
+            return artifact.getFilename().endsWith(".h");
+          }
         }
       };
 
@@ -232,6 +240,19 @@ public final class CompilationSupport {
   static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
 
   static final ImmutableList<String> DEFAULT_LINKER_FLAGS = ImmutableList.of("-ObjC");
+
+  /**
+   * A mapper that maps input ObjC source {@link Artifact.TreeFileArtifact}s to output
+   * object file {@link Artifact.TreeFileArtifact}s.
+   */
+  private static final OutputPathMapper COMPILE_ACTION_TEMPLATE_OUTPUT_PATH_MAPPER =
+      new OutputPathMapper() {
+        @Override
+        public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
+          return FileSystemUtils.replaceExtension(
+              inputTreeFileArtifact.getParentRelativePath(), ".o");
+        }
+      };
 
   /**
    * Returns information about the given rule's compilation artifacts.
@@ -398,8 +419,7 @@ public final class CompilationSupport {
           common.getObjcProvider(),
           extraCompileArgs,
           priorityHeaders,
-          moduleMap,
-          buildConfiguration.isCodeCoverageEnabled());
+          moduleMap);
     }
     return this;
   }
@@ -413,8 +433,7 @@ public final class CompilationSupport {
       ObjcProvider objcProvider,
       ExtraCompileArgs extraCompileArgs,
       Iterable<PathFragment> priorityHeaders,
-      Optional<CppModuleMap> moduleMap,
-      boolean isCodeCoverageEnabled) {
+      Optional<CppModuleMap> moduleMap) {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
@@ -422,29 +441,49 @@ public final class CompilationSupport {
       if (ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getFilename())) {
         registerSwiftCompileAction(sourceFile, objFile, objcProvider);
       } else {
-        registerCompileAction(
-            sourceFile,
-            objFile,
-            objcProvider,
-            priorityHeaders,
-            moduleMap,
-            compilationArtifacts,
-            Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")),
-            isCodeCoverageEnabled);
+        if (objFile.isTreeArtifact()) {
+          registerCompileActionTemplate(
+              sourceFile,
+              objFile,
+              objcProvider,
+              priorityHeaders,
+              moduleMap,
+              compilationArtifacts,
+              Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")));
+        } else {
+          registerCompileAction(
+              sourceFile,
+              objFile,
+              objcProvider,
+              priorityHeaders,
+              moduleMap,
+              compilationArtifacts,
+              Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")));
+        }
       }
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
-      registerCompileAction(
-          nonArcSourceFile,
-          objFile,
-          objcProvider,
-          priorityHeaders,
-          moduleMap,
-          compilationArtifacts,
-          Iterables.concat(extraCompileArgs, ImmutableList.of("-fno-objc-arc")),
-          isCodeCoverageEnabled);
+      if (objFile.isTreeArtifact()) {
+        registerCompileActionTemplate(
+            nonArcSourceFile,
+            objFile,
+            objcProvider,
+            priorityHeaders,
+            moduleMap,
+            compilationArtifacts,
+            Iterables.concat(extraCompileArgs, ImmutableList.of("-fno-objc-arc")));
+      } else {
+        registerCompileAction(
+            nonArcSourceFile,
+            objFile,
+            objcProvider,
+            priorityHeaders,
+            moduleMap,
+            compilationArtifacts,
+            Iterables.concat(extraCompileArgs, ImmutableList.of("-fno-objc-arc")));
+      }
     }
 
     objFiles.addAll(compilationArtifacts.getPrecompiledSrcs());
@@ -454,7 +493,7 @@ public final class CompilationSupport {
     }
 
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
-      registerArchiveActions(objFiles, archive);
+      registerArchiveActions(objFiles.build(), archive);
     }
   }
 
@@ -478,35 +517,30 @@ public final class CompilationSupport {
     return addSource(commandLine, sourceFile);
   }
 
-  private void registerCompileAction(
+  private CustomCommandLine compileActionCommandLine(
       Artifact sourceFile,
       Artifact objFile,
       ObjcProvider objcProvider,
       Iterable<PathFragment> priorityHeaders,
       Optional<CppModuleMap> moduleMap,
-      CompilationArtifacts compilationArtifacts,
+      Optional<Artifact> pchFile,
+      Optional<Artifact> dotdFile,
       Iterable<String> otherFlags,
-      boolean isCodeCoverageEnabled) {
-    ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
-    ImmutableList.Builder<Artifact> gcnoFiles = new ImmutableList.Builder<>();
-    ImmutableList.Builder<Artifact> additionalInputs = new ImmutableList.Builder<>();
-    if (isCodeCoverageEnabled && ObjcRuleClasses.isInstrumentable(sourceFile)) {
-      coverageFlags.addAll(CLANG_COVERAGE_FLAGS);
-      gcnoFiles.add(intermediateArtifacts.gcnoFile(sourceFile));
-    }
-    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder()
-        .add(CLANG);
-    if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
+      boolean collectCodeCoverage,
+      boolean isCPlusPlusSource,
+      boolean hasSwiftSources) {
+    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder().add(CLANG);
+
+    if (isCPlusPlusSource) {
       commandLine.add("-stdlib=libc++");
       commandLine.add("-std=gnu++11");
     }
 
-    if (compilationArtifacts.hasSwiftSources()) {
+    if (hasSwiftSources) {
       // Add the directory that contains merged TargetName-Swift.h header to search path, in case
       // any of ObjC files use it.
       commandLine.add("-I");
       commandLine.addPath(intermediateArtifacts.swiftHeader().getExecPath().getParentDirectory());
-      additionalInputs.add(intermediateArtifacts.swiftHeader());
     }
 
     // The linker needs full debug symbol information to perform binary dead-code stripping.
@@ -514,35 +548,67 @@ public final class CompilationSupport {
       commandLine.add("-g");
     }
 
-    Artifact dotdFile = intermediateArtifacts.dotdFile(sourceFile);
+    List<String> coverageFlags = ImmutableList.of();
+    if (collectCodeCoverage) {
+      coverageFlags = CLANG_COVERAGE_FLAGS;
+    }
+
     commandLine
         .add(compileFlagsForClang(appleConfiguration))
         .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add(objcConfiguration.getCoptsForCompilationMode())
         .addBeforeEachPath("-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
-        .addBeforeEachExecPath("-include", compilationArtifacts.getPchFile().asSet())
+        .addBeforeEachExecPath("-include", pchFile.asSet())
         .addBeforeEachPath("-I", priorityHeaders)
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
         .addBeforeEachPath("-isystem", objcProvider.get(INCLUDE_SYSTEM))
         .add(otherFlags)
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
-        .add(coverageFlags.build())
+        .add(coverageFlags)
         .add(getCompileRuleCopts());
-    PathFragment sourceExecPathFragment = sourceFile.getExecPath();
-    String sourcePath = sourceExecPathFragment.getPathString();
-    if (!sourceExecPathFragment.isAbsolute() && objcConfiguration.getUseAbsolutePathsForActions()) {
-      sourcePath = objcConfiguration.getXcodeWorkspaceRoot() + "/" + sourcePath;
-    }
-    commandLine
-      .add("-c").add(sourcePath)
-      .addExecPath("-o", objFile)
-      .add("-MD")
-      .addExecPath("-MF", dotdFile);
 
-    if (objcConfiguration.moduleMapsEnabled()) {
-      additionalInputs.addAll(objcProvider.get(MODULE_MAP));
+    // Add input source file arguments
+    commandLine.add("-c");
+    if (!sourceFile.getExecPath().isAbsolute()
+        && objcConfiguration.getUseAbsolutePathsForActions()) {
+      String workspaceRoot = objcConfiguration.getXcodeWorkspaceRoot();
+
+      // If the source file is a tree artifact, it means the file is basically a directory that may
+      // contain multiple concrete source files at execution time. When constructing the command
+      // line, we insert the source tree artifact as a placeholder, which will be replaced with
+      // one of its contained source files of type {@link Artifact.TreeFileArtifact} at execution
+      // time.
+      //
+      // We also do something similar for the object file arguments below.
+      if (sourceFile.isTreeArtifact()) {
+        commandLine.addPlaceholderTreeArtifactFormattedExecPath(workspaceRoot + "/%s", sourceFile);
+      } else {
+        commandLine.addPaths(workspaceRoot + "/%s", sourceFile.getExecPath());
+      }
+    } else {
+      if (sourceFile.isTreeArtifact()) {
+        commandLine.addPlaceholderTreeArtifactExecPath(sourceFile);
+      } else {
+        commandLine.addPath(sourceFile.getExecPath());
+      }
     }
 
+    // Add output object file arguments.
+    commandLine.add("-o");
+    if (objFile.isTreeArtifact()) {
+      commandLine.addPlaceholderTreeArtifactExecPath(objFile);
+    } else {
+      commandLine.addPath(objFile.getExecPath());
+    }
+
+    // Add Dotd file arguments.
+    if (dotdFile.isPresent()) {
+      commandLine
+          .add("-MD")
+          .addExecPath("-MF", dotdFile.get());
+    }
+
+    // Add module map arguments.
     if (moduleMap.isPresent()) {
       // If modules are enabled for the rule, -fmodules is added to the copts already. (This implies
       // module map usage). Otherwise, we need to pass -fmodule-maps.
@@ -564,24 +630,132 @@ public final class CompilationSupport {
           .add("-fmodule-name=" + moduleMap.get().getName());
     }
 
+    return commandLine.build();
+  }
+
+  private void registerCompileAction(
+      Artifact sourceFile,
+      Artifact objFile,
+      ObjcProvider objcProvider,
+      Iterable<PathFragment> priorityHeaders,
+      Optional<CppModuleMap> moduleMap,
+      CompilationArtifacts compilationArtifacts,
+      Iterable<String> otherFlags) {
+    boolean isCPlusPlusSource = ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+    boolean runCodeCoverage =
+        buildConfiguration.isCodeCoverageEnabled() && ObjcRuleClasses.isInstrumentable(sourceFile);
+    boolean hasSwiftSources = compilationArtifacts.hasSwiftSources();
+
+    CustomCommandLine commandLine = compileActionCommandLine(
+        sourceFile,
+        objFile,
+        objcProvider,
+        priorityHeaders,
+        moduleMap,
+        compilationArtifacts.getPchFile(),
+        Optional.of(intermediateArtifacts.dotdFile(sourceFile)),
+        otherFlags,
+        runCodeCoverage,
+        isCPlusPlusSource,
+        hasSwiftSources);
+
+    Optional<Artifact> gcnoFile = Optional.absent();
+    if (runCodeCoverage) {
+      gcnoFile = Optional.of(intermediateArtifacts.gcnoFile(sourceFile));
+    }
+
+    Optional<Artifact> swiftHeader = Optional.absent();
+    if (hasSwiftSources) {
+      swiftHeader = Optional.of(intermediateArtifacts.swiftHeader());
+    }
+
+    NestedSet<Artifact> moduleMapInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    if (objcConfiguration.moduleMapsEnabled()) {
+      moduleMapInputs = objcProvider.get(MODULE_MAP);
+    }
+
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
-            .setCommandLine(commandLine.build())
+            .setCommandLine(commandLine)
             .addInput(sourceFile)
-            .addInputs(additionalInputs.build())
+            .addInputs(swiftHeader.asSet())
+            .addTransitiveInputs(moduleMapInputs)
             .addOutput(objFile)
-            .addOutputs(gcnoFiles.build())
-            .addOutput(dotdFile)
+            .addOutputs(gcnoFile.asSet())
+            .addOutput(intermediateArtifacts.dotdFile(sourceFile))
             .addTransitiveInputs(objcProvider.get(HEADER))
             .addInputs(compilationArtifacts.getPrivateHdrs())
             .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .addInputs(compilationArtifacts.getPchFile().asSet())
             .build(ruleContext));
+  }
+
+  /**
+   * Registers a SpawnActionTemplate to compile the source file tree artifact, {@code sourceFiles},
+   * which can contain multiple concrete source files unknown at analysis time. At execution time,
+   * the SpawnActionTemplate will register one ObjcCompile action for each individual source file
+   * under {@code sourceFiles}.
+   *
+   * <p>Note that this method currently does not support code coverage and sources other than ObjC
+   * sources.
+   *
+   * @param sourceFiles tree artifact containing source files to compile
+   * @param objFiles tree artifact containing object files compiled from {@code sourceFiles}
+   * @param objcProvider ObjcProvider instance for this invocation
+   * @param priorityHeaders priority headers to be included before the dependency headers
+   * @param moduleMap the module map generated from the associated headers
+   * @param compilationArtifacts the CompilationArtifacts instance for this invocation
+   * @param otherFlags extra compilation flags to add to the compile action command line
+   */
+  private void registerCompileActionTemplate(
+      Artifact sourceFiles,
+      Artifact objFiles,
+      ObjcProvider objcProvider,
+      Iterable<PathFragment> priorityHeaders,
+      Optional<CppModuleMap> moduleMap,
+      CompilationArtifacts compilationArtifacts,
+      Iterable<String> otherFlags) {
+    CustomCommandLine commandLine = compileActionCommandLine(
+        sourceFiles,
+        objFiles,
+        objcProvider,
+        priorityHeaders,
+        moduleMap,
+        compilationArtifacts.getPchFile(),
+        Optional.<Artifact>absent(),
+        otherFlags,
+        /* runCodeCoverage=*/false,
+        /* isCPlusPlusSource=*/false,
+        /* hasSwiftSources=*/false);
+
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    Platform platform = appleConfiguration.getSingleArchPlatform();
+
+    NestedSet<Artifact> moduleMapInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    if (objcConfiguration.moduleMapsEnabled()) {
+      moduleMapInputs = objcProvider.get(MODULE_MAP);
+    }
+
+    ruleContext.registerAction(
+        new SpawnActionTemplate.Builder(sourceFiles, objFiles)
+            .setMnemonics("ObjcCompileActionTemplate", "ObjcCompile")
+            .setExecutable(xcrunwrapper(ruleContext))
+            .setCommandLineTemplate(commandLine)
+            .setEnvironment(ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
+            .setExecutionInfo(ObjcRuleClasses.darwinActionExecutionRequirement())
+            .setOutputPathMapper(COMPILE_ACTION_TEMPLATE_OUTPUT_PATH_MAPPER)
+            .addCommonTransitiveInputs(objcProvider.get(HEADER))
+            .addCommonTransitiveInputs(moduleMapInputs)
+            .addCommonInputs(compilationArtifacts.getPrivateHdrs())
+            .addCommonTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addCommonTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .addCommonInputs(compilationArtifacts.getPchFile().asSet())
+            .build(ruleContext.getActionOwner()));
   }
 
   /**
@@ -779,23 +953,17 @@ public final class CompilationSupport {
         .build(ruleContext));
   }
 
-  private void registerArchiveActions(ImmutableList.Builder<Artifact> objFiles, Artifact archive) {
-    for (Action action :
-        archiveActions(objFiles.build(), archive, intermediateArtifacts.archiveObjList())) {
-      ruleContext.registerAction(action);
-    }
+  private void registerArchiveActions(List<Artifact> objFiles, Artifact archive) {
+    Artifact objList = intermediateArtifacts.archiveObjList();
+    registerObjFilelistAction(objFiles, objList);
+    registerArchiveAction(objFiles, archive);
   }
 
-  private Iterable<Action> archiveActions(
+  private void registerArchiveAction(
       Iterable<Artifact> objFiles,
-      Artifact archive,
-      Artifact objList) {
-
-    ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
-
-    actions.add(objFilelistAction(objFiles, objList));
-
-    actions.add(ObjcRuleClasses.spawnAppleEnvActionBuilder(
+      Artifact archive) {
+    Artifact objList = intermediateArtifacts.archiveObjList();
+    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
         .setExecutable(libtool(ruleContext))
@@ -810,17 +978,31 @@ public final class CompilationSupport {
         .addInput(objList)
         .addOutput(archive)
         .build(ruleContext));
-
-    return actions.build();
   }
 
-  private Action objFilelistAction(Iterable<Artifact> objFiles, Artifact objList) {
+  private void registerObjFilelistAction(Iterable<Artifact> objFiles, Artifact objList) {
     ImmutableSet<Artifact> dedupedObjFiles = ImmutableSet.copyOf(objFiles);
-    return new FileWriteAction(
+    CustomCommandLine.Builder objFilesToLinkParam = new CustomCommandLine.Builder();
+    ImmutableList.Builder<Artifact> treeObjFiles = new ImmutableList.Builder<>();
+
+    for (Artifact objFile : dedupedObjFiles) {
+      // If the obj file is a tree artifact, we need to expand it into the contained individual
+      // files properly.
+      if (objFile.isTreeArtifact()) {
+        treeObjFiles.add(objFile);
+        objFilesToLinkParam.addExpandedTreeArtifactExecPaths(objFile);
+      } else {
+        objFilesToLinkParam.addPath(objFile.getExecPath());
+      }
+    }
+
+    ruleContext.registerAction(new ParameterFileWriteAction(
         ruleContext.getActionOwner(),
+        treeObjFiles.build(),
         objList,
-        Artifact.joinExecPaths("\n", dedupedObjFiles),
-        /*makeExecutable=*/ false);
+        objFilesToLinkParam.build(),
+        ParameterFile.ParameterFileType.UNQUOTED,
+        ISO_8859_1));
   }
 
   /**
@@ -1186,8 +1368,8 @@ public final class CompilationSupport {
     // resulting in duplicate symbol errors unless they are deduped.
     objFiles = Iterables.filter(objFiles, Predicates.not(Predicates.in(forceLinkArtifacts)));
 
-    ruleContext.registerAction(objFilelistAction(objFiles, inputFileList));
-    
+    registerObjFilelistAction(objFiles, inputFileList);
+
     if (objcConfiguration.shouldPrioritizeStaticLibs()) {
       commandLine.add("-filelist").add(inputFileList.getExecPathString());
     }
