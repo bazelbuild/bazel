@@ -17,7 +17,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,7 +43,7 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
       PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     try {
       buildRecursivePkgKey(
-          PackageIdentifier.MAIN_REPOSITORY_NAME, rootRelativePath, excludedPaths);
+          RepositoryName.MAIN, rootRelativePath, excludedPaths);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -53,29 +52,29 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
   @Test
   public void testValidRecursivePkgKeys() throws Exception {
     buildRecursivePkgKey(
-        PackageIdentifier.MAIN_REPOSITORY_NAME,
+        RepositoryName.MAIN,
         new PathFragment(""),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
-        PackageIdentifier.MAIN_REPOSITORY_NAME,
+        RepositoryName.MAIN,
         new PathFragment(""),
         ImmutableSet.of(new PathFragment("a")));
 
     buildRecursivePkgKey(
-        PackageIdentifier.MAIN_REPOSITORY_NAME,
+        RepositoryName.MAIN,
         new PathFragment("a"),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
-        PackageIdentifier.MAIN_REPOSITORY_NAME,
+        RepositoryName.MAIN,
         new PathFragment("a"),
         ImmutableSet.of(new PathFragment("a/b")));
 
     buildRecursivePkgKey(
-        PackageIdentifier.MAIN_REPOSITORY_NAME,
+        RepositoryName.MAIN,
         new PathFragment("a/b"),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
-        PackageIdentifier.MAIN_REPOSITORY_NAME,
+        RepositoryName.MAIN,
         new PathFragment("a/b"),
         ImmutableSet.of(new PathFragment("a/b/c")));
   }

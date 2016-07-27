@@ -164,7 +164,7 @@ public final class LocalResourceContainer {
       for (TransitiveInfoCollection target : targets) {
         for (Artifact file : target.getProvider(FileProvider.class).getFilesToBuild()) {
           PathFragment packageFragment = file.getArtifactOwner().getLabel()
-              .getPackageIdentifier().getPathFragment();
+              .getPackageIdentifier().getSourceRoot();
           PathFragment packageRelativePath =
               file.getRootRelativePath().relativeTo(packageFragment);
           if (packageRelativePath.startsWith(assetsDir)) {
@@ -193,7 +193,7 @@ public final class LocalResourceContainer {
       for (FileProvider target : targets) {
         for (Artifact file : target.getFilesToBuild()) {
           PathFragment packageFragment = file.getArtifactOwner().getLabel()
-              .getPackageIdentifier().getPathFragment();
+              .getPackageIdentifier().getSourceRoot();
           PathFragment packageRelativePath =
               file.getRootRelativePath().relativeTo(packageFragment);
           PathFragment resourceDir = findResourceDir(file);

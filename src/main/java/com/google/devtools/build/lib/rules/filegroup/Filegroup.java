@@ -121,7 +121,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     if (attr.isEmpty()) {
       return PathFragment.EMPTY_FRAGMENT;
     } else {
-      return ruleContext.getLabel().getPackageIdentifier().getPathFragment().getRelative(attr);
+      return ruleContext.getLabel().getPackageIdentifier().getSourceRoot().getRelative(attr);
     }
   }
 

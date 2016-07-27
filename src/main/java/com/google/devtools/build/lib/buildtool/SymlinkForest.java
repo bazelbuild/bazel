@@ -134,13 +134,13 @@ class SymlinkForest {
       PackageIdentifier dir = entry.getKey();
       if (!dir.getRepository().isMain()) {
         FileSystemUtils.createDirectoryAndParents(
-            workspace.getRelative(dir.getRepository().getPathFragment()));
+            workspace.getRelative(dir.getRepository().getSourceRoot()));
       }
       if (entry.getValue().size() > 1) {
         if (LOG_FINER) {
-          LOG.finer("mkdir " + workspace.getRelative(dir.getPathFragment()));
+          LOG.finer("mkdir " + workspace.getRelative(dir.getSourceRoot()));
         }
-        FileSystemUtils.createDirectoryAndParents(workspace.getRelative(dir.getPathFragment()));
+        FileSystemUtils.createDirectoryAndParents(workspace.getRelative(dir.getSourceRoot()));
       }
     }
 
@@ -157,11 +157,11 @@ class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Path root = roots.iterator().next();  // lone root in set
         if (LOG_FINER) {
-          LOG.finer("ln -s " + root.getRelative(dir.getPathFragment()) + " "
-              + workspace.getRelative(dir.getPathFragment()));
+          LOG.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " "
+              + workspace.getRelative(dir.getSourceRoot()));
         }
-        workspace.getRelative(dir.getPathFragment())
-            .createSymbolicLink(root.getRelative(dir.getPathFragment()));
+        workspace.getRelative(dir.getSourceRoot())
+            .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
       }
     }
     // Make links for dirs within packages, skip parent-only dirs.
@@ -173,11 +173,11 @@ class SymlinkForest {
         if (pkgId != null) {
           Path root = packageRoots.get(pkgId);
           try {
-            Path absdir = root.getRelative(dir.getPathFragment());
+            Path absdir = root.getRelative(dir.getSourceRoot());
             if (absdir.isDirectory()) {
               if (LOG_FINER) {
                 LOG.finer("ln -s " + absdir + "/* "
-                    + workspace.getRelative(dir.getPathFragment()) + "/");
+                    + workspace.getRelative(dir.getSourceRoot()) + "/");
               }
               for (Path target : absdir.getDirectoryEntries()) {
                 PathFragment p = target.relativeTo(root);
@@ -202,14 +202,14 @@ class SymlinkForest {
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
       }
-      Path execrootDirectory = workspace.getRelative(pkgId.getPathFragment());
+      Path execrootDirectory = workspace.getRelative(pkgId.getSourceRoot());
       // If there were no subpackages, this directory might not exist yet.
       if (!execrootDirectory.exists()) {
         FileSystemUtils.createDirectoryAndParents(execrootDirectory);
       }
       // For the top-level directory, generate symlinks to everything in the directory instead of
       // the directory itself.
-      Path sourceDirectory = entry.getValue().getRelative(pkgId.getPathFragment());
+      Path sourceDirectory = entry.getValue().getRelative(pkgId.getSourceRoot());
       for (Path target : sourceDirectory.getDirectoryEntries()) {
         String baseName = target.getBaseName();
         Path execPath = execrootDirectory.getRelative(baseName);

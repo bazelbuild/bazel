@@ -129,7 +129,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
             if (jvmTarget.getLabel().getPackageIdentifier().getRepository().isDefault()) {
               javaHomePath = jvmLabel.getPackageFragment();
             } else {
-              javaHomePath = jvmTarget.getLabel().getPackageIdentifier().getPathFragment();
+              javaHomePath = jvmTarget.getLabel().getPackageIdentifier().getSourceRoot();
             }
 
             if ((jvmTarget instanceof Rule) &&

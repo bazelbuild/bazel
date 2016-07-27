@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -59,7 +59,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
-        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths);
+        RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
@@ -70,14 +70,14 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
-        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths);
+        RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
       ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
-        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths, filteringPolicy);
+        RepositoryName.MAIN, rootedPath, excludedPaths, filteringPolicy);
   }
 
   private EvaluationResult<?> getEvaluationResult(SkyKey... keys) throws InterruptedException {
