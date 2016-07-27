@@ -4,6 +4,27 @@ filegroup(
     visibility = ["//scripts:__pkg__"],
 )
 
+filegroup(
+    name = "packages",
+    srcs = select({
+        "//src:windows": [],
+        "//src:darwin": [
+            ":install.sh",
+            ":generate-package-info",
+        ],
+        "//src:darwin_x86_64": [
+            ":install.sh",
+            ":generate-package-info",
+        ],
+        "//conditions:default": [
+            ":install.sh",
+            ":generate-package-info",
+            ":bazel-debian",
+            ":bazel-debian-src",
+        ],
+    }),
+)
+
 sh_binary(
     name = "package-info-generator",
     srcs = ["package_info_generator.sh"],

@@ -139,7 +139,7 @@ function bazel_build() {
       --define JAVA_VERSION=${JAVA_VERSION} \
       ${ARGS} \
       //site:jekyll-tree \
-      //scripts/packages/... || exit $?
+      //scripts/packages || exit $?
 
   if [ -n "${1-}" ]; then
     # Copy the results to the output directory
