@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
@@ -33,12 +32,14 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.annotation.Nullable;
 
@@ -57,7 +58,7 @@ public final class TestActionBuilder {
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.extraEnv = ImmutableMap.of();
+    this.extraEnv = new TreeMap<>();
   }
 
   /**
@@ -112,9 +113,8 @@ public final class TestActionBuilder {
     return this;
   }
 
-  public TestActionBuilder setExtraEnv(@Nullable Map<String, String> extraEnv) {
-    this.extraEnv = extraEnv == null
-        ? ImmutableMap.<String, String> of() : ImmutableMap.copyOf(extraEnv);
+  public TestActionBuilder addExtraEnv(Map<String, String> extraEnv) {
+    this.extraEnv.putAll(extraEnv);
     return this;
   }
 
@@ -197,6 +197,8 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
 
+    TreeMap<String, String> testEnv = new TreeMap<>();
+
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
@@ -213,10 +215,15 @@ public final class TestActionBuilder {
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
           executable, instrumentedFileManifest, shards);
       inputsBuilder.add(instrumentedFileManifest);
+      for (Pair<String, String> coverageEnvEntry : instrumentedFiles.getCoverageEnvironment()) {
+        testEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
+      }
     } else {
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
           executable, null, shards);
     }
+
+    testEnv.putAll(extraEnv);
 
     if (config.getRunUnder() != null) {
       Artifact runUnderExecutable = executionSettings.getRunUnderExecutable();
@@ -261,7 +268,7 @@ public final class TestActionBuilder {
             ruleContext.getActionOwner(), inputs, testRuntime,
             testLog, cacheStatus,
             coverageArtifact, microCoverageArtifact,
-            testProperties, extraEnv, executionSettings,
+            testProperties, testEnv, executionSettings,
             shard, run, config, ruleContext.getWorkspaceName()));
         results.add(cacheStatus);
       }

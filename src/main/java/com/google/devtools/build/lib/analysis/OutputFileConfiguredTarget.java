@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
@@ -80,6 +81,12 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   public NestedSet<Artifact> getCoverageSupportFiles() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
         .getCoverageSupportFiles();
+  }
+
+  @Override
+  public NestedSet<Pair<String, String>> getCoverageEnvironment() {
+    return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
+        .getCoverageEnvironment();
   }
 
   /**

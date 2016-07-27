@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
@@ -223,6 +224,15 @@ public class CppHelper {
         .getPrerequisite(":cc_toolchain", Mode.TARGET)
         .getProvider(FdoSupportProvider.class)
         .getFdoSupport();
+  }
+
+  public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
+      RuleContext ruleContext) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      return CppHelper.getToolchain(ruleContext).getCoverageEnvironment();
+    } else {
+      return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
+    }
   }
 
   public static NestedSet<Artifact> getGcovFilesIfNeeded(RuleContext ruleContext) {

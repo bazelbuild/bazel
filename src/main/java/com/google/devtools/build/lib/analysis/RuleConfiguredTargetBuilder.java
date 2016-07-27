@@ -208,7 +208,7 @@ public final class RuleConfiguredTargetBuilder {
 
     TestEnvironmentProvider environmentProvider = findProvider(TestEnvironmentProvider.class);
     if (environmentProvider != null) {
-      testActionBuilder.setExtraEnv(environmentProvider.getEnvironment());
+      testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
     }
 
     final TestParams testParams =

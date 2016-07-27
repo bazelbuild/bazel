@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.util.Pair;
 
 /**
  * An implementation class for the InstrumentedFilesProvider interface.
@@ -28,25 +29,29 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
   private final NestedSet<Artifact> baselineCoverageFiles;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
+  private final NestedSet<Pair<String, String>> coverageEnvironment;
 
   public InstrumentedFilesProviderImpl(
       NestedSet<Artifact> instrumentedFiles,
       NestedSet<Artifact> instrumentationMetadataFiles,
       NestedSet<Artifact> baselineCoverageFiles,
       NestedSet<Artifact> baselineCoverageArtifacts,
-      NestedSet<Artifact> coverageSupportFiles) {
+      NestedSet<Artifact> coverageSupportFiles,
+      NestedSet<Pair<String, String>> coverageEnvironment) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
     this.coverageSupportFiles = coverageSupportFiles;
+    this.coverageEnvironment = coverageEnvironment;
   }
 
   @Override
@@ -72,5 +77,10 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   @Override
   public NestedSet<Artifact> getCoverageSupportFiles() {
     return coverageSupportFiles;
+  }
+
+  @Override
+  public NestedSet<Pair<String, String>> getCoverageEnvironment() {
+    return coverageEnvironment;
   }
 }

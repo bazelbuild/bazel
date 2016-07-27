@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.Pair;
 
 /**
  * A provider of instrumented file sources and instrumentation metadata.
@@ -57,4 +58,9 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
    * <p>They aren't mentioned in the instrumented files manifest.
    */
   NestedSet<Artifact> getCoverageSupportFiles();
+
+  /**
+   * Environment variables that need to be set for tests collecting code coverage.
+   */
+  NestedSet<Pair<String, String>> getCoverageEnvironment();
 }

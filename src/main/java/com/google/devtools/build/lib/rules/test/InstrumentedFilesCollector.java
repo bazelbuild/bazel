@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
@@ -63,7 +64,9 @@ public final class InstrumentedFilesCollector {
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles) {
     return collect(ruleContext, spec, localMetadataCollector, rootFiles,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), false);
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
+        false);
   }
 
   /**
@@ -79,6 +82,7 @@ public final class InstrumentedFilesCollector {
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles,
       NestedSet<Artifact> coverageSupportFiles,
+      NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
@@ -94,6 +98,10 @@ public final class InstrumentedFilesCollector {
     NestedSetBuilder<Artifact> coverageSupportFilesBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(coverageSupportFiles);
+    NestedSetBuilder<Pair<String, String>> coverageEnvironmentBuilder =
+        NestedSetBuilder.<Pair<String, String>>compileOrder()
+            .addTransitive(coverageEnvironment);
+
 
     // Transitive instrumentation data.
     for (TransitiveInfoCollection dep :
@@ -105,6 +113,7 @@ public final class InstrumentedFilesCollector {
         baselineCoverageInstrumentedFilesBuilder.addTransitive(
             provider.getBaselineCoverageInstrumentedFiles());
         coverageSupportFilesBuilder.addTransitive(provider.getCoverageSupportFiles());
+        coverageEnvironmentBuilder.addTransitive(provider.getCoverageEnvironment());
       }
     }
 
@@ -151,7 +160,8 @@ public final class InstrumentedFilesCollector {
         metadataFilesBuilder.build(),
         baselineCoverageFiles,
         baselineCoverageArtifacts,
-        coverageSupportFilesBuilder.build());
+        coverageSupportFilesBuilder.build(),
+        coverageEnvironmentBuilder.build());
   }
 
   /**

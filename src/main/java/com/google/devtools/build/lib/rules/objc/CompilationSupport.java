@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Instr
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -887,6 +888,8 @@ public final class CompilationSupport {
         new ObjcCoverageMetadataCollector(),
         oFiles.build(),
         getGcovForObjectiveCIfNeeded(),
+        // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
+        NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
         !TargetUtils.isTestRule(ruleContext.getTarget()));
   }
 

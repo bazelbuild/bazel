@@ -1991,17 +1991,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public Map<String, String> getCoverageEnvironment() {
-    ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-    env.put("COVERAGE_GCOV_PATH", getGcovExecutable().getPathString());
-    PathFragment fdoInstrument = cppOptions.fdoInstrument;
-    if (fdoInstrument != null) {
-      env.put("FDO_DIR", fdoInstrument.getPathString());
-    }
-    return env.build();
-  }
-
-  @Override
   public String getOutputDirectoryName() {
     String lipoSuffix;
     if (getLipoMode() != LipoMode.OFF && !isAutoFdoLipo()) {

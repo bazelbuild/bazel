@@ -165,13 +165,6 @@ public final class BuildConfiguration {
       return implicitLabels;
     }
 
-    /**
-     * Returns a (key, value) mapping to insert into the subcommand environment for coverage.
-     */
-    public Map<String, String> getCoverageEnvironment() {
-      return ImmutableMap.<String, String>of();
-    }
-
     /*
      * Returns the command-line "Make" variable overrides.
      */
@@ -2083,18 +2076,6 @@ public final class BuildConfiguration {
    */
   public Map<String, String> getGlobalMakeEnvironment() {
     return globalMakeEnv;
-  }
-
-  /**
-   * Returns a (key, value) mapping to insert into the subcommand environment for coverage
-   * actions.
-   */
-  public Map<String, String> getCoverageEnvironment() {
-    Map<String, String> env = new HashMap<>();
-    for (Fragment fragment : fragments.values()) {
-      env.putAll(fragment.getCoverageEnvironment());
-    }
-    return env;
   }
 
   /**
