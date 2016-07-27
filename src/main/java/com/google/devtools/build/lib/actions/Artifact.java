@@ -36,12 +36,10 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -152,6 +150,16 @@ public class Artifact
     @Override
     public boolean apply(Artifact input) {
       return !input.isMiddlemanArtifact();
+    }
+  };
+
+  /**
+   * A Predicate that evaluates to true if the Artifact <b>is</b> a tree artifact.
+   */
+  public static final Predicate<Artifact> IS_TREE_ARTIFACT = new Predicate<Artifact>() {
+    @Override
+    public boolean apply(Artifact input) {
+      return input.isTreeArtifact();
     }
   };
 

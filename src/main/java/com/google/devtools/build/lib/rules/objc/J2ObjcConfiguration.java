@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-
 import java.util.Collections;
 import java.util.Set;
 
@@ -78,6 +77,8 @@ public class J2ObjcConfiguration extends Fragment {
   private final Set<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean explicitJreDeps;
+  private final boolean annotationProcessingEnabled;
+  private final boolean zipTreeArtifact;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
     this.removeDeadCode = j2ObjcOptions.removeDeadCode;
@@ -86,6 +87,8 @@ public class J2ObjcConfiguration extends Fragment {
         .addAll(j2ObjcOptions.translationFlags)
         .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
         .build();
+    this.annotationProcessingEnabled = j2ObjcOptions.annotationProcessingEnabled;
+    this.zipTreeArtifact = j2ObjcOptions.zipTreeArtifact;
   }
 
   /**
@@ -114,6 +117,20 @@ public class J2ObjcConfiguration extends Fragment {
    */
   public boolean explicitJreDeps() {
     return explicitJreDeps;
+  }
+
+  /**
+   * Returns whether to enable J2ObjC support for Java annotation processing.
+   */
+  public boolean annotationProcessingEnabled() {
+    return annotationProcessingEnabled;
+  }
+
+  /**
+   * Returns whether to enable the zipping/unzipping implementation of tree artifact creation.
+   */
+  public boolean zipTreeArtifact() {
+    return zipTreeArtifact;
   }
 
   @Override

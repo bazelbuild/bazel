@@ -229,7 +229,12 @@ public final class IntermediateArtifacts {
    * artifact.
    */
   public Artifact objFile(Artifact source) {
-     return inUniqueObjsDir(source, ".o");
+    if (source.isTreeArtifact()) {
+      PathFragment rootRelativePath = source.getRootRelativePath().replaceName("obj_files");
+      return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
+    } else {
+      return inUniqueObjsDir(source, ".o");
+    }
   }
 
   /**
