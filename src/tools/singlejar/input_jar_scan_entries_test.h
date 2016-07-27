@@ -106,16 +106,12 @@ class InputJarScanEntries : public testing::Test {
     ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
     ASSERT_NE(nullptr, lh) << "No local header.";
     ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
-    EXPECT_EQ(lh->file_name_length(), cdh->file_name_length());
-    EXPECT_NE(lh->file_name_length(), 0);
-    std::string lh_name(lh->file_name(), lh->file_name_length());
-    std::string cdh_name(cdh->file_name(), cdh->file_name_length());
-    EXPECT_EQ(lh_name, cdh_name);
+    EXPECT_EQ(lh->file_name_string(), cdh->file_name_string());
     if (!cdh->no_size_in_local_header()) {
       EXPECT_EQ(lh->compressed_file_size(), cdh->compressed_file_size())
-          << "Entry: " << lh_name;
+          << "Entry: " << lh->file_name_string();
       EXPECT_EQ(lh->uncompressed_file_size(), cdh->uncompressed_file_size())
-          << "Entry: " << cdh_name;
+          << "Entry: " << cdh->file_name_string();
     }
   }
 
@@ -186,9 +182,8 @@ TYPED_TEST_P(InputJarScanEntries, HugeUncompressed) {
   while ((cdh = this->input_jar_->NextEntry(&lh))) {
     this->SmogCheck(cdh, lh);
     if (cdh->file_name_is(kHuge)) {
-      std::string entry_name(cdh->file_name(), cdh->file_name_length());
-      EXPECT_EQ(huge_size, cdh->uncompressed_file_size()) << "Entry: "
-                                                          << entry_name;
+      EXPECT_EQ(huge_size, cdh->uncompressed_file_size())
+          << "Entry: " << cdh->file_name_string();
       huge_file_present = true;
     }
   }

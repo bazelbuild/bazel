@@ -56,10 +56,7 @@ TEST_F(InputJarRandomJarsTest, ScanAllJars) {
       ASSERT_TRUE(cdh->is());
       ASSERT_NE(nullptr, lh);
       ASSERT_TRUE(lh->is());
-      EXPECT_EQ(lh->file_name_length(), cdh->file_name_length());
-      EXPECT_NE(lh->file_name_length(), 0);
-      EXPECT_EQ(0, strncmp(lh->file_name(), cdh->file_name(),
-                           lh->file_name_length()));
+      EXPECT_EQ(lh->file_name_string(), cdh->file_name_string());
       if ('/' != lh->file_name()[lh->file_name_length() - 1]) {
         ++file_count;
       }
