@@ -23,7 +23,6 @@ import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyMod
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -31,6 +30,7 @@ import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ListIterator;
 
 /**
  * The JavaBuilder main called by bazel.
@@ -99,6 +99,28 @@ public abstract class BazelJavaBuilder {
     }
   }
 
+  private static boolean processAndRemoveExtraChecksOptions(List<String> args) {
+    // error-prone is enabled by default for Bazel.
+    boolean errorProneEnabled = true;
+
+    ListIterator<String> arg = args.listIterator();
+    while (arg.hasNext()) {
+      switch (arg.next()) {
+        case "-extra_checks":
+        case "-extra_checks:on":
+          errorProneEnabled = true;
+          arg.remove();
+          break;
+        case "-extra_checks:off":
+          errorProneEnabled = false;
+          arg.remove();
+          break;
+      }
+    }
+
+    return errorProneEnabled;
+  }
+
   /**
    * Parses the list of arguments into a {@link JavaLibraryBuildRequest}. The returned
    * {@link JavaLibraryBuildRequest} object can be then used to configure the compilation itself.
@@ -110,12 +132,20 @@ public abstract class BazelJavaBuilder {
   @VisibleForTesting
   public static JavaLibraryBuildRequest parse(List<String> args) throws IOException,
       InvalidCommandLineException {
-    ImmutableList<BlazeJavaCompilerPlugin> plugins =
-        ImmutableList.<BlazeJavaCompilerPlugin>of(
-            new ClassLoaderMaskingPlugin(),
-            new ErrorPronePlugin());
+    OptionsParser optionsParser = new OptionsParser(args);
+    ImmutableList.Builder<BlazeJavaCompilerPlugin> plugins = ImmutableList.builder();
+    plugins.add(new ClassLoaderMaskingPlugin());
+
+    // Support for -extra_checks:off was removed from ErrorPronePlugin, but Bazel still needs it,
+    // so we'll emulate support for this here by handling the flag ourselves and not loading the
+    // plug-in when it is specified.
+    boolean errorProneEnabled = processAndRemoveExtraChecksOptions(optionsParser.getJavacOpts());
+    if (errorProneEnabled) {
+      plugins.add(new ErrorPronePlugin());
+    }
+
     JavaLibraryBuildRequest build =
-        new JavaLibraryBuildRequest(args, plugins, new DependencyModule.Builder());
+        new JavaLibraryBuildRequest(optionsParser, plugins.build(), new DependencyModule.Builder());
     build.setJavacOpts(JavacOptions.normalizeOptions(build.getJavacOpts()));
     return build;
   }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
-
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
@@ -86,34 +85,33 @@ public final class JavaLibraryBuildRequest {
   private final ImmutableList<BlazeJavaCompilerPlugin> plugins;
 
   /**
-   * Constructs a build from a list of command args. Sets the same JavacRunner
-   * for both compilation and annotation processing.
+   * Constructs a build from a list of command args. Sets the same JavacRunner for both compilation
+   * and annotation processing.
    *
-   * @param args the list of command line args
+   * @param optionsParser the parsed command line args.
    * @param extraPlugins extraneous plugins to use in addition to the strict dependency module.
    * @throws InvalidCommandLineException on any command line error
    */
-  public JavaLibraryBuildRequest(List<String> args, List<BlazeJavaCompilerPlugin> extraPlugins)
+  public JavaLibraryBuildRequest(
+      OptionsParser optionsParser, List<BlazeJavaCompilerPlugin> extraPlugins)
       throws InvalidCommandLineException, IOException {
-    this(args, extraPlugins, new DependencyModule.Builder());
+    this(optionsParser, extraPlugins, new DependencyModule.Builder());
   }
 
   /**
-   * Constructs a build from a list of command args. Sets the same JavacRunner
-   * for both compilation and annotation processing.
+   * Constructs a build from a list of command args. Sets the same JavacRunner for both compilation
+   * and annotation processing.
    *
-   * @param args the list of command line args
+   * @param optionsParser the parsed command line args.
    * @param extraPlugins extraneous plugins to use in addition to the strict dependency module.
    * @param depsBuilder a preconstructed dependency module builder.
    * @throws InvalidCommandLineException on any command line error
    */
   public JavaLibraryBuildRequest(
-      List<String> args,
+      OptionsParser optionsParser,
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder)
       throws InvalidCommandLineException, IOException {
-    OptionsParser optionsParser = new OptionsParser(args);
-
     depsBuilder.addDirectMappings(optionsParser.getDirectMappings());
     depsBuilder.addIndirectMappings(optionsParser.getIndirectMappings());
     if (optionsParser.getStrictJavaDeps() != null) {
