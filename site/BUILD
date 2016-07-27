@@ -24,6 +24,7 @@ filegroup(
             "*.swp",
             "command-line-reference-prefix.html",
             "command-line-reference-suffix.html",
+            "site/README.md",
         ],
     ),
 )
