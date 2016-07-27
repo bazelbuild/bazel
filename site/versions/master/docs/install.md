@@ -35,7 +35,7 @@ Java:
 
 #### Windows
 
-  * Windows is not fully supported yet; for experimental instructions, see [Building Bazel on Windows](windows.html)
+  * Windows is not fully supported yet; for experimental instructions, see [Bazel on Windows](windows.html)
 
 
 ## <a name="install-on-ubuntu"></a>Install on Ubuntu
