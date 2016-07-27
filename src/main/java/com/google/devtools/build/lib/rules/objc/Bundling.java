@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -221,6 +220,17 @@ final class Bundling {
       return mergeZipBuilder.build();
     }
 
+    private NestedSet<Artifact> rootMergeZips() {
+      NestedSetBuilder<Artifact> rootMergeZipsBuilder =
+          NestedSetBuilder.<Artifact>stableOrder().addTransitive(objcProvider.get(ROOT_MERGE_ZIP));
+
+      if (objcProvider.is(USES_SWIFT)) {
+        rootMergeZipsBuilder.add(intermediateArtifacts.swiftSupportZip());
+      }
+
+      return rootMergeZipsBuilder.build();
+    }
+
     private NestedSet<Artifact> bundleInfoplistInputs() {
       if (objcProvider.hasAssetCatalogs()) {
         infoplistInputs.add(intermediateArtifacts.actoolPartialInfoplist());
@@ -328,9 +338,7 @@ final class Bundling {
       NestedSet<BundleableFile> binaryStringsFiles = binaryStringsFiles();
       NestedSet<BundleableFile> dynamicFrameworks = dynamicFrameworkFiles();
       NestedSet<Artifact> mergeZips = mergeZips(actoolzipOutput);
-      NestedSet<Artifact> rootMergeZips =
-          NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(objcProvider.get(ROOT_MERGE_ZIP)).build();
+      NestedSet<Artifact> rootMergeZips = rootMergeZips();
 
       bundleFilesBuilder
           .addAll(binaryStringsFiles)
