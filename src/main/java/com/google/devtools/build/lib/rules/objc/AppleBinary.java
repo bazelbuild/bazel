@@ -88,8 +88,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     NestedSetBuilder<Artifact> binariesToLipo =
         NestedSetBuilder.<Artifact>stableOrder();
-    NestedSetBuilder<Artifact> archivesToLipo =
-        NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleIntermediateArtifacts.combinedArchitectureBinary());
@@ -117,11 +115,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
           J2ObjcMappingFileProvider.union(j2ObjcMappingFileProviders.build());
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider = j2ObjcEntryClassProviderBuilder.build();
 
-      if (!common.getCompilationArtifacts().get().getArchive().isPresent()) {
-        ruleContext.throwWithRuleError(REQUIRES_AT_LEAST_ONE_SOURCE_FILE);
-      }
-
-      archivesToLipo.add(common.getCompilationArtifacts().get().getArchive().get());
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
       ObjcConfiguration objcConfiguration = childConfig.getFragment(ObjcConfiguration.class);
@@ -156,10 +149,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .registerCombineArchitecturesAction(
             binariesToLipo.build(),
             ruleIntermediateArtifacts.combinedArchitectureBinary(),
-            appleConfiguration.getMultiArchPlatform(platformType))
-        .registerCombineArchitecturesAction(
-            archivesToLipo.build(),
-            ruleContext.getImplicitOutputArtifact(AppleBinaryRule.LIPO_ARCHIVE),
             appleConfiguration.getMultiArchPlatform(platformType));
 
     RuleConfiguredTargetBuilder targetBuilder =
