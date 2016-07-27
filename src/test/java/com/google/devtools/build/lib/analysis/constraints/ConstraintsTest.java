@@ -594,7 +594,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
 
   @Test
   public void constraintEnforcementDisabled() throws Exception {
-    useConfiguration("--experimental_enforce_constraints=0");
+    useConfiguration("--enforce_constraints=0");
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
     scratch.file("hello/BUILD",
