@@ -40,6 +40,12 @@ sh_binary(
 )
 
 sh_binary(
+    name = "resource_parser",
+    srcs = ["resource_parser.sh"],
+    data = ["//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction"],
+)
+
+sh_binary(
     name = "resource_shrinker",
     srcs = ["resource_shrinker.sh"],
     data = ["//src/tools/android/java/com/google/devtools/build/android:ResourceShrinkerAction"],

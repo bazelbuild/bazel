@@ -15,10 +15,8 @@ package com.google.devtools.build.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -30,8 +28,12 @@ import java.util.regex.Pattern;
  * {@link UnvalidatedAndroidData} -> {@link MergedAndroidData} -> {@link DensityFilteredAndroidData}
  *      -> {@link DependencyAndroidData}
  */
-class UnvalidatedAndroidData {
-  static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+");
+class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
+  private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+");
+
+  static String expectedFormat() {
+    return "resources[#resources]:assets[#assets]:manifest";
+  }
 
   public static UnvalidatedAndroidData valueOf(String text) {
     return valueOf(text, FileSystems.getDefault());
@@ -41,7 +43,7 @@ class UnvalidatedAndroidData {
   static UnvalidatedAndroidData valueOf(String text, FileSystem fileSystem) {
     if (!VALID_REGEX.matcher(text).find()) {
       throw new IllegalArgumentException(
-          text + " is not in the format 'resources[#resources]:assets[#assets]:manifest'");
+          text + " is not in the format '" + expectedFormat() + "'");
     }
     String[] parts = text.split(":");
     return new UnvalidatedAndroidData(
@@ -50,32 +52,11 @@ class UnvalidatedAndroidData {
         exists(fileSystem.getPath(parts[2])));
   }
 
-  private static ImmutableList<Path> splitPaths(String pathsString, FileSystem fileSystem) {
-    if (pathsString.length() == 0) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Path> paths = new ImmutableList.Builder<>();
-    for (String pathString : pathsString.split("#")) {
-      paths.add(exists(fileSystem.getPath(pathString)));
-    }
-    return paths.build();
-  }
-
-  private static Path exists(Path path) {
-    if (!Files.exists(path)) {
-      throw new IllegalArgumentException(path + " does not exist");
-    }
-    return path;
-  }
-
   private final Path manifest;
-  private final ImmutableList<Path> assetDirs;
-  private final ImmutableList<Path> resourceDirs;
 
   public UnvalidatedAndroidData(
       ImmutableList<Path> resourceDirs, ImmutableList<Path> assetDirs, Path manifest) {
-    this.resourceDirs = resourceDirs;
-    this.assetDirs = assetDirs;
+    super(resourceDirs, assetDirs);
     this.manifest = manifest;
   }
 
@@ -107,12 +88,4 @@ class UnvalidatedAndroidData {
         && Objects.equals(other.manifest, manifest);
   }
 
-  public void walk(final AndroidDataPathWalker pathWalker) throws IOException {
-    for (Path path : resourceDirs) {
-      pathWalker.walkResources(path);
-    }
-    for (Path path : assetDirs) {
-      pathWalker.walkAssets(path);
-    }
-  }
 }

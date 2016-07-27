@@ -67,8 +67,30 @@ public final class Converters {
 
     @Override
     public String getTypeDescription() {
-      return "unvalidated android data in the format "
-          + "resources[#resources]:assets[#assets]:manifest";
+      return "unvalidated android data in the format " + UnvalidatedAndroidData.expectedFormat();
+    }
+  }
+
+  /**
+   * Converter for {@link UnvalidatedAndroidDirectories}.
+   */
+  public static class UnvalidatedAndroidDirectoriesConverter
+      implements Converter<UnvalidatedAndroidDirectories> {
+
+    @Override
+    public UnvalidatedAndroidDirectories convert(String input) throws OptionsParsingException {
+      try {
+        return UnvalidatedAndroidDirectories.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            String.format("invalid UnvalidatedAndroidDirectories: %s", e.getMessage()), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "unvalidated android directories in the format "
+          + UnvalidatedAndroidDirectories.expectedFormat();
     }
   }
 
