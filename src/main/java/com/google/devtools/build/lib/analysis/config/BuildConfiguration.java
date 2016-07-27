@@ -196,14 +196,6 @@ public final class BuildConfiguration {
     }
 
     /**
-     * Return true if the fragment performs static linking. This information is needed for
-     * lincence checking.
-     */
-    public boolean performsStaticLink() {
-      return false;
-    }
-
-    /**
      * Add items to the shell environment.
      */
     @SuppressWarnings("unused")
@@ -2338,18 +2330,6 @@ public final class BuildConfiguration {
       default:
         return OS.getCurrent() != OS.WINDOWS;
     }
-  }
-
-  /**
-   * Returns true if the configuration performs static linking.
-   */
-  public boolean performsStaticLink() {
-    for (Fragment fragment : fragments.values()) {
-      if (fragment.performsStaticLink()) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**

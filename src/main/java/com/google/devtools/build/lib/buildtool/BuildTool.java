@@ -24,12 +24,11 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
-import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -56,7 +55,6 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
@@ -68,7 +66,6 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -563,12 +560,9 @@ public final class BuildTool {
       }
 
       final Set<DistributionType> distribs = target.getDistributions();
-      BuildConfiguration config = configuredTarget.getConfiguration();
-      boolean staticallyLinked = (config != null) && config.performsStaticLink();
-      staticallyLinked |= (config != null) && (target instanceof Rule)
-          && ((Rule) target).getRuleClassObject().hasAttr("linkopts", Type.STRING_LIST)
-          && ConfiguredAttributeMapper.of((RuleConfiguredTarget) configuredTarget)
-              .get("linkopts", Type.STRING_LIST).contains("-static");
+      StaticallyLinkedMarkerProvider markerProvider =
+          configuredTarget.getProvider(StaticallyLinkedMarkerProvider.class);
+      boolean staticallyLinked = markerProvider != null && markerProvider.isLinkedStatically();
 
       LicensesProvider provider = configuredTarget.getProvider(LicensesProvider.class);
       if (provider != null) {

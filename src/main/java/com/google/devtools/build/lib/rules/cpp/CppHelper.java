@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -577,5 +579,20 @@ public class CppHelper {
         .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
         .setMnemonic("CcStrip")
         .build(context));
+  }
+
+  public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,
+      RuleContext ruleContext) {
+    boolean staticallyLinked = false;
+    if (ruleContext.getFragment(CppConfiguration.class).getLinkOptions().contains("-static")) {
+      staticallyLinked = true;
+    } else if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)
+        && ruleContext.attributes().get("linkopts", Type.STRING_LIST).contains("-static")) {
+      staticallyLinked = true;
+    }
+
+    if (staticallyLinked) {
+      builder.add(StaticallyLinkedMarkerProvider.class, new StaticallyLinkedMarkerProvider(true));
+    }
   }
 }

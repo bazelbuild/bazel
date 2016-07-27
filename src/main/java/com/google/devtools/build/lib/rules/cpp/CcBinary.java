@@ -671,6 +671,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup(
             OutputGroupProvider.COMPILATION_PREREQUISITES,
             CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
+
+    CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);
   }
 
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {

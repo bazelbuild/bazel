@@ -2019,11 +2019,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return getToolchainIdentifier();
   }
 
-  @Override
-  public boolean performsStaticLink() {
-    return getLinkOptions().contains("-static");
-  }
-
   public boolean alwaysAttachExtraActions() {
     return true;
   }

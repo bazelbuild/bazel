@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -271,6 +270,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     instrumentedObjectFiles.addAll(info.getCcCompilationOutputs().getObjectFiles(true));
     InstrumentedFilesProvider instrumentedFilesProvider =
         common.getInstrumentedFilesProvider(instrumentedObjectFiles, /*withBaselineCoverage=*/true);
+    CppHelper.maybeAddStaticLinkMarkerProvider(targetBuilder, ruleContext);
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProviders(info.getProviders())
