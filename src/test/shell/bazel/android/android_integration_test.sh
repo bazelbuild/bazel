@@ -159,6 +159,16 @@ function check_num_sos() {
   assert_equals "11" "$num_sos"
 }
 
+function check_soname() {
+  soname=$(readelf -d bazel-bin/java/bazel/_dx/bin/native_symlinks/x86/libbin.so \
+    | grep SONAME \
+    | awk '{print substr($5,2,length($5)-2)}')
+  echo 'I am here'
+  echo "$soname"
+  readelf -d bazel-bin/java/bazel/_dx/bin/native_symlinks/x86/libbin.so
+  assert_equals "libbin" "$soname"
+}
+
 function test_sdk_library_deps() {
   create_new_workspace
   setup_android_support
@@ -183,6 +193,7 @@ function test_android_binary() {
 
   bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
   check_num_sos
+  check_soname
 }
 
 function test_android_binary_clang() {
