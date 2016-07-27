@@ -26,6 +26,14 @@ java_binary(
 )
 
 java_binary(
+    name = "AndroidResourceParsingAction",
+    main_class = "com.google.devtools.build.android.AndroidResourceParsingAction",
+    runtime_deps = [
+        ":android_builder_lib",
+    ],
+)
+
+java_binary(
     name = "AndroidResourceProcessingAction",
     main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
     runtime_deps = [
