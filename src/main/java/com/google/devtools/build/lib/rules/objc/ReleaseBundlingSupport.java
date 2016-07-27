@@ -22,9 +22,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBu
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.EXTRA_ENTITLEMENTS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
 
-import com.dd.plist.NSArray;
-import com.dd.plist.NSDictionary;
-import com.dd.plist.NSObject;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -66,8 +63,14 @@ import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.Bundling.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
+
+import com.dd.plist.NSArray;
+import com.dd.plist.NSDictionary;
+import com.dd.plist.NSObject;
+
 import java.util.List;
 import java.util.Map.Entry;
+
 import javax.annotation.Nullable;
 
 /**
@@ -296,7 +299,6 @@ public final class ReleaseBundlingSupport {
     registerCopyDsymPlistAction(dsymOutputType);
     registerCopyLinkmapFilesAction();
     registerSwiftStdlibActionsIfNecessary();
-    registerSwiftSupportActionsIfNecessary();
 
     registerEmbedLabelPlistAction();
     registerEnvironmentPlistAction();
@@ -1049,13 +1051,10 @@ public final class ReleaseBundlingSupport {
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addPath(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
-            .add("Frameworks")
-            .add("--platform")
-            .add(AppleToolchain.swiftPlatform(appleConfiguration))
-            .addExecPath("--scan-executable", intermediateArtifacts.combinedArchitectureBinary());
+    CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
+        .addPath(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
+        .add("--platform").add(AppleToolchain.swiftPlatform(appleConfiguration))
+        .addExecPath("--scan-executable", intermediateArtifacts.combinedArchitectureBinary());
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
@@ -1063,32 +1062,6 @@ public final class ReleaseBundlingSupport {
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
-            .addInput(intermediateArtifacts.combinedArchitectureBinary())
-            .build(ruleContext));
-  }
-
-  /** Registers an action to copy Swift standard library dylibs into SwiftSupport root directory. */
-  private void registerSwiftSupportActionsIfNecessary() {
-    if (!objcProvider.is(USES_SWIFT)) {
-      return;
-    }
-
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addPath(intermediateArtifacts.swiftSupportZip().getExecPath())
-            .add("SwiftSupport/" + AppleToolchain.swiftPlatform(appleConfiguration))
-            .add("--platform")
-            .add(AppleToolchain.swiftPlatform(appleConfiguration))
-            .addExecPath("--scan-executable", intermediateArtifacts.combinedArchitectureBinary());
-
-    ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
-            .setMnemonic("SwiftCopySwiftSupport")
-            .setExecutable(attributes.swiftStdlibToolWrapper())
-            .setCommandLine(commandLine.build())
-            .addOutput(intermediateArtifacts.swiftSupportZip())
             .addInput(intermediateArtifacts.combinedArchitectureBinary())
             .build(ruleContext));
   }
