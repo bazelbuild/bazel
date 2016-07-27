@@ -51,6 +51,13 @@ public class ExampleWorkerOptions extends OptionsBase {
       help = "Writes a list of input files and their digests."
     )
     public boolean printInputs;
+
+    @Option(
+        name = "print_env",
+        defaultValue = "false",
+        help = "Prints a list of all environment variables."
+    )
+    public boolean printEnv;
   }
 
   @Option(name = "persistent_worker", defaultValue = "false")

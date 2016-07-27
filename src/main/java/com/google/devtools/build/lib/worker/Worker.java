@@ -70,6 +70,7 @@ final class Worker {
         new ProcessBuilder(command)
             .directory(key.getWorkDir().getPathFile())
             .redirectError(Redirect.appendTo(logFile.getPathFile()));
+    processBuilder.environment().clear();
     processBuilder.environment().putAll(key.getEnv());
 
     final Process process = processBuilder.start();
