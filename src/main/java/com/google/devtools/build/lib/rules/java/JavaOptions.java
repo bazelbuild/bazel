@@ -282,15 +282,12 @@ public class JavaOptions extends FragmentOptions {
   )
   public Label hostJavaLauncher;
 
-  @Option(
-    name = "java_launcher",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    category = "semantics",
-    help =
-        "The Java launcher to use when building Java binaries. "
-            + "The \"launcher\" attribute overrides this flag. "
-  )
+  @Option(name = "java_launcher",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      category = "semantics",
+      help = "If enabled, a specific Java launcher is used. "
+          + "The \"launcher\" attribute overrides this flag. ")
   public Label javaLauncher;
 
   @Option(name = "proguard_top",

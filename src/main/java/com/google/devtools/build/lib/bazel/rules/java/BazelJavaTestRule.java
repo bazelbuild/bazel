@@ -59,6 +59,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
+        .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
         // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
         .override(attr("main_class", STRING).value(JUNIT4_RUNNER))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
