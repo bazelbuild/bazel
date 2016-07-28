@@ -76,10 +76,11 @@ public class FileArtifactValue extends ArtifactValue {
     this.mtime = -1;
   }
 
-  // Only used by empty files (non-null digest) and directories (null digest).
+  // Only used by directories (null digest).
   private FileArtifactValue(byte[] digest, long mtime, long size) {
     Preconditions.checkState(mtime >= 0, "mtime must be non-negative: %s %s", mtime, size);
     Preconditions.checkState(size == 0, "size must be zero: %s %s", mtime, size);
+    Preconditions.checkState(digest == null, "digest must be null:");
     this.digest = digest;
     this.size = size;
     this.mtime = mtime;
@@ -154,7 +155,7 @@ public class FileArtifactValue extends ArtifactValue {
 
   /** Gets last modified time of file. Should only be called if this is a directory. */
   long getModifiedTime() {
-    Preconditions.checkState(size == 0, "%s %s %s", digest, mtime, size);
+    Preconditions.checkState(size == 0 && digest == null, "%s %s %s", digest, mtime, size);
     return mtime;
   }
 

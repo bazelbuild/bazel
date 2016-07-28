@@ -272,7 +272,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     path.setLastModifiedTime(1L);
     FileArtifactValue value = create(artifact);
     assertArrayEquals(path.getMD5Digest(), value.getDigest());
-    assertEquals(-1L, value.getModifiedTime());
     assertEquals(0L, value.getSize());
   }
 
