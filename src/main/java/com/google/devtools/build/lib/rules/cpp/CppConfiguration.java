@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionConfigs.CppLinkPlatform;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ActionConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -682,6 +684,21 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return result.build();
   }
   
+  private boolean linkActionsAreConfigured(CToolchain toolchain) {
+    for (LinkTargetType type : LinkTargetType.values()) {
+      boolean typeIsConfigured = false;
+      for (ActionConfig actionConfig : toolchain.getActionConfigList()) {
+        if (actionConfig.getActionName().equals(type.getActionName())) {
+          typeIsConfigured = true;
+          break;
+        }
+      }
+      if (!typeIsConfigured) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
   // feature configuration, and all crosstools have been converted.
@@ -697,13 +714,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return toolchain;
     }
     try {
-      
-      if (getTargetLibc().equals("macosx")) {
-        TextFormat.merge(
-            CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.MAC), toolchainBuilder);
-      } else {
-        TextFormat.merge(
-            CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.LINUX), toolchainBuilder);
+      if (!linkActionsAreConfigured(toolchain)) {
+        if (getTargetLibc().equals("macosx")) {
+          TextFormat.merge(
+              CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.MAC), toolchainBuilder);
+        } else {
+          TextFormat.merge(
+              CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.LINUX),
+              toolchainBuilder);
+        }
       }
 
       if (!features.contains("dependency_file")) {
