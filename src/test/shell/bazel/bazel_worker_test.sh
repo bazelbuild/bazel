@@ -434,4 +434,23 @@ EOF
     || fail "Worker did not produce output"
 }
 
+function test_environment_is_clean() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+work(
+  name = "hello_world",
+  worker = ":worker",
+  args = ["--print_env"],
+)
+EOF
+
+  bazel shutdown &> $TEST_log \
+    || fail "shutdown failed"
+  CAKE=LIE bazel build --worker_verbose --strategy=Work=worker --worker_max_instances=1 --worker_quit_after_build :hello_world &> $TEST_log \
+    || fail "build failed"
+
+  fgrep CAKE=LIE bazel-bin/hello_world.out \
+    && fail "environment variable leaked into worker env" || true
+}
+
 run_suite "Worker integration tests"

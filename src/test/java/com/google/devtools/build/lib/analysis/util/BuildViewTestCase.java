@@ -380,7 +380,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    *
    * @throws IllegalArgumentException
    */
-  protected void useConfiguration(String... args) throws Exception {
+  protected final void useConfiguration(String... args) throws Exception {
     masterConfig = createConfigurations(args);
     targetConfig = getTargetConfiguration();
     configurationArgs = Arrays.asList(args);

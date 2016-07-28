@@ -315,7 +315,7 @@ final class CompilationAttributes {
       builder.addModuleMapsForDirectDeps(moduleMaps.build());
 
       PathFragment packageFragment =
-          ruleContext.getLabel().getPackageIdentifier().getPathFragment();
+          ruleContext.getLabel().getPackageIdentifier().getSourceRoot();
       if (packageFragment != null) {
         builder.setPackageFragment(packageFragment);
       }

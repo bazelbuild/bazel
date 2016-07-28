@@ -15,22 +15,24 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.MediaType;
-
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.nio.charset.Charset;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
-
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 /**
  * Tests for @{link HttpConnection}.
@@ -70,7 +72,7 @@ public class HttpConnectionTest {
     HttpURLConnection connection = Mockito.mock(HttpURLConnection.class);
     when(connection.getContentType()).thenReturn(MediaType.HTML_UTF_8.toString());
     Charset charset = HttpConnection.getEncoding(connection);
-    assertEquals(StandardCharsets.UTF_8, charset);
+    assertEquals(UTF_8, charset);
   }
 
   @Test
@@ -89,6 +91,48 @@ public class HttpConnectionTest {
   public void testNoEncodingNorContentType() throws Exception {
     HttpURLConnection connection = Mockito.mock(HttpURLConnection.class);
     Charset charset = HttpConnection.getEncoding(connection);
-    assertEquals(StandardCharsets.UTF_8, charset);
+    assertEquals(UTF_8, charset);
+  }
+
+  /**
+   * Creates a temporary file with the specified {@code fileContents}. The file will be
+   * automatically deleted when the JVM exits.
+   *
+   * @param fileContents the contents of the file
+   * @return the {@link File} object representing the temporary file
+   */
+  private static File createTempFile(byte[] fileContents) throws IOException {
+    File temp = File.createTempFile("httpConnectionTest", ".tmp");
+    temp.deleteOnExit();
+    try (FileOutputStream outputStream = new FileOutputStream(temp)) {
+      outputStream.write(fileContents);
+    }
+    return temp;
+  }
+
+  @Test
+  public void testLocalFileDownload() throws Exception {
+    byte[] fileContents = "this is a test".getBytes(UTF_8);
+    File temp = createTempFile(fileContents);
+    HttpConnection httpConnection =
+        HttpConnection.createAndConnect(temp.toURI().toURL(), ImmutableMap.<String, String>of());
+
+    assertThat(httpConnection.getContentLength()).isEqualTo(fileContents.length);
+
+    byte[] readContents = ByteStreams.toByteArray(httpConnection.getInputStream());
+    assertThat(readContents).isEqualTo(fileContents);
+  }
+
+  @Test
+  public void testLocalEmptyFileDownload() throws Exception {
+    byte[] fileContents = new byte[0];
+    // create a temp file
+    File temp = createTempFile(fileContents);
+    try {
+      HttpConnection.createAndConnect(temp.toURI().toURL(), ImmutableMap.<String, String>of());
+      fail("Expected exception");
+    } catch (IOException ex) {
+      // expected
+    }
   }
 }

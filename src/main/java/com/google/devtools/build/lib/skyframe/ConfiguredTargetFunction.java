@@ -710,14 +710,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
     Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Collect the labels of the configured targets we need to resolve.
-    ListMultimap<Attribute, LabelAndConfiguration> configLabelMap = ArrayListMultimap.create();
+    ListMultimap<Attribute, Label> configLabelMap = ArrayListMultimap.create();
     RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
     for (Attribute a : ((Rule) target).getAttributes()) {
       for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
         if (!BuildType.Selector.isReservedLabel(configLabel)) {
-          configLabelMap.put(a, LabelAndConfiguration.of(
-              target.getLabel().resolveRepositoryRelative(configLabel),
-              ctgValue.getConfiguration()));
+          configLabelMap.put(a, target.getLabel().resolveRepositoryRelative(configLabel));
         }
       }
     }

@@ -9,6 +9,22 @@ filegroup(
 )
 
 cc_test(
+    name = "combiners_test",
+    size = "large",
+    srcs = [
+        "combiners_test.cc",
+        ":combiners",
+        ":input_jar",
+        ":zip_headers",
+        ":zlib_interface",
+    ],
+    deps = [
+        "//third_party:gtest",
+        "//third_party/zlib",
+    ],
+)
+
+cc_test(
     name = "input_jar_scan_jartool_test",
     size = "large",
     srcs = [
@@ -120,6 +136,16 @@ cc_library(
         "options.cc",
         "options.h",
         ":token_stream",
+    ],
+)
+
+filegroup(
+    name = "combiners",
+    srcs = [
+        "combiners.h",
+        ":transient_bytes",
+        ":zip_headers",
+        ":zlib_interface",
     ],
 )
 

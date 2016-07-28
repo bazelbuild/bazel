@@ -16,15 +16,17 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -72,7 +74,13 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       boolean moduleMapHomeIsCwd,
       boolean generateSubmodules,
       boolean externDependencies) {
-    super(owner, ImmutableList.<Artifact>of(), cppModuleMap.getArtifact(),
+    super(
+        owner,
+        ImmutableList.<Artifact>builder()
+            .addAll(Iterables.filter(privateHeaders, Artifact.IS_TREE_ARTIFACT))
+            .addAll(Iterables.filter(publicHeaders, Artifact.IS_TREE_ARTIFACT))
+            .build(),
+        cppModuleMap.getArtifact(),
         /*makeExecutable=*/false);
     this.cppModuleMap = cppModuleMap;
     this.moduleMapHomeIsCwd = moduleMapHomeIsCwd;
@@ -87,6 +95,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)  {
+    final ArtifactExpander artifactExpander = ctx.getArtifactExpander();
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
@@ -101,11 +110,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         content.append("  export *\n");
 
         HashSet<PathFragment> deduper = new HashSet<>();
-        for (Artifact artifact : publicHeaders) {
+        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
           appendHeader(
               content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/ true, deduper);
         }
-        for (Artifact artifact : privateHeaders) {
+        for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
           appendHeader(
               content,
               "private",
@@ -137,7 +146,21 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       }
     };
   }
-  
+
+  private static Iterable<Artifact> expandedHeaders(ArtifactExpander artifactExpander,
+      Iterable<Artifact> unexpandedHeaders) {
+    List<Artifact> expandedHeaders = new ArrayList<>();
+    for (Artifact unexpandedHeader : unexpandedHeaders) {
+      if (unexpandedHeader.isTreeArtifact()) {
+        artifactExpander.expand(unexpandedHeader, expandedHeaders);
+      } else {
+        expandedHeaders.add(unexpandedHeader);
+      }
+    }
+
+    return ImmutableList.copyOf(expandedHeaders);
+  }
+
   private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
       String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper) {
     if (deduper.contains(path)) {

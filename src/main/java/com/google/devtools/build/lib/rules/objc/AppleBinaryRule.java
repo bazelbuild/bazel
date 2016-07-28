@@ -46,12 +46,6 @@ public class AppleBinaryRule implements RuleDefinition {
    * multiple architectures).
    */
   private static final SafeImplicitOutputsFunction LIPOBIN = fromTemplates("%{name}_lipobin");
-  
-  /**
-   * Template for the fat archive output (using Apple's "lipo" tool to combine .a archive files of
-   * multiple architectures).
-   */
-  static final SafeImplicitOutputsFunction LIPO_ARCHIVE = fromTemplates("%{name}_lipo.a");
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -90,12 +84,10 @@ public class AppleBinaryRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture
              binary. All transitive dependencies and <code>srcs</code> are linked.</li>
-         <li><code><var>name</var>_.lipo.a</code>: a 'lipo'ed archive file linking together only
-             the <code>srcs</code> of this target.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(LIPOBIN, LIPO_ARCHIVE))
+            ImplicitOutputsFunction.fromFunctions(LIPOBIN))
         .build();
   }
 

@@ -111,7 +111,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
     if (jvmLabel == null || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
       return getJavaExecutable();
     }
-    return jvmLabel.getPackageIdentifier().getRepository().getRunfilesPath().getRelative(BIN_JAVA);
+    return jvmLabel.getPackageIdentifier().getRepository().getPathUnderExecRoot().getRelative(BIN_JAVA);
   }
 
   @Override

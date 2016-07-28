@@ -105,7 +105,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    */
   public static Label parseAbsolute(String absName, boolean defaultToMain)
       throws LabelSyntaxException {
-    String repo = defaultToMain ? "@" : PackageIdentifier.DEFAULT_REPOSITORY;
+    String repo = defaultToMain ? "@" : RepositoryName.DEFAULT_REPOSITORY;
     int packageStartPos = absName.indexOf("//");
     if (packageStartPos > 0) {
       repo = absName.substring(0, packageStartPos);
@@ -336,7 +336,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
       + " \"external/repo\"</pre>")
   public String getWorkspaceRoot() {
-    return packageIdentifier.getRepository().getPathFragment().toString();
+    return packageIdentifier.getRepository().getSourceRoot().toString();
   }
 
   /**

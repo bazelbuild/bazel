@@ -27,13 +27,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-
 import javax.annotation.Nullable;
 
 /**
@@ -136,7 +134,7 @@ public final class CustomCommandLine extends CommandLine {
     void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
       Set<Artifact> expandedArtifacts = new TreeSet<>();
       artifactExpander.expand(treeArtifact, expandedArtifacts);
-      
+
       if (!expandedArtifacts.isEmpty()) {
         builder.add(Artifact.joinExecPaths(delimiter, expandedArtifacts));
       }
@@ -147,6 +145,34 @@ public final class CustomCommandLine extends CommandLine {
       return String.format(
           "JoinExpandedTreeArtifactExecPathsArg{ delimiter: %s, treeArtifact: %s}",
           delimiter,
+          treeArtifact.getExecPathString());
+    }
+  }
+
+  private static final class ExpandedTreeArtifactExecPathsArg
+      extends TreeArtifactExpansionArgvFragment {
+    private final Artifact treeArtifact;
+
+    private ExpandedTreeArtifactExecPathsArg(Artifact treeArtifact) {
+      Preconditions.checkArgument(
+          treeArtifact.isTreeArtifact(), "%s is not a TreeArtifact", treeArtifact);
+      this.treeArtifact = treeArtifact;
+    }
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
+      Set<Artifact> expandedArtifacts = new TreeSet<>();
+      artifactExpander.expand(treeArtifact, expandedArtifacts);
+
+      for (Artifact expandedArtifact : expandedArtifacts) {
+        builder.add(expandedArtifact.getExecPathString());
+      }
+    }
+
+    @Override
+    public String describe() {
+      return String.format(
+          "ExpandedTreeArtifactExecPathsArg{ treeArtifact: %s}",
           treeArtifact.getExecPathString());
     }
   }
@@ -512,6 +538,17 @@ public final class CustomCommandLine extends CommandLine {
      */
     public Builder addJoinExpandedTreeArtifactExecPath(String delimiter, Artifact treeArtifact) {
       arguments.add(new JoinExpandedTreeArtifactExecPathsArg(delimiter, treeArtifact));
+      return this;
+    }
+
+    /**
+     * Adds the exec paths (one argument per exec path) of all {@link TreeFileArtifact}s under
+     * {@code treeArtifact}.
+     *
+     * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
+     */
+    public Builder addExpandedTreeArtifactExecPaths(Artifact treeArtifact) {
+      arguments.add(new ExpandedTreeArtifactExecPathsArg(treeArtifact));
       return this;
     }
 

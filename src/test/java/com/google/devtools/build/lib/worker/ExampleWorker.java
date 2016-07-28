@@ -159,6 +159,12 @@ public class ExampleWorker {
       }
     }
 
+    if (options.printEnv) {
+      for (Entry<String, String> entry : System.getenv().entrySet()) {
+        outputs.add(entry.getKey() + "=" + entry.getValue());
+      }
+    }
+
     String outputStr = Joiner.on('\n').join(outputs);
     if (options.outputFile.isEmpty()) {
       System.out.println(outputStr);

@@ -369,12 +369,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // during execution.
         if (state.discoveredInputs != null
             && !state.inputArtifactData.keySet().containsAll(state.discoveredInputs)) {
-          Map<Artifact, FileArtifactValue> inputArtifactData =
-              addDiscoveredInputs(state.inputArtifactData, state.discoveredInputs, env);
+          addDiscoveredInputs(state.inputArtifactData, state.discoveredInputs, env);
           if (env.valuesMissing()) {
             return null;
           }
-          state.inputArtifactData = inputArtifactData;
           perActionFileCache = new PerActionFileCache(state.inputArtifactData);
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
@@ -453,15 +451,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return state.value;
   }
 
-  private static Map<Artifact, FileArtifactValue> addDiscoveredInputs(
-      Map<Artifact, FileArtifactValue> originalInputData, Collection<Artifact> discoveredInputs,
+  private static void addDiscoveredInputs(
+      Map<Artifact, FileArtifactValue> inputData, Collection<Artifact> discoveredInputs,
       Environment env) {
-    // We assume nobody would want to discover a TreeArtifact, since TreeArtifacts are precisely
-    // for undiscoverable contents.
-    Map<Artifact, FileArtifactValue> result = new HashMap<>(originalInputData);
     Set<SkyKey> keys = new HashSet<>();
     for (Artifact artifact : discoveredInputs) {
-      if (!result.containsKey(artifact)) {
+      if (!inputData.containsKey(artifact)) {
         // Note that if the artifact is derived, the mandatory flag is ignored.
         keys.add(ArtifactValue.key(artifact, /*mandatory=*/false));
       }
@@ -474,11 +469,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // discovery.
     // Therefore there is no need to catch and rethrow exceptions as there is with #checkInputs.
     Map<SkyKey, SkyValue> data = env.getValues(keys);
-    if (env.valuesMissing()) {
-      return null;
+    if (!env.valuesMissing()) {
+      inputData.putAll(transformArtifactMetadata(data));
     }
-    result.putAll(transformArtifactMetadata(data));
-    return result;
   }
 
   private void establishSkyframeDependencies(Environment env, Action action)
@@ -615,9 +608,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       throw new ActionExecutionException(missingCount + " input file(s) do not exist", action,
           rootCauses.build(), /*catastrophe=*/false);
     }
-    return Pair.of(
-        Collections.unmodifiableMap(inputArtifactData),
-        Collections.unmodifiableMap(expandedArtifacts));
+    return Pair.of(inputArtifactData, Collections.unmodifiableMap(expandedArtifacts));
   }
 
   /**
@@ -694,6 +685,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    */
   private static class ContinuationState {
     AllInputs allInputs;
+    /** Mutable map containing metadata for known artifacts. */
     Map<Artifact, FileArtifactValue> inputArtifactData = null;
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
     Token token = null;

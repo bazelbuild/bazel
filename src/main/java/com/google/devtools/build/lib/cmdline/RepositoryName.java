@@ -35,6 +35,9 @@ import java.util.regex.Pattern;
  * A human-readable name for the repository.
  */
 public final class RepositoryName implements Serializable {
+  public static final String DEFAULT_REPOSITORY = "";
+  public static final RepositoryName DEFAULT;
+  public static final RepositoryName MAIN;
   private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
 
   /** Helper for serializing {@link RepositoryName}. */
@@ -92,6 +95,15 @@ public final class RepositoryName implements Serializable {
               }
             });
 
+  static {
+    try {
+      DEFAULT = RepositoryName.create(RepositoryName.DEFAULT_REPOSITORY);
+      MAIN = RepositoryName.create("@");
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   /**
    * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
    *
@@ -108,7 +120,7 @@ public final class RepositoryName implements Serializable {
 
   /**
    * Extracts the repository name from a PathFragment that was created with
-   * {@code PackageIdentifier.getPathFragment}.
+   * {@code PackageIdentifier.getSourceRoot}.
    *
    * @return a {@code Pair} of the extracted repository name and the path fragment with stripped
    * of "external/"-prefix and repository name, or null if none was found or the repository name
@@ -193,20 +205,21 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
-   * Returns the path at which this repository is mapped within the exec root.
+   * Returns the relative path to the repository source. Returns "" for the main repository and
+   * external/[repository name] for external repositories.
    */
-  public PathFragment getPathFragment() {
+  public PathFragment getSourceRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
         : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
   }
 
   /**
-   * Returns the runfiles path for this repository (relative to the x.runfiles/main-repo/
+   * Returns the runfiles/execRoot path for this repository (relative to the x.runfiles/main-repo/
    * directory). If we don't know the name of this repo (i.e., it is in the main repository),
    * return an empty path fragment.
    */
-  public PathFragment getRunfilesPath() {
+  public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT : new PathFragment("..").getRelative(strippedName());
   }
