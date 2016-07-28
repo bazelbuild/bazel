@@ -67,28 +67,24 @@ def _apple_genrule(ctx):
                mnemonic="Genrule",
                input_manifests=runfiles_manifests)
 
-  # Executable has to be specified explicitly
-  if ctx.attr.executable:
-    return struct(files=files_to_build,
-                  data_runfiles=ctx.runfiles(transitive_files=files_to_build),
-                  executable=list(files_to_build)[0])
-  else:
-    return struct(files=files_to_build,
-                  data_runfiles=ctx.runfiles(transitive_files=files_to_build))
+  return struct(files=files_to_build,
+                data_runfiles=ctx.runfiles(transitive_files=files_to_build))
 
 
-apple_genrule = rule(implementation=_apple_genrule,
-     attrs={
-         "srcs": attr.label_list(allow_files=True),
-         "tools": attr.label_list(cfg=HOST_CFG, allow_files=True),
-         "outs": attr.output_list(mandatory=True),
-         "cmd": attr.string(mandatory=True),
-         "message": attr.string(),
-         "output_licenses": attr.license(),
-         "executable": attr.bool(default=False),
-         },
-     output_to_genfiles = True,
-     fragments=APPLE_FRAGMENTS)
+_apple_genrule_inner = rule(
+    implementation=_apple_genrule,
+    attrs={
+        "srcs": attr.label_list(allow_files=True),
+        "tools": attr.label_list(cfg=HOST_CFG, allow_files=True),
+        "outs": attr.output_list(mandatory=True),
+        "cmd": attr.string(mandatory=True),
+        "message": attr.string(),
+        "output_licenses": attr.license(),
+        "executable": attr.bool(default=False),
+        },
+    output_to_genfiles = True,
+    fragments=APPLE_FRAGMENTS)
+
 """Genrule which provides Apple specific environment and make variables.
 This mirrors the native genrule except that it provides a different set of
 make variables. This rule will only run on a Mac.
@@ -121,3 +117,32 @@ The following environment variables are added to the rule action:
 DEVELOPER_DIR: The base developer directory as defined on Apple architectures,
                most commonly used in invoking Apple tools such as xcrun.
 """
+def apple_genrule(
+    name,
+    cmd,
+    executable = False,
+    outs = [],
+    **kwargs):
+  if executable:
+    if len(outs) != 1:
+      fail("apple_genrule, if executable, must have exactly one output")
+    intermediate_out = outs[0] + "_nonexecutable"
+    _apple_genrule_inner(
+        name = name + "_nonexecutable",
+        outs = [intermediate_out],
+        cmd = cmd,
+        **kwargs)
+    native.genrule(
+        name = name,
+        outs = outs,
+        srcs = [intermediate_out],
+        cmd = "cp $< $@",
+        executable = True,
+    )
+  else:
+    _apple_genrule_inner(
+        name = name,
+        outs = outs,
+        cmd = cmd,
+        **kwargs)
+
