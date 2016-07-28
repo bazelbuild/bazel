@@ -29,7 +29,7 @@ import java.util.Objects;
 @Immutable
 public class MergeConflict {
   private static final String CONFLICT_MESSAGE = "\n\u001B[31mCONFLICT:\u001B[0m"
-          + " %s is provided with ambigious priority from: \n\t%s\n\t%s";
+          + " %s is provided with ambiguous priority from: \n\t%s\n\t%s";
 
   private final DataKey dataKey;
   private final DataValue first;
