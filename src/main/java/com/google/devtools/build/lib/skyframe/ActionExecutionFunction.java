@@ -47,7 +47,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,11 +55,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
-
 import javax.annotation.Nullable;
 
 /**
@@ -368,7 +367,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // state.discoveredInputs can be null even after include scanning if action discovers them
         // during execution.
         if (state.discoveredInputs != null
-            && !state.inputArtifactData.keySet().containsAll(state.discoveredInputs)) {
+            && !containsAll(state.inputArtifactData.keySet(), state.discoveredInputs)) {
           addDiscoveredInputs(state.inputArtifactData, state.discoveredInputs, env);
           if (env.valuesMissing()) {
             return null;
@@ -395,12 +394,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
     if (action.discoversInputs()) {
-      Map<Artifact, FileArtifactValue> metadataFoundDuringActionExecution =
+      Map<SkyKey, SkyValue> metadataFoundDuringActionExecution =
           declareAdditionalDependencies(env, action, state.inputArtifactData.keySet());
       if (state.discoveredInputs == null) {
         // Include scanning didn't find anything beforehand -- these are the definitive discovered
         // inputs.
-        state.discoveredInputs = metadataFoundDuringActionExecution.keySet();
+        state.discoveredInputs = artifacts(metadataFoundDuringActionExecution.keySet());
         if (env.valuesMissing()) {
           return null;
         }
@@ -410,7 +409,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           // We must therefore cache the metadata for those new ones.
           Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
           inputArtifactData.putAll(state.inputArtifactData);
-          inputArtifactData.putAll(metadataFoundDuringActionExecution);
+          for (Map.Entry<SkyKey, SkyValue> entry : metadataFoundDuringActionExecution.entrySet()) {
+            inputArtifactData.put(
+                ArtifactValue.artifact(entry.getKey()),
+                (FileArtifactValue) entry.getValue());
+          }
           state.inputArtifactData = inputArtifactData;
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
@@ -429,7 +432,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
         errorMessage += "additional inputs found were: ";
         int artifactPrinted = 0;
-        for (Artifact extraArtifact : metadataFoundDuringActionExecution.keySet()) {
+        for (Artifact extraArtifact : artifacts(metadataFoundDuringActionExecution.keySet())) {
           if (artifactPrinted >= 10) {
             break;
           }
@@ -452,7 +455,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   private static void addDiscoveredInputs(
-      Map<Artifact, FileArtifactValue> inputData, Collection<Artifact> discoveredInputs,
+      Map<Artifact, FileArtifactValue> inputData, Iterable<Artifact> discoveredInputs,
       Environment env) {
     Set<SkyKey> keys = new HashSet<>();
     for (Artifact artifact : discoveredInputs) {
@@ -470,7 +473,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // Therefore there is no need to catch and rethrow exceptions as there is with #checkInputs.
     Map<SkyKey, SkyValue> data = env.getValues(keys);
     if (!env.valuesMissing()) {
-      inputData.putAll(transformArtifactMetadata(data));
+      for (Entry<SkyKey, SkyValue> entry : data.entrySet()) {
+        inputData.put(ArtifactValue.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
+      }
     }
   }
 
@@ -612,26 +617,16 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   /**
-   * Returns a map of artifact to artifact metadata for any of {@code action}s inputs that are not
-   * already in {@code knownInputs}. If some metadata was not available yet, the artifact is still
-   * present in the map but with null metadata.
+   * Declares skyframe dependencies for any {@code action}'s inputs that are not already in
+   * {@code knownInputs}. Returns the result of {@code env.getValues(...)} for these inputs,
+   * which should contain {@link Artifact} keys and {@link FileArtifactValue} or null values.
    */
-  private static Map<Artifact, FileArtifactValue> declareAdditionalDependencies(Environment env,
+  private static Map<SkyKey, SkyValue> declareAdditionalDependencies(Environment env,
       Action action, Set<Artifact> knownInputs) {
     Preconditions.checkState(action.discoversInputs(), action);
     Iterable<Artifact> newArtifacts =
         Iterables.filter(action.getInputs(), Predicates.not(Predicates.in(knownInputs)));
-    return transformArtifactMetadata(
-        env.getValues(toKeys(newArtifacts, action.getMandatoryInputs())));
-  }
-
-  private static Map<Artifact, FileArtifactValue> transformArtifactMetadata(
-      Map<SkyKey, SkyValue> map) {
-    Map<Artifact, FileArtifactValue> result = new HashMap<>(); // May contain null values.
-    for (Map.Entry<SkyKey, SkyValue> entry : map.entrySet()) {
-      result.put(ArtifactValue.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
-    }
-    return result;
+    return env.getValues(toKeys(newArtifacts, action.getMandatoryInputs()));
   }
 
   /**
@@ -689,7 +684,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     Map<Artifact, FileArtifactValue> inputArtifactData = null;
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
     Token token = null;
-    Collection<Artifact> discoveredInputs = null;
+    Iterable<Artifact> discoveredInputs = null;
     ActionExecutionValue value = null;
 
     boolean hasCollectedInputs() {
@@ -748,5 +743,26 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     public boolean isCatastrophic() {
       return actionException.isCatastrophe();
     }
+  }
+
+  private static boolean containsAll(Collection<Artifact> haystack, Iterable<Artifact> needles) {
+    for (Artifact needle : needles) {
+      if (!haystack.contains(needle)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static Iterable<Artifact> artifacts(Iterable<SkyKey> keys) {
+    return Iterables.transform(
+        keys,
+        new Function<SkyKey, Artifact>() {
+          @Override
+          public Artifact apply(SkyKey key) {
+            return ArtifactValue.artifact(key);
+          }
+        });
+
   }
 }
