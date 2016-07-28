@@ -17,19 +17,15 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -76,6 +72,7 @@ public final class RedirectChaser {
   @Nullable
   public static Label followRedirects(ConfigurationEnvironment env, Label label, String name)
       throws InvalidConfigurationException {
+    Label oldLabel = null;
     Set<Label> visitedLabels = new HashSet<>();
     visitedLabels.add(label);
     try {
@@ -93,18 +90,18 @@ public final class RedirectChaser {
         }
 
         newLabel = label.resolveRepositoryRelative(newLabel);
+        oldLabel = label;
         label = newLabel;
         if (!visitedLabels.add(label)) {
           throw new InvalidConfigurationException("The " + name + " points to a filegroup which "
               + "recursively includes itself. The label " + label + " is part of the loop");
         }
       }
-    } catch (NoSuchPackageException e) {
-      env.getEventHandler().handle(Event.error(e.getMessage()));
-      throw new InvalidConfigurationException(e.getMessage(), e);
-    } catch (NoSuchTargetException e) {
-      // TODO(ulfjack): Consider throwing an exception here instead of returning silently.
-      return label;
+    } catch (NoSuchThingException e) {
+      String prefix = oldLabel == null
+          ? ""
+          : "in target '" + oldLabel + "': ";
+      throw new InvalidConfigurationException(prefix + e.getMessage(), e);
     }
   }
 

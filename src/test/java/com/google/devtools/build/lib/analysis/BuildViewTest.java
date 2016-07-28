@@ -58,16 +58,14 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for the {@link BuildView}.
@@ -1056,8 +1054,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update(defaultFlags().with(Flag.KEEP_GOING));
       fail();
     } catch (LoadingFailedException | InvalidConfigurationException e) {
-      assertContainsEvent(
-          "no such package 'third_party/crosstool/v2': BUILD file not found on package path");
+      assertThat(e.getMessage()).contains("third_party/crosstool/v2");
     }
   }
 
@@ -1090,15 +1087,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update(defaultFlags().with(Flag.KEEP_GOING));
       fail();
     } catch (LoadingFailedException | InvalidConfigurationException e) {
-      if (getAnalysisMock().isThisBazel()) {
-        // TODO(ulfjack): Bazel ignores the --cpu setting and just uses "default" instead. This
-        // means all cross-platform Java builds are broken for checked-in JDKs.
-        assertContainsEvent(
-            "no such target '//does/not/exist:c-default': target 'c-default' not declared in");
-      } else {
-        assertContainsEvent(
-            "no such target '//does/not/exist:b-k8': target 'b-k8' not declared in package");
-      }
+      // Expected
     }
   }
 
@@ -1114,8 +1103,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update(defaultFlags().with(Flag.KEEP_GOING));
       fail();
     } catch (LoadingFailedException | InvalidConfigurationException e) {
-      assertContainsEvent(
-          "no such target '//xcode:does_not_exist': target 'does_not_exist' not declared");
+      assertThat(e.getMessage()).contains("//xcode:does_not_exist");
     }
   }
 
