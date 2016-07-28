@@ -1,5 +1,5 @@
 ---
-layout: contribute
+layout: documentation
 title: Why is it so difficult to write Bazel rules?
 ---
 
