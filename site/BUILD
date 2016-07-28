@@ -2,7 +2,7 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 exports_files(
     [
-        "versions/master/docs/bazel-user-manual.html",
+        "docs/bazel-user-manual.html",
         "command-line-reference-prefix.html",
         "command-line-reference-suffix.html",
     ],

@@ -40,7 +40,7 @@ build_test(name = ...)
 
 <p>This will execute the
 
-  <a href="{{ page.version_prefix }}/docs/skylark/index.html">Skylark</a>
+  <a href="/docs/skylark/index.html">Skylark</a>
   module <code>tools/build_rules/build_test.bzl</code> and import the symbol
   <code>build_test</code> in the local environment. This is useful for
   using macros or for sharing values between multiple BUILD files. By
@@ -684,7 +684,7 @@ sh_binary(
   com_example_some_project as the workspace name.
 </p>
 
-<p><a href="workspace.html">Remote repository</a> rule names must be
+<p><a href="/docs/be/workspace.html">Remote repository</a> rule names must be
   valid workspace names. For example, you could have
   <code>maven_jar(name = "foo")</code>, but not
   <code>maven_jar(name = "foo.bar")</code>, as Bazel would attempt to write a
