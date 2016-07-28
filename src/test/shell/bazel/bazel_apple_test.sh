@@ -321,46 +321,6 @@ EOF
     || fail "expected output binary to contain 2 architectures"
 }
 
-function test_apple_binary_lipo_archive() {
-  rm -rf package
-  mkdir -p package
-  cat > package/BUILD <<EOF
-apple_binary(
-    name = "main_binary",
-    srcs = ["a.m"],
-)
-genrule(
-  name = "extract_archives",
-  srcs = [":main_binary_lipo.a"],
-  outs = ["info_x86_64", "info_i386"],
-  cmd =
-      "set -e && " +
-      "lipo -extract x86_64 \$(location :main_binary_lipo.a) " +
-      "-output archive_x86_64.a && " +
-      "lipo -extract i386 \$(location :main_binary_lipo.a) " +
-      "-output archive_i386.a && " +
-      "file archive_x86_64.a > \$(location :info_x86_64) && " +
-      "file archive_i386.a > \$(location :info_i386)",
-  tags = ["requires-darwin"],
-)
-EOF
-  cat > package/a.m <<EOF
-int main() {
-  return 0;
-}
-EOF
-
-
-  bazel build --verbose_failures //package:extract_archives  \
-    --ios_multi_cpus=i386,x86_64 \
-    --xcode_version=$XCODE_VERSION \
-    --ios_sdk_version=$IOS_SDK_VERSION \
-    || fail "should build multi-architecture archive"
-
-  assert_contains "x86_64.*archive" bazel-genfiles/package/info_x86_64
-  assert_contains "i386.*archive" bazel-genfiles/package/info_i386
-}
-
 function test_swift_imports_swift() {
   rm -rf ios
   mkdir -p ios
@@ -485,6 +445,47 @@ EOF
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION -c dbg \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
+function test_fat_binary_no_srcs() {
+  mkdir -p package
+  cat > package/BUILD <<EOF
+objc_library(
+    name = "lib_a",
+    srcs = ["a.m"],
+)
+objc_library(
+    name = "lib_b",
+    srcs = ["b.m"],
+)
+apple_binary(
+    name = "main_binary",
+    deps = [":lib_a", ":lib_b"],
+)
+genrule(
+  name = "lipo_run",
+  srcs = [":main_binary_lipobin"],
+  outs = ["lipo_out"],
+  cmd =
+      "set -e && " +
+      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
+  tags = ["requires-darwin"],
+)
+EOF
+  touch package/a.m
+  cat > package/b.m <<EOF
+int main() {
+  return 0;
+}
+EOF
+
+  bazel build --verbose_failures \
+      --ios_sdk_version=$IOS_SDK_VERSION --xcode_version=$XCODE_VERSION \
+      //package:lipo_out --ios_multi_cpus=i386,x86_64 \
+      || fail "should build apple_binary and obtain info via lipo"
+
+  cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
+    || fail "expected output binary to contain 2 architectures"
 }
 
 run_suite "apple_tests"
