@@ -24,7 +24,7 @@ public enum SkylarkModuleCategory {
       + "fragments.<i>[fragment name]</i></code>"),
 
   PROVIDER("Providers",
-      "<a href=\"/docs/skylark/rules.html#providers\">Providers</a> give rules access "
+      "<a href=\"../rules.md#providers\">Providers</a> give rules access "
       + " to information from their dependencies. "
       + " <p>This section lists providers available on built-in rules. Rule implementation "
       + " functions can access them via "
