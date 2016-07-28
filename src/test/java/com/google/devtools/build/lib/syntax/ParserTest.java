@@ -1129,7 +1129,7 @@ public class ParserTest extends EvaluationTestCase {
   private void invalidImportTest(String importString, String expectedMsg) {
     setFailFast(false);
     parseFileForSkylark("load('" + importString + "', 'fun_test')\n"); 
-    assertContainsError(expectedMsg);    
+    assertContainsError(expectedMsg);
   }
 
   @Test
@@ -1244,6 +1244,11 @@ public class ParserTest extends EvaluationTestCase {
     LoadStatement stmt = (LoadStatement) statements.get(0);
     assertEquals("/foo/bar/file", stmt.getImport().getImportString());
     assertThat(stmt.getSymbols()).hasSize(1);
+    Identifier sym = stmt.getSymbols().get(0);
+    int startOffset = sym.getLocation().getStartOffset();
+    int endOffset = sym.getLocation().getEndOffset();
+    assertThat(startOffset).named("getStartOffset()").isEqualTo(22);
+    assertThat(endOffset).named("getEndOffset()").isEqualTo(startOffset + 10);
   }
 
   @Test
@@ -1287,7 +1292,18 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testLoadAlias() throws Exception {
-    runLoadAliasTestForSymbols("my_alias = 'lawl'", "my_alias");
+    List<Statement> statements = parseFileForSkylark(
+        "load('/foo/bar/file', my_alias = 'lawl')\n");
+    LoadStatement stmt = (LoadStatement) statements.get(0);
+    ImmutableList<Identifier> actualSymbols = stmt.getSymbols();
+
+    assertThat(actualSymbols).hasSize(1);
+    Identifier sym = actualSymbols.get(0);
+    assertThat(sym.getName()).isEqualTo("my_alias");
+    int startOffset = sym.getLocation().getStartOffset();
+    int endOffset = sym.getLocation().getEndOffset();
+    assertThat(startOffset).named("getStartOffset()").isEqualTo(22);
+    assertThat(endOffset).named("getEndOffset()").isEqualTo(startOffset + 8);
   }
 
   @Test
