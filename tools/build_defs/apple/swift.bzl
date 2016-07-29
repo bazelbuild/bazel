@@ -136,6 +136,7 @@ def _swift_library_impl(ctx):
 
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
+  define_args = ["-D%s" % x for x in ctx.attr.defines]
 
   clang_args = _intersperse(
       "-Xcc",
@@ -180,6 +181,7 @@ def _swift_library_impl(ctx):
   args.extend(include_args)
   args.extend(framework_args)
   args.extend(clang_args)
+  args.extend(define_args)
 
   xcrun_action(ctx,
                inputs=ctx.files.srcs + dep_modules + list(objc_files) +
@@ -219,6 +221,7 @@ swift_library = rule(
         "srcs": attr.label_list(allow_files = [".swift"]),
         "deps": attr.label_list(providers=[["swift"], ["objc"]]),
         "module_name": attr.string(mandatory=False),
+        "defines": attr.string_list(mandatory=False, allow_empty=True),
         "_xcrunwrapper": attr.label(
             executable=True,
             default=Label(XCRUNWRAPPER_LABEL))},
@@ -235,6 +238,17 @@ Args:
   srcs: Swift sources that comprise this module.
   deps: Other Swift modules.
   module_name: Optional. Sets the Swift module name for this target. By default
-               the module name is the target path with all special symbols
-               replaced by "_", e.g. //foo:bar can be imported as "foo_bar".
+      the module name is the target path with all special symbols replaced
+      by "_", e.g. //foo:bar can be imported as "foo_bar".
+  defines: A list of values for build configuration options (-D). These values
+      can be then used for conditional compilation blocks in code. For example:
+
+      BUILD:
+        swift_library(
+          defines = ["VALUE"]
+        )
+
+      Code:
+        #if VALUE
+        #endif
 """
