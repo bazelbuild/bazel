@@ -84,6 +84,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
   @Nullable private final String jacocoLabel;
   private final ImmutableList<String> protoCompilerPluginOptions;
+  private final RpcSupport rpcSupport;
 
   protected JavaProtoAspect(
       JavaSemantics javaSemantics,
@@ -91,13 +92,15 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       String protoRuntimeLabel,
       ImmutableList<String> protoSourceFileBlacklistLabels,
       @Nullable String jacocoLabel,
-      ImmutableList<String> protoCompilerPluginOptions) {
+      ImmutableList<String> protoCompilerPluginOptions,
+      RpcSupport rpcSupport) {
     this.javaSemantics = javaSemantics;
     this.protoRuntimeAttr = protoRuntimeAttr;
     this.protoRuntimeLabel = protoRuntimeLabel;
     this.protoSourceFileBlacklistLabels = protoSourceFileBlacklistLabels;
     this.jacocoLabel = jacocoLabel;
     this.protoCompilerPluginOptions = protoCompilerPluginOptions;
+    this.rpcSupport = rpcSupport;
   }
 
   @Override
@@ -106,6 +109,10 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       throws InterruptedException {
     ConfiguredAspect.Builder aspect =
         new ConfiguredAspect.Builder(getClass().getSimpleName(), ruleContext);
+
+    if (!rpcSupport.checkAttributes(ruleContext, parameters)) {
+      return aspect.build();
+    }
 
     // Get SupportData, which is provided by the proto_library rule we attach to.
     SupportData supportData =
@@ -117,7 +124,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 supportData,
                 protoRuntimeAttr,
                 protoCompilerPluginOptions,
-                javaSemantics)
+                javaSemantics,
+            rpcSupport)
             .createProviders());
 
     return aspect.build();
@@ -144,6 +152,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 attr(":java_toolchain", LABEL)
                     .allowedRuleClasses("java_toolchain")
                     .value(JavaSemantics.JAVA_TOOLCHAIN));
+
+    rpcSupport.mutateAspectDefinition(result, aspectParameters);
 
     Attribute.Builder<Label> jacocoAttr = attr("$jacoco_instrumentation", LABEL).cfg(HOST);
 
@@ -174,6 +184,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     private final RuleContext ruleContext;
     private final SupportData supportData;
 
+    private final RpcSupport rpcSupport;
     private final String protoRuntimeAttr;
     private final JavaSemantics javaSemantics;
 
@@ -189,12 +200,14 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         final SupportData supportData,
         String protoRuntimeAttr,
         ImmutableList<String> protoCompilerPluginOptions,
-        JavaSemantics javaSemantics) {
+        JavaSemantics javaSemantics,
+        RpcSupport rpcSupport) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
       this.protoRuntimeAttr = protoRuntimeAttr;
       this.protoCompilerPluginOptions = protoCompilerPluginOptions;
       this.javaSemantics = javaSemantics;
+      this.rpcSupport = rpcSupport;
 
       dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
@@ -298,6 +311,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               .setLangParameter(
                   ProtoCompileActionBuilder.buildProtoArg(
                       "java_out", sourceJar.getExecPathString(), protoCompilerPluginOptions));
+      rpcSupport.mutateProtoCompileAction(
+          ruleContext, sourceJar, actionBuilder);
       ruleContext.registerAction(actionBuilder.build());
     }
 
@@ -314,6 +329,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               ruleContext.getPrerequisite(
                   protoRuntimeAttr, Mode.TARGET, JavaCompilationArgsProvider.class))
           .setCompilationStrictDepsMode(StrictDepsMode.OFF);
+      rpcSupport.mutateJavaCompileAction(ruleContext, helper);
       return helper.buildCompilationArgsProvider(
           helper.build(javaSemantics), true /* isReportedAsStrict */);
     }

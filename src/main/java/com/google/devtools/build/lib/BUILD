@@ -523,6 +523,7 @@ java_library(
         ],
     ),
     deps = [
+        ":RpcSupport",
         ":android-rules",
         ":bazel",
         ":bazel-repository",
@@ -742,6 +743,7 @@ java_library(
         "rules/java/proto/StrictDepsUtils.java",
     ],
     deps = [
+        ":RpcSupport",
         ":build-base",
         ":collect",
         ":concurrent",
@@ -762,6 +764,18 @@ java_library(
         "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/protobuf",
+    ],
+)
+
+java_library(
+    name = "RpcSupport",
+    srcs = ["rules/java/proto/RpcSupport.java"],
+    deps = [
+        ":build-base",
+        ":java-compilation",
+        ":packages-internal",
+        ":proto-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
     ],
 )
 

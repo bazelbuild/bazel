@@ -15,8 +15,15 @@
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspect;
+import com.google.devtools.build.lib.rules.java.proto.RpcSupport;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 
 /** An Aspect which BazelJavaProtoLibrary injects to build Java SPEED protos. */
 public class BazelJavaProtoAspect extends JavaProtoAspect {
@@ -31,6 +38,33 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
         SPEED_PROTO_RUNTIME_LABEL,
         ImmutableList.<String>of(),
         null, /* jacocoAttr */
-        ImmutableList.of("shared", "immutable"));
+        ImmutableList.of("shared", "immutable"),
+        new NoopRpcSupport());
+  }
+
+  private static class NoopRpcSupport
+      implements RpcSupport {
+    @Override
+    public void mutateProtoCompileAction(
+        RuleContext ruleContext, Artifact sourceJar, ProtoCompileActionBuilder actionBuilder) {
+      // Intentionally left empty.
+    }
+
+    @Override
+    public void mutateJavaCompileAction(RuleContext ruleContext, JavaLibraryHelper helper) {
+      // Intentionally left empty.
+    }
+
+    @Override
+    public void mutateAspectDefinition(
+        AspectDefinition.Builder def, AspectParameters aspectParameters) {
+      // Intentionally left empty.
+    }
+
+    @Override
+    public boolean checkAttributes(RuleContext ruleContext, AspectParameters aspectParameters) {
+      // Intentionally left empty.
+      return true;
+    }
   }
 }
