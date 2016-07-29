@@ -1291,9 +1291,9 @@ $ bazel fetch //...
 
 </p>
 <p>
-  For the LLVM compiler the argument instead is the path to the raw LLVM profile
-  output file to generate, e.g.
-  <code class='flag'>--fdo_instrument=<var>/path/to/profile.profraw</var></code>.
+  For the LLVM compiler the argument is also the directory under which the raw LLVM profile
+  data file(s) is dumped, e.g.
+  <code class='flag'>--fdo_instrument=<var>/path/to/rawprof/dir/</var></code>.
 </p>
 <p>
   The options <code class='flag'>--fdo_instrument</code> and <code class='flag'>--fdo_optimize</code>
