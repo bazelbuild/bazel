@@ -615,7 +615,7 @@ public final class SkylarkAttr {
         name = ALLOW_EMPTY_ARG,
         type = Boolean.class,
         defaultValue = "True",
-        doc = NON_EMPTY_DOC
+        doc = ALLOW_EMPTY_DOC
       )
     },
     useAst = true,
