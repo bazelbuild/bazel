@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -56,7 +55,7 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
   }
 
   @Override
-  public String getDocumentation() {
+  protected String getEntityDocumentation() {
     return module.doc();
   }
 

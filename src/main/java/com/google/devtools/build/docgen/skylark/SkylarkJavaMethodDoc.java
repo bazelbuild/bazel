@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen.skylark;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.util.StringUtilities;
-
 import java.lang.reflect.Method;
 
 /**
@@ -52,7 +51,7 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   }
 
   @Override
-  public String getDocumentation() {
+  protected String getEntityDocumentation() {
     return callable.doc();
   }
 
