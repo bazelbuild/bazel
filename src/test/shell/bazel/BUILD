@@ -327,6 +327,7 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
     ],
+    tags = ["jdk8"],
 )
 
 sh_test(
