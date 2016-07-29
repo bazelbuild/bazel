@@ -71,9 +71,7 @@ public final class NativeLibs {
     Map<String, Iterable<Artifact>> result = new LinkedHashMap<>();
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         depsByArchitecture.asMap().entrySet()) {
-      CcLinkParams linkParams = AndroidCommon.getCcLinkParamsStore(
-              entry.getValue(),
-              ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()))
+      CcLinkParams linkParams = AndroidCommon.getCcLinkParamsStore(entry.getValue())
           .get(/* linkingStatically */ true, /* linkShared */ true);
 
       Artifact nativeDepsLibrary = NativeDepsHelper.maybeCreateAndroidNativeDepsAction(
