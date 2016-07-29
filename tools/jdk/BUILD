@@ -9,7 +9,7 @@ genrule(
     name = "BUILD-jdk7",
     srcs = [":BUILD"],
     outs = ["BUILD.jdk7"],
-    cmd = "sed 's/_version = \"8\"/_version = \"7\"/' $< > $@",
+    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' $< > $@",
 )
 
 filegroup(
@@ -124,6 +124,7 @@ java_toolchain(
     ijar = ["@bazel_tools//tools/jdk:ijar"],
     javabuilder = ["//tools/jdk:JavaBuilder_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
+    javac_supports_workers = 1,
     jvm_opts = [
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",

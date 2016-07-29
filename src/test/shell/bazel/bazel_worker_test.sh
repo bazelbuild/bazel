@@ -396,7 +396,7 @@ EOF
 
   expect_log "Created new Work worker (id [0-9]\+)"
 
-  worker_log=$(egrep -o -- 'logging to .*/worker-logs/.*' "$TEST_log" | sed 's/^logging to //')
+  worker_log=$(egrep -o -- 'logging to .*/worker-logs/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
 
   [ -e "$worker_log" ] \
     || fail "Worker log was not found"
