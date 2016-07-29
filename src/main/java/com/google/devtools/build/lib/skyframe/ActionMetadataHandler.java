@@ -245,34 +245,23 @@ public class ActionMetadataHandler implements MetadataHandler {
       // Nonexistent files should only occur before executing an action.
       throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
     }
-    if (!artifact.hasParent()) {
-      // Artifacts may use either the "real" digest or the mtime, if the file is a directory.
-      boolean isFile = data.isFile();
-      if (isFile && data.getDigest() != null) {
-        // We do not need to store the FileArtifactValue separately -- the digest is in the
-        // file value and that is all that is needed for this file's metadata.
-        return new Metadata(data.getDigest());
-      }
-      // Unfortunately, the FileValue does not contain enough information for us to calculate the
-      // corresponding FileArtifactValue -- either the metadata must use the modified time, which we
-      // do not expose in the FileValue, or the FileValue didn't store the digest So we store the
-      // metadata separately.
-      // Use the FileValue's digest if no digest was injected, or if the file can't be digested.
-      injectedDigest = injectedDigest != null || !isFile ? injectedDigest : data.getDigest();
-      FileArtifactValue value =
-          FileArtifactValue.create(
-              (Artifact) artifact, isFile, isFile ? data.getSize() : 0, injectedDigest);
-      FileArtifactValue oldValue = additionalOutputData.putIfAbsent((Artifact) artifact, value);
-      checkInconsistentData(artifact, oldValue, value);
-      return metadataFromValue(value);
-    } else {
-      // We are dealing with artifacts inside a tree artifact.
-      FileArtifactValue value =
-          FileArtifactValue.createWithDigest(artifact.getPath(), injectedDigest, data.getSize());
-      FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
-      checkInconsistentData(artifact, oldValue, value);
-      return new Metadata(value.getDigest());
+    boolean isFile = data.isFile();
+    if (isFile && !artifact.hasParent() && data.getDigest() != null) {
+      // We do not need to store the FileArtifactValue separately -- the digest is in the file value
+      // and that is all that is needed for this file's metadata.
+      return new Metadata(data.getDigest());
     }
+    // Unfortunately, the FileValue does not contain enough information for us to calculate the
+    // corresponding FileArtifactValue -- either the metadata must use the modified time, which we
+    // do not expose in the FileValue, or the FileValue didn't store the digest So we store the
+    // metadata separately.
+    // Use the FileValue's digest if no digest was injected, or if the file can't be digested.
+    injectedDigest = injectedDigest != null || !isFile ? injectedDigest : data.getDigest();
+    FileArtifactValue value =
+        FileArtifactValue.create(artifact, isFile, isFile ? data.getSize() : 0, injectedDigest);
+    FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
+    checkInconsistentData(artifact, oldValue, value);
+    return metadataFromValue(value);
   }
 
   @Override

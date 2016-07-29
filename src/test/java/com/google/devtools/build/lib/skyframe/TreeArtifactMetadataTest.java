@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.Digest;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -46,17 +45,15 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test the behavior of ActionMetadataHandler and ArtifactFunction
@@ -232,10 +229,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(
               suboutput, null, null);
           fileData.put(suboutput, fileValue);
-          // Ignore FileValue digests--correctness of these digests is not part of this tests.
-          byte[] digest = DigestUtils.getDigestOrFail(suboutput.getPath(), 1);
-          treeArtifactData.put(suboutput,
-              FileArtifactValue.createWithDigest(suboutput.getPath(), digest, fileValue.getSize()));
+          treeArtifactData.put(suboutput, FileArtifactValue.create(suboutput, fileValue));
         } catch (IOException e) {
           throw new SkyFunctionException(e, Transience.TRANSIENT) {};
         }

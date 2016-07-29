@@ -20,10 +20,8 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.util.Arrays;
-
 import javax.annotation.Nullable;
 
 /**
@@ -112,18 +110,6 @@ public class FileArtifactValue extends ArtifactValue {
       return new FileArtifactValue(digest, artifact.getPath().getLastModifiedTime(), size);
     }
     Preconditions.checkState(digest != null, artifact);
-    return new FileArtifactValue(digest, size);
-  }
-
-  /** Returns a FileArtifactValue with the given digest, even for empty files (size = 0). */
-  static FileArtifactValue createWithDigest(Path path, byte[] digest, long size)
-      throws IOException {
-    // Eventually, we want to migrate everything away from using mtimes instead of digests.
-    // But right now, some cases always use digests (TreeArtifacts) and some don't.
-    // So we have different constructors.
-    if (digest == null) {
-      digest = DigestUtils.getDigestOrFail(path, size);
-    }
     return new FileArtifactValue(digest, size);
   }
 

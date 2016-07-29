@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -62,12 +61,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,8 +70,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link FilesystemValueChecker}.
@@ -711,11 +707,7 @@ public class FilesystemValueCheckerTest {
           directoryData.put(output.getParent(), dirDatum);
         }
         FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(output, null, null);
-        // Always test with digests. TreeArtifact checking behavior doesn't depend on the
-        // presence/absence of digests. FileValue checking w/o digests is already tested.
-        byte[] digest = DigestUtils.getDigestOrFail(output.getPath(), 1);
-        dirDatum.put(output, FileArtifactValue.createWithDigest(
-            output.getPath(), digest, fileValue.getSize()));
+        dirDatum.put(output, FileArtifactValue.create(output, fileValue));
         fileData.put(output, fileValue);
       } catch (IOException e) {
         throw new IllegalStateException(e);
