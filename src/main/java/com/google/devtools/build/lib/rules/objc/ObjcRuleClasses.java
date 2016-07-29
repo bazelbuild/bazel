@@ -682,15 +682,8 @@ public class ObjcRuleClasses {
      */
     static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
         ImmutableSet.of(
-            "objc_library",
-            "objc_import",
-            "objc_framework",
-            "objc_proto_library",
-            "j2objc_library",
             "cc_library",
             "cc_inc_library",
-            "ios_framework",
-            "swift_library",
             "experimental_objc_library");
 
     @Override
@@ -736,6 +729,7 @@ public class ObjcRuleClasses {
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .mandatoryNativeProviders(ObjcProvider.class)
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the
@@ -758,6 +752,7 @@ public class ObjcRuleClasses {
               attr("non_propagated_deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .mandatoryNativeProviders(ObjcProvider.class)
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
            Extra <code>-D</code> flags to pass to the compiler. They should be in

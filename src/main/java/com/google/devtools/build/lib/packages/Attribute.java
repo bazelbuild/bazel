@@ -1706,6 +1706,8 @@ public final class Attribute implements Comparable<Attribute> {
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
+    builder.mandatoryNativeProviders = mandatoryNativeProviders;
+    builder.mandatoryProvidersList = mandatoryProvidersList;
     builder.validityPredicate = validityPredicate;
     builder.condition = condition;
     builder.configTransition = configTransition;
