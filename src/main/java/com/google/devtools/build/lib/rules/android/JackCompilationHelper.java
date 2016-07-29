@@ -280,7 +280,7 @@ public final class JackCompilationHelper {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .setExecutable(jackBinary)
-            .addInputs(transitiveJackLibraries)
+            .addTransitiveInputs(transitiveJackLibraries)
             .addInputs(proguardSpecs)
             .addInputs(manualMainDexList.asSet())
             .addOutput(outputZip)
@@ -523,9 +523,9 @@ public final class JackCompilationHelper {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .setExecutable(jackBinary)
-            .addInputs(classpathJackLibraries)
+            .addTransitiveInputs(classpathJackLibraries)
             .addOutput(outputArtifact)
-            .addInputs(processorClasspathJars)
+            .addTransitiveInputs(processorClasspathJars)
             .addInputs(resources.values())
             .addInputs(sourceJars)
             .addInputs(javaSources)

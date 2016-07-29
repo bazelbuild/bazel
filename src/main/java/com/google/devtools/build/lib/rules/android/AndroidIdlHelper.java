@@ -308,7 +308,7 @@ public class AndroidIdlHelper {
     ruleContext.registerAction(new SpawnAction.Builder()
         .setExecutable(sdk.getAidl())
         .addInput(idl)
-        .addInputs(idlImports)
+        .addTransitiveInputs(idlImports)
         .addInput(sdk.getFrameworkAidl())
         .addOutput(output)
         .addArgument("-b") // Fail if trying to compile a parcelable.
