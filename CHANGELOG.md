@@ -1,3 +1,67 @@
+## Release 0.3.1 (2016-07-29)
+
+```
+Baseline: 792a9d6
+
+Cherry picks:
+   + 25e5995: Rollback of commit
+              a2770334ea3f3111026eb3e1368586921468710c.
+   + 2479405: Fix NPE with unset maven_jar sha1
+   + 3cf2126: Rewrite the extra action info files if the data within
+              them changes.
+   + 5a9c6b4: JavaBuilder: Reintroduce the -extra_checks flag.
+```
+
+Incompatible changes:
+
+  - Removed predefined Python variable "generic_cpu".
+  - Skylark rules: if you set "outputs" or an attribute to a
+    function, this function must now list its required attributes as
+    parameters (instead of an attribute map).
+  - The host_platform and target_platform entries are not written to
+    the master log anymore.
+  - Bazel requires Hazelcast 3.6 or higher now for remote execution
+    support, because we upgraded our client library and the protocol
+    it uses is incompatible with older versions.
+
+New features:
+
+  - LIPO context (--lipo_context) can now also be a cc_test (in
+    addition to cc_binary)
+
+Important changes:
+
+  - If --android_crosstool_top is set, native code compiled for
+    android will always use --android_compiler and not --compiler in
+    choosing the crosstool toolchain, and will use --android_cpu if
+    --fat_apk_cpu is not set.
+  - Add --instrument_test_targets option.
+  - apple_binary supports a new platform_type attribute, which, if
+    set to "watchos", will build dependencies for Apple's watchOS2.
+  - objc_binary now supports late-loaded dynamic frameworks.
+  - Native Swift rules no longer pull in module maps unconditionally.
+    Use --experimental_objc_enable_module_maps for that.
+  - Merged manifests are guaranteed to have the application element
+    as the last child of the manifest element as required by Android
+    N.
+  - The Android manifest merger is now available as an option for
+    android_binary rules. The merger will honor tools annotations in
+    AndroidManifest.xml and will perform placeholder substitutions
+    using the values specified in android_binary.manifest_values. The
+    merger may be selected by setting the manifest_merger attribute
+    on android_binary.
+  - The progress message would not clear packages that need to be
+    loaded twice.
+  - Remove warning for high value of --jobs.
+  - Use the correct build configuration for shared native deps during
+    Android split transitions.
+  - When building ObjectiveC++, pass the flag -std=gnu++11.
+  - use xcrun simctl instead of iossim to launch the app for "blaze
+    run".
+  - Glob arguments 'exclude' and 'exclude_directories' must be named
+  - Bazel no longer regards an empty file as changed if its mtime has
+    changed.
+
 ## Release 0.3.0 (2016-06-10)
 
 ```
