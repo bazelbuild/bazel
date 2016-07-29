@@ -28,7 +28,6 @@ sh_test(
     srcs = ["loading_phase_tests.sh"],
     data = [":test-deps"],
     shard_count = 4,
-    tags = ["manual"],
 )
 
 sh_test(
@@ -37,6 +36,7 @@ sh_test(
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
     shard_count = 6,
+    tags = ["manual"],
 )
 
 sh_test(
