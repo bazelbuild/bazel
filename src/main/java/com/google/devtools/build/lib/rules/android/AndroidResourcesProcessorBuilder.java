@@ -13,48 +13,53 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import javax.annotation.Nullable;
 
 /**
  * Builder for creating resource processing action.
  */
 public class AndroidResourcesProcessorBuilder {
-  private static final ResourceContainerToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
-      new ResourceContainerToArtifacts(false);
+  private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .toArtifactConverter();
 
-  private static final ResourceContainerToArtifacts RESOURCE_DEP_TO_ARTIFACTS =
-      new ResourceContainerToArtifacts(true);
+  private static final ResourceContainerConverter.ToArtifacts RESOURCE_DEP_TO_ARTIFACTS =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .includeRTxt()
+          .includeSymbolsBin()
+          .toArtifactConverter();
 
-  private static final ResourceContainerToArg RESOURCE_CONTAINER_TO_ARG =
-      new ResourceContainerToArg(false);
+  private static final ResourceContainerConverter.ToArg RESOURCE_CONTAINER_TO_ARG =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .toArgConverter();
 
-  private static final ResourceContainerToArg RESOURCE_DEP_TO_ARG =
-      new ResourceContainerToArg(true);
+  private static final ResourceContainerConverter.ToArg RESOURCE_DEP_TO_ARG =
+      ResourceContainerConverter.builder()
+          .includeResourceRoots()
+          .includeManifest()
+          .includeRTxt()
+          .includeSymbolsBin()
+          .toArgConverter();
+
   private ResourceContainer primary;
   private ResourceDependencies dependencies;
   private Artifact proguardOut;
@@ -180,66 +185,6 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  private static class ResourceContainerToArg implements Function<ResourceContainer, String> {
-    private boolean includeSymbols;
-
-    public ResourceContainerToArg(boolean includeSymbols) {
-      this.includeSymbols = includeSymbols;
-    }
-
-    @Override
-    public String apply(ResourceContainer container) {
-      StringBuilder builder = new StringBuilder();
-      builder.append(convertRoots(container, ResourceType.RESOURCES))
-          .append(":")
-          .append(convertRoots(container, ResourceType.ASSETS))
-          .append(":")
-          .append(container.getManifest().getExecPathString());
-      if (includeSymbols) {
-        builder.append(":")
-            .append(container.getRTxt() == null ? "" : container.getRTxt().getExecPath())
-            .append(":")
-            .append(
-                container.getSymbolsTxt() == null ? "" : container.getSymbolsTxt().getExecPath());
-      }
-      return builder.toString();
-    }
-  }
-
-  private static class ResourceContainerToArtifacts
-      implements Function<ResourceContainer, NestedSet<Artifact>> {
-
-    private boolean includeSymbols;
-
-    public ResourceContainerToArtifacts(boolean includeSymbols) {
-      this.includeSymbols = includeSymbols;
-    }
-
-    @Override
-    public NestedSet<Artifact> apply(ResourceContainer container) {
-      NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.naiveLinkOrder();
-      addIfNotNull(container.getManifest(), artifacts);
-      if (includeSymbols) {
-        addIfNotNull(container.getRTxt(), artifacts);
-        addIfNotNull(container.getSymbolsTxt(), artifacts);
-      }
-      artifacts.addAll(container.getArtifacts());
-      return artifacts.build();
-    }
-
-    private void addIfNotNull(@Nullable Artifact artifact, NestedSetBuilder<Artifact> artifacts) {
-      if (artifact != null) {
-        artifacts.add(artifact);
-      }
-    }
-  }
-
-  @VisibleForTesting
-  public static String convertRoots(ResourceContainer container, ResourceType resourceType) {
-    return Joiner.on("#").join(Iterators.transform(
-        container.getRoots(resourceType).iterator(), Functions.toStringFunction()));
-  }
-
   public ResourceContainer build(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
@@ -264,33 +209,8 @@ public class AndroidResourcesProcessorBuilder {
     builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
-    if (dependencies != null) {
-      // TODO(bazel-team): Find an appropriately lazy method to deduplicate the dependencies between
-      // the direct and transitive data.
-      // Add transitive data inside an unmodifiableIterable to ensure it won't be expanded until
-      // iteration.
-      if (!dependencies.getTransitiveResources().isEmpty()) {
-        builder.addJoinStrings("--data", ",",
-            Iterables.unmodifiableIterable(
-                Iterables.transform(dependencies.getTransitiveResources(), RESOURCE_DEP_TO_ARG)));
-      }
-      // Add direct data inside an unmodifiableIterable to ensure it won't be expanded until
-      // iteration.
-      if (!dependencies.getDirectResources().isEmpty()) {
-        builder.addJoinStrings("--directData", ",",
-            Iterables.unmodifiableIterable(
-                Iterables.transform(dependencies.getDirectResources(), RESOURCE_DEP_TO_ARG)));
-      }
-      // This flattens the nested set. Since each ResourceContainer needs to be transformed into
-      // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation
-      // and SpawnActionBuilder.addInputs evaluates Iterables, it becomes necessary to make the
-      // best effort and let it get flattened.
-      inputs.addTransitive(
-          NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER,
-              FluentIterable.from(dependencies.getResources())
-                  .transformAndConcat(RESOURCE_DEP_TO_ARTIFACTS)));
-    }
+    ResourceContainerConverter.convertDependencies(
+        dependencies, builder, inputs, RESOURCE_DEP_TO_ARG, RESOURCE_DEP_TO_ARTIFACTS);
 
     if (isLibrary) {
       builder.add("--packageType").add("LIBRARY");
@@ -404,8 +324,8 @@ public class AndroidResourcesProcessorBuilder {
         symbolsTxt);
   }
 
-  public AndroidResourcesProcessorBuilder setJavaPackage(String newManifestPackage) {
-    this.customJavaPackage = newManifestPackage;
+  public AndroidResourcesProcessorBuilder setJavaPackage(String customJavaPackage) {
+    this.customJavaPackage = customJavaPackage;
     return this;
   }
 
