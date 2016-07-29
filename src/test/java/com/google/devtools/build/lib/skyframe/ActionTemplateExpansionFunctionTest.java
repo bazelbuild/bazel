@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
+import com.google.devtools.build.lib.skyframe.ArtifactSkyKey.OwnedArtifact;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,22 +49,20 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link ActionTemplateExpansionFunction}. */
 @RunWith(JUnit4.class)
 public final class ActionTemplateExpansionFunctionTest extends FoundationTestCase  {
-  private Map<Artifact, ArtifactValue> artifactValueMap;
+  private Map<Artifact, TreeArtifactValue> artifactValueMap;
   private SequentialBuildDriver driver;
 
   @Before
@@ -225,9 +223,9 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   /** Dummy ArtifactFunction that just returns injected values */
   private static class DummyArtifactFunction implements SkyFunction {
-    private final Map<Artifact, ArtifactValue> artifactValueMap;
+    private final Map<Artifact, TreeArtifactValue> artifactValueMap;
 
-    DummyArtifactFunction(Map<Artifact, ArtifactValue> artifactValueMap) {
+    DummyArtifactFunction(Map<Artifact, TreeArtifactValue> artifactValueMap) {
       this.artifactValueMap = artifactValueMap;
     }
     @Override

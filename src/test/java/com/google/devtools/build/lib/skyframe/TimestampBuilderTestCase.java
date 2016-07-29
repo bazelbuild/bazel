@@ -73,9 +73,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -88,8 +85,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 /**
  * The common code that's shared between various builder tests.
@@ -203,9 +200,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     return new Builder() {
       private void setGeneratingActions() {
         if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
-          differencer.inject(ImmutableMap.of(
-              OWNER_KEY,
-              new ActionLookupValue(ImmutableList.copyOf(actions))));
+          differencer.inject(
+              ImmutableMap.of(OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions))));
         }
       }
 
@@ -229,11 +225,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             keepGoing, /*explain=*/
             false,
-            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, false), null);
+            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, false),
+            null);
 
         List<SkyKey> keys = new ArrayList<>();
         for (Artifact artifact : artifacts) {
-          keys.add(ArtifactValue.key(artifact, true));
+          keys.add(ArtifactSkyKey.key(artifact, true));
         }
 
         setGeneratingActions();

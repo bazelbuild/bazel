@@ -53,12 +53,12 @@ public final class TestCompletionFunction implements SkyFunction {
     if (key.exclusiveTesting()) {
       // Request test artifacts iteratively if testing exclusively.
       for (Artifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
-        if (env.getValue(ArtifactValue.key(testArtifact, /*isMandatory=*/true)) == null) {
+        if (env.getValue(ArtifactSkyKey.key(testArtifact, /*isMandatory=*/ true)) == null) {
           return null;
         }
       }
     } else {
-      env.getValues(ArtifactValue.mandatoryKeys(TestProvider.getTestStatusArtifacts(ct)));
+      env.getValues(ArtifactSkyKey.mandatoryKeys(TestProvider.getTestStatusArtifacts(ct)));
       if (env.valuesMissing()) {
         return null;
       }

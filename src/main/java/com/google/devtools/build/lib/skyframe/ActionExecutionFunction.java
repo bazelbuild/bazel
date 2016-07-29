@@ -411,8 +411,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           inputArtifactData.putAll(state.inputArtifactData);
           for (Map.Entry<SkyKey, SkyValue> entry : metadataFoundDuringActionExecution.entrySet()) {
             inputArtifactData.put(
-                ArtifactValue.artifact(entry.getKey()),
-                (FileArtifactValue) entry.getValue());
+                ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
           }
           state.inputArtifactData = inputArtifactData;
           metadataHandler =
@@ -461,7 +460,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     for (Artifact artifact : discoveredInputs) {
       if (!inputData.containsKey(artifact)) {
         // Note that if the artifact is derived, the mandatory flag is ignored.
-        keys.add(ArtifactValue.key(artifact, /*mandatory=*/false));
+        keys.add(ArtifactSkyKey.key(artifact, /*mandatory=*/ false));
       }
     }
     // We do not do a getValuesOrThrow() call for the following reasons:
@@ -474,7 +473,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     Map<SkyKey, SkyValue> data = env.getValues(keys);
     if (!env.valuesMissing()) {
       for (Entry<SkyKey, SkyValue> entry : data.entrySet()) {
-        inputData.put(ArtifactValue.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
+        inputData.put(
+            ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
       }
     }
   }
@@ -508,17 +508,19 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (mandatoryInputs == null) {
       // This is a non inputs-discovering action, so no need to distinguish mandatory from regular
       // inputs.
-      return Iterables.transform(inputs, new Function<Artifact, SkyKey>() {
-        @Override
-        public SkyKey apply(Artifact artifact) {
-          return ArtifactValue.key(artifact, true);
-        }
-      });
+      return Iterables.transform(
+          inputs,
+          new Function<Artifact, SkyKey>() {
+            @Override
+            public SkyKey apply(Artifact artifact) {
+              return ArtifactSkyKey.key(artifact, true);
+            }
+          });
     } else {
       Collection<SkyKey> discoveredArtifacts = new HashSet<>();
       Set<Artifact> mandatory = Sets.newHashSet(mandatoryInputs);
       for (Artifact artifact : inputs) {
-        discoveredArtifacts.add(ArtifactValue.key(artifact, mandatory.contains(artifact)));
+        discoveredArtifacts.add(ArtifactSkyKey.key(artifact, mandatory.contains(artifact)));
       }
       return discoveredArtifacts;
     }
@@ -549,9 +551,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     ActionExecutionException firstActionExecutionException = null;
     for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException,
         ActionExecutionException>> depsEntry : inputDeps.entrySet()) {
-      Artifact input = ArtifactValue.artifact(depsEntry.getKey());
+      Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
       try {
-        ArtifactValue value = (ArtifactValue) depsEntry.getValue().get();
+        SkyValue value = depsEntry.getValue().get();
         if (populateInputData) {
           if (value instanceof AggregatingArtifactValue) {
             AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
@@ -574,8 +576,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             expandedArtifacts.put(input, expandedTreeArtifacts);
             // Again, we cache the "digest" of the value for cache checking.
             inputArtifactData.put(input, setValue.getSelfData());
-          } else if (value instanceof FileArtifactValue) {
-            // TODO(bazel-team): Make sure middleman "virtual" artifact data is properly processed.
+          } else {
+            Preconditions.checkState(value instanceof FileArtifactValue, depsEntry);
             inputArtifactData.put(input, (FileArtifactValue) value);
           }
         }
@@ -760,7 +762,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         new Function<SkyKey, Artifact>() {
           @Override
           public Artifact apply(SkyKey key) {
-            return ArtifactValue.artifact(key);
+            return ArtifactSkyKey.artifact(key);
           }
         });
 

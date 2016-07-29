@@ -21,23 +21,22 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Collection;
 
 /**
- * A value representing an artifact. Source artifacts are checked for existence, while output
- * artifacts imply creation of the output file.
+ * A utility class for {@link SkyKey}s coming from {@link Artifact}s. Source artifacts are checked
+ * for existence, while output artifacts imply creation of the output file.
  *
- * <p>There are effectively three kinds of output artifact values. The first corresponds to an
- * ordinary artifact {@link FileArtifactValue}. It stores the relevant data for the artifact --
- * digest/mtime and size. The second corresponds to either an "aggregating" artifact -- the output
- * of an aggregating middleman action -- or a TreeArtifact. It stores the relevant data of all its
- * inputs, as well as a combined digest for itself.
+ * <p>There are effectively three kinds of output artifact values corresponding to these keys. The
+ * first corresponds to an ordinary artifact {@link FileArtifactValue}. It stores the relevant data
+ * for the artifact -- digest/mtime and size. The second corresponds to either an "aggregating"
+ * artifact -- the output of an aggregating middleman action -- or a TreeArtifact. It stores the
+ * relevant data of all its inputs, as well as a combined digest for itself.
  */
 @Immutable
 @ThreadSafe
-public abstract class ArtifactValue implements SkyValue {
+public final class ArtifactSkyKey {
+  private ArtifactSkyKey() {}
 
   @ThreadSafe
   public static SkyKey key(Artifact artifact, boolean isMandatory) {
@@ -63,11 +62,11 @@ public abstract class ArtifactValue implements SkyValue {
 
   private static final Function<OwnedArtifact, Artifact> TO_ARTIFACT =
       new Function<OwnedArtifact, Artifact>() {
-    @Override
-    public Artifact apply(OwnedArtifact key) {
-      return key.getArtifact();
-    }
-  };
+        @Override
+        public Artifact apply(OwnedArtifact key) {
+          return key.getArtifact();
+        }
+      };
 
   public static Collection<Artifact> artifacts(Collection<? extends OwnedArtifact> keys) {
     return Collections2.transform(keys, TO_ARTIFACT);
@@ -78,8 +77,7 @@ public abstract class ArtifactValue implements SkyValue {
   }
 
   public static boolean equalWithOwner(Artifact first, Artifact second) {
-    return first.equals(second)
-        && first.getArtifactOwner().equals(second.getArtifactOwner());
+    return first.equals(second) && first.getArtifactOwner().equals(second.getArtifactOwner());
   }
 
   /**
@@ -113,11 +111,11 @@ public abstract class ArtifactValue implements SkyValue {
     }
 
     /**
-     * Constructs an OwnedArtifact wrapper for a derived artifact. The mandatory attribute is
-     * not needed because a derived artifact must be a mandatory input for some action in order to
-     * ensure that it is built in the first place. If it fails to build, then that fact is cached
-     * in the node, so any action that has it as a non-mandatory input can retrieve that
-     * information from the node.
+     * Constructs an OwnedArtifact wrapper for a derived artifact. The mandatory attribute is not
+     * needed because a derived artifact must be a mandatory input for some action in order to
+     * ensure that it is built in the first place. If it fails to build, then that fact is cached in
+     * the node, so any action that has it as a non-mandatory input can retrieve that information
+     * from the node.
      */
     private OwnedArtifact(Artifact derivedArtifact) {
       this.artifact = Preconditions.checkNotNull(derivedArtifact);
@@ -127,7 +125,7 @@ public abstract class ArtifactValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      int initialHash = artifact.hashCode() +  artifact.getArtifactOwner().hashCode();
+      int initialHash = artifact.hashCode() + artifact.getArtifactOwner().hashCode();
       return isMandatory ? initialHash : 47 * initialHash + 1;
     }
 

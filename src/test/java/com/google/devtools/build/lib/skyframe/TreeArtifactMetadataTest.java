@@ -188,10 +188,9 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     return output;
   }
 
-  private ArtifactValue evaluateArtifactValue(Artifact artifact, boolean mandatory)
-      throws Exception {
-    SkyKey key = ArtifactValue.key(artifact, mandatory);
-    EvaluationResult<ArtifactValue> result = evaluate(key);
+  private SkyValue evaluateArtifactValue(Artifact artifact, boolean mandatory) throws Exception {
+    SkyKey key = ArtifactSkyKey.key(artifact, mandatory);
+    EvaluationResult<SkyValue> result = evaluate(key);
     if (result.hasError()) {
       throw result.getError().getException();
     }

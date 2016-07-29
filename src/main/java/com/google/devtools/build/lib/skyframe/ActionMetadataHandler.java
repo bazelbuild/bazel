@@ -57,14 +57,13 @@ import javax.annotation.Nullable;
  * <p>As well, this cache collects data about the action's output files, which is used in three
  * ways. First, it is served as requested during action execution, primarily by the {@code
  * ActionCacheChecker} when determining if the action must be rerun, and then after the action is
- * run, to gather information about the outputs. Second, it is accessed by {@link
- * ArtifactFunction}s in order to construct {@link ArtifactValue}, and by this class itself to
- * generate {@link TreeArtifactValue}s. Third, the {@link
- * FilesystemValueChecker} uses it to determine the set of output files to check for inter-build
- * modifications. Because all these use cases are slightly different, we must occasionally store two
- * versions of the data for a value. See {@link #getAdditionalOutputData} for elaboration on
- * the difference between these cases, and see the javadoc for the various internal maps to see
- * what is stored where.
+ * run, to gather information about the outputs. Second, it is accessed by {@link ArtifactFunction}s
+ * in order to construct {@link FileArtifactValue}s, and by this class itself to generate {@link
+ * TreeArtifactValue}s. Third, the {@link FilesystemValueChecker} uses it to determine the set of
+ * output files to check for inter-build modifications. Because all these use cases are slightly
+ * different, we must occasionally store two versions of the data for a value. See {@link
+ * #getAdditionalOutputData} for elaboration on the difference between these cases, and see the
+ * javadoc for the various internal maps to see what is stored where.
  */
 @VisibleForTesting
 public class ActionMetadataHandler implements MetadataHandler {

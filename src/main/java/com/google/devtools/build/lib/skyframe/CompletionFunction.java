@@ -36,10 +36,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
 
 /**
@@ -248,7 +246,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
     Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(
-            ArtifactValue.mandatoryKeys(
+            ArtifactSkyKey.mandatoryKeys(
                 completor.getAllArtifactsToBuild(value, topLevelContext).getAllArtifacts()),
             MissingInputFileException.class,
             ActionExecutionException.class);
@@ -259,7 +257,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     NestedSetBuilder<Label> rootCausesBuilder = NestedSetBuilder.stableOrder();
     for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
         depsEntry : inputDeps.entrySet()) {
-      Artifact input = ArtifactValue.artifact(depsEntry.getKey());
+      Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
       try {
         depsEntry.getValue().get();
       } catch (MissingInputFileException e) {

@@ -49,12 +49,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -62,6 +56,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link ArtifactFunction}.
@@ -185,8 +183,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(input1.getPath(), "source contents");
     evaluate(
         Iterables.toArray(
-            ArtifactValue.mandatoryKeys(ImmutableSet.of(input2, input1, input2)), SkyKey.class));
-    ArtifactValue value = evaluateArtifactValue(output);
+            ArtifactSkyKey.mandatoryKeys(ImmutableSet.of(input2, input1, input2)), SkyKey.class));
+    SkyValue value = evaluateArtifactValue(output);
     assertThat(((AggregatingArtifactValue) value).getInputs())
         .containsExactly(Pair.of(input1, create(input1)), Pair.of(input2, create(input2)));
   }
@@ -247,7 +245,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     try {
       value.getModifiedTime();
       fail("mtime for non-empty file should not be stored.");
-    } catch (IllegalStateException e) {
+    } catch (UnsupportedOperationException e) {
       // Expected.
     }
   }
@@ -451,14 +449,13 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     return ((FileArtifactValue) evaluateArtifactValue(artifact));
   }
 
-  private ArtifactValue evaluateArtifactValue(Artifact artifact) throws Throwable {
+  private SkyValue evaluateArtifactValue(Artifact artifact) throws Throwable {
     return evaluateArtifactValue(artifact, /*isMandatory=*/ true);
   }
 
-  private ArtifactValue evaluateArtifactValue(Artifact artifact, boolean mandatory)
-      throws Throwable {
-    SkyKey key = ArtifactValue.key(artifact, mandatory);
-    EvaluationResult<ArtifactValue> result = evaluate(ImmutableList.of(key).toArray(new SkyKey[0]));
+  private SkyValue evaluateArtifactValue(Artifact artifact, boolean mandatory) throws Throwable {
+    SkyKey key = ArtifactSkyKey.key(artifact, mandatory);
+    EvaluationResult<SkyValue> result = evaluate(ImmutableList.of(key).toArray(new SkyKey[0]));
     if (result.hasError()) {
       throw result.getError().getException();
     }

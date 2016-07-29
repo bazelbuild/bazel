@@ -26,20 +26,18 @@ import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
- * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s
- * of its child {@link TreeFileArtifact}s.
+ * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
+ * {@link TreeFileArtifact}s.
  */
-public class TreeArtifactValue extends ArtifactValue {
+public class TreeArtifactValue implements SkyValue {
   private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
       new Function<Artifact, PathFragment>() {
         @Override

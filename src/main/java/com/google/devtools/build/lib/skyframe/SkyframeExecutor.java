@@ -137,7 +137,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsClassProvider;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -155,7 +154,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -1089,7 +1087,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     resourceManager.resetResourceUsage();
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
-      Iterable<SkyKey> artifactKeys = ArtifactValue.mandatoryKeys(artifactsToBuild);
+      Iterable<SkyKey> artifactKeys = ArtifactSkyKey.mandatoryKeys(artifactsToBuild);
       Iterable<SkyKey> targetKeys =
           TargetCompletionValue.keys(targetsToBuild, topLevelArtifactContext);
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
@@ -1743,7 +1741,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             + "Please remove '" + directories.getInstallBase() + "' and try again.";
         throw new AbruptExitException(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
       }
-      values.put(ArtifactValue.key(artifact, /*isMandatory=*/true), fileArtifactValue);
+      values.put(ArtifactSkyKey.key(artifact, /*isMandatory=*/ true), fileArtifactValue);
     }
     injectable().inject(values);
     needToInjectEmbeddedArtifacts = false;

@@ -20,68 +20,194 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /**
  * Stores the actual metadata data of a file. We have the following cases:
- * <ul><li>
- *   an ordinary file, in which case we would expect to see a digest and size;
- * </li><li>
- *   a directory, in which case we would expect to see an mtime;
- * </li><li>
- *   an intentionally omitted file which the build system is aware of but doesn't actually exist,
- *   where all access methods are unsupported;
- * </li><li>
- *   The "self data" of a middleman artifact or TreeArtifact, where we would expect to see a digest
- *   representing the artifact's contents, and a size of 1.
- * </li></ul>
+ *
+ * <ul>
+ * <li> an ordinary file, in which case we would expect to see a digest and size;
+ * <li> a directory, in which case we would expect to see an mtime;
+ * <li> an intentionally omitted file which the build system is aware of but doesn't actually exist,
+ *     where all access methods are unsupported;
+ * <li> a "middleman marker" object, which has a null digest, 0 size, and mtime of 0.
+ * <li> The "self data" of a TreeArtifact, where we would expect to see a digest representing the
+ *     artifact's contents, and a size of 0.
+ * </ul>
  */
-public class FileArtifactValue extends ArtifactValue {
-  /** Data for Middleman artifacts that did not have data specified. */
-  static final FileArtifactValue DEFAULT_MIDDLEMAN = new FileArtifactValue(null, 0, 0);
-  /** Data that marks that a file is not present on the filesystem. */
-  @VisibleForTesting
-  public static final FileArtifactValue MISSING_FILE_MARKER = new FileArtifactValue(null, 1, 0) {
+// TODO(janakr): make this an interface once JDK8 allows us to have static methods on interfaces.
+public abstract class FileArtifactValue implements SkyValue {
+  private static final class SingletonMarkerValue extends FileArtifactValue {
+    @Nullable
     @Override
-    public boolean exists() {
+    public byte[] getDigest() {
+      return null;
+    }
+
+    @Override
+    boolean isFile() {
       return false;
     }
-  };
 
-  /**
-   * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods
-   * are unsupported.
-   */
-  static final FileArtifactValue OMITTED_FILE_MARKER = new FileArtifactValue(null, 2, 0) {
-    @Override public byte[] getDigest() { throw new UnsupportedOperationException(); }
-    @Override public boolean isFile() { throw new UnsupportedOperationException(); }
-    @Override public long getSize() { throw new UnsupportedOperationException(); }
-    @Override public long getModifiedTime() { throw new UnsupportedOperationException(); }
-    @Override public boolean equals(Object o) { return this == o; }
-    @Override public int hashCode() { return System.identityHashCode(this); }
-    @Override public String toString() { return "OMITTED_FILE_MARKER"; }
-  };
+    @Override
+    public long getSize() {
+      return 0;
+    }
 
-  @Nullable private final byte[] digest;
-  private final long mtime;
-  private final long size;
+    @Override
+    public long getModifiedTime() {
+      return 0;
+    }
 
-  private FileArtifactValue(byte[] digest, long size) {
-    this.digest = Preconditions.checkNotNull(digest, size);
-    this.size = size;
-    this.mtime = -1;
+    @Override
+    public String toString() {
+      return "singleton marker artifact value (" + hashCode() + ")";
+    }
   }
 
-  // Only used by directories (null digest).
-  private FileArtifactValue(byte[] digest, long mtime, long size) {
-    Preconditions.checkState(mtime >= 0, "mtime must be non-negative: %s %s", mtime, size);
-    Preconditions.checkState(size == 0, "size must be zero: %s %s", mtime, size);
-    Preconditions.checkState(digest == null, "digest must be null:");
-    this.digest = digest;
-    this.size = size;
-    this.mtime = mtime;
+  static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
+  /** Data that marks that a file is not present on the filesystem. */
+  @VisibleForTesting
+  public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
+
+  /**
+   * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods are
+   * unsupported.
+   */
+  static final FileArtifactValue OMITTED_FILE_MARKER =
+      new FileArtifactValue() {
+        @Override
+        public byte[] getDigest() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        boolean isFile() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getSize() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getModifiedTime() {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String toString() {
+          return "OMITTED_FILE_MARKER";
+        }
+      };
+
+  private static final class DirectoryArtifactValue extends FileArtifactValue {
+    private final long mtime;
+
+    private DirectoryArtifactValue(long mtime) {
+      this.mtime = mtime;
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      return null;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return mtime;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public boolean isFile() {
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return (int) mtime;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return (this == other)
+          || ((other instanceof DirectoryArtifactValue)
+              && this.mtime == ((DirectoryArtifactValue) other).mtime);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("mtime", mtime).toString();
+    }
+  }
+
+  private static final class RegularFileArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+    private final long size;
+
+    private RegularFileArtifactValue(byte[] digest, long size) {
+      this.digest = Preconditions.checkNotNull(digest);
+      this.size = size;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    boolean isFile() {
+      return true;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException(
+          "regular file's mtime should never be called. (" + this + ")");
+    }
+
+    @Override
+    public int hashCode() {
+      // Hash digest by content, not reference.
+      return 37 * (int) size + Arrays.hashCode(digest);
+    }
+
+    /**
+     * Two RegularFileArtifactValues will only compare equal if they have the same content. This
+     * differs from the {@code Metadata#equivalence} method, which allows for comparison using mtime
+     * if one object does not have a digest available.
+     */
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof RegularFileArtifactValue)) {
+        return false;
+      }
+      RegularFileArtifactValue that = (RegularFileArtifactValue) other;
+      return this.size == that.size && Arrays.equals(this.digest, that.digest);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("digest", digest).add("size", size).toString();
+    }
   }
 
   @VisibleForTesting
@@ -107,10 +233,10 @@ public class FileArtifactValue extends ArtifactValue {
       // In this case, we need to store the mtime because the action cache uses mtime for
       // directories to determine if this artifact has changed. We want this code path to go away
       // somehow (maybe by implementing FileSet in Skyframe).
-      return new FileArtifactValue(digest, artifact.getPath().getLastModifiedTime(), size);
+      return new DirectoryArtifactValue(artifact.getPath().getLastModifiedTime());
     }
     Preconditions.checkState(digest != null, artifact);
-    return new FileArtifactValue(digest, size);
+    return new RegularFileArtifactValue(digest, size);
   }
 
   /**
@@ -119,65 +245,19 @@ public class FileArtifactValue extends ArtifactValue {
    */
   static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
-    // The Middleman artifact values have size 1 because we want their digests to be used. This hack
-    // can be removed once empty files are digested.
-    return new FileArtifactValue(digest, /*size=*/1);
+    return new RegularFileArtifactValue(digest, /*size=*/ 0);
   }
 
+  /** Returns the digest of this value. Null for non-files, non-null for files. */
   @Nullable
-  public byte[] getDigest() {
-    return digest;
-  }
+  public abstract byte[] getDigest();
 
   /** @return true if this is a file or a symlink to an existing file */
-  boolean isFile() {
-    return digest != null;
-  }
+  abstract boolean isFile();
 
-  /** Gets the size of the file. Directories have size 0. */
-  public long getSize() {
-    return size;
-  }
+  /** Gets the size of the file. Non-files (including directories) have size 0. */
+  public abstract long getSize();
 
-  /** Gets last modified time of file. Should only be called if this is a directory. */
-  long getModifiedTime() {
-    Preconditions.checkState(size == 0 && digest == null, "%s %s %s", digest, mtime, size);
-    return mtime;
-  }
-
-  public boolean exists() {
-    return true;
-  }
-
-  @Override
-  public int hashCode() {
-    // Hash digest by content, not reference. Note that digest is the only array in this array.
-    return Arrays.deepHashCode(new Object[] {size, mtime, digest});
-  }
-
-  /**
-   * Two FileArtifactValues will only compare equal if they have the same content. This differs
-   * from the {@code Metadata#equivalence} method, which allows for comparison using mtime if
-   * one object does not have a digest available.
-   */
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof FileArtifactValue)) {
-      return false;
-    }
-    FileArtifactValue that = (FileArtifactValue) other;
-    return this.mtime == that.mtime && this.size == that.size
-        && Arrays.equals(this.digest, that.digest);
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(FileArtifactValue.class)
-        .add("digest", digest)
-        .add("mtime", mtime)
-        .add("size", size).toString();
-  }
+  /** Gets last modified time of file. Should only be called if this is not a file. */
+  abstract long getModifiedTime();
 }

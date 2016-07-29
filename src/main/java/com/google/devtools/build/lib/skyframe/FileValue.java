@@ -21,30 +21,26 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
  * A value that corresponds to a file (or directory or symlink or non-existent file), fully
  * accounting for symlinks (e.g. proper dependencies on ancestor symlinks so as to be incrementally
  * correct). Anything in Skyframe that cares about the fully resolved path of a file (e.g. anything
- * that cares about the contents of a file) should have a dependency on the corresponding
- * {@link FileValue}.
+ * that cares about the contents of a file) should have a dependency on the corresponding {@link
+ * FileValue}.
  *
- * <p>
- * Note that the existence of a file value does not imply that the file exists on the filesystem.
+ * <p>Note that the existence of a file value does not imply that the file exists on the filesystem.
  * File values for missing files will be created on purpose in order to facilitate incremental
  * builds in the case those files have reappeared.
  *
- * <p>
- * This class contains the relevant metadata for a file, although not the contents. Note that
+ * <p>This class contains the relevant metadata for a file, although not the contents. Note that
  * since a FileValue doesn't store its corresponding SkyKey, it's possible for the FileValues for
  * two different paths to be the same.
  *
- * <p>
- * This should not be used for build outputs; use {@link ArtifactValue} for those.
+ * <p>This should not be used for build outputs; use {@link ArtifactSkyKey} to create keys for
+ * those.
  */
 @Immutable
 @ThreadSafe
