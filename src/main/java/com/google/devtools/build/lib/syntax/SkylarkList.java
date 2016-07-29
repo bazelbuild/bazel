@@ -396,11 +396,6 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
       return false;
     }
 
-    @Override
-    public boolean isImmutable() {
-      return false;
-    }
-
     /**
      * An empty IMMUTABLE MutableList.
      */
