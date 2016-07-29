@@ -244,7 +244,7 @@ public final class JavaCompileAction extends AbstractAction {
    * Returns the given (passed to constructor) source files.
    */
   @VisibleForTesting
-  public Collection<Artifact> getSourceFiles() {
+  Collection<Artifact> getSourceFiles() {
     return sourceFiles;
   }
 
@@ -267,7 +267,7 @@ public final class JavaCompileAction extends AbstractAction {
 
   /** Returns the list of paths that represents the bootclasspath. */
   @VisibleForTesting
-  public Collection<Artifact> getBootclasspath() {
+  Collection<Artifact> getBootclasspath() {
     return bootclasspathEntries;
   }
 
@@ -366,7 +366,7 @@ public final class JavaCompileAction extends AbstractAction {
   }
 
   @VisibleForTesting
-  public Spawn createSpawn() {
+  Spawn createSpawn() {
     return new BaseSpawn(
         getCommand(),
         ImmutableMap.of("LC_CTYPE", "en_US.UTF-8"),
@@ -685,12 +685,12 @@ public final class JavaCompileAction extends AbstractAction {
    * Builds the list of mappings between jars on the classpath and their originating targets names.
    */
   @VisibleForTesting
-  public static class JarsToTargetsArgv extends CustomMultiArgv {
+  static class JarsToTargetsArgv extends CustomMultiArgv {
     private final NestedSet<Artifact> classpath;
     private final NestedSet<Artifact> directJars;
 
     @VisibleForTesting
-    public JarsToTargetsArgv(NestedSet<Artifact> classpath, NestedSet<Artifact> directJars) {
+    JarsToTargetsArgv(NestedSet<Artifact> classpath, NestedSet<Artifact> directJars) {
       this.classpath = classpath;
       this.directJars = directJars;
     }
@@ -778,7 +778,7 @@ public final class JavaCompileAction extends AbstractAction {
   }
 
   @VisibleForTesting
-  public static ArtifactFactory createArtifactFactory(final AnalysisEnvironment env) {
+  static ArtifactFactory createArtifactFactory(final AnalysisEnvironment env) {
     return new ArtifactFactory() {
       @Override
       public Artifact create(PathFragment rootRelativePath, Root root) {
