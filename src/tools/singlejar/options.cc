@@ -17,7 +17,7 @@
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/token_stream.h"
 
-void Options::ParseCommandLine(int argc, const char *argv[]) {
+void Options::ParseCommandLine(int argc, const char * const argv[]) {
   ArgTokenStream tokens(argc, argv);
   std::string optarg;
   while (!tokens.AtEnd()) {

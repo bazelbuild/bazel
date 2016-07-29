@@ -31,7 +31,7 @@ class Options {
         warn_duplicate_resources(false) {}
 
   // Parses command line arguments into the fields of this instance.
-  void ParseCommandLine(int argc, const char *argv[]);
+  void ParseCommandLine(int argc, const char * const argv[]);
 
   std::string output_jar;
   std::string main_class;
