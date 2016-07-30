@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.AndroidNdkCrosstoolsR10e;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11.AndroidNdkCrosstoolsR11;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.AndroidNdkCrosstoolsR12;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 
@@ -28,7 +29,8 @@ public class AndroidNdkCrosstools {
   // to be tracked here are the major revision numbers.
   private static final String NDK_REVISION_10 = "10";
   private static final String NDK_REVISION_11 = "11";
-  public static final String LATEST_KNOWN_REVISION = NDK_REVISION_11;
+  private static final String NDK_REVISION_12 = "12";
+  public static final String LATEST_KNOWN_REVISION = NDK_REVISION_12;
 
   /**
    * Exception thrown when there is an error creating the crosstools file.
@@ -57,8 +59,10 @@ public class AndroidNdkCrosstools {
     // enough to check the major revision of the release.
     if (NDK_REVISION_10.equals(majorRevision)) {
       return AndroidNdkCrosstoolsR10e.create(ndkPaths, stlImpl, hostPlatform);
-    } else { 
+    } else if (NDK_REVISION_11.equals(majorRevision)) {
       return AndroidNdkCrosstoolsR11.create(ndkPaths, stlImpl, hostPlatform);
+    } else {
+      return AndroidNdkCrosstoolsR12.create(ndkPaths, stlImpl, hostPlatform);
     }
   }
 
@@ -94,6 +98,7 @@ public class AndroidNdkCrosstools {
 
   public static boolean isKnownNDKRevision(NdkRelease ndkRelease) {
     return NDK_REVISION_10.equals(ndkRelease.majorRevision)
-        || NDK_REVISION_11.equals(ndkRelease.majorRevision);
+        || NDK_REVISION_11.equals(ndkRelease.majorRevision)
+        || NDK_REVISION_12.equals(ndkRelease.majorRevision);
   } 
 }

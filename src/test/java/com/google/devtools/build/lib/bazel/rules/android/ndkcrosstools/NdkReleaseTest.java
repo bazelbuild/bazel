@@ -47,6 +47,32 @@ public class NdkReleaseTest {
       // expected
     }
   }
+
+  @Test
+  public void test11cReleaseParsing() {
+    String releaseString = "Pkg.Desc = Android NDK\n"
+        + "Pkg.Revision = 11.2.2725575\n";
+    NdkRelease ndkRelease = NdkRelease.create(releaseString);
+    assertThat(ndkRelease.isValid).isTrue();
+    assertThat(ndkRelease.rawRelease).isEqualTo("11.2.2725575");
+    assertThat(ndkRelease.majorRevision).isEqualTo("11");
+    assertThat(ndkRelease.minorRevision).isEqualTo("2");
+    assertThat(ndkRelease.releaseCandidate).isNull();
+    assertThat(ndkRelease.is64Bit).isTrue();
+  }
+
+  @Test
+  public void test12bReleaseParsing() {
+    String releaseString = "Pkg.Desc = Android NDK\n"
+        + "Pkg.Revision = 12.1.297705\n";
+    NdkRelease ndkRelease = NdkRelease.create(releaseString);
+    assertThat(ndkRelease.isValid).isTrue();
+    assertThat(ndkRelease.rawRelease).isEqualTo("12.1.297705");
+    assertThat(ndkRelease.majorRevision).isEqualTo("12");
+    assertThat(ndkRelease.minorRevision).isEqualTo("1");
+    assertThat(ndkRelease.releaseCandidate).isNull();
+    assertThat(ndkRelease.is64Bit).isTrue();
+  }
   
   private static void testNdkRelease(
       String ndkReleaseString,

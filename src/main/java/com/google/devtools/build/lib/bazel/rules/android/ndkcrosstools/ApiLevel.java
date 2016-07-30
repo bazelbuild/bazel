@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevelR10e;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11.ApiLevelR11;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.ApiLevelR12;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
@@ -32,8 +33,10 @@ public abstract class ApiLevel {
       NdkRelease release, EventHandler eventHandler, String repositoryName, String apiLevel) {
     if ("10".equals(release.majorRevision)) {
       return new ApiLevelR10e(eventHandler, repositoryName, apiLevel);
-    } else {
+    } else if ("11".equals(release.majorRevision)) {
       return new ApiLevelR11(eventHandler, repositoryName, apiLevel);
+    } else {
+      return new ApiLevelR12(eventHandler, repositoryName, apiLevel);
     }
   }
   

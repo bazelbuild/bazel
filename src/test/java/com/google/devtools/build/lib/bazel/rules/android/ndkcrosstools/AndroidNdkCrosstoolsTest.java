@@ -26,63 +26,32 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.AndroidNdkCrosstoolsR10e;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevelR10e;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.ApiLevelR12;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map.Entry;
-import java.util.Scanner;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
-/**
- * Tests for {@link AndroidNdkCrosstoolsR10e}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link AndroidNdkCrosstoolsR10e}. */
+@RunWith(Parameterized.class)
 public class AndroidNdkCrosstoolsTest {
-
-  private static final ImmutableSet<String> NDK_FILES, NDK_DIRECTORIES;
-
+  private static final String HOST_PLATFORM = "linux-x86_64";
   private static final String REPOSITORY_NAME = "testrepository";
-  private static final ApiLevel API_LEVEL =
-      new ApiLevelR10e(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21");
-  private static final NdkRelease NDK_RELEASE = NdkRelease.create("r10e (64-bit)");
-  private static final ImmutableList<CrosstoolRelease> CROSSTOOL_RELEASES;
-  private static final ImmutableMap<String, String> STL_FILEGROUPS;
 
-  static {
-    // NDK test data is based on the x86 64-bit Linux Android NDK.
-    String hostPlatform = "linux-x86_64";
-    NdkPaths ndkPaths = new NdkPaths(
-        REPOSITORY_NAME,
-        hostPlatform,
-        API_LEVEL);
-
-    ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
-    ImmutableMap.Builder<String, String> stlFilegroups = ImmutableMap.builder();
-    for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths)) {
-      // Protos are immutable, so this can be shared between tests.
-      CrosstoolRelease crosstool = AndroidNdkCrosstools.create(
-          NDK_RELEASE,
-          ndkPaths,
-          ndkStlImpl,
-          hostPlatform);
-      crosstools.add(crosstool);
-      stlFilegroups.putAll(ndkStlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns());
-    }
-
-    CROSSTOOL_RELEASES = crosstools.build();
-    STL_FILEGROUPS = stlFilegroups.build();
-
+  private static class AndroidNdkCrosstoolsTestParams {
+    private final ApiLevel apiLevel;
+    private final NdkRelease ndkRelease;
     // ndkfiles.txt contains a list of every file in the ndk, created using this command at the
     // root of the Android NDK for version r10e (64-bit):
     //     find . -xtype f | sed 's|^\./||' | sort
@@ -91,43 +60,99 @@ public class AndroidNdkCrosstoolsTest {
     // It's unfortunate to have files like these, since they're large and brittle, but since the
     // whole NDK can't be checked in to test against, it's about the most that can be done right
     // now.
-    NDK_FILES = getFiles("ndkfiles.txt");
-    NDK_DIRECTORIES = getFiles("ndkdirectories.txt");
+    private final String ndkFilesFilename;
+    private final String ndkDirectoriesFilename;
+
+    AndroidNdkCrosstoolsTestParams(
+        ApiLevel apiLevel,
+        NdkRelease ndkRelease,
+        String ndkFilesFilename,
+        String ndkDirectoriesFilename) {
+      this.apiLevel = apiLevel;
+      this.ndkRelease = ndkRelease;
+      this.ndkFilesFilename = ndkFilesFilename;
+      this.ndkDirectoriesFilename = ndkDirectoriesFilename;
+    }
+
+    ImmutableSet<String> getNdkFiles() throws IOException {
+      String ndkFilesFileContent =
+          ResourceFileLoader.loadResource(AndroidNdkCrosstoolsTest.class, ndkFilesFilename);
+      ImmutableSet.Builder<String> ndkFiles = ImmutableSet.builder();
+      for (String line : ndkFilesFileContent.split("\n")) {
+        // The contents of the NDK are placed at "external/%repositoryName%/ndk".
+        // The "external/%repositoryName%" part is removed using NdkPaths.stripRepositoryPrefix,
+        // but to make it easier the "ndk/" part is added here.
+        ndkFiles.add("ndk/" + line);
+      }
+      return ndkFiles.build();
+    }
+
+    ImmutableSet<String> getNdkDirectories() throws IOException {
+      String ndkFilesFileContent =
+          ResourceFileLoader.loadResource(AndroidNdkCrosstoolsTest.class, ndkDirectoriesFilename);
+      ImmutableSet.Builder<String> ndkDirectories = ImmutableSet.builder();
+      for (String line : ndkFilesFileContent.split("\n")) {
+        ndkDirectories.add("ndk/" + line);
+      }
+      return ndkDirectories.build();
+    }
   }
 
-  private static ImmutableSet<String> getFiles(String fileName) {
+  @Parameters
+  public static Collection<AndroidNdkCrosstoolsTestParams[]> data() {
+    return ImmutableList.of(
+        new AndroidNdkCrosstoolsTestParams[] {
+            new AndroidNdkCrosstoolsTestParams(
+                new ApiLevelR10e(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21"),
+                NdkRelease.create("r10e (64-bit)"),
+                "ndkfiles.txt",
+                "ndkdirectories.txt"
+            )
+        },
+        new AndroidNdkCrosstoolsTestParams[] {
+            new AndroidNdkCrosstoolsTestParams(
+                new ApiLevelR12(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21"),
+                NdkRelease.create("Pkg.Desc = Android NDK\nPkg.Revision = 12.1.297705\n"),
+                "ndk12bfiles.txt",
+                "ndk12bdirectories.txt"
+            )
+        });
+  }
 
-    String ndkFilesContent;
-    try {
-      ndkFilesContent = ResourceFileLoader.loadResource(
-          AndroidNdkCrosstoolsTest.class, fileName);
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
+  private final ImmutableSet<String> ndkFiles;
+  private final ImmutableSet<String> ndkDirectories;
+  private final ImmutableList<CrosstoolRelease> crosstoolReleases;
+  private final ImmutableMap<String, String> stlFilegroups;
+
+  public AndroidNdkCrosstoolsTest(AndroidNdkCrosstoolsTestParams params) throws IOException {
+    // NDK test data is based on the x86 64-bit Linux Android NDK.
+    NdkPaths ndkPaths = new NdkPaths(REPOSITORY_NAME, HOST_PLATFORM, params.apiLevel);
+
+    ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
+    ImmutableMap.Builder<String, String> stlFilegroupsBuilder = ImmutableMap.builder();
+    for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths)) {
+      // Protos are immutable, so this can be shared between tests.
+      CrosstoolRelease crosstool =
+          AndroidNdkCrosstools.create(params.ndkRelease, ndkPaths, ndkStlImpl, HOST_PLATFORM);
+      crosstools.add(crosstool);
+      stlFilegroupsBuilder.putAll(ndkStlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns());
     }
 
-    ImmutableSet.Builder<String> ndkFiles = ImmutableSet.builder();
-    Scanner ndkFilesContentScanner = new Scanner(ndkFilesContent);
-    while (ndkFilesContentScanner.hasNext()) {
-      String path = ndkFilesContentScanner.nextLine();
-      // The contents of the NDK are placed at "external/%repositoryName%/ndk".
-      // The "external/%repositoryName%" part is removed using NdkPaths.stripRepositoryPrefix,
-      // but to make it easier the "ndk/" part is added here.
-      path = "ndk/" + path;
-      ndkFiles.add(path);
-    }
-    ndkFilesContentScanner.close();
-    return ndkFiles.build();
+    crosstoolReleases = crosstools.build();
+    stlFilegroups = stlFilegroupsBuilder.build();
+    ndkFiles = params.getNdkFiles();
+    ndkDirectories = params.getNdkDirectories();
   }
   
   @Test
   public void testPathsExist() throws Exception {
 
-    for (CrosstoolRelease crosstool : CROSSTOOL_RELEASES) {
+    for (CrosstoolRelease crosstool : crosstoolReleases) {
       for (CToolchain toolchain : crosstool.getToolchainList()) {
   
         // Test that all tool paths exist.
         for (ToolPath toolpath : toolchain.getToolPathList()) {
-          assertThat(NDK_FILES).contains(toolpath.getPath());
+          assertThat(ndkFiles).contains(toolpath.getPath());
         }
   
         // Test that all cxx_builtin_include_directory paths exist.
@@ -135,21 +160,21 @@ public class AndroidNdkCrosstoolsTest {
           // Special case for builtin_sysroot.
           if (!includeDirectory.equals("%sysroot%/usr/include")) {
             String path = NdkPaths.stripRepositoryPrefix(includeDirectory);
-            assertThat(NDK_DIRECTORIES).contains(path);
+            assertThat(ndkDirectories).contains(path);
           }
         }
   
         // Test that the builtin_sysroot path exists.
         {
           String builtinSysroot = NdkPaths.stripRepositoryPrefix(toolchain.getBuiltinSysroot());
-          assertThat(NDK_DIRECTORIES).contains(builtinSysroot);
+          assertThat(ndkDirectories).contains(builtinSysroot);
         }
   
         // Test that all include directories added through unfiltered_cxx_flag exist.
         for (String flag : toolchain.getUnfilteredCxxFlagList()) {
           if (!flag.equals("-isystem")) {
             flag = NdkPaths.stripRepositoryPrefix(flag);
-            assertThat(NDK_DIRECTORIES).contains(flag);
+            assertThat(ndkDirectories).contains(flag);
           }
         }
       }
@@ -159,18 +184,18 @@ public class AndroidNdkCrosstoolsTest {
   @Test
   public void testStlFilegroupPathsExist() throws Exception {
 
-    for (String fileglob : STL_FILEGROUPS.values()) {
+    for (String fileglob : stlFilegroups.values()) {
       String fileglobNoWildcard = fileglob.substring(0, fileglob.lastIndexOf('/'));
-      assertThat(NDK_DIRECTORIES).contains(fileglobNoWildcard);
+      assertThat(ndkDirectories).contains(fileglobNoWildcard);
       assertThat(findFileByPattern(fileglob)).isTrue();
     }
   }
 
-  private static boolean findFileByPattern(String globPattern) {
+  private boolean findFileByPattern(String globPattern) {
 
     String start = globPattern.substring(0, globPattern.indexOf('*'));
     String end = globPattern.substring(globPattern.lastIndexOf('.'));
-    for (String f : NDK_FILES) {
+    for (String f : ndkFiles) {
       if (f.startsWith(start) && f.endsWith(end)) {
         return true;
       }
@@ -180,7 +205,7 @@ public class AndroidNdkCrosstoolsTest {
 
   @Test
   public void testAllToolchainsHaveRuntimesFilegroup() {
-    for (CrosstoolRelease crosstool : CROSSTOOL_RELEASES) {
+    for (CrosstoolRelease crosstool : crosstoolReleases) {
       for (CToolchain toolchain : crosstool.getToolchainList()) {
         assertThat(toolchain.getDynamicRuntimesFilegroup()).isNotEmpty();
         assertThat(toolchain.getStaticRuntimesFilegroup()).isNotEmpty();
@@ -191,7 +216,7 @@ public class AndroidNdkCrosstoolsTest {
   @Test
   public void testDefaultToolchainsExist() {
 
-    for (CrosstoolRelease crosstool : CROSSTOOL_RELEASES) {
+    for (CrosstoolRelease crosstool : crosstoolReleases) {
 
       Set<String> toolchainNames = new HashSet<>();
       for (CToolchain toolchain : crosstool.getToolchainList()) {
@@ -211,7 +236,7 @@ public class AndroidNdkCrosstoolsTest {
   public void testCrosstoolTriples() {
 
     StringBuilder errorBuilder = new StringBuilder();
-    for (CrosstoolRelease crosstool : CROSSTOOL_RELEASES) {
+    for (CrosstoolRelease crosstool : crosstoolReleases) {
 
       // Create a map of (cpu, compiler, glibc) triples -> toolchain.
       ImmutableMultimap.Builder<String, CToolchain> triples = ImmutableMultimap.builder();
