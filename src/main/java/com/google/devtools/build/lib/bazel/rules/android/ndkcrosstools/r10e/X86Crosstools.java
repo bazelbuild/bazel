@@ -218,6 +218,6 @@ class X86Crosstools {
             .addCompilerFlag("-O0")
             .addCompilerFlag("-g")
             .addCompilerFlag("-fno-omit-frame-pointer")
-            .addCompilerFlag("-fnostrict-aliasing"));
+            .addCompilerFlag("-fno-strict-aliasing"));
   }
 }
