@@ -287,16 +287,4 @@ class TransientBytes {
   struct DataBlock *last_block_;
 };
 
-std::ostream &operator<<(std::ostream &out, TransientBytes const &bytes) {
-  struct Sink {
-    void operator()(const void *chunk, uint64_t chunk_size) const {
-      out_.write(reinterpret_cast<const char *>(chunk), chunk_size);
-    }
-    std::ostream &out_;
-  };
-  Sink sink{out};
-  bytes.stream_out(sink);
-  return out;
-}
-
 #endif  // SRC_TOOLS_SINGLEJAR_TRANSIENT_BYTES_H_

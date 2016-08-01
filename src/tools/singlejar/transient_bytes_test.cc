@@ -39,6 +39,19 @@ const char kBytesSmall[] =
     "0123456789012345678901234567890123456789"
     "0123456789012345678901234567890123456789";
 
+std::ostream &operator<<(std::ostream &out,
+                                TransientBytes const &bytes) {
+  struct Sink {
+    void operator()(const void *chunk, uint64_t chunk_size) const {
+      out_.write(reinterpret_cast<const char *>(chunk), chunk_size);
+    }
+    std::ostream &out_;
+  };
+  Sink sink{out};
+  bytes.stream_out(sink);
+  return out;
+}
+
 class TransientBytesTest : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
