@@ -181,6 +181,45 @@ public class RClassGeneratorTest {
   }
 
   @Test
+  public void binaryDropsLibraryFields() throws Exception {
+    boolean finalFields = true;
+    // Test what happens if the binary R.txt is not a strict superset of the
+    // library R.txt (overrides that drop elements).
+    SymbolLoader symbolValues = createSymbolFile("R.txt",
+        "int layout stubbable_activity 0x7f020000");
+    SymbolLoader symbolsInLibrary = createSymbolFile("lib.R.txt",
+        "int id debug_text_field 0x1",
+        "int id debug_text_field2 0x1",
+        "int layout stubbable_activity 0x1");
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
+        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
+    writer.write();
+
+    Path packageDir = out.resolve("com/foo");
+    checkFilesInPackage(packageDir, "R.class", "R$id.class", "R$layout.class");
+    Class<?> outerClass = checkTopLevelClass(out,
+        "com.foo.R",
+        "com.foo.R$id",
+        "com.foo.R$layout");
+    checkInnerClass(out,
+        "com.foo.R$id",
+        outerClass,
+        ImmutableMap.<String, Integer>of(),
+        ImmutableMap.<String, List<Integer>>of(),
+        finalFields
+    );
+    checkInnerClass(out,
+        "com.foo.R$layout",
+        outerClass,
+        ImmutableMap.of("stubbable_activity", 0x7f020000),
+        ImmutableMap.<String, List<Integer>>of(),
+        finalFields
+    );
+  }
+
+  @Test
   public void intArraysFinal() throws Exception {
     checkIntArrays(true);
   }

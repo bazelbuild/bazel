@@ -32,6 +32,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -46,6 +47,7 @@ import org.objectweb.asm.commons.InstructionAdapter;
  */
 public class RClassGenerator {
 
+  private static final Logger logger = Logger.getLogger(RClassGenerator.class.getName());
   private static final int JAVA_VERSION = Opcodes.V1_7;
   private static final String SUPER_CLASS = "java/lang/Object";
   private final Path outFolder;
@@ -149,13 +151,19 @@ public class RClassGenerator {
     for (String symbolName : symbolList) {
       // get the matching SymbolEntry from the values Table.
       SymbolEntry value = values.get(typeName, symbolName);
-      Preconditions.checkNotNull(value);
-      if (value.getType().equals("int")) {
-        initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
+      if (value != null) {
+        if (value.getType().equals("int")) {
+          initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
+        } else {
+          Preconditions.checkArgument(value.getType().equals("int[]"));
+          initializers
+              .add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
+        }
       } else {
-        Preconditions.checkArgument(value.getType().equals("int[]"));
-        initializers
-            .add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
+        // Value may be missing if resource overriding eliminates resources at the binary
+        // level, which were originally present at the library level.
+        logger.fine(String.format("Skipping R.%s.%s -- value not known in binary's R.txt",
+                                  typeName, symbolName));
       }
     }
     return initializers;
