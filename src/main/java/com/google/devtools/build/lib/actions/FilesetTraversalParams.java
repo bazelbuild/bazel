@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-
 import java.util.Set;
 
 /**
@@ -155,7 +154,7 @@ public interface FilesetTraversalParams {
   }
 
   /** Label of the Fileset rule that owns this traversal. */
-  Label getOwnerLabel();
+  Label getOwnerLabelForErrorMessages();
 
   /** Returns the directory under the output path where the files will be mapped. May be empty. */
   PathFragment getDestPath();
