@@ -984,6 +984,7 @@ java_test(
     name = "sandbox-tests",
     srcs = glob(["sandbox/*.java"]),
     data = [":embedded_scripts"],
+    local = 1,
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [

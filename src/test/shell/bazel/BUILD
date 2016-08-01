@@ -317,6 +317,7 @@ sh_test(
     name = "bazel_sandboxing_cpp_test",
     srcs = ["bazel_sandboxing_cpp_test.sh"],
     data = [":test-deps"],
+    tags = ["local"],
 )
 
 sh_test(
