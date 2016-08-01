@@ -604,6 +604,23 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
+  public void constraintEnforcementDisabledHostConfig() throws Exception {
+    useConfiguration("--enforce_constraints=0");
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults().make();
+    scratch.file("hello/BUILD",
+        "genrule(",
+        "    name = 'gen',",
+        "    srcs = [],",
+        "    outs = ['gen.out'],",
+        "    cmd = '',",
+        "    tools = [':main'])",
+        getDependencyRule(),
+        getDependingRule(compatibleWith("//buildenv/foo:a")));
+    assertNotNull(getConfiguredTarget("//hello:gen"));
+    assertNoEvents();
+  }
+
   /**
    * Tests that package defaults compatibility produces a valid dependency that would otherwise
    * be invalid.

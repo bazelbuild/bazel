@@ -862,6 +862,7 @@ public final class BuildConfiguration {
       host.compilationMode = CompilationMode.OPT;
       host.isHost = true;
       host.useDynamicConfigurations = useDynamicConfigurations;
+      host.enforceConstraints = enforceConstraints;
 
       if (fallback) {
         // In the fallback case, we have already tried the target options and they didn't work, so
