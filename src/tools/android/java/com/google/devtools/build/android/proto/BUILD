@@ -2,11 +2,14 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("//tools/build_rules:genproto.bzl", "java_proto_library")
-
 java_proto_library(
+    name = "serialize_format_java_pb",
+    deps = [":serialize_format_proto"],
+)
+
+proto_library(
     name = "serialize_format_proto",
-    src = "serialize_format.proto",
+    srcs = ["serialize_format.proto"],
 )
 
 filegroup(
