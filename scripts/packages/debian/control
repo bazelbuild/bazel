@@ -9,7 +9,7 @@ Package: bazel
 Section: contrib/devel
 Priority: optional
 Architecture: amd64
-Depends: java8-jdk | java8-sdk, pkg-config, zip, g++, zlib1g-dev,
+Depends: google-jdk | java8-jdk | java8-sdk, pkg-config, zip, g++, zlib1g-dev,
  unzip, bash-completion
 Conflicts: openjdk-9-jdk
 Description: Bazel is a tool that automates software builds and tests.

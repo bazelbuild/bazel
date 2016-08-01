@@ -147,7 +147,7 @@ pkg_deb(
             "java7-jdk | java7-sdk",
         ],
         "//conditions:default": [
-            "java8-jdk | java8-sdk",
+            "google-jdk | java8-jdk | java8-sdk",
         ],
     }) + [
         "pkg-config",
