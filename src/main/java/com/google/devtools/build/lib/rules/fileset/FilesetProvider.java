@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Information needed by a Fileset to do the right thing when it depends on another Fileset.
@@ -27,6 +28,10 @@ public interface FilesetProvider extends TransitiveInfoProvider {
   Artifact getFilesetInputManifest();
   PathFragment getFilesetLinkDir();
 
-  /** Returns a list of the traversals that went into this Fileset.*/
+  /**
+   * Returns a list of the traversals that went into this Fileset. Only used by Skyframe-native
+   * filesets, so will be null if Skyframe-native filesets are not enabled.
+   */
+  @Nullable
   ImmutableList<FilesetTraversalParams> getTraversals();
 }
