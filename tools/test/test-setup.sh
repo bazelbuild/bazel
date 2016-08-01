@@ -26,6 +26,12 @@ echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
 if [[ "$TEST_SRCDIR" != /* ]]; then
   export TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 fi
+if [[ "$JAVA_RUNFILES" != /* ]]; then
+  export JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
+fi
+if [[ "$PYTHON_RUNFILES" != /* ]]; then
+  export PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
+fi
 if [[ "$TEST_TMPDIR" != /* ]]; then
   export TEST_TMPDIR="$PWD/$TEST_TMPDIR"
 fi

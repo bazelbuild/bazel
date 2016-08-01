@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -212,7 +210,9 @@ public class BaseSpawn implements Spawn {
   @Override
   public ImmutableMap<String, String> getEnvironment() {
     PathFragment runfilesRoot = getRunfilesRoot();
-    if (runfilesRoot == null) {
+    if (runfilesRoot == null
+        || (environment.containsKey("JAVA_RUNFILES")
+            && environment.containsKey("PYTHON_RUNFILES"))) {
       return environment;
     } else {
       ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
