@@ -486,7 +486,7 @@ static vector<string> GetArgumentArray() {
     result.push_back("--batch");
   }
 
-  if (globals->options.command_port != -1) {
+  if (globals->options.command_port != 0) {
     result.push_back(
         "--command_port=" + ToString(globals->options.command_port));
   }

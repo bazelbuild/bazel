@@ -248,7 +248,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public String invocationPolicy;
 
   @Option(name = "command_port",
-      defaultValue = "-1",
+      defaultValue = "0",
       category = "undocumented",
       help = "Port to start up the gRPC command server on. If 0, let the kernel choose. If -1, "
           + "use a custom protocol on an AF_UNIX socket.")

@@ -55,7 +55,7 @@ void BlazeStartupOptions::Init() {
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
   oom_more_eagerly_threshold = 100;
-  command_port = -1;
+  command_port = 0;
   oom_more_eagerly = false;
   watchfs = false;
   invocation_policy = NULL;
