@@ -143,9 +143,9 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
     char path[PATH_MAX];
     int fd;
     concat_path(path, PATH_MAX, output_root_, filename);
-    // Directories created must have executable bit set. Otherwise, we cannot
-    // write or create any file inside.
-    mkdirs(path, perm | S_IXUSR);
+    // Directories created must have executable bit set and be owner writeable.
+    // Otherwise, we cannot write or create any file inside.
+    mkdirs(path, perm | S_IWUSR | S_IXUSR);
     if (!isdir) {
       fd = open(path, O_CREAT | O_WRONLY, perm);
       if (fd < 0) {
