@@ -243,10 +243,10 @@ public class QueryOptions extends OptionsBase {
    * Ugly workaround since line terminator option default has to be constant expression.
    */
   public String getLineTerminator() {
-	  if (lineTerminator == null)
-		  return System.lineSeparator();
-	  
-	  return lineTerminator;
+    if (lineTerminator == null)
+      return System.lineSeparator();
+    
+    return lineTerminator;
   }
 
   /**

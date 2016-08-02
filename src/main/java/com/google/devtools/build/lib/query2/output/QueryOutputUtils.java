@@ -52,7 +52,7 @@ public class QueryOutputUtils {
       StreamedFormatter streamedFormatter = (StreamedFormatter) formatter;
       streamedFormatter.setOptions(queryOptions, aspectResolver);
       OutputFormatterCallback.processAllTargets(
-          streamedFormatter.createStreamCallback(outputStream), targetsResult);
+          streamedFormatter.createStreamCallback(outputStream, queryOptions), targetsResult);
     }
   }
 }

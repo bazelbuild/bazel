@@ -57,17 +57,13 @@ import javax.xml.transform.stream.StreamResult;
  * An output formatter that prints the result as XML.
  */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
-  public XmlOutputFormatter() {
-    super(System.lineSeparator());
-  }
-
   @Override
   public String getName() {
     return "xml";
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;

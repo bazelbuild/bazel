@@ -41,20 +41,10 @@ import java.util.Set;
 class GraphOutputFormatter extends OutputFormatter {
 
   private int graphNodeStringLimit;
-  private final String lineTerminator;
 
-  public GraphOutputFormatter(final String lineTerminator) {
-    this.lineTerminator = lineTerminator;
-  }
-  
   @Override
   public String getName() {
     return "graph";
-  }
-  
-  @Override
-  public String getLineTerminator() {
-    return lineTerminator;
   }
 
   @Override
@@ -66,18 +56,18 @@ class GraphOutputFormatter extends OutputFormatter {
     if (options.graphFactored) {
       outputFactored(result, new PrintWriter(out), sortLabels);
     } else {
-      outputUnfactored(result, new PrintWriter(out), sortLabels);
+      outputUnfactored(result, new PrintWriter(out), sortLabels, options);
     }
   }
 
-  private void outputUnfactored(Digraph<Target> result, PrintWriter out, boolean sortLabels) {
+  private void outputUnfactored(Digraph<Target> result, PrintWriter out, boolean sortLabels, final QueryOptions options) {
     result.visitNodesBeforeEdges(
         new DotOutputVisitor<Target>(out, LABEL_STRINGIFIER) {
           @Override
           public void beginVisit() {
             super.beginVisit();
             // TODO(bazel-team): (2009) make this the default in Digraph.
-            out.printf("  node [shape=box];%s", getLineTerminator());
+            out.printf("  node [shape=box];%s", options.getLineTerminator());
           }
         },
         sortLabels ? new TargetOrdering() : null);

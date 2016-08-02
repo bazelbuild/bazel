@@ -91,7 +91,6 @@ public abstract class OutputFormatter implements Serializable {
           return input.getLabel();
         }
       };
-  private static final String LINE_TERM = System.lineSeparator();
 
   /**
    * Converter from strings to OutputFormatter.Type.
@@ -102,22 +101,14 @@ public abstract class OutputFormatter implements Serializable {
 
   public static ImmutableList<OutputFormatter> getDefaultFormatters() {
     return ImmutableList.of(
-        new LabelOutputFormatter(false, LINE_TERM),
-        new LabelOutputFormatter(false, "\0"),
-        new LabelOutputFormatter(true, LINE_TERM),
-        new LabelOutputFormatter(true, "\0"),
-        new BuildOutputFormatter(LINE_TERM),
-        new BuildOutputFormatter("\0"),
-        new MinrankOutputFormatter(LINE_TERM),
-        new MinrankOutputFormatter("\0"),
-        new MaxrankOutputFormatter(LINE_TERM),
-        new MaxrankOutputFormatter("\0"),
-        new PackageOutputFormatter(LINE_TERM),
-        new PackageOutputFormatter("\0"),
-        new LocationOutputFormatter(LINE_TERM),
-        new LocationOutputFormatter("\0"),
-        new GraphOutputFormatter(LINE_TERM),
-        new GraphOutputFormatter("\0"),
+        new LabelOutputFormatter(false),
+        new LabelOutputFormatter(true),
+        new BuildOutputFormatter(),
+        new MinrankOutputFormatter(),
+        new MaxrankOutputFormatter(),
+        new PackageOutputFormatter(),
+        new LocationOutputFormatter(),
+        new GraphOutputFormatter(),
         new XmlOutputFormatter(),
         new ProtoOutputFormatter());
   }
@@ -131,37 +122,19 @@ public abstract class OutputFormatter implements Serializable {
           }
     }));
   }
-  
-  public static String escapeTerminator(String value) {
-		return value
-			.replace("\t", "\\t")
-			.replace("\n", "\\n")
-			.replace("\0", "\\0");
-  }
-  
-  public static String formatterTerminators(Iterable<OutputFormatter> formatters) {
-    return Joiner.on(", ").join(Iterables.transform(formatters,
-      new Function<OutputFormatter, String>() {
-        @Override
-        public String apply(OutputFormatter input) {
-          return escapeTerminator(input.getLineTerminator());
-        }
-    }));
-  }
 
   /**
-   * Returns the output formatters for the specified command-line options.
+   * Returns the output formatter for the specified command-line options.
    */
-  public static Iterable<OutputFormatter> getFormatters(
+  public static OutputFormatter getFormatter(
       Iterable<OutputFormatter> formatters, String type) {
-    List<OutputFormatter> result = new ArrayList<OutputFormatter>();
     for (OutputFormatter formatter : formatters) {
       if (formatter.getName().equals(type)) {
-        result.add(formatter);
+        return formatter;
       }
     }
 
-    return result;
+    return null;
   }
 
   /**
@@ -207,33 +180,19 @@ public abstract class OutputFormatter implements Serializable {
      * <p>Takes any options specified via the most recent call to {@link #setOptions} into
      * consideration.
      */
-    OutputFormatterCallback<Target> createStreamCallback(PrintStream out);
+    OutputFormatterCallback<Target> createStreamCallback(PrintStream out, QueryOptions options);
   }
 
   /**
    * Returns the user-visible name of the output formatter.
    */
   public abstract String getName();
-  /**
-   * Returns the terminator for each line
-   */
-  public abstract String getLineTerminator();
 
   abstract static class AbstractUnorderedFormatter extends OutputFormatter
       implements StreamedFormatter {
     protected QueryOptions options;
     protected AspectResolver aspectResolver;
     protected DependencyFilter dependencyFilter;
-    private final String lineTerminator;
-    
-    protected AbstractUnorderedFormatter(final String lineTerminator) {
-      this.lineTerminator = lineTerminator;
-    }
-    
-    @Override
-    public String getLineTerminator() {
-      return lineTerminator;
-    }
 
     protected Iterable<Target> getOrderedTargets(
         Digraph<Target> result, QueryOptions options) {
@@ -256,7 +215,7 @@ public abstract class OutputFormatter implements Serializable {
         AspectResolver aspectResolver) throws IOException, InterruptedException {
       setOptions(options, aspectResolver);
       OutputFormatterCallback.processAllTargets(
-          createStreamCallback(out),
+          createStreamCallback(out, options),
           getOrderedTargets(result, options));
     }
   }
@@ -269,8 +228,7 @@ public abstract class OutputFormatter implements Serializable {
 
     private final boolean showKind;
 
-    private LabelOutputFormatter(boolean showKind, final String lineTerminator) {
-      super(lineTerminator);
+    private LabelOutputFormatter(boolean showKind) {
       this.showKind = showKind;
     }
 
@@ -280,7 +238,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
 
         @Override
@@ -291,7 +249,7 @@ public abstract class OutputFormatter implements Serializable {
               out.print(target.getTargetKind());
               out.print(' ');
             }
-            out.printf("%s%s", target.getLabel().getDefaultCanonicalForm(), getLineTerminator());
+            out.printf("%s%s", target.getLabel().getDefaultCanonicalForm(), options.getLineTerminator());
           }
         }
       };
@@ -315,9 +273,6 @@ public abstract class OutputFormatter implements Serializable {
    */
   private static class PackageOutputFormatter extends AbstractUnorderedFormatter {
 
-    public PackageOutputFormatter(final String lineTerminator) {
-      super(lineTerminator);
-    }
 
     @Override
     public String getName() {
@@ -325,7 +280,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
         private final Set<String> packageNames = Sets.newTreeSet();
 
@@ -340,7 +295,7 @@ public abstract class OutputFormatter implements Serializable {
 
         @Override
         public void close() throws IOException {
-          final String lineTerm = getLineTerminator();
+          final String lineTerm = options.getLineTerminator();
           for (String packageName : packageNames) {
             out.printf("%s%s", packageName, lineTerm);
           }
@@ -356,9 +311,6 @@ public abstract class OutputFormatter implements Serializable {
    * line 1 is given.
    */
   private static class LocationOutputFormatter extends AbstractUnorderedFormatter {
-    public LocationOutputFormatter(final String lineTerminator) {
-      super(lineTerminator);
-    }
 
     @Override
     public String getName() {
@@ -366,13 +318,13 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
 
         @Override
         protected void processOutput(Iterable<Target> partialResult)
             throws IOException, InterruptedException {
-          final String lineTerm = getLineTerminator();
+          final String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             Location location = target.getLocation();
             out.print(location.print() + ": " + target.getTargetKind()
@@ -389,9 +341,6 @@ public abstract class OutputFormatter implements Serializable {
    * printed only once.
    */
   private static class BuildOutputFormatter extends AbstractUnorderedFormatter {
-    public BuildOutputFormatter(final String lineTerminator) {
-      super(lineTerminator);
-    }
 
     @Override
     public String getName() {
@@ -399,12 +348,12 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+    public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
         private final Set<Label> printed = CompactHashSet.create();
 
         private void outputRule(Rule rule, PrintStream out) {
-          final String lineTerm = getLineTerminator();
+          final String lineTerm = options.getLineTerminator();
           out.printf("# %s%s", rule.getLocation(), lineTerm);
           out.printf("%s(%s", rule.getRuleClass(), lineTerm);
           out.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
@@ -492,18 +441,10 @@ public abstract class OutputFormatter implements Serializable {
    * correspond to the shortest path from x to each of its prerequisites.
    */
   private static class MinrankOutputFormatter extends OutputFormatter {
-    private final String lineTerminator;
 
-    public MinrankOutputFormatter(final String terminator) {
-      this.lineTerminator = terminator;
-    }
     @Override
     public String getName() {
       return "minrank";
-    }
-    @Override
-    public String getLineTerminator() {
-    	return lineTerminator;
     }
 
     private static void outputToStreamOrSave(
@@ -529,7 +470,7 @@ public abstract class OutputFormatter implements Serializable {
       Set<Node<Set<Node<Target>>>> rankNodes = scGraph.getRoots();
       Set<Node<Set<Node<Target>>>> seen = new HashSet<>();
       seen.addAll(rankNodes);
-      final String lineTerm = getLineTerminator();
+      final String lineTerm = options.getLineTerminator();
       for (int rank = 0; !rankNodes.isEmpty(); rank++) {
         // Print out this rank:
         for (Node<Set<Node<Target>>> xScc : rankNodes) {
@@ -570,19 +511,10 @@ public abstract class OutputFormatter implements Serializable {
    * correspond to the longest path from x to each of its prerequisites.
    */
   private static class MaxrankOutputFormatter extends OutputFormatter {
-    private final String lineTerminator;
-    public MaxrankOutputFormatter(final String lineTerminator) {
-      this.lineTerminator = lineTerminator;
-    }
 
     @Override
     public String getName() {
       return "maxrank";
-    }
-    
-    @Override
-    public String getLineTerminator() {
-      return lineTerminator;
     }
 
     @Override
@@ -634,7 +566,7 @@ public abstract class OutputFormatter implements Serializable {
               }
             });
       }
-      final String lineTerm = getLineTerminator();
+      final String lineTerm = options.getLineTerminator();
       for (RankAndLabel item : output) {
         out.printf("%s%s", item, lineTerm);
       }

@@ -63,10 +63,6 @@ import java.util.Set;
  */
 public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
-  public ProtoOutputFormatter() {
-    super(System.lineSeparator());
-  }
-
   /**
    * A special attribute name for the rule implementation hash code.
    */
@@ -92,7 +88,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
       private Builder queryResult;
