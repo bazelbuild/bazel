@@ -19,17 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -70,15 +67,6 @@ public final class AndroidAaptActionHelper {
    */
   private Iterable<Artifact> getInputs() {
     if (inputs.isEmpty()) {
-      FilesToRunProvider toolRunner =
-          ruleContext.getExecutablePrerequisite("$android_tool_runner", Mode.HOST);
-      // TODO(bazel-team): When using getFilesToRun(), the middleman is
-      // not expanded. Fix by providing code to expand and use getFilesToRun here.
-      RunfilesSupport aaptRunnerRunfiles = toolRunner.getRunfilesSupport();
-      Preconditions.checkState(aaptRunnerRunfiles != null);
-      // Note the below may be an overapproximation of the actual runfiles, due to "conditional
-      // artifacts" (see Runfiles.PruningManifest).
-      Iterables.addAll(inputs, aaptRunnerRunfiles.getRunfilesArtifactsWithoutMiddlemen());
       inputs.add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
       inputs.add(manifest);
       Iterables.addAll(inputs, Iterables.concat(Iterables.transform(resourceContainers,
@@ -184,8 +172,6 @@ public final class AndroidAaptActionHelper {
     List<String> args = new ArrayList<>();
     args.addAll(getArgs(output, actionKind, ResourceType.RESOURCES));
     args.addAll(getArgs(output, actionKind, ResourceType.ASSETS));
-    args.add(ruleContext.getExecutablePrerequisite("$android_tool_runner", Mode.HOST)
-        .getExecutable().getExecPathString());
     args.add(
         AndroidSdkProvider.fromRuleContext(ruleContext).getAapt().getExecutable().getExecPathString());
     args.add("package");
