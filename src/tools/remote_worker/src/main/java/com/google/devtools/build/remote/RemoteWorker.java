@@ -120,8 +120,8 @@ public class RemoteWorker extends RemoteWorkImplBase {
     System.out.println("*** Starting Hazelcast server.");
     ConcurrentMap<String, byte[]> cache = new HazelcastCacheFactory().create(remoteOptions);
 
-    System.out.println(
-        "*** Starting grpc server at 0.0.0.0:" + remoteWorkerOptions.listenPort + ".");
+    System.out.println("*** Starting grpc server on all locally bound IPs on port "
+        + remoteWorkerOptions.listenPort + ".");
     Path workPath = getFileSystem().getPath(remoteWorkerOptions.workPath);
     FileSystemUtils.createDirectoryAndParents(workPath);
     RemoteWorker worker = new RemoteWorker(workPath, remoteOptions, remoteWorkerOptions, cache);
