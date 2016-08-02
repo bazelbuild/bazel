@@ -56,6 +56,7 @@ public class DensitySpecificManifestProcessor {
       .put("hdpi", "hdpi")
       .put("280dpi", "280")
       .put("xhdpi", "xhdpi")
+      .put("340dpi", "340")
       .put("400dpi", "400")
       .put("420dpi", "420")
       .put("xxhdpi", "480")
