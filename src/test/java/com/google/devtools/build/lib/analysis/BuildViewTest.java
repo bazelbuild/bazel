@@ -1230,6 +1230,28 @@ public class BuildViewTest extends BuildViewTestBase {
         ruleClassProvider.getUniversalFragment());
   }
 
+  @Test
+  public void errorOnMissingDepFragments() throws Exception {
+    scratch.file("foo/BUILD",
+        "cc_library(",
+        "    name = 'ccbin', ",
+        "    srcs = ['c.cc'],",
+        "    data = [':javalib'])",
+        "java_library(",
+        "    name = 'javalib',",
+        "    srcs = ['javalib.java'])");
+    useConfiguration("--experimental_dynamic_configs", "--experimental_disable_jvm");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//foo:ccbin");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      // Expected.
+    }
+    assertContainsEvent("//foo:ccbin: dependency //foo:javalib from attribute \"data\" is missing "
+        + "required config fragments: Jvm");
+  }
+
   /** Runs the same test with the reduced loading phase. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)

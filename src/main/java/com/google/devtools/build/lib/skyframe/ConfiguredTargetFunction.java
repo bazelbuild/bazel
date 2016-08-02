@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -472,6 +474,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
       Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
           transitiveDepInfo.getTransitiveConfigFragments().toSet();
+      // TODO(gregce): remove the below call once we have confidence dynamic configurations always
+      // provide needed fragments. This unnecessarily drags performance on the critical path.
+      checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
+          depFragments);
 
       boolean sameFragments = depFragments.equals(ctgFragments);
       Attribute.Transition transition = dep.getTransition();
@@ -571,6 +577,35 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
     return result;
   }
+
+  /**
+   * Diagnostic helper method for dynamic configurations: checks the config fragments required by
+   * a dep against the fragments in its actual configuration. If any are missing, triggers a
+   * descriptive "missing fragments" error.
+   */
+  private static void checkForMissingFragments(Environment env, TargetAndConfiguration ctgValue,
+      String attribute, Dependency dep,
+      Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
+      throws DependencyEvaluationException {
+    Set<String> ctgFragmentNames = new HashSet<>();
+    for (BuildConfiguration.Fragment fragment :
+        ctgValue.getConfiguration().getAllFragments().values()) {
+      ctgFragmentNames.add(fragment.getClass().getSimpleName());
+    }
+    Set<String> depFragmentNames = new HashSet<>();
+    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : expectedDepFragments) {
+     depFragmentNames.add(fragmentClass.getSimpleName());
+    }
+    Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
+    if (!missing.isEmpty()) {
+      String msg = String.format(
+          "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
+          ctgValue.getLabel(), dep.getLabel(), attribute, Joiner.on(", ").join(missing));
+      env.getListener().handle(Event.error(msg));
+      throw new DependencyEvaluationException(new InvalidConfigurationException(msg));
+    }
+  }
+
 
   /**
    * Merges the each direct dependency configured target with the aspects associated with it.
