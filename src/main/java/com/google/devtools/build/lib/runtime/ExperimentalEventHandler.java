@@ -39,15 +39,13 @@ import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.logging.Logger;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 /** An experimental new output stream. */
 public class ExperimentalEventHandler implements EventHandler {
@@ -422,7 +420,7 @@ public class ExperimentalEventHandler implements EventHandler {
     }
   }
 
-  private void doRefresh() {
+  private void doRefresh(boolean fromUpdateThread) {
     if (buildComplete) {
       return;
     }
@@ -444,8 +442,14 @@ public class ExperimentalEventHandler implements EventHandler {
       // We skipped an update due to rate limiting. If this however, turned
       // out to be the last update for a long while, we need to show it in a
       // timely manner, as it best describes the current state.
-      startUpdateThread();
+      if (!fromUpdateThread) {
+        startUpdateThread();
+      }
     }
+  }
+
+  private void doRefresh() {
+    doRefresh(false);
   }
 
   private void refreshSoon() {
@@ -506,7 +510,7 @@ public class ExperimentalEventHandler implements EventHandler {
                             && mustRefreshAfterMillis < clock.currentTimeMillis()) {
                           progressBarNeedsRefresh = true;
                         }
-                        eventHandler.doRefresh();
+                        eventHandler.doRefresh(/* fromUpdateThread= */ true);
                       }
                     } catch (InterruptedException e) {
                       // Ignore
