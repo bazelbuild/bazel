@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
-
 import java.util.List;
 import java.util.Set;
 
@@ -91,6 +91,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleIntermediateArtifacts.combinedArchitectureBinary());
+
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
 
     for (BuildConfiguration childConfig : childConfigurations) {
       IntermediateArtifacts intermediateArtifacts =
@@ -141,6 +143,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
               DsymOutputType.APP)
           .validateAttributes();
       ruleContext.assertNoErrors();
+      
+      objcProviderBuilder.addTransitiveAndPropagate(common.getObjcProvider());
     }
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
@@ -154,6 +158,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
 
+    objcProviderBuilder.add(
+        MULTI_ARCH_LINKED_BINARIES, ruleIntermediateArtifacts.combinedArchitectureBinary());
+
+    targetBuilder.addProvider(ObjcProvider.class, objcProviderBuilder.build());
     return targetBuilder.build();
   }
 

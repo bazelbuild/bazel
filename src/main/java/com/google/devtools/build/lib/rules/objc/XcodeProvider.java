@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
-
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -508,10 +507,15 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   }
 
   @VisibleForTesting
-  static final EnumSet<XcodeProductType> CAN_LINK_PRODUCT_TYPES = EnumSet.of(
-      XcodeProductType.APPLICATION, XcodeProductType.BUNDLE, XcodeProductType.UNIT_TEST,
-      XcodeProductType.EXTENSION, XcodeProductType.FRAMEWORK, XcodeProductType.WATCH_OS1_EXTENSION,
-      XcodeProductType.WATCH_OS1_APPLICATION);
+  static final EnumSet<XcodeProductType> CAN_LINK_PRODUCT_TYPES =
+      EnumSet.of(
+          XcodeProductType.APPLICATION,
+          XcodeProductType.BUNDLE,
+          XcodeProductType.UNIT_TEST,
+          XcodeProductType.EXTENSION,
+          XcodeProductType.FRAMEWORK,
+          XcodeProductType.WATCH_OS1_EXTENSION,
+          XcodeProductType.WATCH_OS1_APPLICATION);
 
   /**
    * Returns the name of the Xcode target that corresponds to a build target with the given name.
@@ -637,8 +641,9 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         // but do have a dummy source file to make Xcode happy.
         boolean hasSources = dependency.compilationArtifacts.isPresent()
             && dependency.compilationArtifacts.get().getArchive().isPresent();
-        if (hasSources || (dependency.productType == XcodeProductType.BUNDLE
-            || (dependency.productType == XcodeProductType.WATCH_OS1_APPLICATION))) {
+        if (hasSources
+            || (dependency.productType == XcodeProductType.BUNDLE
+                || (dependency.productType == XcodeProductType.WATCH_OS1_APPLICATION))) {
           String dependencyXcodeTargetName = dependency.dependencyXcodeTargetName();
           Set<DependencyControl> set = jreTargetNames.contains(dependencyXcodeTargetName)
               ? jreDependencySet : dependencySet;

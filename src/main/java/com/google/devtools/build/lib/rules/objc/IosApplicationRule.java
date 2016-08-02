@@ -51,23 +51,30 @@ public class IosApplicationRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(binary) -->
         The binary target included in the final bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("binary", LABEL)
-            .allowedRuleClasses("objc_binary")
-            .allowedFileTypes()
-            .mandatory()
-            .direct_compile_time_input()
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION))
+        .add(
+            attr("binary", LABEL)
+                .allowedRuleClasses("objc_binary")
+                .allowedFileTypes()
+                .mandatory()
+                .direct_compile_time_input()
+                .cfg(IosApplication.SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(extensions) -->
         Any extensions to include in the final application.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("extensions", LABEL_LIST)
-            .allowedRuleClasses("ios_extension", "apple_watch1_extension")
-            .allowedFileTypes()
-            .direct_compile_time_input())
-        .add(attr("$runner_script_template", LABEL).cfg(HOST)
-            .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
-        .add(attr("$is_executable", BOOLEAN).value(true)
-            .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+        .add(
+            attr("extensions", LABEL_LIST)
+                .allowedRuleClasses(
+                    "ios_extension", "apple_watch1_extension", "apple_watch2_extension")
+                .allowedFileTypes()
+                .direct_compile_time_input())
+        .add(
+            attr("$runner_script_template", LABEL)
+                .cfg(HOST)
+                .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
+        .add(
+            attr("$is_executable", BOOLEAN)
+                .value(true)
+                .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();
   }
 

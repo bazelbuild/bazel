@@ -61,7 +61,8 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
   protected void validateAttributes(RuleContext ruleContext) {
     Iterable<ObjcProvider> extensionProviders = ruleContext.getPrerequisites(
         "extensions", Mode.TARGET, ObjcProvider.class);
-    if (hasMoreThanOneWatchExtension(extensionProviders, Flag.HAS_WATCH1_EXTENSION)) {
+    if (hasMoreThanOneWatchExtension(extensionProviders, Flag.HAS_WATCH1_EXTENSION)
+        || hasMoreThanOneWatchExtension(extensionProviders, Flag.HAS_WATCH2_EXTENSION)) {
       ruleContext.attributeError("extensions", "An iOS application can contain exactly one "
           + "watch extension for each watch OS version");
     }

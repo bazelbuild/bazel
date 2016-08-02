@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SW
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ROOT_MERGE_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
@@ -249,13 +250,13 @@ final class Bundling {
     }
 
     private Optional<Artifact> combinedArchitectureBinary() {
-      Optional<Artifact> combinedArchitectureBinary = Optional.absent();
-      if (!Iterables.isEmpty(objcProvider.get(LIBRARY))
+      if (!Iterables.isEmpty(objcProvider.get(MULTI_ARCH_LINKED_BINARIES))) {
+        return Optional.of(Iterables.getOnlyElement(objcProvider.get(MULTI_ARCH_LINKED_BINARIES)));
+      } else if (!Iterables.isEmpty(objcProvider.get(LIBRARY))
           || !Iterables.isEmpty(objcProvider.get(IMPORTED_LIBRARY))) {
-        combinedArchitectureBinary =
-            Optional.of(intermediateArtifacts.combinedArchitectureBinary());
+        return Optional.of(intermediateArtifacts.combinedArchitectureBinary());
       }
-      return combinedArchitectureBinary;
+      return Optional.absent();
     }
 
     private Optional<Artifact> actoolzipOutput() {

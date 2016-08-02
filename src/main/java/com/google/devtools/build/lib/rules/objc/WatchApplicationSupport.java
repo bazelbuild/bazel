@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
@@ -34,6 +35,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchAppl
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_STRUCTURED_RESOURCES_ATTR;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +54,6 @@ import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBin
 import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
-
 import javax.annotation.Nullable;
 
 /**
@@ -69,12 +70,28 @@ final class WatchApplicationSupport {
   private final Attributes attributes;
   private final Artifact ipaArtifact;
   private final String artifactPrefix;
-  private final ConfigurationDistinguisher configurationDistinguisher;
 
-  WatchApplicationSupport(RuleContext ruleContext, WatchOSVersion watchOSVersion,
-      ImmutableSet<Attribute> dependencyAttributes, IntermediateArtifacts intermediateArtifacts,
-      String bundleName, Artifact ipaArtifact, String artifactPrefix,
-      ConfigurationDistinguisher configurationDistinguisher) {
+  /**
+   * @param ruleContext the current rule context
+   * @param watchOSVersion the version of watchOS for which to create an application bundle
+   * @param dependencyAttributes attributes on the current rule context to obtain transitive
+   *     resources from
+   * @param intermediateArtifacts the utility object to obtain namespacing for intermediate bundling
+   *     artifacts
+   * @param bundleName the name of the bundle
+   * @param ipaArtifact the output ipa created by this application bundling
+   * @param artifactPrefix the string prefix to prepend to bundling artifacts for the application --
+   *     this prevents intermediate artifacts under this same rule context (such as watch extension
+   *     bundling) from conflicting
+   */
+  WatchApplicationSupport(
+      RuleContext ruleContext,
+      WatchOSVersion watchOSVersion,
+      ImmutableSet<Attribute> dependencyAttributes,
+      IntermediateArtifacts intermediateArtifacts,
+      String bundleName,
+      Artifact ipaArtifact,
+      String artifactPrefix) {
     this.ruleContext = ruleContext;
     this.watchOSVersion = watchOSVersion;
     this.dependencyAttributes = dependencyAttributes;
@@ -83,24 +100,82 @@ final class WatchApplicationSupport {
     this.ipaArtifact = ipaArtifact;
     this.artifactPrefix = artifactPrefix;
     this.attributes = new Attributes(ruleContext);
-    this.configurationDistinguisher = configurationDistinguisher;
   }
 
+  /**
+   * Registers actions to create a watch application bundle.
+   *
+   * @param innerBundleZips any zip files to be unzipped and merged into the application bundle
+   * @param filesToBuild files to build for the rule; the watchOS application .ipa is added to this
+   *     set
+   * @param exposedObjcProviderBuilder provider builder which watch application bundle outputs are
+   *     added to (for later consumption by depending rules)
+   */
   void createBundle(
-      XcodeProvider.Builder xcodeProviderBuilder,
-      ObjcProvider.Builder objcProviderBuilder,
+      Iterable<Artifact> innerBundleZips,
       NestedSetBuilder<Artifact> filesToBuild,
       ObjcProvider.Builder exposedObjcProviderBuilder)
       throws InterruptedException {
+
+    ObjcProvider objcProvider = objcProvider(innerBundleZips);
+
+    createBundle(
+        Optional.<XcodeProvider.Builder>absent(),
+        objcProvider,
+        filesToBuild,
+        exposedObjcProviderBuilder);
+  }
+
+  /**
+   * Registers actions to create a watch application bundle and xcode project.
+   *
+   * @param xcodeProviderBuilder provider builder which xcode project generation information is
+   *     added to (for later consumption by depending rules)
+   * @param innerBundleZips any zip files to be unzipped and merged into the application bundle
+   * @param filesToBuild files to build for the rule; the watchOS application .ipa is added to this
+   *     set
+   * @param exposedObjcProviderBuilder provider builder which watch application bundle outputs are
+   *     added to (for later consumption by depending rules)
+   */
+  void createBundleAndXcodeproj(
+      XcodeProvider.Builder xcodeProviderBuilder,
+      Iterable<Artifact> innerBundleZips,
+      NestedSetBuilder<Artifact> filesToBuild,
+      ObjcProvider.Builder exposedObjcProviderBuilder)
+      throws InterruptedException {
+    ObjcProvider objcProvider = objcProvider(innerBundleZips);
+
+    createBundle(
+        Optional.of(xcodeProviderBuilder), objcProvider, filesToBuild, exposedObjcProviderBuilder);
+
     // Add common watch settings.
     WatchUtils.addXcodeSettings(ruleContext, xcodeProviderBuilder);
 
     // Add watch application specific xcode settings.
     addXcodeSettings(xcodeProviderBuilder);
 
+    XcodeSupport xcodeSupport =
+        new XcodeSupport(ruleContext, intermediateArtifacts, labelForWatchApplication())
+            .addXcodeSettings(
+                xcodeProviderBuilder,
+                objcProvider,
+                watchOSVersion.getApplicationXcodeProductType(),
+                ruleContext.getFragment(AppleConfiguration.class).getIosCpu(),
+                ConfigurationDistinguisher.WATCH_OS1_EXTENSION);
+
+    for (Attribute attribute : dependencyAttributes) {
+      xcodeSupport.addDependencies(xcodeProviderBuilder, attribute);
+    }
+  }
+
+  private void createBundle(
+      Optional<XcodeProvider.Builder> xcodeProviderBuilder,
+      ObjcProvider depsObjcProvider,
+      NestedSetBuilder<Artifact> filesToBuild,
+      ObjcProvider.Builder exposedObjcProviderBuilder)
+      throws InterruptedException {
     registerActions();
 
-    ObjcProvider objcProvider = objcProvider(objcProviderBuilder);
     ReleaseBundling.Builder releaseBundling = new ReleaseBundling.Builder()
         .setIpaArtifact(ipaArtifact)
         .setBundleId(attributes.bundleId())
@@ -119,32 +194,27 @@ final class WatchApplicationSupport {
       releaseBundling.setFallbackBundleId(attributes.bundleId());
     }
 
-    new ReleaseBundlingSupport(
-            ruleContext,
-            objcProvider,
-            LinkedBinary.DEPENDENCIES_ONLY,
-            ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
-            bundleName,
-            WatchUtils.determineMinimumOsVersion(
-                ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()),
-            releaseBundling.build())
-        .registerActions(DsymOutputType.APP)
-        .addXcodeSettings(xcodeProviderBuilder)
+    ReleaseBundlingSupport releaseBundlingSupport =
+        new ReleaseBundlingSupport(
+                ruleContext,
+                depsObjcProvider,
+                LinkedBinary.DEPENDENCIES_ONLY,
+                watchOSVersion.getApplicationBundleDirFormat(),
+                bundleName,
+                WatchUtils.determineMinimumOsVersion(
+                    ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()),
+                releaseBundling.build())
+            .registerActions(DsymOutputType.APP);
+
+    if (xcodeProviderBuilder.isPresent()) {
+      releaseBundlingSupport.addXcodeSettings(xcodeProviderBuilder.get());
+    }
+
+    releaseBundlingSupport
         .addFilesToBuild(filesToBuild, DsymOutputType.APP)
         .validateResources()
         .validateAttributes()
         .addExportedDebugArtifacts(exposedObjcProviderBuilder, DsymOutputType.APP);
-
-    XcodeSupport xcodeSupport = new XcodeSupport(ruleContext, intermediateArtifacts,
-        labelForWatchApplication())
-        .addXcodeSettings(xcodeProviderBuilder, objcProvider,
-            watchOSVersion.getApplicationXcodeProductType(),
-            ruleContext.getFragment(AppleConfiguration.class).getIosCpu(),
-            configurationDistinguisher);
-
-    for (Attribute attribute : dependencyAttributes) {
-      xcodeSupport.addDependencies(xcodeProviderBuilder, attribute);
-    }
   }
 
   /**
@@ -208,16 +278,23 @@ final class WatchApplicationSupport {
             watchKitStubZip.getFilename(),
             Joiner.on(" ").join(ImmutableList.of("_WatchKitStub", bundleName))));
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext,
-        ruleContext.getFragment(AppleConfiguration.class).getMultiArchPlatform(PlatformType.IOS))
-        .setProgressMessage(
-            "Copying WatchKit binary and stub resource: " + ruleContext.getLabel())
-        .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
-        .addOutput(watchKitStubZip)
-        .build(ruleContext));
+    ruleContext.registerAction(
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                ruleContext,
+                ruleContext
+                    .getFragment(AppleConfiguration.class)
+                    .getMultiArchPlatform(PlatformType.WATCHOS))
+            .setProgressMessage(
+                "Copying WatchKit binary and stub resource: " + ruleContext.getLabel())
+            .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
+            .addOutput(watchKitStubZip)
+            .build(ruleContext));
   }
 
-  private ObjcProvider objcProvider(ObjcProvider.Builder objcProviderBuilder) {
+  private ObjcProvider objcProvider(Iterable<Artifact> innerBundleZips) {
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    objcProviderBuilder.addAll(MERGE_ZIP, innerBundleZips);
+
     // Add all resource files applicable to watch application from dependency providers.
     for (Attribute attribute : dependencyAttributes) {
       Iterable<ObjcProvider> dependencyObjcProviders = ruleContext.getPrerequisites(

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -105,6 +104,10 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   public static final Key<Artifact> LINKED_BINARY =
       new Key<>(STABLE_ORDER, "linked_binary", Artifact.class);
+
+  /** Combined-architecture binaries to include in the final bundle. */
+  public static final Key<Artifact> MULTI_ARCH_LINKED_BINARIES =
+      new Key<>(STABLE_ORDER, "combined_arch_linked_binary", Artifact.class);
 
   /**
    * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
@@ -343,9 +346,16 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     USES_SWIFT,
 
     /**
-     * Indicates that watch os 1 extension is present in the bundle.
+     * Indicates that a watchOS 1 extension is present in the bundle. (There can only be one
+     * extension for any given watchOS version in a given bundle).
      */
     HAS_WATCH1_EXTENSION,
+
+    /**
+     * Indicates that a watchOS 2 extension is present in the bundle. (There can only be one
+     * extension for any given watchOS version in a given bundle).
+     */
+    HAS_WATCH2_EXTENSION,
   }
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;

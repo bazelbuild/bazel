@@ -28,27 +28,45 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
- * Contains support methods for common processing and generating of watch extension and
- * application bundles.
+ * Contains support methods for common processing and generating of watch extension and application
+ * bundles.
  */
+// TODO(b/30503590): Refactor this into a support class -- such classes are better than this static
+// utility.
 final class WatchUtils {
+
+  @VisibleForTesting
+  /** Bundle directory format for watch applications for watch OS 2. */
+  static final String WATCH2_APP_BUNDLE_DIR_FORMAT = "Watch/%s.app";
 
   /**
    * Supported Apple watch OS versions.
    */
   enum WatchOSVersion {
-    OS1(XcodeProductType.WATCH_OS1_APPLICATION, XcodeProductType.WATCH_OS1_EXTENSION,
-        "WatchKitSupport");
+    OS1(
+        XcodeProductType.WATCH_OS1_APPLICATION,
+        XcodeProductType.WATCH_OS1_EXTENSION,
+        ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
+        "WatchKitSupport"),
+    OS2(
+        XcodeProductType.WATCH_OS2_APPLICATION,
+        XcodeProductType.WATCH_OS2_EXTENSION,
+        WATCH2_APP_BUNDLE_DIR_FORMAT,
+        "WatchKitSupport2");
 
     private final XcodeProductType applicationXcodeProductType;
     private final XcodeProductType extensionXcodeProductType;
+    private final String applicationBundleDirFormat;
     private final String watchKitSupportDirName;
 
-    WatchOSVersion(XcodeProductType applicationXcodeProductType,
+    WatchOSVersion(
+        XcodeProductType applicationXcodeProductType,
         XcodeProductType extensionXcodeProductType,
+        String applicationBundleDirFormat,
         String watchKitSupportDirName) {
       this.applicationXcodeProductType = applicationXcodeProductType;
       this.extensionXcodeProductType = extensionXcodeProductType;
+      this.applicationBundleDirFormat = applicationBundleDirFormat;
       this.watchKitSupportDirName = watchKitSupportDirName;
     }
     
@@ -64,6 +82,11 @@ final class WatchUtils {
      */
     XcodeProductType getExtensionXcodeProductType() {
       return extensionXcodeProductType;
+    }
+
+    /** Returns the bundle directory format of the watch application relative to its container. */
+    String getApplicationBundleDirFormat() {
+      return applicationBundleDirFormat;
     }
 
     /**
@@ -140,12 +163,16 @@ final class WatchUtils {
             watchSupportZip.getFilename(),
             watchKitSupportDirName));
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext,
-        ruleContext.getFragment(AppleConfiguration.class).getMultiArchPlatform(PlatformType.IOS))
-        .setProgressMessage("Copying Watchkit support to app bundle")
-        .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
-        .addOutput(watchSupportZip)
-        .build(ruleContext));
+    ruleContext.registerAction(
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                ruleContext,
+                ruleContext
+                    .getFragment(AppleConfiguration.class)
+                    .getMultiArchPlatform(PlatformType.WATCHOS))
+            .setProgressMessage("Copying Watchkit support to app bundle")
+            .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
+            .addOutput(watchSupportZip)
+            .build(ruleContext));
 
     objcProviderBuilder.add(ROOT_MERGE_ZIP, watchSupportZip(ruleContext));
   }
