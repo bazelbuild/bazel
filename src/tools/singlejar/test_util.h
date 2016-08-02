@@ -16,6 +16,7 @@
 
 #include <sys/types.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -42,6 +43,24 @@ class TestUtil {
     } else {
       return close(fd) == 0;
     }
+  }
+
+  // Combine the passed arguments to a shell command and run it.
+  // E.g. calling RunCommand("cmd", "arg1", "arg2", nullptr) results in
+  // running 'cmd arg1 arg2'.
+  // Returns command's return code.
+  static int RunCommand(const char *cmd, ...) {
+    std::string args_string(cmd);
+    va_list ap;
+    va_start(ap, cmd);
+    for (const char *arg = va_arg(ap, const char *); arg;
+         arg = va_arg(ap, const char *)) {
+      args_string += ' ';
+      args_string += arg;
+    }
+    va_end(ap);
+    fprintf(stderr, "Arguments: %s\n", args_string.c_str());
+    return system(args_string.c_str());
   }
 
   // List zip file contents.
