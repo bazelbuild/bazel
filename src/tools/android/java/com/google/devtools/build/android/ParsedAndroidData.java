@@ -93,7 +93,8 @@ public class ParsedAndroidData {
 
     private void checkForErrors() throws MergingException {
       if (!errors.isEmpty()) {
-        MergingException mergingException = new MergingException("Parse Error(s)");
+        MergingException mergingException =
+            new MergingException(String.format("%s Parse Error(s)", errors.size()));
         for (Exception e : errors) {
           mergingException.addSuppressed(e);
         }

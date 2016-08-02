@@ -95,7 +95,7 @@ public class DataResourceXml implements DataResource {
           ResourceType resourceType = getResourceType(start);
           if (resourceType == null) {
             throw new XMLStreamException(
-                path + " contains an unrecognized resource type:" + start, start.getLocation());
+                path + " contains an unrecognized resource type: " + start, start.getLocation());
           }
           if (resourceType == DECLARE_STYLEABLE) {
             // Styleables are special, as they produce multiple overwrite and combining values,
@@ -123,7 +123,7 @@ public class DataResourceXml implements DataResource {
         }
       }
     } catch (XMLStreamException e) {
-      throw new XMLStreamException(path + ":" + e.getMessage(), e.getLocation(), e);
+      throw new XMLStreamException(path + ": " + e.getMessage(), e.getLocation(), e);
     } catch (RuntimeException e) {
       throw new RuntimeException("Error parsing " + path, e);
     }

@@ -69,6 +69,10 @@ public class DataValueFileWithIds {
         }
       }
       eventReader.close();
+    } catch (XMLStreamException e) {
+      throw new XMLStreamException(source + ": " + e.getMessage(), e.getLocation(), e);
+    } catch (RuntimeException e) {
+      throw new RuntimeException("Error parsing " + source, e);
     }
     ImmutableSet<String> idResources = newIds.build();
     overwritingConsumer.consume(fileKey, DataValueFile.of(source));
