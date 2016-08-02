@@ -380,8 +380,7 @@ public abstract class GraphConcurrencyTest {
               } catch (InterruptedException e) {
                 throw new AssertionError(e);
               }
-              Map<SkyKey, NodeEntry> batchMap =
-                  graph.getBatchWithFieldHints(null, Reason.OTHER, batch, NodeEntryField.NO_FIELDS);
+              Map<SkyKey, NodeEntry> batchMap = graph.getBatch(null, Reason.OTHER, batch);
               getBatchCountDownLatch.countDown();
               assertThat(batchMap).hasSize(batch.size());
               for (NodeEntry entry : batchMap.values()) {

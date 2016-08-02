@@ -70,8 +70,7 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
 
   @Override
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(Set<SkyKey> depKeys) {
-    Map<SkyKey, NodeEntry> resultMap = queryableGraph.getBatchWithFieldHints(
-        null, Reason.DEP_REQUESTED, depKeys, NodeEntryField.VALUE_ONLY);
+    Map<SkyKey, NodeEntry> resultMap = queryableGraph.getBatch(null, Reason.DEP_REQUESTED, depKeys);
     Map<SkyKey, NodeEntry> resultWithMissingKeys = new HashMap<>(resultMap);
     for (SkyKey missingDep : Sets.difference(depKeys, resultMap.keySet())) {
       resultWithMissingKeys.put(missingDep, null);

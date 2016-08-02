@@ -24,7 +24,7 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
 
   @Override
   public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
-    return getBatchWithFieldHints(null, Reason.INVALIDATION, keys, NodeEntryField.ALL_FIELDS);
+    return getBatch(null, Reason.INVALIDATION, keys);
   }
 
   @Override

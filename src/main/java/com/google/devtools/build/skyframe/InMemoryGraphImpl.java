@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -68,8 +67,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatchWithFieldHints(
-      SkyKey requestor, Reason reason, Iterable<SkyKey> keys, EnumSet<NodeEntryField> fields) {
+  public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
     return getBatchForInvalidation(keys);
   }
 

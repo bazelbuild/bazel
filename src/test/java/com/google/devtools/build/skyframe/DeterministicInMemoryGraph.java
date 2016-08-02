@@ -28,7 +28,7 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
 
   @Override
   public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
-    return getBatchWithFieldHints(null, Reason.INVALIDATION, keys, NodeEntryField.ALL_FIELDS);
+    return getBatch(null, Reason.INVALIDATION, keys);
   }
 
   @Override

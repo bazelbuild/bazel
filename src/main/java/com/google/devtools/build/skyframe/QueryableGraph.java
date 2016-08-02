@@ -14,8 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
-import java.util.EnumSet;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -36,20 +34,13 @@ public interface QueryableGraph {
   /**
    * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
    * keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and {@code
-   * !m.containsKey(k)} iff {@code get(k) == null}. The {@code fields} parameter is a hint to the
-   * QueryableGraph implementation that allows it to possibly construct certain fields of the
-   * returned node entries more lazily. Hints may only be applied to nodes in a certain state, like
-   * done nodes.
+   * !m.containsKey(k)} iff {@code get(k) == null}.
    * 
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
-  Map<SkyKey, NodeEntry> getBatchWithFieldHints(
-      @Nullable SkyKey requestor,
-      Reason reason,
-      Iterable<SkyKey> keys,
-      EnumSet<NodeEntryField> fields);
+  Map<SkyKey, NodeEntry> getBatch(@Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
 
   /**
    * The reason that a node is being looked up in the Skyframe graph.
@@ -58,14 +49,20 @@ public interface QueryableGraph {
    */
   enum Reason {
     /**
+     * The node is being fetched in order to see if it needs to be evaluated or because it was just
+     * evaluated, but *not* because it was just requested during evaluation of a SkyFunction
+     * (see {@link #DEP_REQUESTED}).
+     */
+    PRE_OR_POST_EVALUATION,
+
+    /**
      * The node is being looked up as part of the prefetch step before evaluation of a SkyFunction.
      */
     PREFETCH,
 
     /**
-     * The node is being fetched because it is about to be evaluated or it has already been
-     * evaluated, but *not* because it was just requested during evaluation of a SkyFunction (see
-     * DEP_REQUESTED).
+     * The node is being fetched because it is about to be evaluated, but *not* because it was just
+     * requested during evaluation of a SkyFunction (see {@link #DEP_REQUESTED}).
      */
     EVALUATION,
 
@@ -97,6 +94,22 @@ public interface QueryableGraph {
      * evaluation.
      */
     ERROR_BUBBLING,
+
+    /** The node is being looked up merely for an existence check. */
+    EXISTENCE_CHECKING,
+
+    /**
+     * The node is being looked up to service {@link WalkableGraph#getValue},
+     * {@link WalkableGraph#getException}, {@link WalkableGraph#getMissingAndExceptions}, or
+     * {@link WalkableGraph#getSuccessfulValues}.
+     */
+    WALKABLE_GRAPH_VALUE,
+
+    /** The node is being looked up to service {@link WalkableGraph#getDirectDeps}. */
+    WALKABLE_GRAPH_DEPS,
+
+    /** The node is being looked up to service {@link WalkableGraph#getReverseDeps}. */
+    WALKABLE_GRAPH_RDEPS,
 
     /** Some other reason than one of the above. */
     OTHER,
