@@ -159,18 +159,6 @@ function check_num_sos() {
   assert_equals "11" "$num_sos"
 }
 
-function check_soname() {
-  # For an android_binary with name foo, readelf output format is
-  #  Tag        Type          Name/Value
-  # 0x00000010 (SONAME)       Library soname: [libfoo]
-  #
-  # If -Wl,soname= is not set, then SONAME will not appear in the output.
-  soname=$(readelf -d bazel-bin/java/bazel/_dx/bin/native_symlinks/x86/libbin.so \
-    | grep SONAME \
-    | awk '{print substr($5,2,length($5)-2)}')
-  assert_equals "libbin" "$soname"
-}
-
 function test_sdk_library_deps() {
   create_new_workspace
   setup_android_support
@@ -195,7 +183,6 @@ function test_android_binary() {
 
   bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
   check_num_sos
-  check_soname
 }
 
 function test_android_binary_clang() {
@@ -215,7 +202,6 @@ function test_android_binary_clang() {
       --android_compiler=clang3.8 \
       || fail "build failed"
   check_num_sos
-  check_soname
 }
 
 # ndk r10 and earlier

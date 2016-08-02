@@ -34,12 +34,14 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+
 import javax.annotation.Nullable;
 
 /** Represents the collection of native libraries (.so) to be installed in the APK. */
@@ -69,11 +71,8 @@ public final class NativeLibs {
     Map<String, Iterable<Artifact>> result = new LinkedHashMap<>();
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         depsByArchitecture.asMap().entrySet()) {
-      CcLinkParams linkParams =
-          AndroidCommon.getCcLinkParamsStore(
-                  entry.getValue(),
-                  ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()))
-              .get(/* linkingStatically */ true, /* linkShared */ true);
+      CcLinkParams linkParams = AndroidCommon.getCcLinkParamsStore(entry.getValue())
+          .get(/* linkingStatically */ true, /* linkShared */ true);
 
       Artifact nativeDepsLibrary = NativeDepsHelper.maybeCreateAndroidNativeDepsAction(
           ruleContext, linkParams, configurationMap.get(entry.getKey()),
