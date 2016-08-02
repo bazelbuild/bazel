@@ -309,31 +309,37 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public synchronized void buildComplete(BuildCompleteEvent event) {
+  public void buildComplete(BuildCompleteEvent event) {
     // The final progress bar will flow into the scroll-back buffer, to if treat
     // it as an event and add a time stamp, if events are supposed to have a time stmap.
-    if (showTimestamp) {
-      stateTracker.buildComplete(event, TIMESTAMP_FORMAT.print(clock.currentTimeMillis()));
-    } else {
-      stateTracker.buildComplete(event);
+    synchronized (this) {
+      if (showTimestamp) {
+        stateTracker.buildComplete(event, TIMESTAMP_FORMAT.print(clock.currentTimeMillis()));
+      } else {
+        stateTracker.buildComplete(event);
+      }
+      ignoreRefreshLimitOnce();
+      refresh();
+      buildComplete = true;
     }
-    ignoreRefreshLimitOnce();
-    refresh();
-    buildComplete = true;
     stopUpdateThread();
     flushStdOutStdErrBuffers();
   }
 
   @Subscribe
-  public synchronized void noBuild(NoBuildEvent event) {
-    buildComplete = true;
+  public void noBuild(NoBuildEvent event) {
+    synchronized (this) {
+      buildComplete = true;
+    }
     stopUpdateThread();
     flushStdOutStdErrBuffers();
   }
 
   @Subscribe
-  public synchronized void afterCommand(AfterCommandEvent event) {
-    buildComplete = true;
+  public void afterCommand(AfterCommandEvent event) {
+    synchronized (this) {
+      buildComplete = true;
+    }
     stopUpdateThread();
   }
 
