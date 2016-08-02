@@ -31,11 +31,9 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -497,16 +495,6 @@ public class CppOptions extends FragmentOptions {
   public List<String> hostCoptList;
 
   @Option(
-    name = "define",
-    converter = Converters.AssignmentConverter.class,
-    defaultValue = "",
-    category = "semantics",
-    allowMultiple = true,
-    help = "Each --define option specifies an assignment for a build variable."
-  )
-  public List<Map.Entry<String, String>> commandLineDefinedVariables;
-
-  @Option(
     name = "grte_top",
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
@@ -571,8 +559,6 @@ public class CppOptions extends FragmentOptions {
   @Override
   public FragmentOptions getHost(boolean fallback) {
     CppOptions host = (CppOptions) getDefault();
-
-    host.commandLineDefinedVariables = commandLineDefinedVariables;
 
     // The crosstool options are partially copied from the target configuration.
     if (!fallback) {

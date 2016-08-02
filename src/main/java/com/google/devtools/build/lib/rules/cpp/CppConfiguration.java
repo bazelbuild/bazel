@@ -331,7 +331,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   // The dynamic mode for linking.
   private final DynamicMode dynamicMode;
   private final boolean stripBinaries;
-  private final ImmutableMap<String, String> commandLineDefines;
   private final String solibDirectory;
   private final CompilationMode compilationMode;
 
@@ -456,15 +455,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         }
       }
     }
-
-    // We can't use an ImmutableMap.Builder here; we need the ability (at least
-    // in tests) to add entries with keys that are already in the map, and only
-    // HashMap supports this (by replacing the existing entry under the key).
-    Map<String, String> commandLineDefinesBuilder = new HashMap<>();
-    for (Map.Entry<String, String> define : cppOptions.commandLineDefinedVariables) {
-      commandLineDefinesBuilder.put(define.getKey(), define.getValue());
-    }
-    commandLineDefines = ImmutableMap.copyOf(commandLineDefinesBuilder);
 
     ListMultimap<CompilationMode, String> cFlags = ArrayListMultimap.create();
     ListMultimap<CompilationMode, String> cxxFlags = ArrayListMultimap.create();
@@ -1574,22 +1564,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public Label getStl() {
     return cppOptions.stl;
-  }
-
-  /*
-   * Returns the command-line "Make" variable overrides.
-   */
-  @Override
-  public ImmutableMap<String, String> getCommandLineDefines() {
-    return commandLineDefines;
-  }
-
-  /**
-   * Returns the command-line override value for the specified "Make" variable
-   * for this configuration, or null if none.
-   */
-  public String getMakeVariableOverride(String var) {
-    return commandLineDefines.get(var);
   }
 
   /**
