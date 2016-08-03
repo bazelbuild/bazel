@@ -22,12 +22,12 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.testing.EqualsTester;
+import java.net.MalformedURLException;
+import java.net.URL;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.net.MalformedURLException;
-import java.net.URL;
 
 /**
  * Test for {@link Options}.
@@ -117,7 +117,7 @@ public class OptionsTest {
     assertTrue(toString.contains("port=80"));
     assertTrue(toString.endsWith("}"));
 
-    assertTrue(left.equals(left));
+    new EqualsTester().addEqualityGroup(left).testEquals();
     assertTrue(left.toString().equals(likeLeft.toString()));
     assertTrue(left.equals(likeLeft));
     assertTrue(likeLeft.equals(left));
