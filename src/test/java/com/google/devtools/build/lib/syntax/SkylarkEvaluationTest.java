@@ -1028,7 +1028,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDirFindsClassObjectFields() throws Exception {
-    new SkylarkTest().update("mock", new MockClassObject()).setUp()
+    new SkylarkTest().update("mock", new MockClassObject())
         .testExactOrder("dir(mock)", "field", "nset");
   }
 

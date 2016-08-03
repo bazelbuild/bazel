@@ -321,12 +321,14 @@ public final class Environment implements Freezable {
 
   /**
    * Is this Environment being executed in Skylark context?
+   * TODO(laurentlb): Remove from Environment
    */
   private boolean isSkylark;
 
   /**
    * Is this Environment being executed during the loading phase?
    * Many builtin functions are only enabled during the loading phase, and check this flag.
+   * TODO(laurentlb): Remove from Environment
    */
   private Phase phase;
 
@@ -355,6 +357,7 @@ public final class Environment implements Freezable {
 
   /**
    * The path to the tools repository.
+   * TODO(laurentlb): Remove from Environment
    */
   private final String toolsRepository;
 
@@ -935,42 +938,35 @@ public final class Environment implements Freezable {
     };
 
   /**
-   * Parses some String input without a supporting file, returning statements and comments.
+   * Parses some String inputLines without a supporting file, returning statements only.
+   * TODO(laurentlb): Remove from Environment
    * @param inputLines a list of lines of code
    */
   @VisibleForTesting
-  Parser.ParseResult parseFileWithComments(String... inputLines) {
+  public List<Statement> parseFile(String... inputLines) {
     ParserInputSource input = ParserInputSource.create(Joiner.on("\n").join(inputLines), null);
-    return isSkylark
+    Parser.ParseResult result = isSkylark
         ? Parser.parseFileForSkylark(input, eventHandler, new ValidationEnvironment(this))
         : Parser.parseFile(input, eventHandler, /*parsePython=*/false);
-  }
-
-  /**
-   * Parses some String input without a supporting file, returning statements only.
-   * @param input a list of lines of code
-   */
-  @VisibleForTesting
-  public List<Statement> parseFile(String... input) {
-    return parseFileWithComments(input).statements;
+    return result.statements;
   }
 
   /**
    * Evaluates code some String input without a supporting file.
+   * TODO(laurentlb): Remove from Environment
    * @param input a list of lines of code to evaluate
    * @return the value of the last statement if it's an Expression or else null
    */
   @Nullable public Object eval(String... input) throws EvalException, InterruptedException {
-    Object last = null;
-    for (Statement statement : parseFile(input)) {
-      if (statement instanceof ExpressionStatement) {
-        last = ((ExpressionStatement) statement).getExpression().eval(this);
-      } else {
-        statement.exec(this);
-        last = null;
-      }
+    BuildFileAST ast;
+    if (isSkylark) {
+      ast = BuildFileAST.parseSkylarkString(eventHandler, input);
+      ValidationEnvironment valid = new ValidationEnvironment(this);
+      valid.validateAst(ast.getStatements(), eventHandler);
+    } else {
+      ast = BuildFileAST.parseBuildString(eventHandler, input);
     }
-    return last;
+    return ast.eval(this);
   }
 
   public String getToolsRepository() {

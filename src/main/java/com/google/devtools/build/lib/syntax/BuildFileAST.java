@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
@@ -238,6 +239,21 @@ public class BuildFileAST extends ASTNode {
         HashCode.fromBytes(file.getMD5Digest()).toString());
   }
 
+  public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
+    String str = Joiner.on("\n").join(content);
+    ParserInputSource input = ParserInputSource.create(str, null);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, false);
+    return new BuildFileAST(ImmutableList.<Statement>of(), result, null);
+  }
+
+  // TODO(laurentlb): Merge parseSkylarkString and parseBuildString.
+  public static BuildFileAST parseSkylarkString(EventHandler eventHandler, String... content) {
+    String str = Joiner.on("\n").join(content);
+    ParserInputSource input = ParserInputSource.create(str, null);
+    Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler, null);
+    return new BuildFileAST(ImmutableList.<Statement>of(), result, null);
+  }
+
   /**
    * Parse the specified build file, without building the AST.
    *
@@ -246,6 +262,23 @@ public class BuildFileAST extends ASTNode {
   public static boolean checkSyntax(ParserInputSource input,
                                     EventHandler eventHandler, boolean parsePython) {
     return !parseBuildFile(input, eventHandler, parsePython).containsErrors();
+  }
+
+  /**
+   * Evaluates the code and return the value of the last statement if it's an
+   * Expression or else null.
+   */
+  @Nullable public Object eval(Environment env) throws EvalException, InterruptedException {
+    Object last = null;
+    for (Statement statement : stmts) {
+      if (statement instanceof ExpressionStatement) {
+        last = ((ExpressionStatement) statement).getExpression().eval(env);
+      } else {
+        statement.exec(env);
+        last = null;
+      }
+    }
+    return last;
   }
 
   /**

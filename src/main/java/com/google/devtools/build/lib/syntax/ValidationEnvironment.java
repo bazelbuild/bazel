@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -154,6 +156,18 @@ public final class ValidationEnvironment {
 
     for (Statement statement : statements) {
       statement.validate(this);
+    }
+  }
+
+  public boolean validateAst(List<Statement> statements, EventHandler eventHandler) {
+    try {
+      validateAst(statements);
+      return true;
+    } catch (EvalException e) {
+      if (!e.isDueToIncompleteAST()) {
+        eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
+      }
+      return false;
     }
   }
 

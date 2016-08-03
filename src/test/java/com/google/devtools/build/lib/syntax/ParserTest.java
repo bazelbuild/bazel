@@ -50,14 +50,14 @@ public class ParserTest extends EvaluationTestCase {
     buildEnvironment = newBuildEnvironment();
   }
 
-  private Parser.ParseResult parseFileWithComments(String... input) {
-    return buildEnvironment.parseFileWithComments(input);
+  private BuildFileAST parseFileWithComments(String... input) {
+    return BuildFileAST.parseBuildString(buildEnvironment.getEventHandler(), input);
   }
 
   /** Parses build code (not Skylark) */
   @Override
   protected List<Statement> parseFile(String... input) {
-    return buildEnvironment.parseFile(input);
+    return parseFileWithComments(input).getStatements();
   }
 
   /** Parses a build code (not Skylark) with PythonProcessing enabled */
@@ -823,7 +823,7 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testParseBuildFileWithComments() throws Exception {
-    Parser.ParseResult result = parseFileWithComments(
+    BuildFileAST result = parseFileWithComments(
       "# Test BUILD file",
       "# with multi-line comment",
       "",
@@ -832,13 +832,13 @@ public class ParserTest extends EvaluationTestCase {
       "   outs = [ 'result.txt',",
       "           'result.log'],",
       "   cmd = 'touch result.txt result.log')");
-    assertThat(result.statements).hasSize(1);
-    assertThat(result.comments).hasSize(2);
+    assertThat(result.getStatements()).hasSize(1);
+    assertThat(result.getComments()).hasSize(2);
   }
 
   @Test
   public void testParseBuildFileWithManyComments() throws Exception {
-    Parser.ParseResult result = parseFileWithComments(
+    BuildFileAST result = parseFileWithComments(
         "# 1",
         "# 2",
         "",
@@ -854,9 +854,9 @@ public class ParserTest extends EvaluationTestCase {
         "           'result.log'], # 13",
         "   cmd = 'touch result.txt result.log')",
         "# 15");
-    assertThat(result.statements).hasSize(1); // Single genrule
+    assertThat(result.getStatements()).hasSize(1); // Single genrule
     StringBuilder commentLines = new StringBuilder();
-    for (Comment comment : result.comments) {
+    for (Comment comment : result.getComments()) {
       // Comments start and end on the same line
       assertEquals(comment.getLocation().getStartLineAndColumn().getLine() + " ends on "
           + comment.getLocation().getEndLineAndColumn().getLine(),
@@ -869,7 +869,7 @@ public class ParserTest extends EvaluationTestCase {
       commentLines.append(") ");
     }
     assertWithMessage("Found: " + commentLines)
-        .that(result.comments.size()).isEqualTo(10); // One per '#'
+        .that(result.getComments().size()).isEqualTo(10); // One per '#'
   }
 
   @Test
