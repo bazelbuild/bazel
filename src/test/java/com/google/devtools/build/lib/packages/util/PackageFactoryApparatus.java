@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 
 /**
@@ -106,7 +105,7 @@ public class PackageFactoryApparatus {
    */
   public BuildFileAST ast(Path buildFile) throws IOException {
     ParserInputSource inputSource = ParserInputSource.create(buildFile);
-    return BuildFileAST.parseBuildFile(inputSource, eventHandler, /*parsePython=*/ false);
+    return BuildFileAST.parseBuildFile(inputSource, eventHandler);
   }
 
   /**

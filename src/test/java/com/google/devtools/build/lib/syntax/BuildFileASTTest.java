@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /**
  * Unit tests for BuildFileAST.
@@ -51,7 +49,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
    */
   private BuildFileAST parseBuildFile(String... lines) throws IOException {
     Path file = scratch.file("/a/build/file/BUILD", lines);
-    return BuildFileAST.parseBuildFile(file, getEventHandler(), false);
+    return BuildFileAST.parseBuildFile(file, getEventHandler());
   }
 
   @Test
@@ -61,7 +59,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "",
         "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
 
-    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), false);
+    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler());
 
     assertTrue(buildfile.exec(env, getEventHandler()));
 
@@ -82,7 +80,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "z = x + y");
 
     setFailFast(false);
-    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), false);
+    BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler());
 
     assertFalse(buildfile.exec(env, getEventHandler()));
     Event e = assertContainsError("unsupported operand type(s) for +: 'int' and 'list'");

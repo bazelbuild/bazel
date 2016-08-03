@@ -30,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.List;
 
@@ -58,7 +57,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       BuildFileAST ast = BuildFileAST.parseBuildFile(
           ParserInputSource.create(ruleClassProvider.getDefaultWorkspacePrefix(),
               new PathFragment("/DEFAULT.WORKSPACE")),
-          env.getListener(), false);
+          env.getListener());
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(
@@ -67,7 +66,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       }
       if (workspaceFileValue.exists()) {
         ast = BuildFileAST.parseBuildFile(
-            ParserInputSource.create(repoWorkspace), ast.getStatements(), env.getListener(), false);
+            ParserInputSource.create(repoWorkspace), ast.getStatements(), env.getListener());
         if (ast.containsErrors()) {
           throw new WorkspaceASTFunctionException(
               new BuildFileContainsErrorsException(
@@ -79,8 +78,7 @@ public class WorkspaceASTFunction implements SkyFunction {
           ParserInputSource.create(ruleClassProvider.getDefaultWorkspaceSuffix(),
               new PathFragment("/DEFAULT.WORKSPACE.SUFFIX")),
           ast.getStatements(),
-          env.getListener(),
-          false);
+          env.getListener());
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(

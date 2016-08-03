@@ -1273,8 +1273,7 @@ public final class PackageFactory {
       List<Statement> preludeStatements, EventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     LOG.fine("Starting to parse " + packageId);
-    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
-        in, preludeStatements, eventHandler, false);
+    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(in, preludeStatements, eventHandler);
     LOG.fine("Finished parsing of " + packageId);
     return buildFileAST;
   }

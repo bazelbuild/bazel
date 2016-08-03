@@ -29,9 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -124,7 +122,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                     .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE)));
         }
       } else {
-        ast = BuildFileAST.parseBuildFile(path, astFileSize, env.getListener(), false);
+        ast = BuildFileAST.parseBuildFile(path, astFileSize, env.getListener());
       }
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
