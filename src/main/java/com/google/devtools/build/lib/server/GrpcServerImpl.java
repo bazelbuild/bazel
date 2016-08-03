@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.server;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.InetAddresses;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
@@ -34,12 +35,13 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-
+import io.grpc.Server;
+import io.grpc.netty.NettyServerBuilder;
+import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.lang.reflect.Field;
+import java.net.BindException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Collections;
@@ -48,12 +50,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
 import javax.annotation.concurrent.GuardedBy;
-
-import io.grpc.Server;
-import io.grpc.netty.NettyServerBuilder;
-import io.grpc.stub.StreamObserver;
 
 /**
  * gRPC server class.
@@ -160,7 +157,7 @@ public class GrpcServerImpl extends RPCServer {
   private final int maxIdleSeconds;
 
   private Server server;
-  private int port;  // mutable so that we can overwrite it if port 0 is passed in
+  private final int port;
   boolean serving;
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
@@ -271,26 +268,36 @@ public class GrpcServerImpl extends RPCServer {
   @Override
   public void serve() throws IOException {
     Preconditions.checkState(!serving);
-    server =
-        NettyServerBuilder.forAddress(new InetSocketAddress("localhost", port))
-            .addService(commandServer)
-            .build();
 
-    server.start();
+    // For reasons only Apple knows, you cannot bind to IPv4-localhost when you run in a sandbox
+    // that only allows loopback traffic, but binding to IPv6-localhost works fine. This would
+    // however break on systems that don't support IPv6. So what we'll do is to try to bind to IPv6
+    // and if that fails, try again with IPv4.
+    InetSocketAddress address = new InetSocketAddress("[::1]", port);
+    try {
+      server = NettyServerBuilder.forAddress(address).addService(commandServer).build().start();
+    } catch (BindException e) {
+      address = new InetSocketAddress("127.0.0.1", port);
+      server = NettyServerBuilder.forAddress(address).addService(commandServer).build().start();
+    }
+
     if (maxIdleSeconds > 0) {
-      Thread timeoutThread = new Thread(new Runnable() {
-        @Override
-        public void run() {
-          timeoutThread();
-        }
-      });
+      Thread timeoutThread =
+          new Thread(
+              new Runnable() {
+                @Override
+                public void run() {
+                  timeoutThread();
+                }
+              });
 
       timeoutThread.setDaemon(true);
       timeoutThread.start();
     }
     serving = true;
 
-    writeServerFile(PORT_FILE, getAddressString());
+    writeServerFile(
+        PORT_FILE, InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort());
     writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
     writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
 
@@ -308,45 +315,6 @@ public class GrpcServerImpl extends RPCServer {
     deleteAtExit(file, false);
   }
 
-  /**
-   * Gets the server port the kernel bound our server to if port 0 was passed in.
-   *
-   * <p>The implementation is awful, but gRPC doesn't provide an official way to do this:
-   * https://github.com/grpc/grpc-java/issues/72
-   */
-  private String getAddressString() {
-    try {
-      ServerSocketChannel channel =
-          (ServerSocketChannel) getField(server, "transportServer", "channel", "ch");
-      InetSocketAddress address = (InetSocketAddress) channel.getLocalAddress();
-      String host = address.getAddress().getHostAddress();
-      if (host.contains(":")) {
-        host = "[" + host + "]";
-      }
-      return host + ":" + address.getPort();
-    } catch (IllegalAccessException | NullPointerException | IOException e) {
-      throw new IllegalStateException("Cannot read server socket address from gRPC");
-    }
-  }
-
-  private static Object getField(Object instance, String... fieldNames)
-    throws IllegalAccessException, NullPointerException {
-    for (String fieldName : fieldNames) {
-      Field field = null;
-      for (Class<?> clazz = instance.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
-        try {
-          field = clazz.getDeclaredField(fieldName);
-          break;
-        } catch (NoSuchFieldException e) {
-          // Try again with the superclass
-        }
-      }
-      field.setAccessible(true);
-      instance = field.get(instance);
-    }
-
-    return instance;
-  }
 
   private final CommandServerGrpc.CommandServerImplBase commandServer =
       new CommandServerGrpc.CommandServerImplBase() {
