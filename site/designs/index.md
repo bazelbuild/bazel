@@ -17,6 +17,6 @@ title: Design Documents
 ## Skylark Design Documents
 
 Changes to the Bazel build and extension language (Skylark) should go
-through the [Skylark Design Process](/designs/skylark-design-process.md).
+through the [Skylark Design Process](/designs/skylark-design-process.html).
 
-1. [Parameterized Skylark Aspects](/designs/skylark-parameterized-aspects.md).
+1. [Parameterized Skylark Aspects](/designs/skylark-parameterized-aspects.html).
