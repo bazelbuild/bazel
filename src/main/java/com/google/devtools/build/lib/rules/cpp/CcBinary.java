@@ -228,10 +228,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     linkActionBuilder.setLinkStaticness(linkStaticness);
     linkActionBuilder.setFake(fake);
     linkActionBuilder.setFeatureConfiguration(featureConfiguration);
-    CcToolchainFeatures.Variables.Builder buildVariables =
-        new CcToolchainFeatures.Variables.Builder();
-    buildVariables.addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables());
-    linkActionBuilder.setBuildVariables(buildVariables.build());
 
     if (CppLinkAction.enableSymbolsCounts(cppConfiguration, fake, linkType)) {
       linkActionBuilder.setSymbolCountsOutput(ruleContext.getPackageRelativeArtifact(

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionConfigs.CppLinkPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoM
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -673,6 +673,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     return result.build();
   }
+  
   private boolean linkActionsAreConfigured(CToolchain toolchain) {
     for (LinkTargetType type : LinkTargetType.values()) {
       boolean typeIsConfigured = false;
@@ -703,6 +704,17 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return toolchain;
     }
     try {
+      
+      if (!linkActionsAreConfigured(toolchain)) {
+        if (getTargetLibc().equals("macosx")) {
+          TextFormat.merge(
+              CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.MAC), toolchainBuilder);
+        } else {
+          TextFormat.merge(
+              CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.LINUX),
+              toolchainBuilder);
+        }
+      }
       if (!features.contains("dependency_file")) {
         // Gcc options:
         //  -MD turns on .d file output as a side-effect (doesn't imply -E)
@@ -847,12 +859,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                 + "  flag_set {"
                 + "    action: 'c-compile'"
                 + "    action: 'c++-compile'"
-                + "    action: 'c++-link-static-library'"
-                + "    action: 'c++-link-pic-static-library'"
                 + "    action: 'c++-link-interface-dynamic-library'"
                 + "    action: 'c++-link-dynamic-library'"
-                + "    action: 'c++-link-alwayslink-static-library'"
-                + "    action: 'c++-link-alwayslink-pic-static-library'"
                 + "    action: 'c++-link-executable'"
                 + "    flag_group {"
                 + "      flag: '-fprofile-generate=%{fdo_instrument_path}'"
@@ -938,12 +946,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                 + "    }"
                 + "  }"
                 + "  flag_set {"
-                + "    action: 'c++-link-static-library'"
-                + "    action: 'c++-link-pic-static-library'"
                 + "    action: 'c++-link-interface-dynamic-library'"
                 + "    action: 'c++-link-dynamic-library'"
-                + "    action: 'c++-link-always-link-static-library'"
-                + "    action: 'c++-link-always-link-pic-static-library'"
                 + "    action: 'c++-link-executable'"
                 + "    flag_group {"
                 + "      flag: '-lgcov'"
