@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -42,16 +43,14 @@ import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link PackageLookupFunction}.
@@ -207,6 +206,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/everythinggood");
     assertTrue(packageLookupValue.packageExists());
     assertEquals(rootDirectory, packageLookupValue.getRoot());
+    assertEquals(BuildFileName.BUILD, packageLookupValue.getBuildFileName());
   }
 
   @Test
@@ -215,6 +215,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     PackageLookupValue packageLookupValue = lookupPackage("");
     assertTrue(packageLookupValue.packageExists());
     assertEquals(rootDirectory, packageLookupValue.getRoot());
+    assertEquals(BuildFileName.BUILD, packageLookupValue.getBuildFileName());
   }
 
   @Test
@@ -225,7 +226,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertTrue(packageLookupValue.packageExists());
     assertEquals(rootDirectory, packageLookupValue.getRoot());
   }
-  
+
   @Test
   public void testPackageLookupValueHashCodeAndEqualsContract() throws Exception {
     Path root1 = rootDirectory.getRelative("root1");
@@ -234,16 +235,22 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     // PackageLookupValue are supposed to have reference equality semantics, and some are supposed
     // to have logical equality semantics.
     new EqualsTester()
-        .addEqualityGroup(PackageLookupValue.success(root1), PackageLookupValue.success(root1))
-        .addEqualityGroup(PackageLookupValue.success(root2), PackageLookupValue.success(root2))
+        .addEqualityGroup(
+            PackageLookupValue.success(root1, BuildFileName.BUILD),
+            PackageLookupValue.success(root1, BuildFileName.BUILD))
+        .addEqualityGroup(
+            PackageLookupValue.success(root2, BuildFileName.BUILD),
+            PackageLookupValue.success(root2, BuildFileName.BUILD))
         .addEqualityGroup(
             PackageLookupValue.NO_BUILD_FILE_VALUE, PackageLookupValue.NO_BUILD_FILE_VALUE)
         .addEqualityGroup(
             PackageLookupValue.DELETED_PACKAGE_VALUE, PackageLookupValue.DELETED_PACKAGE_VALUE)
-        .addEqualityGroup(PackageLookupValue.invalidPackageName("nope1"),
+        .addEqualityGroup(
+            PackageLookupValue.invalidPackageName("nope1"),
             PackageLookupValue.invalidPackageName("nope1"))
-        .addEqualityGroup(PackageLookupValue.invalidPackageName("nope2"),
-             PackageLookupValue.invalidPackageName("nope2"))
+        .addEqualityGroup(
+            PackageLookupValue.invalidPackageName("nope2"),
+            PackageLookupValue.invalidPackageName("nope2"))
         .testEquals();
   }
 }

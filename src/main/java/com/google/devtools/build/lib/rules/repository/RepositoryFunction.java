@@ -47,11 +47,9 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -262,21 +260,19 @@ public abstract class RepositoryFunction {
 
   /**
    * Uses a remote repository name to fetch the corresponding Rule describing how to get it.
-   * 
-   * This should be the unique entry point for resolving a remote repository function.
+   *
+   * <p>This should be the unique entry point for resolving a remote repository function.
    */
   @Nullable
   public static Rule getRule(String repository, Environment env)
       throws RepositoryFunctionException {
 
     SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageLookupValue packageLookupValue;
-    packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
+    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
     if (packageLookupValue == null) {
       return null;
     }
-    RootedPath workspacePath =
-        RootedPath.toRootedPath(packageLookupValue.getRoot(), new PathFragment("WORKSPACE"));
+    RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
 
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     do {

@@ -51,18 +51,15 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import javax.annotation.Nullable;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests of specific functionality of PackageFunction. Note that it's already tested
@@ -99,6 +96,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
     PackageValue value = result.get(skyKey);
     assertFalse(value.getPackage().containsErrors());
     return value;
+  }
+
+  @Test
+  public void testValidPackage() throws Exception {
+    scratch.file("pkg/BUILD");
+    validPackage(PackageValue.key(PackageIdentifier.parse("@//pkg")));
   }
 
   @Test

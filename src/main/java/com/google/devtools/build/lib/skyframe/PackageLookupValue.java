@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -32,6 +35,48 @@ import com.google.devtools.build.skyframe.SkyValue;
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
  */
 public abstract class PackageLookupValue implements SkyValue {
+
+  /**
+   * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
+   */
+  public enum BuildFileName {
+    WORKSPACE("WORKSPACE") {
+      @Override
+      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+        return new PathFragment(BuildFileName.WORKSPACE.getFilename());
+      }
+    },
+    BUILD("BUILD") {
+      @Override
+      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+        return packageIdentifier.getPackageFragment().getChild(getFilename());
+      }
+    };
+
+    private static final BuildFileName[] VALUES = BuildFileName.values();
+
+    private final String filename;
+
+    private BuildFileName(String filename) {
+      this.filename = filename;
+    }
+
+    public String getFilename() {
+      return filename;
+    }
+
+    /**
+     * Returns a {@link PathFragment} to the build file that defines the package.
+     *
+     * @param packageIdentifier the identifier for this package, which the caller should already
+     *     know (since it was in the {@link SkyKey} used to get the {@link PackageLookupValue}.
+     */
+    public abstract PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier);
+
+    public static BuildFileName lookupByOrdinal(int ordinal) {
+      return VALUES[ordinal];
+    }
+  }
 
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();
@@ -52,8 +97,8 @@ public abstract class PackageLookupValue implements SkyValue {
   protected PackageLookupValue() {
   }
 
-  public static PackageLookupValue success(Path root) {
-    return new SuccessfulPackageLookupValue(root);
+  public static PackageLookupValue success(Path root, BuildFileName buildFileName) {
+    return new SuccessfulPackageLookupValue(root, buildFileName);
   }
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
@@ -66,14 +111,24 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public abstract Path getRoot();
 
-  /**
-   * Returns whether the package lookup was successful.
-   */
+  /** For a successful package lookup, returns the build file name that the package uses. */
+  public abstract BuildFileName getBuildFileName();
+
+  /** Returns whether the package lookup was successful. */
   public abstract boolean packageExists();
 
   /**
-   * For an unsuccessful package lookup, gets the reason why {@link #packageExists} returns
-   * {@code false}.
+   * For a successful package lookup, returns the {@link RootedPath} for the build file that defines
+   * the package.
+   */
+  public RootedPath getRootedPath(PackageIdentifier packageIdentifier) {
+    return RootedPath.toRootedPath(
+        getRoot(), getBuildFileName().getBuildFileFragment(packageIdentifier));
+  }
+
+  /**
+   * For an unsuccessful package lookup, gets the reason why {@link #packageExists} returns {@code
+   * false}.
    */
   abstract ErrorReason getErrorReason();
 
@@ -97,9 +152,11 @@ public abstract class PackageLookupValue implements SkyValue {
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
 
     private final Path root;
+    private final BuildFileName buildFileName;
 
-    private SuccessfulPackageLookupValue(Path root) {
+    private SuccessfulPackageLookupValue(Path root, BuildFileName buildFileName) {
       this.root = root;
+      this.buildFileName = buildFileName;
     }
 
     @Override
@@ -110,6 +167,11 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public Path getRoot() {
       return root;
+    }
+
+    @Override
+    public BuildFileName getBuildFileName() {
+      return buildFileName;
     }
 
     @Override
@@ -128,12 +190,12 @@ public abstract class PackageLookupValue implements SkyValue {
         return false;
       }
       SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
-      return root.equals(other.root);
+      return root.equals(other.root) && buildFileName == other.buildFileName;
     }
 
     @Override
     public int hashCode() {
-      return root.hashCode();
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
     }
   }
 
@@ -146,6 +208,11 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public Path getRoot() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public BuildFileName getBuildFileName() {
       throw new IllegalStateException();
     }
   }
