@@ -1,0 +1,117 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/*
+ * Check processing jar with preamble.
+ *
+ * A jar/zip file may contain a preambleL: an arbitrary data before
+ * the actual entries, and the decompressors (e.g., unzip) can handle
+ * this. This feature can be used to create "self-extracting"
+ * archives: use 'cat' command to prepend a binary implementing the
+ * extractor to a zip archive, and then run 'zip -A' on the result to
+ * adjust the entry offsets stored in the zip archive. Actually, some
+ * of the archive reading code works even if 'zip -A' wasn't run.
+ */
+
+#include <errno.h>
+#include <unistd.h>
+#include <memory>
+#include <string>
+
+#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/port.h"
+#include "src/main/cpp/util/strings.h"
+#include "src/tools/singlejar/input_jar.h"
+#include "src/tools/singlejar/test_util.h"
+#include "gtest/gtest.h"
+
+namespace {
+
+#if !defined(DATA_DIR_TOP)
+#define DATA_DIR_TOP
+#endif
+
+class InputJarPreambledTest : public testing::Test {
+ protected:
+  void SetUp() override { input_jar_.reset(new InputJar); }
+
+  void Verify(const std::string &path) {
+    ASSERT_TRUE(input_jar_->Open(path.c_str()));
+    const LH *lh;
+    const CDH *cdh;
+    while ((cdh = input_jar_->NextEntry(&lh))) {
+      ASSERT_TRUE(cdh->is())
+          << "No expected tag in the Central Directory Entry.";
+      ASSERT_NE(nullptr, lh) << "No local header.";
+      ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
+      EXPECT_EQ(lh->file_name_string(), cdh->file_name_string());
+      if (!cdh->no_size_in_local_header()) {
+        EXPECT_EQ(lh->compressed_file_size(), cdh->compressed_file_size())
+            << "Entry: " << lh->file_name_string();
+        EXPECT_EQ(lh->uncompressed_file_size(), cdh->uncompressed_file_size())
+            << "Entry: " << cdh->file_name_string();
+      }
+    }
+    input_jar_->Close();
+  }
+
+  static std::string OutputFilePath(const char *relative_path) {
+    const char *out_dir = getenv("TEST_TMPDIR");
+    return blaze_util::JoinPath(nullptr == out_dir ? "." : out_dir,
+                                relative_path);
+  }
+
+  std::unique_ptr<InputJar> input_jar_;
+};
+
+// Archive not containing 64-bit End of Central Directory/Locator with preamble.
+TEST_F(InputJarPreambledTest, Small) {
+  std::string out_path = OutputFilePath("out.jwp");
+  std::string exe_path = OutputFilePath("exe");
+  ASSERT_TRUE(TestUtil::AllocateFile(exe_path.c_str(), 100));
+  ASSERT_EQ(
+      0, TestUtil::RunCommand("cat", exe_path.c_str(),
+                              DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+                              ">", out_path.c_str(), nullptr));
+  Verify(out_path);
+}
+
+// Same as above with zip -A applied to the file.
+TEST_F(InputJarPreambledTest, SmallAdjusted) {
+  std::string out_path = OutputFilePath("out.jwp");
+  std::string exe_path = OutputFilePath("exe");
+  ASSERT_TRUE(TestUtil::AllocateFile(exe_path.c_str(), 100));
+  ASSERT_EQ(
+      0, TestUtil::RunCommand("cat", exe_path.c_str(),
+                              DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+                              ">", out_path.c_str(), nullptr));
+  ASSERT_EQ(0, TestUtil::RunCommand("zip", "-A", out_path.c_str(), nullptr));
+  Verify(out_path);
+}
+
+// 64-bit Zip file with preamble
+TEST_F(InputJarPreambledTest, Huge) {
+  std::string file4g = OutputFilePath("file4g");
+  ASSERT_TRUE(TestUtil::AllocateFile(file4g.c_str(), 0x10000000F));
+  std::string huge_jar = OutputFilePath("huge.jar");
+  ASSERT_EQ(0, TestUtil::RunCommand("zip", "-0m", huge_jar.c_str(),
+                                    file4g.c_str(), nullptr));
+  std::string exe_path = OutputFilePath("exe");
+  std::string out_path = OutputFilePath("out.jwp");
+  ASSERT_EQ(0,
+            TestUtil::RunCommand("cat", exe_path.c_str(), huge_jar.c_str(),
+                                 ">", out_path.c_str(), nullptr));
+  Verify(out_path);
+}
+}  // namespace

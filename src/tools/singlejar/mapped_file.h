@@ -54,7 +54,7 @@ class MappedFile {
     // Map the file, even if it is empty (in which case allocate 1 byte to it).
     struct stat st;
     if (fstat(fd_, &st) ||
-        (mapped_start_ = static_cast<char *>(
+        (mapped_start_ = static_cast<unsigned char *>(
              mmap(nullptr, st.st_size ? st.st_size : 1, PROT_READ, MAP_PRIVATE,
                   fd_, 0))) == MAP_FAILED) {
       diag_warn("%s:%d: mmap %s:", __FILE__, __LINE__, filename);
@@ -79,17 +79,21 @@ class MappedFile {
     return mapped_start_ <= addr && addr < mapped_end_;
   }
 
-  const char *start() const { return mapped_start_; }
-  const char *end() const { return mapped_end_; }
-  const char *address(off_t offset) const { return mapped_start_ + offset; }
-  off_t offset(const char *address) const { return address - mapped_start_; }
+  const unsigned char *start() const { return mapped_start_; }
+  const unsigned char *end() const { return mapped_end_; }
+  const unsigned char *address(off_t offset) const {
+    return mapped_start_ + offset;
+  }
+  off_t offset(const void *address) const {
+    return reinterpret_cast<const unsigned char *>(address) - mapped_start_;
+  }
   int fd() const { return fd_; }
   size_t size() const { return mapped_end_ - mapped_start_; }
   bool is_open() { return fd_ >= 0; }
 
  private:
-  char *mapped_start_;
-  char *mapped_end_;
+  unsigned char *mapped_start_;
+  unsigned char *mapped_end_;
   int fd_;
 };
 

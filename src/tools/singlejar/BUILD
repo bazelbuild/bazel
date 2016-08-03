@@ -25,6 +25,22 @@ cc_test(
 )
 
 cc_test(
+    name = "input_jar_preambled_test",
+    srcs = [
+        "input_jar_preambled_test.cc",
+        ":input_jar",
+        ":test_util",
+    ],
+    data = [
+        ":test1",
+    ],
+    deps = [
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "input_jar_scan_jartool_test",
     size = "large",
     srcs = [
@@ -191,6 +207,14 @@ filegroup(
     name = "zlib_interface",
     srcs = [
         "diag.h",
+        "zlib_interface.h",
+    ],
+)
+
+java_library(
+    name = "test1",
+    resources = [
+        "zip_headers.h",
         "zlib_interface.h",
     ],
 )
