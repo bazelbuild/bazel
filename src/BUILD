@@ -144,7 +144,6 @@ genrule(
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
         "//src/main/protobuf:srcs",
         "//src/java_tools/buildjar:JavaBuilderDeploy",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
@@ -164,6 +163,11 @@ genrule(
         "//conditions:default": [
             ":dummy_darwin_tools",
             "//third_party/ijar:zipper",
+        ],
+    }) + select({
+        "//tools/jdk:jdk7": [],
+        "//conditions:default": [
+            "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         ],
     }),
     outs = ["embedded_tools.zip"],
