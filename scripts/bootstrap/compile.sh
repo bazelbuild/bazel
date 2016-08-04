@@ -220,7 +220,7 @@ if [ "$1" == "$win_arg" ] || [ "$1" == "$manifest_arg" ];
 then
      shift
 fi
-mkdir -p $2/MANIFEST
+mkdir -p $2
 cp $1 $2/MANIFEST
 EOF
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
