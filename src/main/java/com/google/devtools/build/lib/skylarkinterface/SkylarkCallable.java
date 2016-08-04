@@ -45,10 +45,25 @@ public @interface SkylarkCallable {
 
   /**
    * If true, this method will be considered as a field of the enclosing Java object. E.g., if set
-   * to true on a method {@code foo}, then the callsites of this method will look like
-   * {@code bar.foo} instead of {@code bar.foo()}. The annotated method must be parameterless.
+   * to true on a method {@code foo}, then the callsites of this method will look like {@code
+   * bar.foo} instead of {@code bar.foo()}. The annotated method must be parameterless and {@link
+   * #parameters()} should be empty.
    */
   boolean structField() default false;
+
+  /**
+   * Number of parameters in the signature that are mandatory positional parameters. Any parameter
+   * after {@link #mandatoryPositionals()} must be specified in {@link #parameters()}. A negative
+   * value (default is {@code -1}), means that all arguments are mandatory positionals if {@link
+   * #parameters()} remains empty. If {@link #parameters()} is non empty, then a negative value for
+   * {@link #mandatoryPositionals()} is taken as 0.
+   */
+  int mandatoryPositionals() default -1;
+
+  /**
+   * List of parameters this function accept after the {@link #mandatoryPositionals()} parameters.
+   */
+  Param[] parameters() default {};
 
   /**
    * Set it to true if the Java method may return <code>null</code> (which will then be converted to

@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.testutil.TestMode;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -105,6 +105,45 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public String string() {
       return "a";
     }
+
+    @SkylarkCallable(
+      name = "with_params",
+      doc = "",
+      mandatoryPositionals = 1,
+      parameters = {
+        @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
+        @Param(
+          name = "posOrNamed",
+          defaultValue = "False",
+          type = Boolean.class,
+          positional = true,
+          named = true
+        ),
+        @Param(name = "named", type = Boolean.class, positional = false, named = true),
+        @Param(
+          name = "optionalNamed",
+          type = Boolean.class,
+          defaultValue = "False",
+          positional = false,
+          named = true
+        )
+      }
+    )
+    public String withParams(
+        Integer pos1, boolean pos2, boolean posOrNamed, boolean named, boolean optionalNamed) {
+      return "with_params("
+          + pos1
+          + ", "
+          + pos2
+          + ", "
+          + posOrNamed
+          + ", "
+          + named
+          + ", "
+          + optionalNamed
+          + ")";
+    }
+
     @Override
     public String toString() {
       return "<mock>";
@@ -600,9 +639,40 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallWithKwargs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Keyword arguments are not allowed when calling a java method"
-            + "\nwhile calling method 'isEmpty' for type Mock",
-            "mock.isEmpty(str='abc')");
+        .testIfExactError(
+            "Type Mock has no function isEmpty(string str)", "mock.isEmpty(str='abc')");
+  }
+
+
+  @Test
+  public void testJavaCallWithPositionalAndKwargs() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True)")
+        .testLookup("b", "with_params(1, true, false, true, false)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("")
+        .testIfExactError(
+            "Type Mock has no function with_params(int, bool)", "mock.with_params(1, True)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("")
+        .testIfExactError(
+            "Type Mock has no function with_params(int, bool, bool)",
+            "mock.with_params(1, True, True)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, True, named=True)")
+        .testLookup("b", "with_params(1, true, true, true, false)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True)")
+        .testLookup("b", "with_params(1, true, true, true, false)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True, optionalNamed=True)")
+        .testLookup("b", "with_params(1, true, true, true, true)");
   }
 
   @Test
@@ -1034,17 +1104,21 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDirFindsJavaObjectStructFieldsAndMethods() throws Exception {
-    new SkylarkTest().update("mock", new Mock()).testExactOrder("dir(mock)",
-        "function",
-        "is_empty",
-        "nullfunc_failing",
-        "nullfunc_working",
-        "return_bad",
-        "string",
-        "string_list",
-        "struct_field",
-        "value_of",
-        "voidfunc");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .testExactOrder(
+            "dir(mock)",
+            "function",
+            "is_empty",
+            "nullfunc_failing",
+            "nullfunc_working",
+            "return_bad",
+            "string",
+            "string_list",
+            "struct_field",
+            "value_of",
+            "voidfunc",
+            "with_params");
   }
 
   @Test

@@ -13,24 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
+import java.util.ArrayList;
+import java.util.List;
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.Duplication;
 import net.bytebuddy.implementation.bytecode.constant.TextConstant;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Syntax node for a dot expression.
- * e.g.  obj.field, but not obj.method()
- */
+/** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
 
   private final Expression obj;
@@ -106,13 +102,25 @@ public final class DotExpression extends Expression {
       }
     }
 
-    List<MethodDescriptor> methods = objValue instanceof Class<?>
-        ? FuncallExpression.getMethods((Class<?>) objValue, name, 0, loc)
-        : FuncallExpression.getMethods(objValue.getClass(), name, 0, loc);
-    if (methods != null && !methods.isEmpty()) {
-      MethodDescriptor method = Iterables.getOnlyElement(methods);
-      if (method.getAnnotation().structField()) {
-        return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc, env);
+    Iterable<MethodDescriptor> methods = objValue instanceof Class<?>
+        ? FuncallExpression.getMethods((Class<?>) objValue, name, loc)
+        : FuncallExpression.getMethods(objValue.getClass(), name, loc);
+
+    if (methods != null) {
+      methods =
+          Iterables.filter(
+              methods,
+              new Predicate<MethodDescriptor>() {
+                @Override
+                public boolean apply(MethodDescriptor methodDescriptor) {
+                  return methodDescriptor.getAnnotation().structField();
+                }
+              });
+      if (methods.iterator().hasNext()) {
+        MethodDescriptor method = Iterables.getOnlyElement(methods);
+        if (method.getAnnotation().structField()) {
+          return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc, env);
+        }
       }
     }
 
