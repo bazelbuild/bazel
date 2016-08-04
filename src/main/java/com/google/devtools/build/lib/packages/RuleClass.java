@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -938,20 +937,6 @@ public final class RuleClass {
           "Attribute %s does not exist in parent rule class.", name);
       return attributes.get(name).cloneBuilder();
     }
-  }
-
-  static Builder createPlaceholderBuilder(
-      final String name, final Location ruleLocation, ImmutableList<RuleClass> parents) {
-    return new Builder(name, RuleClassType.PLACEHOLDER, /*skylark=*/true,
-        parents.toArray(new RuleClass[parents.size()])).factory(
-        new ConfiguredTargetFactory<Object, Object>() {
-          @Override
-          public Object create(Object ruleContext) throws InterruptedException {
-            throw new IllegalStateException(
-                "Cannot create configured targets from rule with placeholder class named \"" + name
-                    + "\" at " + ruleLocation);
-          }
-        });
   }
 
   private final String name; // e.g. "cc_library"
