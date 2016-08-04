@@ -109,17 +109,20 @@ public class ASTFileLookupFunction implements SkyFunction {
       long astFileSize = fileValue.getSize();
       if (parseAsSkylark) {
         try (Mutability mutability = Mutability.create("validate")) {
-            ast = BuildFileAST.parseSkylarkFile(path, astFileSize, env.getListener(),
-                new ValidationEnvironment(
-                    ruleClassProvider.createSkylarkRuleClassEnvironment(
-                        fileLabel,
-                        mutability,
-                        env.getListener(),
-                        // the two below don't matter for extracting the ValidationEnvironment:
-                        /*astFileContentHashCode=*/null,
-                        /*importMap=*/null)
-                    .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
-                    .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE)));
+          ValidationEnvironment validationEnv =
+              new ValidationEnvironment(
+                  ruleClassProvider
+                      .createSkylarkRuleClassEnvironment(
+                          fileLabel,
+                          mutability,
+                          env.getListener(),
+                          // the two below don't matter for extracting the ValidationEnvironment:
+                          /*astFileContentHashCode=*/ null,
+                          /*importMap=*/ null)
+                      .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
+                      .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE));
+          ast = BuildFileAST.parseSkylarkFile(path, astFileSize, env.getListener());
+          ast = ast.validate(validationEnv, env.getListener());
         }
       } else {
         ast = BuildFileAST.parseBuildFile(path, astFileSize, env.getListener());

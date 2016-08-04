@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLit
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -40,7 +39,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nullable;
 
 /**
  * Recursive descent parser for LL(2) BUILD language.
@@ -229,23 +227,20 @@ public class Parser {
   }
 
   /**
-   * Entry-point to parser that parses a build file with comments.  All errors
-   * encountered during parsing are reported via "reporter".  Enable Skylark extensions
-   * that are not part of the core BUILD language.
+   * Entry-point to parser that parses a build file with comments. All errors encountered during
+   * parsing are reported via "reporter". Enable Skylark extensions that are not part of the core
+   * BUILD language.
    */
   public static ParseResult parseFileForSkylark(
-      ParserInputSource input,
-      EventHandler eventHandler,
-      @Nullable ValidationEnvironment validationEnvironment) {
+      ParserInputSource input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler, false);
     Parser parser = new Parser(lexer, eventHandler, SKYLARK);
     List<Statement> statements = parser.parseFileInput();
-    // TODO(laurentlb): Remove validation from parser
-    boolean hasSemanticalErrors = validationEnvironment == null
-        ? false
-        : !validationEnvironment.validateAst(statements, eventHandler);
-    return new ParseResult(statements, parser.comments, locationFromStatements(lexer, statements),
-        parser.errorsCount > 0 || lexer.containsErrors() || hasSemanticalErrors);
+    return new ParseResult(
+        statements,
+        parser.comments,
+        locationFromStatements(lexer, statements),
+        parser.errorsCount > 0 || lexer.containsErrors());
   }
 
   /**

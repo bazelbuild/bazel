@@ -62,11 +62,12 @@ public class BuildFileAST extends ASTNode {
       ImmutableList<Statement> stmts,
       boolean containsErrors,
       String contentHashCode,
-      Location location) {
+      Location location,
+      ImmutableList<Comment> comments) {
     this.stmts = stmts;
     this.containsErrors = containsErrors;
     this.contentHashCode = contentHashCode;
-    this.comments = ImmutableList.of();
+    this.comments = comments;
     this.setLocation(location);
   }
 
@@ -79,7 +80,8 @@ public class BuildFileAST extends ASTNode {
         stmts.subList(firstStatement, lastStatement),
         containsErrors,
         null,
-        stmts.get(firstStatement).getLocation());
+        stmts.get(firstStatement).getLocation(),
+        ImmutableList.of());
   }
 
   /** Collects all load statements */
@@ -213,24 +215,35 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Parse the specified Skylark file, returning its AST. All errors during
-   * scanning or parsing will be reported to the reporter.
+   * Parse the specified Skylark file, returning its AST. All errors during scanning or parsing will
+   * be reported to the reporter.
    *
    * @throws IOException if the file cannot not be read.
    */
-  public static BuildFileAST parseSkylarkFile(Path file, EventHandler eventHandler,
-      ValidationEnvironment validationEnvironment) throws IOException {
-    return parseSkylarkFile(file, file.getFileSize(), eventHandler,
-        validationEnvironment);
+  public static BuildFileAST parseSkylarkFile(Path file, EventHandler eventHandler)
+      throws IOException {
+    return parseSkylarkFile(file, file.getFileSize(), eventHandler);
   }
 
-  public static BuildFileAST parseSkylarkFile(Path file, long fileSize, EventHandler eventHandler,
-      ValidationEnvironment validationEnvironment) throws IOException {
+  public static BuildFileAST parseSkylarkFile(Path file, long fileSize, EventHandler eventHandler)
+      throws IOException {
     ParserInputSource input = ParserInputSource.create(file, fileSize);
-    Parser.ParseResult result =
-        Parser.parseFileForSkylark(input, eventHandler, validationEnvironment);
+    Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return new BuildFileAST(ImmutableList.<Statement>of(), result,
         HashCode.fromBytes(file.getMD5Digest()).toString());
+  }
+
+  /**
+   * Run static checks on the AST.
+   *
+   * @return a new AST (or the same), with the containsErrors flag updated.
+   */
+  public BuildFileAST validate(ValidationEnvironment validationEnv, EventHandler eventHandler) {
+    boolean valid = validationEnv.validateAst(stmts, eventHandler);
+    if (valid || containsErrors) {
+      return this;
+    }
+    return new BuildFileAST(stmts, true, contentHashCode, getLocation(), comments);
   }
 
   public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
@@ -244,7 +257,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseSkylarkString(EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
     ParserInputSource input = ParserInputSource.create(str, null);
-    Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler, null);
+    Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return new BuildFileAST(ImmutableList.<Statement>of(), result, null);
   }
 
