@@ -63,7 +63,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -374,8 +373,8 @@ public class RunCommand implements BlazeCommand  {
     }
 
     SymlinkTreeHelper helper = new SymlinkTreeHelper(
-        manifest.getExecPath(),
-        runfilesDir,
+        manifest.getPath(),
+        runfilesSupport.getRunfilesDirectory(),
         false);
     helper.createSymlinksUsingCommand(env.getExecRoot(), target.getConfiguration(),
         env.getBlazeWorkspace().getBinTools());

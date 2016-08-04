@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -311,7 +310,6 @@ public final class RunfilesSupport {
                 artifactsMiddleman,
                 outputManifest,
                 /*filesetTree=*/ false,
-                config.getShExecutable(),
                 config.getLocalShellEnvironment(),
                 config.runfilesEnabled()));
     return outputManifest;

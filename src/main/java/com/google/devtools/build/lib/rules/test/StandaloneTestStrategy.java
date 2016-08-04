@@ -75,7 +75,6 @@ public class StandaloneTestStrategy extends TestStrategy {
               action,
               actionExecutionContext,
               binTools,
-              action.getShExecutable(),
               action.getLocalShellEnvironment(),
               action.isEnableRunfiles());
     } catch (ExecException e) {

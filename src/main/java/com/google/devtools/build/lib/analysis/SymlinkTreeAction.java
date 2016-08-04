@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
 import javax.annotation.Nullable;
 
 /**
@@ -41,7 +39,6 @@ public final class SymlinkTreeAction extends AbstractAction {
   private final Artifact inputManifest;
   private final Artifact outputManifest;
   private final boolean filesetTree;
-  private final PathFragment shExecutable;
   private final ImmutableMap<String, String> shellEnviroment;
   private final boolean enableRunfiles;
 
@@ -64,7 +61,6 @@ public final class SymlinkTreeAction extends AbstractAction {
       @Nullable Artifact artifactMiddleman,
       Artifact outputManifest,
       boolean filesetTree,
-      PathFragment shExecutable,
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles) {
     super(owner, computeInputs(inputManifest, artifactMiddleman), ImmutableList.of(outputManifest));
@@ -72,7 +68,6 @@ public final class SymlinkTreeAction extends AbstractAction {
     this.inputManifest = inputManifest;
     this.outputManifest = outputManifest;
     this.filesetTree = filesetTree;
-    this.shExecutable = shExecutable;
     this.shellEnviroment = shellEnvironment;
     this.enableRunfiles = enableRunfiles;
   }
@@ -131,7 +126,6 @@ public final class SymlinkTreeAction extends AbstractAction {
     actionExecutionContext
         .getExecutor()
         .getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(
-            this, actionExecutionContext, shExecutable, shellEnviroment, enableRunfiles);
+        .createSymlinks(this, actionExecutionContext, shellEnviroment, enableRunfiles);
   }
 }

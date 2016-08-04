@@ -42,7 +42,6 @@ import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,7 +52,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -356,7 +354,6 @@ public abstract class TestStrategy implements TestActionContext {
       TestRunnerAction testAction,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
-      PathFragment shExecutable,
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
@@ -386,7 +383,6 @@ public abstract class TestStrategy implements TestActionContext {
           runfilesDir,
           actionExecutionContext,
           binTools,
-          shExecutable,
           shellEnvironment,
           enableRunfiles);
     }
@@ -405,7 +401,6 @@ public abstract class TestStrategy implements TestActionContext {
       Path runfilesDir,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
-      PathFragment shExecutable,
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
@@ -427,14 +422,13 @@ public abstract class TestStrategy implements TestActionContext {
         "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
 
     new SymlinkTreeHelper(
-            execSettings.getInputManifest().getExecPath(),
-            runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */
+            execSettings.getInputManifest().getPath(),
+            runfilesDir,
             false)
         .createSymlinks(
             testAction,
             actionExecutionContext,
             binTools,
-            shExecutable,
             shellEnvironment,
             enableRunfiles);
 

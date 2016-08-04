@@ -24,19 +24,16 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixFileSystem;
-import com.google.devtools.build.lib.vfs.UnixFileSystem.SymlinkStrategy;
-import com.google.devtools.build.lib.vfs.WindowsFileSystem;
-
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -55,8 +52,8 @@ public final class SymlinkTreeHelper {
    */
   public static final ResourceSet RESOURCE_SET = ResourceSet.createWithRamCpuIo(1000, 0.5, 0.75);
 
-  private final PathFragment inputManifest;
-  private final PathFragment symlinkTreeRoot;
+  private final Path inputManifest;
+  private final Path symlinkTreeRoot;
   private final boolean filesetTree;
 
   /**
@@ -64,18 +61,20 @@ public final class SymlinkTreeHelper {
    * SymlinkTreeAction.
    *
    * @param inputManifest exec path to the input runfiles manifest
-   * @param symlinkTreeRoot exec path to the symlink tree location
+   * @param symlinkTreeRoot the root of the symlink tree to be created
    * @param filesetTree true if this is fileset symlink tree,
    *                    false if this is a runfiles symlink tree.
    */
-  public SymlinkTreeHelper(PathFragment inputManifest, PathFragment symlinkTreeRoot,
+  public SymlinkTreeHelper(Path inputManifest, Path symlinkTreeRoot,
       boolean filesetTree) {
     this.inputManifest = inputManifest;
     this.symlinkTreeRoot = symlinkTreeRoot;
     this.filesetTree = filesetTree;
   }
 
-  public PathFragment getSymlinkTreeRoot() { return symlinkTreeRoot; }
+  public Path getOutputManifest() {
+    return symlinkTreeRoot;
+  }
 
   /**
    * Creates a symlink tree using a CommandBuilder. This means that the symlink
@@ -90,9 +89,7 @@ public final class SymlinkTreeHelper {
    */
   public void createSymlinksUsingCommand(Path execRoot,
       BuildConfiguration config, BinTools binTools) throws CommandException {
-    List<String> argv =
-        getSpawnArgumentList(
-            execRoot, binTools, config.getShExecutable(), config.runfilesEnabled());
+    List<String> argv = getSpawnArgumentList(execRoot, binTools);
 
     CommandBuilder builder = new CommandBuilder();
     builder.addArgs(argv);
@@ -110,47 +107,44 @@ public final class SymlinkTreeHelper {
    * preserved.
    * @param action action instance that requested symlink tree creation
    * @param actionExecutionContext Services that are in the scope of the action.
-   * @param shExecutable
    * @param enableRunfiles
    */
   public void createSymlinks(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
-      PathFragment shExecutable,
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
-    List<String> args =
-        getSpawnArgumentList(
-            actionExecutionContext.getExecutor().getExecRoot(),
-            binTools,
-            shExecutable,
-            enableRunfiles);
-    try (ResourceHandle handle =
-        ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
-      actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
-          new BaseSpawn.Local(args, shellEnvironment, action),
-          actionExecutionContext);
+    if (enableRunfiles) {
+      List<String> args =
+          getSpawnArgumentList(
+              actionExecutionContext.getExecutor().getExecRoot(), binTools);
+      try (ResourceHandle handle =
+               ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
+        actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
+            new BaseSpawn.Local(args, shellEnvironment, action),
+            actionExecutionContext);
+      }
+    } else {
+      // Pretend we created the runfiles tree by copying the manifest
+      try {
+        FileSystemUtils.createDirectoryAndParents(symlinkTreeRoot);
+        FileSystemUtils.copyFile(inputManifest, symlinkTreeRoot.getChild("MANIFEST"));
+      } catch (IOException e) {
+        throw new UserExecException(e.getMessage(), e);
+      }
     }
   }
 
   /**
    * Returns the complete argument list build-runfiles has to be called with.
    */
-  private List<String> getSpawnArgumentList(
-      Path execRoot, BinTools binTools, PathFragment shExecutable, boolean enableRunfiles) {
+  private List<String> getSpawnArgumentList(Path execRoot, BinTools binTools) {
     PathFragment path = binTools.getExecPath(BUILD_RUNFILES);
     Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
 
     List<String> args = Lists.newArrayList();
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // During bootstrapping, build-runfiles is a shell script, that cannot be directly
-      // executed on Windows, so we shell out.
-      args.add(shExecutable.getPathString());
-      args.add("-c");
-      args.add("$0 $*");
-    }
     args.add(execRoot.getRelative(path).getPathString());
 
     if (filesetTree) {
@@ -158,19 +152,8 @@ public final class SymlinkTreeHelper {
       args.add("--use_metadata");
     }
 
-    FileSystem fs = execRoot.getFileSystem();
-    if ((fs instanceof WindowsFileSystem)
-        || (fs instanceof UnixFileSystem
-            && ((UnixFileSystem) fs).getSymlinkStrategy() == SymlinkStrategy.WINDOWS_COMPATIBLE)) {
-      args.add("--windows_compatible");
-    }
-
-    if (!enableRunfiles) {
-      args.add("--manifest_only");
-    }
-
-    args.add(inputManifest.getPathString());
-    args.add(symlinkTreeRoot.getPathString());
+    args.add(inputManifest.relativeTo(execRoot).getPathString());
+    args.add(symlinkTreeRoot.relativeTo(execRoot).getPathString());
 
     return args;
   }
