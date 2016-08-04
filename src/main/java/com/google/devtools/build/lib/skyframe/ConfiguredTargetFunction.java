@@ -453,8 +453,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
           new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
 
       if (dep.hasStaticConfiguration()) {
-        // Certain targets (like output files) trivially pass their configurations to their deps.
-        // So no need to transform them in any way.
+        // Certain targets (like output files and late-bound splits) trivially pass their
+        // configurations to their deps. So no need to transform them in any way.
         putOnlyEntry(trimmedDeps, attributeAndLabel, dep);
         continue;
       } else if (dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
