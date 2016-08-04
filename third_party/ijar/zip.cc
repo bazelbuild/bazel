@@ -1200,14 +1200,15 @@ ZipBuilder* ZipBuilder::Create(const char* zip_file, u8 estimated_size) {
   return result;
 }
 
-u8 ZipBuilder::EstimateSize(char **files) {
+u8 ZipBuilder::EstimateSize(char **files, char **zip_paths, int nb_entries) {
   struct stat statst;
   // Digital signature field size = 6, End of central directory = 22, Total = 28
   u8 size = 28;
   // Count the size of all the files in the input to estimate the size of the
   // output.
-  for (int i = 0; files[i] != NULL; i++) {
-    if (stat(files[i], &statst) != 0) {
+  for (int i = 0; i < nb_entries; i++) {
+    statst.st_size = 0;
+    if (files[i] != NULL && stat(files[i], &statst) != 0) {
       fprintf(stderr, "File %s does not seem to exist.", files[i]);
       return 0;
     }
@@ -1220,7 +1221,7 @@ u8 ZipBuilder::EstimateSize(char **files) {
     size += 88;
     // The filename is stored twice (once in the central directory
     // and once in the local file header).
-    size += strlen(files[i]) * 2;
+    size += strlen((zip_paths[i] != NULL) ? zip_paths[i] : files[i]) * 2;
   }
   return size;
 }

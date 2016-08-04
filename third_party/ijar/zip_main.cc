@@ -223,12 +223,21 @@ int extract(char *zipfile, char* exdir, char **files, bool verbose,
 
 // add a file to the zip
 int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
-             bool flatten, bool verbose, bool compress) {
+             char *zip_path, bool flatten, bool verbose, bool compress) {
+  char *final_path = file;
   struct stat statst;
-  if (stat(file, &statst) < 0) {
-    fprintf(stderr, "Cannot stat file %s: %s.\n", file, strerror(errno));
-    return -1;
+  statst.st_size = 0;
+  statst.st_mode = 0666;
+  if (file != NULL) {
+    if (stat(file, &statst) < 0) {
+      fprintf(stderr, "Cannot stat file %s: %s.\n", file, strerror(errno));
+      return -1;
+    }
   }
+  if (zip_path != NULL) {
+    final_path = zip_path;
+  }
+
   bool isdir = (statst.st_mode & S_IFDIR) != 0;
 
   if (flatten && isdir) {
@@ -237,15 +246,15 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
 
   // Compute the path, flattening it if requested
   char path[PATH_MAX];
-  size_t len = strlen(file);
+  size_t len = strlen(final_path);
   if (len > PATH_MAX) {
-    fprintf(stderr, "Path too long: %s.\n", file);
+    fprintf(stderr, "Path too long: %s.\n", final_path);
     return -1;
   }
   if (flatten) {
-    basename(file, path, PATH_MAX);
+    basename(final_path, path, PATH_MAX);
   } else {
-    strncpy(path, file, PATH_MAX);
+    strncpy(path, final_path, PATH_MAX);
     path[PATH_MAX - 1] = 0;
     if (isdir && len < PATH_MAX - 1) {
       // Add the trailing slash for folders
@@ -334,10 +343,55 @@ char **read_filelist(char *filename) {
   return filelist;
 }
 
+// return real paths of the files
+char **parse_filelist(char *zipfile, char **file_entries, int nb_entries,
+                      bool flatten) {
+  // no need to free since the path lists should live until the end of the
+  // program
+  char **files = static_cast<char **>(malloc(sizeof(char *) * nb_entries));
+  char **zip_paths = file_entries;
+  for (int i = 0; i < nb_entries; i++) {
+    char *p_eq = strchr(file_entries[i], '=');
+    if (p_eq != NULL) {
+      if (flatten) {
+        fprintf(stderr, "Unable to create zip file %s: %s.\n", zipfile,
+                "= can't be used with flatten");
+        free(files);
+        return NULL;
+      }
+      if (p_eq == file_entries[i]) {
+        fprintf(stderr, "Unable to create zip file %s: %s.\n", zipfile,
+                "A zip path should be given before =");
+        free(files);
+        return NULL;
+      }
+      *p_eq = '\0';
+      files[i] = p_eq + 1;
+      if (files[i][0] == '\0') {
+        files[i] = NULL;
+      }
+    } else {
+      files[i] = file_entries[i];
+      zip_paths[i] = NULL;
+    }
+  }
+  return files;
+}
+
 // Execute the create operation
-int create(char *zipfile, char **files, bool flatten, bool verbose,
+int create(char *zipfile, char **file_entries, bool flatten, bool verbose,
            bool compress) {
-  u8 size = ZipBuilder::EstimateSize(files);
+  int nb_entries = 0;
+  while (file_entries[nb_entries] != NULL) {
+    nb_entries++;
+  }
+  char **zip_paths = file_entries;
+  char **files = parse_filelist(zipfile, file_entries, nb_entries, flatten);
+  if (files == NULL) {
+    return -1;
+  }
+
+  u8 size = ZipBuilder::EstimateSize(files, zip_paths, nb_entries);
   if (size == 0) {
     return -1;
   }
@@ -347,8 +401,10 @@ int create(char *zipfile, char **files, bool flatten, bool verbose,
             zipfile, strerror(errno));
     return -1;
   }
-  for (int i = 0; files[i] != NULL; i++) {
-    if (add_file(builder, files[i], flatten, verbose, compress) < 0) {
+
+  for (int i = 0; i < nb_entries; i++) {
+    if (add_file(builder, files[i], zip_paths[i], flatten, verbose, compress) <
+        0) {
       return -1;
     }
   }
@@ -365,7 +421,8 @@ int create(char *zipfile, char **files, bool flatten, bool verbose,
 // main method
 //
 static void usage(char *progname) {
-  fprintf(stderr, "Usage: %s [vxc[fC]] x.zip [-d exdir] [file1...filen]\n",
+  fprintf(stderr,
+          "Usage: %s [vxc[fC]] x.zip [-d exdir] [zip_path1=file1 ...filen]\n",
           progname);
   fprintf(stderr, "  v verbose - list all file in x.zip\n");
   fprintf(stderr,
@@ -377,6 +434,13 @@ static void usage(char *progname) {
   fprintf(stderr,
           "  C compress - compress files when using the create operation\n");
   fprintf(stderr, "x and c cannot be used in the same command-line.\n");
+  fprintf(stderr, "\nExamples for how to use <zip_path>=<file> syntax:\n");
+  fprintf(stderr,
+          "  zipper c x.zip a/b/__init__.py= # Add an empty file at "
+          "a/b/__init__.py\n");
+  fprintf(stderr,
+          "  zipper c x.zip a/b/main.py=foo/bar/bin.py # Add file "
+          "foo/bar/bin.py at a/b/main.py\n");
   exit(1);
 }
 

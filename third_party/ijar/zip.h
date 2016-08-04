@@ -103,7 +103,7 @@ class ZipBuilder {
   // Estimate the maximum size of the ZIP files containing files in the "files"
   // null-terminated array.
   // Returns 0 on error.
-  static u8 EstimateSize(char **files);
+  static u8 EstimateSize(char** files, char** zip_paths, int nb_entries);
 };
 
 //
