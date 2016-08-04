@@ -125,6 +125,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue {
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
         contentType = checkType(contentType, SkylarkType.of(object.getClass()), loc);
+        checkImmutable(object, loc);
         items.add(object);
       }
     } else {
@@ -186,14 +187,10 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue {
   private static SkylarkType checkType(SkylarkType builderType, SkylarkType itemType, Location loc)
       throws EvalException {
     if (SkylarkType.intersection(
-        SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST, SkylarkType.STRUCT),
+        SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST),
         itemType) != SkylarkType.BOTTOM) {
       throw new EvalException(
           loc, String.format("sets cannot contain items of type '%s'", itemType));
-    }
-    if (!EvalUtils.isImmutable(itemType.getType())) {
-      throw new EvalException(
-          loc, String.format("sets cannot contain items of type '%s' (mutable type)", itemType));
     }
     SkylarkType newType = SkylarkType.intersection(builderType, itemType);
     if (newType == SkylarkType.BOTTOM) {
@@ -202,6 +199,13 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue {
           String.format("cannot add an item of type '%s' to a set of '%s'", itemType, builderType));
     }
     return newType;
+  }
+
+  private static void checkImmutable(Object o, Location loc) throws EvalException {
+    if (!EvalUtils.isImmutable(o)) {
+      throw new EvalException(
+          loc, "sets cannot contain mutable items");
+    }
   }
 
   /**

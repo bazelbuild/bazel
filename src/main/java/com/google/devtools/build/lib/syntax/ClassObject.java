@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.Serializable;
@@ -56,7 +56,6 @@ public interface ClassObject {
 
   /** An implementation class of ClassObject for structs created in Skylark code. */
   // TODO(bazel-team): maybe move the SkylarkModule annotation to the ClassObject interface?
-  @Immutable
   @SkylarkModule(
     name = "struct",
     category = SkylarkModuleCategory.BUILTIN,
@@ -65,13 +64,23 @@ public interface ClassObject {
             + "See the global <a href=\"globals.html#struct\">struct</a> function "
             + "for more details."
   )
-  public class SkylarkClassObject implements ClassObject, Serializable {
+  public class SkylarkClassObject implements ClassObject, SkylarkValue, Serializable {
     /** Error message to use when errorMessage argument is null. */
     private static final String DEFAULT_ERROR_MESSAGE = "'struct' object has no attribute '%s'";
 
     private final ImmutableMap<String, Object> values;
     private final Location creationLoc;
     private final String errorMessage;
+
+    /**
+     * Primarily for testing purposes where no location is available and the default
+     * errorMessage suffices.
+     */
+    public SkylarkClassObject(Map<String, Object> values) {
+      this.values = copyValues(values);
+      this.creationLoc = null;
+      this.errorMessage = DEFAULT_ERROR_MESSAGE;
+    }
 
     /**
      * Creates a built-in struct (i.e. without creation loc). The errorMessage has to have
@@ -144,27 +153,40 @@ public interface ClassObject {
       return String.format(errorMessage, name) + "\n" + suffix;
     }
 
+    @Override
+    public boolean isImmutable() {
+      for (Object item : values.values()) {
+        if (!EvalUtils.isImmutable(item)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     /**
      * Convert the object to string using Skylark syntax. The output tries to be
      * reversible (but there is no guarantee, it depends on the actual values).
      */
     @Override
-    public String toString() {
-      StringBuilder builder = new StringBuilder();
+    public void write(Appendable buffer, char quotationMark) {
       boolean first = true;
-      builder.append("struct(");
+      Printer.append(buffer, "struct(");
       // Sort by key to ensure deterministic output.
       for (String key : Ordering.natural().sortedCopy(values.keySet())) {
         if (!first) {
-          builder.append(", ");
+          Printer.append(buffer, ", ");
         }
         first = false;
-        builder.append(key);
-        builder.append(" = ");
-        Printer.write(builder, values.get(key));
+        Printer.append(buffer, key);
+        Printer.append(buffer, " = ");
+        Printer.write(buffer, values.get(key), quotationMark);
       }
-      builder.append(")");
-      return builder.toString();
+      Printer.append(buffer, ")");
+    }
+
+    @Override
+    public String toString() {
+      return Printer.repr(this);
     }
   }
 }

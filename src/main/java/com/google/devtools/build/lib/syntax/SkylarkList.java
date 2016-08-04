@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -268,7 +267,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     }
 
     /**
-     * Builds a Skylark list (actually immutable) from a variable number of arguments.
+     * Builds a Skylark list from a variable number of arguments.
      * @param env an Environment from which to inherit Mutability, or null for immutable
      * @param contents the contents of the list
      * @return a Skylark list containing the specified arguments as elements.
@@ -421,7 +420,6 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
             + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported."
   )
-  @Immutable
   public static final class Tuple<E> extends SkylarkList<E> {
 
     private final ImmutableList<E> contents;
