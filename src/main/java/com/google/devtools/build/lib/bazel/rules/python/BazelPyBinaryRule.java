@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
@@ -35,6 +39,7 @@ public final class BazelPyBinaryRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
+        .add(attr("$zipper", LABEL).cfg(HOST).exec().value(env.getToolsLabel("//tools/zip:zipper")))
         .build();
   }
 

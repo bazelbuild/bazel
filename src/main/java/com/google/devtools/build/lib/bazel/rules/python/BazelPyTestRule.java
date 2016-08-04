@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -35,8 +37,11 @@ public final class BazelPyTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
-        .override(attr("testonly", BOOLEAN).value(true)
-            .nonconfigurable("policy decision: should be consistent across configurations"))
+        .add(attr("$zipper", LABEL).cfg(HOST).exec().value(env.getToolsLabel("//tools/zip:zipper")))
+        .override(
+            attr("testonly", BOOLEAN)
+                .value(true)
+                .nonconfigurable("policy decision: should be consistent across configurations"))
         /* <!-- #BLAZE_RULE(py_test).ATTRIBUTE(stamp) -->
         See the section on <a href="${link py_binary_args}">py_binary()</a> arguments, except
         that the stamp argument is set to 0 by default for tests.

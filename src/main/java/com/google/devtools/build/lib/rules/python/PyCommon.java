@@ -395,10 +395,8 @@ public final class PyCommon {
     }
   }
 
-  /**
-   * @return A String that is the full path to the main python entry point.
-   */
-  public String determineMainExecutableSource() {
+  /** @return A String that is the full path to the main python entry point. */
+  public String determineMainExecutableSource(boolean withWorkspaceName) {
     String mainSourceName;
     Rule target = ruleContext.getRule();
     boolean explicitMain = target.isAttributeValueExplicitlySpecified("main");
@@ -434,14 +432,26 @@ public final class PyCommon {
       ruleContext.attributeError("srcs", buildNoMainMatchesErrorText(explicitMain, mainSourceName));
       return null;
     }
-
+    if (!withWorkspaceName) {
+      return mainArtifact.getRunfilesPath().getPathString();
+    }
     PathFragment workspaceName = new PathFragment(
         ruleContext.getRule().getPackage().getWorkspaceName());
     return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
   }
 
+  public String determineMainExecutableSource() {
+    return determineMainExecutableSource(true);
+  }
+
   public Artifact getExecutable() {
     return executable;
+  }
+  /** @return An artifact next to the executable file with ".zip" suffix */
+  public Artifact getPythonZipArtifact() {
+    PathFragment original = executable.getRootRelativePath();
+    return ruleContext.getDerivedArtifact(
+        original.replaceName(original.getBaseName() + ".zip"), executable.getRoot());
   }
 
   public Map<PathFragment, Artifact> getConvertedFiles() {

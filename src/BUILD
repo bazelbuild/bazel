@@ -158,8 +158,6 @@ genrule(
             ":darwin_tools",
             "//third_party/ijar:zipper",
         ],
-        # Windows specifically exclude zipper for now.
-        ":windows": [":dummy_darwin_tools"],
         "//conditions:default": [
             ":dummy_darwin_tools",
             "//third_party/ijar:zipper",

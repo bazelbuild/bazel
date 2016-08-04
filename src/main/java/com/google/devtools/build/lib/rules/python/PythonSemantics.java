@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 
@@ -68,8 +67,12 @@ public interface PythonSemantics {
    *
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
-  void createExecutable(RuleContext ruleContext, PyCommon common,
-      CcLinkParamsStore ccLinkParamsStore, NestedSet<PathFragment> imports);
+  void createExecutable(
+      RuleContext ruleContext,
+      PyCommon common,
+      CcLinkParamsStore ccLinkParamsStore,
+      NestedSet<PathFragment> imports)
+      throws InterruptedException;
 
   /**
    * Called at the end of the analysis of {@code py_binary} rules.

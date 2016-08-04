@@ -855,6 +855,14 @@ public final class BuildConfiguration {
     )
     public TriState enableRunfiles;
 
+    @Option(
+      name = "build_python_zip",
+      defaultValue = "auto",
+      category = "undocumented",
+      help = "Build python executable zip; on on Windows, off on other platforms"
+    )
+    public TriState buildPythonZip;
+
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) getDefault();
@@ -2321,6 +2329,17 @@ public final class BuildConfiguration {
         return false;
       default:
         return OS.getCurrent() != OS.WINDOWS;
+    }
+  }
+
+  public boolean buildPythonZip() {
+    switch (options.buildPythonZip) {
+      case YES:
+        return true;
+      case NO:
+        return false;
+      default:
+        return OS.getCurrent() == OS.WINDOWS;
     }
   }
 
