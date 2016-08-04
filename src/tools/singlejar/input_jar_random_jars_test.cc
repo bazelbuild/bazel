@@ -47,7 +47,7 @@ TEST_F(InputJarRandomJarsTest, ScanAllJars) {
         continue;
       }
     }
-    EXPECT_TRUE(input_jar.Open(path.c_str()));
+    EXPECT_TRUE(input_jar.Open(path));
     const LH *lh;
     const CDH *cdh;
     int file_count = 0;

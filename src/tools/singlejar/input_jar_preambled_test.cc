@@ -47,7 +47,7 @@ class InputJarPreambledTest : public testing::Test {
   void SetUp() override { input_jar_.reset(new InputJar); }
 
   void Verify(const std::string &path) {
-    ASSERT_TRUE(input_jar_->Open(path.c_str()));
+    ASSERT_TRUE(input_jar_->Open(path));
     const LH *lh;
     const CDH *cdh;
     while ((cdh = input_jar_->NextEntry(&lh))) {

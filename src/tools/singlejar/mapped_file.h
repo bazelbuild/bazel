@@ -20,6 +20,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "src/tools/singlejar/diag.h"
 
 /*
@@ -43,12 +45,12 @@ class MappedFile {
 
   ~MappedFile() { Close(); }
 
-  bool Open(const char *filename) {
+  bool Open(const std::string& path) {
     if (is_open()) {
       diag_errx(1, "%s:%d: This instance is already open", __FILE__, __LINE__);
     }
-    if ((fd_ = open(filename, O_RDONLY)) < 0) {
-      diag_warn("%s:%d: open %s:", __FILE__, __LINE__, filename);
+    if ((fd_ = open(path.c_str(), O_RDONLY)) < 0) {
+      diag_warn("%s:%d: open %s:", __FILE__, __LINE__, path.c_str());
       return false;
     }
     // Map the file, even if it is empty (in which case allocate 1 byte to it).
@@ -57,7 +59,7 @@ class MappedFile {
         (mapped_start_ = static_cast<unsigned char *>(
              mmap(nullptr, st.st_size ? st.st_size : 1, PROT_READ, MAP_PRIVATE,
                   fd_, 0))) == MAP_FAILED) {
-      diag_warn("%s:%d: mmap %s:", __FILE__, __LINE__, filename);
+      diag_warn("%s:%d: mmap %s:", __FILE__, __LINE__, path.c_str());
       close(fd_);
       fd_ = -1;
       return false;

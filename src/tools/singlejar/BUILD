@@ -14,11 +14,11 @@ cc_test(
     srcs = [
         "combiners_test.cc",
         ":combiners",
-        ":input_jar",
         ":zip_headers",
         ":zlib_interface",
     ],
     deps = [
+        ":input_jar",
         "//third_party:gtest",
         "//third_party/zlib",
     ],
@@ -28,13 +28,13 @@ cc_test(
     name = "input_jar_preambled_test",
     srcs = [
         "input_jar_preambled_test.cc",
-        ":input_jar",
         ":test_util",
     ],
     data = [
         ":test1",
     ],
     deps = [
+        ":input_jar",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -46,7 +46,6 @@ cc_test(
     srcs = [
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
-        ":input_jar",
         ":test_util",
     ],
     copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
@@ -56,7 +55,10 @@ cc_test(
     ],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
-    deps = ["//third_party:gtest"],
+    deps = [
+        ":input_jar",
+        "//third_party:gtest",
+    ],
 )
 
 cc_test(
@@ -65,22 +67,26 @@ cc_test(
     srcs = [
         "input_jar_scan_entries_test.h",
         "input_jar_scan_ziptool_test.cc",
-        ":input_jar",
         ":test_util",
     ],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
-    deps = ["//third_party:gtest"],
+    deps = [
+        ":input_jar",
+        "//third_party:gtest",
+    ],
 )
 
 cc_test(
     name = "input_jar_bad_jar_test",
     srcs = [
         "input_jar_bad_jar_test.cc",
-        ":input_jar",
         ":test_util",
     ],
-    deps = ["//third_party:gtest"],
+    deps = [
+        ":input_jar",
+        "//third_party:gtest",
+    ],
 )
 
 cc_test(
@@ -110,7 +116,6 @@ cc_test(
     size = "large",
     srcs = [
         "transient_bytes_test.cc",
-        ":input_jar",
         ":test_util",
         ":transient_bytes",
         ":zlib_interface",
@@ -118,6 +123,7 @@ cc_test(
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
     deps = [
+        ":input_jar",
         "//third_party:gtest",
         "//third_party/zlib",
     ],
@@ -146,6 +152,19 @@ cc_test(
 )
 
 cc_library(
+    name = "input_jar",
+    srcs = [
+        "diag.h",
+        "input_jar.cc",
+        "mapped_file.h",
+    ],
+    hdrs = [
+        "input_jar.h",
+        "zip_headers.h",
+    ],
+)
+
+cc_library(
     name = "options",
     srcs = [
         "diag.h",
@@ -162,16 +181,6 @@ filegroup(
         ":transient_bytes",
         ":zip_headers",
         ":zlib_interface",
-    ],
-)
-
-filegroup(
-    name = "input_jar",
-    srcs = [
-        "diag.h",
-        "input_jar.h",
-        "mapped_file.h",
-        "zip_headers.h",
     ],
 )
 
