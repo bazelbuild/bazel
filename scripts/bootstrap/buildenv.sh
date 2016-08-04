@@ -119,20 +119,14 @@ function tempdir() {
 }
 tempdir
 OUTPUT_DIR=${NEW_TMPDIR}
-errfile=${OUTPUT_DIR}/errors
-eval "cleanup_errfile() {
-        if [ -f '${errfile}' ]; then
-          cat '${errfile}' 1>&2;
-        fi;
-      }"
-atexit cleanup_errfile
 phasefile=${OUTPUT_DIR}/phase
-eval "cleanup_phasefile() {
-        if [ -f '${phasefile}' ]; then
-          echo 1>&2;
-          cat '${phasefile}' 1>&2;
-        fi;
-      }"
+function cleanup_phasefile() {
+  if [ -f "${phasefile}" ]; then
+    echo 1>&2;
+    cat "${phasefile}" 1>&2;
+  fi;
+}
+
 atexit cleanup_phasefile
 
 # Excutes a command respecting the current verbosity settings.
@@ -146,12 +140,14 @@ function run() {
     echo "${@}"
     "${@}" || exit $?
   else
+    local errfile="${OUTPUT_DIR}/errors"
+
     echo "${@}" >"${errfile}"
-    # The exit here is needed because "set -e" on the shell does not cause
-    # errors in functions to exit in all cases.  We should probably disable
-    # "set -e" altogether and add explicit error handling where necessary.
-    "${@}" >>"${errfile}" 2>&1 || exit $?
-    rm "${errfile}"
+    if ! "${@}" >>"${errfile}" 2>&1; then
+      local exitcode=$?
+      cat "${errfile}" 1>&2
+      exit $exitcode
+    fi
   fi
 }
 
