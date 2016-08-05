@@ -147,7 +147,8 @@ public class SkylarkSignatureProcessor {
       enforcedTypes.put(param.name(), enforcedType);
     }
     if (param.doc().isEmpty() && documented) {
-      throw new RuntimeException(String.format("parameter %s is undocumented", name));
+      throw new RuntimeException(
+          String.format("parameter %s on method %s is undocumented", param.name(), name));
     }
     if (paramDoc != null) {
       paramDoc.put(param.name(), param.doc());
