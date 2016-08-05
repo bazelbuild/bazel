@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Declared Providers
+---
+
 # Declared Providers
 
 Authors: [Dmitry Lomov](mailto:dslomov@google.com),
