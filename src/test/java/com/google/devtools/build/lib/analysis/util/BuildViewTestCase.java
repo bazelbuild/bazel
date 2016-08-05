@@ -173,6 +173,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfiguration targetConfig;  // "target" or "build" config
   private List<String> configurationArgs;
+  private boolean useDynamicConfigs;
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
@@ -381,10 +382,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @throws IllegalArgumentException
    */
   protected final void useConfiguration(String... args) throws Exception {
-    masterConfig = createConfigurations(args);
+    String[] actualArgs;
+    if (useDynamicConfigs) {
+      actualArgs = Arrays.copyOf(args, args.length + 1);
+      actualArgs[args.length] = "--experimental_dynamic_configs";
+    } else {
+      actualArgs = args;
+    }
+    masterConfig = createConfigurations(actualArgs);
     targetConfig = getTargetConfiguration();
-    configurationArgs = Arrays.asList(args);
+    configurationArgs = Arrays.asList(actualArgs);
     createBuildView();
+  }
+
+  /**
+   * Makes subsequent {@link #useConfiguration} calls automatically enable dynamic configurations.
+   */
+  protected final void useDynamicConfigurations() {
+    useDynamicConfigs = true;
   }
 
   /**

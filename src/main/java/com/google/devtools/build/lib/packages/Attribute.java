@@ -149,6 +149,9 @@ public final class Attribute implements Comparable<Attribute> {
    * A configuration split transition; this should be used to transition to multiple configurations
    * simultaneously. Note that the corresponding rule implementations must have special support to
    * handle this.
+   *
+   * <p>{@code T} must always be {@code BuildOptions}, but it can't be defined that way because
+   * the symbol isn't available here.
    */
   // TODO(bazel-team): Serializability constraints?
   public interface SplitTransition<T> extends Transition {
@@ -1476,6 +1479,7 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns the split configuration transition for this attribute.
    *
    * @param rule the originating {@link Rule} which owns this attribute
+   * @return a SplitTransition<BuildOptions> object
    * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
    */
   public SplitTransition<?> getSplitTransition(Rule rule) {

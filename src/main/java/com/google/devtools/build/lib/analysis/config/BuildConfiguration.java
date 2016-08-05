@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
@@ -1499,12 +1500,6 @@ public final class BuildConfiguration {
     void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget);
 
     /**
-     * Returns the underlying {@Transitions} object for this instance's current configuration.
-     * Does not work for split configurations.
-     */
-    Transitions getCurrentTransitions();
-
-    /**
      * Populates a {@link com.google.devtools.build.lib.analysis.Dependency}
      * for each configuration represented by this instance.
      * TODO(bazel-team): this is a really ugly reverse dependency: factor this away.
@@ -1517,14 +1512,16 @@ public final class BuildConfiguration {
    * {@link com.google.devtools.build.lib.analysis.Dependency} objects with
    * actual configurations.
    *
-   * <p>Does not support split transitions (see {@link SplittableTransitionApplier}).
    * TODO(bazel-team): remove this when dynamic configurations are fully production-ready.
    */
   private static class StaticTransitionApplier implements TransitionApplier {
-    BuildConfiguration currentConfiguration;
+    // The configuration(s) this applier applies to dep rules. Plural because of split transitions.
+    // May change multiple times: the ultimate transition might be a sequence of intermediate
+    // transitions.
+    List<BuildConfiguration> toConfigurations;
 
     private StaticTransitionApplier(BuildConfiguration originalConfiguration) {
-      this.currentConfiguration = originalConfiguration;
+      this.toConfigurations = ImmutableList.<BuildConfiguration>of(originalConfiguration);
     }
 
     @Override
@@ -1535,72 +1532,95 @@ public final class BuildConfiguration {
     @Override
     public void applyTransition(Transition transition) {
       if (transition == Attribute.ConfigurationTransition.NULL) {
-        currentConfiguration = null;
+        toConfigurations = Lists.<BuildConfiguration>asList(null, new BuildConfiguration[0]);
       } else {
-        currentConfiguration =
-            currentConfiguration.getTransitions().getStaticConfiguration(transition);
+        ImmutableList.Builder<BuildConfiguration> newConfigs = ImmutableList.builder();
+        for (BuildConfiguration currentConfig : toConfigurations) {
+          newConfigs.add(currentConfig.getTransitions().getStaticConfiguration(transition));
+        }
+        toConfigurations = newConfigs.build();
       }
     }
 
     @Override
     public void split(SplitTransition<?> splitTransition) {
-      throw new UnsupportedOperationException("This only works with SplittableTransitionApplier");
+      // Split transitions can't be nested, so if we're splitting we must be doing it over
+      // a single config.
+      toConfigurations =
+          Iterables.getOnlyElement(toConfigurations).getSplitConfigurations(splitTransition);
     }
 
     @Override
     public boolean isNull() {
-      return currentConfiguration == null;
+      return toConfigurations.size() == 1
+          ? Iterables.getOnlyElement(toConfigurations) == null
+          : false;
     }
 
     @Override
     public void applyAttributeConfigurator(Attribute attribute, Rule fromRule, Target toTarget) {
+      // Checks that evaluateTransition never applies an attribute configurator and split
+      // transition in the same call.
+      Verify.verify(toConfigurations.size() == 1);
       @SuppressWarnings("unchecked")
       Configurator<BuildConfiguration, Rule> configurator =
           (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
       Verify.verifyNotNull(configurator);
-      currentConfiguration =
-          configurator.apply(fromRule, currentConfiguration, attribute, toTarget);
+      toConfigurations = ImmutableList.<BuildConfiguration>of(
+          configurator.apply(fromRule, Iterables.getOnlyElement(toConfigurations), attribute,
+              toTarget));
     }
 
     @Override
     public void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget) {
-      currentConfiguration.getTransitions().configurationHook(fromRule, attribute, toTarget, this);
+      ImmutableList.Builder<BuildConfiguration> toConfigs = ImmutableList.builder();
+      for (BuildConfiguration currentConfig : toConfigurations) {
+        // BuildConfigurationCollection.configurationHook can apply further transitions. We want
+        // those transitions to only affect currentConfig (not everything in toConfigurations), so
+        // we use a delegate bound to only that config.
+        StaticTransitionApplier delegate = new StaticTransitionApplier(currentConfig);
+        currentConfig.getTransitions().configurationHook(fromRule, attribute, toTarget, delegate);
+        currentConfig = Iterables.getOnlyElement(delegate.toConfigurations);
 
-      // Allow rule classes to override their own configurations.
-      Rule associatedRule = toTarget.getAssociatedRule();
-      if (associatedRule != null) {
-        @SuppressWarnings("unchecked")
-        RuleClass.Configurator<BuildConfiguration, Rule> func =
-            associatedRule.getRuleClassObject().<BuildConfiguration, Rule>getConfigurator();
-        currentConfiguration = func.apply(associatedRule, currentConfiguration);
+        // Allow rule classes to override their own configurations.
+        Rule associatedRule = toTarget.getAssociatedRule();
+        if (associatedRule != null) {
+          @SuppressWarnings("unchecked")
+          RuleClass.Configurator<BuildConfiguration, Rule> func =
+              associatedRule.getRuleClassObject().<BuildConfiguration, Rule>getConfigurator();
+          currentConfig = func.apply(associatedRule, currentConfig);
+        }
+
+        toConfigs.add(currentConfig);
       }
-    }
-
-    @Override
-    public Transitions getCurrentTransitions() {
-      return currentConfiguration.getTransitions();
+      toConfigurations = toConfigs.build();
     }
 
     @Override
     public Iterable<Dependency> getDependencies(
         Label label, ImmutableSet<AspectDescriptor> aspects) {
-      return ImmutableList.of(
-          currentConfiguration != null
-              ? Dependency.withConfigurationAndAspects(label, currentConfiguration, aspects)
-              : Dependency.withNullConfiguration(label));
+      ImmutableList.Builder<Dependency> deps = ImmutableList.builder();
+      for (BuildConfiguration config : toConfigurations) {
+        deps.add(config != null
+            ? Dependency.withConfigurationAndAspects(label, config, aspects)
+            : Dependency.withNullConfiguration(label));
+      }
+      return deps.build();
     }
   }
 
   /**
    * Transition applier for dynamic configurations. This implementation populates
    * {@link com.google.devtools.build.lib.analysis.Dependency} objects with
-   * transition definitions that the caller subsequently creates configurations out of.
-   *
-   * <p>Does not support split transitions (see {@link SplittableTransitionApplier}).
+   * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
     private final BuildConfiguration originalConfiguration;
-    private Transition transition = Attribute.ConfigurationTransition.NONE;
+    // The transition this applier applies to dep rules. May change multiple times. However,
+    // composed transitions (e.g. fromConfig -> FooTransition -> BarTransition) are not currently
+    // supported, in the name of keeping the model simple. We can always revisit that assumption
+    // if needed.
+    private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
     private DynamicTransitionApplier(BuildConfiguration originalConfiguration) {
       this.originalConfiguration = originalConfiguration;
@@ -1612,37 +1632,42 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public void applyTransition(Transition transition) {
-      if (transition == Attribute.ConfigurationTransition.NONE) {
+    public void applyTransition(Transition transitionToApply) {
+      if (transitionToApply == Attribute.ConfigurationTransition.NONE
+          // Outside of LIPO, data transitions are a no-op. Since dynamic configs don't yet support
+          // LIPO, just return fast as a no-op. This isn't just convenient: evaluateTransition
+          // calls configurationHook after standard attribute transitions. If configurationHook
+          // triggers a data transition, that undoes the earlier transitions (because of lack of
+          // composed transition support). That's dangerous and especially pointless for non-LIPO
+          // builds. Hence this check.
+          // TODO(gregce): add LIPO support and/or make this special case unnecessary.
+          || transitionToApply == Attribute.ConfigurationTransition.DATA
+          // This means it's not possible to transition back out of a host transition. We may
+          // need to revise this when we properly support multiple host configurations.
+          || currentTransition == HostTransition.INSTANCE) {
         return;
-      } else if (this.transition != HostTransition.INSTANCE) {
-        // We don't currently support composed transitions (e.g. applyTransitions shouldn't be
-        // called multiple times). We can add support for this if needed by simply storing a list of
-        // transitions instead of a single transition. But we only want to do that if really
-        // necessary - if we can simplify BuildConfiguration's transition logic to not require
-        // scenarios like that, it's better to keep this simpler interface.
-        //
-        // The HostTransition exemption is because of limited cases where composition can
-        // occur. See relevant comments beginning with  "BuildConfiguration.applyTransition NOTE"
-        // in the transition logic code if available.
-
-        // Ensure we don't already have any mutating transitions registered.
-        // Note that for dynamic configurations, LipoDataTransition is equivalent to NONE. That's
-        // because dynamic transitions don't work with LIPO, so there's no LIPO context to change.
-        Verify.verify(this.transition == Attribute.ConfigurationTransition.NONE
-            || this.transition.toString().contains("LipoDataTransition"));
-        this.transition = getCurrentTransitions().getDynamicTransition(transition);
       }
+
+      // Since we don't support composed transitions, we need to be careful applying a transition
+      // when another transition has already been applied (the latter will simply overwrite the
+      // former). All allowed cases should be explicitly asserted here.
+      Verify.verify(currentTransition == Attribute.ConfigurationTransition.NONE
+          // LIPO transitions are okay because they're no-ops outside LIPO builds. And dynamic
+          // configs don't yet support LIPO builds.
+          || currentTransition.toString().contains("LipoDataTransition"));
+      currentTransition = getCurrentTransitions().getDynamicTransition(transitionToApply);
     }
 
     @Override
     public void split(SplitTransition<?> splitTransition) {
-      throw new UnsupportedOperationException("This only works with SplittableTransitionApplier");
+      Verify.verify(currentTransition == Attribute.ConfigurationTransition.NONE,
+          "split transitions aren't expected to mix with other transitions");
+      currentTransition = splitTransition;
     }
 
     @Override
     public boolean isNull() {
-      return transition == Attribute.ConfigurationTransition.NULL;
+      return currentTransition == Attribute.ConfigurationTransition.NULL;
     }
 
     @Override
@@ -1679,8 +1704,7 @@ public final class BuildConfiguration {
       }
     }
 
-    @Override
-    public Transitions getCurrentTransitions() {
+    private Transitions getCurrentTransitions() {
       return originalConfiguration.getTransitions();
     }
 
@@ -1688,78 +1712,7 @@ public final class BuildConfiguration {
     public Iterable<Dependency> getDependencies(
         Label label, ImmutableSet<AspectDescriptor> aspects) {
       return ImmutableList.of(
-          Dependency.withTransitionAndAspects(label, transition, aspects));
-    }
-  }
-
-  /**
-   * Transition applier that wraps an underlying implementation with added support for
-   * split transitions. All external calls into BuildConfiguration should use this applier.
-   */
-  private static class SplittableTransitionApplier implements TransitionApplier {
-    private List<TransitionApplier> appliers;
-
-    private SplittableTransitionApplier(TransitionApplier original) {
-      appliers = ImmutableList.of(original);
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      throw new UnsupportedOperationException("Not intended to be wrapped under another applier");
-    }
-
-    @Override
-    public void applyTransition(Transition transition) {
-      for (TransitionApplier applier : appliers) {
-        applier.applyTransition(transition);
-      }
-    }
-
-    @Override
-    public void split(SplitTransition<?> splitTransition) {
-      TransitionApplier originalApplier = Iterables.getOnlyElement(appliers);
-      ImmutableList.Builder<TransitionApplier> splitAppliers = ImmutableList.builder();
-      for (BuildConfiguration splitConfig :
-          originalApplier.getCurrentTransitions().getSplitConfigurations(splitTransition)) {
-        splitAppliers.add(originalApplier.create(splitConfig));
-      }
-      appliers = splitAppliers.build();
-    }
-
-    @Override
-    public boolean isNull() {
-      throw new UnsupportedOperationException("Only for use from a Transitions instance");
-    }
-
-
-    @Override
-    public void applyAttributeConfigurator(Attribute attribute, Rule fromRule, Target toTarget) {
-      for (TransitionApplier applier : appliers) {
-        applier.applyAttributeConfigurator(attribute, fromRule, toTarget);
-      }
-    }
-
-    @Override
-    public void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget) {
-      for (TransitionApplier applier : appliers) {
-        applier.applyConfigurationHook(fromRule, attribute, toTarget);
-      }
-    }
-
-    @Override
-    public Transitions getCurrentTransitions() {
-      throw new UnsupportedOperationException("Only for use from a Transitions instance");
-    }
-
-
-    @Override
-    public Iterable<Dependency> getDependencies(
-        Label label, ImmutableSet<AspectDescriptor> aspects) {
-      ImmutableList.Builder<Dependency> builder = ImmutableList.builder();
-      for (TransitionApplier applier : appliers) {
-        builder.addAll(applier.getDependencies(label, aspects));
-      }
-      return builder.build();
+          Dependency.withTransitionAndAspects(label, currentTransition, aspects));
     }
   }
 
@@ -1767,10 +1720,9 @@ public final class BuildConfiguration {
    * Returns the {@link TransitionApplier} that should be passed to {#evaluateTransition} calls.
    */
   public TransitionApplier getTransitionApplier() {
-    TransitionApplier applier = useDynamicConfigurations()
+    return useDynamicConfigurations()
         ? new DynamicTransitionApplier(this)
         : new StaticTransitionApplier(this);
-    return new SplittableTransitionApplier(applier);
   }
 
   /**
