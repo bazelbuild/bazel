@@ -20,3 +20,4 @@ Changes to the Bazel build and extension language (Skylark) should go
 through the [Skylark Design Process](/designs/skylark-design-process.html).
 
 1. [Parameterized Skylark Aspects](/designs/skylark-parameterized-aspects.html).
+2. [Declared Providers](/designs/declared-providers.html).
