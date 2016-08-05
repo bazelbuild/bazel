@@ -69,7 +69,7 @@ function test_network_namespace() {
 }
 
 function test_ping_loopback() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -r -l $OUT -L $ERR  -- /bin/ping -c 1 127.0.0.1 || fail
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -r -l $OUT -L $ERR  -- /bin/ping -c 1 localhost || fail
   assert_contains "1 received" "$OUT"
 }
 
