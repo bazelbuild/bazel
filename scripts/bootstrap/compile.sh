@@ -209,7 +209,7 @@ mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 
 # Dummy build-runfiles
 cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
-#!/bin/bash
+#!/bin/sh
 mkdir -p $2
 cp $1 $2/MANIFEST
 EOF
