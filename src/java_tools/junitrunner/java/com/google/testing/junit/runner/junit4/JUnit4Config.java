@@ -29,6 +29,10 @@ class JUnit4Config {
   @VisibleForTesting
   static final String JUNIT_API_VERSION_PROPERTY = "com.google.testing.junit.runner.apiVersion";
 
+  @VisibleForTesting
+  static final String SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY
+      = "com.google.testing.junit.runner.shouldInstallTestSecurityManager";
+
   private final String testIncludeFilterRegexp;
   private final String testExcludeFilterRegexp;
   private final Optional<Path> xmlOutputPath;
@@ -58,7 +62,16 @@ class JUnit4Config {
     this.testExcludeFilterRegexp = testExcludeFilterRegexp;
     this.xmlOutputPath = xmlOutputPath;
     junitApiVersion = systemProperties.getProperty(JUNIT_API_VERSION_PROPERTY, "1").trim();
-    shouldInstallSecurityManager = systemProperties.getProperty("java.security.manager") == null;
+    shouldInstallSecurityManager = installSecurityManager(systemProperties);
+  }
+
+  private static boolean installSecurityManager(Properties systemProperties) {
+    String securityManager = systemProperties.getProperty("java.security.manager");
+    if (securityManager != null) {
+      return false; // Don't install over the specified security manager
+    }
+    return Boolean.valueOf(
+        systemProperties.getProperty(SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY, "true"));
   }
 
   /**
