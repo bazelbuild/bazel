@@ -265,6 +265,9 @@ public final class PackageFactory {
   /**
    * Declares the package() attribute specifying the default value for
    * java_proto_library.strict_deps.
+   *
+   * <p>This attribute should be considered as undocumented/experimental, and is subject to change
+   * at any time without prior notice.
    */
   private static class DefaultStrictDepsJavaProtos extends PackageArgument<Boolean> {
     private DefaultStrictDepsJavaProtos() {
