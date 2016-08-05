@@ -139,8 +139,8 @@ Bazel is organized in several parts:
     you want to add rules, consider using [Skylark](docs/skylark/index.html)
     first.
   * Builtin rules in `com.google.devtools.build.lib.rules` and in
-    `com.google.devtools.build.lib.bazel.rules`. You might want to read [Why is
-    it so difficult to write Bazel rules?](hard_to_write_rules.html) first.
+    `com.google.devtools.build.lib.bazel.rules`. You might want to read about
+    the [Challenges of Writing Rules](rule-challenges.html) first.
 * Java native interfaces in `src/main/native`.
 * Various tooling for language support (see the list in the
   [compiling Bazel](#compile-bazel) section).
