@@ -77,7 +77,7 @@ are evaluated by the Skylark Reviewers Panel.
     2. An example of the usage of the proposed API/language feature
     3. Description of the proposed change
 
-    [A model example design doc](/docs/designs/skylark-parameterized-aspects.md)
+    [A model example design doc](/designs/skylark/parameterized-aspects.html)
     (although that is probably an overkill).
 
 1. **Skylark Reviewers** respond to a document within *2 business days*

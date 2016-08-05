@@ -40,7 +40,7 @@ and suggest some practical steps we can take to get there.
 ## Extensible Native Rules
 
 This proposal assumes [Declared Providers
-](/designs/declared-providers.html)
+](/designs/skylark/declared-providers.html)
 are implemented. Here is how the implementation of bread\_library might look
 like:
 
@@ -151,4 +151,3 @@ with internal API.
 
 Through the execution of this phase, more and more use cases are covered, and at
 the end the rules are fully extensible.
-
