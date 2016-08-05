@@ -40,6 +40,8 @@ import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
@@ -48,7 +50,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Logger;
+
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -57,13 +62,15 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>Only this class should depend on gRPC so that we only need to exclude this during
  * bootstrapping.
  */
-public class GrpcServerImpl extends RPCServer {
+public class GrpcServerImpl implements RPCServer {
   // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
   // Not that the internals of Bazel handle that correctly, but why not make at least this little
   // part correct?
   private static final Charset CHARSET = Charset.forName("ISO-8859-1");
 
   private static final long NANOSECONDS_IN_MS = TimeUnit.MILLISECONDS.toNanos(1);
+
+  private static final Logger LOG = Logger.getLogger(RPCServer.class.getName());
 
   private class RunningCommand implements AutoCloseable {
     private final Thread thread;
@@ -145,6 +152,8 @@ public class GrpcServerImpl extends RPCServer {
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
 
+  private static final AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
+
   @GuardedBy("runningCommands")
   private final Map<String, RunningCommand> runningCommands = new HashMap<>();
   private final CommandExecutor commandExecutor;
@@ -161,7 +170,14 @@ public class GrpcServerImpl extends RPCServer {
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
       Path serverDirectory, int maxIdleSeconds) throws IOException {
-    super(serverDirectory);
+    // server.pid was written in the C++ launcher after fork() but before exec() .
+    // The client only accesses the pid file after connecting to the socket
+    // which ensures that it gets the correct pid value.
+    Path pidFile = serverDirectory.getRelative("server.pid.txt");
+    Path pidSymlink = serverDirectory.getRelative("server.pid");
+    deleteAtExit(pidFile, /*deleteParent=*/ false);
+    deleteAtExit(pidSymlink, /*deleteParent=*/ false);
+
     this.commandExecutor = commandExecutor;
     this.clock = clock;
     this.serverDirectory = serverDirectory;
@@ -314,6 +330,46 @@ public class GrpcServerImpl extends RPCServer {
     deleteAtExit(file, false);
   }
 
+
+  protected void disableShutdownHooks() {
+    runShutdownHooks.set(false);
+  }
+
+  /**
+   * Schedule the specified file for (attempted) deletion at JVM exit.
+   */
+  protected static void deleteAtExit(final Path path, final boolean deleteParent) {
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+        @Override
+        public void run() {
+          if (!runShutdownHooks.get()) {
+            return;
+          }
+
+          try {
+            path.delete();
+            if (deleteParent) {
+              path.getParentDirectory().delete();
+            }
+          } catch (IOException e) {
+            printStack(e);
+          }
+        }
+      });
+  }
+
+  static void printStack(IOException e) {
+    /*
+     * Hopefully this never happens. It's not very nice to just write this
+     * to the user's console, but I'm not sure what better choice we have.
+     */
+    StringWriter err = new StringWriter();
+    PrintWriter printErr = new PrintWriter(err);
+    printErr.println("=======[BLAZE SERVER: ENCOUNTERED IO EXCEPTION]=======");
+    e.printStackTrace(printErr);
+    printErr.println("=====================================================");
+    LOG.severe(err.toString());
+  }
 
   private final CommandServerGrpc.CommandServerImplBase commandServer =
       new CommandServerGrpc.CommandServerImplBase() {
