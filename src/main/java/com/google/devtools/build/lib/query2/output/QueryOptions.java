@@ -50,18 +50,19 @@ public class QueryOptions extends OptionsBase {
           + " Allowed values are: label, label_kind, minrank, maxrank, package, location, graph,"
           + " xml, proto, record.")
   public String outputFormat;
-  @Option(name = "null",
+  @Option(
+      name = "null",
       defaultValue = "null",
       category = "query",
-      expansion = {"--line_terminator=\0"},
+      expansion = {"--line_terminator_null=true"},
       help = "Whether each format is terminated with \0 instead of newline.")
   public Void isNull;
-  
-  @Option(name = "line_terminator",
-	  defaultValue = "null",
+
+  @Option(name = "line_terminator_null",
+	  defaultValue = "false",
       category = "query",
-      help = "The line terminator for each line.")
-  public String lineTerminator;
+      help = "Whether each format is terminated with \0 instead of newline.")
+  public boolean lineTerminatorNull;
 
   @Option(
     name = "order_results",
@@ -243,10 +244,10 @@ public class QueryOptions extends OptionsBase {
    * Ugly workaround since line terminator option default has to be constant expression.
    */
   public String getLineTerminator() {
-    if (lineTerminator == null)
-      return System.lineSeparator();
-    
-    return lineTerminator;
+    if (lineTerminatorNull)
+      return "\0";
+
+    return System.lineSeparator();
   }
 
   /**
