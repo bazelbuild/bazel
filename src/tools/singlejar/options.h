@@ -26,6 +26,7 @@ class Options {
         force_compression(false),
         normalize_timestamps(false),
         no_duplicates(false),
+        no_duplicate_classes(false),
         preserve_compression(false),
         verbose(false),
         warn_duplicate_resources(false) {}
@@ -47,6 +48,7 @@ class Options {
   bool force_compression;
   bool normalize_timestamps;
   bool no_duplicates;
+  bool no_duplicate_classes;
   bool preserve_compression;
   bool verbose;
   bool warn_duplicate_resources;

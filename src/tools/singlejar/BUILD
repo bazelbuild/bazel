@@ -8,6 +8,19 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+cc_binary(
+    name = "singlejar",
+    srcs = [
+        "singlejar_main.cc",
+    ],
+    linkstatic = 1,
+    deps = [
+        "options",
+        "output_jar",
+        "//third_party/zlib",
+    ],
+)
+
 cc_test(
     name = "combiners_test",
     size = "large",
@@ -103,6 +116,26 @@ cc_test(
 )
 
 cc_test(
+    name = "output_jar_simple_test",
+    srcs = [
+        "output_jar_simple_test.cc",
+    ],
+    copts = ["-Ithird_party/bazel"],
+    data = [
+        ":test1",
+        ":test2",
+    ],
+    deps = [
+        ":input_jar",
+        ":options",
+        ":output_jar",
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "token_stream_test",
     srcs = [
         "token_stream_test.cc",
@@ -172,6 +205,26 @@ cc_library(
         "options.h",
         ":token_stream",
     ],
+    hdrs = ["options.h"],
+)
+
+cc_library(
+    name = "output_jar",
+    srcs = [
+        "output_jar.cc",
+        "output_jar.h",
+        ":combiners",
+        ":mapped_file.h",
+        ":options.h",
+        ":zip_headers",
+    ],
+    hdrs = ["output_jar.h"],
+    deps = [
+        ":input_jar",
+        ":options",
+        "//src/main/cpp/util",
+        "//third_party/zlib",
+    ],
 )
 
 filegroup(
@@ -225,5 +278,13 @@ java_library(
     resources = [
         "zip_headers.h",
         "zlib_interface.h",
+    ],
+)
+
+java_library(
+    name = "test2",
+    resources = [
+        "token_stream.h",
+        "transient_bytes.h",
     ],
 )
