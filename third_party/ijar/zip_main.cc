@@ -224,7 +224,6 @@ int extract(char *zipfile, char* exdir, char **files, bool verbose,
 // add a file to the zip
 int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
              char *zip_path, bool flatten, bool verbose, bool compress) {
-  char *final_path = file;
   struct stat statst;
   statst.st_size = 0;
   statst.st_mode = 0666;
@@ -234,9 +233,7 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
       return -1;
     }
   }
-  if (zip_path != NULL) {
-    final_path = zip_path;
-  }
+  char *final_path = zip_path != NULL ? zip_path : file;
 
   bool isdir = (statst.st_mode & S_IFDIR) != 0;
 
@@ -422,7 +419,8 @@ int create(char *zipfile, char **file_entries, bool flatten, bool verbose,
 //
 static void usage(char *progname) {
   fprintf(stderr,
-          "Usage: %s [vxc[fC]] x.zip [-d exdir] [zip_path1=file1 ...filen]\n",
+          "Usage: %s [vxc[fC]] x.zip [-d exdir] [[zip_path1=]file1 ... "
+          "[zip_pathn=]filen]\n",
           progname);
   fprintf(stderr, "  v verbose - list all file in x.zip\n");
   fprintf(stderr,
@@ -434,13 +432,17 @@ static void usage(char *progname) {
   fprintf(stderr,
           "  C compress - compress files when using the create operation\n");
   fprintf(stderr, "x and c cannot be used in the same command-line.\n");
-  fprintf(stderr, "\nExamples for how to use <zip_path>=<file> syntax:\n");
+  fprintf(stderr,
+          "\nFor every file, a path in the zip can be specified. Examples:\n");
   fprintf(stderr,
           "  zipper c x.zip a/b/__init__.py= # Add an empty file at "
           "a/b/__init__.py\n");
   fprintf(stderr,
           "  zipper c x.zip a/b/main.py=foo/bar/bin.py # Add file "
           "foo/bar/bin.py at a/b/main.py\n");
+  fprintf(stderr,
+          "\nIf the zip path is not specified, it is assumed to be the file "
+          "path.\n");
   exit(1);
 }
 
