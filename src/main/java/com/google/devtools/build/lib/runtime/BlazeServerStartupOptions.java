@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.Map;
 
 /**
@@ -232,11 +231,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   // TODO(bazel-team): In order to make it easier to have local watchers in open source Bazel,
   // turn this into a non-startup option.
-  @Option(name = "watchfs",
-      defaultValue = "false",
-      category = "undocumented",
-      help = "If true, %{product} tries to use the operating system's file watch service for local "
-          + "changes instead of scanning every file for a change.")
+  @Option(
+    name = "watchfs",
+    defaultValue = "false",
+    category = "server startup",
+    help =
+        "If true, %{product} tries to use the operating system's file watch service for local "
+            + "changes instead of scanning every file for a change."
+  )
   public boolean watchFS;
 
   @Option(name = "invocation_policy",
