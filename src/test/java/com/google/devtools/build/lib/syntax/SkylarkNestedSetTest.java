@@ -18,19 +18,15 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for SkylarkNestedSet.
@@ -153,22 +149,6 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testNsetBadRightOperand() throws Exception {
     checkEvalError("cannot add value of type 'string' to a set", "l = ['a']\n" + "set() + l[0]");
-  }
-
-  @Test
-  public void testNsetGoodCompositeItem() throws Exception {
-    eval("def func():",
-         "  return set([struct(a='a')])",
-         "s = func()");
-    Collection<Object> result = get("s").toCollection();
-    assertThat(result).hasSize(1);
-    assertThat(result.iterator().next()).isInstanceOf(SkylarkClassObject.class);
-  }
-
-  @Test
-  public void testNsetBadMutableItem() throws Exception {
-    checkEvalError("sets cannot contain mutable items", "set([([],)])");
-    checkEvalError("sets cannot contain mutable items", "set([struct(a=[])])");
   }
 
   @Test

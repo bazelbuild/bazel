@@ -18,11 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -109,22 +109,6 @@ public class ValidationTest extends EvaluationTestCase {
   @Test
   public void testFunctionDoesNotExist() {
     checkError("function 'foo' does not exist", "def bar(): a = foo() + 'a'");
-  }
-
-  @Test
-  public void testStructMembersAreImmutable() {
-    checkError(
-        "can only assign to variables and tuples, not to 's.x'",
-        "s = struct(x = 'a')",
-        "s.x = 'b'\n");
-  }
-
-  @Test
-  public void testStructDictMembersAreImmutable() {
-    checkError(
-        "can only assign to variables and tuples, not to 's.x['b']'",
-        "s = struct(x = {'a' : 1})",
-        "s.x['b'] = 2\n");
   }
 
   @Test
@@ -299,11 +283,11 @@ public class ValidationTest extends EvaluationTestCase {
 
     // TODO(bazel-team): fix that?
     assertThat(ClassObject.class.isAnnotationPresent(SkylarkModule.class)).isFalse();
-    assertThat(ClassObject.SkylarkClassObject.class.isAnnotationPresent(SkylarkModule.class))
+    assertThat(SkylarkClassObject.class.isAnnotationPresent(SkylarkModule.class))
         .isTrue();
     assertThat(
-            EvalUtils.getParentWithSkylarkModule(ClassObject.SkylarkClassObject.class)
-                == ClassObject.SkylarkClassObject.class)
+            EvalUtils.getParentWithSkylarkModule(SkylarkClassObject.class)
+                == SkylarkClassObject.class)
         .isTrue();
     assertThat(EvalUtils.getParentWithSkylarkModule(ClassObject.class)).isNull();
   }
@@ -320,8 +304,6 @@ public class ValidationTest extends EvaluationTestCase {
     assertThat(SkylarkType.of(tupleClass)).isEqualTo(SkylarkType.TUPLE);
     assertThat(SkylarkType.TUPLE).isNotEqualTo(SkylarkType.LIST);
 
-    // Also for ClassObject
-    assertThat(SkylarkType.of(ClassObject.SkylarkClassObject.class)).isEqualTo(SkylarkType.STRUCT);
     try {
       SkylarkType.of(ClassObject.class);
       throw new Exception("foo");
@@ -335,7 +317,7 @@ public class ValidationTest extends EvaluationTestCase {
     // TODO(bazel-team): move to some other place to remove dependency of syntax tests on Artifact?
     assertThat(SkylarkType.of(Artifact.SpecialArtifact.class))
         .isEqualTo(SkylarkType.of(Artifact.class));
-    assertThat(SkylarkType.of(RuleConfiguredTarget.class)).isNotEqualTo(SkylarkType.STRUCT);
+    assertThat(SkylarkType.of(RuleConfiguredTarget.class)).isNotEqualTo(SkylarkType.of(SkylarkClassObject.class));
   }
 
   @Test
@@ -348,9 +330,8 @@ public class ValidationTest extends EvaluationTestCase {
     assertThat(SkylarkType.LIST.includes(combo1)).isTrue();
 
     SkylarkType union1 =
-        SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST, SkylarkType.STRUCT);
+        SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST);
     assertThat(union1.includes(SkylarkType.DICT)).isTrue();
-    assertThat(union1.includes(SkylarkType.STRUCT)).isTrue();
     assertThat(union1.includes(combo1)).isTrue();
     assertThat(union1.includes(SkylarkType.STRING)).isFalse();
 

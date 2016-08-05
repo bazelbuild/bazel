@@ -20,7 +20,6 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.testutil.TestMode;
 import org.junit.Before;
@@ -712,22 +710,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testConditionalStructConcatenation() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    eval("def func():",
-        "  x = struct(a = 1, b = 2)",
-        "  if True:",
-        "    x += struct(c = 1, d = 2)",
-        "  return x",
-        "x = func()");
-    SkylarkClassObject x = (SkylarkClassObject) lookup("x");
-    assertEquals(1, x.getValue("a"));
-    assertEquals(2, x.getValue("b"));
-    assertEquals(1, x.getValue("c"));
-    assertEquals(2, x.getValue("d"));
-  }
-
-  @Test
   public void testJavaFunctionReturnsMutableObject() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -822,93 +804,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "    s += a",
         "  return s",
         "s = foo()").testLookup("s", "abc");
-  }
-
-  @Test
-  public void testStructCreation() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)");
-    assertThat(lookup("x")).isInstanceOf(ClassObject.class);
-  }
-
-  @Test
-  public void testStructFields() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)");
-    ClassObject x = (ClassObject) lookup("x");
-    assertEquals(1, x.getValue("a"));
-    assertEquals(2, x.getValue("b"));
-  }
-
-  @Test
-  public void testStructAccessingFieldsFromSkylark() throws Exception {
-    new SkylarkTest()
-        .setUp("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b")
-        .testLookup("x1", 1)
-        .testLookup("x2", 2);
-  }
-
-  @Test
-  public void testStructAccessingUnknownField() throws Exception {
-    new SkylarkTest()
-        .testIfErrorContains(
-            "'struct' object has no attribute 'c'\n" + "Available attributes: a, b",
-            "x = struct(a = 1, b = 2)",
-            "y = x.c");
-  }
-
-  @Test
-  public void testStructAccessingUnknownFieldWithArgs() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "struct has no method 'c'", "x = struct(a = 1, b = 2)", "y = x.c()");
-  }
-
-  @Test
-  public void testStructAccessingNonFunctionFieldWithArgs() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "struct field 'a' is not a function", "x = struct(a = 1, b = 2)", "x1 = x.a(1)");
-  }
-
-  @Test
-  public void testStructAccessingFunctionFieldWithArgs() throws Exception {
-    new SkylarkTest()
-        .setUp("def f(x): return x+5", "x = struct(a = f, b = 2)", "x1 = x.a(1)")
-        .testLookup("x1", 6);
-  }
-
-  @Test
-  public void testStructPosArgs() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "struct(**kwargs) does not accept positional arguments, but got 1", "x = struct(1, b = 2)");
-  }
-
-  @Test
-  public void testStructConcatenationFieldNames() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)",
-        "y = struct(c = 1, d = 2)",
-        "z = x + y\n");
-    SkylarkClassObject z = (SkylarkClassObject) lookup("z");
-    assertEquals(ImmutableSet.of("a", "b", "c", "d"), z.getKeys());
-  }
-
-  @Test
-  public void testStructConcatenationFieldValues() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    eval("x = struct(a = 1, b = 2)",
-        "y = struct(c = 1, d = 2)",
-        "z = x + y\n");
-    SkylarkClassObject z = (SkylarkClassObject) lookup("z");
-    assertEquals(1, z.getValue("a"));
-    assertEquals(2, z.getValue("b"));
-    assertEquals(1, z.getValue("c"));
-    assertEquals(2, z.getValue("d"));
-  }
-
-  @Test
-  public void testStructConcatenationCommonFields() throws Exception {
-    new SkylarkTest().testIfExactError("Cannot concat structs with common field(s): a",
-        "x = struct(a = 1, b = 2)", "y = struct(c = 1, a = 2)", "z = x + y\n");
   }
 
   @Test
@@ -1026,15 +921,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testHasattr() throws Exception {
-    new SkylarkTest().setUp("s = struct(a=1)",
-      "x = hasattr(s, 'a')",
-      "y = hasattr(s, 'b')\n")
-      .testLookup("x", Boolean.TRUE)
-      .testLookup("y", Boolean.FALSE);
-  }
-
-  @Test
   public void testHasattrMethods() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1046,23 +932,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("c", Boolean.TRUE)
         .testLookup("d", Boolean.TRUE)
         .testLookup("e", Boolean.FALSE);
-  }
-
-  @Test
-  public void testGetattr() throws Exception {
-    new SkylarkTest()
-        .setUp("s = struct(a='val')", "x = getattr(s, 'a')", "y = getattr(s, 'b', 'def')",
-            "z = getattr(s, 'b', default = 'def')", "w = getattr(s, 'a', default='ignored')")
-        .testLookup("x", "val")
-        .testLookup("y", "def")
-        .testLookup("z", "def")
-        .testLookup("w", "val");
-  }
-
-  @Test
-  public void testGetattrNoAttr() throws Exception {
-    new SkylarkTest().testIfExactError("Object of type 'struct' has no attribute \"b\"",
-        "s = struct(a='val')", "getattr(s, 'b')");
   }
 
   @Test

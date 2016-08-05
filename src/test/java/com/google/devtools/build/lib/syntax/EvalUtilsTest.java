@@ -19,8 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -42,21 +40,6 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   private static SkylarkDict<Object, Object> makeDict(Environment env) {
     return SkylarkDict.<Object, Object>of(env, 1, 1, 2, 2);
-  }
-
-  private static SkylarkClassObject makeStruct(String field, Object value) {
-    return new SkylarkClassObject(ImmutableMap.of(field, value));
-  }
-
-  private static SkylarkClassObject makeBigStruct(Environment env) {
-    // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
-    return new SkylarkClassObject(ImmutableMap.<String, Object>of(
-        "a", MutableList.<Object>of(env,
-            new SkylarkClassObject(ImmutableMap.<String, Object>of(
-                "x", SkylarkDict.<Object, Object>of(env, 1, 1))),
-            Tuple.of()),
-        "b", Tuple.of(),
-        "c", SkylarkDict.<Object, Object>of(env, 2, 2)));
   }
 
   @Test
@@ -88,7 +71,6 @@ public class EvalUtilsTest extends EvaluationTestCase {
   @Test
   public void testDatatypeMutabilityShallow() throws Exception {
     assertTrue(EvalUtils.isImmutable(Tuple.of(1, 2, 3)));
-    assertTrue(EvalUtils.isImmutable(makeStruct("a", 1)));
 
     // Mutability depends on the environment.
     assertTrue(EvalUtils.isImmutable(makeList(null)));
@@ -100,12 +82,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
     assertTrue(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null))));
-    assertTrue(EvalUtils.isImmutable(makeStruct("a", makeList(null))));
-    assertTrue(EvalUtils.isImmutable(makeBigStruct(null)));
 
     assertFalse(EvalUtils.isImmutable(Tuple.<Object>of(makeList(env))));
-    assertFalse(EvalUtils.isImmutable(makeStruct("a", makeList(env))));
-    assertFalse(EvalUtils.isImmutable(makeBigStruct(env)));
   }
 
   @Test

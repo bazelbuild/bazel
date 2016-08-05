@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
@@ -29,17 +29,15 @@ import com.google.devtools.build.lib.syntax.compiler.Jump;
 import com.google.devtools.build.lib.syntax.compiler.Jump.PrimitiveComparison;
 import com.google.devtools.build.lib.syntax.compiler.LabelAdder;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Duplication;
-import net.bytebuddy.implementation.bytecode.Removal;
-import net.bytebuddy.implementation.bytecode.StackManipulation;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.IllegalFormatException;
 import java.util.List;
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import net.bytebuddy.implementation.bytecode.Duplication;
+import net.bytebuddy.implementation.bytecode.Removal;
+import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * Syntax node for a binary operator expression.
@@ -338,9 +336,15 @@ public final class BinaryOperatorExpression extends Expression {
       return SkylarkDict.plus((SkylarkDict<?, ?>) lval, (SkylarkDict<?, ?>) rval, env);
     }
 
-    if (lval instanceof SkylarkClassObject && rval instanceof SkylarkClassObject) {
-      return SkylarkClassObject.concat(
-          (SkylarkClassObject) lval, (SkylarkClassObject) rval, location);
+    if (lval instanceof Concatable && rval instanceof Concatable) {
+      Concatable lobj = (Concatable) lval;
+      Concatable robj = (Concatable) rval;
+      Concatter concatter = lobj.getConcatter();
+      if (concatter != null && concatter.equals(robj.getConcatter())) {
+        return concatter.concat(lobj, robj, location);
+      } else {
+        throw typeException(lval, rval, Operator.PLUS, location);
+      }
     }
 
     // TODO(bazel-team): Remove this case. Union of sets should use '|' instead of '+'.

@@ -26,12 +26,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import net.bytebuddy.implementation.bytecode.StackManipulation;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * Utilities used by the evaluator.
@@ -280,8 +278,6 @@ public final class EvalUtils {
     } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
       // TODO(bazel-team): no one should be seeing naked NestedSet at all.
       return "set";
-    } else if (ClassObject.SkylarkClassObject.class.isAssignableFrom(c)) {
-      return "struct";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1661,9 +1660,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(False)", "False")
         .testStatement("str(None)", "None")
         .testStatement("str(str)", "<function str>");
-
-    new SkylarkTest()
-        .testStatement("str(struct(x = 2, y = 3, z = 4))", "struct(x = 2, y = 3, z = 4)");
   }
 
   @Test

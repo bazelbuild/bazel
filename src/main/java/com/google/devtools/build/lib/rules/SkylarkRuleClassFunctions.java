@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
@@ -70,7 +71,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -88,7 +88,6 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.protobuf.TextFormat;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -192,6 +191,22 @@ public class SkylarkRuleClassFunctions {
         .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
         .build();
   }
+
+  @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
+      "Creates an immutable struct using the keyword arguments as attributes. It is used to group "
+          + "multiple values together.Example:<br>"
+          + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
+          + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
+      extraKeywords = @Param(name = "kwargs", doc = "the struct attributes"),
+      useLocation = true)
+  private static final BuiltinFunction struct = new BuiltinFunction("struct") {
+    @SuppressWarnings("unchecked")
+    public SkylarkClassObject invoke(SkylarkDict<String, Object> kwargs, Location loc)
+        throws EvalException {
+      return new SkylarkClassObject(kwargs, loc);
+    }
+  };
+
 
   // TODO(bazel-team): implement attribute copy and other rule properties
   @SkylarkSignature(name = "rule", doc =

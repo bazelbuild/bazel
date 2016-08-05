@@ -149,6 +149,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected void checkErrorContains(String errorMsg, String... lines) throws Exception {
+    ev.setFailFast(false);
     try {
       eval(lines);
       fail("checkErrorContains(String, String...): There was no error");
