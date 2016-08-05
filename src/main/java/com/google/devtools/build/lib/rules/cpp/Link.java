@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.Iterator;
 
 /**
@@ -102,7 +101,7 @@ public abstract class Link {
 
     /** An interface dynamic library. */
     INTERFACE_DYNAMIC_LIBRARY(
-        ".ifso", false, "c++-link-interface-dynamic-library", ArtifactCategory.INTERFACE),
+        ".ifso", false, "c++-link-interface-dynamic-library", ArtifactCategory.INTERFACE_LIBRARY),
 
     /** A dynamic library. */
     DYNAMIC_LIBRARY(".so", false, "c++-link-dynamic-library", ArtifactCategory.DYNAMIC_LIBRARY),
@@ -112,14 +111,14 @@ public abstract class Link {
         ".lo",
         true,
         "c++-link-alwayslink-static-library",
-        ArtifactCategory.ALWAYS_LINK_STATIC_LIBRARY),
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY),
 
     /** A PIC static archive without removal of unused object files. */
     ALWAYS_LINK_PIC_STATIC_LIBRARY(
         ".pic.lo",
         true,
         "c++-link-alwayslink-pic-static-library",
-        ArtifactCategory.ALWAYS_LINK_PIC_STATIC_LIBRARY),
+        ArtifactCategory.ALWAYSLINK_PIC_STATIC_LIBRARY),
 
     /** An executable binary. */
     EXECUTABLE("", false, "c++-link-executable", ArtifactCategory.EXECUTABLE);

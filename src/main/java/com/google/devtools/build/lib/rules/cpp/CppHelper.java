@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -47,13 +48,11 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -604,5 +603,27 @@ public class CppHelper {
     if (staticallyLinked) {
       builder.add(StaticallyLinkedMarkerProvider.class, new StaticallyLinkedMarkerProvider(true));
     }
+  }
+
+  static Artifact getCompileOutputArtifact(RuleContext ruleContext, String outputName) {
+    PathFragment objectDir = getObjDirectory(ruleContext.getLabel());
+    return ruleContext.getDerivedArtifact(objectDir.getRelative(outputName),
+        ruleContext.getConfiguration().getBinDirectory());
+  }
+
+  static String getCompileArtifactName(RuleContext ruleContext, ArtifactCategory category,
+      String base) {
+    return getToolchain(ruleContext).getFeatures().getArtifactNameForCategory(
+        category, ruleContext, ImmutableMap.of("output_name", base));
+  }
+
+  static String getDotdFileName(RuleContext ruleContext, ArtifactCategory outputCategory,
+      String outputName) {
+    String baseName = outputCategory == ArtifactCategory.OBJECT_FILE
+        || outputCategory == ArtifactCategory.PROCESSED_HEADER
+        ? outputName
+        : getCompileArtifactName(ruleContext, outputCategory, outputName);
+
+    return getCompileArtifactName(ruleContext, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 }

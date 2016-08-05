@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ActionConfig;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ArtifactNamePattern;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -58,6 +59,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -694,6 +696,27 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   // feature configuration, and all crosstools have been converted.
   private CToolchain addLegacyFeatures(CToolchain toolchain) {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
+    toolchainBuilder.mergeFrom(toolchain);
+
+    Set<ArtifactCategory> definedCategories = new HashSet<>();
+    for (ArtifactNamePattern pattern : toolchainBuilder.getArtifactNamePatternList()) {
+      try {
+        definedCategories.add(ArtifactCategory.valueOf(pattern.getCategoryName().toUpperCase()));
+      } catch (IllegalArgumentException e) {
+        // Invalid category name, will be detected later.
+        continue;
+      }
+    }
+
+    for (ArtifactCategory category : ArtifactCategory.values()) {
+      if (!definedCategories.contains(category) && category.getDefaultPattern() != null) {
+        toolchainBuilder.addArtifactNamePattern(ArtifactNamePattern.newBuilder()
+            .setCategoryName(category.toString().toLowerCase())
+            .setPattern(category.getDefaultPattern())
+            .build());
+      }
+    }
+
     ImmutableSet.Builder<String> featuresBuilder = ImmutableSet.builder();
     for (CToolchain.Feature feature : toolchain.getFeatureList()) {
       featuresBuilder.add(feature.getName());
@@ -701,8 +724,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     Set<String> features = featuresBuilder.build();
     if (features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
       // The toolchain requested to not get any legacy features enabled.
-      return toolchain;
+      return toolchainBuilder.build();
     }
+
     try {
       
       if (!linkActionsAreConfigured(toolchain)) {
@@ -960,7 +984,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       // Can only happen if we change the proto definition without changing our configuration above.
       throw new RuntimeException(e);
     }
-    toolchainBuilder.mergeFrom(toolchain);
     return toolchainBuilder.build();
   }
 

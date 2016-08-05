@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -37,9 +35,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.SpecialInputsHandler;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -376,8 +372,30 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder setOutputFile(Artifact outputFile) {
+  public CppCompileActionBuilder setOutputsForTesting(Artifact outputFile, Artifact dotdFile) {
     this.outputFile = outputFile;
+    this.dotdFile = dotdFile == null ? null : new DotdFile(dotdFile);
+    return this;
+  }
+
+  public CppCompileActionBuilder setOutputs(
+      ArtifactCategory outputCategory, String outputName, boolean generateDotd) {
+    this.outputFile = CppHelper.getCompileOutputArtifact(
+        ruleContext, CppHelper.getCompileArtifactName(ruleContext, outputCategory, outputName));
+    if (generateDotd) {
+      String dotdFileName = CppHelper.getDotdFileName(ruleContext, outputCategory, outputName);
+      if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {
+        // Just set the path, no artifact is constructed
+        dotdFile = new DotdFile(
+            configuration.getBinDirectory().getExecPath()
+                .getRelative(CppHelper.getObjDirectory(ruleContext.getLabel()))
+                .getRelative(dotdFileName));
+      } else {
+        dotdFile = new DotdFile(CppHelper.getCompileOutputArtifact(ruleContext, dotdFileName));
+      }
+    } else {
+      dotdFile = null;
+    }
     return this;
   }
 
@@ -401,28 +419,6 @@ public class CppCompileActionBuilder {
    */
   public CppCompileActionBuilder setTempOutputFile(PathFragment tempOutputFile) {
     this.tempOutputFile = tempOutputFile;
-    return this;
-  }
-
-  @VisibleForTesting
-  public CppCompileActionBuilder setDotdFileForTesting(Artifact dotdFile) {
-    this.dotdFile = new DotdFile(dotdFile);
-    return this;
-  }
-
-  public CppCompileActionBuilder setDotdFile(PathFragment outputName, String extension) {
-    if (CppFileTypes.mustProduceDotdFile(outputName.toString())) {
-      if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {
-        // Just set the path, no artifact is constructed
-        PathFragment file = FileSystemUtils.replaceExtension(outputName, extension);
-        Root root = configuration.getBinDirectory();
-        dotdFile = new DotdFile(root.getExecPath().getRelative(file));
-      } else {
-        dotdFile = new DotdFile(ruleContext.getRelatedArtifact(outputName, extension));
-      }
-    } else {
-      dotdFile = null;
-    }
     return this;
   }
 
