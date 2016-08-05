@@ -123,6 +123,7 @@ public abstract class Link {
         "c++-link-static-library",
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
+        ArtifactCategory.VERBATIM_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
     
     /** An objc static archive. */
@@ -132,6 +133,7 @@ public abstract class Link {
         "objc-archive", 
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
+        ArtifactCategory.VERBATIM_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
     
     /** An objc fully linked static archive. */
@@ -141,6 +143,7 @@ public abstract class Link {
         "objc-fully-link",
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY,
+        ArtifactCategory.VERBATIM_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** An objc executable. */
@@ -149,6 +152,7 @@ public abstract class Link {
         Staticness.STATIC,
         "objc-executable",
         Picness.NOPIC,
+        ArtifactCategory.EXECUTABLE,
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
 
@@ -159,6 +163,7 @@ public abstract class Link {
         "objc++-executable",
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
+        ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
 
     /** A static archive with .pic.o object files (compiled with -fPIC). */
@@ -168,6 +173,7 @@ public abstract class Link {
         "c++-link-pic-static-library",
         Picness.PIC,
         ArtifactCategory.STATIC_LIBRARY,
+        ArtifactCategory.VERBATIM_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** An interface dynamic library. */
@@ -177,6 +183,7 @@ public abstract class Link {
         "c++-link-interface-dynamic-library",
         Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
         ArtifactCategory.INTERFACE_LIBRARY,
+        ArtifactCategory.VERBATIM_INTERFACE_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** A dynamic library. */
@@ -186,6 +193,7 @@ public abstract class Link {
         "c++-link-dynamic-library",
         Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
         ArtifactCategory.DYNAMIC_LIBRARY,
+        ArtifactCategory.VERBATIM_DYNAMIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** A static archive without removal of unused object files. */
@@ -195,6 +203,7 @@ public abstract class Link {
         "c++-link-alwayslink-static-library",
         Picness.NOPIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
+        ArtifactCategory.VERBATIM_ALWAYSLINK_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** A PIC static archive without removal of unused object files. */
@@ -204,6 +213,7 @@ public abstract class Link {
         "c++-link-alwayslink-pic-static-library",
         Picness.PIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
+        ArtifactCategory.VERBATIM_ALWAYSLINK_STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
     /** An executable binary. */
@@ -213,12 +223,14 @@ public abstract class Link {
         "c++-link-executable",
         Picness.NOPIC,  // Picness is not indicate in the file name
         ArtifactCategory.EXECUTABLE,
+        ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
 
     private final String extension;
     private final Staticness staticness;
     private final String actionName;
     private final ArtifactCategory linkerOutput;
+    private final ArtifactCategory verbatimLinkerOutput;
     private final Picness picness;
     private final Executable executable;
 
@@ -228,11 +240,13 @@ public abstract class Link {
         String actionName,
         Picness picness,
         ArtifactCategory linkerOutput,
+        ArtifactCategory verbatimLinkerOutput,
         Executable executable) {
       this.extension = extension;
       this.staticness = staticness;
       this.actionName = actionName;
       this.linkerOutput = linkerOutput;
+      this.verbatimLinkerOutput = verbatimLinkerOutput;
       this.picness = picness;
       this.executable = executable;
     }
@@ -253,8 +267,8 @@ public abstract class Link {
     }
     
     /** Returns an {@code ArtifactCategory} identifying the artifact type this link action emits. */
-    public ArtifactCategory getLinkerOutput() {
-      return linkerOutput;
+    public ArtifactCategory getLinkerOutput(boolean verbatim) {
+      return verbatim ? verbatimLinkerOutput : linkerOutput;
     }
 
     /**

@@ -277,6 +277,7 @@ public final class CcLibraryHelper {
   private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
   private boolean neverlink;
   private boolean fake;
+  private boolean verbatim;
 
   private final List<LibraryToLink> staticLibraries = new ArrayList<>();
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
@@ -793,6 +794,14 @@ public final class CcLibraryHelper {
   }
 
   /**
+   * Sets the model link action as verbatim, omitting the "lib" prefix
+   */
+  public CcLibraryHelper setVerbatim(boolean verbatim) {
+    this.verbatim = verbatim;
+    return this;
+  }
+
+  /**
    * This adds the {@link CcNativeLibraryProvider} to the providers created by this class.
    */
   public CcLibraryHelper enableCcNativeLibrariesProvider() {
@@ -1067,15 +1076,15 @@ public final class CcLibraryHelper {
     if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
       archiveFile.add(
           CppHelper.getLinuxLinkedArtifact(
-              ruleContext, Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY));
+              ruleContext, Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY, !verbatim));
     } else {
       archiveFile.add(
-          CppHelper.getLinuxLinkedArtifact(ruleContext, Link.LinkTargetType.STATIC_LIBRARY));
+          CppHelper.getLinuxLinkedArtifact(ruleContext, Link.LinkTargetType.STATIC_LIBRARY, !verbatim));
     }
 
     if (CppRuleClasses.shouldCreateDynamicLibrary(ruleContext.attributes())) {
       dynamicLibrary.add(
-          CppHelper.getLinuxLinkedArtifact(ruleContext, Link.LinkTargetType.DYNAMIC_LIBRARY));
+          CppHelper.getLinuxLinkedArtifact(ruleContext, Link.LinkTargetType.DYNAMIC_LIBRARY, !verbatim));
     }
 
     outputGroups.put("archive", archiveFile.build());
@@ -1102,7 +1111,8 @@ public final class CcLibraryHelper {
         .setDynamicLibrary(dynamicLibrary)
         .addLinkopts(linkopts)
         .setFeatureConfiguration(featureConfiguration)
-        .addVariablesExtension(variablesExtensions);
+        .addVariablesExtension(variablesExtensions)
+        .setVerbatim(verbatim);
   }
 
   @Immutable

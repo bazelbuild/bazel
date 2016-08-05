@@ -115,6 +115,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
+    boolean verbatim = ruleContext.attributes().get("verbatim", Type.BOOLEAN);
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
             .fromCommon(common)
@@ -131,7 +132,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
             .setLinkType(linkType)
             .setNeverLink(neverLink)
-            .addPrecompiledFiles(precompiledFiles);
+            .addPrecompiledFiles(precompiledFiles)
+            .setVerbatim(verbatim);
 
     if (collectLinkstamp) {
       helper.addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
@@ -180,7 +182,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // which only happens when some rule explicitly depends on the dynamic library.
     if (!createDynamicLibrary && !supportsDynamicLinker) {
       Artifact solibArtifact =
-          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
+          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY, !verbatim);
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           ImmutableList.of(solibArtifact), "Toolchain does not support dynamic linking"));
     } else if (!createDynamicLibrary
@@ -191,7 +193,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       // generate an .so with. If that's the case, register a fake generating action to prevent
       // a "no generating action for this artifact" error.
       Artifact solibArtifact =
-          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY);
+          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY, !verbatim);
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           ImmutableList.of(solibArtifact), "configurable \"srcs\" triggers an implicit .so output "
           + "even though there are no sources to compile in this configuration"));

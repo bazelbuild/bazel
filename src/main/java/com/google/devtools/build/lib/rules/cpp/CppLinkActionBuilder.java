@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -146,6 +147,7 @@ public class CppLinkActionBuilder {
   private boolean isNativeDeps;
   private boolean useTestOnlyFlags;
   private boolean wholeArchive;
+  private boolean verbatim;
   private LinkArtifactFactory linkArtifactFactory = CppLinkAction.DEFAULT_ARTIFACT_FACTORY;
 
   private boolean isLTOIndexing = false;
@@ -245,6 +247,7 @@ public class CppLinkActionBuilder {
     this.linkType = linkContext.linkType;
     this.linkStaticness = linkContext.linkStaticness;
     this.fake = linkContext.fake;
+    this.verbatim = linkContext.verbatim;
     this.isNativeDeps = linkContext.isNativeDeps;
     this.useTestOnlyFlags = linkContext.useTestOnlyFlags;
   }
@@ -352,6 +355,13 @@ public class CppLinkActionBuilder {
     return this.fake;
   }
   
+  /**
+   * Returns true for a verbatim cc_library.
+   */
+  public boolean isVerbatim() {
+    return this.verbatim;
+  }
+
   /**
    * Returns true for native dependencies of another language.
    */
@@ -478,10 +488,13 @@ public class CppLinkActionBuilder {
       }
     }
 
+    boolean verbatim = linkType == LinkTargetType.EXECUTABLE
+        ? true
+        : this.verbatim;
     final LibraryToLink outputLibrary = linkType.isExecutable()
         ? null
         : LinkerInputs.newInputLibrary(output,
-            linkType.getLinkerOutput(),
+            linkType.getLinkerOutput(verbatim),
             libraryIdentifier,
             objectArtifacts, this.ltoBitcodeFiles);
     final LibraryToLink interfaceOutputLibrary =
@@ -734,6 +747,7 @@ public class CppLinkActionBuilder {
         output,
         interfaceOutputLibrary,
         fake,
+        verbatim,
         isLTOIndexing,
         allLTOArtifacts,
         linkCommandLine,
@@ -1096,6 +1110,12 @@ public class CppLinkActionBuilder {
   /** Sets whether this link action will be used for a cc_fake_binary; false by default. */
   public CppLinkActionBuilder setFake(boolean fake) {
     this.fake = fake;
+    return this;
+  }
+
+  /** Sets whether this library link action will be verbatim, without "lib" prefix; false by default. */
+  public CppLinkActionBuilder setVerbatim(boolean verbatim) {
+    this.verbatim = verbatim;
     return this;
   }
 
@@ -1536,7 +1556,7 @@ public class CppLinkActionBuilder {
 
       String name = inputArtifact.getFilename();
       boolean inputIsWholeArchive = !isRuntimeLinkerInput && needWholeArchive;
-      if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
+      if (input.isLibraryLinkable()) {
         // Use normal shared library resolution rules for shared libraries.
         String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
         librariesToLink.addValue(new LibraryToLinkValue("-l" + libName, inputIsWholeArchive));

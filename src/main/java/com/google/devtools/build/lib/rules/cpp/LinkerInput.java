@@ -54,4 +54,9 @@ public interface LinkerInput {
    * legal to call this only when {@link #containsObjectFiles()} returns true.
    */
   Iterable<Artifact> getObjectFiles();
+
+  /**
+   * Return whether this input artifact can be linked with -l
+   */
+  boolean isLibraryLinkable();
 }

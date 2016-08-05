@@ -530,6 +530,11 @@ public class BazelCppRuleClasses {
               .legacyAllowAnyFileType())
           // TODO(bazel-team): document or remove.
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
+          /*<!-- #BLAZE_RULE($cc_library).ATTRIBUTE(verbatim) -->
+          If 1, the library file name generated will match the name exactly, without
+          a lib prefix added to it.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("verbatim", BOOLEAN).value(false))
           .build();
     }
 

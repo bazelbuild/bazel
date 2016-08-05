@@ -88,6 +88,11 @@ public abstract class LinkerInputs {
     }
 
     @Override
+    public boolean isLibraryLinkable() {
+      return CppFileTypes.SHARED_LIBRARY.matches(getArtifact().getFilename());
+    }
+
+    @Override
     public boolean equals(Object that) {
       if (this == that) {
         return true;
@@ -153,14 +158,16 @@ public abstract class LinkerInputs {
     private final Artifact solibSymlinkArtifact;
     private final Artifact libraryArtifact;
     private final String libraryIdentifier;
+    private final boolean libraryLinkable;
 
     private SolibLibraryToLink(Artifact solibSymlinkArtifact, Artifact libraryArtifact,
-        String libraryIdentifier) {
+        String libraryIdentifier, boolean libraryLinkable) {
       Preconditions.checkArgument(
           Link.SHARED_LIBRARY_FILETYPES.matches(solibSymlinkArtifact.getFilename()));
       this.solibSymlinkArtifact = solibSymlinkArtifact;
       this.libraryArtifact = libraryArtifact;
       this.libraryIdentifier = libraryIdentifier;
+      this.libraryLinkable = libraryLinkable;
     }
 
     @Override
@@ -203,6 +210,11 @@ public abstract class LinkerInputs {
     public Iterable<Artifact> getObjectFiles() {
       throw new IllegalStateException(
           "LinkerInputs: does not support getObjectFiles: " + toString());
+    }
+
+    @Override
+    public boolean isLibraryLinkable() {
+      return libraryLinkable;
     }
 
     @Override
@@ -252,14 +264,17 @@ public abstract class LinkerInputs {
       String basename = libraryArtifact.getFilename();
       switch (category) {
         case ALWAYSLINK_STATIC_LIBRARY:
+        case VERBATIM_ALWAYSLINK_STATIC_LIBRARY:
           Preconditions.checkState(Link.LINK_LIBRARY_FILETYPES.matches(basename));
           break;
 
         case STATIC_LIBRARY:
+        case VERBATIM_STATIC_LIBRARY:
           Preconditions.checkState(Link.ARCHIVE_FILETYPES.matches(basename));
           break;
 
         case DYNAMIC_LIBRARY:
+        case VERBATIM_DYNAMIC_LIBRARY:
           Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(basename));
           break;
 
@@ -316,6 +331,11 @@ public abstract class LinkerInputs {
     public Iterable<Artifact> getObjectFiles() {
       Preconditions.checkNotNull(objectFiles);
       return objectFiles;
+    }
+
+    @Override
+    public boolean isLibraryLinkable() {
+      return false;
     }
 
     @Override
@@ -393,8 +413,21 @@ public abstract class LinkerInputs {
    * Creates a solib library symlink from the given artifact.
    */
   public static LibraryToLink solibLibraryToLink(
+      Artifact solibSymlink, Artifact original, String libraryIdentifier,
+      boolean libraryLinkable) {
+    return new SolibLibraryToLink(
+        solibSymlink, original, libraryIdentifier,
+        libraryLinkable && CppFileTypes.SHARED_LIBRARY.matches(solibSymlink.getFilename()));
+  }
+
+  /**
+   * Creates a solib library symlink from the given artifact.
+   */
+  public static LibraryToLink solibLibraryToLink(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) {
-    return new SolibLibraryToLink(solibSymlink, original, libraryIdentifier);
+    return solibLibraryToLink(
+        solibSymlink, original, libraryIdentifier,
+        CppFileTypes.SHARED_LIBRARY.matches(solibSymlink.getFilename()));
   }
 
   /**

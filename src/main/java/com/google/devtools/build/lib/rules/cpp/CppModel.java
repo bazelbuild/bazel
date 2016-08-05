@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -74,6 +75,7 @@ public final class CppModel {
   private final List<String> copts = new ArrayList<>();
   @Nullable private Pattern nocopts;
   private boolean fake;
+  private boolean verbatim;
   private boolean maySaveTemps;
   private boolean onlySingleOutput;
   private CcCompilationOutputs compilationOutputs;
@@ -106,6 +108,15 @@ public final class CppModel {
    */
   public CppModel setFake(boolean fake) {
     this.fake = fake;
+    return this;
+  }
+
+  /**
+   * Require this information to get linker output filename.
+   * Defaults to false.
+   */
+  public CppModel setVerbatim(boolean verbatim) {
+    this.verbatim = verbatim;
     return this;
   }
 
@@ -787,7 +798,7 @@ public final class CppModel {
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
     Artifact result = null;
-    Artifact linuxDefault = CppHelper.getLinuxLinkedArtifact(ruleContext, linkTargetType);
+    Artifact linuxDefault = CppHelper.getLinuxLinkedArtifact(ruleContext, linkTargetType, !verbatim);
 
     try {
       String maybePicName = ruleContext.getLabel().getName();
@@ -797,7 +808,7 @@ public final class CppModel {
       }
 
       String linkedName = CppHelper.getArtifactNameForCategory(
-          ruleContext, linkTargetType.getLinkerOutput(), maybePicName);
+          ruleContext, linkTargetType.getLinkerOutput(verbatim), maybePicName);
       PathFragment artifactFragment = new PathFragment(ruleContext.getLabel().getName())
           .getParentDirectory().getRelative(linkedName);
       result = ruleContext.getBinArtifact(artifactFragment);
@@ -945,7 +956,7 @@ public final class CppModel {
     Artifact soInterface = null;
     if (cppConfiguration.useInterfaceSharedObjects() && allowInterfaceSharedObjects) {
       soInterface =
-          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
+          CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.INTERFACE_DYNAMIC_LIBRARY, !verbatim);
       sonameLinkopts = ImmutableList.of("-Wl,-soname=" +
           SolibSymlinkAction.getDynamicLibrarySoname(soImpl.getRootRelativePath(), false));
     }
@@ -1009,12 +1020,14 @@ public final class CppModel {
           ruleContext, interfaceLibrary.getArtifact(), false, false,
           ruleContext.getConfiguration());
       result.addDynamicLibrary(LinkerInputs.solibLibraryToLink(
-          libraryLink, interfaceLibrary.getArtifact(), libraryIdentifier));
+          libraryLink, interfaceLibrary.getArtifact(),
+          libraryIdentifier, !verbatim));
       Artifact implLibraryLink = SolibSymlinkAction.getDynamicLibrarySymlink(
           ruleContext, dynamicLibrary.getArtifact(), false, false,
           ruleContext.getConfiguration());
       result.addExecutionDynamicLibrary(LinkerInputs.solibLibraryToLink(
-          implLibraryLink, dynamicLibrary.getArtifact(), libraryIdentifier));
+          implLibraryLink, dynamicLibrary.getArtifact(), libraryIdentifier,
+          !verbatim));
     }
     return result.build();
   }
@@ -1022,7 +1035,8 @@ public final class CppModel {
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(ruleContext, outputArtifact)
         .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
-        .addNonCodeInputs(context.getTransitiveCompilationPrerequisites());
+        .addNonCodeInputs(context.getTransitiveCompilationPrerequisites())
+        .setVerbatim(verbatim);
   }
 
   /**
