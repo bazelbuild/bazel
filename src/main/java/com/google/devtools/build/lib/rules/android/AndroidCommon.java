@@ -69,12 +69,10 @@ import com.google.devtools.build.lib.rules.java.SourcesJavaCompilationArgsProvid
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -641,14 +639,17 @@ public class AndroidCommon {
     helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, genSourceJar,
         outputDepsProto, javaArtifactsBuilder);
 
-    compileTimeDependencyArtifacts =
-        javaCommon.collectCompileTimeDependencyArtifacts(outputDepsProto);
     filesToBuild = filesBuilder.build();
 
     if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
       iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
-    javaCommon.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
+
+    JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
+    compileTimeDependencyArtifacts =
+        javaCommon.collectCompileTimeDependencyArtifacts(
+            javaArtifacts.getCompileTimeDependencyArtifact());
+    javaCommon.setJavaCompilationArtifacts(javaArtifacts);
 
     javaCommon.setClassPathFragment(
         new ClasspathConfiguredFragment(
