@@ -55,6 +55,12 @@ function test_query_buildfiles_with_load() {
     expect_log //y:BUILD
     expect_log //y:rules.bzl
 
+    # null terminated:
+    bazel query --noshow_progress --null 'buildfiles(//x)' >null.log ||
+        fail "Expected null success"
+    printf '//y:rules.bzl\0//y:BUILD\0//x:BUILD\0' >null.ref.log
+    cmp null.ref.log null.log || fail "Expected match"
+
     # Missing skylark file:
     rm -f y/rules.bzl
     bazel query --noshow_progress 'buildfiles(//x)' 2>$TEST_log &&
