@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsBase;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -48,8 +49,15 @@ public class SandboxModule extends BlazeModule {
   private BuildRequest buildRequest;
 
   private synchronized boolean isSandboxingSupported(CommandEnvironment env) {
-    if (sandboxingSupported == null) {
-      sandboxingSupported = LinuxSandboxRunner.isSupported(env);
+    switch (OS.getCurrent()) {
+      case LINUX:
+        sandboxingSupported = LinuxSandboxRunner.isSupported(env);
+        break;
+      case DARWIN:
+        sandboxingSupported = DarwinSandboxRunner.isSupported();
+        break;
+      default:
+        sandboxingSupported = false;
     }
     return sandboxingSupported.booleanValue();
   }
@@ -59,8 +67,15 @@ public class SandboxModule extends BlazeModule {
     Preconditions.checkNotNull(buildRequest);
     Preconditions.checkNotNull(env);
     if (isSandboxingSupported(env)) {
-      return ImmutableList.<ActionContextProvider>of(
-          new SandboxActionContextProvider(env, buildRequest, backgroundWorkers));
+      Iterable<ActionContextProvider> ret;
+      try {
+        ret =
+            ImmutableList.<ActionContextProvider>of(
+                SandboxActionContextProvider.create(env, buildRequest, backgroundWorkers));
+      } catch (IOException e) {
+        throw new IllegalArgumentException(e);
+      }
+      return ret;
     }
 
     // For now, sandboxing is only supported on Linux and there's not much point in showing a scary
