@@ -48,6 +48,9 @@ def compute_data_path(out, data_path):
     elif data_path[0] == "/":  # Absolute path
       return data_path[1:]
     else:  # Relative to a sub-directory
-      return _short_path_dirname(out) + "/" + data_path
+      tmp_short_path_dirname = _short_path_dirname(out)
+      if tmp_short_path_dirname:
+        return tmp_short_path_dirname + "/" + data_path
+      return data_path
   else:
     return None
