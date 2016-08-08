@@ -145,6 +145,7 @@ public class BlazeCommandDispatcher {
   private final BlazeRuntime runtime;
   private final Object commandLock;
   private String currentClientDescription = null;
+  private String shutdownReason = null;
   private OutputStream logOutputStream = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
       CacheBuilder.newBuilder().build(
@@ -319,7 +320,14 @@ public class BlazeCommandDispatcher {
     }
 
     try {
+      if (shutdownReason != null) {
+        outErr.printErrLn("Server shut down " + shutdownReason);
+        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
+      }
       return execExclusively(args, outErr, firstContactTime, commandName, command, waitTimeInMs);
+    } catch (ShutdownBlazeServerException e) {
+      shutdownReason = "explicitly by client " + currentClientDescription;
+      throw e;
     } finally {
       synchronized (commandLock) {
         currentClientDescription = null;
