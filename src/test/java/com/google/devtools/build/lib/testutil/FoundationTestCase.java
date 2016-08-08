@@ -24,11 +24,9 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
-
-import java.util.Set;
 
 /**
  * A helper class for implementing tests of the "foundation" library.
@@ -42,16 +40,22 @@ public abstract class FoundationTestCase {
   protected EventCollector eventCollector;
   protected Scratch scratch;
 
+  /** Returns the Scratch instance for this test case. */
+  public Scratch getScratch() {
+    return scratch;
+  }
+
   // Individual tests can opt-out of this handler if they expect an error, by
   // calling reporter.removeHandler(failFastHandler).
-  protected static final EventHandler failFastHandler = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        if (EventKind.ERRORS.contains(event.getKind())) {
-          fail(event.toString());
+  protected static final EventHandler failFastHandler =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {
+          if (EventKind.ERRORS.contains(event.getKind())) {
+            fail(event.toString());
+          }
         }
-      }
-    };
+      };
 
   protected static final EventHandler printHandler = new EventHandler() {
       @Override
