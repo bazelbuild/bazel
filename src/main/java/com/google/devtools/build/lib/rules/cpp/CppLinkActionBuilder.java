@@ -927,7 +927,6 @@ public class CppLinkActionBuilder {
     this.linkstamps.addAll(linkstamps.keySet());
     // Add inputs for linkstamping.
     if (!linkstamps.isEmpty()) {
-      addTransitiveCompilationInputs(toolchain.getCompile());
       for (Map.Entry<Artifact, NestedSet<Artifact>> entry : linkstamps.entrySet()) {
         addCompilationInputs(entry.getValue());
       }
