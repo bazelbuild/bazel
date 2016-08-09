@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -91,7 +92,7 @@ public abstract class BlazeModule {
    */
   @SuppressWarnings("unused")
   public void blazeStartup(OptionsProvider startupOptions,
-      BlazeVersionInfo versionInfo, UUID instanceId, BlazeDirectories directories,
+      BlazeVersionInfo versionInfo, UUID instanceId, ServerDirectories directories,
       Clock clock) throws AbruptExitException {
   }
 

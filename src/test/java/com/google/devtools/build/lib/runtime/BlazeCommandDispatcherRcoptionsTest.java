@@ -24,6 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -128,13 +129,14 @@ public class BlazeCommandDispatcherRcoptionsTest {
   @Before
   public final void initializeRuntime() throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
+    ServerDirectories serverDirectories =
+        new ServerDirectories(scratch.dir("install_base"), scratch.dir("output_base"));
     BlazeDirectories directories =
-        new BlazeDirectories(
-            scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("pkg"),
-            productName);
+        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
     this.runtime =
         new BlazeRuntime.Builder()
             .setProductName(productName)
+            .setServerDirectories(serverDirectories)
             .setDirectories(directories)
             .setStartupOptionsProvider(
                 OptionsParser.newOptionsParser(BlazeServerStartupOptions.class))

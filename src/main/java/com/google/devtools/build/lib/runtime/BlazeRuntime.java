@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -916,10 +917,11 @@ public final class BlazeRuntime {
               Predicates.notNull()));
     }
 
+    ServerDirectories serverDirectories =
+        new ServerDirectories(installBasePath, outputBasePath, startupOptions.installMD5);
     BlazeDirectories directories =
-        new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath,
-                             startupOptions.deepExecRoot, startupOptions.installMD5,
-                             productName);
+        new BlazeDirectories(
+            serverDirectories, workspaceDirectoryPath, startupOptions.deepExecRoot, productName);
 
     Clock clock = BlazeClock.instance();
 
@@ -934,6 +936,7 @@ public final class BlazeRuntime {
 
     BlazeRuntime.Builder runtimeBuilder = new BlazeRuntime.Builder()
         .setProductName(productName)
+        .setServerDirectories(serverDirectories)
         .setDirectories(directories)
         .setStartupOptionsProvider(options)
         .setBinTools(binTools)
@@ -1027,6 +1030,7 @@ public final class BlazeRuntime {
    * an exception. Please plan appropriately.
    */
   public static class Builder {
+    private ServerDirectories serverDirectories;
     private BlazeDirectories directories;
     private Clock clock;
     private OptionsProvider startupOptionsProvider;
@@ -1038,6 +1042,7 @@ public final class BlazeRuntime {
 
     public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(productName);
+      Preconditions.checkNotNull(serverDirectories);
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(startupOptionsProvider);
       Clock clock = (this.clock == null) ? BlazeClock.instance() : this.clock;
@@ -1047,7 +1052,7 @@ public final class BlazeRuntime {
 
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(startupOptionsProvider,
-            BlazeVersionInfo.instance(), instanceId, directories, clock);
+            BlazeVersionInfo.instance(), instanceId, serverDirectories, clock);
       }
       ServerBuilder serverBuilder = new ServerBuilder();
       for (BlazeModule module : blazeModules) {
@@ -1070,7 +1075,7 @@ public final class BlazeRuntime {
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
         Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, directories.getFileSystem());
+            module.getPackageBuilderHelper(ruleClassProvider, serverDirectories.getFileSystem());
         if (candidateHelper != null) {
           Preconditions.checkState(packageBuilderHelper == null,
               "more than one module defines a package builder helper");
@@ -1130,6 +1135,11 @@ public final class BlazeRuntime {
 
     public Builder setBinTools(BinTools binTools) {
       this.binTools = binTools;
+      return this;
+    }
+
+    public Builder setServerDirectories(ServerDirectories serverDirectories) {
+      this.serverDirectories = serverDirectories;
       return this;
     }
 

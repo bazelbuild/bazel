@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -26,21 +24,20 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import javax.annotation.Nullable;
-
 /**
- * Encapsulation of all of the interesting top-level directories in any Blaze application.
+ * Encapsulates the directories related to a workspace.
  *
- * <p>The <code>installBase</code> is the directory where the Blaze binary has been installed.The
- * <code>workspace</code> is the top-level directory in the user's client (possibly read-only).The
- * <code>outputBase</code> is the directory below which Blaze puts all its state. The
- * <code>execRoot</code> is the working directory for all spawned tools, which is generally below
- * <code>outputBase</code>.
+ * <p>The <code>workspace</code> is the top-level directory in the user's client (possibly
+ * read-only). The <code>execRoot</code> is the working directory for all spawned tools, which is
+ * generally below the <code>outputBase</code>.
  *
- * <p>There is a 1:1 correspondence between a running Blaze instance and an output base directory;
- * however, multiple Blaze instances may compile code that's in the same workspace, even on the same
- * machine. If the user does not qualify an output base directory, the startup code will derive it
- * deterministically from the workspace. Note also that while the Blaze server process runs with the
+ * <p>Care must be taken to avoid multiple Bazel instances trying to write to the same output
+ * directory. At this time, this is enforced by requiring a 1:1 correspondence between a running
+ * Bazel instance and an output base directory, though this requirement may be softened in the
+ * future.
+ *
+ * <p>If the user does not qualify an output base directory, the startup code will derive it
+ * deterministically from the workspace. Note also that while the Bazel server process runs with the
  * workspace directory as its working directory, the client process may have a different working
  * directory, typically a subdirectory.
  *
@@ -54,27 +51,27 @@ public final class BlazeDirectories {
   @VisibleForTesting
   static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
-  private final Path installBase;     // Where Blaze gets unpacked
-  private final HashCode installMD5;  // The content hash of everything in installBase
-  private final Path workspace;       // Workspace root and server CWD
-  private final Path outputBase;      // The root of the temp and output trees
-  private final Path execRoot;        // the root of all build actions
+  private final ServerDirectories serverDirectories;
+  /** Workspace root and server CWD. */
+  private final Path workspace;
+  /** The root of all build actions. */
+  private final Path execRoot;
 
   // These two are kept to avoid creating new objects every time they are accessed. This showed up
   // in a profiler.
   private final Path outputPath;
   private final Path localOutputPath;
 
-  public BlazeDirectories(Path installBase, Path outputBase, Path workspace,
-      boolean deepExecRoot, @Nullable String installMD5, String productName) {
-    this.installBase = installBase;
+  public BlazeDirectories(
+      ServerDirectories serverDirectories,
+      Path workspace,
+      boolean deepExecRoot,
+      String productName) {
+    this.serverDirectories = serverDirectories;
     this.workspace = workspace;
-    this.outputBase = outputBase;
-    this.installMD5 =
-        Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5));
     boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
-    Path execRootBase = deepExecRoot
-        ? outputBase.getChild("execroot") : outputBase;
+    Path outputBase = serverDirectories.getOutputBase();
+    Path execRootBase = deepExecRoot ? outputBase.getChild("execroot") : outputBase;
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
       // a lot of code that depends on it being non-null.
@@ -91,15 +88,14 @@ public final class BlazeDirectories {
     this.localOutputPath = outputBase.getRelative(relativeOutputPath);
   }
 
-  private static HashCode checkMD5(HashCode hash) {
-    Preconditions.checkArgument(hash.bits() == Hashing.md5().bits(),
-                                "Hash '%s' has %s bits", hash, hash.bits());
-    return hash;
+  @VisibleForTesting
+  public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
+    this(serverDirectories, workspace, false, productName);
   }
 
   @VisibleForTesting
   public BlazeDirectories(Path installBase, Path outputBase, Path workspace, String productName) {
-    this(installBase, outputBase, workspace, false, null, productName);
+    this(new ServerDirectories(installBase, outputBase), workspace, false, productName);
   }
 
   /**
@@ -107,14 +103,19 @@ public final class BlazeDirectories {
    * resolving absolute paths.
    */
   public FileSystem getFileSystem() {
-    return installBase.getFileSystem();
+    return serverDirectories.getFileSystem();
+  }
+
+  public ServerDirectories getServerDirectories() {
+    return serverDirectories;
   }
 
   /**
-   * Returns the installation base directory. Currently used by info command only.
+   * Returns the base of the output tree, which hosts all build and scratch
+   * output for a user and workspace.
    */
   public Path getInstallBase() {
-    return installBase;
+    return serverDirectories.getInstallBase();
   }
 
   /**
@@ -136,7 +137,7 @@ public final class BlazeDirectories {
    * output for a user and workspace.
    */
   public Path getOutputBase() {
-    return outputBase;
+    return serverDirectories.getOutputBase();
   }
 
   /**
@@ -191,7 +192,7 @@ public final class BlazeDirectories {
    * installBase location.
    */
   public Path getEmbeddedBinariesRoot() {
-    return installBase.getChild("_embedded_binaries");
+    return serverDirectories.getEmbeddedBinariesRoot();
   }
 
   /**
@@ -207,7 +208,7 @@ public final class BlazeDirectories {
   * anything else that ends up in the install_base).
   */
   public HashCode getInstallMD5() {
-    return installMD5;
+    return serverDirectories.getInstallMD5();
   }
 
   /**
@@ -217,5 +218,4 @@ public final class BlazeDirectories {
   public static String getRelativeOutputPath(String productName) {
     return StringCanonicalizer.intern(productName + "-out");
   }
-
 }
