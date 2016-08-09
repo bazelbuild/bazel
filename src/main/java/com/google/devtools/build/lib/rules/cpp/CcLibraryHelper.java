@@ -663,8 +663,6 @@ public final class CcLibraryHelper {
    * respectively.
    */
   public CcLibraryHelper addPrecompiledFiles(PrecompiledFiles precompiledFiles) {
-    addCompilationPrerequisites(precompiledFiles.getSharedLibraries());
-    addCompilationPrerequisites(precompiledFiles.getStaticLibraries());
     addObjectFiles(precompiledFiles.getObjectFiles(false));
     addPicObjectFiles(precompiledFiles.getObjectFiles(true));
     return this;
