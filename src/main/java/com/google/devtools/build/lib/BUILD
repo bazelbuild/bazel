@@ -443,6 +443,11 @@ java_library(
 )
 
 java_library(
+    name = "execution-info-specifier",
+    srcs = ["analysis/actions/ExecutionInfoSpecifier.java"],
+)
+
+java_library(
     name = "transitive-info-provider",
     srcs = ["analysis/TransitiveInfoProvider.java"],
 )
@@ -480,6 +485,7 @@ java_library(
         ":collect",
         ":concurrent",
         ":events",
+        ":execution-info-specifier",
         ":exitcode-external",
         ":flags",
         ":graph",

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
@@ -64,7 +65,6 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,16 +77,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
-/**
- * Action that represents some kind of C++ compilation step.
- */
+/** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction
-    implements IncludeScannable, ExecutionInfoSpecifier {
+    implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
   /**
    * Represents logic that determines if an artifact is a special input, meaning that it may require
    * additional inputs when it is compiled or may not be available to other actions.
@@ -613,10 +610,7 @@ public class CppCompileAction extends AbstractAction
     return context.getDefines();
   }
 
-  /**
-   * Returns an (immutable) map of environment key, value pairs to be
-   * provided to the C++ compiler.
-   */
+  @Override
   public ImmutableMap<String, String> getEnvironment() {
     Map<String, String> environment = new LinkedHashMap<>(configuration.getLocalShellEnvironment());
     if (configuration.isCodeCoverageEnabled()) {
@@ -659,6 +653,11 @@ public class CppCompileAction extends AbstractAction
    */
   public final List<String> getArgv() {
     return getArgv(getInternalOutputFile());
+  }
+
+  @Override
+  public List<String> getArguments() {
+    return getArgv();
   }
 
   protected final List<String> getArgv(PathFragment outputFile) {

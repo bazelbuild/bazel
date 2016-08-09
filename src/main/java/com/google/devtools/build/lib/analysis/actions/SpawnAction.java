@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -60,10 +61,8 @@ import java.util.Map;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
-/**
- * An Action representing an arbitrary subprocess to be forked and exec'd.
- */
-public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier {
+/** An Action representing an arbitrary subprocess to be forked and exec'd. */
+public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier, CommandAction {
   private static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
     private final T value;
@@ -191,9 +190,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     this.extraActionInfoSupplier = extraActionInfoSupplier;
   }
 
-  /**
-   * Returns the (immutable) list of all arguments, including the command name, argv[0].
-   */
+  @Override
   @VisibleForTesting
   public List<String> getArguments() {
     return ImmutableList.copyOf(argv.arguments());
@@ -353,10 +350,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
   }
 
-  /**
-   * Returns the environment in which to run this action.
-   */
-  public Map<String, String> getEnvironment() {
+  @Override
+  public ImmutableMap<String, String> getEnvironment() {
     return environment;
   }
 
