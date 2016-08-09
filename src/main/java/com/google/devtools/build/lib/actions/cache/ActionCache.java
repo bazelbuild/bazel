@@ -61,12 +61,6 @@ public interface ActionCache {
   void remove(String key);
 
   /**
-   * Returns a new Entry instance. This method allows ActionCache subclasses to
-   * define their own Entry implementation.
-   */
-  ActionCache.Entry createEntry(String key, boolean discoversInputs);
-
-  /**
    * An entry in the ActionCache that contains all action input and output
    * artifact paths and their metadata plus action key itself.
    *

@@ -239,11 +239,6 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
-  public ActionCache.Entry createEntry(String key, boolean discoversInputs) {
-    return new ActionCache.Entry(key, discoversInputs);
-  }
-
-  @Override
   public ActionCache.Entry get(String key) {
     int index = indexer.getIndex(key);
     if (index < 0) {

@@ -401,11 +401,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       actionCache.remove(key);
     }
 
-    @Override
-    public Entry createEntry(String key, boolean discoversInputs) {
-      return new ActionCache.Entry(key, discoversInputs);
-    }
-
     public synchronized void reset() {
       actionCache.clear();
     }

@@ -217,7 +217,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   private void putKey(String key, ActionCache ac, boolean discoversInputs) {
-    ActionCache.Entry entry = ac.createEntry(key, discoversInputs);
+    ActionCache.Entry entry = new ActionCache.Entry(key, discoversInputs);
     entry.getFileDigest();
     ac.put(key, entry);
   }
