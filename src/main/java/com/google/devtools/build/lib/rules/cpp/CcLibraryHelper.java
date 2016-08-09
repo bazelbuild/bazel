@@ -259,6 +259,7 @@ public final class CcLibraryHelper {
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
+  private final List<Artifact> linkActionInputs = new ArrayList<>();
   
   @Nullable private Artifact dynamicLibrary;
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
@@ -695,6 +696,15 @@ public final class CcLibraryHelper {
     Iterables.addAll(this.includeDirs, includeDirs);
     return this;
   }
+  
+  /**
+   * Adds the given artifact to the input of any generated link actions.
+   */
+  public CcLibraryHelper addLinkActionInput(Artifact input) {
+    Preconditions.checkNotNull(input);
+    this.linkActionInputs.add(input);
+    return this;
+  }
 
   /**
    * Adds a variableExtension to template the crosstool.
@@ -1062,6 +1072,7 @@ public final class CcLibraryHelper {
         .addCopts(copts)
         .setLinkTargetType(linkType)
         .setNeverLink(neverlink)
+        .addLinkActionInputs(linkActionInputs)
         .setFake(fake)
         .setAllowInterfaceSharedObjects(emitInterfaceSharedObjects)
         .setCreateDynamicLibrary(emitDynamicLibrary)

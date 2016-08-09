@@ -146,6 +146,9 @@ public class CppLinkActionBuilder {
 
   private boolean isLTOIndexing = false;
   private Iterable<LTOBackendArtifacts> allLTOArtifacts = null;
+  
+  private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
+  private final List<Artifact> linkActionInputs = new ArrayList<>();
 
   /**
    * Creates a builder that builds {@link CppLinkAction} instances.
@@ -510,6 +513,9 @@ public class CppLinkActionBuilder {
                 runtimeLinkerInputs,
                 output);
     variablesExtension.addVariables(buildVariablesBuilder);
+    for (VariablesExtension extraVariablesExtension : variablesExtensions) {
+      extraVariablesExtension.addVariables(buildVariablesBuilder);
+    }
     Variables buildVariables = buildVariablesBuilder.build();
 
     PathFragment paramRootPath =
@@ -597,6 +603,7 @@ public class CppLinkActionBuilder {
     // Compute the set of inputs - we only need stable order here.
     NestedSetBuilder<Artifact> dependencyInputsBuilder = NestedSetBuilder.stableOrder();
     dependencyInputsBuilder.addTransitive(crosstoolInputs);
+    dependencyInputsBuilder.addAll(linkActionInputs);
     if (runtimeMiddleman != null) {
       dependencyInputsBuilder.add(runtimeMiddleman);
     }
@@ -798,6 +805,14 @@ public class CppLinkActionBuilder {
     return this;
   }
 
+  /**
+   * Adds variables extensions to template the toolchain for this link action.
+   */
+   public CppLinkActionBuilder addVariablesExtension(List<VariablesExtension> variablesExtensions) {
+     this.variablesExtensions.addAll(variablesExtensions);
+     return this;
+   }
+  
   /**
    * Sets the interface output of the link. A non-null argument can only be provided if the link
    * type is {@code DYNAMIC_LIBRARY} and fake is false.
@@ -1049,6 +1064,14 @@ public class CppLinkActionBuilder {
    */
   public CppLinkActionBuilder setRuntimeSolibDir(PathFragment runtimeSolibDir) {
     this.runtimeSolibDir = runtimeSolibDir;
+    return this;
+  }
+  
+  /**
+   * Sets extra input artifacts to the link action.
+   */
+  public CppLinkActionBuilder addActionInputs(Collection<Artifact> inputs) {
+    this.linkActionInputs.addAll(inputs);
     return this;
   }
 
