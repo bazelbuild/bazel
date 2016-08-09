@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 /**
  * Implementation for {@code objc_library}.
@@ -56,7 +56,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
       ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
       for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
-        libraries.add(LinkerInputs.opaqueLibraryToLink(library));
+        libraries.add(LinkerInputs.opaqueLibraryToLink(
+            library, FileSystemUtils.removeExtension(library.getRootRelativePathString())));
       }
 
       libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));

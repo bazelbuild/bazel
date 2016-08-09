@@ -213,7 +213,7 @@ public abstract class MockCcSupport {
       ""
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
-          + "   pattern: '%{base_name}.lib'"
+          + "   pattern: 'lib%{base_name}.lib'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =

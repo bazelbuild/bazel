@@ -843,7 +843,9 @@ public final class CppModel {
     // If the crosstool is configured to select an output artifact, we use that selection.
     // Otherwise, we use linux defaults.
     Artifact linkedArtifact = getLinkedArtifact(linkType);
-
+    PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
+    String libraryIdentifier = ruleContext.getPackageDirectory().getRelative(
+        labelName.replaceName("lib" + labelName.getBaseName())).getPathString();
     CppLinkAction maybePicAction =
         newLinkActionBuilder(linkedArtifact)
             .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForBinaries))
@@ -851,6 +853,7 @@ public final class CppModel {
             .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .setLibraryIdentifier(libraryIdentifier)
             .setFeatureConfiguration(featureConfiguration)
             .build();
     env.registerAction(maybePicAction);
@@ -875,6 +878,7 @@ public final class CppModel {
               .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
               .setLinkType(picLinkType)
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+              .setLibraryIdentifier(libraryIdentifier)
               .setFeatureConfiguration(featureConfiguration)
               .build();
       env.registerAction(picAction);
@@ -887,12 +891,21 @@ public final class CppModel {
 
     // Create dynamic library.
     Artifact soImpl;
+    String mainLibraryIdentifier;
     if (soImplArtifact == null) {
       // If the crosstool is configured to select an output artifact, we use that selection.
       // Otherwise, we use linux defaults.
       soImpl = getLinkedArtifact(LinkTargetType.DYNAMIC_LIBRARY);
+      mainLibraryIdentifier = libraryIdentifier;
     } else {
+      // This branch is only used for vestigial Google-internal rules where the name of the output
+      // file is explicitly specified in the BUILD file and as such, is platform-dependent. Thus,
+      // we just hardcode some reasonable logic to compute the library identifier and hope that this
+      // will eventually go away.
       soImpl = soImplArtifact;
+      mainLibraryIdentifier = FileSystemUtils.removeExtension(
+          soImpl.getRootRelativePath().getPathString());
+
     }
 
     List<String> sonameLinkopts = ImmutableList.of();
@@ -914,6 +927,7 @@ public final class CppModel {
             .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
             .setLinkStaticness(LinkStaticness.DYNAMIC)
+            .setLibraryIdentifier(mainLibraryIdentifier)
             .addLinkopts(linkopts)
             .addLinkopts(sonameLinkopts)
             .setRuntimeInputs(
@@ -943,6 +957,10 @@ public final class CppModel {
       interfaceLibrary = dynamicLibrary;
     }
 
+    if (linkType == LinkTargetType.EXECUTABLE) {
+      return result.build();
+    }
+
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
     // mangled name only.
@@ -950,14 +968,16 @@ public final class CppModel {
       result.addDynamicLibrary(interfaceLibrary);
       result.addExecutionDynamicLibrary(dynamicLibrary);
     } else {
-      LibraryToLink libraryLink = SolibSymlinkAction.getDynamicLibrarySymlink(
+      Artifact libraryLink = SolibSymlinkAction.getDynamicLibrarySymlink(
           ruleContext, interfaceLibrary.getArtifact(), false, false,
           ruleContext.getConfiguration());
-      result.addDynamicLibrary(libraryLink);
-      LibraryToLink implLibraryLink = SolibSymlinkAction.getDynamicLibrarySymlink(
+      result.addDynamicLibrary(LinkerInputs.solibLibraryToLink(
+          libraryLink, interfaceLibrary.getArtifact(), libraryIdentifier));
+      Artifact implLibraryLink = SolibSymlinkAction.getDynamicLibrarySymlink(
           ruleContext, dynamicLibrary.getArtifact(), false, false,
           ruleContext.getConfiguration());
-      result.addExecutionDynamicLibrary(implLibraryLink);
+      result.addExecutionDynamicLibrary(LinkerInputs.solibLibraryToLink(
+          implLibraryLink, dynamicLibrary.getArtifact(), libraryIdentifier));
     }
     return result.build();
   }

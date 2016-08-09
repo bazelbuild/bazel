@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -252,6 +251,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       linkActionBuilder.setLTOIndexing(false);
     }
 
+    if (isLinkShared(ruleContext)) {
+      linkActionBuilder.setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(binary));
+    }
+
     CppLinkAction linkAction = linkActionBuilder.build();
     ruleContext.registerAction(linkAction);
     LibraryToLink outputLibrary = linkAction.getOutputLibrary();
@@ -269,9 +272,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
     // Also add all shared libraries from srcs.
     for (Artifact library : precompiledFiles.getSharedLibraries()) {
-      LibraryToLink symlink = common.getDynamicLibrarySymlink(library, true);
-      linkingOutputsBuilder.addDynamicLibrary(symlink);
-      linkingOutputsBuilder.addExecutionDynamicLibrary(symlink);
+      Artifact symlink = common.getDynamicLibrarySymlink(library, true);
+      LibraryToLink symlinkLibrary = LinkerInputs.solibLibraryToLink(
+          symlink, library, CcLinkingOutputs.libraryIdentifierOf(library));
+      linkingOutputsBuilder.addDynamicLibrary(symlinkLibrary);
+      linkingOutputsBuilder.addExecutionDynamicLibrary(symlinkLibrary);
     }
     CcLinkingOutputs linkingOutputs = linkingOutputsBuilder.build();
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, executable);
@@ -414,9 +419,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // entries during linking process.
     for (Artifact library : precompiledFiles.getLibraries()) {
       if (SHARED_LIBRARY_FILETYPES.matches(library.getFilename())) {
-        builder.addLibrary(common.getDynamicLibrarySymlink(library, true));
+        builder.addLibrary(LinkerInputs.solibLibraryToLink(
+            common.getDynamicLibrarySymlink(library, true), library,
+            CcLinkingOutputs.libraryIdentifierOf(library)));
       } else {
-        builder.addLibrary(LinkerInputs.opaqueLibraryToLink(library));
+        builder.addLibrary(LinkerInputs.precompiledLibraryToLink(library));
       }
     }
 

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -475,8 +473,8 @@ public final class CcCommon {
    * @param preserveName true if filename should be preserved, false - mangled.
    * @return mangled symlink artifact.
    */
-  public LibraryToLink getDynamicLibrarySymlink(Artifact library, boolean preserveName) {
-    return SolibSymlinkAction.getDynamicLibrarySymlink(
+  public Artifact getDynamicLibrarySymlink(Artifact library, boolean preserveName) {
+    return  SolibSymlinkAction.getDynamicLibrarySymlink(
         ruleContext, library, preserveName, true, ruleContext.getConfiguration());
   }
 

@@ -111,6 +111,13 @@ public abstract class LinkerInputs {
    */
   public interface LibraryToLink extends LinkerInput {
     Iterable<Artifact> getLTOBitcodeFiles();
+
+    /**
+     * Return the identifier for the library. This is used for de-duplication of linker inputs: two
+     * libraries should have the same identifier iff they are in fact the same library but linked
+     * in a different way (e.g. static/dynamic, PIC/no-PIC)
+     */
+    String getLibraryIdentifier();
   }
 
   /**
@@ -121,10 +128,13 @@ public abstract class LinkerInputs {
   public static class SolibLibraryToLink implements LibraryToLink {
     private final Artifact solibSymlinkArtifact;
     private final Artifact libraryArtifact;
+    private final String libraryIdentifier;
 
-    private SolibLibraryToLink(Artifact solibSymlinkArtifact, Artifact libraryArtifact) {
+    private SolibLibraryToLink(Artifact solibSymlinkArtifact, Artifact libraryArtifact,
+        String libraryIdentifier) {
       this.solibSymlinkArtifact = Preconditions.checkNotNull(solibSymlinkArtifact);
       this.libraryArtifact = libraryArtifact;
+      this.libraryIdentifier = libraryIdentifier;
     }
 
     @Override
@@ -136,6 +146,11 @@ public abstract class LinkerInputs {
     @Override
     public Artifact getArtifact() {
       return solibSymlinkArtifact;
+    }
+
+    @Override
+    public String getLibraryIdentifier() {
+      return libraryIdentifier;
     }
 
     @Override
@@ -192,14 +207,17 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   private static class CompoundLibraryToLink implements LibraryToLink {
     private final Artifact libraryArtifact;
+    private final String libraryIdentifier;
     private final Iterable<Artifact> objectFiles;
     private final Iterable<Artifact> ltoBitcodeFiles;
 
     private CompoundLibraryToLink(
         Artifact libraryArtifact,
+        String libraryIdentifier,
         Iterable<Artifact> objectFiles,
         Iterable<Artifact> ltoBitcodeFiles) {
       this.libraryArtifact = Preconditions.checkNotNull(libraryArtifact);
+      this.libraryIdentifier = libraryIdentifier;
       this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
       this.ltoBitcodeFiles =
           (ltoBitcodeFiles == null)
@@ -220,6 +238,11 @@ public abstract class LinkerInputs {
     @Override
     public Artifact getOriginalLibraryArtifact() {
       return libraryArtifact;
+    }
+
+    @Override
+    public String getLibraryIdentifier() {
+      return libraryIdentifier;
     }
 
     @Override
@@ -302,7 +325,7 @@ public abstract class LinkerInputs {
     return Iterables.transform(input, new Function<Artifact, LibraryToLink>() {
       @Override
       public LibraryToLink apply(Artifact artifact) {
-        return opaqueLibraryToLink(artifact);
+        return precompiledLibraryToLink(artifact);
       }
     });
   }
@@ -310,29 +333,37 @@ public abstract class LinkerInputs {
   /**
    * Creates a solib library symlink from the given artifact.
    */
-  public static LibraryToLink solibLibraryToLink(Artifact solibSymlink, Artifact original) {
-    return new SolibLibraryToLink(solibSymlink, original);
+  public static LibraryToLink solibLibraryToLink(
+      Artifact solibSymlink, Artifact original, String libraryIdentifier) {
+    return new SolibLibraryToLink(solibSymlink, original, libraryIdentifier);
   }
 
   /**
    * Creates an input library for which we do not know what objects files it consists of.
    */
-  public static LibraryToLink opaqueLibraryToLink(Artifact artifact) {
+  public static LibraryToLink precompiledLibraryToLink(Artifact artifact) {
     // This precondition check was in place and *most* of the tests passed with them; the only
     // exception is when you mention a generated .a file in the srcs of a cc_* rule.
     // It was very useful for proving that this actually works, though.
     // Preconditions.checkArgument(
     //     !(artifact.getGeneratingAction() instanceof CppLinkAction) ||
     //     !Link.ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
-    return new CompoundLibraryToLink(artifact, null, null);
+    return new CompoundLibraryToLink(
+        artifact, CcLinkingOutputs.libraryIdentifierOf(artifact), null, null);
+  }
+
+  public static LibraryToLink opaqueLibraryToLink(
+      Artifact artifact, String libraryIdentifier) {
+    return new CompoundLibraryToLink(artifact, libraryIdentifier, null, null);
   }
 
   /**
    * Creates a library to link with the specified object files.
    */
   public static LibraryToLink newInputLibrary(
-      Artifact library, Iterable<Artifact> objectFiles, Iterable<Artifact> ltoBitcodeFiles) {
-    return new CompoundLibraryToLink(library, objectFiles, ltoBitcodeFiles);
+      Artifact library, String libraryIdentifier, Iterable<Artifact> objectFiles,
+      Iterable<Artifact> ltoBitcodeFiles) {
+    return new CompoundLibraryToLink(library, libraryIdentifier, objectFiles, ltoBitcodeFiles);
   }
 
   private static final Function<LibraryToLink, Artifact> LIBRARY_TO_NON_SOLIB =

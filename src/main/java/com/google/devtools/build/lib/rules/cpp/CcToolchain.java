@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -150,7 +149,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
           dynamicRuntimeLinkInputsBuilder.add(SolibSymlinkAction.getCppRuntimeSymlink(
               ruleContext, artifact, runtimeSolibDirBase,
-              ruleContext.getConfiguration()).getArtifact());
+              ruleContext.getConfiguration()));
         } else {
           dynamicRuntimeLinkInputsBuilder.add(artifact);
         }
