@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -219,7 +220,7 @@ public final class SkylarkRuleContext {
 
       this.artifactsLabelMap = artifactLabelMapBuilder.build();
       this.outputsObject =
-          new SkylarkClassObject(
+          SkylarkClassObjectConstructor.STRUCT.create(
               outputsBuilder,
               "No attribute '%s' in outputs. Make sure you declared a rule output with this name.");
 
@@ -351,21 +352,21 @@ public final class SkylarkRuleContext {
         ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap) {
       this.ruleClassName = ruleClassName;
       attrObject =
-          new SkylarkClassObject(
+          SkylarkClassObjectConstructor.STRUCT.create(
               attrs,
               "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.");
       executableObject =
-          new SkylarkClassObject(
+          SkylarkClassObjectConstructor.STRUCT.create(
               executables,
               "No attribute '%s' in executable. Make sure there is a label type attribute marked "
                   + "as 'executable' with this name");
       fileObject =
-          new SkylarkClassObject(
+          SkylarkClassObjectConstructor.STRUCT.create(
               singleFiles,
               "No attribute '%s' in file. Make sure there is a label type attribute marked "
                   + "as 'single_file' with this name");
       filesObject =
-          new SkylarkClassObject(
+          SkylarkClassObjectConstructor.STRUCT.create(
               files,
               "No attribute '%s' in files. Make sure there is a label or label_list type attribute "
                   + "with this name");

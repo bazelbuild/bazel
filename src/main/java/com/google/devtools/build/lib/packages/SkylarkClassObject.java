@@ -46,6 +46,7 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   /** Error message to use when errorMessage argument is null. */
   private static final String DEFAULT_ERROR_MESSAGE = "'struct' object has no attribute '%s'";
 
+  private final SkylarkClassObjectConstructor constructor;
   private final ImmutableMap<String, Object> values;
   private final Location creationLoc;
   private final String errorMessage;
@@ -54,7 +55,9 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
    * Primarily for testing purposes where no location is available and the default
    * errorMessage suffices.
    */
-  public SkylarkClassObject(Map<String, Object> values) {
+  public SkylarkClassObject(SkylarkClassObjectConstructor constructor,
+      Map<String, Object> values) {
+    this.constructor = constructor;
     this.values = copyValues(values);
     this.creationLoc = null;
     this.errorMessage = DEFAULT_ERROR_MESSAGE;
@@ -64,13 +67,17 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
    * Creates a built-in struct (i.e. without creation loc). The errorMessage has to have
    * exactly one '%s' parameter to substitute the struct field name.
    */
-  public SkylarkClassObject(Map<String, Object> values, String errorMessage) {
+  public SkylarkClassObject(SkylarkClassObjectConstructor constructor,
+      Map<String, Object> values, String errorMessage) {
+    this.constructor = constructor;
     this.values = copyValues(values);
     this.creationLoc = null;
     this.errorMessage = Preconditions.checkNotNull(errorMessage);
   }
 
-  public SkylarkClassObject(Map<String, Object> values, Location creationLoc) {
+  public SkylarkClassObject(SkylarkClassObjectConstructor constructor,
+      Map<String, Object> values, Location creationLoc) {
+    this.constructor = constructor;
     this.values = copyValues(values);
     this.creationLoc = Preconditions.checkNotNull(creationLoc);
     this.errorMessage = DEFAULT_ERROR_MESSAGE;
@@ -133,8 +140,12 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
         throw new EvalException(loc, "Cannot concat structs with common field(s): "
             + Joiner.on(",").join(commonFields));
       }
-      return new SkylarkClassObject(ImmutableMap.<String, Object>builder()
-          .putAll(lval.values).putAll(rval.values).build(), loc);
+      return new SkylarkClassObject(lval.constructor,
+          ImmutableMap.<String, Object>builder()
+              .putAll(lval.values)
+              .putAll(rval.values)
+              .build(),
+          loc);
     }
   }
 
@@ -163,7 +174,8 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   @Override
   public void write(Appendable buffer, char quotationMark) {
     boolean first = true;
-    Printer.append(buffer, "struct(");
+    Printer.append(buffer, constructor.getName());
+    Printer.append(buffer, "(");
     // Sort by key to ensure deterministic output.
     for (String key : Ordering.natural().sortedCopy(values.keySet())) {
       if (!first) {

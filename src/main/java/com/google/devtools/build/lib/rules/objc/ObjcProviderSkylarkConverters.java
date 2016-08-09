@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -133,7 +134,7 @@ public class ObjcProviderSkylarkConverters {
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
       NestedSetBuilder<SkylarkClassObject> result = NestedSetBuilder.stableOrder();
       for (BundleableFile bundleableFile : (Iterable<BundleableFile>) javaValue) {
-        result.add(new SkylarkClassObject(
+        result.add(SkylarkClassObjectConstructor.STRUCT.create(
             ImmutableMap.<String, Object>of(
                 BUNDLED_FIELD, bundleableFile.getBundled(),
                 BUNDLE_PATH_FIELD, bundleableFile.getBundlePath()

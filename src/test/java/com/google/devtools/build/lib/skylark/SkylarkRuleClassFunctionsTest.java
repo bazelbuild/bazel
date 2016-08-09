@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
@@ -931,18 +932,23 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private static SkylarkClassObject makeStruct(String field, Object value) {
-    return new SkylarkClassObject(ImmutableMap.of(field, value));
+    return SkylarkClassObjectConstructor.STRUCT.create(
+        ImmutableMap.of(field, value),
+        "no field '%'");
   }
 
   private static SkylarkClassObject makeBigStruct(Environment env) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
-    return new SkylarkClassObject(ImmutableMap.<String, Object>of(
-        "a", MutableList.<Object>of(env,
-            new SkylarkClassObject(ImmutableMap.<String, Object>of(
-                "x", SkylarkDict.<Object, Object>of(env, 1, 1))),
-            Tuple.of()),
-        "b", Tuple.of(),
-        "c", SkylarkDict.<Object, Object>of(env, 2, 2)));
+    return SkylarkClassObjectConstructor.STRUCT.create(
+        ImmutableMap.<String, Object>of(
+            "a", MutableList.<Object>of(env,
+                SkylarkClassObjectConstructor.STRUCT.create(ImmutableMap.<String, Object>of(
+                    "x", SkylarkDict.<Object, Object>of(env, 1, 1)),
+                    "no field '%s'"),
+                Tuple.of()),
+            "b", Tuple.of(),
+            "c", SkylarkDict.<Object, Object>of(env, 2, 2)),
+        "no field '%s'");
   }
 
   @Test

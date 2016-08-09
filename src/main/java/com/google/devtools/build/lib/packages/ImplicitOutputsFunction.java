@@ -94,7 +94,9 @@ public abstract class ImplicitOutputsFunction {
           attrValues.put(attrName, value == null ? Runtime.NONE : value);
         }
       }
-      ClassObject attrs = new SkylarkClassObject(attrValues, "Attribute '%s' either doesn't exist "
+      ClassObject attrs = SkylarkClassObjectConstructor.STRUCT.create(
+          attrValues,
+          "Attribute '%s' either doesn't exist "
           + "or uses a select() (i.e. could have multiple values)");
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();

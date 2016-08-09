@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttribut
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
@@ -199,13 +200,8 @@ public class SkylarkRuleClassFunctions {
           + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
       extraKeywords = @Param(name = "kwargs", doc = "the struct attributes"),
       useLocation = true)
-  private static final BuiltinFunction struct = new BuiltinFunction("struct") {
-    @SuppressWarnings("unchecked")
-    public SkylarkClassObject invoke(SkylarkDict<String, Object> kwargs, Location loc)
-        throws EvalException {
-      return new SkylarkClassObject(kwargs, loc);
-    }
-  };
+  private static final SkylarkClassObjectConstructor struct =
+      SkylarkClassObjectConstructor.STRUCT;
 
 
   // TODO(bazel-team): implement attribute copy and other rule properties

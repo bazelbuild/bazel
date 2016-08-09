@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -108,7 +109,8 @@ public class SkylarkRepositoryContext {
                 : SkylarkType.convertToSkylark(val, null));
       }
     }
-    attrObject = new SkylarkClassObject(attrBuilder.build(), "No such attribute '%s'");
+    attrObject = SkylarkClassObjectConstructor.STRUCT.create(
+        attrBuilder.build(), "No such attribute '%s'");
   }
 
   @SkylarkCallable(

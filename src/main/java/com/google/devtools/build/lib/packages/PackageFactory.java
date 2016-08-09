@@ -1526,7 +1526,8 @@ public final class PackageFactory {
         builder.put(function.getName(), function);
       }
     }
-    return new SkylarkClassObject(builder.build(), "no native function or rule '%s'");
+    return SkylarkClassObjectConstructor.STRUCT.create(
+        builder.build(), "no native function or rule '%s'");
   }
 
   private void buildPkgEnv(Environment pkgEnv, PackageContext context, RuleFactory ruleFactory) {
