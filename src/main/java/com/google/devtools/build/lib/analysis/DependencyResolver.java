@@ -22,7 +22,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -94,7 +97,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions)
-      throws EvalException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
     ListMultimap<Attribute, Dependency> outgoingEdges = dependentNodeMap(
         node, hostConfig, aspect, configConditions, rootCauses);
@@ -138,7 +141,7 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Label> rootCauses)
-      throws EvalException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
     ListMultimap<Attribute, Dependency> outgoingEdges = ArrayListMultimap.create();
@@ -168,7 +171,7 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Label> rootCauses,
       ListMultimap<Attribute, Dependency> outgoingEdges)
-      throws EvalException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration());
     Rule rule = (Rule) node.getTarget();
@@ -316,7 +319,7 @@ public abstract class DependencyResolver {
       RuleResolver depResolver,
       BuildConfiguration ruleConfig,
       BuildConfiguration hostConfig)
-      throws EvalException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
     for (Attribute attribute : depResolver.attributes) {
       if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
@@ -327,7 +330,9 @@ public abstract class DependencyResolver {
       LateBoundDefault<BuildConfiguration> lateBoundDefault =
         (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
 
-      if (attribute.hasSplitConfigurationTransition()) {
+      Collection<BuildOptions> splitOptions =
+          getSplitOptions(depResolver.rule, attribute, ruleConfig);
+      if (!splitOptions.isEmpty()) {
         // Late-bound attribute with a split transition:
         // Since we want to get the same results as BuildConfiguration.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
@@ -336,9 +341,18 @@ public abstract class DependencyResolver {
         // of those apply, in the name of keeping the fork as simple as possible.
         Verify.verify(attribute.getConfigurator() == null);
         Verify.verify(!lateBoundDefault.useHostConfiguration());
-        for (BuildConfiguration splitConfig : ruleConfig.getSplitConfigurations(
-            attribute.getSplitTransition(depResolver.rule))) {
-          // TODO(gregce): support dynamic split transitions
+
+        Iterable<BuildConfiguration> splitConfigs;
+        if (!ruleConfig.useDynamicConfigurations()) {
+          splitConfigs = ruleConfig
+              .getSplitConfigurations(attribute.getSplitTransition(depResolver.rule));
+        } else {
+          splitConfigs = getConfigurations(ruleConfig.fragmentClasses(), splitOptions);
+          if (splitConfigs == null) {
+            continue; // Need Skyframe deps.
+          }
+        }
+        for (BuildConfiguration splitConfig : splitConfigs) {
           for (Label dep : resolveLateBoundAttribute(
               depResolver.rule, attribute, splitConfig, attributeMap)) {
             // Skip the normal config transition pipeline and directly feed the split config. This
@@ -357,6 +371,23 @@ public abstract class DependencyResolver {
         }
       }
     }
+  }
+
+  /**
+   * Returns true if the rule's attribute triggers a split in this configuration.
+   *
+   * <p>Even though the attribute may have a split, splits don't have to apply in every
+   * configuration (see {@link Attribute.SplitTransition#split}).
+   */
+  private static Collection<BuildOptions> getSplitOptions(Rule rule, Attribute attribute,
+      BuildConfiguration ruleConfig) {
+    if (!attribute.hasSplitConfigurationTransition()) {
+      return ImmutableList.<BuildOptions>of();
+    }
+    @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
+    Attribute.SplitTransition<BuildOptions> transition =
+        (Attribute.SplitTransition<BuildOptions>) attribute.getSplitTransition(rule);
+    return transition.split(ruleConfig.getOptions());
   }
 
   /**
@@ -586,8 +617,6 @@ public abstract class DependencyResolver {
      * configurations to apply to it.
      */
     void resolveDep(Attribute attribute, Label depLabel) {
-      // Late-bound split attributes are separately handled (see LateBoundSplitResolver).
-      Verify.verify(!(attribute.isLateBound() && attribute.hasSplitConfigurationTransition()));
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
@@ -625,15 +654,35 @@ public abstract class DependencyResolver {
       ImmutableSet<AspectDescriptor> aspects = requiredAspects(aspect, attribute, toTarget, rule);
       Dependency dep;
       if (config.useDynamicConfigurations() && !applyNullTransition) {
-        // Since we feed a pre-prepared configuration directly to the dep, it won't get trimmed to
-        // the dep's fragments.
-        // TODO(gregce): properly trim this configuration, too.
-        dep = Dependency.withConfigurationAndAspects(depLabel, config, aspects);
+        // Pass a transition rather than directly feeding the configuration so deps get trimmed.
+        dep = Dependency.withTransitionAndAspects(
+            depLabel, new FixedTransition(config.getOptions()), aspects);
       } else {
         dep = Iterables.getOnlyElement(transitionApplier.getDependencies(depLabel, aspects));
       }
 
       outgoingEdges.put(attribute, dep);
+    }
+  }
+
+  /**
+   * A patch transition that returns a fixed set of options regardless of the input.
+   */
+  private static class FixedTransition implements PatchTransition {
+    private final BuildOptions toOptions;
+
+    FixedTransition(BuildOptions toOptions) {
+      this.toOptions = toOptions;
+    }
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      return toOptions;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return false;
     }
   }
 
@@ -696,4 +745,18 @@ public abstract class DependencyResolver {
    */
   @Nullable
   protected abstract Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses);
+
+  /**
+   * Returns the build configurations with the given options and fragments, in the same order as
+   * the input options.
+   *
+   * <p>Returns null if any configurations aren't ready to be returned at this moment. If
+   * getConfigurations returns null once or more during a {@link #dependentNodeMap} call, the
+   * results of that call will be incomplete. For use within Skyframe, where several iterations may
+   * be needed to discover all dependencies.
+   */
+  @Nullable
+  protected abstract List<BuildConfiguration> getConfigurations(
+      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      Iterable<BuildOptions> buildOptions) throws InvalidConfigurationException;
 }

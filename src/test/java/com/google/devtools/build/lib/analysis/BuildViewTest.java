@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
@@ -58,6 +59,7 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
+
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.concurrent.CountDownLatch;
@@ -1250,6 +1252,25 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     assertContainsEvent("//foo:ccbin: dependency //foo:javalib from attribute \"data\" is missing "
         + "required config fragments: Jvm");
+  }
+
+  @Test
+  public void lateBoundSplitAttributeConfigs() throws Exception {
+    useRuleClassProvider(LateBoundSplitUtil.getRuleClassProvider());
+    // Register the latebound split fragment with the config creation environment.
+    useConfigurationFactory(new ConfigurationFactory(
+        ruleClassProvider.getConfigurationCollectionFactory(),
+        ruleClassProvider.getConfigurationFragments()));
+
+    scratch.file("foo/BUILD",
+        "rule_with_latebound_split(",
+        "    name = 'foo')",
+        "sh_binary(",
+        "    name = 'latebound_dep',",
+        "    srcs = ['latebound_dep.sh'])");
+    update("//foo:foo");
+    assertNotNull(getConfiguredTarget("//foo:foo"));
+    // TODO(bazel-team): also check that the dep is created in each expected configuration.
   }
 
   /** Runs the same test with the reduced loading phase. */

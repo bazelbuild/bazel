@@ -18,6 +18,8 @@ import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -31,13 +33,13 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-
+import java.util.List;
+import java.util.Set;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests for {@link DependencyResolver}.
@@ -79,6 +81,15 @@ public class DependencyResolverTest extends AnalysisTestCase {
         } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
           throw new IllegalStateException(e);
         }
+      }
+
+      @Nullable
+      @Override
+      protected List<BuildConfiguration> getConfigurations(
+          Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+          Iterable<BuildOptions> buildOptions) {
+        throw new UnsupportedOperationException(
+            "this functionality is covered by analysis-phase integration tests");
       }
     };
   }

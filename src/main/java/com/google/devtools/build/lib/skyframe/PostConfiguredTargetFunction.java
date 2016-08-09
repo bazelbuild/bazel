@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -115,6 +116,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     } catch (EvalException e) {
       throw new PostConfiguredTargetFunctionException(e);
     } catch (ConfiguredTargetFunction.DependencyEvaluationException e) {
+      throw new PostConfiguredTargetFunctionException(e);
+    } catch (InvalidConfigurationException e) {
       throw new PostConfiguredTargetFunctionException(e);
     }
 

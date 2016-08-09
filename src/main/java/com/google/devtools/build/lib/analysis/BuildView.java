@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.Extra
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -81,6 +83,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -865,7 +868,7 @@ public class BuildView {
   @VisibleForTesting
   public Iterable<ConfiguredTarget> getDirectPrerequisitesForTesting(
       EventHandler eventHandler, ConfiguredTarget ct, BuildConfigurationCollection configurations)
-          throws EvalException, InterruptedException {
+          throws EvalException, InvalidConfigurationException, InterruptedException {
     return skyframeExecutor.getConfiguredTargets(
         eventHandler, ct.getConfiguration(),
         ImmutableSet.copyOf(
@@ -875,8 +878,9 @@ public class BuildView {
 
   @VisibleForTesting
   public ListMultimap<Attribute, Dependency> getDirectPrerequisiteDependenciesForTesting(
-      final EventHandler eventHandler, ConfiguredTarget ct,
-      BuildConfigurationCollection configurations) throws EvalException, InterruptedException {
+      final EventHandler eventHandler, final ConfiguredTarget ct,
+      BuildConfigurationCollection configurations)
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     if (!(ct.getTarget() instanceof Rule)) {
       return ArrayListMultimap.create();
     }
@@ -907,6 +911,24 @@ public class BuildView {
         } catch (NoSuchThingException e) {
           throw new IllegalStateException(e);
         }
+      }
+
+      @Override
+      protected List<BuildConfiguration> getConfigurations(
+          Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+          Iterable<BuildOptions> buildOptions) {
+        Preconditions.checkArgument(ct.getConfiguration().fragmentClasses().equals(fragments));
+        Dependency asDep = Dependency.withTransitionAndAspects(ct.getLabel(),
+            Attribute.ConfigurationTransition.NONE, ImmutableSet.<AspectDescriptor>of());
+        ImmutableList.Builder<BuildConfiguration> builder = ImmutableList.builder();
+        for (BuildOptions options : buildOptions) {
+          builder.add(Iterables.getOnlyElement(
+              skyframeExecutor
+                  .getConfigurations(eventHandler, options, ImmutableList.<Dependency>of(asDep))
+                  .values()
+          ));
+        }
+        return builder.build();
       }
     }
 
@@ -945,7 +967,8 @@ public class BuildView {
 
   private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
       final EventHandler eventHandler, ConfiguredTarget target,
-      BuildConfigurationCollection configurations) throws EvalException, InterruptedException {
+      BuildConfigurationCollection configurations)
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     ListMultimap<Attribute, Dependency> depNodeNames = getDirectPrerequisiteDependenciesForTesting(
         eventHandler, target, configurations);
 
@@ -978,7 +1001,7 @@ public class BuildView {
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler,
       BuildConfigurationCollection configurations, BinTools binTools)
-          throws EvalException, InterruptedException {
+          throws EvalException, InvalidConfigurationException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     CachingAnalysisEnvironment env =
         new CachingAnalysisEnvironment(getArtifactFactory(),
@@ -995,7 +1018,7 @@ public class BuildView {
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(EventHandler eventHandler, ConfiguredTarget target,
       AnalysisEnvironment env, BuildConfigurationCollection configurations)
-          throws EvalException, InterruptedException {
+          throws EvalException, InvalidConfigurationException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
             env,
@@ -1023,7 +1046,7 @@ public class BuildView {
   public ConfiguredTarget getPrerequisiteConfiguredTargetForTesting(
       EventHandler eventHandler, ConfiguredTarget dependentTarget, Label desiredTarget,
       BuildConfigurationCollection configurations)
-      throws EvalException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException {
     Collection<ConfiguredTarget> configuredTargets =
         getPrerequisiteMapForTesting(eventHandler, dependentTarget, configurations).values();
     for (ConfiguredTarget ct : configuredTargets) {

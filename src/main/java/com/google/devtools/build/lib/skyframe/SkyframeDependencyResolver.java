@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -26,6 +30,12 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.ValueOrException;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -109,5 +119,26 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       missingEdgeHook(from, label, e);
       return null;
     }
+  }
+
+  @Nullable
+  @Override
+  protected List<BuildConfiguration> getConfigurations(
+      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      Iterable<BuildOptions> buildOptions) throws InvalidConfigurationException {
+    List<SkyKey> keys = new ArrayList<>();
+    for (BuildOptions options : buildOptions) {
+      keys.add(BuildConfigurationValue.key(fragments, options));
+    }
+    Map<SkyKey, ValueOrException<InvalidConfigurationException>> configValues =
+        env.getValuesOrThrow(keys, InvalidConfigurationException.class);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    ImmutableList.Builder<BuildConfiguration> result = ImmutableList.builder();
+    for (SkyKey key : keys) {
+      result.add(((BuildConfigurationValue) configValues.get(key).get()).getConfiguration());
+    }
+    return result.build();
   }
 }

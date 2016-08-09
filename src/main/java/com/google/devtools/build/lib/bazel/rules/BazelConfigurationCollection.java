@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -76,19 +75,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     ListMultimap<SplitTransition<?>, BuildConfiguration> splitTransitionsTable =
         ArrayListMultimap.create();
     for (SplitTransition<BuildOptions> transition : buildOptions.getPotentialSplitTransitions()) {
-      List<BuildOptions> splitOptionsList = transition.split(buildOptions);
-
-      // While it'd be clearer to condition the below on "if (!splitOptionsList.empty())",
-      // IosExtension.ExtensionSplitArchTransition defaults to a single-value split. If we failed
-      // that case then no builds would work, whether or not they're iOS builds (since iOS
-      // configurations are unconditionally loaded). Once we have dynamic configuraiton support
-      // for split transitions, this will all go away.
-      if (splitOptionsList.size() > 1 && targetConfiguration.useDynamicConfigurations()) {
-        throw new InvalidConfigurationException(
-            "dynamic configurations don't yet support split transitions");
-      }
-
-      for (BuildOptions splitOptions : splitOptionsList) {
+      for (BuildOptions splitOptions : transition.split(buildOptions)) {
         BuildConfiguration splitConfig = configurationFactory.getConfiguration(
             packageProvider, splitOptions, false, cache);
         splitTransitionsTable.put(transition, splitConfig);

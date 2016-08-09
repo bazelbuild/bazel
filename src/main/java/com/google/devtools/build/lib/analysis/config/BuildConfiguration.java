@@ -1102,7 +1102,12 @@ public final class BuildConfiguration {
   public boolean equalsOrIsSupersetOf(BuildConfiguration other) {
     return this.equals(other)
         || (other != null
-                && outputRoots.equals(other.outputRoots)
+        // TODO(gregce): add back in output root checking. This requires a better approach to
+        // configuration-safe output paths. If the parent config has a fragment the child config
+        // doesn't, it may inject $(FOO) into the output roots. So the child bindir might be
+        // "bazel-out/arm-linux-fastbuild/bin" while the parent bindir is
+        // "bazel-out/android-arm-linux-fastbuild/bin". That's pretty awkward to check here.
+        //      && outputRoots.equals(other.outputRoots)
                 && actionsEnabled == other.actionsEnabled
                 && fragments.values().containsAll(other.fragments.values())
                 && buildOptions.getOptions().containsAll(other.buildOptions.getOptions()));

@@ -296,6 +296,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(e.print(), ctgValue.getLabel()));
+    } catch (InvalidConfigurationException e) {
+      throw new DependencyEvaluationException(e);
     }
 
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
@@ -456,7 +458,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
 
       if (dep.hasStaticConfiguration()) {
-        // Certain targets (like output files and late-bound splits) trivially pass their
+        // Certain targets (like output files) trivially pass their
         // configurations to their deps. So no need to transform them in any way.
         trimmedDeps.put(attributeAndLabel, dep);
         continue;
@@ -561,7 +563,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           AttributeAndLabel attr = new AttributeAndLabel(info.getKey(), originalDep.getLabel());
           Dependency resolvedDep = Dependency.withConfigurationAndAspects(originalDep.getLabel(),
               trimmedConfig.getConfiguration(), originalDep.getAspects());
-          if (originalDep.getTransition() instanceof Attribute.SplitTransition) {
+          if (attr.attribute.hasSplitConfigurationTransition()) {
             trimmedDeps.put(attr, resolvedDep);
           } else {
             putOnlyEntry(trimmedDeps, attr, resolvedDep);
