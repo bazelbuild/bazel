@@ -138,23 +138,33 @@ public class BazelPythonSemantics implements PythonSemantics {
     } else {
       Artifact zipFile = common.getPythonZipArtifact();
       PathFragment workspaceName = getWorkspaceNameForPythonZip(ruleContext.getWorkspaceName());
+      main = workspaceName.getRelative(common.determineMainExecutableSource(false)).toString();
       PathFragment defaultWorkspacename = new PathFragment(Label.DEFAULT_REPOSITORY_DIRECTORY);
       StringBuilder importPaths = new StringBuilder();
-      importPaths.append(File.pathSeparator).append("$0/").append(workspaceName);
+      importPaths.append(File.pathSeparator).append("$PYTHON_RUNFILES/").append(workspaceName);
       for (PathFragment path : imports) {
         if (path.startsWith(defaultWorkspacename)) {
           path = new PathFragment(workspaceName, path.subFragment(1, path.segmentCount()));
         }
-        importPaths.append(File.pathSeparator).append("$0/").append(path.toString());
+        importPaths.append(File.pathSeparator).append("$PYTHON_RUNFILES/").append(path);
       }
+      // The executable zip file wil unzip itself into a tmp directory and then run from there
       String zipHeader =
           "#!/bin/sh\n"
+              + "export TMPDIR=${TMPDIR:-/tmp/Bazel}\n"
+              + "mkdir -p \"${TMPDIR}\"\n"
+              + "export PYTHON_RUNFILES=$(mktemp -d \"${TMPDIR%%/}/runfiles.XXXXXXXX\")\n"
               + "export PYTHONPATH=\"$PYTHONPATH"
               + importPaths
               + "\"\n"
-              + "exec "
+              + "unzip -q -o $0 -d \"$PYTHON_RUNFILES\" 2> /dev/null\n"
+              + "retCode=0\n"
               + pythonBinary
-              + " $0 $@\n";
+              + " \"$PYTHON_RUNFILES/"
+              + main
+              + "\" $@ || retCode=$?\n"
+              + "rm -rf \"$PYTHON_RUNFILES\"\n"
+              + "exit $retCode\n";
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addInput(zipFile)
@@ -206,10 +216,10 @@ public class BazelPythonSemantics implements PythonSemantics {
   private static String getRunfilesPath(PathFragment path, PathFragment workspaceName) {
     if (isUnderWorkspace(path)) {
       // If the file is under workspace, add workspace name as prefix
-      return workspaceName.getRelative(path).toString();
+      return workspaceName.getRelative(path).normalize().toString();
     }
     // If the file is in external package, strip "external"
-    return path.relativeTo(Label.EXTERNAL_PACKAGE_NAME).toString();
+    return path.relativeTo(Label.EXTERNAL_PACKAGE_NAME).normalize().toString();
   }
 
   private static String getRunfilesPath(String path, PathFragment workspaceName) {
@@ -242,7 +252,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     for (Artifact artifact : runfilesSupport.getRunfiles().getArtifacts()) {
       if (!artifact.equals(executable)) {
         argv.add(
-            getRunfilesPath(artifact.getExecPath(), workspaceName)
+            getRunfilesPath(artifact.getRunfilesPath(), workspaceName)
                 + "="
                 + artifact.getExecPathString());
         inputsBuilder.add(artifact);
