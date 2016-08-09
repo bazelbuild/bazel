@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Strings;
-
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -68,8 +66,9 @@ public final class RegExTestCaseFilter extends Filter {
   }
 
   private static String formatDescriptionName(Description description) {
-    String methodName = Strings.nullToEmpty(description.getMethodName());
-    String className = Strings.nullToEmpty(description.getClassName());
+    String methodName = (description.getMethodName() == null) ? "" : description.getMethodName();
+
+    String className = (description.getClassName() == null) ? "" : description.getClassName();
     if (methodName.trim().isEmpty() || className.trim().isEmpty()) {
       return description.getDisplayName();
     }

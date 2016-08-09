@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -86,7 +84,7 @@ class JUnit4Options {
   private final String testExcludeFilter;
   private final String[] unparsedArgs;
 
-  @VisibleForTesting
+  // VisibleForTesting
   JUnit4Options(@Nullable String testIncludeFilter, @Nullable String testExcludeFilter,
                 String[] unparsedArgs) {
     this.testIncludeFilter = testIncludeFilter;

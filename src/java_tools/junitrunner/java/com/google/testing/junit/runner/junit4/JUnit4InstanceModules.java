@@ -14,14 +14,10 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-
 import dagger.Module;
 import dagger.Provides;
-
-import java.nio.file.Path;
-
+import java.util.Arrays;
+import java.util.List;
 import javax.inject.Singleton;
 
 /**
@@ -60,14 +56,14 @@ public final class JUnit4InstanceModules {
    */
   @Module
   public static final class Config {
-    private final ImmutableList<String> args;
+    private final List<String> args;
 
     /**
      * Creates a module that can provide a {@link JUnit4Config} from supplied command-line
      * arguments
      */
     public Config(String... args) {
-      this.args = ImmutableList.copyOf(args);
+      this.args = Arrays.asList(args);
     }
 
     @Provides
@@ -79,8 +75,7 @@ public final class JUnit4InstanceModules {
     @Provides
     @Singleton
     static JUnit4Config config(JUnit4Options options) {
-      return new JUnit4Config(
-          options.getTestIncludeFilter(), options.getTestExcludeFilter(), Optional.<Path>absent());
+      return new JUnit4Config(options.getTestIncludeFilter(), options.getTestExcludeFilter());
     }
   }
 

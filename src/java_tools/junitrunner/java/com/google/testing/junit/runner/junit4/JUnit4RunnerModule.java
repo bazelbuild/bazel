@@ -14,9 +14,7 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Ticker;
-import com.google.common.io.ByteStreams;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.util.TestNameProvider;
 
@@ -30,7 +28,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.file.Path;
-
+import javax.annotation.Nullable;
 import javax.inject.Singleton;
 
 /**
@@ -71,12 +69,12 @@ public final class JUnit4RunnerModule {
   @Singleton
   @Xml
   static OutputStream provideXmlStream(JUnit4Config config) {
-    Optional<Path> path = config.getXmlOutputPath();
+    @Nullable Path path = config.getXmlOutputPath();
 
-    if (path.isPresent()) {
+    if (path != null) {
       try {
         // TODO(bazel-team): Change the provider method to return ByteSink or CharSink
-        return new FileOutputStream(path.get().toFile());
+        return new FileOutputStream(path.toFile());
       } catch (FileNotFoundException e) {
         /*
          * We try to avoid throwing exceptions in the runner code. There is no
@@ -87,7 +85,30 @@ public final class JUnit4RunnerModule {
       }
     }
 
-    return ByteStreams.nullOutputStream();
+    // Returns an OutputStream that discards everything written into it.
+    return new OutputStream() {
+      @Override
+      public void write(int b) {}
+
+      @Override
+      public void write(byte[] b) {
+        if (b == null) {
+          throw new NullPointerException();
+        }
+      }
+
+      @Override
+      public void write(byte[] b, int off, int len) {
+        if (b == null) {
+          throw new NullPointerException();
+        }
+      }
+
+      @Override
+      public String toString() {
+        return "null OutputStream";
+      }
+    };
   }
 
   @Provides @Singleton

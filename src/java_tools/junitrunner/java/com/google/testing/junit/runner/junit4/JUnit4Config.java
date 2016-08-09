@@ -14,28 +14,25 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Properties;
+import javax.annotation.Nullable;
 
 /**
  * Configuration for the JUnit4 test runner.
  */
 class JUnit4Config {
-  @VisibleForTesting
+  // VisibleForTesting
   static final String JUNIT_API_VERSION_PROPERTY = "com.google.testing.junit.runner.apiVersion";
 
-  @VisibleForTesting
+  // VisibleForTesting
   static final String SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY
       = "com.google.testing.junit.runner.shouldInstallTestSecurityManager";
 
   private final String testIncludeFilterRegexp;
   private final String testExcludeFilterRegexp;
-  private final Optional<Path> xmlOutputPath;
+  @Nullable private final Path xmlOutputPath;
   private final String junitApiVersion;
   private final boolean shouldInstallSecurityManager;
 
@@ -44,7 +41,7 @@ class JUnit4Config {
   public JUnit4Config(
       String testIncludeFilterRegexp,
       String testExcludeFilterRegexp,
-      Optional<Path> outputXmlFilePath) {
+      @Nullable Path outputXmlFilePath) {
     this(
         testIncludeFilterRegexp,
         testExcludeFilterRegexp,
@@ -52,11 +49,15 @@ class JUnit4Config {
         System.getProperties());
   }
 
-  @VisibleForTesting
+  public JUnit4Config(String testIncludeFilterRegexp, String testExcludeFilterRegexp) {
+    this(testIncludeFilterRegexp, testExcludeFilterRegexp, null, System.getProperties());
+  }
+
+  // VisibleForTesting
   JUnit4Config(
       String testIncludeFilterRegexp,
       String testExcludeFilterRegexp,
-      Optional<Path> xmlOutputPath,
+      @Nullable Path xmlOutputPath,
       Properties systemProperties) {
     this.testIncludeFilterRegexp = testIncludeFilterRegexp;
     this.testExcludeFilterRegexp = testExcludeFilterRegexp;
@@ -84,12 +85,12 @@ class JUnit4Config {
   /**
    * Returns the XML output path, or null if not specified.
    */
-  public Optional<Path> getXmlOutputPath() {
-    if (!xmlOutputPath.isPresent()) {
+  @Nullable
+  public Path getXmlOutputPath() {
+    if (xmlOutputPath == null) {
       String envXmlOutputPath = System.getenv(XML_OUTPUT_FILE_ENV_VAR);
-      return envXmlOutputPath == null
-          ? Optional.<Path>absent()
-          : Optional.of(FileSystems.getDefault().getPath(envXmlOutputPath));
+      return
+          envXmlOutputPath == null ? null : FileSystems.getDefault().getPath(envXmlOutputPath);
     }
     return xmlOutputPath;
   }
@@ -109,9 +110,11 @@ class JUnit4Config {
       // ignore; handled below
     }
 
-    Preconditions.checkState(apiVersion == 1,
-        "Unsupported JUnit Runner API version %s=%s (must be \"1\")", JUNIT_API_VERSION_PROPERTY,
-        junitApiVersion);
+    if (apiVersion != 1) {
+      throw new IllegalStateException(
+          "Unsupported JUnit Runner API version " + JUNIT_API_VERSION_PROPERTY + "="
+          + junitApiVersion + " (must be \\\"1\\\")");
+    }
     return apiVersion;
   }
 

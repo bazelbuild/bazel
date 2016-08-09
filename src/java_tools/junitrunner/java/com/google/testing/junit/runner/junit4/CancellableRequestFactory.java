@@ -14,7 +14,6 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Preconditions;
 import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.junit4.runner.RunNotifierWrapper;
 
@@ -45,7 +44,9 @@ class CancellableRequestFactory {
    * @param delegate request to wrap
    */
   public Request createRequest(Request delegate) {
-    Preconditions.checkState(!requestCreated, "a request was already created");
+    if (requestCreated) {
+      throw new IllegalStateException("a request was already created");
+    }
     return new MemoizingRequest(delegate) {
       @Override
       protected Runner createRunner(Request delegate) {
