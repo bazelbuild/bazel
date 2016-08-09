@@ -809,8 +809,8 @@ public final class CppModel {
    *
    * @throws RuleErrorException
    */
-  public CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs)
-      throws RuleErrorException {
+  public CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs,
+      Iterable<Artifact> nonCodeLinkerInputs) throws RuleErrorException {
     // For now only handle static links. Note that the dynamic library link below ignores linkType.
     // TODO(bazel-team): Either support non-static links or move this check to setLinkType().
     Preconditions.checkState(linkType.isStaticLibraryLink(), "can only handle static links");
@@ -848,8 +848,9 @@ public final class CppModel {
         labelName.replaceName("lib" + labelName.getBaseName())).getPathString();
     CppLinkAction maybePicAction =
         newLinkActionBuilder(linkedArtifact)
-            .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForBinaries))
-            .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+            .addObjectFiles(ccOutputs.getObjectFiles(usePicForBinaries))
+            .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
+            .addNonCodeInputs(nonCodeLinkerInputs)
             .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
@@ -873,8 +874,8 @@ public final class CppModel {
 
       CppLinkAction picAction =
           newLinkActionBuilder(picArtifact)
-              .addNonLibraryInputs(ccOutputs.getObjectFiles(true))
-              .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+              .addObjectFiles(ccOutputs.getObjectFiles(true))
+              .addObjectFiles(ccOutputs.getHeaderTokenFiles())
               .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
               .setLinkType(picLinkType)
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
@@ -922,8 +923,8 @@ public final class CppModel {
     CppLinkActionBuilder linkActionBuilder =
         newLinkActionBuilder(soImpl)
             .setInterfaceOutput(soInterface)
-            .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForSharedLibs))
-            .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+            .addObjectFiles(ccOutputs.getObjectFiles(usePicForSharedLibs))
+            .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
             .setLinkStaticness(LinkStaticness.DYNAMIC)
@@ -985,7 +986,7 @@ public final class CppModel {
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(ruleContext, outputArtifact)
         .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
-        .addNonLibraryInputs(context.getTransitiveCompilationPrerequisites());
+        .addNonCodeInputs(context.getTransitiveCompilationPrerequisites());
   }
 
   /**
