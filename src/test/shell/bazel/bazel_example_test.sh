@@ -113,6 +113,20 @@ function test_native_python() {
   assert_test_fails //examples/py_native:fail --python2_path=python
 }
 
+function test_native_python_with_zip() {
+  assert_build //examples/py_native:bin --python2_path=python --build_python_zip
+  # run the python package directly
+  ./bazel-bin/examples/py_native/bin >& $TEST_log \
+    || fail "//examples/py_native:bin execution failed"
+  expect_log "Fib(5) == 8"
+  # Using python <zipfile> to run the python package
+  python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+    || fail "//examples/py_native:bin execution failed"
+  expect_log "Fib(5) == 8"
+  assert_test_ok //examples/py_native:test --python2_path=python --build_python_zip
+  assert_test_fails //examples/py_native:fail --python2_path=python --build_python_zip
+}
+
 function test_shell() {
   assert_build "//examples/shell:bin"
   assert_bazel_run "//examples/shell:bin" "Hello Bazel!"

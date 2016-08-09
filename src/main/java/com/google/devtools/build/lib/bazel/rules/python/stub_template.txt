@@ -1,9 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os
 import re
+import tempfile
+import shutil
 import sys
 import subprocess
+import zipfile
 
 # Return True if running on Windows
 def IsWindows():
@@ -22,6 +25,9 @@ def SearchPath(name):
     if os.path.isfile(path) and os.access(path, os.X_OK):
       return path
   return None
+
+def IsRunningFromZip():
+  return %is_zipfile%
 
 # Find the real Python binary if it's not a normal absolute path
 def FindPythonBinary():
@@ -43,11 +49,8 @@ def CreatePythonPathEntries(python_imports, module_space):
   parts = python_imports.split(':');
   return [module_space] + ["%s/%s" % (module_space, path) for path in parts]
 
-def Main():
-  args = sys.argv[1:]
-
-  new_env = {}
-
+# Find the runfiles tree
+def FindModuleSpace():
   # Follow symlinks, looking for my module space
   stub_filename = os.path.abspath(sys.argv[0])
   while True:
@@ -73,6 +76,24 @@ def Main():
 
     raise AssertionError('Cannot find .runfiles directory for %s' %
                          sys.argv[0])
+  return module_space
+
+# Create the runfiles tree by extracting the zip file
+def CreateModuleSpace():
+  module_space = tempfile.mkdtemp("", "Bazel.runfiles_")
+  zf = zipfile.ZipFile(os.path.dirname(__file__))
+  zf.extractall(module_space)
+  return module_space
+
+def Main():
+  args = sys.argv[1:]
+
+  new_env = {}
+
+  if IsRunningFromZip():
+    module_space = CreateModuleSpace()
+  else:
+    module_space = FindModuleSpace()
 
   python_imports = '%imports%'
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
@@ -109,7 +130,12 @@ def Main():
 
   try:
     sys.stdout.flush()
-    os.execv(args[0], args)
+    if IsRunningFromZip():
+      retCode = subprocess.call(args)
+      shutil.rmtree(module_space, True)
+      exit(retCode)
+    else:
+      os.execv(args[0], args)
   except EnvironmentError as e:
     # This exception occurs when os.execv() fails for some reason.
     if not getattr(e, 'filename', None):

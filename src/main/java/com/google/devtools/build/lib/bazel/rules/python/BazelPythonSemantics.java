@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Instr
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -105,6 +104,16 @@ public class BazelPythonSemantics implements PythonSemantics {
     return result;
   }
 
+  /** @return An artifact next to the executable file with ".zip" suffix */
+  public Artifact getPythonZipArtifact(RuleContext ruleContext, Artifact executable) {
+    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+  }
+
+  /** @return An artifact next to the executable file with ".temp" suffix */
+  public Artifact getPythonTemplateMainArtifact(RuleContext ruleContext, Artifact executable) {
+    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".temp");
+  }
+
   @Override
   public void createExecutable(
       RuleContext ruleContext,
@@ -133,46 +142,45 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%main%", main),
                   Substitution.of("%python_binary%", pythonBinary),
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
-                  Substitution.of("%workspace_name%", ruleContext.getWorkspaceName())),
+                  Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
+                  Substitution.of("%is_zipfile%", "False")),
               true));
     } else {
-      Artifact zipFile = common.getPythonZipArtifact();
+      Artifact zipFile = getPythonZipArtifact(ruleContext, executable);
+      Artifact templateMain = getPythonTemplateMainArtifact(ruleContext, executable);
       PathFragment workspaceName = getWorkspaceNameForPythonZip(ruleContext.getWorkspaceName());
       main = workspaceName.getRelative(common.determineMainExecutableSource(false)).toString();
       PathFragment defaultWorkspacename = new PathFragment(Label.DEFAULT_REPOSITORY_DIRECTORY);
-      StringBuilder importPaths = new StringBuilder();
-      importPaths.append(File.pathSeparator).append("$PYTHON_RUNFILES/").append(workspaceName);
+      List<PathFragment> importPaths = new ArrayList<>();
       for (PathFragment path : imports) {
         if (path.startsWith(defaultWorkspacename)) {
           path = new PathFragment(workspaceName, path.subFragment(1, path.segmentCount()));
         }
-        importPaths.append(File.pathSeparator).append("$PYTHON_RUNFILES/").append(path);
+        importPaths.add(path);
       }
       // The executable zip file wil unzip itself into a tmp directory and then run from there
-      String zipHeader =
-          "#!/bin/sh\n"
-              + "export TMPDIR=${TMPDIR:-/tmp/Bazel}\n"
-              + "mkdir -p \"${TMPDIR}\"\n"
-              + "export PYTHON_RUNFILES=$(mktemp -d \"${TMPDIR%%/}/runfiles.XXXXXXXX\")\n"
-              + "export PYTHONPATH=\"$PYTHONPATH"
-              + importPaths
-              + "\"\n"
-              + "unzip -q -o $0 -d \"$PYTHON_RUNFILES\" 2> /dev/null\n"
-              + "retCode=0\n"
-              + pythonBinary
-              + " \"$PYTHON_RUNFILES/"
-              + main
-              + "\" $@ || retCode=$?\n"
-              + "rm -rf \"$PYTHON_RUNFILES\"\n"
-              + "exit $retCode\n";
+      ruleContext.registerAction(
+          new TemplateExpansionAction(
+              ruleContext.getActionOwner(),
+              templateMain,
+              STUB_TEMPLATE,
+              ImmutableList.of(
+                  Substitution.of("%main%", main),
+                  Substitution.of("%python_binary%", pythonBinary),
+                  Substitution.of("%imports%", Joiner.on(":").join(importPaths)),
+                  Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
+                  Substitution.of("%is_zipfile%", "True")),
+              true));
+
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addInput(zipFile)
+              .addInput(templateMain)
               .addOutput(executable)
               .setShellCommand(
-                  "echo '"
-                      + zipHeader
-                      + "' | cat - "
+                  "cat "
+                      + templateMain.getExecPathString()
+                      + " "
                       + zipFile.getExecPathString()
                       + " > "
                       + executable.getExecPathString())
@@ -187,12 +195,13 @@ public class BazelPythonSemantics implements PythonSemantics {
       PyCommon common) throws InterruptedException {
     if (ruleContext.getConfiguration().buildPythonZip()) {
       FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
+      Artifact executable = common.getExecutable();
       if (!ruleContext.hasErrors()) {
         createPythonZipAction(
             ruleContext,
-            common.getExecutable(),
-            common.getPythonZipArtifact(),
-            common.determineMainExecutableSource(false),
+            executable,
+            getPythonZipArtifact(ruleContext, executable),
+            getPythonTemplateMainArtifact(ruleContext, executable),
             zipper,
             runfilesSupport);
       }
@@ -230,15 +239,15 @@ public class BazelPythonSemantics implements PythonSemantics {
       RuleContext ruleContext,
       Artifact executable,
       Artifact zipFile,
-      String main,
+      Artifact templateMain,
       FilesToRunProvider zipper,
       RunfilesSupport runfilesSupport) {
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     PathFragment workspaceName = getWorkspaceNameForPythonZip(ruleContext.getWorkspaceName());
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
-
-    argv.add("__main__.py=" + main);
+    inputsBuilder.add(templateMain);
+    argv.add("__main__.py=" + templateMain.getExecPathString());
 
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");

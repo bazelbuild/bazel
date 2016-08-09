@@ -448,12 +448,6 @@ public final class PyCommon {
   public Artifact getExecutable() {
     return executable;
   }
-  /** @return An artifact next to the executable file with ".zip" suffix */
-  public Artifact getPythonZipArtifact() {
-    PathFragment original = executable.getRootRelativePath();
-    return ruleContext.getDerivedArtifact(
-        original.replaceName(original.getBaseName() + ".zip"), executable.getRoot());
-  }
 
   public Map<PathFragment, Artifact> getConvertedFiles() {
     return convertedFiles;
