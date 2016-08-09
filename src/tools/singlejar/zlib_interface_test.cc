@@ -12,88 +12,82 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-
 #include "src/tools/singlejar/zlib_interface.h"
 
 #include "gtest/gtest.h"
 
 namespace {
 
-class ZlibInterfaceTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    inflater_.reset(new Inflater);
-    deflater_.reset(new Deflater);
-  }
-
-  std::unique_ptr<Inflater> inflater_;
-  std::unique_ptr<Deflater> deflater_;
-};
-
 static const uint8_t bytes[] = {1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4};
 
-TEST_F(ZlibInterfaceTest, DeflateFully) {
+TEST(ZlibInterfaceTest, DeflateFully) {
+  Deflater deflater;
   uint8_t compressed[256];
-  deflater_.get()->next_out = compressed;
-  deflater_.get()->avail_out = sizeof(compressed);
-  EXPECT_EQ(Z_STREAM_END, deflater_->Deflate(bytes, sizeof(bytes), Z_FINISH));
+  deflater.next_out = compressed;
+  deflater.avail_out = sizeof(compressed);
+  EXPECT_EQ(Z_STREAM_END, deflater.Deflate(bytes, sizeof(bytes), Z_FINISH));
 }
 
-TEST_F(ZlibInterfaceTest, DeflateIntoChunks) {
+TEST(ZlibInterfaceTest, DeflateIntoChunks) {
+  Deflater deflater;
   uint8_t compressed[256];
-  deflater_.get()->next_out = compressed;
-  deflater_.get()->avail_out = 2;
-  EXPECT_EQ(Z_OK, deflater_->Deflate(bytes, sizeof(bytes), Z_FINISH));
-  EXPECT_EQ(0, deflater_.get()->avail_out);
-  deflater_.get()->next_out = compressed + 2;
-  deflater_.get()->avail_out = sizeof(compressed) - 2;
+  deflater.next_out = compressed;
+  deflater.avail_out = 2;
+  EXPECT_EQ(Z_OK, deflater.Deflate(bytes, sizeof(bytes), Z_FINISH));
+  EXPECT_EQ(0, deflater.avail_out);
+  deflater.next_out = compressed + 2;
+  deflater.avail_out = sizeof(compressed) - 2;
   EXPECT_EQ(Z_STREAM_END,
-            deflater_->Deflate(deflater_.get()->next_in,
-                               deflater_.get()->avail_in, Z_FINISH));
+            deflater.Deflate(deflater.next_in,
+                               deflater.avail_in, Z_FINISH));
 }
 
-TEST_F(ZlibInterfaceTest, DeflateChunks) {
+TEST(ZlibInterfaceTest, DeflateChunks) {
+  Deflater deflater;
   uint8_t compressed[256];
-  deflater_.get()->next_out = compressed;
-  deflater_.get()->avail_out = sizeof(compressed);
-  EXPECT_EQ(Z_OK, deflater_->Deflate(bytes, 4, Z_NO_FLUSH));
+  deflater.next_out = compressed;
+  deflater.avail_out = sizeof(compressed);
+  EXPECT_EQ(Z_OK, deflater.Deflate(bytes, 4, Z_NO_FLUSH));
   EXPECT_EQ(Z_STREAM_END,
-            deflater_->Deflate(bytes + 4, sizeof(bytes) - 4, Z_FINISH));
+            deflater.Deflate(bytes + 4, sizeof(bytes) - 4, Z_FINISH));
 }
 
-TEST_F(ZlibInterfaceTest, InflateFully) {
+TEST(ZlibInterfaceTest, InflateFully) {
   uint8_t compressed[256];
-  deflater_.get()->next_out = compressed;
-  deflater_.get()->avail_out = sizeof(compressed);
-  EXPECT_EQ(Z_STREAM_END, deflater_->Deflate(bytes, sizeof(bytes), Z_FINISH));
+  Deflater deflater;
+  deflater.next_out = compressed;
+  deflater.avail_out = sizeof(compressed);
+  EXPECT_EQ(Z_STREAM_END, deflater.Deflate(bytes, sizeof(bytes), Z_FINISH));
 
   // Now we have deflated data, inflate it back and compare.
-  size_t compressed_size = sizeof(compressed) - deflater_.get()->avail_out;
-  inflater_->DataToInflate(compressed, compressed_size);
+  size_t compressed_size = sizeof(compressed) - deflater.avail_out;
+  Inflater inflater;
+  inflater.DataToInflate(compressed, compressed_size);
 
   uint8_t uncompressed[256];
   memset(uncompressed, 0, sizeof(uncompressed));
   EXPECT_EQ(Z_STREAM_END,
-            inflater_->Inflate(uncompressed, sizeof(uncompressed)));
-  EXPECT_EQ(sizeof(bytes), sizeof(uncompressed) - inflater_->available_out());
+            inflater.Inflate(uncompressed, sizeof(uncompressed)));
+  EXPECT_EQ(sizeof(bytes), sizeof(uncompressed) - inflater.available_out());
   EXPECT_EQ(0, memcmp(bytes, uncompressed, sizeof(bytes)));
 }
 
-TEST_F(ZlibInterfaceTest, InflateToChunks) {
+TEST(ZlibInterfaceTest, InflateToChunks) {
   uint8_t compressed[256];
-  deflater_.get()->next_out = compressed;
-  deflater_.get()->avail_out = sizeof(compressed);
-  EXPECT_EQ(Z_STREAM_END, deflater_->Deflate(bytes, sizeof(bytes), Z_FINISH));
+  Deflater deflater;
+  deflater.next_out = compressed;
+  deflater.avail_out = sizeof(compressed);
+  EXPECT_EQ(Z_STREAM_END, deflater.Deflate(bytes, sizeof(bytes), Z_FINISH));
 
   // Now we have deflated data, inflate it back and compare.
-  size_t compressed_size = sizeof(compressed) - deflater_.get()->avail_out;
-  inflater_->DataToInflate(compressed, compressed_size);
+  size_t compressed_size = sizeof(compressed) - deflater.avail_out;
+  Inflater inflater;
+  inflater.DataToInflate(compressed, compressed_size);
   uint8_t uncompressed[256];
   memset(uncompressed, 0, sizeof(uncompressed));
-  EXPECT_EQ(Z_OK, inflater_->Inflate(uncompressed, 3));
+  EXPECT_EQ(Z_OK, inflater.Inflate(uncompressed, 3));
   EXPECT_EQ(Z_STREAM_END,
-            inflater_->Inflate(uncompressed + 3, sizeof(uncompressed) - 3));
+            inflater.Inflate(uncompressed + 3, sizeof(uncompressed) - 3));
   EXPECT_EQ(0, memcmp(bytes, uncompressed, sizeof(bytes)));
 }
 

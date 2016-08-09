@@ -49,8 +49,8 @@ class InputJarScanEntries : public testing::Test {
   static void TearDownTestCase() { ZipCreator::TearDownTestCase(); }
 
   static void CreateBasicJar() {
-    ASSERT_TRUE(TestUtil::AllocateFile(kRes1, res1_size));
-    ASSERT_TRUE(TestUtil::AllocateFile(kRes2, res2_size));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kRes1, res1_size));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kRes2, res2_size));
     unlink(kJar);
     ASSERT_EQ(0, ZipCreator::Jar(true, kJar, kRes1, kRes2, nullptr));
     unlink(kRes1);
@@ -58,17 +58,17 @@ class InputJarScanEntries : public testing::Test {
   }
 
   static void CreateJarWithHugeUncompressed() {
-    ASSERT_TRUE(TestUtil::AllocateFile(kHuge, huge_size));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kHuge, huge_size));
     unlink(kJar);
     ASSERT_EQ(0, ZipCreator::Jar(true, kJar, kHuge, nullptr));
     unlink(kHuge);
   }
 
   static void CreateJarWithZip64Entries() {
-    ASSERT_TRUE(TestUtil::AllocateFile(kXXXX, 0xFFFFFFFF));
-    ASSERT_TRUE(TestUtil::AllocateFile(kHuge, huge_size));
-    ASSERT_TRUE(TestUtil::AllocateFile(kEmpty, 0));
-    ASSERT_TRUE(TestUtil::AllocateFile(kRes1, res1_size));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kXXXX, 0xFFFFFFFF));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kHuge, huge_size));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kEmpty, 0));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile(kRes1, res1_size));
     ASSERT_EQ(
         0, ZipCreator::Jar(false, kJar, kXXXX, kHuge, kEmpty, kRes1, nullptr));
     unlink(kXXXX);
@@ -88,7 +88,7 @@ class InputJarScanEntries : public testing::Test {
       for (int file = 0; file < 256; ++file) {
         char filepath[20];
         snprintf(filepath, sizeof(filepath), "%s/%d", dirname, file);
-        ASSERT_TRUE(TestUtil::AllocateFile(filepath, 1));
+        ASSERT_TRUE(singlejar_test_util::AllocateFile(filepath, 1));
       }
     }
     ASSERT_EQ(0, ZipCreator::Jar(false, kJar, "dir*", nullptr));
@@ -123,7 +123,7 @@ TYPED_TEST_CASE_P(InputJarScanEntries);
 TYPED_TEST_P(InputJarScanEntries, OpenClose) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
   this->CreateBasicJar();
-  TestUtil::LsZip(kJar);
+  singlejar_test_util::LsZip(kJar);
   ASSERT_TRUE(this->input_jar_->Open(kJar));
   EXPECT_GE(this->input_jar_->fd(), 0);
   this->input_jar_->Close();
@@ -173,7 +173,7 @@ TYPED_TEST_P(InputJarScanEntries, Basic) {
 TYPED_TEST_P(InputJarScanEntries, HugeUncompressed) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
   this->CreateJarWithHugeUncompressed();
-  TestUtil::LsZip(kJar);
+  singlejar_test_util::LsZip(kJar);
   ASSERT_TRUE(this->input_jar_->Open(kJar));
   const LH *lh;
   const CDH *cdh;
@@ -200,7 +200,7 @@ TYPED_TEST_P(InputJarScanEntries, HugeUncompressed) {
 TYPED_TEST_P(InputJarScanEntries, TestZip64) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
   this->CreateJarWithZip64Entries();
-  TestUtil::LsZip(kJar);
+  singlejar_test_util::LsZip(kJar);
   ASSERT_TRUE(this->input_jar_->Open(kJar));
   const LH *lh;
   const CDH *cdh;

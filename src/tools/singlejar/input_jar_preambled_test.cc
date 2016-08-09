@@ -42,76 +42,71 @@ namespace {
 #define DATA_DIR_TOP
 #endif
 
-class InputJarPreambledTest : public testing::Test {
- protected:
-  void SetUp() override { input_jar_.reset(new InputJar); }
-
-  void Verify(const std::string &path) {
-    ASSERT_TRUE(input_jar_->Open(path));
-    const LH *lh;
-    const CDH *cdh;
-    while ((cdh = input_jar_->NextEntry(&lh))) {
-      ASSERT_TRUE(cdh->is())
-          << "No expected tag in the Central Directory Entry.";
-      ASSERT_NE(nullptr, lh) << "No local header.";
-      ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
-      EXPECT_EQ(lh->file_name_string(), cdh->file_name_string());
-      if (!cdh->no_size_in_local_header()) {
-        EXPECT_EQ(lh->compressed_file_size(), cdh->compressed_file_size())
-            << "Entry: " << lh->file_name_string();
-        EXPECT_EQ(lh->uncompressed_file_size(), cdh->uncompressed_file_size())
-            << "Entry: " << cdh->file_name_string();
-      }
+void Verify(const std::string &path) {
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    ASSERT_TRUE(cdh->is())
+        << "No expected tag in the Central Directory Entry.";
+    ASSERT_NE(nullptr, lh) << "No local header.";
+    ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
+    EXPECT_EQ(lh->file_name_string(), cdh->file_name_string());
+    if (!cdh->no_size_in_local_header()) {
+      EXPECT_EQ(lh->compressed_file_size(), cdh->compressed_file_size())
+          << "Entry: " << lh->file_name_string();
+      EXPECT_EQ(lh->uncompressed_file_size(), cdh->uncompressed_file_size())
+          << "Entry: " << cdh->file_name_string();
     }
-    input_jar_->Close();
   }
-
-  static std::string OutputFilePath(const char *relative_path) {
-    const char *out_dir = getenv("TEST_TMPDIR");
-    return blaze_util::JoinPath(nullptr == out_dir ? "." : out_dir,
-                                relative_path);
-  }
-
-  std::unique_ptr<InputJar> input_jar_;
-};
+  input_jar.Close();
+}
 
 // Archive not containing 64-bit End of Central Directory/Locator with preamble.
-TEST_F(InputJarPreambledTest, Small) {
-  std::string out_path = OutputFilePath("out.jwp");
-  std::string exe_path = OutputFilePath("exe");
-  ASSERT_TRUE(TestUtil::AllocateFile(exe_path.c_str(), 100));
+TEST(InputJarPreambledTest, Small) {
+  std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
+  std::string exe_path = singlejar_test_util::OutputFilePath("exe");
+  ASSERT_TRUE(singlejar_test_util::AllocateFile(exe_path, 100));
   ASSERT_EQ(
-      0, TestUtil::RunCommand("cat", exe_path.c_str(),
-                              DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-                              ">", out_path.c_str(), nullptr));
+      0,
+      singlejar_test_util::RunCommand(
+          "cat", exe_path.c_str(),
+          DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+          ">", out_path.c_str(), nullptr));
   Verify(out_path);
 }
 
 // Same as above with zip -A applied to the file.
-TEST_F(InputJarPreambledTest, SmallAdjusted) {
-  std::string out_path = OutputFilePath("out.jwp");
-  std::string exe_path = OutputFilePath("exe");
-  ASSERT_TRUE(TestUtil::AllocateFile(exe_path.c_str(), 100));
+TEST(InputJarPreambledTest, SmallAdjusted) {
+  std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
+  std::string exe_path = singlejar_test_util::OutputFilePath("exe");
+  ASSERT_TRUE(singlejar_test_util::AllocateFile(exe_path, 100));
   ASSERT_EQ(
-      0, TestUtil::RunCommand("cat", exe_path.c_str(),
-                              DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-                              ">", out_path.c_str(), nullptr));
-  ASSERT_EQ(0, TestUtil::RunCommand("zip", "-A", out_path.c_str(), nullptr));
+      0,
+      singlejar_test_util::RunCommand(
+          "cat", exe_path.c_str(),
+          DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+          ">", out_path.c_str(), nullptr));
+  ASSERT_EQ(0, singlejar_test_util::RunCommand("zip", "-A", out_path.c_str(),
+                                               nullptr));
   Verify(out_path);
 }
 
 // 64-bit Zip file with preamble
-TEST_F(InputJarPreambledTest, Huge) {
-  std::string file4g = OutputFilePath("file4g");
-  ASSERT_TRUE(TestUtil::AllocateFile(file4g.c_str(), 0x10000000F));
-  std::string huge_jar = OutputFilePath("huge.jar");
-  ASSERT_EQ(0, TestUtil::RunCommand("zip", "-0m", huge_jar.c_str(),
-                                    file4g.c_str(), nullptr));
-  std::string exe_path = OutputFilePath("exe");
-  std::string out_path = OutputFilePath("out.jwp");
+TEST(InputJarPreambledTest, Huge) {
+  std::string file4g = singlejar_test_util::OutputFilePath("file4g");
+  ASSERT_TRUE(singlejar_test_util::AllocateFile(file4g, 0x10000000F));
+  std::string huge_jar = singlejar_test_util::OutputFilePath("huge.jar");
+  ASSERT_EQ(0, singlejar_test_util::RunCommand("zip", "-0m", huge_jar.c_str(),
+                                               file4g.c_str(), nullptr));
+  std::string exe_path = singlejar_test_util::OutputFilePath("exe");
+  std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
   ASSERT_EQ(0,
-            TestUtil::RunCommand("cat", exe_path.c_str(), huge_jar.c_str(),
-                                 ">", out_path.c_str(), nullptr));
+            singlejar_test_util::RunCommand("cat", exe_path.c_str(),
+                                            huge_jar.c_str(),
+                                            ">", out_path.c_str(), nullptr));
   Verify(out_path);
 }
+
 }  // namespace

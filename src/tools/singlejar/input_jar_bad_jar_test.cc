@@ -12,36 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>
-#include <unistd.h>
-#include <memory>
 #include <string>
 
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
-
 #include "gtest/gtest.h"
 
 static const char kJar[] = "jar.jar";
 
-class InputJarBadJarTest : public testing::Test {
- protected:
-  void SetUp() override {
-    input_jar_.reset(new InputJar);
-  }
-
-  std::unique_ptr<InputJar> input_jar_;
-};
-
-TEST_F(InputJarBadJarTest, NotAJar) {
-  ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
-  ASSERT_TRUE(TestUtil::AllocateFile(kJar, 1000));
-  ASSERT_FALSE(input_jar_->Open(kJar));
+TEST(InputJarBadJarTest, NotAJar) {
+  std::string out_path = singlejar_test_util::OutputFilePath(kJar);
+  ASSERT_TRUE(singlejar_test_util::AllocateFile(out_path, 1000));
+  InputJar input_jar;
+  ASSERT_FALSE(input_jar.Open(out_path));
 }
 
 // Check that an empty file does not cause trouble in MappedFile.
-TEST_F(InputJarBadJarTest, EmptyFile) {
-  ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
-  ASSERT_TRUE(TestUtil::AllocateFile(kJar, 0));
-  ASSERT_FALSE(input_jar_->Open(kJar));
+TEST(InputJarBadJarTest, EmptyFile) {
+  std::string out_path = singlejar_test_util::OutputFilePath(kJar);
+  ASSERT_TRUE(singlejar_test_util::AllocateFile(out_path, 0));
+  InputJar input_jar;
+  ASSERT_FALSE(input_jar.Open(out_path));
 }

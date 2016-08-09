@@ -41,13 +41,13 @@ cc_test(
     name = "input_jar_preambled_test",
     srcs = [
         "input_jar_preambled_test.cc",
-        ":test_util",
     ],
     data = [
         ":test1",
     ],
     deps = [
         ":input_jar",
+        ":test_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -59,7 +59,6 @@ cc_test(
     srcs = [
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
-        ":test_util",
     ],
     copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
     data = [
@@ -70,6 +69,7 @@ cc_test(
     tags = ["manual"],
     deps = [
         ":input_jar",
+        ":test_util",
         "//third_party:gtest",
     ],
 )
@@ -80,12 +80,12 @@ cc_test(
     srcs = [
         "input_jar_scan_entries_test.h",
         "input_jar_scan_ziptool_test.cc",
-        ":test_util",
     ],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
     deps = [
         ":input_jar",
+        ":test_util",
         "//third_party:gtest",
     ],
 )
@@ -94,10 +94,10 @@ cc_test(
     name = "input_jar_bad_jar_test",
     srcs = [
         "input_jar_bad_jar_test.cc",
-        ":test_util",
     ],
     deps = [
         ":input_jar",
+        ":test_util",
         "//third_party:gtest",
     ],
 )
@@ -111,6 +111,8 @@ cc_test(
     ],
     deps = [
         ":options",
+        ":test_util",
+        "//src/main/cpp/util",
         "//third_party:gtest",
     ],
 )
@@ -129,6 +131,7 @@ cc_test(
         ":input_jar",
         ":options",
         ":output_jar",
+        ":test_util",
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
@@ -141,7 +144,10 @@ cc_test(
         "token_stream_test.cc",
         ":token_stream",
     ],
-    deps = ["//third_party:gtest"],
+    deps = [
+        ":test_util",
+        "//third_party:gtest",
+    ],
 )
 
 cc_test(
@@ -149,7 +155,6 @@ cc_test(
     size = "large",
     srcs = [
         "transient_bytes_test.cc",
-        ":test_util",
         ":transient_bytes",
         ":zlib_interface",
     ],
@@ -157,6 +162,7 @@ cc_test(
     tags = ["manual"],
     deps = [
         ":input_jar",
+        ":test_util",
         "//third_party:gtest",
         "//third_party/zlib",
     ],
@@ -179,6 +185,7 @@ cc_test(
         ":zlib_interface",
     ],
     deps = [
+        ":test_util",
         "//third_party:gtest",
         "//third_party/zlib",
     ],
@@ -227,6 +234,17 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "test_util",
+    srcs = ["test_util.cc"],
+    hdrs = ["test_util.h"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
 filegroup(
     name = "combiners",
     srcs = [
@@ -235,11 +253,6 @@ filegroup(
         ":zip_headers",
         ":zlib_interface",
     ],
-)
-
-filegroup(
-    name = "test_util",
-    srcs = ["test_util.h"],
 )
 
 filegroup(

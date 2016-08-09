@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string>
 
+#include "src/tools/singlejar/test_util.h"
 #include "src/tools/singlejar/token_stream.h"
 #include "gtest/gtest.h"
 
@@ -34,11 +35,8 @@ static const char *expected_tokens[] = {
     "\\jkl", "\\xyz", "\"0", "continue", "x",
 };
 
-class TokenStreamTest : public testing::Test {
-};
-
 // Simple '-foo -bar' command line.
-TEST_F(TokenStreamTest, SimpleArgs) {
+TEST(TokenStreamTest, SimpleArgs) {
   const char *args[] = {"-foo", "-bar"};
   ArgTokenStream token_stream(ARRAY_SIZE(args), args);
   EXPECT_EQ("-foo", token_stream.token());
@@ -53,18 +51,18 @@ TEST_F(TokenStreamTest, SimpleArgs) {
 }
 
 // '-foo @commandfile -bar' command line.
-TEST_F(TokenStreamTest, CommandFile) {
+TEST(TokenStreamTest, CommandFile) {
   const char *tempdir = getenv("TEST_TMPDIR");
   ASSERT_NE(nullptr, tempdir);
-  std::string command_file_path_ = std::string(tempdir) + "/tokens";
-  FILE *fp = fopen(command_file_path_.c_str(), "w");
+  std::string command_file_path = singlejar_test_util::OutputFilePath("tokens");
+  FILE *fp = fopen(command_file_path.c_str(), "w");
   ASSERT_NE(nullptr, fp);
   for (size_t i = 0; i < ARRAY_SIZE(lines); ++i) {
     fprintf(fp, "%s\n", lines[i]);
   }
   fclose(fp);
 
-  std::string command_file_arg = std::string("@") + command_file_path_;
+  std::string command_file_arg = std::string("@") + command_file_path;
   const char *args[] = {"-before_file", "", "-after_file"};
   args[1] = command_file_arg.c_str();
   ArgTokenStream token_stream(ARRAY_SIZE(args), args);
@@ -82,7 +80,7 @@ TEST_F(TokenStreamTest, CommandFile) {
 }
 
 // '--arg1 optval1 --arg2' command line.
-TEST_F(TokenStreamTest, OptargOne) {
+TEST(TokenStreamTest, OptargOne) {
   const char *args[] = {"--arg1", "optval1", "--arg2", "--arg3", "optval3"};
   ArgTokenStream token_stream(ARRAY_SIZE(args), args);
   std::string optval;
@@ -98,7 +96,7 @@ TEST_F(TokenStreamTest, OptargOne) {
 }
 
 // '--arg1 value1 value2 --arg2' command line.
-TEST_F(TokenStreamTest, OptargMulti) {
+TEST(TokenStreamTest, OptargMulti) {
   const char *args[] = {"--arg1", "value11", "value12",
                         "--arg2", "value21", "value22"};
   ArgTokenStream token_stream(ARRAY_SIZE(args), args);

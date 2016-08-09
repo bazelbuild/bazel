@@ -100,9 +100,9 @@ class TransientBytesTest : public ::testing::Test {
   }
 
   static void CreateStoredJar() {
-    ASSERT_TRUE(TestUtil::AllocateFile("small1", 100));
-    ASSERT_TRUE(TestUtil::AllocateFile("huge", 0x100000001));
-    ASSERT_TRUE(TestUtil::AllocateFile("small2", 100));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile("small1", 100));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile("huge", 0x100000001));
+    ASSERT_TRUE(singlejar_test_util::AllocateFile("small2", 100));
     unlink(kStoredJar);
     ASSERT_EQ(0, system("zip -0qm stored.zip small1 huge small2"));
 #if !defined(__APPLE__)

@@ -22,11 +22,12 @@
 
 #include "gtest/gtest.h"
 
+namespace {
+
 static const char kJarsDirPath[] =
     "third_party/bazel/src/tools/singlejar/jars_to_test";
-class InputJarRandomJarsTest : public testing::Test {};
 
-TEST_F(InputJarRandomJarsTest, ScanAllJars) {
+TEST(InputJarRandomJarsTest, ScanAllJars) {
   int processed_jars = 0;
   DIR *dirp = opendir(kJarsDirPath);
   ASSERT_NE(nullptr, dirp);
@@ -69,3 +70,5 @@ TEST_F(InputJarRandomJarsTest, ScanAllJars) {
   closedir(dirp);
   EXPECT_LT(0, processed_jars);
 }
+
+}  // namespace

@@ -15,52 +15,48 @@
 #include <memory>
 
 #include "src/tools/singlejar/options.h"
+#include "src/tools/singlejar/test_util.h"
 
+#include "src/main/cpp/util/port.h"
 #include "gtest/gtest.h"
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-class OptionsTest : public testing::Test {
- protected:
-  void SetUp() override { options_.reset(new Options); }
-  std::unique_ptr<Options> options_;
-};
-
-TEST_F(OptionsTest, Flags1) {
+TEST(OptionsTest, Flags1) {
   const char *args[] = {"--exclude_build_data",
                         "--compression",
                         "--normalize",
                         "--no_duplicates",
                         "--output", "output_jar"};
-  options_->ParseCommandLine(ARRAY_SIZE(args), args);
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
 
-  EXPECT_TRUE(options_->exclude_build_data);
-  EXPECT_TRUE(options_->force_compression);
-  EXPECT_TRUE(options_->normalize_timestamps);
-  EXPECT_TRUE(options_->no_duplicates);
-  EXPECT_FALSE(options_->preserve_compression);
-  EXPECT_FALSE(options_->verbose);
-  EXPECT_FALSE(options_->warn_duplicate_resources);
-  EXPECT_EQ("output_jar", options_->output_jar);
+  EXPECT_TRUE(options.exclude_build_data);
+  EXPECT_TRUE(options.force_compression);
+  EXPECT_TRUE(options.normalize_timestamps);
+  EXPECT_TRUE(options.no_duplicates);
+  EXPECT_FALSE(options.preserve_compression);
+  EXPECT_FALSE(options.verbose);
+  EXPECT_FALSE(options.warn_duplicate_resources);
+  EXPECT_EQ("output_jar", options.output_jar);
 }
 
-TEST_F(OptionsTest, Flags2) {
+TEST(OptionsTest, Flags2) {
   const char *args[] = {"--dont_change_compression",
                         "--verbose",
                         "--warn_duplicate_resources",
                         "--output", "output_jar"};
-  options_->ParseCommandLine(ARRAY_SIZE(args), args);
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
 
-  ASSERT_FALSE(options_->exclude_build_data);
-  ASSERT_FALSE(options_->force_compression);
-  ASSERT_FALSE(options_->normalize_timestamps);
-  ASSERT_FALSE(options_->no_duplicates);
-  ASSERT_TRUE(options_->preserve_compression);
-  ASSERT_TRUE(options_->verbose);
-  ASSERT_TRUE(options_->warn_duplicate_resources);
+  ASSERT_FALSE(options.exclude_build_data);
+  ASSERT_FALSE(options.force_compression);
+  ASSERT_FALSE(options.normalize_timestamps);
+  ASSERT_FALSE(options.no_duplicates);
+  ASSERT_TRUE(options.preserve_compression);
+  ASSERT_TRUE(options.verbose);
+  ASSERT_TRUE(options.warn_duplicate_resources);
 }
 
-TEST_F(OptionsTest, SingleOptargs) {
+TEST(OptionsTest, SingleOptargs) {
   const char *args[] = {"--output", "output_jar",
                         "--main_class", "com.google.Main",
                         "--java_launcher", "//tools:mylauncher",
@@ -68,44 +64,46 @@ TEST_F(OptionsTest, SingleOptargs) {
                         "--extra_build_info", "extra_build_line1",
                         "--build_info_file", "build_file2",
                         "--extra_build_info", "extra_build_line2"};
-  options_->ParseCommandLine(ARRAY_SIZE(args), args);
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
 
-  EXPECT_EQ("output_jar", options_->output_jar);
-  EXPECT_EQ("com.google.Main", options_->main_class);
-  EXPECT_EQ("//tools:mylauncher", options_->java_launcher);
-  ASSERT_EQ(2, options_->build_info_files.size());
-  EXPECT_EQ("build_file1", options_->build_info_files[0]);
-  EXPECT_EQ("build_file2", options_->build_info_files[1]);
-  ASSERT_EQ(2, options_->build_info_lines.size());
-  EXPECT_EQ("extra_build_line1", options_->build_info_lines[0]);
-  EXPECT_EQ("extra_build_line2", options_->build_info_lines[1]);
+  EXPECT_EQ("output_jar", options.output_jar);
+  EXPECT_EQ("com.google.Main", options.main_class);
+  EXPECT_EQ("//tools:mylauncher", options.java_launcher);
+  ASSERT_EQ(2, options.build_info_files.size());
+  EXPECT_EQ("build_file1", options.build_info_files[0]);
+  EXPECT_EQ("build_file2", options.build_info_files[1]);
+  ASSERT_EQ(2, options.build_info_lines.size());
+  EXPECT_EQ("extra_build_line1", options.build_info_lines[0]);
+  EXPECT_EQ("extra_build_line2", options.build_info_lines[1]);
 }
 
-TEST_F(OptionsTest, MultiOptargs) {
-  const char *args[] = {"--output", "output_file",
+TEST(OptionsTest, MultiOptargs) {
+    const char *args[] = {"--output", "output_file",
                         "--sources", "jar1", "jar2",
                         "--resources", "res1", "res2",
                         "--classpath_resources", "cpres1", "cpres2",
                         "--sources", "jar3",
                         "--include_prefixes", "prefix1", "prefix2"};
-  options_->ParseCommandLine(ARRAY_SIZE(args), args);
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
 
-  ASSERT_EQ(3, options_->input_jars.size());
-  EXPECT_EQ("jar1", options_->input_jars[0]);
-  EXPECT_EQ("jar2", options_->input_jars[1]);
-  EXPECT_EQ("jar3", options_->input_jars[2]);
-  ASSERT_EQ(2, options_->resources.size());
-  EXPECT_EQ("res1", options_->resources[0]);
-  EXPECT_EQ("res2", options_->resources[1]);
-  ASSERT_EQ(2, options_->classpath_resources.size());
-  EXPECT_EQ("cpres1", options_->classpath_resources[0]);
-  EXPECT_EQ("cpres2", options_->classpath_resources[1]);
-  ASSERT_EQ(2, options_->include_prefixes.size());
-  EXPECT_EQ("prefix1", options_->include_prefixes[0]);
-  EXPECT_EQ("prefix2", options_->include_prefixes[1]);
+  ASSERT_EQ(3, options.input_jars.size());
+  EXPECT_EQ("jar1", options.input_jars[0]);
+  EXPECT_EQ("jar2", options.input_jars[1]);
+  EXPECT_EQ("jar3", options.input_jars[2]);
+  ASSERT_EQ(2, options.resources.size());
+  EXPECT_EQ("res1", options.resources[0]);
+  EXPECT_EQ("res2", options.resources[1]);
+  ASSERT_EQ(2, options.classpath_resources.size());
+  EXPECT_EQ("cpres1", options.classpath_resources[0]);
+  EXPECT_EQ("cpres2", options.classpath_resources[1]);
+  ASSERT_EQ(2, options.include_prefixes.size());
+  EXPECT_EQ("prefix1", options.include_prefixes[0]);
+  EXPECT_EQ("prefix2", options.include_prefixes[1]);
 }
 
-TEST_F(OptionsTest, EmptyMultiOptargs) {
+TEST(OptionsTest, EmptyMultiOptargs) {
   const char *args[] = {"--output", "output_file",
                         "--sources",
                         "--resources",
@@ -113,10 +111,11 @@ TEST_F(OptionsTest, EmptyMultiOptargs) {
                         "--sources",
                         "--include_prefixes", "prefix1",
                         "--resources"};
-  options_->ParseCommandLine(ARRAY_SIZE(args), args);
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
 
-  EXPECT_EQ(0, options_->input_jars.size());
-  EXPECT_EQ(0, options_->resources.size());
-  EXPECT_EQ(0, options_->classpath_resources.size());
-  EXPECT_EQ(1, options_->include_prefixes.size());
+  EXPECT_EQ(0, options.input_jars.size());
+  EXPECT_EQ(0, options.resources.size());
+  EXPECT_EQ(0, options.classpath_resources.size());
+  EXPECT_EQ(1, options.include_prefixes.size());
 }
