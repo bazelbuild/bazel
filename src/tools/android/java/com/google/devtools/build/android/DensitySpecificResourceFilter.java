@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.ide.common.res2.MergingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -118,6 +119,7 @@ public class DensitySpecificResourceFilter {
           .put("hdpi", 240)
           .put("280dpi", 280)
           .put("xhdpi", 320)
+          .put("340dpi", 340)
           .put("400dpi", 400)
           .put("420dpi", 420)
           .put("xxhdpi", 480)
@@ -154,10 +156,17 @@ public class DensitySpecificResourceFilter {
    * @param out The path to use for name spacing the final resource directory.
    * @param working The path of the working directory for the filtering
    */
-  public DensitySpecificResourceFilter(List<String> densities, Path out, Path working) {
+  public DensitySpecificResourceFilter(List<String> densities, Path out, Path working)
+      throws MergingException {
     this.densities = densities;
     this.out = out;
     this.working = working;
+
+    for (String density : densities) {
+      if (!DENSITY_MAP.containsKey(density)) {
+        throw new MergingException(density + " is not a known density qualifier.");
+      }
+    }
   }
 
   @VisibleForTesting
