@@ -37,6 +37,14 @@ public abstract class Link {
 
   private Link() {} // uninstantiable
 
+  /** The set of valid linker input files.  */
+  public static final FileTypeSet VALID_LINKER_INPUTS = FileTypeSet.of(
+      CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE,
+      CppFileTypes.ALWAYS_LINK_LIBRARY, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
+      CppFileTypes.OBJECT_FILE, CppFileTypes.PIC_OBJECT_FILE,
+      CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY,
+      CppFileTypes.INTERFACE_SHARED_LIBRARY);
+
   /**
    * These file are supposed to be added using {@code addLibrary()} calls to {@link CppLinkAction}
    * but will never be expanded to their constituent {@code .o} files. {@link CppLinkAction} checks

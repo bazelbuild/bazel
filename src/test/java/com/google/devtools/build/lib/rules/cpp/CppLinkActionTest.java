@@ -319,7 +319,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     new PathFragment(outputPath), getTargetConfiguration().getBinDirectory()),
                 ruleContext.getConfiguration(),
                 shouldIncludeToolchain ? CppHelper.getToolchain(ruleContext) : null)
-            .addObjectFiles(nonLibraryInputs)
+            .addNonLibraryInputs(nonLibraryInputs)
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
             .setCrosstoolInputs(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))

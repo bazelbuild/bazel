@@ -123,8 +123,7 @@ public class CppLinkActionBuilder {
 
   // Morally equivalent with {@link Context}, except these are mutable.
   // Keep these in sync with {@link Context}.
-  private final Set<LinkerInput> objectFiles = new LinkedHashSet<>();
-  private final Set<Artifact> nonCodeInputs = new LinkedHashSet<>();
+  private final Set<LinkerInput> nonLibraries = new LinkedHashSet<>();
   private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
   private NestedSet<Artifact> crosstoolInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Artifact runtimeMiddleman;
@@ -228,8 +227,7 @@ public class CppLinkActionBuilder {
     Preconditions.checkNotNull(linkContext);
 
     // All linkContext fields should be transferred to this Builder.
-    this.objectFiles.addAll(linkContext.objectFiles);
-    this.nonCodeInputs.addAll(linkContext.nonCodeInputs);
+    this.nonLibraries.addAll(linkContext.nonLibraries);
     this.libraries.addTransitive(linkContext.libraries);
     this.crosstoolInputs = linkContext.crosstoolInputs;
     this.runtimeMiddleman = linkContext.runtimeMiddleman;
@@ -250,14 +248,10 @@ public class CppLinkActionBuilder {
   }
   
   /** Returns linker inputs that are not libraries. */
-  public Set<LinkerInput> getObjectFiles() {
-    return objectFiles;
+  public Set<LinkerInput> getNonLibraries() {
+    return nonLibraries;
   }
-
-  public Set<Artifact> getNonCodeInputs() {
-    return nonCodeInputs;
-  }
-
+  
   /**
    * Returns linker inputs that are libraries.
    */
@@ -378,9 +372,14 @@ public class CppLinkActionBuilder {
         }
       }
     }
-    for (LinkerInput input : objectFiles) {
-      if (this.ltoBitcodeFiles.contains(input.getArtifact())) {
-        allBitcode.put(input.getArtifact().getExecPath(), input.getArtifact());
+    for (LinkerInput input : nonLibraries) {
+      // This relies on file naming conventions. It would be less fragile to have a dedicated
+      // field for non-library .o files.
+      if (CppFileTypes.OBJECT_FILE.matches(input.getArtifact().getExecPath())
+          || CppFileTypes.PIC_OBJECT_FILE.matches(input.getArtifact().getExecPath())) {
+        if (this.ltoBitcodeFiles.contains(input.getArtifact())) {
+          allBitcode.put(input.getArtifact().getExecPath(), input.getArtifact());
+        }
       }
     }
 
@@ -436,11 +435,12 @@ public class CppLinkActionBuilder {
             || needWholeArchive(linkStaticness, linkType, linkopts, isNativeDeps, cppConfiguration);
 
     NestedSet<LibraryToLink> uniqueLibraries = libraries.build();
-    final Iterable<Artifact> objectArtifacts = LinkerInputs.toLibraryArtifacts(objectFiles);
+    final Iterable<Artifact> filteredNonLibraryArtifacts =
+        CppLinkAction.filterLinkerInputArtifacts(LinkerInputs.toLibraryArtifacts(nonLibraries));
 
     final Iterable<LinkerInput> linkerInputs =
         IterablesChain.<LinkerInput>builder()
-            .add(ImmutableList.copyOf(objectFiles))
+            .add(ImmutableList.copyOf(CppLinkAction.filterLinkerInputs(nonLibraries)))
             .add(
                 ImmutableIterable.from(
                     Link.mergeInputsCmdLine(
@@ -463,12 +463,12 @@ public class CppLinkActionBuilder {
     }
 
     final LibraryToLink outputLibrary = LinkerInputs.newInputLibrary(
-        output, libraryIdentifier, objectArtifacts, this.ltoBitcodeFiles);
+        output, libraryIdentifier, filteredNonLibraryArtifacts, this.ltoBitcodeFiles);
     final LibraryToLink interfaceOutputLibrary =
         (interfaceOutput == null)
             ? null
             : LinkerInputs.newInputLibrary(interfaceOutput, libraryIdentifier,
-                objectArtifacts, this.ltoBitcodeFiles);
+                filteredNonLibraryArtifacts, this.ltoBitcodeFiles);
 
     final ImmutableMap<Artifact, Artifact> linkstampMap =
         mapLinkstampsToOutputs(linkstamps, ruleContext, configuration, output, linkArtifactFactory);
@@ -617,8 +617,7 @@ public class CppLinkActionBuilder {
         LinkerInputs.toLibraryArtifacts(
             Link.mergeInputsDependencies(
                 uniqueLibraries, needWholeArchive, cppConfiguration.archiveType()));
-    Iterable<Artifact> expandedNonLibraryInputs = LinkerInputs.toLibraryArtifacts(objectFiles);
-
+    Iterable<Artifact> expandedNonLibraryInputs = LinkerInputs.toLibraryArtifacts(nonLibraries);
     if (!isLTOIndexing && allLTOArtifacts != null) {
       // We are doing LTO, and this is the real link, so substitute
       // the LTO bitcode files with the real object files they were translated into.
@@ -657,7 +656,6 @@ public class CppLinkActionBuilder {
     IterablesChain.Builder<Artifact> inputsBuilder =
         IterablesChain.<Artifact>builder()
             .add(ImmutableList.copyOf(expandedNonLibraryInputs))
-            .add(ImmutableList.copyOf(nonCodeInputs))
             .add(dependencyInputsBuilder.build())
             .add(ImmutableIterable.from(expandedInputs));
 
@@ -841,10 +839,14 @@ public class CppLinkActionBuilder {
     return this;
   }
 
-  private void addObjectFile(LinkerInput input) {
+  private void addNonLibraryInput(LinkerInput input) {
     String name = input.getArtifact().getFilename();
-    Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(name), name);
-    this.objectFiles.add(input);
+    Preconditions.checkArgument(
+        !Link.ARCHIVE_LIBRARY_FILETYPES.matches(name)
+            && !Link.SHARED_LIBRARY_FILETYPES.matches(name),
+        "'%s' is a library file",
+        input);
+    this.nonLibraries.add(input);
   }
 
   public CppLinkActionBuilder addLTOBitcodeFiles(Iterable<Artifact> files) {
@@ -855,52 +857,30 @@ public class CppLinkActionBuilder {
   }
 
   /**
-   * Adds a single object file to the set of inputs.
+   * Adds a single artifact to the set of inputs (C++ source files, header files, etc). Artifacts
+   * that are not of recognized types will be used for dependency checking but will not be passed to
+   * the linker. The artifact must not be an archive or a shared library.
    */
-  public CppLinkActionBuilder addObjectFile(Artifact input) {
-    addObjectFile(LinkerInputs.simpleLinkerInput(input));
+  public CppLinkActionBuilder addNonLibraryInput(Artifact input) {
+    addNonLibraryInput(LinkerInputs.simpleLinkerInput(input));
     return this;
   }
 
   /**
-   * Adds object files to the linker action.
+   * Adds multiple artifacts to the set of inputs (C++ source files, header files, etc). Artifacts
+   * that are not of recognized types will be used for dependency checking but will not be passed to
+   * the linker. The artifacts must not be archives or shared libraries.
    */
-  public CppLinkActionBuilder addObjectFiles(Iterable<Artifact> inputs) {
+  public CppLinkActionBuilder addNonLibraryInputs(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
-      addObjectFile(LinkerInputs.simpleLinkerInput(input));
+      addNonLibraryInput(LinkerInputs.simpleLinkerInput(input));
     }
-    return this;
-  }
-
-  /**
-   * Adds non-code files to the set of inputs. They will not be passed to the linker command line
-   * unless that is explicitly modified, too.
-   */
-  public CppLinkActionBuilder addNonCodeInputs(Iterable<Artifact> inputs) {
-    for (Artifact input : inputs) {
-      addNonCodeInput(input);
-    }
-
-    return this;
-  }
-
-  /**
-   * Adds a single non-code file to the set of inputs. It will not be passed to the linker command
-   * line unless that is explicitly modified, too.
-   */
-  public CppLinkActionBuilder addNonCodeInput(Artifact input) {
-    String basename = input.getFilename();
-    Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename), basename);
-    Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename), basename);
-    Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename), basename);
-
-    this.nonCodeInputs.add(input);
     return this;
   }
 
   public CppLinkActionBuilder addFakeNonLibraryInputs(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
-      addObjectFile(LinkerInputs.fakeLinkerInput(input));
+      addNonLibraryInput(LinkerInputs.fakeLinkerInput(input));
     }
     return this;
   }

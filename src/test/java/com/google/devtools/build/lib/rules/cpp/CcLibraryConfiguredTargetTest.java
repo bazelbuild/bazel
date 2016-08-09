@@ -299,12 +299,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig,
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
-                + "   pattern: 'object_%{base_name}.o'"
+                + "   pattern: '%{base_name}.obj'"
                 + "}");
 
     useConfiguration();
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(artifactByPath(getFilesToBuild(hello), ".a", "object_hello.o")).isNotNull();
+    assertThat(artifactByPath(getFilesToBuild(hello), ".a", "hello.obj")).isNotNull();
   }
 
   @Test

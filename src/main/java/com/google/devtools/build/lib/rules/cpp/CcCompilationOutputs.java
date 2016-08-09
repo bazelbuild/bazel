@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.Preconditions;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -200,15 +200,11 @@ public class CcCompilationOutputs {
      * Adds an .o file.
      */
     public Builder addObjectFile(Artifact artifact) {
-      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
       objectFiles.add(artifact);
       return this;
     }
 
     public Builder addObjectFiles(Iterable<Artifact> artifacts) {
-      for (Artifact artifact : artifacts) {
-        Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
-      }
       Iterables.addAll(objectFiles, artifacts);
       return this;
     }
