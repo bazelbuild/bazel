@@ -39,14 +39,11 @@ import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-
+import java.util.Arrays;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests for Skylark aspects
@@ -1099,6 +1096,42 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
       // expected.
     }
     assertContainsEvent("Aspect //test:aspect.bzl%my_aspect added more than once");
+  }
+
+  @Test
+  public void topLevelAspectsAndExtraActions() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target,ctx):",
+        "  f = ctx.new_file('dummy.txt')",
+        "  ctx.action(outputs = [f], command='echo xxx > $(location f)', mnemonic='AspectAction')",
+        "  return struct()",
+        "my_aspect = aspect(implementation = _aspect_impl)"
+    );
+    scratch.file(
+        "test/BUILD",
+        "extra_action(",
+        "    name = 'xa',",
+        "    cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',",
+        "    out_templates = ['file.xa'],",
+        ")",
+        "action_listener(",
+        "    name = 'al',",
+        "    mnemonics = [ 'AspectAction' ],",
+        "    extra_actions = [ ':xa' ])",
+        "java_library(name = 'xxx')"
+    );
+    useConfiguration("--experimental_action_listener=//test:al");
+    AnalysisResult analysisResult = update(
+        ImmutableList.<String>of("test/aspect.bzl%my_aspect"),
+        "//test:xxx");
+    assertThat(Iterables.transform(analysisResult.getAdditionalArtifactsToBuild(),
+        new Function<Artifact, String>() {
+          @Override
+          public String apply(Artifact artifact) {
+            return artifact.getFilename();
+          }
+        })).contains("file.xa");
   }
 
   @RunWith(JUnit4.class)
