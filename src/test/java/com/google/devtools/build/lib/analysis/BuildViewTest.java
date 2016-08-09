@@ -1022,7 +1022,7 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError())
-        .contains("execution phase succeeded, but there were loading phase errors");
+        .contains("command succeeded, but there were loading phase errors");
   }
 
   @Test

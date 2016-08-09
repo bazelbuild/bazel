@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -182,31 +181,39 @@ public final class BuildTool {
       }
       LOG.info("Configurations created");
 
-      // Analysis phase.
-      AnalysisResult analysisResult = runAnalysisPhase(request, loadingResult, configurations);
-      result.setBuildConfigurationCollection(configurations);
-      result.setActualTargets(analysisResult.getTargetsToBuild());
-      result.setTestTargets(analysisResult.getTargetsToTest());
+      if (request.getBuildOptions().performAnalysisPhase) {
+        AnalysisResult analysisResult = runAnalysisPhase(request, loadingResult, configurations);
+        result.setBuildConfigurationCollection(configurations);
+        result.setActualTargets(analysisResult.getTargetsToBuild());
+        result.setTestTargets(analysisResult.getTargetsToTest());
 
-      LoadedPackageProvider bridge =
-          new LoadedPackageProvider(env.getPackageManager(), env.getReporter());
-      checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(), bridge);
-      reportTargets(analysisResult);
+        LoadedPackageProvider bridge =
+            new LoadedPackageProvider(env.getPackageManager(), env.getReporter());
+        checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(), bridge);
+        reportTargets(analysisResult);
 
-      // Execution phase.
-      if (needsExecutionPhase(request.getBuildOptions())) {
-        executionTool.executeBuild(
-            request.getId(),
-            analysisResult,
-            result,
-            configurations,
-            analysisResult.getPackageRoots(),
-            request.getTopLevelArtifactContext());
-      }
-
-      String delayedErrorMsg = analysisResult.getError();
-      if (delayedErrorMsg != null) {
-        throw new BuildFailedException(delayedErrorMsg);
+        // Execution phase.
+        if (needsExecutionPhase(request.getBuildOptions())) {
+          executionTool.executeBuild(
+              request.getId(),
+              analysisResult,
+              result,
+              configurations,
+              analysisResult.getPackageRoots(),
+              request.getTopLevelArtifactContext());
+        }
+        String delayedErrorMsg = analysisResult.getError();
+        if (delayedErrorMsg != null) {
+          throw new BuildFailedException(delayedErrorMsg);
+        }
+      } else {
+        getReporter().handle(Event.progress("Loading complete."));
+        LOG.info("No analysis requested, so finished");
+        String errorMessage = BuildView.createErrorMessage(loadingResult, null);
+        if (errorMessage != null) {
+          throw new BuildFailedException(errorMessage);
+        }
+        // Return.
       }
     } catch (RuntimeException e) {
       // Print an error message for unchecked runtime exceptions. This does not concern Error
@@ -239,11 +246,6 @@ public final class BuildTool {
                     env.getBlazeWorkspace().getWorkspaceStatusActionFactory()
                         .createDummyWorkspaceStatus()));
       }
-    }
-
-    if (loadingResult != null && loadingResult.hasTargetPatternError()) {
-      throw new BuildFailedException("execution phase successful, but there were errors " +
-                                     "parsing the target pattern");
     }
   }
 
@@ -441,12 +443,6 @@ public final class BuildTool {
       BuildConfigurationCollection configurations)
       throws InterruptedException, ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
-    if (!request.getBuildOptions().performAnalysisPhase) {
-      getReporter().handle(Event.progress("Loading complete."));
-      LOG.info("No analysis requested, so finished");
-      return AnalysisResult.EMPTY;
-    }
-
     getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
