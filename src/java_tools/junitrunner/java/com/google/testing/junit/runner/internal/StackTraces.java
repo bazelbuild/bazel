@@ -14,10 +14,6 @@
 
 package com.google.testing.junit.runner.internal;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
-
 import java.io.PrintStream;
 import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
@@ -25,6 +21,8 @@ import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -46,12 +44,10 @@ public class StackTraces {
 
     // But we can know whether a thread is daemon only from Thread
     Set<Thread> threads = Thread.getAllStackTraces().keySet();
-    ImmutableMap<Long, Thread> threadMap = Maps.uniqueIndex(
-        threads, new Function<Thread, Long>() {
-          @Override public Long apply(Thread thread) {
-            return thread.getId();
-          }
-        });
+    Map<Long, Thread> threadMap = new HashMap<>();
+    for (Thread thread : threads) {
+      threadMap.put(thread.getId(), thread);
+    }
 
     // Dump non-daemon threads first
     for (ThreadInfo threadInfo : threadInfos) {

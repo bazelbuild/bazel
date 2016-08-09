@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.junit4.runner;
 
-import com.google.common.base.Preconditions;
-
 import org.junit.runner.Description;
 
 /**
@@ -33,7 +31,9 @@ public class DynamicTestException extends Exception {
    */
   public DynamicTestException(Description test, Throwable cause) {
     super(cause);
-    Preconditions.checkArgument(test.isTest());
+    if (!test.isTest()) {
+      throw new IllegalArgumentException();
+    }
     this.test = test;
   }
 

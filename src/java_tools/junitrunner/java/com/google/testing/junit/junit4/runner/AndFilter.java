@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.junit4.runner;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -29,15 +27,18 @@ class AndFilter extends Filter {
   private final Filter filter2;
 
   public AndFilter(Filter filter1, Filter filter2) {
-    this.filter1 = checkNotNull(filter1);
-    this.filter2 = checkNotNull(filter2);
+    if (filter1 == null || filter2 == null) {
+      throw new NullPointerException();
+    }
+    this.filter1 = filter1;
+    this.filter2 = filter2;
   }
 
   @Override
   public boolean shouldRun(Description description) {
     return filter1.shouldRun(description) && filter2.shouldRun(description);
   }
-  
+
   @Override
   public String describe() {
     return String.format("%s && %s", filter1.describe(), filter2.describe());

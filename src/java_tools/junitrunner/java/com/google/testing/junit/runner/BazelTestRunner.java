@@ -180,7 +180,7 @@ public class BazelTestRunner {
     Thread thread = new Thread(new Runnable() {
       @Override
       public void run() {
-        Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
+        sleepUninterruptibly(5);
         out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
         StackTraces.printAll(out);
       }
@@ -188,6 +188,31 @@ public class BazelTestRunner {
 
     thread.setDaemon(true);
     thread.start();
+  }
+
+  /**
+   * Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly.
+   *
+   * Mimics implementation of {@link Uninterruptibles#sleepUninterruptibly(long, TimeUnit)}.
+   */
+  private static void sleepUninterruptibly(long sleepForSeconds) {
+    boolean interrupted = false;
+    try {
+      long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(sleepForSeconds);
+      while (true) {
+        try {
+          // TimeUnit.sleep() treats negative timeouts just like zero.
+          TimeUnit.NANOSECONDS.sleep(end - System.nanoTime());
+          return;
+        } catch (InterruptedException e) {
+          interrupted = true;
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @Module(includes = JUnit4RunnerModule.class)
