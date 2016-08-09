@@ -26,11 +26,11 @@ cc_test(
     size = "large",
     srcs = [
         "combiners_test.cc",
-        ":combiners",
         ":zip_headers",
         ":zlib_interface",
     ],
     deps = [
+        ":combiners",
         ":input_jar",
         "//third_party:gtest",
         "//third_party/zlib",
@@ -192,6 +192,17 @@ cc_test(
 )
 
 cc_library(
+    name = "combiners",
+    srcs = [
+        "combiners.cc",
+        ":transient_bytes",
+        ":zip_headers",
+    ],
+    hdrs = ["combiners.h"],
+    deps = ["//third_party/zlib"],
+)
+
+cc_library(
     name = "input_jar",
     srcs = [
         "diag.h",
@@ -218,15 +229,15 @@ cc_library(
 cc_library(
     name = "output_jar",
     srcs = [
+        "diag.h",
+        "mapped_file.h",
         "output_jar.cc",
         "output_jar.h",
-        ":combiners",
-        ":mapped_file.h",
-        ":options.h",
         ":zip_headers",
     ],
     hdrs = ["output_jar.h"],
     deps = [
+        ":combiners",
         ":input_jar",
         ":options",
         "//src/main/cpp/util",
@@ -242,16 +253,6 @@ cc_library(
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
-    ],
-)
-
-filegroup(
-    name = "combiners",
-    srcs = [
-        "combiners.h",
-        ":transient_bytes",
-        ":zip_headers",
-        ":zlib_interface",
     ],
 )
 

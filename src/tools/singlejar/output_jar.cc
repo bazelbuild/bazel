@@ -57,16 +57,14 @@ OutputJar::OutputJar()
       manifest_("META-INF/MANIFEST.MF"),
       build_properties_("build-data.properties") {
   known_members_.emplace(spring_handlers_.filename(),
-                         EntryInfo{EntryInfo::CONCATENATE, &spring_handlers_});
+                         EntryInfo{&spring_handlers_});
   known_members_.emplace(spring_schemas_.filename(),
-                         EntryInfo{EntryInfo::CONCATENATE, &spring_schemas_});
-  known_members_.emplace(manifest_.filename(),
-                         EntryInfo{EntryInfo::SKIP, &manifest_});
-  known_members_.emplace(
-      protobuf_meta_handler_.filename(),
-      EntryInfo{EntryInfo::CONCATENATE, &protobuf_meta_handler_});
+                         EntryInfo{&spring_schemas_});
+  known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
+  known_members_.emplace(protobuf_meta_handler_.filename(),
+                         EntryInfo{&protobuf_meta_handler_});
   known_members_.emplace(build_properties_.filename(),
-                         EntryInfo{EntryInfo::SKIP, &build_properties_});
+                         EntryInfo{&build_properties_});
   manifest_.Append(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n");
@@ -203,7 +201,7 @@ int OutputJar::Doit(Options *options) {
   }
 
   // Then copy source files' contents.
-  for (size_t ix = 0; ix < options_->input_jars.size(); ++ix) {
+  for (int ix = 0; ix < options_->input_jars.size(); ++ix) {
     if (!AddJar(ix)) {
       exit(1);
     }
@@ -239,7 +237,7 @@ bool OutputJar::Open() {
   return true;
 }
 
-bool OutputJar::AddJar(size_t jar_path_index) {
+bool OutputJar::AddJar(int jar_path_index) {
   const std::string& input_jar_path = options_->input_jars[jar_path_index];
   InputJar input_jar;
   if (!input_jar.Open(input_jar_path)) {
@@ -259,56 +257,57 @@ bool OutputJar::AddJar(size_t jar_path_index) {
     // Special files that cannot be handled by looking up known_members_ map:
     // * ignore *.SF, *.RSA, *.DSA
     //   (TODO(asmundak): should this be done only in META-INF?
-    // * concatenate the contents of each file META-INF/services/ directory
     //
     if (ends_with(file_name, file_name_length, ".SF") ||
         ends_with(file_name, file_name_length, ".RSA") ||
         ends_with(file_name, file_name_length, ".DSA")) {
       continue;
-    } else if (file_name[file_name_length - 1] != '/' &&
-               begins_with(file_name, file_name_length, "META-INF/services/")) {
+    }
+
+    bool is_dir = (file_name[file_name_length - 1] != '/');
+    if (is_dir &&
+        begins_with(file_name, file_name_length, "META-INF/services/")) {
+      // The contents of the META-INF/services/<SERVICE> on the output is the
+      // concatenation of the META-INF/services/<SERVICE> files from all inputs.
       std::string service_path(file_name, file_name_length);
       if (!known_members_.count(service_path)) {
+        // Create a concatenator and add it to the known_members_ map.
+        // The call to Merge() below will then take care of the rest.
         Concatenator *service_handler = new Concatenator(service_path);
         service_handlers_.emplace_back(service_handler);
-        known_members_.emplace(
-            service_path, EntryInfo{EntryInfo::CONCATENATE, service_handler});
+        known_members_.emplace(service_path, EntryInfo{service_handler});
       }
     }
-    auto got = known_members_.emplace(
-        std::string(file_name, file_name_length),
-        EntryInfo{EntryInfo::PLAIN, reinterpret_cast<void *>(jar_path_index)});
+
+    // Install a new entry unless it is already present. All the plain (non-dir)
+    // entries that require a combiner have been already installed, so the call
+    // will add either a directory entry whose handler will ignore subsequent
+    // duplicates, or an ordinary plain entry, for which we save the index of
+    // the first input jar (in order to provide diagnostics on duplicate).
+    auto got =
+        known_members_.emplace(std::string(file_name, file_name_length),
+                               EntryInfo{is_dir ? &null_combiner_ : nullptr,
+                                         is_dir ? -1 : jar_path_index});
     if (!got.second) {
-      // We allow duplicate entries in special cases:
-      // - various combiners
-      // - directory entries
-      // - manifest files
-      if (got.first->second.type_ == EntryInfo::XML_COMBINE) {
-        reinterpret_cast<XmlCombiner *>(got.first->second.data_)
-            ->Merge(jar_entry, lh);
+      auto &entry_info = got.first->second;
+      // Handle special entries (the ones that have a combiner.
+      if (entry_info.combiner_ != nullptr) {
+        entry_info.combiner_->Merge(jar_entry, lh);
         continue;
-      } else if (got.first->second.type_ == EntryInfo::CONCATENATE) {
-        reinterpret_cast<Concatenator *>(got.first->second.data_)
-            ->Merge(jar_entry, lh);
-        continue;
-      } else if (got.first->second.type_ == EntryInfo::SKIP) {
-        continue;
-      } else if (file_name[file_name_length - 1] == '/') {
-        continue;
+      }
+
+      // Plain file entry. If duplicates are not allowed, bail out. Otherwise
+      // just ignore this entry.
+      if (options_->no_duplicates ||
+          (options_->no_duplicate_classes &&
+           ends_with(file_name, file_name_length, ".class"))) {
+        diag_errx(1, "%s:%d: %.*s is present both in %s and %s", __FILE__,
+                  __LINE__, file_name_length, file_name,
+                  options_->input_jars[entry_info.input_jar_index_].c_str(),
+                  input_jar_path.c_str());
       } else {
-        if (options_->no_duplicates ||
-            (options_->no_duplicate_classes &&
-             ends_with(file_name, file_name_length, ".class"))) {
-          auto previous_input_jar_index =
-              reinterpret_cast<size_t>(got.first->second.data_);
-          diag_errx(1, "%s:%d: %.*s is present both in %s and %s", __FILE__,
-                    __LINE__, file_name_length, file_name,
-                    options_->input_jars[previous_input_jar_index].c_str(),
-                    input_jar_path.c_str());
-        } else {
-          duplicate_entries_++;
-          continue;
-        }
+        duplicate_entries_++;
+        continue;
       }
     }
 
@@ -429,7 +428,7 @@ void OutputJar::AddDirectory(const char *path) {
   lh->uncompressed_file_size32(0);
   lh->file_name(path, n_path);
   lh->extra_fields(nullptr, 0);
-  known_members_.emplace(path, EntryInfo{EntryInfo::SKIP, nullptr});
+  known_members_.emplace(path, EntryInfo{&null_combiner_});
   WriteEntry(lh);
 }
 
@@ -540,8 +539,7 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
   classpath_resource->Append(
       reinterpret_cast<const char *>(mapped_file.start()), mapped_file.size());
   classpath_resources_.emplace_back(classpath_resource);
-  known_members_.emplace(resource_name,
-                         EntryInfo{EntryInfo::PLAIN, classpath_resource});
+  known_members_.emplace(resource_name, EntryInfo{classpath_resource});
 }
 
 #if defined(__APPLE__)

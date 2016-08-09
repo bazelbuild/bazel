@@ -118,6 +118,13 @@ TEST_F(CombinersTest, ConcatenatorHuge) {
   free(reinterpret_cast<void *>(entry));
 }
 
+// Test NullCombiner.
+TEST_F(CombinersTest, NullCombiner) {
+  NullCombiner null_combiner;
+  ASSERT_TRUE(null_combiner.Merge(nullptr, nullptr));
+  ASSERT_EQ(nullptr, null_combiner.OutputEntry());
+}
+
 // Test XmlCombiner.
 TEST_F(CombinersTest, XmlCombiner) {
   InputJar input_jar;
@@ -155,6 +162,7 @@ TEST_F(CombinersTest, XmlCombiner) {
 
   free(reinterpret_cast<void *>(entry));
 }
+
 // Test PropertyCombiner.
 TEST_F(CombinersTest, PropertyCombiner) {
   static char kProperties[] =
@@ -164,6 +172,9 @@ TEST_F(CombinersTest, PropertyCombiner) {
   property_combiner.AddProperty("name", "value");
   property_combiner.AddProperty(std::string("name_str"),
                                 std::string("value_str"));
+
+  // Merge should not be called.
+  ASSERT_FALSE(property_combiner.Merge(nullptr, nullptr));
 
   // Create output, verify Local Header contents.
   LH *entry = reinterpret_cast<LH *>(property_combiner.OutputEntry());

@@ -40,7 +40,7 @@ class OutputJar {
   // Open output jar.
   bool Open();
   // Add the contents of the given input jar.
-  bool AddJar(size_t jar_path_index);
+  bool AddJar(int jar_path_index);
   // Returns the current output position.
   off_t Position();
   // Write Jar entry.
@@ -78,8 +78,10 @@ class OutputJar {
 
   Options *options_;
   struct EntryInfo {
-    enum EntryType { PLAIN, XML_COMBINE, CONCATENATE, SKIP } type_;
-    void *data_;  // TODO(asmundak): use virtual dispatch instead.
+    EntryInfo(Combiner *combiner, int index = -1)
+        : combiner_(combiner), input_jar_index_(index) {}
+    Combiner *combiner_;
+    int input_jar_index_;  // Input jar index for the plain entry or -1.
   };
 
   std::unordered_map<std::string, struct EntryInfo> known_members_;
@@ -94,6 +96,7 @@ class OutputJar {
   Concatenator protobuf_meta_handler_;
   Concatenator manifest_;
   PropertyCombiner build_properties_;
+  NullCombiner null_combiner_;
   std::vector<std::unique_ptr<Concatenator> > service_handlers_;
   std::vector<std::unique_ptr<Concatenator> > classpath_resources_;
 };

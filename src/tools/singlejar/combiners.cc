@@ -1,0 +1,134 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "src/tools/singlejar/combiners.h"
+#include "src/tools/singlejar/diag.h"
+
+Combiner::~Combiner() {}
+
+Concatenator::~Concatenator() {}
+
+bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
+  CreateBuffer();
+  if (Z_NO_COMPRESSION == lh->compression_method()) {
+    buffer_->ReadEntryContents(lh);
+  } else if (Z_DEFLATED == lh->compression_method()) {
+    if (!inflater_.get()) {
+      inflater_.reset(new Inflater());
+    }
+    buffer_->DecompressEntryContents(cdh, lh, inflater_.get());
+  } else {
+    errx(2, "%s is neither stored nor deflated", filename_.c_str());
+  }
+  return true;
+}
+
+void *Concatenator::OutputEntry() {
+  if (!buffer_.get()) {
+    return nullptr;
+  }
+
+  // Allocate a contiguous buffer for the local file header and
+  // deflated data. We assume that deflate decreases the size, so if
+  //  the deflater reports overflow, we just save original data.
+  size_t deflated_buffer_size =
+      sizeof(LH) + filename_.size() + buffer_->data_size();
+
+  // Huge entry (>4GB) needs Zip64 extension field with 64-bit original
+  // and compressed size values.
+  uint8_t
+      zip64_extension_buffer[sizeof(Zip64ExtraField) + 2 * sizeof(uint64_t)];
+  bool huge_buffer = (buffer_->data_size() >= 0xFFFFFFFF);
+  if (huge_buffer) {
+    deflated_buffer_size += sizeof(zip64_extension_buffer);
+  }
+  LH *lh = reinterpret_cast<LH *>(malloc(deflated_buffer_size));
+  if (lh == nullptr) {
+    return nullptr;
+  }
+  lh->signature();
+  lh->version(20);
+  lh->bit_flag(0x0);
+  lh->last_mod_file_time(1);   // 00:00:01
+  lh->last_mod_file_date(33);  // 1980-01-01
+  lh->crc32(0x12345678);
+  lh->compressed_file_size32(0);
+  lh->file_name(filename_.c_str(), filename_.size());
+
+  if (huge_buffer) {
+    // Add Z64 extension if this is a huge entry.
+    lh->uncompressed_file_size32(0xFFFFFFFF);
+    Zip64ExtraField *z64 =
+        reinterpret_cast<Zip64ExtraField *>(zip64_extension_buffer);
+    z64->signature();
+    z64->payload_size(2 * sizeof(uint64_t));
+    z64->attr64(0, buffer_->data_size());
+    lh->extra_fields(reinterpret_cast<uint8_t *>(z64), z64->size());
+  } else {
+    lh->uncompressed_file_size32(buffer_->data_size());
+    lh->extra_fields(nullptr, 0);
+  }
+
+  uint32_t checksum;
+  uint64_t compressed_size;
+  uint16_t method = buffer_->Write(lh->data(), &checksum, &compressed_size);
+  lh->crc32(checksum);
+  lh->compression_method(method);
+  if (huge_buffer) {
+    lh->compressed_file_size32(compressed_size < 0xFFFFFFFF ? compressed_size
+                                                            : 0xFFFFFFFF);
+    // Not sure if this has to be written in the small case, but it shouldn't
+    // hurt.
+    const_cast<Zip64ExtraField *>(lh->zip64_extra_field())
+        ->attr64(1, compressed_size);
+  } else {
+    // If original data is <4GB, the compressed one is, too.
+    lh->compressed_file_size32(compressed_size);
+  }
+  return reinterpret_cast<void *>(lh);
+}
+
+NullCombiner::~NullCombiner() {}
+
+bool NullCombiner::Merge(const CDH *cdh, const LH *lh) { return true; }
+
+void *NullCombiner::OutputEntry() { return nullptr; }
+
+XmlCombiner::~XmlCombiner() {}
+
+bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
+  if (!concatenator_.get()) {
+    concatenator_.reset(new Concatenator(filename_));
+    concatenator_->Append("<");
+    concatenator_->Append(xml_tag_);
+    concatenator_->Append(">\n");
+  }
+  return concatenator_->Merge(cdh, lh);
+}
+
+void *XmlCombiner::OutputEntry() {
+  if (!concatenator_.get()) {
+    return nullptr;
+  }
+  concatenator_->Append("</");
+  concatenator_->Append(xml_tag_);
+  concatenator_->Append(">\n");
+  return concatenator_->OutputEntry();
+}
+
+PropertyCombiner::~PropertyCombiner() {}
+
+bool PropertyCombiner::Merge(const CDH *cdh, const LH *lh) {
+  return false;  // This should not be called.
+}
