@@ -19,14 +19,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.net.Proxy;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for @{link ProxyHelper}.
@@ -173,5 +171,25 @@ public class ProxyHelperTest {
     } catch (IOException e) {
       assertThat(e.getMessage()).contains("No password given for proxy");
     }
+  }
+
+  @Test
+  public void testNoProxyAuth() throws Exception {
+    Proxy proxy = ProxyHelper.createProxy("http://127.0.0.1:3128/");
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":3128");
+    assertEquals(System.getProperty("http.proxyHost"), "127.0.0.1");
+    assertEquals(System.getProperty("http.proxyPort"), "3128");
+  }
+
+  @Test
+  public void testTrailingSlash() throws Exception {
+    Proxy proxy = ProxyHelper.createProxy("http://foo:bar@example.com:8000/");
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":8000");
+    assertEquals(System.getProperty("http.proxyHost"), "example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "8000");
+    assertEquals(System.getProperty("http.proxyUser"), "foo");
+    assertEquals(System.getProperty("http.proxyPassword"), "bar");
   }
 }

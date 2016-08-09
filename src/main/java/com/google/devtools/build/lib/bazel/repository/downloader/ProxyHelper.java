@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Strings;
-
 import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
@@ -75,7 +74,7 @@ public class ProxyHelper {
 
     // Here there be dragons.
     Pattern urlPattern =
-        Pattern.compile("^(https?)://(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?$");
+        Pattern.compile("^(https?)://(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
     Matcher matcher = urlPattern.matcher(proxyAddress);
     if (!matcher.matches()) {
       throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
