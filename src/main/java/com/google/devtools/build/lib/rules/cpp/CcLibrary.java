@@ -131,8 +131,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             // wrt. implicit output files, if the contract says so. Behavior here differs between Bazel
             // and Blaze.
             .setGenerateLinkActionsIfEmpty(
-                ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction()
-                    != ImplicitOutputsFunction.NONE)
+                ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
             .setLinkType(linkType)
             .setNeverLink(neverLink)
             .addPrecompiledFiles(precompiledFiles);
@@ -195,9 +194,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     } else if (!createDynamicLibrary
         && ruleContext.attributes().isConfigurable("srcs", BuildType.LABEL_LIST)) {
       // If "srcs" is configurable, the .so output is always declared because the logic that
-      // determines implicit outs doesn't know which value of "srcs" will ultimately get chosen. 
-      // Here, where we *do* have the correct value, it may not contain any source files to 
-      // generate an .so with. If that's the case, register a fake generating action to prevent 
+      // determines implicit outs doesn't know which value of "srcs" will ultimately get chosen.
+      // Here, where we *do* have the correct value, it may not contain any source files to
+      // generate an .so with. If that's the case, register a fake generating action to prevent
       // a "no generating action for this artifact" error.
       Artifact solibArtifact =
           CppHelper.getLinuxLinkedArtifact(ruleContext, LinkTargetType.DYNAMIC_LIBRARY);

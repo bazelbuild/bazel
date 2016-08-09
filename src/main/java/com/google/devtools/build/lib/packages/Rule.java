@@ -77,17 +77,40 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   private final Location location;
 
+  private final ImplicitOutputsFunction implicitOutputsFunction;
+
   // Initialized in the call to populateOutputFiles.
   private List<OutputFile> outputFiles;
   private ListMultimap<String, OutputFile> outputFileMap;
 
-  Rule(Package pkg, Label label, RuleClass ruleClass, Location location,
+  Rule(
+      Package pkg,
+      Label label,
+      RuleClass ruleClass,
+      Location location,
       AttributeContainer attributeContainer) {
+    this(
+        pkg,
+        label,
+        ruleClass,
+        location,
+        attributeContainer,
+        ruleClass.getDefaultImplicitOutputsFunction());
+  }
+
+  Rule(
+      Package pkg,
+      Label label,
+      RuleClass ruleClass,
+      Location location,
+      AttributeContainer attributeContainer,
+      ImplicitOutputsFunction implicitOutputsFunction) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.label = label;
     this.ruleClass = Preconditions.checkNotNull(ruleClass);
     this.location = Preconditions.checkNotNull(location);
     this.attributes = attributeContainer;
+    this.implicitOutputsFunction = implicitOutputsFunction;
     this.containsErrors = false;
   }
 
@@ -250,6 +273,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   @Override
   public Location getLocation() {
     return location;
+  }
+
+  public ImplicitOutputsFunction getImplicitOutputsFunction() {
+    return implicitOutputsFunction;
   }
 
   @Override
@@ -478,7 +505,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       throws InterruptedException {
     try {
       RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(attributeMap)) {
+      for (String out : implicitOutputsFunction.getImplicitOutputs(attributeMap)) {
         try {
           addOutputFile(pkgBuilder.createLabel(out), eventHandler);
         } catch (LabelSyntaxException e) {

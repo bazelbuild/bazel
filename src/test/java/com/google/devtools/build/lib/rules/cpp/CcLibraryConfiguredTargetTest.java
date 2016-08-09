@@ -446,7 +446,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   /**
-   * Returns the header module artifacts in {@code input}.  
+   * Returns the header module artifacts in {@code input}.
    */
   private Iterable<Artifact> getHeaderModules(Iterable<Artifact> input) {
     return Iterables.filter(input, new Predicate<Artifact>() {
@@ -456,9 +456,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       }
     });
   }
-  
+
   /**
-   * Returns the flags in {@code input} that reference a header module. 
+   * Returns the flags in {@code input} that reference a header module.
    */
   private Iterable<String> getHeaderModuleFlags(Iterable<String> input) {
     List<String> names = new ArrayList<>();
@@ -469,7 +469,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     }
     return names;
   }
-  
+
   @Test
   public void testCompileHeaderModules() throws Exception {
     AnalysisMock.get()
@@ -532,7 +532,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    deps = ['//nomodule:c', '//nomodule:i'],",
         ")");
     scratch.file("nomodule/BUILD",
-        "package(features = ['-header_modules'" 
+        "package(features = ['-header_modules'"
             + (useHeaderModules ? ", 'use_header_modules'" : "") + "])",
         "cc_library(",
         "    name = 'y',",
@@ -652,7 +652,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getHeaderModuleFlags(jObjectAction.getCompilerOptions()))
         .containsExactly("b.pic.pcm", "g.pic.pcm");
   }
-  
+
   @Test
   public void testCompileUsingHeaderModulesTransitivelyWithTranstiveModuleMaps() throws Exception {
     AnalysisMock.get()
@@ -663,7 +663,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 + "feature { name: 'transitive_module_maps' }");
     useConfiguration("--features=transitive_module_maps");
     setupPackagesForModuleTests(/*useHeaderModules=*/true);
-    
+
     getConfiguredTarget("//nomodule:f");
     Artifact fObjectArtifact = getBinArtifact("_objs/f/nomodule/f.pic.o", "//nomodule:f");
     CppCompileAction fObjectAction = (CppCompileAction) getGeneratingAction(fObjectArtifact);
@@ -688,7 +688,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(getHeaderModuleFlags(cObjectAction.getCompilerOptions()))
         .containsExactly("b.pic.pcm");
-     
+
     getConfiguredTarget("//nomodule:d");
     Artifact dObjectArtifact = getBinArtifact("_objs/d/nomodule/d.pic.o", "//nomodule:d");
     CppCompileAction dObjectAction = (CppCompileAction) getGeneratingAction(dObjectArtifact);
@@ -834,7 +834,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(artifactsToStrings(getFilesToBuild(hello)))
         .doesNotContain("src precompiled/missing.a");
   }
-  
+
   @Test
   public void testAllowDuplicateNonCompiledSources() throws Exception {
     ConfiguredTarget x =
@@ -974,7 +974,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    linkopts = ['-shared'],",
         ")");
   }
-  
+
   private static final String COMPILATION_MODE_FEATURES = ""
       + "feature {"
       + "  name: 'dbg'"
@@ -997,7 +997,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       + "    flag_group { flag: '-opt' }"
       + "  }"
       + "}";
-  
+
   private List<String> getCompilationModeFlags(String... flags) throws Exception {
     AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, COMPILATION_MODE_FEATURES);
     useConfiguration(flags);
@@ -1007,27 +1007,27 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppCompileAction action = (CppCompileAction) getGeneratingAction(objectArtifact);
     return action.getCompilerOptions();
   }
-  
+
   @Test
   public void testCompilationModeFeatures() throws Exception {
     List<String> flags;
     flags = getCompilationModeFlags();
     assertThat(flags).contains("-fastbuild");
     assertThat(flags).containsNoneOf("-opt", "-dbg");
-    
+
     flags = getCompilationModeFlags("-c", "fastbuild");
     assertThat(flags).contains("-fastbuild");
     assertThat(flags).containsNoneOf("-opt", "-dbg");
-    
+
     flags = getCompilationModeFlags("-c", "opt");
     assertThat(flags).contains("-opt");
     assertThat(flags).containsNoneOf("-fastbuild", "-dbg");
-    
+
     flags = getCompilationModeFlags("-c", "dbg");
     assertThat(flags).contains("-dbg");
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
-  
+
   private List<String> getHostAndTargetFlags(boolean useHost) throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -1068,7 +1068,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "The include path 'd/../../somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
   }
-  
+
   @Test
   public void testAbsoluteIncludePathsOutsideExecutionRoot() throws Exception {
     checkError("root", "a",
@@ -1077,14 +1077,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {  
+  public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {
     checkError("root", "a",
         "The include path '../system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
   }
 
   @Test
-  public void testAbsoluteSystemIncludePathsOutsideExecutionRoot() throws Exception {  
+  public void testAbsoluteSystemIncludePathsOutsideExecutionRoot() throws Exception {
     checkError("root", "a",
         "The include path '/system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
@@ -1122,7 +1122,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['libb.so'])");
 
-    if (target.getTarget().getAssociatedRule().getRuleClassObject().getImplicitOutputsFunction()
+    if (target.getTarget().getAssociatedRule().getImplicitOutputsFunction()
         != ImplicitOutputsFunction.NONE) {
       assertThat(artifactsToStrings(getFilesToBuild(target))).containsExactly("bin a/libb.a");
     } else {

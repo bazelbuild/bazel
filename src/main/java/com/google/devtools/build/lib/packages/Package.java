@@ -1021,7 +1021,32 @@ public class Package {
         RuleClass ruleClass,
         Location location,
         AttributeContainer attributeContainer) {
-      return new Rule(pkg, label, ruleClass, location, attributeContainer);
+      return new Rule(
+          pkg,
+          label,
+          ruleClass,
+          location,
+          attributeContainer);
+    }
+
+    /**
+     * Same to {@link #createRule(Label, RuleClass, Location, AttributeContainer)}, except
+     * allows specifying an {@link ImplicitOutputsFunction} override. Only use if you know what
+     * you're doing.
+     */
+    Rule createRule(
+        Label label,
+        RuleClass ruleClass,
+        Location location,
+        AttributeContainer attributeContainer,
+        ImplicitOutputsFunction implicitOutputsFunction) {
+      return new Rule(
+          pkg,
+          label,
+          ruleClass,
+          location,
+          attributeContainer,
+          implicitOutputsFunction);
     }
 
     /**

@@ -288,7 +288,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("param");
   }
-  
+
   @Test
   public void testAspectParameterRequiresValues() throws Exception {
     checkErrorContains(
@@ -511,7 +511,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, outputs = {'a': 'a.txt'})");
     RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
-    ImplicitOutputsFunction function = c.getImplicitOutputsFunction();
+    ImplicitOutputsFunction function = c.getDefaultImplicitOutputsFunction();
     assertEquals("a.txt", Iterables.getOnlyElement(function.getImplicitOutputs(null)));
   }
 

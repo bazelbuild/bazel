@@ -174,12 +174,11 @@ public final class SkylarkRuleContext {
         addOutput(outputsBuilder, "executable", ruleContext.createOutputArtifact());
       }
       ImplicitOutputsFunction implicitOutputsFunction =
-          ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();
+          ruleContext.getRule().getImplicitOutputsFunction();
 
       if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
         SkylarkImplicitOutputsFunction func =
-            (SkylarkImplicitOutputsFunction)
-                ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();
+            (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
         for (Map.Entry<String, String> entry :
             func.calculateOutputs(RawAttributeMapper.of(ruleContext.getRule())).entrySet()) {
           addOutput(
@@ -655,7 +654,7 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(name = "info_file", structField = true, documented = false,
-      doc = "Returns the file that is used to hold the non-volatile workspace status for the " 
+      doc = "Returns the file that is used to hold the non-volatile workspace status for the "
           + "current build request.")
   public Artifact getStableWorkspaceStatus() {
     return ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact();

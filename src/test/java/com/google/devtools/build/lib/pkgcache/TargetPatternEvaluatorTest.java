@@ -67,7 +67,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public final void createFiles() throws Exception {
     // TODO(ulfjack): Also disable the implicit C++ outputs in Google's internal version.
     boolean hasImplicitCcOutputs = ruleClassProvider.getRuleClassMap().get("cc_library")
-        .getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE;
+        .getDefaultImplicitOutputsFunction() != ImplicitOutputsFunction.NONE;
 
     scratch.file("BUILD",
         "filegroup(name = 'fg', srcs = glob(['*.cc']))");
