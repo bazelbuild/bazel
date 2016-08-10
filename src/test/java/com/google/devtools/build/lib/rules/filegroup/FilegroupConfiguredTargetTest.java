@@ -25,13 +25,11 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileType;
-
+import java.io.IOException;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Tests for {@link Filegroup}.
@@ -52,9 +50,11 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDependencyGraph() throws Exception {
-    scratch.file("java/com/google/test/BUILD",
+    scratch.file(
+        "java/com/google/test/BUILD",
         "java_binary(name  = 'test_app',",
         "    resources = [':data'],",
+        "    create_executable = 0,",
         "    srcs  = ['InputFile.java', 'InputFile2.java'])",
         "filegroup(name  = 'data',",
         "          srcs = ['b.txt', 'a.txt'])");
