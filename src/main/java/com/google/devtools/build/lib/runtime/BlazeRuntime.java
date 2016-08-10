@@ -882,11 +882,9 @@ public final class BlazeRuntime {
           "Bad --output_base option specified: '" + outputBase + "'");
     }
 
-    PathFragment outputPathFragment = BlazeDirectories.outputPathFromOutputBase(
-        outputBase, workspaceDirectory, startupOptions.deepExecRoot, productName);
     FileSystem fs = null;
     for (BlazeModule module : blazeModules) {
-      FileSystem moduleFs = module.getFileSystem(options, outputPathFragment);
+      FileSystem moduleFs = module.getFileSystem(options);
       if (moduleFs != null) {
         Preconditions.checkState(fs == null, "more than one module returns a file system");
         fs = moduleFs;

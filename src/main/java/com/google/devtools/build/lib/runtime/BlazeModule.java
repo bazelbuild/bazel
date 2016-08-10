@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsProvider;
@@ -59,7 +58,7 @@ public abstract class BlazeModule {
   /**
    * Returns the extra startup options this module contributes.
    *
-   * <p>This method will be called at the beginning of Blaze startup (before #blazeStartup).
+   * <p>This method will be called at the beginning of Blaze startup (before {@link #globalInit}).
    */
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
     return ImmutableList.of();
@@ -69,8 +68,11 @@ public abstract class BlazeModule {
    * Called before {@link #getFileSystem} and {@link #blazeStartup}.
    *
    * <p>This method will be called at the beginning of Blaze startup.
+   *
+   * @param startupOptions the server's startup options
+   *
+   * @throws AbruptExitException to shut down the server immediately
    */
-  @SuppressWarnings("unused")
   public void globalInit(OptionsProvider startupOptions) throws AbruptExitException {
   }
 
@@ -80,9 +82,10 @@ public abstract class BlazeModule {
    *
    * <p>This method will be called at the beginning of Blaze startup (in-between #globalInit and
    * #blazeStartup).
+   *
+   * @param startupOptions the server's startup options
    */
-  @SuppressWarnings("unused")
-  public FileSystem getFileSystem(OptionsProvider startupOptions, PathFragment outputPath) {
+  public FileSystem getFileSystem(OptionsProvider startupOptions) {
     return null;
   }
 
