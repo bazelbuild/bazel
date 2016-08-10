@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -1191,15 +1190,15 @@ public final class PackageFactory {
    */
   public static PackageContext getContext(Environment env, FuncallExpression ast)
       throws EvalException {
-    try {
-      return (PackageContext) env.lookup(PKG_CONTEXT);
-    } catch (NoSuchVariableException e) {
+    PackageContext value = (PackageContext) env.lookup(PKG_CONTEXT);
+    if (value == null) {
       // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
       throw new EvalException(ast.getLocation(),
           "The native module cannot be accessed from here. "
           + "Wrap the function in a macro and call it from a BUILD file");
     }
+    return value;
   }
 
   /**

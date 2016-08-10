@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -525,6 +524,11 @@ public class SkylarkRuleClassFunctions {
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
+        if (pkgContext == null) {
+          throw new EvalException(ast.getLocation(),
+              "Cannot instantiate a rule when loading a .bzl file. Rules can only called from "
+              + "a BUILD file (possibly via a macro).");
+        }
         return RuleFactory.createAndAddRule(
             pkgContext,
             ruleClass,
@@ -534,11 +538,6 @@ public class SkylarkRuleClassFunctions {
             pkgContext.getAttributeContainerFactory().apply(ruleClass));
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
-      } catch (NoSuchVariableException e) {
-        // Thrown when trying to get PackageContext.
-        throw new EvalException(ast.getLocation(),
-            "Cannot instantiate a rule when loading a .bzl file. Rules can only called from "
-            + "a BUILD file (possibly via a macro).");
       }
     }
 
@@ -578,11 +577,9 @@ public class SkylarkRuleClassFunctions {
 
     // Export aspects first since rules can depend on aspects.
     for (String name : globalNames) {
-      Object value;
-      try {
-        value = env.lookup(name);
-      } catch (NoSuchVariableException e) {
-        throw new AssertionError(e);
+      Object value = env.lookup(name);
+      if (name == null) {
+        throw new AssertionError(String.format("No such variable: '%s'", name));
       }
       if (value instanceof SkylarkAspect) {
         SkylarkAspect skylarkAspect = (SkylarkAspect) value;
@@ -593,16 +590,15 @@ public class SkylarkRuleClassFunctions {
     }
 
     for (String name : globalNames) {
-      try {
-        Object value = env.lookup(name);
-        if (value instanceof RuleFunction) {
-          RuleFunction function = (RuleFunction) value;
-          if (function.skylarkLabel == null) {
-            function.export(skylarkLabel, name);
-          }
+      Object value = env.lookup(name);
+      if (value == null) {
+        throw new AssertionError(String.format("No such variable: '%s'", name));
+      }
+      if (value instanceof RuleFunction) {
+        RuleFunction function = (RuleFunction) value;
+        if (function.skylarkLabel == null) {
+          function.export(skylarkLabel, name);
         }
-      } catch (NoSuchVariableException e) {
-        throw new AssertionError(e);
       }
     }
   }

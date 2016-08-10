@@ -72,11 +72,11 @@ public final class Identifier extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException {
-    try {
-      return env.lookup(name);
-    } catch (Environment.NoSuchVariableException e) {
+    Object value = env.lookup(name);
+    if (value == null) {
       throw createInvalidIdentifierException();
     }
+    return value;
   }
 
   @Override

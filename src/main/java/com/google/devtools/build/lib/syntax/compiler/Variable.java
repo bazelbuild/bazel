@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax.compiler;
 
 import com.google.devtools.build.lib.syntax.ASTNode;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
@@ -107,15 +106,15 @@ public abstract class Variable {
      */
     public static Object lookupUnboundVariable(Environment global, String variable, ASTNode node)
         throws EvalExceptionWithStackTrace {
-      try {
-        return global.lookup(variable);
-      } catch (NoSuchVariableException e) {
+      Object value = global.lookup(variable);
+      if (value == null) {
         throw new EvalExceptionWithStackTrace(
             new EvalException(
                 node.getLocation(),
                 "local variable '" + variable + "' referenced before assignment"),
             node);
       }
+      return value;
     }
   }
 

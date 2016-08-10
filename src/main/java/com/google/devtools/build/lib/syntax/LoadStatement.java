@@ -82,7 +82,7 @@ public final class LoadStatement extends Statement {
         // The key is the original name that was used to define the symbol
         // in the loaded bzl file.
         env.importSymbol(imp.getImportString(), name, declared.getName());
-      } catch (Environment.NoSuchVariableException | Environment.LoadFailedException e) {
+      } catch (Environment.LoadFailedException e) {
         throw new EvalException(getLocation(), e.getMessage());
       }
     }
