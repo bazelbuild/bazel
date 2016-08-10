@@ -245,7 +245,7 @@ public class BuildRequest implements OptionsClassProvider {
 
     @Option(name = "output_tree_tracking",
             oldName =  "experimental_output_tree_tracking",
-            defaultValue = "false",
+            defaultValue = "true",
             category = "undocumented",
             help = "If set, tell the output service (if any) to track when files in the output "
                 + "tree have been modified externally (not by the build system). "
