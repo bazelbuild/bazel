@@ -20,14 +20,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import javax.annotation.Nullable;
 
 /** A Skylark value that is a result of an 'aspect(..)' function call. */
@@ -39,7 +37,7 @@ import javax.annotation.Nullable;
           + "documentation of the aspect function</a> or the "
           + "<a href=\"../aspects.md\">introduction to Aspects</a>."
 )
-public class SkylarkAspect implements SkylarkValue {
+public class SkylarkAspect implements SkylarkExportable {
   private final BaseFunction implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
@@ -107,6 +105,7 @@ public class SkylarkAspect implements SkylarkValue {
     return paramAttributes;
   }
 
+  @Override
   public void export(Label extensionLabel, String name) {
     Preconditions.checkArgument(!isExported());
     this.aspectClass = new SkylarkAspectClass(extensionLabel, name);
@@ -137,6 +136,7 @@ public class SkylarkAspect implements SkylarkValue {
     return builder.build();
   }
 
+  @Override
   public boolean isExported() {
     return aspectClass != null;
   }

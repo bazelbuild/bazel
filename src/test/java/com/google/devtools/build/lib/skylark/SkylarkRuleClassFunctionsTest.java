@@ -960,7 +960,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     return MutableList.<Object>of(env, 1, 2, 3);
   }
 
-
   @Test
   public void testStructMutabilityDeep() throws Exception {
     assertTrue(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null))));
@@ -972,4 +971,56 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertFalse(EvalUtils.isImmutable(makeBigStruct(ev.getEnvironment())));
   }
 
+  @Test
+  public void declaredProviders() throws Exception {
+    evalAndExport(
+        "data = provider()",
+        "d = data(x = 1, y ='abc')",
+        "d_x = d.x",
+        "d_y = d.y"
+    );
+    assertThat(lookup("d_x")).isEqualTo(1);
+    assertThat(lookup("d_y")).isEqualTo("abc");
+    SkylarkClassObjectConstructor dataConstructor = (SkylarkClassObjectConstructor) lookup("data");
+    SkylarkClassObject data = (SkylarkClassObject) lookup("d");
+    assertThat(data.getConstructor()).isEqualTo(dataConstructor);
+    assertThat(dataConstructor.isExported()).isTrue();
+    assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
+    assertThat(dataConstructor.getKey()).isEqualTo(
+        new SkylarkClassObjectConstructor.Key(FAKE_LABEL, "data")
+    );
+  }
+
+  @Test
+  public void declaredProvidersConcatSuccess() throws Exception {
+    evalAndExport(
+        "data = provider()",
+        "dx = data(x = 1)",
+        "dy = data(y = 'abc')",
+        "dxy = dx + dy",
+        "x = dxy.x",
+        "y = dxy.y"
+    );
+    assertThat(lookup("x")).isEqualTo(1);
+    assertThat(lookup("y")).isEqualTo("abc");
+    SkylarkClassObjectConstructor dataConstructor = (SkylarkClassObjectConstructor) lookup("data");
+    SkylarkClassObject dx = (SkylarkClassObject) lookup("dx");
+    assertThat(dx.getConstructor()).isEqualTo(dataConstructor);
+    SkylarkClassObject dy = (SkylarkClassObject) lookup("dy");
+    assertThat(dy.getConstructor()).isEqualTo(dataConstructor);
+  }
+
+  @Test
+  public void declaredProvidersConcatError() throws Exception {
+    evalAndExport(
+        "data1 = provider()",
+        "data2 = provider()"
+    );
+
+    checkEvalError("Cannot concat data1 with data2",
+        "d1 = data1(x = 1)",
+        "d2 = data2(y = 2)",
+        "d = d1 + d2"
+    );
+  }
 }

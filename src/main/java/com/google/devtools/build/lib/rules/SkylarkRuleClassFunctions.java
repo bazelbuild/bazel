@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
@@ -194,13 +195,30 @@ public class SkylarkRuleClassFunctions {
 
   @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as attributes. It is used to group "
-          + "multiple values together.Example:<br>"
+          + "multiple values together. Example:<br>"
           + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
           + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
       extraKeywords = @Param(name = "kwargs", doc = "the struct attributes"),
       useLocation = true)
   private static final SkylarkClassObjectConstructor struct =
       SkylarkClassObjectConstructor.STRUCT;
+
+  @SkylarkSignature(name = "provider", returnType = SkylarkClassObjectConstructor.class, doc =
+      "Creates a declared provider 'constructor'. The return value of this"
+          + "function can be used to create \"struct-like\" values. Example:<br>"
+          + "<pre class=\"language-python\">data = provider()\n"
+          + "d = data(x = 2, y = 3)"
+          + "return d.x + d.y # returns 5</pre>",
+      useLocation = true
+  )
+  private static final BuiltinFunction provider =
+      new BuiltinFunction("provider") {
+        public SkylarkClassObjectConstructor invoke(Location location) {
+          return new SkylarkClassObjectConstructor(
+              "<no name>", // name is set on export.
+              location);
+        }
+      };
 
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -473,7 +491,7 @@ public class SkylarkRuleClassFunctions {
 
 
   /** The implementation for the magic function "rule" that creates Skylark rule classes */
-  public static final class RuleFunction extends BaseFunction {
+  public static final class RuleFunction extends BaseFunction implements SkylarkExportable {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
@@ -544,7 +562,7 @@ public class SkylarkRuleClassFunctions {
     /**
      * Export a RuleFunction from a Skylark file with a given name.
      */
-    void export(Label skylarkLabel, String ruleClassName) throws EvalException {
+    public void export(Label skylarkLabel, String ruleClassName) throws EvalException {
       Preconditions.checkState(ruleClass == null && builder != null);
       this.skylarkLabel = skylarkLabel;
       if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
@@ -569,35 +587,40 @@ public class SkylarkRuleClassFunctions {
       Preconditions.checkState(ruleClass != null && builder == null);
       return ruleClass;
     }
+
+    @Override
+    public boolean isExported() {
+      return skylarkLabel != null;
+    }
   }
+
+  /**
+   * All classes of values that need special processing after they are exported
+   * from an extension file.
+   *
+   * Order in list list is significant: all {@link }SkylarkAspect}s need to be exported
+   * before {@link RuleFunction}s etc.
+   */
+  private static final List<Class<? extends SkylarkExportable>> EXPORTABLES =
+      ImmutableList.of(
+          SkylarkClassObjectConstructor.class,
+          SkylarkAspect.class,
+          RuleFunction.class);
 
   public static void exportRuleFunctionsAndAspects(Environment env, Label skylarkLabel)
       throws EvalException {
     Set<String> globalNames = env.getGlobals().getDirectVariableNames();
 
-    // Export aspects first since rules can depend on aspects.
-    for (String name : globalNames) {
-      Object value = env.lookup(name);
-      if (name == null) {
-        throw new AssertionError(String.format("No such variable: '%s'", name));
-      }
-      if (value instanceof SkylarkAspect) {
-        SkylarkAspect skylarkAspect = (SkylarkAspect) value;
-        if (!skylarkAspect.isExported()) {
-          skylarkAspect.export(skylarkLabel, name);
+    for (Class<? extends SkylarkExportable> exportable : EXPORTABLES) {
+      for (String name : globalNames) {
+        Object value = env.lookup(name);
+        if (value == null) {
+          throw new AssertionError(String.format("No such variable: '%s'", name));
         }
-      }
-    }
-
-    for (String name : globalNames) {
-      Object value = env.lookup(name);
-      if (value == null) {
-        throw new AssertionError(String.format("No such variable: '%s'", name));
-      }
-      if (value instanceof RuleFunction) {
-        RuleFunction function = (RuleFunction) value;
-        if (function.skylarkLabel == null) {
-          function.export(skylarkLabel, name);
+        if (exportable.isInstance(value)) {
+          if (!exportable.cast(value).isExported()) {
+            exportable.cast(value).export(skylarkLabel, name);
+          }
         }
       }
     }
