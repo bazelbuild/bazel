@@ -100,7 +100,6 @@ message ProtoLibraryLegacyJavaIdeInfo {
 
 message TestInfo {
   string size = 1;
-  repeated ArtifactLocation data = 2;
 }
 
 message JavaToolchainIdeInfo {
