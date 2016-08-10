@@ -131,13 +131,10 @@ public class BlazeCommandDispatcherRcoptionsTest {
     String productName = TestConstants.PRODUCT_NAME;
     ServerDirectories serverDirectories =
         new ServerDirectories(scratch.dir("install_base"), scratch.dir("output_base"));
-    BlazeDirectories directories =
-        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
     this.runtime =
         new BlazeRuntime.Builder()
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
-            .setDirectories(directories)
             .setStartupOptionsProvider(
                 OptionsParser.newOptionsParser(BlazeServerStartupOptions.class))
             .addBlazeModule(
@@ -155,6 +152,10 @@ public class BlazeCommandDispatcherRcoptionsTest {
                   }
                 })
             .build();
+
+    BlazeDirectories directories =
+        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
+    this.runtime.initWorkspace(directories, /*binTools=*/null);
   }
 
   @Test

@@ -176,6 +176,7 @@ public final class BlazeRuntime {
 
   public void initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
+    Preconditions.checkState(this.workspace == null);
     boolean watchFS = startupOptionsProvider != null
         && startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).watchFS;
     WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools, watchFS);
@@ -919,27 +920,11 @@ public final class BlazeRuntime {
 
     ServerDirectories serverDirectories =
         new ServerDirectories(installBasePath, outputBasePath, startupOptions.installMD5);
-    BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, workspaceDirectoryPath, startupOptions.deepExecRoot, productName);
-
     Clock clock = BlazeClock.instance();
-
-    BinTools binTools;
-    try {
-      binTools = BinTools.forProduction(directories);
-    } catch (IOException e) {
-      throw new AbruptExitException(
-          "Cannot enumerate embedded binaries: " + e.getMessage(),
-          ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-    }
-
     BlazeRuntime.Builder runtimeBuilder = new BlazeRuntime.Builder()
         .setProductName(productName)
         .setServerDirectories(serverDirectories)
-        .setDirectories(directories)
         .setStartupOptionsProvider(options)
-        .setBinTools(binTools)
         .setClock(clock)
         // TODO(bazel-team): Make BugReportingExceptionHandler the default.
         // See bug "Make exceptions in EventBus subscribers fatal"
@@ -959,6 +944,20 @@ public final class BlazeRuntime {
     }
 
     BlazeRuntime runtime = runtimeBuilder.build();
+
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            serverDirectories, workspaceDirectoryPath, startupOptions.deepExecRoot, productName);
+    BinTools binTools;
+    try {
+      binTools = BinTools.forProduction(directories);
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          "Cannot enumerate embedded binaries: " + e.getMessage(),
+          ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    }
+    runtime.initWorkspace(directories, binTools);
+
     AutoProfiler.setClock(runtime.getClock());
     BugReport.setRuntime(runtime);
     return runtime;
@@ -1031,19 +1030,16 @@ public final class BlazeRuntime {
    */
   public static class Builder {
     private ServerDirectories serverDirectories;
-    private BlazeDirectories directories;
     private Clock clock;
     private OptionsProvider startupOptionsProvider;
     private final List<BlazeModule> blazeModules = new ArrayList<>();
     private SubscriberExceptionHandler eventBusExceptionHandler = new RemoteExceptionHandler();
-    private BinTools binTools;
     private UUID instanceId;
     private String productName;
 
     public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(productName);
       Preconditions.checkNotNull(serverDirectories);
-      Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(startupOptionsProvider);
       Clock clock = (this.clock == null) ? BlazeClock.instance() : this.clock;
       UUID instanceId =  (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
@@ -1110,22 +1106,19 @@ public final class BlazeRuntime {
         }
       }
 
-      BlazeRuntime runtime =
-          new BlazeRuntime(
-              serverBuilder.getQueryEnvironmentFactory(),
-              packageFactory,
-              ruleClassProvider,
-              configurationFactory,
-              clock,
-              startupOptionsProvider,
-              ImmutableList.copyOf(blazeModules),
-              eventBusExceptionHandler,
-              projectFileProvider,
-              serverBuilder.getInvocationPolicy(),
-              serverBuilder.getCommands(),
-              productName);
-      runtime.initWorkspace(directories, binTools);
-      return runtime;
+      return new BlazeRuntime(
+          serverBuilder.getQueryEnvironmentFactory(),
+          packageFactory,
+          ruleClassProvider,
+          configurationFactory,
+          clock,
+          startupOptionsProvider,
+          ImmutableList.copyOf(blazeModules),
+          eventBusExceptionHandler,
+          projectFileProvider,
+          serverBuilder.getInvocationPolicy(),
+          serverBuilder.getCommands(),
+          productName);
     }
 
     public Builder setProductName(String productName) {
@@ -1133,25 +1126,9 @@ public final class BlazeRuntime {
       return this;
     }
 
-    public Builder setBinTools(BinTools binTools) {
-      this.binTools = binTools;
-      return this;
-    }
-
     public Builder setServerDirectories(ServerDirectories serverDirectories) {
       this.serverDirectories = serverDirectories;
       return this;
-    }
-
-    public Builder setDirectories(BlazeDirectories directories) {
-      this.directories = directories;
-      return this;
-    }
-
-    /** Creates and sets a new {@link BlazeDirectories} instance with the given parameters. */
-    public Builder setDirectories(
-        Path installBase, Path outputBase, Path workspace, String productName) {
-      return setDirectories(new BlazeDirectories(installBase, outputBase, workspace, productName));
     }
 
     public Builder setClock(Clock clock) {
