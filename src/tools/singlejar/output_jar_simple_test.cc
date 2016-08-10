@@ -24,18 +24,24 @@
 
 namespace {
 
+using singlejar_test_util::GetEntryContents;
+using singlejar_test_util::OutputFilePath;
+using singlejar_test_util::VerifyZip;
+
+using std::string;
+
 #if !defined(DATA_DIR_TOP)
 #define DATA_DIR_TOP
 #endif
 
-static bool HasSubstr(const std::string &s, const std::string &what) {
-  return std::string::npos != s.find(what);
+static bool HasSubstr(const string &s, const string &what) {
+  return string::npos != s.find(what);
 }
 
 class OutputJarSimpleTest : public ::testing::Test {
  protected:
-  void CreateOutput(const std::string &out_path, const char *first_arg...) {
-    std::string args_string;
+  void CreateOutput(const string &out_path, const char *first_arg...) {
+    string args_string;
     va_list ap;
     va_start(ap, first_arg);
     const char *args[100] = {"--output", out_path.c_str()};
@@ -58,7 +64,7 @@ class OutputJarSimpleTest : public ::testing::Test {
     printf("Arguments: %s\n", args_string.c_str());
     options_.ParseCommandLine(nargs, args);
     ASSERT_EQ(0, output_jar_.Doit(&options_));
-    EXPECT_EQ(0, singlejar_test_util::VerifyZip(out_path));
+    EXPECT_EQ(0, VerifyZip(out_path));
   }
 
   OutputJar output_jar_;
@@ -67,7 +73,7 @@ class OutputJarSimpleTest : public ::testing::Test {
 
 // No inputs at all.
 TEST_F(OutputJarSimpleTest, Empty) {
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, nullptr);
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
@@ -86,21 +92,19 @@ TEST_F(OutputJarSimpleTest, Empty) {
     }
   }
   input_jar.Close();
-  std::string manifest =
-      singlejar_test_util::GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
       "\r\n",
       manifest);
-  std::string build_properties =
-      singlejar_test_util::GetEntryContents(out_path, "build-data.properties");
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
   EXPECT_PRED2(HasSubstr, build_properties, "build.target=");
 }
 
 // Source jars.
 TEST_F(OutputJarSimpleTest, Source) {
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--sources",
                DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
                DATA_DIR_TOP "src/tools/singlejar/libtest2.jar", nullptr);
@@ -125,7 +129,7 @@ TEST_F(OutputJarSimpleTest, Source) {
 
 // Verify --java_launcher argument
 TEST_F(OutputJarSimpleTest, JavaLauncher) {
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   const char *launcher_path = DATA_DIR_TOP "src/tools/singlejar/libtest1.jar";
   CreateOutput(out_path, "--java_launcher", launcher_path, nullptr);
   // check that the offset of the first entry equals launcher size.
@@ -145,10 +149,9 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
 
 // --main_class option.
 TEST_F(OutputJarSimpleTest, MainClass) {
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--main_class", "com.google.my.Main", nullptr);
-  std::string manifest =
-      singlejar_test_util::GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
@@ -159,11 +162,10 @@ TEST_F(OutputJarSimpleTest, MainClass) {
 
 // --deploy_manifest_lines option.
 TEST_F(OutputJarSimpleTest, DeployManifestLines) {
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--deploy_manifest_lines", "property1: foo",
                "property2: bar", nullptr);
-  std::string manifest =
-      singlejar_test_util::GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
@@ -175,31 +177,27 @@ TEST_F(OutputJarSimpleTest, DeployManifestLines) {
 
 // --extra_build_info option
 TEST_F(OutputJarSimpleTest, ExtraBuildInfo) {
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--extra_build_info", "property1=value1",
                "--extra_build_info", "property2=value2", nullptr);
-  std::string build_properties =
-      singlejar_test_util::GetEntryContents(out_path, "build-data.properties");
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
   EXPECT_PRED2(HasSubstr, build_properties, "\nproperty1=value1\n");
   EXPECT_PRED2(HasSubstr, build_properties, "\nproperty2=value2\n");
 }
 
 // --build_info_file and --extra_build_info options.
 TEST_F(OutputJarSimpleTest, BuildInfoFile) {
-  std::string build_info_path1 =
-      singlejar_test_util::OutputFilePath("buildinfo1");
+  string build_info_path1 = OutputFilePath("buildinfo1");
   ASSERT_TRUE(blaze::WriteFile("property11=value11\nproperty12=value12\n",
                                build_info_path1));
-  std::string build_info_path2 =
-      singlejar_test_util::OutputFilePath("buildinfo2");
+  string build_info_path2 = OutputFilePath("buildinfo2");
   ASSERT_TRUE(blaze::WriteFile("property21=value21\nproperty22=value22\n",
                                build_info_path2));
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--build_info_file", build_info_path1.c_str(),
                "--extra_build_info", "property=value", "--build_info_file",
                build_info_path2.c_str(), nullptr);
-  std::string build_properties =
-      singlejar_test_util::GetEntryContents(out_path, "build-data.properties");
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
   EXPECT_PRED2(HasSubstr, build_properties, "property11=value11\n");
   EXPECT_PRED2(HasSubstr, build_properties, "property12=value12\n");
   EXPECT_PRED2(HasSubstr, build_properties, "property21=value21\n");
@@ -209,65 +207,81 @@ TEST_F(OutputJarSimpleTest, BuildInfoFile) {
 
 // --resources option.
 TEST_F(OutputJarSimpleTest, Resources) {
-  std::string res11_path = singlejar_test_util::OutputFilePath("res11");
-  std::string res11_spec = std::string("res1:") + res11_path;
+  string res11_path = OutputFilePath("res11");
+  string res11_spec = string("res1:") + res11_path;
   ASSERT_TRUE(blaze::WriteFile("res11.line1\nres11.line2\n", res11_path));
 
-  std::string res12_path = singlejar_test_util::OutputFilePath("res12");
-  std::string res12_spec = std::string("res1:") + res12_path;
+  string res12_path = OutputFilePath("res12");
+  string res12_spec = string("res1:") + res12_path;
   ASSERT_TRUE(blaze::WriteFile("res12.line1\nres12.line2\n", res12_path));
 
-  std::string res2_path = singlejar_test_util::OutputFilePath("res2");
+  string res2_path = OutputFilePath("res2");
   ASSERT_TRUE(blaze::WriteFile("res2.line1\nres2.line2\n", res2_path));
 
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--resources", res11_spec.c_str(), res12_spec.c_str(),
                res2_path.c_str(), nullptr);
 
   // The output should have 'res1' entry containing the concatenation of the
   // 'res11' and 'res12' files.
-  std::string res1 = singlejar_test_util::GetEntryContents(out_path, "res1");
+  string res1 = GetEntryContents(out_path, "res1");
   EXPECT_EQ("res11.line1\nres11.line2\nres12.line1\nres12.line2\n", res1);
 
   // The output should have res2 path entry and contents.
-  std::string res2 = singlejar_test_util::GetEntryContents(out_path, res2_path);
+  string res2 = GetEntryContents(out_path, res2_path);
   EXPECT_EQ("res2.line1\nres2.line2\n", res2);
 }
 
 // --classpath_resources
 TEST_F(OutputJarSimpleTest, ClasspathResources) {
-  std::string res1_path = singlejar_test_util::OutputFilePath("cp_res");
+  string res1_path = OutputFilePath("cp_res");
   ASSERT_TRUE(blaze::WriteFile("line1\nline2\n", res1_path));
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--classpath_resources", res1_path.c_str(), nullptr);
-  std::string res = singlejar_test_util::GetEntryContents(out_path, "cp_res");
+  string res = GetEntryContents(out_path, "cp_res");
   EXPECT_EQ("line1\nline2\n", res);
 }
 
 // Duplicate entries for --resources or --classpath_resources
 TEST_F(OutputJarSimpleTest, DuplicateResources) {
-  std::string cp_res_path = singlejar_test_util::OutputFilePath("cp_res");
+  string cp_res_path = OutputFilePath("cp_res");
   ASSERT_TRUE(blaze::WriteFile("line1\nline2\n", cp_res_path));
 
-  std::string res1_path = singlejar_test_util::OutputFilePath("res1");
-  std::string res1_spec = "foo:" + res1_path;
+  string res1_path = OutputFilePath("res1");
+  string res1_spec = "foo:" + res1_path;
   ASSERT_TRUE(blaze::WriteFile("resline1\nresline2\n", res1_path));
 
-  std::string res2_path = singlejar_test_util::OutputFilePath("res2");
-  std::string res2_spec = "foo:" + res2_path;
+  string res2_path = OutputFilePath("res2");
+  string res2_spec = "foo:" + res2_path;
   ASSERT_TRUE(blaze::WriteFile("line3\nline4\n", res2_path));
 
-  std::string out_path = singlejar_test_util::OutputFilePath("out.jar");
+  string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--warn_duplicate_resources", "--resources",
                res1_spec.c_str(), res2_spec.c_str(), "--classpath_resources",
                cp_res_path.c_str(), cp_res_path.c_str(), nullptr);
 
-  std::string cp_res =
-      singlejar_test_util::GetEntryContents(out_path, "cp_res");
+  string cp_res = GetEntryContents(out_path, "cp_res");
   EXPECT_EQ("line1\nline2\n", cp_res);
 
-  std::string foo = singlejar_test_util::GetEntryContents(out_path, "foo");
+  string foo = GetEntryContents(out_path, "foo");
   EXPECT_EQ("resline1\nresline2\n", foo);
+}
+
+// Extra combiners
+TEST_F(OutputJarSimpleTest, ExtraCombiners) {
+  string out_path = OutputFilePath("out.jar");
+  const char kEntry[] = "tools/singlejar/data/extra_file1";
+  output_jar_.ExtraCombiner(kEntry, new Concatenator(kEntry));
+  CreateOutput(out_path, "--sources",
+               DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
+               DATA_DIR_TOP "src/tools/singlejar/libdata2.jar", nullptr);
+  string extra_file_contents = GetEntryContents(out_path, kEntry);
+  EXPECT_EQ(
+      "extra_file_1 line1\n"
+      "extra_file_1 line2\n"
+      "extra_file_1 line1\n"
+      "extra_file_1 line2\n",
+      extra_file_contents);
 }
 
 }  // namespace

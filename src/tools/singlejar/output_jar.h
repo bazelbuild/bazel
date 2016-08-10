@@ -35,6 +35,11 @@ class OutputJar {
   int Doit(Options *options);
   // Destructor.
   ~OutputJar();
+  // Add a combiner to handle the entries with given name. OutputJar will
+  // own the instance of the combiner and will delete it on self destruction.
+  void ExtraCombiner(const std::string& entry_name, Combiner *combiner);
+  // Return jar path.
+  const char *path() const { return options_->output_jar.c_str(); }
 
  private:
   // Open output jar.
@@ -58,8 +63,6 @@ class OutputJar {
   // Set classpath resource with given resource name and path.
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
-  // Output jar path.
-  const char *path() const { return options_->output_jar.c_str(); }
   // Copy the bytes from the given file.
   ssize_t AppendFile(int in_fd, off_t *in_offset, size_t count);
 
@@ -99,6 +102,7 @@ class OutputJar {
   NullCombiner null_combiner_;
   std::vector<std::unique_ptr<Concatenator> > service_handlers_;
   std::vector<std::unique_ptr<Concatenator> > classpath_resources_;
+  std::vector<std::unique_ptr<Combiner> > extra_combiners_;
 };
 
 #endif  //   SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_

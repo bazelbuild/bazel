@@ -124,6 +124,8 @@ cc_test(
     ],
     copts = ["-Ithird_party/bazel"],
     data = [
+        ":data1",
+        ":data2",
         ":test1",
         ":test2",
     ],
@@ -300,5 +302,21 @@ java_library(
     resources = [
         "token_stream.h",
         "transient_bytes.h",
+    ],
+)
+
+java_library(
+    name = "data1",
+    resources = [
+        "data/extra_file1",
+        "data/extra_file2",
+    ],
+)
+
+java_library(
+    name = "data2",
+    resources = [
+        "data/extra_file1",
+        "data/extra_file3",
     ],
 )

@@ -466,6 +466,9 @@ bool OutputJar::Close() {
   for (auto &service_handler : service_handlers_) {
     WriteEntry(service_handler->OutputEntry());
   }
+  for (auto &extra_combiner : extra_combiners_) {
+    WriteEntry(extra_combiner->OutputEntry());
+  }
   WriteEntry(spring_handlers_.OutputEntry());
   WriteEntry(spring_schemas_.OutputEntry());
   WriteEntry(protobuf_meta_handler_.OutputEntry());
@@ -611,3 +614,9 @@ ssize_t OutputJar::AppendFile(int in_fd, off_t *in_offset, size_t count) {
   return static_cast<ssize_t>(count);
 }
 #endif
+
+void OutputJar::ExtraCombiner(const std::string &entry_name,
+                              Combiner *combiner) {
+  extra_combiners_.emplace_back(combiner);
+  known_members_.emplace(entry_name, EntryInfo{combiner});
+}
