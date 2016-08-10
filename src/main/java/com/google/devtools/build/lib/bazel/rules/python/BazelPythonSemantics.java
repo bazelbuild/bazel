@@ -158,7 +158,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         }
         importPaths.add(path);
       }
-      // The executable zip file wil unzip itself into a tmp directory and then run from there
+      // The executable zip file will unzip itself into a tmp directory and then run from there
       ruleContext.registerAction(
           new TemplateExpansionAction(
               ruleContext.getActionOwner(),
@@ -175,12 +175,9 @@ public class BazelPythonSemantics implements PythonSemantics {
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .addInput(zipFile)
-              .addInput(templateMain)
               .addOutput(executable)
               .setShellCommand(
-                  "cat "
-                      + templateMain.getExecPathString()
-                      + " "
+                  "echo '#!/usr/bin/env python' | cat - "
                       + zipFile.getExecPathString()
                       + " > "
                       + executable.getExecPathString())
