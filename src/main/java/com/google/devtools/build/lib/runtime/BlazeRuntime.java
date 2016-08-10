@@ -20,7 +20,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.util.concurrent.Futures;
@@ -80,7 +79,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -93,7 +91,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -103,7 +100,6 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-
 import javax.annotation.Nullable;
 
 /**
@@ -824,8 +820,9 @@ public final class BlazeRuntime {
    */
   private static OptionsProvider parseOptions(
       Iterable<BlazeModule> modules, List<String> args) throws OptionsParsingException {
-    Set<Class<? extends OptionsBase>> optionClasses = Sets.newHashSet();
-    optionClasses.addAll(BlazeCommandUtils.getStartupOptions(modules));
+    ImmutableList<Class<? extends OptionsBase>> optionClasses =
+        BlazeCommandUtils.getStartupOptions(modules);
+
     // First parse the command line so that we get the option_sources argument
     OptionsParser parser = OptionsParser.newOptionsParser(optionClasses);
     parser.setAllowResidue(false);

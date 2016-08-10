@@ -107,7 +107,8 @@ public final class ServerBuilder {
   }
 
   /** Adds the given commands to the server. */
-  public void addCommands(BlazeCommand... commands) {
+  public ServerBuilder addCommands(BlazeCommand... commands) {
     this.commands.add(commands);
+    return this;
   }
 }
