@@ -184,22 +184,24 @@ class X86Crosstools {
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
         .addLinkerFlag("-no-canonical-prefixes")
-  
+
         // Additional release flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.OPT)
-            .addCompilerFlag("-O2")
-            .addCompilerFlag("-g")
-            .addCompilerFlag("-DNDEBUG")
-            .addCompilerFlag("-fomit-frame-pointer")
-            .addCompilerFlag("-fstrict-aliasing"))
-  
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.OPT)
+                .addCompilerFlag("-O2")
+                .addCompilerFlag("-g")
+                .addCompilerFlag("-DNDEBUG")
+                .addCompilerFlag("-fomit-frame-pointer")
+                .addCompilerFlag("-fstrict-aliasing"))
+
         // Additional debug flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.DBG)
-            .addCompilerFlag("-O0")
-            .addCompilerFlag("-g")
-            .addCompilerFlag("-fno-omit-frame-pointer")
-            .addCompilerFlag("-fnostrict-aliasing"));
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.DBG)
+                .addCompilerFlag("-O0")
+                .addCompilerFlag("-g")
+                .addCompilerFlag("-fno-omit-frame-pointer")
+                .addCompilerFlag("-fno-strict-aliasing"));
   }
 }
