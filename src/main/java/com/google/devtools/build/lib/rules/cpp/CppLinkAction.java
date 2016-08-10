@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,12 +50,10 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -159,24 +156,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     this.linkCommandLine = linkCommandLine;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
-  }
-
-  static Iterable<LinkerInput> filterLinkerInputs(Iterable<LinkerInput> inputs) {
-    return Iterables.filter(inputs, new Predicate<LinkerInput>() {
-      @Override
-      public boolean apply(LinkerInput input) {
-        return Link.VALID_LINKER_INPUTS.matches(input.getArtifact().getFilename());
-      }
-    });
-  }
-
-  static Iterable<Artifact> filterLinkerInputArtifacts(Iterable<Artifact> inputs) {
-    return Iterables.filter(inputs, new Predicate<Artifact>() {
-      @Override
-      public boolean apply(Artifact input) {
-        return Link.VALID_LINKER_INPUTS.matches(input.getFilename());
-      }
-    });
   }
 
   private CppConfiguration getCppConfiguration() {
@@ -519,7 +498,8 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
   public static final class Context implements TransitiveInfoProvider {
     // Morally equivalent with {@link Builder}, except these are immutable.
     // Keep these in sync with {@link Builder}.
-    final ImmutableSet<LinkerInput> nonLibraries;
+    final ImmutableSet<LinkerInput> objectFiles;
+    final ImmutableSet<Artifact> nonCodeInputs;
     final NestedSet<LibraryToLink> libraries;
     final NestedSet<Artifact> crosstoolInputs;
     final Artifact runtimeMiddleman;
@@ -540,7 +520,8 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
      * @param builder a mutable {@link CppLinkActionBuilder} to clone from
      */
     public Context(CppLinkActionBuilder builder) {
-      this.nonLibraries = ImmutableSet.copyOf(builder.getNonLibraries());
+      this.objectFiles = ImmutableSet.copyOf(builder.getObjectFiles());
+      this.nonCodeInputs = ImmutableSet.copyOf(builder.getNonCodeInputs());
       this.libraries = NestedSetBuilder.<LibraryToLink>linkOrder()
           .addTransitive(builder.getLibraries().build()).build();
       this.crosstoolInputs =
@@ -562,8 +543,8 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     /**
      * Returns linker inputs that are not libraries.
      */
-    public ImmutableSet<LinkerInput> getNonLibraries() {
-      return this.nonLibraries;
+    public ImmutableSet<LinkerInput> getObjectFiles() {
+      return this.objectFiles;
     }
     
     /**

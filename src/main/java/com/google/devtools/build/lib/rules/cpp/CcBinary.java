@@ -204,7 +204,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             linkStaticness,
             linkopts);
     linkActionBuilder.setUseTestOnlyFlags(isTest);
-    linkActionBuilder.addNonLibraryInputs(ccCompilationOutputs.getHeaderTokenFiles());
+    linkActionBuilder.addNonCodeInputs(ccCompilationOutputs.getHeaderTokenFiles());
 
     CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext);
     if (linkStaticness == LinkStaticness.DYNAMIC) {
@@ -398,7 +398,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(context, binary)
             .setCrosstoolInputs(CppHelper.getToolchain(context).getLink())
-            .addNonLibraryInputs(compilationPrerequisites);
+            .addNonCodeInputs(compilationPrerequisites);
 
     // Determine the object files to link in.
     boolean usePic = CppHelper.usePic(context, !isLinkShared(context));
@@ -407,11 +407,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (fake) {
       builder.addFakeNonLibraryInputs(objectFiles);
     } else {
-      builder.addNonLibraryInputs(objectFiles);
+      builder.addObjectFiles(objectFiles);
     }
 
     builder.addLTOBitcodeFiles(compilationOutputs.getLtoBitcodeFiles());
-    builder.addNonLibraryInputs(common.getLinkerScripts());
+    builder.addNonCodeInputs(common.getLinkerScripts());
 
     // Determine the libraries to link in.
     // First libraries from srcs. Shared library artifacts here are substituted with mangled symlink

@@ -299,12 +299,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig,
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
-                + "   pattern: '%{base_name}.obj'"
+                + "   pattern: 'object_%{base_name}.o'"
                 + "}");
 
     useConfiguration();
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(artifactByPath(getFilesToBuild(hello), ".a", "hello.obj")).isNotNull();
+    assertThat(artifactByPath(getFilesToBuild(hello), ".a", "object_hello.o")).isNotNull();
   }
 
   @Test
@@ -1186,5 +1186,18 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             + "with libfoo.a, libfoo.ifso, libfoo.so (output compiled and linked from the "
             + "non-library sources of this rule), which could cause confusion",
         "cc_library(name = 'foo', srcs = ['foo.cc', 'libfoo.lo'])");
+  }
+
+
+  @Test
+  public void testProcessedHeadersWithPicSharedLibsAndNoPicBinaries() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig,
+            MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+    useConfiguration("--features=parse_headers", "-c", "opt");
+    // Should not crash
+    ConfiguredTarget a = scratchConfiguredTarget("a", "a",
+        "cc_library(name='a', hdrs=['a.h'])");
   }
 }

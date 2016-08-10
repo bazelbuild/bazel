@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -62,7 +61,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
-
 import javax.annotation.Nullable;
 
 /**
@@ -249,6 +247,7 @@ public final class CcLibraryHelper {
   private final Set<CppSource> compilationUnitSources = new LinkedHashSet<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
+  private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
   private final List<String> linkopts = new ArrayList<>();
   @Nullable private Pattern nocopts;
@@ -335,7 +334,7 @@ public final class CcLibraryHelper {
         .addDefines(common.getDefines())
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addLooseIncludeDirs(common.getLooseIncludeDirs())
-        .addPicIndependentObjectFiles(common.getLinkerScripts())
+        .addNonCodeLinkerInputs(common.getLinkerScripts())
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .setNoCopts(common.getNoCopts())
         .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
@@ -498,6 +497,9 @@ public final class CcLibraryHelper {
    * depends on the current rule.
    */
   public CcLibraryHelper addObjectFiles(Iterable<Artifact> objectFiles) {
+    for (Artifact objectFile : objectFiles) {
+      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(objectFile.getFilename()));
+    }
     Iterables.addAll(this.objectFiles, objectFiles);
     return this;
   }
@@ -509,23 +511,26 @@ public final class CcLibraryHelper {
    * depends on the current rule.
    */
   public CcLibraryHelper addPicObjectFiles(Iterable<Artifact> picObjectFiles) {
+    for (Artifact objectFile : objectFiles) {
+      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(objectFile.getFilename()));
+    }
     Iterables.addAll(this.picObjectFiles, picObjectFiles);
     return this;
   }
 
   /**
-   * Add the corresponding files as linker inputs for both PIC and non-PIC links.
+   * Adds the corresponding non-code files as linker inputs.
    */
-  public CcLibraryHelper addPicIndependentObjectFiles(Iterable<Artifact> objectFiles) {
-    addPicObjectFiles(objectFiles);
-    return addObjectFiles(objectFiles);
-  }
+  public CcLibraryHelper addNonCodeLinkerInputs(Iterable<Artifact> nonCodeLinkerInputs) {
+    for (Artifact nonCodeLinkerInput : nonCodeLinkerInputs) {
+      String basename = nonCodeLinkerInput.getFilename();
+      Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
+      Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
+      Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
+      this.nonCodeLinkerInputs.add(nonCodeLinkerInput);
+    }
 
-  /**
-   * Add the corresponding files as linker inputs for both PIC and non-PIC links.
-   */
-  public CcLibraryHelper addPicIndependentObjectFiles(Artifact... objectFiles) {
-    return addPicIndependentObjectFiles(Arrays.asList(objectFiles));
+    return this;
   }
 
   /**
@@ -921,7 +926,7 @@ public final class CcLibraryHelper {
       // generate any link actions, effectively disabling header checking in some cases.
       if (linkType.isStaticLibraryLink()) {
         // TODO(bazel-team): This can't create the link action for a cc_binary yet.
-        ccLinkingOutputs = model.createCcLinkActions(ccOutputs);
+        ccLinkingOutputs = model.createCcLinkActions(ccOutputs, nonCodeLinkerInputs);
       }
     }
     CcLinkingOutputs originalLinkingOutputs = ccLinkingOutputs;

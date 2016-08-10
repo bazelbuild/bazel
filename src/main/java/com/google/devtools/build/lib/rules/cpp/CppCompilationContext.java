@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -662,13 +661,20 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     public Builder addCompilationPrerequisites(Iterable<Artifact> prerequisites) {
       // LIPO collector must not add compilation prerequisites in order to avoid
       // the creation of a middleman action.
+      for (Artifact prerequisite : prerequisites) {
+        String basename = prerequisite.getFilename();
+        Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
+        Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
+        Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
+      }
       Iterables.addAll(compilationPrerequisites, prerequisites);
       return this;
     }
 
     /**
      * Add a single include directory to be added with "-I". It can be either
-     * relative to the exec root (see {@link BuildConfiguration#getExecRoot}) or
+     * relative to the exec root (see
+     * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
      * absolute. Before it is stored, the include directory is normalized.
      */
     public Builder addIncludeDir(PathFragment includeDir) {
@@ -679,8 +685,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     /**
      * Add multiple include directories to be added with "-I". These can be
      * either relative to the exec root (see {@link
-     * BuildConfiguration#getExecRoot}) or absolute. The entries are normalized
-     * before they are stored.
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. The
+     * entries are normalized before they are stored.
      */
     public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
       for (PathFragment includeDir : includeDirs) {
@@ -692,8 +698,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     /**
      * Add a single include directory to be added with "-iquote". It can be
      * either relative to the exec root (see {@link
-     * BuildConfiguration#getExecRoot}) or absolute. Before it is stored, the
-     * include directory is normalized.
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
+     * is stored, the include directory is normalized.
      */
     public Builder addQuoteIncludeDir(PathFragment quoteIncludeDir) {
       quoteIncludeDirs.add(quoteIncludeDir.normalize());
@@ -703,8 +709,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     /**
      * Add a single include directory to be added with "-isystem". It can be
      * either relative to the exec root (see {@link
-     * BuildConfiguration#getExecRoot}) or absolute. Before it is stored, the
-     * include directory is normalized.
+     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
+     * is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDir(PathFragment systemIncludeDir) {
       systemIncludeDirs.add(systemIncludeDir.normalize());
