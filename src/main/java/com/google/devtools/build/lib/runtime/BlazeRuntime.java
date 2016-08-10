@@ -688,7 +688,7 @@ public final class BlazeRuntime {
 
     BlazeRuntime runtime;
     try {
-      runtime = newRuntime(modules, parseOptions(modules, commandLineOptions.getStartupArgs()));
+      runtime = newRuntime(modules, commandLineOptions.getStartupArgs());
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
@@ -773,14 +773,12 @@ public final class BlazeRuntime {
   private static RPCServer createBlazeRPCServer(
       Iterable<BlazeModule> modules, List<String> args)
       throws IOException, OptionsParsingException, AbruptExitException {
-    OptionsProvider options = parseOptions(modules, args);
-    BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
-
-    BlazeRuntime runtime = newRuntime(modules, options);
+    BlazeRuntime runtime = newRuntime(modules, args);
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
     CommandExecutor commandExecutor = new CommandExecutor(runtime, dispatcher);
 
-
+    BlazeServerStartupOptions startupOptions =
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
     try {
       // This is necessary so that Bazel kind of works during bootstrapping, at which time the
       // gRPC server is not compiled in so that we don't need gRPC for bootstrapping.
@@ -845,14 +843,15 @@ public final class BlazeRuntime {
    * filesystem object that will be used for the runtime. So it should only ever be called from the
    * main method of the Blaze program.
    *
-   * @param options Blaze startup options.
+   * @param args Blaze startup options.
    *
    * @return a new BlazeRuntime instance initialized with the given filesystem and directories, and
    *         an error string that, if not null, describes a fatal initialization failure that makes
    *         this runtime unsuitable for real commands
    */
-  private static BlazeRuntime newRuntime(
-      Iterable<BlazeModule> blazeModules, OptionsProvider options) throws AbruptExitException {
+  private static BlazeRuntime newRuntime(Iterable<BlazeModule> blazeModules, List<String> args)
+      throws AbruptExitException, OptionsParsingException {
+    OptionsProvider options = parseOptions(blazeModules, args);
     for (BlazeModule module : blazeModules) {
       module.globalInit(options);
     }
