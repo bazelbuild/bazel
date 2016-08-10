@@ -59,13 +59,6 @@ def FindModuleSpace():
     if os.path.isdir(module_space):
       break
 
-    # Follow a symlink, try again?
-    if os.path.islink(stub_filename):
-      link = os.readlink(stub_filename)
-      # Absolutize
-      stub_filename = os.path.join(os.path.dirname(stub_filename), link)
-      continue
-
     runfiles_pattern = "(.*\.runfiles)/.*"
     if IsWindows():
       runfiles_pattern = "(.*\.runfiles)\\.*"
