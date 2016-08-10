@@ -56,14 +56,6 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,8 +67,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link MemoizingEvaluator}.*/
 @RunWith(JUnit4.class)
@@ -3975,6 +3972,100 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, cachedParentKey, uncachedParentKey);
     assertWithMessage(result.toString()).that(result.hasError()).isTrue();
+  }
+
+  /**
+   * Tests that a race between a node being marked clean and another node requesting it is benign.
+   * Here, we first evaluate errorKey, depending on invalidatedKey. Then we invalidate
+   * invalidatedKey (without actually changing it) and evaluate errorKey and topKey together.
+   * Through forced synchronization, we make sure that the following sequence of events happens:
+   *
+   * <ol>
+   * <li>topKey requests errorKey;
+   * <li>errorKey is marked clean;
+   * <li>topKey finishes its first evaluation and registers its deps;
+   * <li>topKey restarts, since it sees that its only dep, errorKey, is done;
+   * <li>topKey sees the error thrown by errorKey and throws the error, shutting down the
+   *     threadpool;
+   * </ol>
+   */
+  @Test
+  public void cachedErrorCausesRestart() throws Exception {
+    final SkyKey errorKey = GraphTester.toSkyKey("error");
+    SkyKey invalidatedKey = GraphTester.toSkyKey("invalidated");
+    final SkyKey topKey = GraphTester.toSkyKey("top");
+    tester.getOrCreate(errorKey).addDependency(invalidatedKey).setHasError(true);
+    tester.getOrCreate(invalidatedKey).setConstantValue(new StringValue("constant"));
+    final CountDownLatch topSecondEval = new CountDownLatch(2);
+    final CountDownLatch topRequestedError = new CountDownLatch(1);
+    final CountDownLatch errorMarkedClean = new CountDownLatch(1);
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {
+            if (errorKey.equals(key) && type == EventType.MARK_CLEAN) {
+              if (order == Order.BEFORE) {
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    topRequestedError, "top didn't request");
+              } else {
+                errorMarkedClean.countDown();
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    topSecondEval, "top didn't restart");
+                // Make sure that the other thread notices the error and interrupts this thread.
+                try {
+                  Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              }
+            }
+          }
+        },
+        /*deterministic=*/ false);
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, errorKey);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(errorKey)
+        .hasExceptionThat()
+        .isNotNull();
+    tester
+        .getOrCreate(topKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env)
+                  throws SkyFunctionException, InterruptedException {
+                topSecondEval.countDown();
+                env.getValue(errorKey);
+                topRequestedError.countDown();
+                assertThat(env.valuesMissing()).isTrue();
+                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                    errorMarkedClean, "error not marked clean");
+                return null;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    tester.getOrCreate(invalidatedKey, /*markAsModified=*/ true);
+    tester.invalidate();
+    EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ false, errorKey, topKey);
+    assertThatEvaluationResult(result2).hasError();
+    assertThatEvaluationResult(result2)
+        .hasErrorEntryForKeyThat(errorKey)
+        .hasExceptionThat()
+        .isNotNull();
+    assertThatEvaluationResult(result2)
+        .hasErrorEntryForKeyThat(topKey)
+        .hasExceptionThat()
+        .isNotNull();
+    assertThatEvaluationResult(result2)
+        .hasErrorEntryForKeyThat(topKey)
+        .rootCauseOfExceptionIs(errorKey);
   }
 
   @Test

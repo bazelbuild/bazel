@@ -51,7 +51,6 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,7 +69,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -1125,29 +1123,25 @@ public final class ParallelEvaluator implements Evaluator {
             skyKey,
             state,
             childErrorKey);
-        Preconditions.checkState(
-            !state.getTemporaryDirectDeps().expensiveContains(childErrorKey),
-            "Done error was already known: %s %s %s %s",
-            skyKey,
-            state,
-            childErrorKey,
-            childErrorEntry);
-        Preconditions.checkState(
-            newDirectDeps.contains(childErrorKey), "%s %s %s", state, childErrorKey, newDirectDeps);
-        state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
-        DependencyState childErrorState;
-        if (oldDeps.contains(childErrorKey)) {
-          childErrorState = childErrorEntry.checkIfDoneForDirtyReverseDep(skyKey);
-        } else {
-          childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+        if (newDirectDeps.contains(childErrorKey)) {
+          // Add this dep if it was just requested. In certain rare race conditions (see
+          // MemoizingEvaluatorTest.cachedErrorCausesRestart) this dep may have already been
+          // requested.
+          state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
+          DependencyState childErrorState;
+          if (oldDeps.contains(childErrorKey)) {
+            childErrorState = childErrorEntry.checkIfDoneForDirtyReverseDep(skyKey);
+          } else {
+            childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+          }
+          Preconditions.checkState(
+              childErrorState == DependencyState.DONE,
+              "skyKey: %s, state: %s childErrorKey: %s",
+              skyKey,
+              state,
+              childErrorKey,
+              childErrorEntry);
         }
-        Preconditions.checkState(
-            childErrorState == DependencyState.DONE,
-            "skyKey: %s, state: %s childErrorKey: %s",
-            skyKey,
-            state,
-            childErrorKey,
-            childErrorEntry);
         ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
         visitor.preventNewEvaluations();
         throw SchedulerException.ofError(childErrorInfo, childErrorKey);
