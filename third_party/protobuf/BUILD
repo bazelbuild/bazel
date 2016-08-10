@@ -34,13 +34,13 @@ filegroup(
 
 java_import(
     name = "protobuf",
-    jars = ["protobuf-java-3.0.0-beta-1.jar"],
+    jars = ["protobuf-java-3.0.0-beta-4.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "protobuf-jars",
-    srcs = ["protobuf-java-3.0.0-beta-1.jar"],
+    srcs = ["protobuf-java-3.0.0-beta-4.jar"],
 )
 
 py_library(
