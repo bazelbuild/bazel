@@ -63,7 +63,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;
