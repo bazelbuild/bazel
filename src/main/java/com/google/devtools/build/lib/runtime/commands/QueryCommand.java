@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.channels.ClosedByInterruptException;
@@ -163,7 +162,7 @@ public final class QueryCommand implements BlazeCommand {
         streamedFormatter.setOptions(
             queryOptions,
             queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
-        callback = streamedFormatter.createStreamCallback(output);
+        callback = streamedFormatter.createStreamCallback(output, queryOptions);
       } else {
         callback = new AggregateAllOutputFormatterCallback<>();
       }

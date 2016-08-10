@@ -18,7 +18,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -48,6 +47,23 @@ public class QueryOptions extends OptionsBase {
           + " Allowed values are: label, label_kind, minrank, maxrank, package, location, graph,"
           + " xml, proto, record.")
   public String outputFormat;
+
+  @Option(
+    name = "null",
+    defaultValue = "null",
+    category = "query",
+    expansion = {"--line_terminator_null=true"},
+    help = "Whether each format is terminated with \0 instead of newline."
+  )
+  public Void isNull;
+
+  @Option(
+    name = "line_terminator_null",
+    defaultValue = "false",
+    category = "query",
+    help = "Whether each format is terminated with \0 instead of newline."
+  )
+  public boolean lineTerminatorNull;
 
   @Option(
     name = "order_results",
@@ -224,10 +240,17 @@ public class QueryOptions extends OptionsBase {
             + "command line. It is an error to specify a file here as well as a command-line query."
   )
   public String queryFile;
+  
+  /** Ugly workaround since line terminator option default has to be constant expression. */
+  public String getLineTerminator() {
+    if (lineTerminatorNull) {
+      return "\0";
+    }
 
-  /**
-   * Return the current options as a set of QueryEnvironment settings.
-   */
+    return System.lineSeparator();
+  }
+
+  /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
     if (strictTestSuite) {

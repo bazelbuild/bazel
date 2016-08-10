@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.graph.LabelSerializer;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
-
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -56,18 +55,19 @@ class GraphOutputFormatter extends OutputFormatter {
     if (options.graphFactored) {
       outputFactored(result, new PrintWriter(out), sortLabels);
     } else {
-      outputUnfactored(result, new PrintWriter(out), sortLabels);
+      outputUnfactored(result, new PrintWriter(out), sortLabels, options);
     }
   }
 
-  private void outputUnfactored(Digraph<Target> result, PrintWriter out, boolean sortLabels) {
+  private void outputUnfactored(
+      Digraph<Target> result, PrintWriter out, boolean sortLabels, final QueryOptions options) {
     result.visitNodesBeforeEdges(
         new DotOutputVisitor<Target>(out, LABEL_STRINGIFIER) {
           @Override
           public void beginVisit() {
             super.beginVisit();
             // TODO(bazel-team): (2009) make this the default in Digraph.
-            out.println("  node [shape=box];");
+            out.printf("  node [shape=box];%s", options.getLineTerminator());
           }
         },
         sortLabels ? new TargetOrdering() : null);

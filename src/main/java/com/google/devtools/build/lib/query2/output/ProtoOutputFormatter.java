@@ -87,7 +87,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(final PrintStream out) {
+  public OutputFormatterCallback<Target> createStreamCallback(
+      final PrintStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
       private Builder queryResult;
