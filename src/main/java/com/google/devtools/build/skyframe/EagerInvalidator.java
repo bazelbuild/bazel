@@ -75,7 +75,7 @@ public final class EagerInvalidator {
 
   @Nullable
   static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
-      InvalidatableGraph graph,
+      QueryableGraph graph,
       Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
@@ -89,7 +89,7 @@ public final class EagerInvalidator {
 
   @Nullable
   private static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
-      InvalidatableGraph graph,
+      QueryableGraph graph,
       Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
@@ -115,7 +115,7 @@ public final class EagerInvalidator {
    * an executor constructed with the provided factory.
    */
   public static void invalidate(
-      InvalidatableGraph graph,
+      QueryableGraph graph,
       Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
@@ -135,7 +135,7 @@ public final class EagerInvalidator {
    * the provided {@link ForkJoinPool}.
    */
   public static void invalidate(
-      InvalidatableGraph graph,
+      QueryableGraph graph,
       Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
@@ -161,7 +161,7 @@ public final class EagerInvalidator {
 
   /** Invalidates given values and their upward transitive closure in the graph. */
   public static void invalidate(
-      InvalidatableGraph graph,
+      QueryableGraph graph,
       Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,

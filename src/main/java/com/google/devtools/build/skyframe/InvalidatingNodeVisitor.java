@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
 
 import java.util.ArrayList;
@@ -62,7 +63,7 @@ import javax.annotation.Nullable;
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
-public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph> {
+public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
 
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
@@ -269,7 +270,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
       for (SkyKey key : unvisitedKeys) {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
-      final Map<SkyKey, NodeEntry> entries = graph.getBatchForInvalidation(unvisitedKeys);
+      final Map<SkyKey, NodeEntry> entries =
+          graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
       for (final SkyKey key : unvisitedKeys) {
         executor.execute(
             new Runnable() {
@@ -305,7 +307,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
                       entry.isDone()
                           ? entry.getDirectDeps()
                           : entry.getAllDirectDepsForIncompleteNode();
-                  Map<SkyKey, NodeEntry> depMap = graph.getBatchForInvalidation(directDeps);
+                  Map<SkyKey, NodeEntry> depMap =
+                      graph.getBatch(key, Reason.INVALIDATION, directDeps);
                   for (Map.Entry<SkyKey, NodeEntry> directDepEntry : depMap.entrySet()) {
                     NodeEntry dep = directDepEntry.getValue();
                     if (dep != null) {
@@ -338,7 +341,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
   }
 
   /** A node-dirtying implementation. */
-  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor<InvalidatableGraph> {
+  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor<QueryableGraph> {
 
     private final Set<SkyKey> changed =
         Collections.newSetFromMap(
@@ -351,7 +354,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
     private final boolean supportInterruptions;
 
     protected DirtyingNodeVisitor(
-        InvalidatableGraph graph,
+        QueryableGraph graph,
         EvaluationProgressReceiver invalidationReceiver,
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
@@ -365,7 +368,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
      * passing {@code false} for {@param supportInterruptions}.
      */
     protected DirtyingNodeVisitor(
-        InvalidatableGraph graph,
+        QueryableGraph graph,
         EvaluationProgressReceiver invalidationReceiver,
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
@@ -432,7 +435,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends InvalidatableGraph>
           pendingVisitations.add(Pair.of(key, invalidationType));
         }
       }
-      final Map<SkyKey, ? extends ThinNodeEntry> entries = graph.getBatchForInvalidation(keysToGet);
+      final Map<SkyKey, ? extends ThinNodeEntry> entries =
+          graph.getBatch(null, Reason.INVALIDATION, keysToGet);
       if (enqueueingKeyForExistenceCheck != null && entries.size() != keysToGet.size()) {
         Set<SkyKey> missingKeys = Sets.difference(ImmutableSet.copyOf(keysToGet), entries.keySet());
         throw new IllegalStateException(

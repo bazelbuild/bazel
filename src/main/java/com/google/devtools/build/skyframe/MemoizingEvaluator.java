@@ -133,7 +133,7 @@ public interface MemoizingEvaluator {
   interface GraphTransformerForTesting {
     InMemoryGraph transform(InMemoryGraph graph);
 
-    InvalidatableGraph transform(InvalidatableGraph graph);
+    QueryableGraph transform(QueryableGraph graph);
 
     ProcessableGraph transform(ProcessableGraph graph);
   }

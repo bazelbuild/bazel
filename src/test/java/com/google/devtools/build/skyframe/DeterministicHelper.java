@@ -41,8 +41,8 @@ public class DeterministicHelper extends NotifyingHelper {
         }
 
         @Override
-        public InvalidatableGraph transform(InvalidatableGraph graph) {
-          return new DeterministicInvalidatableGraph(graph, listener);
+        public QueryableGraph transform(QueryableGraph graph) {
+          return new DeterministicQueryableGraph(graph, listener);
         }
 
         @Override
@@ -83,14 +83,17 @@ public class DeterministicHelper extends NotifyingHelper {
     return result;
   }
 
-  private static class DeterministicInvalidatableGraph extends NotifyingInvalidatableGraph {
-    DeterministicInvalidatableGraph(InvalidatableGraph delegate, Listener graphListener) {
+  private static class DeterministicQueryableGraph extends NotifyingQueryableGraph {
+    DeterministicQueryableGraph(QueryableGraph delegate, Listener graphListener) {
       super(delegate, new DeterministicHelper(graphListener));
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
-      return makeDeterministic(super.getBatchForInvalidation(keys));
+    public Map<SkyKey, NodeEntry> getBatch(
+        @Nullable SkyKey requestor,
+        Reason reason,
+        Iterable<SkyKey> keys) {
+      return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }
 

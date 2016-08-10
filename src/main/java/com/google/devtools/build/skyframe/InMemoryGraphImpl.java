@@ -55,20 +55,15 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
+  public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
     ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
-      NodeEntry entry = get(null, Reason.OTHER, key);
+      NodeEntry entry = get(null, reason, key);
       if (entry != null) {
         builder.put(key, entry);
       }
     }
     return builder.build();
-  }
-
-  @Override
-  public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    return getBatchForInvalidation(keys);
   }
 
   protected NodeEntry createIfAbsent(SkyKey key) {

@@ -40,8 +40,8 @@ public class NotifyingHelper {
       }
 
       @Override
-      public InvalidatableGraph transform(InvalidatableGraph graph) {
-        return new NotifyingInvalidatableGraph(graph, listener);
+      public QueryableGraph transform(QueryableGraph graph) {
+        return new NotifyingQueryableGraph(graph, listener);
       }
 
       @Override
@@ -72,39 +72,47 @@ public class NotifyingHelper {
     return entry == null ? null : new NotifyingNodeEntry(key, entry);
   }
 
-  static class NotifyingInvalidatableGraph implements InvalidatableGraph {
-    private final InvalidatableGraph delegate;
-    private final NotifyingHelper notifyingHelper;
+  static class NotifyingQueryableGraph implements QueryableGraph {
+    private final QueryableGraph delegate;
+    protected final NotifyingHelper notifyingHelper;
 
-    NotifyingInvalidatableGraph(InvalidatableGraph delegate, Listener graphListener) {
+    NotifyingQueryableGraph(QueryableGraph delegate, Listener graphListener) {
       this.notifyingHelper = new NotifyingHelper(graphListener);
       this.delegate = delegate;
     }
 
-    NotifyingInvalidatableGraph(InvalidatableGraph delegate, NotifyingHelper helper) {
+    NotifyingQueryableGraph(QueryableGraph delegate, NotifyingHelper helper) {
       this.notifyingHelper = helper;
       this.delegate = delegate;
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatchForInvalidation(Iterable<SkyKey> keys) {
+    public Map<SkyKey, NodeEntry> getBatch(
+        @Nullable SkyKey requestor,
+        Reason reason,
+        Iterable<SkyKey> keys) {
       return Maps.transformEntries(
-          delegate.getBatchForInvalidation(keys),
+          delegate.getBatch(requestor, reason, keys),
           notifyingHelper.wrapEntry);
+    }
+
+    @Nullable
+    @Override
+    public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+      return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
   }
 
-  static class NotifyingProcessableGraph implements ProcessableGraph {
+  static class NotifyingProcessableGraph
+      extends NotifyingQueryableGraph implements ProcessableGraph {
     protected final ProcessableGraph delegate;
-    protected final NotifyingHelper notifyingHelper;
 
     NotifyingProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
-      this.notifyingHelper = new NotifyingHelper(graphListener);
-      this.delegate = delegate;
+      this(delegate, new NotifyingHelper(graphListener));
     }
 
     NotifyingProcessableGraph(ProcessableGraph delegate, NotifyingHelper helper) {
-      this.notifyingHelper = helper;
+      super(delegate, helper);
       this.delegate = delegate;
     }
 
@@ -122,22 +130,6 @@ public class NotifyingHelper {
       return Maps.transformEntries(
           delegate.createIfAbsentBatch(requestor, reason, keys),
           notifyingHelper.wrapEntry);
-    }
-
-    @Override
-    public Map<SkyKey, NodeEntry> getBatch(
-        @Nullable SkyKey requestor,
-        Reason reason,
-        Iterable<SkyKey> keys) {
-      return Maps.transformEntries(
-          delegate.getBatch(requestor, reason, keys),
-          notifyingHelper.wrapEntry);
-    }
-
-    @Nullable
-    @Override
-    public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
-      return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
   }
 
