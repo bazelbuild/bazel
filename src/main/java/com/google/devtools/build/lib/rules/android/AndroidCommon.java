@@ -861,22 +861,25 @@ public class AndroidCommon {
   }
 
   public CcLinkParamsStore getCcLinkParamsStore() {
-    return getCcLinkParamsStore(javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH));
+    return getCcLinkParamsStore(
+        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH), ImmutableList.<String>of());
   }
 
   public static CcLinkParamsStore getCcLinkParamsStore(
-      final Iterable<? extends TransitiveInfoCollection> deps) {
+      final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
     return new CcLinkParamsStore() {
       @Override
-      protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
-                             boolean linkShared) {
-        builder.addTransitiveTargets(deps,
+      protected void collect(
+          CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+        builder.addTransitiveTargets(
+            deps,
             // Link in Java-specific C++ code in the transitive closure
             JavaCcLinkParamsProvider.TO_LINK_PARAMS,
             // Link in Android-specific C++ code (e.g., android_libraries) in the transitive closure
             AndroidCcLinkParamsProvider.TO_LINK_PARAMS,
             // Link in non-language-specific C++ code in the transitive closure
             CcLinkParamsProvider.TO_LINK_PARAMS);
+        builder.addLinkOpts(linkOpts);
       }
     };
   }
