@@ -47,8 +47,9 @@ done
 
 PLATFORM_DIR=$(/usr/bin/xcrun --sdk "${PLATFORM}" --show-sdk-platform-path)
 PLATFORM_PLIST="${PLATFORM_DIR}"/Info.plist
-PLIST=$(mktemp -d "${TMPDIR:-/tmp}/bazel_environment.XXXXXX")/env.plist
-trap 'rm -rf "${PLIST}"' ERR EXIT
+TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/bazel_environment.XXXXXX")
+PLIST="${TEMPDIR}/env.plist"
+trap 'rm -rf "${TEMPDIR}"' ERR EXIT
 
 os_build=$(/usr/bin/sw_vers -buildVersion)
 compiler=$(/usr/libexec/PlistBuddy -c "print :DefaultProperties:DEFAULT_COMPILER" "${PLATFORM_PLIST}")
