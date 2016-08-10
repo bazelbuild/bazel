@@ -73,10 +73,11 @@ def FindModuleSpace():
 
 # Create the runfiles tree by extracting the zip file
 def CreateModuleSpace():
-  module_space = tempfile.mkdtemp("", "Bazel.runfiles_")
+  ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
+  temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
   zf = zipfile.ZipFile(os.path.dirname(__file__))
-  zf.extractall(module_space)
-  return module_space
+  zf.extractall(temp_dir)
+  return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
 
 def Main():
   args = sys.argv[1:]
@@ -125,7 +126,7 @@ def Main():
     sys.stdout.flush()
     if IsRunningFromZip():
       retCode = subprocess.call(args)
-      shutil.rmtree(module_space, True)
+      shutil.rmtree(os.path.dirname(module_space), True)
       exit(retCode)
     else:
       os.execv(args[0], args)
