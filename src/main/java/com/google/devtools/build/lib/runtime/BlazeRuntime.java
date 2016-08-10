@@ -183,10 +183,11 @@ public final class BlazeRuntime {
         this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);
   }
 
-  @Nullable public CoverageReportActionFactory getCoverageReportActionFactory() {
+  @Nullable public CoverageReportActionFactory getCoverageReportActionFactory(
+      OptionsClassProvider commandOptions) {
     CoverageReportActionFactory firstFactory = null;
     for (BlazeModule module : blazeModules) {
-      CoverageReportActionFactory factory = module.getCoverageReportFactory();
+      CoverageReportActionFactory factory = module.getCoverageReportFactory(commandOptions);
       if (factory != null) {
         Preconditions.checkState(firstFactory == null,
             "only one Blaze Module can have a Coverage Report Factory");

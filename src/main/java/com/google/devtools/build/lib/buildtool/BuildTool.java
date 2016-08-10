@@ -447,7 +447,7 @@ public final class BuildTool {
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
     BuildView view = new BuildView(env.getDirectories(), runtime.getRuleClassProvider(),
-        env.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
+        env.getSkyframeExecutor(), runtime.getCoverageReportActionFactory(request));
     AnalysisResult analysisResult =
         view.update(
             loadingResult,
