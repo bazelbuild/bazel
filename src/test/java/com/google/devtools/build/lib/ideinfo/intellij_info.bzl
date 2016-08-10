@@ -358,13 +358,20 @@ def build_android_rule_ide_info(target, ctx, legacy_resource_label):
   ide_resolve_files = set(jars_from_output(target.android.idl.output))
   return (android_rule_ide_info, ide_resolve_files)
 
+def _get_data(ctx):
+  """Returns a list of artifact locations from the data attribute."""
+  if not hasattr(ctx.rule.attr, "data"):
+    return []
+  return [artifact_location(f) for data in ctx.rule.attr.data for f in data.files]
+
 def build_test_info(target, ctx):
   """Build TestInfo"""
   if not is_test_rule(ctx):
     return None
   return struct_omit_none(
-           size = ctx.rule.attr.size,
-         )
+      size = ctx.rule.attr.size,
+      data = _get_data(ctx),
+  )
 
 def is_test_rule(ctx):
   kind_string = ctx.rule.kind

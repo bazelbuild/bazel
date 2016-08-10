@@ -386,6 +386,10 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       if (attr != null) {
         builder.setSize(attr);
       }
+      Collection<Artifact> data = getDataListAttribute(ruleContext, "data");
+      for (Artifact artifact : data) {
+        builder.addData(makeArtifactLocation(artifact));
+      }
       outputBuilder.setTestInfo(builder);
     }
 
@@ -796,6 +800,20 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
   private static Collection<String> getCopts(RuleContext ruleContext) {
     return getStringListAttribute(ruleContext, "copts");
   }
+
+  private static boolean hasDataModeAttribute(RuleContext ruleContext,
+      String attributeName, Type<?> type) {
+    return ruleContext.attributes().has(attributeName, type)
+        && ruleContext.getAttributeMode(attributeName) == Mode.DATA;
+  }
+
+  private static Collection<Artifact> getDataListAttribute(RuleContext ruleContext,
+      String attributeName) {
+    return hasDataModeAttribute(ruleContext, attributeName, BuildType.LABEL_LIST)
+        ? ruleContext.getPrerequisiteArtifacts(attributeName, Mode.DATA).list()
+        : ImmutableList.<Artifact>of();
+  }
+
 
   private static Collection<Artifact> getTargetListAttribute(RuleContext ruleContext,
       String attributeName) {

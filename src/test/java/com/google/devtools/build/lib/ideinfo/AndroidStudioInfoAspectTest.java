@@ -475,6 +475,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "   srcs = ['FooBarTest.java'],",
         "   size = 'large',",
         "   deps = [':foobar'],",
+        "   data = ['MyData'],",
         ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(
         "//java/com/google/example:FooBarTest");
@@ -501,6 +502,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .isEqualTo("java/com/google/example/FooBarTest.jdeps");
 
     assertThat(testInfo.getTestInfo().getSize()).isEqualTo("large");
+    assertThat(testInfo.getTestInfo().getDataList()).containsExactly(
+        ArtifactLocation.newBuilder()
+            .setIsSource(true)
+            .setRootPath(testLegacyAswbPluginVersionCompatibility() ? "/workspace" : "")
+            .setRelativePath("java/com/google/example/MyData")
+        .build()
+    );
   }
 
   @Test
