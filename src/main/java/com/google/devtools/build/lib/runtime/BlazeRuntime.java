@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -903,14 +901,6 @@ public final class BlazeRuntime {
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = fs.getPath(workspaceDirectory);
-    }
-
-    if (fs instanceof UnixFileSystem) {
-      ((UnixFileSystem) fs).setRootsWithAllowedHardlinks(
-          // Some tests pass nulls for these paths, so remove these from the list
-          Iterables.filter(
-              Arrays.asList(installBasePath, outputBasePath, workspaceDirectoryPath),
-              Predicates.notNull()));
     }
 
     ServerDirectories serverDirectories =
