@@ -87,7 +87,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -106,7 +105,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -427,7 +425,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private Collection<Target> processRawReverseDeps(Map<Target, Collection<Target>> rawReverseDeps) {
     Set<Target> result = CompactHashSet.create();
-    CompactHashSet<Target> visited = CompactHashSet.create();
+    CompactHashSet<Target> visited =
+        CompactHashSet.createWithExpectedSize(totalSizeOfCollections(rawReverseDeps.values()));
 
     Set<Label> keys = CompactHashSet.create(Collections2.transform(rawReverseDeps.keySet(),
         TARGET_LABEL_FUNCTION));
@@ -447,6 +446,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       }
     }
     return result;
+  }
+
+  private static <T> int totalSizeOfCollections(Iterable<Collection<T>> nestedCollections) {
+    int totalSize = 0;
+    for (Collection<T> collection : nestedCollections) {
+      totalSize += collection.size();
+    }
+    return totalSize;
   }
 
   @Override
