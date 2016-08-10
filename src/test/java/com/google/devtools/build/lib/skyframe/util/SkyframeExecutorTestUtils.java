@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.util;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -102,6 +104,23 @@ public class SkyframeExecutorTestUtils {
       return null;
     }
     return value.getConfiguredTarget();
+  }
+
+  /**
+   * Returns all configured targets currently in the graph with the given label.
+   *
+   * <p>Unlike {@link #getExistingConfiguredTarget(SkyframeExecutor, Label, BuildConfiguration)},
+   * this doesn't make the caller request a specific configuration.
+   */
+  public static Iterable<ConfiguredTarget> getExistingConfiguredTargets(
+      SkyframeExecutor skyframeExecutor, final Label label) {
+    return Iterables.filter(getAllExistingConfiguredTargets(skyframeExecutor),
+        new Predicate<ConfiguredTarget>() {
+          @Override
+          public boolean apply(ConfiguredTarget input) {
+            return input.getTarget().getLabel().equals(label);
+          }
+        });
   }
 
   /**

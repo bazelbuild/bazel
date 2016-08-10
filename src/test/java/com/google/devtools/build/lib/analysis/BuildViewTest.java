@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -1265,12 +1266,18 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("foo/BUILD",
         "rule_with_latebound_split(",
         "    name = 'foo')",
-        "sh_binary(",
-        "    name = 'latebound_dep',",
-        "    srcs = ['latebound_dep.sh'])");
+        "rule_with_test_fragment(",
+        "    name = 'latebound_dep')");
     update("//foo:foo");
     assertNotNull(getConfiguredTarget("//foo:foo"));
-    // TODO(bazel-team): also check that the dep is created in each expected configuration.
+    Iterable<ConfiguredTarget> deps = SkyframeExecutorTestUtils.getExistingConfiguredTargets(
+        skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep"));
+    assertThat(deps).hasSize(2);
+    assertThat(
+        ImmutableList.of(
+            LateBoundSplitUtil.getOptions(Iterables.get(deps, 0).getConfiguration()).fooFlag,
+            LateBoundSplitUtil.getOptions(Iterables.get(deps, 1).getConfiguration()).fooFlag))
+        .containsExactly("one", "two");
   }
 
   /** Runs the same test with the reduced loading phase. */
