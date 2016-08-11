@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.runner.sharding;
 
-import com.google.common.base.Preconditions;
-
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -28,8 +26,9 @@ final class HashBackedShardingFilter extends Filter {
   private final int totalShards;
 
   public HashBackedShardingFilter(int shardIndex, int totalShards) {
-    Preconditions.checkArgument(shardIndex >= 0);
-    Preconditions.checkArgument(totalShards > shardIndex);
+    if (shardIndex < 0 || totalShards <= shardIndex) {
+      throw new IllegalArgumentException();
+    }
     this.shardIndex = shardIndex;
     this.totalShards = totalShards;
   }
@@ -43,7 +42,9 @@ final class HashBackedShardingFilter extends Filter {
     if (mod < 0) {
       mod += totalShards;
     }
-    Preconditions.checkState(mod >= 0 && mod < totalShards);
+    if (mod < 0 || mod >= totalShards) {
+      throw new IllegalStateException();
+    }
 
     return mod == shardIndex;
   }

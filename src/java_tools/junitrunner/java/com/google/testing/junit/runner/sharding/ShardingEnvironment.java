@@ -14,12 +14,8 @@
 
 package com.google.testing.junit.runner.sharding;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.io.Files;
-
 import java.io.File;
 import java.io.IOException;
-
 import javax.inject.Inject;
 
 /**
@@ -76,11 +72,13 @@ public class ShardingEnvironment {
     touchShardFile(shardFile);
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   static void touchShardFile(File shardFile) {
     if (shardFile != null) {
       try {
-        Files.touch(shardFile);
+        if (!shardFile.createNewFile() && !shardFile.setLastModified(System.currentTimeMillis())) {
+          throw new IOException("Unable to update modification time of " + shardFile);
+        }
       } catch (IOException e) {
         throw new RuntimeException("Error writing shard file " + shardFile, e);
       }

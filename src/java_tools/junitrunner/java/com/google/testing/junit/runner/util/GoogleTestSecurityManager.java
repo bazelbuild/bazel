@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.runner.util;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import java.security.Permission;
 
 /**
@@ -68,7 +66,7 @@ public final class GoogleTestSecurityManager extends SecurityManager {
   }
 
   public boolean isEnabled() { return enabled; }
-  
+
   /**
    * If {@code GoogleTestSecurityManager} is the current security manager,
    * uninstall it.
@@ -78,7 +76,7 @@ public final class GoogleTestSecurityManager extends SecurityManager {
     if (securityManager instanceof GoogleTestSecurityManager) {
       GoogleTestSecurityManager testSecurityManager = (GoogleTestSecurityManager) securityManager;
       boolean wasEnabled = testSecurityManager.isEnabled();
-      
+
       try {
         testSecurityManager.setEnabled(false);
         System.setSecurityManager(null);
@@ -92,7 +90,8 @@ public final class GoogleTestSecurityManager extends SecurityManager {
    * The security manager can be disabled by the test runner (or any other
    * class in the same package) to allow it to exit with a meaningful result
    * code.
+   *
+   * VisibleForTesting
    */
-  @VisibleForTesting
   synchronized void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

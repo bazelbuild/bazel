@@ -14,12 +14,6 @@
 
 package com.google.testing.junit.runner.sharding;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-
-import org.junit.runner.Description;
-import org.junit.runner.manipulation.Filter;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,6 +21,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.runner.Description;
+import org.junit.runner.manipulation.Filter;
 
 /**
  * Implements the round-robin sharding strategy.
@@ -40,17 +36,18 @@ import java.util.Map;
  * sharding, but are done so that this filter can be compared in tests.
  */
 public final class RoundRobinShardingFilter extends Filter {
-  @VisibleForTesting
+  // VisibleForTesting
   final Map<Description, Integer> testToShardMap;
-  @VisibleForTesting
+  // VisibleForTesting
   final int shardIndex;
-  @VisibleForTesting
+  // VisibleForTesting
   final int totalShards;
 
   public RoundRobinShardingFilter(Collection<Description> testDescriptions,
       int shardIndex, int totalShards) {
-    Preconditions.checkArgument(shardIndex >= 0);
-    Preconditions.checkArgument(totalShards > shardIndex);
+    if (shardIndex < 0 || totalShards <= shardIndex) {
+      throw new IllegalArgumentException();
+    }
     this.testToShardMap = buildTestToShardMap(testDescriptions);
     this.shardIndex = shardIndex;
     this.totalShards = totalShards;
@@ -74,9 +71,10 @@ public final class RoundRobinShardingFilter extends Filter {
     // same shard.
     int index = 0;
     for (Description description : sortedDescriptions) {
-      Preconditions.checkArgument(description.isTest(),
-          "Test suite should not be included in the set of tests to shard: %s",
-          description.getDisplayName());
+      if (!description.isTest()) {
+        throw new IllegalArgumentException("Test suite should not be included in the set of tests "
+            + "to shard: " + description.getDisplayName());
+      }
       map.put(description, index);
       index++;
     }
@@ -102,7 +100,7 @@ public final class RoundRobinShardingFilter extends Filter {
     return "round robin sharding filter";
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   static class DescriptionComparator implements Comparator<Description> {
     @Override
     public int compare(Description d1, Description d2) {
