@@ -69,8 +69,9 @@ function test_network_namespace() {
 }
 
 function test_ping_loopback() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -r -l $OUT -L $ERR  -- /bin/ping -c 1 127.0.0.1 || fail
-  assert_contains "1 received" "$OUT"
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -r -- \
+    /bin/sh -c 'ping6 -c 1 ::1 || ping -c 1 127.0.0.1' &>$TEST_log || fail
+  expect_log "1 received"
 }
 
 function test_to_stderr() {
