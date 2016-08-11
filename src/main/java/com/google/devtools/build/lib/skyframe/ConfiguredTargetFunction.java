@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -68,6 +67,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -213,7 +213,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
             new ConfiguredValueCreationException(transitiveLoadingRootCauses.build()));
       }
 
-      ListMultimap<Attribute, ConfiguredTarget> depValueMap =
+      OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap =
           computeDependencies(
               env,
               resolver,
@@ -275,7 +275,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *     the host configuration as early as possible and pass this reference to all consumers
    * */
   @Nullable
-  static ListMultimap<Attribute, ConfiguredTarget> computeDependencies(
+  static OrderedSetMultimap<Attribute, ConfiguredTarget> computeDependencies(
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
@@ -286,8 +286,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Label> transitiveLoadingRootCauses)
       throws DependencyEvaluationException, AspectCreationException, InterruptedException {
-    // Create the map from attributes to list of (target, configuration) pairs.
-    ListMultimap<Attribute, Dependency> depValueNames;
+    // Create the map from attributes to set of (target, configuration) pairs.
+    OrderedSetMultimap<Attribute, Dependency> depValueNames;
     try {
       depValueNames = resolver.dependentNodeMap(
           ctgValue, hostConfiguration, aspect, configConditions, transitiveLoadingRootCauses);
@@ -318,7 +318,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Resolve required aspects.
-    ListMultimap<SkyKey, ConfiguredAspect> depAspects = resolveAspectDependencies(
+    OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspects = resolveAspectDependencies(
         env, depValues, depValueNames.values(), transitivePackages);
     if (depAspects == null) {
       return null;
@@ -421,8 +421,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * changes you make.
    */
   @Nullable
-  static ListMultimap<Attribute, Dependency> trimConfigurations(Environment env,
-      TargetAndConfiguration ctgValue, ListMultimap<Attribute, Dependency> originalDeps,
+  static OrderedSetMultimap<Attribute, Dependency> trimConfigurations(Environment env,
+      TargetAndConfiguration ctgValue, OrderedSetMultimap<Attribute, Dependency> originalDeps,
       BuildConfiguration hostConfiguration, RuleClassProvider ruleClassProvider)
       throws DependencyEvaluationException {
 
@@ -450,7 +450,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // the results in order (some results need Skyframe-evaluated configurations while others can
     // be computed trivially), we dump them all into this map, then as a final step iterate through
     // the original list and pluck out values from here for the final value.
-    Multimap<AttributeAndLabel, Dependency> trimmedDeps = ArrayListMultimap.create();
+    Multimap<AttributeAndLabel, Dependency> trimmedDeps = LinkedHashMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       Dependency dep = depsEntry.getValue();
@@ -576,7 +576,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Re-assemble the output map with the same value ordering (e.g. each attribute's dep labels
     // appear in the same order) as the input.
-    ListMultimap<Attribute, Dependency> result = ArrayListMultimap.create();
+    OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(
           new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel()));
@@ -655,11 +655,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * combinations of aspects for a particular configured target, so it would result in a
    * combinatiorial explosion of Skyframe nodes.
    */
-  private static ListMultimap<Attribute, ConfiguredTarget> mergeAspects(
-      ListMultimap<Attribute, Dependency> depValueNames,
+  private static OrderedSetMultimap<Attribute, ConfiguredTarget> mergeAspects(
+      OrderedSetMultimap<Attribute, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTarget> depConfiguredTargetMap,
-      ListMultimap<SkyKey, ConfiguredAspect> depAspectMap) {
-    ListMultimap<Attribute, ConfiguredTarget> result = ArrayListMultimap.create();
+      OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspectMap) {
+    OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
@@ -679,13 +679,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * <p>Returns null if the required aspects are not computed yet.
    */
   @Nullable
-  private static ListMultimap<SkyKey, ConfiguredAspect> resolveAspectDependencies(
+  private static OrderedSetMultimap<SkyKey, ConfiguredAspect> resolveAspectDependencies(
       Environment env,
       Map<SkyKey, ConfiguredTarget> configuredTargetMap,
       Iterable<Dependency> deps,
       NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException {
-    ListMultimap<SkyKey, ConfiguredAspect> result = ArrayListMultimap.create();
+    OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> aspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
       for (Entry<AspectDescriptor, BuildConfiguration> depAspect
@@ -785,7 +785,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Collect the labels of the configured targets we need to resolve.
-    ListMultimap<Attribute, Label> configLabelMap = ArrayListMultimap.create();
+    OrderedSetMultimap<Attribute, Label> configLabelMap = OrderedSetMultimap.create();
     RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
     for (Attribute a : ((Rule) target).getAttributes()) {
       for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
@@ -901,7 +901,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   @Nullable
   private ConfiguredTargetValue createConfiguredTarget(SkyframeBuildView view,
       Environment env, Target target, BuildConfiguration configuration,
-      ListMultimap<Attribute, ConfiguredTarget> depValueMap,
+      OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Package> transitivePackages)
       throws ConfiguredTargetFunctionException, InterruptedException {

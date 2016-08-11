@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfo
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -474,7 +474,7 @@ public final class SkyframeBuildView {
   @Nullable
   ConfiguredTarget createConfiguredTarget(Target target, BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);

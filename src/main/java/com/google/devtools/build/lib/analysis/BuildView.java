@@ -18,13 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -74,6 +71,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -877,12 +875,12 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  public ListMultimap<Attribute, Dependency> getDirectPrerequisiteDependenciesForTesting(
+  public OrderedSetMultimap<Attribute, Dependency> getDirectPrerequisiteDependenciesForTesting(
       final EventHandler eventHandler, final ConfiguredTarget ct,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException {
     if (!(ct.getTarget() instanceof Rule)) {
-      return ArrayListMultimap.create();
+      return OrderedSetMultimap.create();
     }
 
     class SilentDependencyResolver extends DependencyResolver {
@@ -965,23 +963,22 @@ public class BuildView {
     return ImmutableMap.copyOf(keys);
   }
 
-  private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
+  private OrderedSetMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
       final EventHandler eventHandler, ConfiguredTarget target,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException {
-    ListMultimap<Attribute, Dependency> depNodeNames = getDirectPrerequisiteDependenciesForTesting(
-        eventHandler, target, configurations);
+    OrderedSetMultimap<Attribute, Dependency> depNodeNames =
+        getDirectPrerequisiteDependenciesForTesting(eventHandler, target, configurations);
 
     ImmutableMap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
         eventHandler,
         target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
 
-    ImmutableListMultimap.Builder<Attribute, ConfiguredTarget> builder =
-        ImmutableListMultimap.builder();
+    OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
-      builder.put(entry.getKey(), cts.get(entry.getValue()));
+      result.put(entry.getKey(), cts.get(entry.getValue()));
     }
-    return builder.build();
+    return result;
   }
 
   /**

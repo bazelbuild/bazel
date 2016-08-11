@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -48,14 +49,16 @@ public class TargetContext {
 
   /**
    * The constructor is intentionally package private.
+   *
+   * <p>directPrerequisites is expected to be ordered.
    */
   TargetContext(AnalysisEnvironment env, Target target, BuildConfiguration configuration,
-      List<ConfiguredTarget> directPrerequisites,
+      Iterable<ConfiguredTarget> directPrerequisites,
       NestedSet<PackageSpecification> visibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
-    this.directPrerequisites = directPrerequisites;
+    this.directPrerequisites = ImmutableList.<ConfiguredTarget>copyOf(directPrerequisites);
     this.visibility = visibility;
   }
 

@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Verify;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -45,6 +43,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
@@ -92,14 +91,14 @@ public abstract class DependencyResolver {
    *
    * @return a mapping of each attribute in this rule or aspect to its dependent nodes
    */
-  public final ListMultimap<Attribute, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions)
       throws EvalException, InvalidConfigurationException, InterruptedException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
-    ListMultimap<Attribute, Dependency> outgoingEdges = dependentNodeMap(
+    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = dependentNodeMap(
         node, hostConfig, aspect, configConditions, rootCauses);
     if (!rootCauses.isEmpty()) {
       throw new IllegalStateException(rootCauses.build().iterator().next().toString());
@@ -135,7 +134,7 @@ public abstract class DependencyResolver {
    *
    * @return a mapping of each attribute in this rule or aspect to its dependent nodes
    */
-  public final ListMultimap<Attribute, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
@@ -144,7 +143,7 @@ public abstract class DependencyResolver {
       throws EvalException, InvalidConfigurationException, InterruptedException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
-    ListMultimap<Attribute, Dependency> outgoingEdges = ArrayListMultimap.create();
+    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
       visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
@@ -170,7 +169,7 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Label> rootCauses,
-      ListMultimap<Attribute, Dependency> outgoingEdges)
+      OrderedSetMultimap<Attribute, Dependency> outgoingEdges)
       throws EvalException, InvalidConfigurationException, InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration());
@@ -475,12 +474,13 @@ public abstract class DependencyResolver {
    * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
    */
   public final Collection<Dependency> resolveRuleLabels(TargetAndConfiguration node,
-      ListMultimap<Attribute, Label> depLabels, NestedSetBuilder<Label> rootCauses) {
+      OrderedSetMultimap<Attribute, Label> depLabels, NestedSetBuilder<Label> rootCauses) {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
-    ListMultimap<Attribute, Dependency> outgoingEdges = ArrayListMultimap.create();
+    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
     RuleResolver depResolver = new RuleResolver(rule, node.getConfiguration(), /*aspect=*/null,
         /*attributeMap=*/null, rootCauses, outgoingEdges);
+    Map<Attribute, Collection<Label>> m = depLabels.asMap();
     for (Map.Entry<Attribute, Collection<Label>> entry : depLabels.asMap().entrySet()) {
       for (Label depLabel : entry.getValue()) {
         depResolver.resolveDep(entry.getKey(), depLabel);
@@ -572,7 +572,7 @@ public abstract class DependencyResolver {
     private final Aspect aspect;
     private final ConfiguredAttributeMapper attributeMap;
     private final NestedSetBuilder<Label> rootCauses;
-    private final ListMultimap<Attribute, Dependency> outgoingEdges;
+    private final OrderedSetMultimap<Attribute, Dependency> outgoingEdges;
     private final List<Attribute> attributes;
 
     /**
@@ -587,7 +587,7 @@ public abstract class DependencyResolver {
      */
     RuleResolver(Rule rule, BuildConfiguration ruleConfig, Aspect aspect,
         ConfiguredAttributeMapper attributeMap, NestedSetBuilder<Label> rootCauses,
-        ListMultimap<Attribute, Dependency> outgoingEdges) {
+        OrderedSetMultimap<Attribute, Dependency> outgoingEdges) {
       this.rule = rule;
       this.ruleConfig = ruleConfig;
       this.aspect = aspect;

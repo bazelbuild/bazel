@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1398,7 +1399,7 @@ public final class RuleContext extends TargetContext
     private final PrerequisiteValidator prerequisiteValidator;
     @Nullable private final String aspectName;
     private final ErrorReporter reporter;
-    private ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
+    private OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
@@ -1455,7 +1456,7 @@ public final class RuleContext extends TargetContext
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
      */
-    Builder setPrerequisites(ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
+    Builder setPrerequisites(OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
       return this;
     }
