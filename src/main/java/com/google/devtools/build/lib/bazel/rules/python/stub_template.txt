@@ -5,7 +5,6 @@ import re
 import tempfile
 import shutil
 import sys
-import subprocess
 import zipfile
 
 # Return True if running on Windows
