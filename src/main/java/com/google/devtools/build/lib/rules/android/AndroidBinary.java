@@ -457,12 +457,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     filesBuilder.add(zipAlignedApk);
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
+    Iterable<Artifact> dataDeps = ImmutableList.of();
+    if (ruleContext.getAttribute("data") != null
+        && ruleContext.getAttributeMode("data") == Mode.DATA) {
+      dataDeps = ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
+    }
+
     Artifact deployInfo = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEPLOY_INFO);
     AndroidDeployInfoAction.createDeployInfoAction(ruleContext,
         deployInfo,
         applicationManifest.getManifest(),
         additionalMergedManifests,
-        Iterables.concat(ImmutableList.of(zipAlignedApk), apksUnderTest));
+        Iterables.concat(ImmutableList.of(zipAlignedApk), apksUnderTest),
+        dataDeps);
 
     NestedSet<Artifact> coverageMetadata = (androidCommon.getInstrumentedJar() != null)
         ? NestedSetBuilder.create(Order.STABLE_ORDER, androidCommon.getInstrumentedJar())
@@ -536,7 +543,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         incrementalDeployInfo,
         applicationManifest.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of());
+        ImmutableList.<Artifact>of(),
+        dataDeps);
 
     NestedSet<Artifact> fullInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
         .add(fullDeployMarker)
@@ -634,7 +642,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         splitDeployInfo,
         applicationManifest.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of());
+        ImmutableList.<Artifact>of(),
+        dataDeps);
 
     NestedSet<Artifact> splitInstallOutputGroup = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(allSplitApks)

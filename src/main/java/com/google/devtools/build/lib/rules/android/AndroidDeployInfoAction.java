@@ -44,12 +44,14 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   private static Iterable<Artifact> makeInputs(
       Artifact mergedManifest,
       Iterable<Artifact> additionalMergedManifests,
-      Iterable<Artifact> apksToDeploy) {
+      Iterable<Artifact> apksToDeploy,
+      Iterable<Artifact> dataDeps) {
 
     return ImmutableList.<Artifact>builder()
         .add(mergedManifest)
         .addAll(additionalMergedManifests)
         .addAll(apksToDeploy)
+        .addAll(dataDeps)
         .build();
   }
 
@@ -61,8 +63,9 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
       Artifact outputFile,
       Artifact mergedManifest,
       Iterable<Artifact> additionalMergedManifests,
-      Iterable<Artifact> apksToDeploy) {
-    super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy),
+      Iterable<Artifact> apksToDeploy,
+      Iterable<Artifact> dataDeps) {
+    super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy, dataDeps),
         outputFile, false);
     AndroidDeployInfoOuterClass.AndroidDeployInfo.Builder builder =
         AndroidDeployInfoOuterClass.AndroidDeployInfo.newBuilder();
@@ -73,6 +76,9 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
     for (Artifact apk : apksToDeploy) {
       builder.addApksToDeploy(makeArtifactProto(apk));
     }
+    for (Artifact dataDep : dataDeps) {
+      builder.addDataToDeploy(makeArtifactProto(dataDep));
+    }
     this.byteString = builder.build().toByteString();
   }
 
@@ -81,9 +87,10 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
       Artifact deployInfo,
       Artifact mergedManifest,
       Iterable<Artifact> additionalMergedManifests,
-      Iterable<Artifact> apksToDeploy) {
+      Iterable<Artifact> apksToDeploy,
+      Iterable<Artifact> dataDeps) {
     Action action = new AndroidDeployInfoAction(ruleContext.getActionOwner(),
-        deployInfo, mergedManifest, additionalMergedManifests, apksToDeploy);
+        deployInfo, mergedManifest, additionalMergedManifests, apksToDeploy, dataDeps);
     ruleContext.registerAction(action);
   }
 

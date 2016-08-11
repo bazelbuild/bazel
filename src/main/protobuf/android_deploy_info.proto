@@ -33,4 +33,7 @@ message AndroidDeployInfo {
   // If the build supports an external deploy, this will have the APKs.
   // mobile-install does its own deployment, so this list will be empty
   repeated Artifact apks_to_deploy = 3;
+
+  // Any data files to deploy
+  repeated Artifact data_to_deploy = 4;
 }
