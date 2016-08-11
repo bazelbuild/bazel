@@ -809,21 +809,6 @@ static void StartServerAndConnect(BlazeServer *server) {
       socket_file.c_str());
 }
 
-// Poll until the given process denoted by pid goes away. Return false if this
-// does not occur within wait_time_secs.
-static bool WaitForServerDeath(pid_t pid, int wait_time_secs) {
-  for (int ii = 0; ii < wait_time_secs * 10; ++ii) {
-    if (kill(pid, 0) == -1) {
-      if (errno == ESRCH) {
-        return true;
-      }
-      pdie(blaze_exit_code::INTERNAL_ERROR, "could not be killed");
-    }
-    poll(NULL, 0, 100);  // sleep 100ms.  (usleep(3) is obsolete.)
-  }
-  return false;
-}
-
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie()'s if syncing fails.
 static void SyncFile(const char *file_path) {
