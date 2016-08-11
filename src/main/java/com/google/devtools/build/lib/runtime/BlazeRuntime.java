@@ -527,7 +527,7 @@ public final class BlazeRuntime {
     ImmutableList.Builder<BlazeModule> result = ImmutableList.builder();
     for (Class<? extends BlazeModule> moduleClass : moduleClasses) {
       try {
-        BlazeModule module = moduleClass.newInstance();
+        BlazeModule module = moduleClass.getConstructor().newInstance();
         result.add(module);
       } catch (Throwable e) {
         throw new IllegalStateException("Cannot instantiate module " + moduleClass.getName(), e);
@@ -782,11 +782,11 @@ public final class BlazeRuntime {
       // gRPC server is not compiled in so that we don't need gRPC for bootstrapping.
       Class<?> factoryClass = Class.forName(
           "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
-      RPCServer.Factory factory = (RPCServer.Factory) factoryClass.newInstance();
+      RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
       return factory.create(commandExecutor, runtime.getClock(),
           startupOptions.commandPort, runtime.getServerDirectory(),
           startupOptions.maxIdleSeconds);
-    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+    } catch (ReflectiveOperationException | IllegalArgumentException e) {
       throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
     }
   }

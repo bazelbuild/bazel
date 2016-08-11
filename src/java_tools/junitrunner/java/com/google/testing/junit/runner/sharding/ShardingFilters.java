@@ -100,10 +100,11 @@ public class ShardingFilters {
       shardingFilterFactory = ShardingStrategy.valueOf(strategy.toUpperCase());
     } catch (IllegalArgumentException e) {
       try {
-        Class<?> strategyClass = Thread.currentThread().getContextClassLoader().loadClass(strategy);
-        shardingFilterFactory = (ShardingFilterFactory) strategyClass.newInstance();
-      } catch (ClassNotFoundException | InstantiationException |
-          IllegalAccessException | IllegalArgumentException e2) {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        Class<? extends ShardingFilterFactory> strategyClass =
+            classLoader.loadClass(strategy).asSubclass(ShardingFilterFactory.class);
+        shardingFilterFactory = strategyClass.getConstructor().newInstance();
+      } catch (ReflectiveOperationException | IllegalArgumentException e2) {
         throw new RuntimeException(
             "Could not create custom sharding strategy class " + strategy, e2);
       }

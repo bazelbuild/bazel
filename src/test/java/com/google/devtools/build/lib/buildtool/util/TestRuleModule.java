@@ -24,7 +24,7 @@ public class TestRuleModule {
   public static BlazeModule getModule() {
     try {
       Class<?> moduleClass = Class.forName(TestConstants.TEST_RULE_MODULE);
-      return (BlazeModule) moduleClass.newInstance();
+      return (BlazeModule) moduleClass.getConstructor().newInstance();
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
