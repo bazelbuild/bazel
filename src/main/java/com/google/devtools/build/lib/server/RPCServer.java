@@ -16,35 +16,86 @@ package com.google.devtools.build.lib.server;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 /**
- * A Bazel server instance.
- *
- * <p>Even though it only has one implementation, that implementation cannot be compiled during
- * bootstrapping Bazel because it depends on the gRPC Java stubs, so we add a layer of abstraction
- * so that we can still use its functionality without resorting to reflection every time.
+ * A server instance. Can either an AF_UNIX or a gRPC one.
  */
-public interface RPCServer {
+public abstract class RPCServer {
+  private static final Logger LOG = Logger.getLogger(RPCServer.class.getName());
+  private static AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
 
   /**
    * Factory class for the gRPC server.
    *
    * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
    */
-  interface Factory {
+  public interface Factory {
     RPCServer create(CommandExecutor commandExecutor, Clock clock, int port, Path serverDirectory,
         int maxIdleSeconds) throws IOException;
+  }
+
+  protected RPCServer(Path serverDirectory) throws IOException {
+    // server.pid was written in the C++ launcher after fork() but before exec() .
+    // The client only accesses the pid file after connecting to the socket
+    // which ensures that it gets the correct pid value.
+    Path pidFile = serverDirectory.getRelative("server.pid.txt");
+    Path pidSymlink = serverDirectory.getRelative("server.pid");
+    RPCServer.deleteAtExit(pidFile, /*deleteParent=*/ false);
+    RPCServer.deleteAtExit(pidSymlink, /*deleteParent=*/ false);
+  }
+
+  protected void disableShutdownHooks() {
+    runShutdownHooks.set(false);
+  }
+
+  /**
+   * Schedule the specified file for (attempted) deletion at JVM exit.
+   */
+  protected static void deleteAtExit(final Path path, final boolean deleteParent) {
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+        @Override
+        public void run() {
+          if (!runShutdownHooks.get()) {
+            return;
+          }
+
+          try {
+            path.delete();
+            if (deleteParent) {
+              path.getParentDirectory().delete();
+            }
+          } catch (IOException e) {
+            printStack(e);
+          }
+        }
+      });
+  }
+
+  static void printStack(IOException e) {
+    /*
+     * Hopefully this never happens. It's not very nice to just write this
+     * to the user's console, but I'm not sure what better choice we have.
+     */
+    StringWriter err = new StringWriter();
+    PrintWriter printErr = new PrintWriter(err);
+    printErr.println("=======[BLAZE SERVER: ENCOUNTERED IO EXCEPTION]=======");
+    e.printStackTrace(printErr);
+    printErr.println("=====================================================");
+    LOG.severe(err.toString());
   }
 
   /**
    * Start serving and block until the a shutdown command is received.
    */
-  void serve() throws IOException;
+  public abstract void serve() throws IOException;
 
   /**
    * Called when the server receives a SIGINT.
    */
-  void interrupt();
+  public abstract void interrupt();
 }
