@@ -52,6 +52,7 @@ py_library(
         ],
     ),
     imports = ["python"],
+    srcs_version = "PY2AND3",
 )
 
 py_proto_library(
