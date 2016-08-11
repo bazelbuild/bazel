@@ -293,8 +293,21 @@ public class BaseSpawn implements Spawn {
   public static class Local extends BaseSpawn {
     public Local(List<String> arguments, Map<String, String> environment,
         ActionExecutionMetadata action) {
-      super(arguments, environment, ImmutableMap.<String, String>of("local", ""),
+      this(arguments, environment, ImmutableMap.<String, String>of(), action);
+    }
+
+    public Local(List<String> arguments, Map<String, String> environment,
+        Map<String, String> executionInfo, ActionExecutionMetadata action) {
+      super(arguments, environment, buildExecutionInfo(executionInfo),
           action, ResourceSet.ZERO);
+    }
+
+    private static ImmutableMap<String, String> buildExecutionInfo(
+        Map<String, String> additionalExecutionInfo) {
+      ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+      executionInfo.putAll(additionalExecutionInfo);
+      executionInfo.put("local", "");
+      return executionInfo.build();
     }
   }
 }
