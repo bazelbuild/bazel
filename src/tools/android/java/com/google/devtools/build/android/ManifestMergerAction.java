@@ -17,7 +17,7 @@ import static java.util.logging.Level.SEVERE;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.MergeeManifestsConverter;
+import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.MergeTypeConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
@@ -78,9 +78,7 @@ public class ManifestMergerAction {
 
     @Option(name = "mergeeManifests",
         defaultValue = "",
-        // TODO(apell): switch to ExistingPathStringDictionaryConverter.class after argument change
-        // has been released.
-        converter = MergeeManifestsConverter.class,
+        converter = ExistingPathStringDictionaryConverter.class,
         category = "input",
         help = "A dictionary of manifests, and originating target, to be merged into manifest.")
     public Map<Path, String> mergeeManifests;

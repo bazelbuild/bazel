@@ -387,30 +387,4 @@ public final class Converters {
       return super.convert(input);
     }
   }
-
-  /**
-   * A converter to handle the migration of the --mergeeManifests flag from a list of paths to a
-   * dictionary of paths to labels.
-   */
-  public static class MergeeManifestsConverter implements Converter<Map<Path, String>> {
-    @Override
-    public Map<Path, String> convert(String input) throws OptionsParsingException {
-      try {
-        List<Path> manifests = new ExistingPathListConverter().convert(input);
-        Map<Path, String> mergeeManifests = new LinkedHashMap<>();
-        for (Path manifest : manifests) {
-          mergeeManifests.put(manifest, manifest.getFileName().toString());
-        }
-        return ImmutableMap.copyOf(mergeeManifests);
-      } catch (OptionsParsingException e) {
-        // Expected if argument change has been released.
-        return new ExistingPathStringDictionaryConverter().convert(input);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a path to string dictionary with fallback to path list using filename as values";
-    }
-  }
 }
