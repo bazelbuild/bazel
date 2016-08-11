@@ -134,6 +134,9 @@ def _swift_library_impl(ctx):
   # Include each swift module's parent directory for imports to work.
   include_dirs = set([x.dirname for x in dep_modules])
 
+  # Include the parent directory of the resulting module so LLDB can find it.
+  include_dirs += set([output_module.dirname])
+
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in ctx.attr.defines]
