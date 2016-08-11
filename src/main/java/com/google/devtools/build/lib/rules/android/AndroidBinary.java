@@ -466,7 +466,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact deployInfo = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEPLOY_INFO);
     AndroidDeployInfoAction.createDeployInfoAction(ruleContext,
         deployInfo,
-        applicationManifest.getManifest(),
+        resourceApk.getManifest(),
         additionalMergedManifests,
         Iterables.concat(ImmutableList.of(zipAlignedApk), apksUnderTest),
         dataDeps);
@@ -541,7 +541,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     AndroidDeployInfoAction.createDeployInfoAction(ruleContext,
         incrementalDeployInfo,
-        applicationManifest.getManifest(),
+        resourceApk.getManifest(),
         additionalMergedManifests,
         ImmutableList.<Artifact>of(),
         dataDeps);
@@ -640,7 +640,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidDeployInfoAction.createDeployInfoAction(
         ruleContext,
         splitDeployInfo,
-        applicationManifest.getManifest(),
+        resourceApk.getManifest(),
         additionalMergedManifests,
         ImmutableList.<Artifact>of(),
         dataDeps);

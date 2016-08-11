@@ -88,7 +88,7 @@ public final class ApplicationManifest {
       throws InterruptedException {
 
     Artifact stubManifest = ruleContext.getImplicitOutputArtifact(
-            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATON_MANIFEST);
+            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_MANIFEST);
 
     SpawnAction.Builder builder = new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
@@ -118,7 +118,7 @@ public final class ApplicationManifest {
       throws InterruptedException {
 
     Artifact stubManifest = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.INSTANT_RUN_STUB_APPLICATON_MANIFEST);
+        AndroidRuleClasses.INSTANT_RUN_STUB_APPLICATION_MANIFEST);
 
     SpawnAction.Builder builder = new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
