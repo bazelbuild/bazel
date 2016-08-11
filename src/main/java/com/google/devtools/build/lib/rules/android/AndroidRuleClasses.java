@@ -221,7 +221,8 @@ public final class AndroidRuleClasses {
           Label androidCrosstoolTop = androidOptions.androidCrosstoolTop;
           if (androidOptions.fatApkCpus.isEmpty()
               && (androidCrosstoolTop == null
-                  || androidCrosstoolTop.equals(cppOptions.crosstoolTop))) {
+                  || androidCrosstoolTop.equals(cppOptions.crosstoolTop)
+                  || androidOptions.cpu.isEmpty())) {
             return ImmutableList.of();
           }
 
