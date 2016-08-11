@@ -273,12 +273,19 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private NestedSet<Artifact> fullInputsForLink(RuleContext ruleContext, NestedSet<Artifact> link) {
+  /**
+   * Returns the crosstool-derived link action inputs for a given rule. Adds the given set of
+   * artifacts as extra inputs.
+   */
+  protected NestedSet<Artifact> fullInputsForLink(
+      RuleContext ruleContext, NestedSet<Artifact> link) {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
         .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
-        .add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
-            CppRuleClasses.BUILD_INTERFACE_SO))
+        .add(
+            ruleContext
+                .getAnalysisEnvironment()
+                .getEmbeddedToolArtifact(CppRuleClasses.BUILD_INTERFACE_SO))
         .build();
   }
 

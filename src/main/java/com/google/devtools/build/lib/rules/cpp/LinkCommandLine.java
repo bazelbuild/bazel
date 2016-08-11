@@ -399,6 +399,8 @@ public final class LinkCommandLine extends CommandLine {
   public List<String> getRawLinkArgv() {
     List<String> argv = new ArrayList<>();
 
+    // TODO(b/30109612): Extract this switch into individual crosstools once action configs are no
+    // longer hardcoded in CppLinkActionConfigs
     switch (linkTargetType) {
       case EXECUTABLE:
         argv.add(cppConfiguration.getCppExecutable().getPathString());
@@ -436,6 +438,17 @@ public final class LinkCommandLine extends CommandLine {
         argv.add(output.getExecPathString());
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         argv.addAll(noWholeArchiveFlags);
+        break;
+
+        // Since the objc case is not hardcoded in CppConfiguration, we can use the actual tool.
+        // TODO(b/30109612): make this pattern the case for all link variants.
+      case OBJC_ARCHIVE:
+        argv.add(
+            featureConfiguration
+                .getToolForAction(actionName)
+                .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+                .getPathString());
+        argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         break;
 
       default:

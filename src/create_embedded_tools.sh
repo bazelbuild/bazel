@@ -30,9 +30,10 @@ trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
 
-  # xcrunwrapper should come from src/tools/xcode/.  Exclude an
-  # xcrunwrapper in tools/objc to avoid conflict.
-  if  [ "$i" = "tools/objc/xcrunwrapper.sh" ]
+  # Xcode tools should come from src/tools/xcode/.  Exclude scripts in
+  # tools/objc to avoid conflict.
+  if  [ "$i" = "tools/objc/xcrunwrapper.sh" ] \
+    || [ "$i" = "tools/objc/libtool.sh" ]
   then
     continue
   fi

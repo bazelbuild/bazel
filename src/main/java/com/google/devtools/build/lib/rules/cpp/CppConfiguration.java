@@ -677,7 +677,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
   
   private boolean linkActionsAreConfigured(CToolchain toolchain) {
-    for (LinkTargetType type : LinkTargetType.values()) {
+    
+    for (LinkTargetType type : Link.MANDATORY_LINK_TARGET_TYPES) {
       boolean typeIsConfigured = false;
       for (ActionConfig actionConfig : toolchain.getActionConfigList()) {
         if (actionConfig.getActionName().equals(type.getActionName())) {

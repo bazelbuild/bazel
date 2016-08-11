@@ -14,13 +14,16 @@
 package com.google.devtools.build.lib.rules.apple.cpp;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
-
 import java.util.Map;
 
 /**
@@ -66,6 +69,15 @@ public class AppleCcToolchain extends CcToolchain {
         .put(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
             AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+        .build();
+  }
+  
+  @Override
+  protected NestedSet<Artifact> fullInputsForLink(
+      RuleContext ruleContext, NestedSet<Artifact> link) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(link)
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
         .build();
   }
 }

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -56,11 +57,12 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Action that represents a linking step.
+/** 
+ * Action that represents a linking step. 
  */
 @ThreadCompatible
-public final class CppLinkAction extends AbstractAction implements ExecutionInfoSpecifier {
+public final class CppLinkAction extends AbstractAction
+    implements ExecutionInfoSpecifier, CommandAction {
   /**
    * An abstraction for creating intermediate and output artifacts for C++ linking.
    *
@@ -254,6 +256,11 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
   @VisibleForTesting
   public List<String> getArgv() {
     return linkCommandLine.arguments();
+  }
+  
+  @Override
+  public List<String> getArguments() {
+    return getArgv();
   }
 
   /**
