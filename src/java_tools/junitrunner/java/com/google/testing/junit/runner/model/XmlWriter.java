@@ -16,11 +16,7 @@ package com.google.testing.junit.runner.model;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.xml.XmlEscapers;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -29,14 +25,15 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
+
 /**
  * Writer for XML documents. We do not use third-party code, because all
  * java_test rules have the test runner in their run-time classpath.
  */
 class XmlWriter {
-  @VisibleForTesting
+  // VisibleForTesting
   static final String EOL = System.getProperty("line.separator", "\n");
-  
+
   private final Writer writer;
   private boolean started;
   private boolean inElement;
@@ -56,13 +53,14 @@ class XmlWriter {
    * serialize the {@code StringWriter} (to disk or network) encode it in {@code
    * UTF-8}.
    *
+   * VisibleForTesting
+   *
    * @param writer
    */
-  @VisibleForTesting
   static XmlWriter createForTesting(StringWriter writer) {
     return new XmlWriter(writer);
   }
-  
+
   private XmlWriter(Writer writer) {
     this.writer = writer;
   }
@@ -73,7 +71,9 @@ class XmlWriter {
    * @throws IOException if the underlying writer throws an exception
    */
   public void startDocument() throws IOException {
-    Preconditions.checkState(!started, "already started");
+    if (started) {
+      throw new IllegalStateException("already started");
+    }
 
     started = true;
     Writer out = writer;
@@ -99,9 +99,14 @@ class XmlWriter {
       inElement = false;
     }
   }
-  
+
   private String indentation() {
-    return Strings.repeat("  ", elementStack.size());
+    int stackSize = elementStack.size();
+    StringBuilder ident = new StringBuilder(2 * stackSize);
+    for (int i = 0; i < stackSize; i++) {
+      ident.append("  ");
+    }
+    return ident.toString();
   }
 
   /**
@@ -109,12 +114,14 @@ class XmlWriter {
    * {@link #endElement()} or {@link #close()} are called. This method may be
    * called multiple times before calling {@link #endElement()}; the writer
    * keeps a stack of currently open elements.
-   * 
+   *
    * @param elementName name of the element (must be XML safe or escaped)
    * @throws IOException if the underlying writer throws an exception
    */
   public void startElement(String elementName) throws IOException {
-    Preconditions.checkState(started);
+    if (!started) {
+      throw new IllegalStateException();
+    }
     closeElement();
     inElement = true;
     writer.append(EOL + indentation() + "<" + elementName);
@@ -141,7 +148,7 @@ class XmlWriter {
   /**
    * Writes an attribute with the given integer value to the currently open XML
    * element.
-   * 
+   *
    * @param name attribute name
    * @param value attribute value
    * @throws IOException
@@ -153,7 +160,7 @@ class XmlWriter {
   /**
    * Writes an attribute with the given double value to the currently open XML
    * element.
-   * 
+   *
    * @param name attribute name
    * @param value attribute value (must be XML safe or escaped)
    * @throws IOException
@@ -192,18 +199,18 @@ class XmlWriter {
    * @throws IOException
    */
   public void writeCharacters(String text) throws IOException {
-    if (Strings.isNullOrEmpty(text)) {
+    closeElement();
+    if (text == null || text.isEmpty()) {
       return;
     }
-
-    closeElement();
     writer.write(XmlEscapers.xmlContentEscaper().escape(text));
   }
 
   /**
    * Gets the writer that this object uses for writing.
+   *
+   * VisibleForTesting
    */
-  @VisibleForTesting
   Writer getUnderlyingWriter() {
     return writer;
   }

@@ -14,8 +14,6 @@
 
 package com.google.testing.junit.junit4.runner;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -27,7 +25,10 @@ public final class SuiteTrimmingFilter extends Filter {
   private final Filter delegate;
 
   public SuiteTrimmingFilter(Filter delegate) {
-    this.delegate = checkNotNull(delegate);
+    if (delegate == null) {
+      throw new NullPointerException();
+    }
+    this.delegate = delegate;
   }
 
   @Override
@@ -51,6 +52,6 @@ public final class SuiteTrimmingFilter extends Filter {
         return true;
       }
     }
-    return false;           
+    return false;
   }
 }

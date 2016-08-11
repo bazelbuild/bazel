@@ -14,33 +14,25 @@
 
 package com.google.testing.junit.runner.model;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.testing.junit.runner.util.TestPropertyExporter.INITIAL_INDEX_FOR_REPEATED_PROPERTY;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.collect.ConcurrentHashMultiset;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Multiset;
 import com.google.testing.junit.runner.model.TestResult.Status;
 import com.google.testing.junit.runner.util.TestPropertyExporter;
-
-import org.joda.time.Interval;
-import org.junit.runner.Description;
-
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
 import javax.annotation.Nullable;
+import org.joda.time.Interval;
+import org.junit.runner.Description;
 
 /**
  * A leaf in the test suite model.
@@ -61,7 +53,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
     this.parent = parent;
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   @Override
   public List<TestNode> getChildren() {
     return Collections.emptyList();
@@ -76,7 +68,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   public void started(long now) {
     compareAndSetState(State.INITIAL, State.STARTED, now);
   }
-  
+
   @Override
   public void testInterrupted(long now) {
     if (compareAndSetState(State.STARTED, State.INTERRUPTED, now)) {
@@ -101,7 +93,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   public void testSkipped(long now) {
     compareAndSetState(State.STARTED, State.SKIPPED, now);
   }
-  
+
 
   @Override
   public void testSuppressed(long now) {
@@ -116,13 +108,13 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   public void finished(long now) {
     compareAndSetState(State.STARTED, State.FINISHED, now);
   }
-  
+
   @Override
   public void testFailure(Throwable throwable, long now) {
     compareAndSetState(State.INITIAL, State.FINISHED, now);
     globalFailures.add(throwable);
   }
-  
+
   @Override
   public void dynamicTestFailure(Description test, Throwable throwable, long now) {
     compareAndSetState(State.INITIAL, State.FINISHED, now);
@@ -140,17 +132,22 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   }
 
   private synchronized boolean compareAndSetState(State fromState, State toState, long now) {
-    if (fromState == state && toState != checkNotNull(state)) {
+    if (fromState == null || toState == null || state == null) {
+      throw new NullPointerException();
+    }
+
+    if (fromState == state && toState != state) {
       state = toState;
-      runTimeInterval = runTimeInterval == null 
+      runTimeInterval = runTimeInterval == null
           ? new Interval(now, now) : runTimeInterval.withEndMillis(now);
       return true;
     }
     return false;
   }
 
-  public Optional<Interval> getRuntime() {
-    return Optional.fromNullable(runTimeInterval);
+  @Nullable
+  public Interval getRuntime() {
+    return runTimeInterval;
   }
 
   /**
@@ -177,7 +174,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
 
     // For now, we give each dynamic test an empty properties map and the same
     // run time and status as its parent test case, but this may change.
-    List<TestResult> childResults = new LinkedList<>();
+    List<TestResult> childResults = new ArrayList<>();
     for (Description dynamicTest : getDescription().getChildren()) {
       childResults.add(buildDynamicResult(dynamicTest, getRuntime(), getTestResultStatus()));
     }
@@ -188,7 +185,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
         .name(name)
         .className(className)
         .properties(properties)
-        .failures(ImmutableList.copyOf(globalFailures))
+        .failures(new ArrayList<>(globalFailures))
         .runTimeInterval(getRuntime())
         .status(getTestResultStatus())
         .numTests(numTests)
@@ -197,7 +194,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
         .build();
   }
 
-  private TestResult buildDynamicResult(Description test, Optional<Interval> runTime,
+  private TestResult buildDynamicResult(Description test, @Nullable Interval runTime,
       TestResult.Status status) {
     // The dynamic test fails if the testcase itself fails or there is
     // a dynamic failure specifically for the dynamic test.
@@ -206,13 +203,13 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
     return new TestResult.Builder()
         .name(test.getDisplayName())
         .className(getDescription().getDisplayName())
-        .properties(ImmutableMap.<String, String>of())
+        .properties(Collections.<String, String>emptyMap())
         .failures(dynamicFailures)
         .runTimeInterval(runTime)
         .status(status)
         .numTests(1)
         .numFailures(failed ? 1 : 0)
-        .childResults(ImmutableList.<TestResult>of())
+        .childResults(Collections.<TestResult>emptyList())
         .build();
   }
 
@@ -220,7 +217,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
    * States of a TestCaseNode (see (link) for all the transitions and states descriptions).
    */
   private static enum State {
-    INITIAL(TestResult.Status.SKIPPED), 
+    INITIAL(TestResult.Status.SKIPPED),
     STARTED(TestResult.Status.INTERRUPTED),
     SKIPPED(TestResult.Status.SKIPPED),
     SUPPRESSED(TestResult.Status.SUPPRESSED),
@@ -236,7 +233,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
 
     /**
      * @return The equivalent {@link TestResult.Status} if the test execution ends with the FSM
-     *      at this state. 
+     *      at this state.
      */
     public TestResult.Status getTestResultStatus() {
       return status;

@@ -19,19 +19,13 @@ import static com.google.common.collect.Maps.filterValues;
 import static com.google.common.collect.Maps.transformValues;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Ticker;
-import com.google.common.collect.ImmutableMap;
 import com.google.testing.junit.junit4.runner.DynamicTestException;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.TestPropertyRunnerIntegration;
-
-import org.junit.runner.Description;
-import org.junit.runner.manipulation.Filter;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringWriter;
@@ -41,9 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import org.junit.runner.Description;
+import org.junit.runner.manipulation.Filter;
 
 /**
  * Model of the tests that will be run. The model is agnostic of the particular
@@ -54,8 +49,8 @@ import javax.inject.Inject;
  */
 public class TestSuiteModel {
   private final TestSuiteNode rootNode;
-  private final ImmutableMap<Description, TestCaseNode> testCaseMap;
-  private final ImmutableMap<Description, TestNode> testsMap;
+  private final Map<Description, TestCaseNode> testCaseMap;
+  private final Map<Description, TestNode> testsMap;
   private final Ticker ticker;
   private final AtomicBoolean wroteXml = new AtomicBoolean(false);
   private final XmlResultWriter xmlResultWriter;
@@ -63,14 +58,14 @@ public class TestSuiteModel {
 
   private TestSuiteModel(Builder builder) {
     rootNode = builder.rootNode;
-    testsMap = ImmutableMap.copyOf(builder.testsMap);
-    testCaseMap = ImmutableMap.copyOf(filterTestCases(builder.testsMap));
+    testsMap = builder.testsMap;
+    testCaseMap = filterTestCases(builder.testsMap);
     ticker = builder.ticker;
     shardingFilter = builder.shardingFilter;
     xmlResultWriter = builder.xmlResultWriter;
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   public List<TestNode> getTopLevelTestSuites() {
     return rootNode.getChildren();
   }
@@ -98,7 +93,7 @@ public class TestSuiteModel {
     return testsMap.get(description);
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   public int getNumTestCases() {
     return testCaseMap.size();
   }
@@ -168,7 +163,7 @@ public class TestSuiteModel {
       test.testSkipped(currentMillis());
     }
   }
-  
+
 
   /**
    * Indicates that the test case with the given key was ignored or suppressed
@@ -212,7 +207,7 @@ public class TestSuiteModel {
     write(new XmlWriter(outputStream));
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   void write(XmlWriter writer) throws IOException {
     if (wroteXml.compareAndSet(false, true)) {
       xmlResultWriter.writeTestSuites(writer, rootNode.getResult());

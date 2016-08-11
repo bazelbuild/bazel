@@ -14,14 +14,9 @@
 
 package com.google.testing.junit.runner.model;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-
-import org.junit.runner.Description;
-
 import java.util.List;
-
 import javax.annotation.Nullable;
+import org.junit.runner.Description;
 
 /**
  * A node in a test suite.
@@ -31,7 +26,10 @@ public abstract class TestNode {
   @Nullable private TestResult result = null;
 
   TestNode(Description description) {
-    this.description = Preconditions.checkNotNull(description);
+    if (description == null) {
+      throw new NullPointerException();
+    }
+    this.description = description;
   }
 
   /**
@@ -44,7 +42,7 @@ public abstract class TestNode {
   /**
    * Returns this node's children (test suites or tests cases).
    */
-  @VisibleForTesting
+  // VisibleForTesting
   public abstract List<TestNode> getChildren();
 
   /**
@@ -60,7 +58,7 @@ public abstract class TestNode {
   public abstract void testSkipped(long now);
 
   /**
-   * Indicates that the test represented by this node was ignored or suppressed due to being 
+   * Indicates that the test represented by this node was ignored or suppressed due to being
    * annotated with {@code @Ignore} or {@code @Suppress}.
    */
   public abstract void testSuppressed(long now);
@@ -81,7 +79,7 @@ public abstract class TestNode {
   public abstract void dynamicTestFailure(Description test, Throwable throwable, long now);
 
   /**
-   * Template-method that creates a {@link TestResult} object that represents the test outcome of 
+   * Template-method that creates a {@link TestResult} object that represents the test outcome of
    * this node.
    */
   protected abstract TestResult buildResult();
