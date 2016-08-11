@@ -18,14 +18,20 @@ import com.google.devtools.build.lib.util.Preconditions;
 /** A classifier for {@link Error}s and {@link Exception}s. Used by {@link AbstractQueueVisitor}. */
 public abstract class ErrorClassifier {
 
-  /** Classification of an error thrown by an action. */
+  /**
+   * Classification of an error thrown by an action.
+   *
+   * <p>N.B. - These enum values are ordered from least severe to most severe.
+   */
   public enum ErrorClassification {
+    /** Other running actions should be left alone.*/
+    NOT_CRITICAL,
     /** All running actions should be stopped.*/
     CRITICAL,
-    /** Same as CRITICAL, but also log the error.*/
+    /** Same as {@link #CRITICAL}, but also log the error.*/
     CRITICAL_AND_LOG,
-    /** Other running actions should be left alone.*/
-    NOT_CRITICAL
+    /** Same as {@link #CRITICAL_AND_LOG}, but is even worse. */
+    AS_CRITICAL_AS_POSSIBLE
   }
 
   /** Always treat exceptions as {@code NOT_CRITICAL}. */
@@ -39,19 +45,19 @@ public abstract class ErrorClassifier {
 
   /**
    * Used by {@link #classify} to classify {@link Exception}s. (Note that {@link Error}s
-   * are always classified as {@code CRITICAL_AND_LOG}.)
+   * are always classified as {@code AS_CRITICAL_AS_POSSIBLE}.)
    *
    * @param e the exception object to check
    */
   protected abstract ErrorClassification classifyException(Exception e);
 
   /**
-   * Classify {@param e}. If {@code e} is an {@link Error}, it will be classified as {@code
-   * CRITICAL_AND_LOG}. Otherwise, calls {@link #classifyException}.
+   * Classify {@code e}. If {@code e} is an {@link Error}, it will be classified as
+   * {@code AS_CRITICAL_AS_POSSIBLE}. Otherwise, calls {@link #classifyException}.
    */
   public final ErrorClassification classify(Throwable e) {
     if (e instanceof Error) {
-      return ErrorClassification.CRITICAL_AND_LOG;
+      return ErrorClassification.AS_CRITICAL_AS_POSSIBLE;
     }
     Preconditions.checkArgument(e instanceof Exception, e);
     return classifyException((Exception) e);

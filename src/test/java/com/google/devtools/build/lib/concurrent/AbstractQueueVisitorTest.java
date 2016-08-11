@@ -34,6 +34,7 @@ import org.junit.runners.JUnit4;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -408,7 +409,7 @@ public class AbstractQueueVisitorTest {
       @Override
       public void handle(Throwable t, ErrorClassification classification) {
         if (t == error) {
-          assertThat(classification).isEqualTo(ErrorClassification.CRITICAL_AND_LOG);
+          assertThat(classification).isEqualTo(ErrorClassification.AS_CRITICAL_AS_POSSIBLE);
           criticalErrorSeen.compareAndSet(false, true);
         } else {
           fail();
@@ -457,6 +458,81 @@ public class AbstractQueueVisitorTest {
     assertFalse(sleepFinished.get());
     assertEquals(error, thrownError);
     assertTrue(criticalErrorSeen.get());
+  }
+
+  private static class ClassifiedException extends RuntimeException {
+    private final ErrorClassification classification;
+
+    private ClassifiedException(ErrorClassification classification) {
+      this.classification = classification;
+    }
+  }
+
+  @Test
+  public void mostSevereErrorPropagated() throws Exception {
+    ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
+        new LinkedBlockingQueue<Runnable>());
+    final Set<Throwable> seenErrors = Sets.newConcurrentHashSet();
+    final ClassifiedException criticalException =
+        new ClassifiedException(ErrorClassification.CRITICAL);
+    final ClassifiedException criticalAndLogException =
+        new ClassifiedException(ErrorClassification.CRITICAL_AND_LOG);
+    final ErrorClassifier errorClassifier = new ErrorClassifier() {
+      @Override
+      protected ErrorClassification classifyException(Exception e) {
+        return (e instanceof ClassifiedException)
+            ? ((ClassifiedException) e).classification
+            : ErrorClassification.NOT_CRITICAL;
+      }
+    };
+    ErrorHandler errorHandler = new ErrorHandler() {
+      @Override
+      public void handle(Throwable t, ErrorClassification classification) {
+        assertThat(classification).isEqualTo(errorClassifier.classify(t));
+        seenErrors.add(t);
+      }
+    };
+    AbstractQueueVisitor visitor =
+        new AbstractQueueVisitor(
+        /*concurrent=*/ true,
+        executor,
+        /*shutdownOnCompletion=*/ true,
+        /*failFastOnException=*/ false,
+        errorClassifier,
+        errorHandler);
+    final CountDownLatch exnLatch = visitor.getExceptionLatchForTestingOnly();
+    Runnable criticalExceptionRunnable = new Runnable() {
+      @Override
+      public void run() {
+        throw criticalException;
+      }
+    };
+    Runnable criticalAndLogExceptionRunnable = new Runnable() {
+      @Override
+      public void run() {
+        // Wait for the critical exception to be thrown. There's a benign race between our 'await'
+        // call completing because the exception latch was counted down, and our thread being
+        // interrupted by AbstractQueueVisitor because the critical error was encountered. This is
+        // completely fine; all that matters is that we have a chance to throw our error _after_
+        // the previous one was thrown by the other Runnable.
+        try {
+          exnLatch.await();
+        } catch (InterruptedException e) {
+          // Ignored.
+        }
+        throw criticalAndLogException;
+      }
+    };
+    visitor.execute(criticalExceptionRunnable);
+    visitor.execute(criticalAndLogExceptionRunnable);
+    ClassifiedException exn = null;
+    try {
+      visitor.awaitQuiescence(/*interruptWorkers=*/ true);
+    } catch (ClassifiedException e) {
+      exn = e;
+    }
+    assertEquals(criticalAndLogException, exn);
+    assertThat(seenErrors).containsExactly(criticalException, criticalAndLogException);
   }
 
   private static Runnable throwingRunnable() {

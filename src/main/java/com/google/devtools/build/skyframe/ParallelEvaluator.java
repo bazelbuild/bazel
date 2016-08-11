@@ -735,6 +735,10 @@ public final class ParallelEvaluator implements Evaluator {
             return ErrorClassification.CRITICAL;
           }
           if (e instanceof RuntimeException) {
+            // We treat non-SchedulerException RuntimeExceptions as more severe than
+            // SchedulerExceptions so that AbstractQueueVisitor will propagate instances of the
+            // former. They indicate actual Blaze bugs, rather than normal Skyframe evaluation
+            // control flow.
             return ErrorClassification.CRITICAL_AND_LOG;
           }
           return ErrorClassification.NOT_CRITICAL;

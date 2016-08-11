@@ -61,12 +61,21 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       };
 
   /**
-   * The first unhandled exception thrown by a worker thread.  We save it and re-throw it from
-   * the main thread to detect bugs faster; otherwise worker threads just quietly die.
+   * The most severe unhandled exception thrown by a worker thread, according to
+   * {@link #errorClassifier}. This exception gets propagated to the calling thread of
+   * {@link #awaitQuiescence} . We use the most severe error for the sake of not masking e.g.
+   * crashes in worker threads after the first critical error that can occur due to race conditions
+   * in client code.
    *
-   * Field updates happen only in blocks that are synchronized on the {@link
-   * AbstractQueueVisitor} object; it's important to save the first one as it may be more
-   * informative than a subsequent one, and this is not a performance-critical path.
+   * <p>Field updates happen only in blocks that are synchronized on the {@link
+   * AbstractQueueVisitor} object.
+   *
+   * <p>If {@link AbstractQueueVisitor} clients don't like the semantics of storing and propagating
+   * the most severe error, then they should be provide an {@link ErrorClassifier} that does the
+   * right thing (e.g. to cause the _first_ error to be propagated, you'd want to provide an
+   * {@link ErrorClassifier} that gives all errors the exact same {@link ErrorClassification}).
+   *
+   * <p>Note that this is not a performance-critical path.
    */
   private volatile Throwable unhandled = null;
 
@@ -413,6 +422,43 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     executorService.execute(runnable);
   }
 
+  private synchronized void maybeSaveUnhandledThrowable(Throwable e, boolean markToStopJobs) {
+    boolean critical = false;
+    ErrorClassification errorClassification = errorClassifier.classify(e);
+    switch (errorClassification) {
+        case AS_CRITICAL_AS_POSSIBLE:
+        case CRITICAL_AND_LOG:
+          critical = true;
+          LOG.log(Level.WARNING, "Found critical error in queue visitor", e);
+          break;
+        case CRITICAL:
+          critical = true;
+          break;
+        default:
+          break;
+    }
+    errorHandler.handle(e, errorClassification);
+    if (unhandled == null
+        || errorClassification.compareTo(errorClassifier.classify(unhandled)) > 0) {
+      // Save the most severe error.
+      unhandled = e;
+      exceptionLatch.countDown();
+    }
+    if (markToStopJobs) {
+      synchronized (zeroRemainingTasks) {
+        if (critical && !jobsMustBeStopped) {
+          jobsMustBeStopped = true;
+          // This introduces a benign race, but it's the best we can do. When we have multiple
+          // errors of the same severity that is at least CRITICAL, we'll end up saving (above) and
+          // propagating (in 'awaitQuiescence') the most severe one we see, but the set of errors we
+          // see is non-deterministic and is at the mercy of how quickly the calling thread of
+          // 'awaitQuiescence' can do its thing after this 'notify' call.
+          zeroRemainingTasks.notify();
+        }
+      }
+    }
+  }
+
   private void recordError(Throwable e) {
     try {
       // If threadInterrupted is true, then RejectedExecutionExceptions are expected. There's no
@@ -422,12 +468,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         return;
       }
       catastrophe = e;
-      synchronized (this) {
-        if (unhandled == null) { // save only the first one.
-          unhandled = e;
-          exceptionLatch.countDown();
-        }
-      }
+      maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ false);
     } finally {
       decrementRemainingTasks();
     }
@@ -438,13 +479,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * <ul>
    *   <li>Sets {@link #run} to {@code true} when {@code WrappedRunnable} is run,
    *   <li>Records the thread evaluating {@code r} in {@link #jobs} while {@code r} is evaluated,
-   *   <li>Prevents {@param runnable} from being invoked if {@link #blockNewActions} returns
+   *   <li>Prevents {@link #originalRunnable} from being invoked if {@link #blockNewActions} returns
    *   {@code true},
    *   <li>Synchronously invokes {@code runnable.run()},
-   *   <li>Catches any {@link Throwable} thrown by {@code runnable.run()}, and if it is the first
-   *   {@link Throwable} seen by this {@link AbstractQueueVisitor}, assigns it to {@link
-   *   #unhandled}, and calls {@link #markToStopAllJobsIfNeeded} to set {@link #jobsMustBeStopped}
-   *   if necessary,
+   *   <li>Catches any {@link Throwable} thrown by {@code runnable.run()}, and if it is the most
+   *   severe {@link Throwable} seen by this {@link AbstractQueueVisitor}, assigns it to
+   *   {@link #unhandled}, and sets {@link #jobsMustBeStopped} if necessary,
    *   <li>And, lastly, calls {@link #decrementRemainingTasks}.
    * </ul>
    */
@@ -473,13 +513,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         }
         originalRunnable.run();
       } catch (Throwable e) {
-        synchronized (AbstractQueueVisitor.this) {
-          if (unhandled == null) { // save only the first one.
-            unhandled = e;
-            exceptionLatch.countDown();
-          }
-          markToStopAllJobsIfNeeded(e);
-        }
+        maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ true);
       } finally {
         try {
           if (thread != null && addedJob) {
@@ -632,37 +666,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     for (Thread thread : jobs.asMap().keySet()) {
       if (thisThread != thread) {
         thread.interrupt();
-      }
-    }
-  }
-
-  /**
-   * Classifies a {@link Throwable} {@param e} thrown by a job.
-   *
-   * <p>If it is classified as critical, then this sets the {@link #jobsMustBeStopped} flag to
-   * {@code true} which signals {@link #awaitTermination(boolean)} to stop all jobs.
-   *
-   * <p>Also logs details about {@param e} if it is classified as something that must be logged.
-   */
-  private void markToStopAllJobsIfNeeded(Throwable e) {
-    boolean critical = false;
-    ErrorClassification errorClassification = errorClassifier.classify(e);
-    switch (errorClassification) {
-        case CRITICAL_AND_LOG:
-          critical = true;
-          LOG.log(Level.WARNING, "Found critical error in queue visitor", e);
-          break;
-        case CRITICAL:
-          critical = true;
-          break;
-        default:
-          break;
-    }
-    errorHandler.handle(e, errorClassification);
-    synchronized (zeroRemainingTasks) {
-      if (critical && !jobsMustBeStopped) {
-        jobsMustBeStopped = true;
-        zeroRemainingTasks.notify();
       }
     }
   }
