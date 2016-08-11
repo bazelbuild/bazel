@@ -381,7 +381,7 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setOutputs(
       ArtifactCategory outputCategory, String outputName, boolean generateDotd) {
     this.outputFile = CppHelper.getCompileOutputArtifact(
-        ruleContext, CppHelper.getCompileArtifactName(ruleContext, outputCategory, outputName));
+        ruleContext, CppHelper.getArtifactNameForCategory(ruleContext, outputCategory, outputName));
     if (generateDotd) {
       String dotdFileName = CppHelper.getDotdFileName(ruleContext, outputCategory, outputName);
       if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {

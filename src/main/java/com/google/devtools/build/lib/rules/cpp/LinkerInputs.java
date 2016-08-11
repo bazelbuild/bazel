@@ -33,9 +33,33 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   public static class SimpleLinkerInput implements LinkerInput {
     private final Artifact artifact;
+    private final ArtifactCategory category;
 
-    public SimpleLinkerInput(Artifact artifact) {
+    public SimpleLinkerInput(Artifact artifact, ArtifactCategory category) {
+      String basename = artifact.getFilename();
+      switch (category) {
+        case STATIC_LIBRARY:
+          Preconditions.checkState(Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
+          break;
+
+        case DYNAMIC_LIBRARY:
+          Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(basename));
+          break;
+
+        case OBJECT_FILE:
+          Preconditions.checkState(Link.OBJECT_FILETYPES.matches(basename));
+          break;
+
+        default:
+          throw new IllegalStateException();
+      }
       this.artifact = Preconditions.checkNotNull(artifact);
+      this.category = category;
+    }
+
+    @Override
+    public ArtifactCategory getArtifactCategory() {
+      return category;
     }
 
     @Override
@@ -95,7 +119,7 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   private static class FakeLinkerInput extends SimpleLinkerInput {
     private FakeLinkerInput(Artifact artifact) {
-      super(artifact);
+      super(artifact, ArtifactCategory.OBJECT_FILE);
       Preconditions.checkState(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
     }
 
@@ -132,7 +156,9 @@ public abstract class LinkerInputs {
 
     private SolibLibraryToLink(Artifact solibSymlinkArtifact, Artifact libraryArtifact,
         String libraryIdentifier) {
-      this.solibSymlinkArtifact = Preconditions.checkNotNull(solibSymlinkArtifact);
+      Preconditions.checkArgument(
+          Link.SHARED_LIBRARY_FILETYPES.matches(solibSymlinkArtifact.getFilename()));
+      this.solibSymlinkArtifact = solibSymlinkArtifact;
       this.libraryArtifact = libraryArtifact;
       this.libraryIdentifier = libraryIdentifier;
     }
@@ -141,6 +167,11 @@ public abstract class LinkerInputs {
     public String toString() {
       return String.format("SolibLibraryToLink(%s -> %s",
           solibSymlinkArtifact.toString(), libraryArtifact.toString());
+    }
+
+    @Override
+    public ArtifactCategory getArtifactCategory() {
+      return ArtifactCategory.DYNAMIC_LIBRARY;
     }
 
     @Override
@@ -207,16 +238,33 @@ public abstract class LinkerInputs {
   @ThreadSafety.Immutable
   private static class CompoundLibraryToLink implements LibraryToLink {
     private final Artifact libraryArtifact;
+    private final ArtifactCategory category;
     private final String libraryIdentifier;
     private final Iterable<Artifact> objectFiles;
     private final Iterable<Artifact> ltoBitcodeFiles;
 
     private CompoundLibraryToLink(
         Artifact libraryArtifact,
+        ArtifactCategory category,
         String libraryIdentifier,
         Iterable<Artifact> objectFiles,
         Iterable<Artifact> ltoBitcodeFiles) {
+      String basename = libraryArtifact.getFilename();
+      switch (category) {
+        case STATIC_LIBRARY:
+          Preconditions.checkState(Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
+          break;
+
+        case DYNAMIC_LIBRARY:
+          Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(basename));
+          break;
+
+        default:
+          throw new IllegalStateException();
+      }
+
       this.libraryArtifact = Preconditions.checkNotNull(libraryArtifact);
+      this.category = category;
       this.libraryIdentifier = libraryIdentifier;
       this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
       this.ltoBitcodeFiles =
@@ -228,6 +276,11 @@ public abstract class LinkerInputs {
     @Override
     public String toString() {
       return String.format("CompoundLibraryToLink(%s)", libraryArtifact.toString());
+    }
+
+    @Override
+    public ArtifactCategory getArtifactCategory() {
+      return category;
     }
 
     @Override
@@ -292,11 +345,12 @@ public abstract class LinkerInputs {
   /**
    * Creates linker input objects for non-library files.
    */
-  public static Iterable<LinkerInput> simpleLinkerInputs(Iterable<Artifact> input) {
+  public static Iterable<LinkerInput> simpleLinkerInputs(Iterable<Artifact> input,
+      final ArtifactCategory category) {
     return Iterables.transform(input, new Function<Artifact, LinkerInput>() {
         @Override
         public LinkerInput apply(Artifact artifact) {
-          return simpleLinkerInput(artifact);
+          return simpleLinkerInput(artifact, category);
         }
       });
   }
@@ -304,11 +358,11 @@ public abstract class LinkerInputs {
   /**
    * Creates a linker input for which we do not know what objects files it consists of.
    */
-  public static LinkerInput simpleLinkerInput(Artifact artifact) {
+  public static LinkerInput simpleLinkerInput(Artifact artifact, ArtifactCategory category) {
     // This precondition check was in place and *most* of the tests passed with them; the only
     // exception is when you mention a generated .a file in the srcs of a cc_* rule.
     // Preconditions.checkArgument(!ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
-    return new SimpleLinkerInput(artifact);
+    return new SimpleLinkerInput(artifact, category);
   }
 
   /**
@@ -321,11 +375,12 @@ public abstract class LinkerInputs {
   /**
    * Creates input libraries for which we do not know what objects files it consists of.
    */
-  public static Iterable<LibraryToLink> opaqueLibrariesToLink(Iterable<Artifact> input) {
+  public static Iterable<LibraryToLink> opaqueLibrariesToLink(
+      final ArtifactCategory category, Iterable<Artifact> input) {
     return Iterables.transform(input, new Function<Artifact, LibraryToLink>() {
       @Override
       public LibraryToLink apply(Artifact artifact) {
-        return precompiledLibraryToLink(artifact);
+        return precompiledLibraryToLink(artifact, category);
       }
     });
   }
@@ -341,7 +396,8 @@ public abstract class LinkerInputs {
   /**
    * Creates an input library for which we do not know what objects files it consists of.
    */
-  public static LibraryToLink precompiledLibraryToLink(Artifact artifact) {
+  public static LibraryToLink precompiledLibraryToLink(
+      Artifact artifact, ArtifactCategory category) {
     // This precondition check was in place and *most* of the tests passed with them; the only
     // exception is when you mention a generated .a file in the srcs of a cc_* rule.
     // It was very useful for proving that this actually works, though.
@@ -349,21 +405,22 @@ public abstract class LinkerInputs {
     //     !(artifact.getGeneratingAction() instanceof CppLinkAction) ||
     //     !Link.ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
     return new CompoundLibraryToLink(
-        artifact, CcLinkingOutputs.libraryIdentifierOf(artifact), null, null);
+        artifact, category, CcLinkingOutputs.libraryIdentifierOf(artifact), null, null);
   }
 
   public static LibraryToLink opaqueLibraryToLink(
-      Artifact artifact, String libraryIdentifier) {
-    return new CompoundLibraryToLink(artifact, libraryIdentifier, null, null);
+      Artifact artifact, ArtifactCategory category, String libraryIdentifier) {
+    return new CompoundLibraryToLink(artifact, category, libraryIdentifier, null, null);
   }
 
   /**
    * Creates a library to link with the specified object files.
    */
   public static LibraryToLink newInputLibrary(
-      Artifact library, String libraryIdentifier, Iterable<Artifact> objectFiles,
-      Iterable<Artifact> ltoBitcodeFiles) {
-    return new CompoundLibraryToLink(library, libraryIdentifier, objectFiles, ltoBitcodeFiles);
+      Artifact library, ArtifactCategory category, String libraryIdentifier,
+      Iterable<Artifact> objectFiles, Iterable<Artifact> ltoBitcodeFiles) {
+    return new CompoundLibraryToLink(
+        library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles);
   }
 
   private static final Function<LibraryToLink, Artifact> LIBRARY_TO_NON_SOLIB =

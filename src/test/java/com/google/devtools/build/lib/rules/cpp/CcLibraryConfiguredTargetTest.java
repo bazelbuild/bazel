@@ -59,7 +59,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   private static final PathFragment STL_CPPMAP = new PathFragment("stl.cppmap");
   private static final PathFragment CROSSTOOL_CPPMAP = new PathFragment("crosstool.cppmap");
 
-
   @Before
   public final void createFiles() throws Exception {
     scratch.file("hello/BUILD",
@@ -281,11 +280,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testLinkActionCanConsumeArtifactExtensions() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.STATIC_LINK_AS_LIB_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.STATIC_LINK_TWEAKED_CONFIGURATION);
     useConfiguration("--features=" + Link.LinkTargetType.STATIC_LIBRARY.getActionName());
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive =
-        FileType.filter(getFilesToBuild(hello), FileType.of(".lib")).iterator().next();
+        FileType.filter(getFilesToBuild(hello), FileType.of(".tweaked.a")).iterator().next();
 
     CppLinkAction action = (CppLinkAction) getGeneratingAction(archive);
 
@@ -299,12 +298,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig,
             "artifact_name_pattern {"
                 + "   category_name: 'object_file'"
-                + "   pattern: 'object_%{base_name}.o'"
+                + "   pattern: '%{output_name}.test.o'"
                 + "}");
 
     useConfiguration();
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(artifactByPath(getFilesToBuild(hello), ".a", "object_hello.o")).isNotNull();
+    assertThat(artifactByPath(getFilesToBuild(hello), ".a", ".test.o")).isNotNull();
   }
 
   @Test

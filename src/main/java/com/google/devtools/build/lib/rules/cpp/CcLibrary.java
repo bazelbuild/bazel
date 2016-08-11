@@ -218,8 +218,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
      *
      * Note that some target platforms do not require shared library code to be PIC.
      */
-    Iterable<LibraryToLink> staticLibrariesFromSrcs =
-        LinkerInputs.opaqueLibrariesToLink(precompiledFiles.getStaticLibraries());
+    Iterable<LibraryToLink> staticLibrariesFromSrcs = LinkerInputs.opaqueLibrariesToLink(
+        ArtifactCategory.STATIC_LIBRARY, precompiledFiles.getStaticLibraries());
     helper.addStaticLibraries(staticLibrariesFromSrcs);
     helper.addPicStaticLibraries(Iterables.filter(staticLibrariesFromSrcs, PIC_STATIC_FILTER));
     helper.addPicStaticLibraries(precompiledFiles.getPicStaticLibraries());

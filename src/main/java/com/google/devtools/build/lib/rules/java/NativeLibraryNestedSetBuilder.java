@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
@@ -44,7 +45,7 @@ public final class NativeLibraryNestedSetBuilder {
    */
   public NativeLibraryNestedSetBuilder addAll(Iterable<Artifact> deps) {
     for (Artifact dep : deps) {
-      builder.add(new LinkerInputs.SimpleLinkerInput(dep));
+      builder.add(new LinkerInputs.SimpleLinkerInput(dep, ArtifactCategory.DYNAMIC_LIBRARY));
     }
     return this;
   }
@@ -111,7 +112,7 @@ public final class NativeLibraryNestedSetBuilder {
     for (Artifact artifact : FileType.filterList(
         dep.getProvider(FileProvider.class).getFilesToBuild(),
         CppFileTypes.SHARED_LIBRARY)) {
-      builder.add(new LinkerInputs.SimpleLinkerInput(artifact));
+      builder.add(new LinkerInputs.SimpleLinkerInput(artifact, ArtifactCategory.DYNAMIC_LIBRARY));
     }
   }
 }

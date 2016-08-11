@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
@@ -57,7 +58,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
       for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
         libraries.add(LinkerInputs.opaqueLibraryToLink(
-            library, FileSystemUtils.removeExtension(library.getRootRelativePathString())));
+            library, ArtifactCategory.STATIC_LIBRARY,
+            FileSystemUtils.removeExtension(library.getRootRelativePathString())));
       }
 
       libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));

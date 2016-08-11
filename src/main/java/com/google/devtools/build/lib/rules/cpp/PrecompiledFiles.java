@@ -59,7 +59,7 @@ public final class PrecompiledFiles {
   }
 
   public Iterable<LibraryToLink> getPicStaticLibraries() {
-    return LinkerInputs.opaqueLibrariesToLink(
+    return LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.STATIC_LIBRARY,
         FileType.filter(files, CppFileTypes.PIC_ARCHIVE,
             CppFileTypes.ALWAYS_LINK_PIC_LIBRARY));
   }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -610,10 +609,9 @@ public class CppHelper {
         ruleContext.getConfiguration().getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
-  static String getCompileArtifactName(RuleContext ruleContext, ArtifactCategory category,
-      String base) {
-    return getToolchain(ruleContext).getFeatures().getArtifactNameForCategory(
-        category, ruleContext, ImmutableMap.of("output_name", base));
+  static String getArtifactNameForCategory(RuleContext ruleContext, ArtifactCategory category,
+      String outputName) {
+    return getToolchain(ruleContext).getFeatures().getArtifactNameForCategory(category, outputName);
   }
 
   static String getDotdFileName(RuleContext ruleContext, ArtifactCategory outputCategory,
@@ -621,8 +619,8 @@ public class CppHelper {
     String baseName = outputCategory == ArtifactCategory.OBJECT_FILE
         || outputCategory == ArtifactCategory.PROCESSED_HEADER
         ? outputName
-        : getCompileArtifactName(ruleContext, outputCategory, outputName);
+        : getArtifactNameForCategory(ruleContext, outputCategory, outputName);
 
-    return getCompileArtifactName(ruleContext, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+    return getArtifactNameForCategory(ruleContext, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 }

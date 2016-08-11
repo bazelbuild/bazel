@@ -80,70 +80,121 @@ public abstract class Link {
   public static final String FAKE_OBJECT_PREFIX = "fake:";
 
   /**
+   * Whether a particular link target requires PIC code.
+   */
+  public enum Picness {
+    PIC,
+    NOPIC
+  }
+
+  /**
+   * Whether a particular link target linked in statically or dynamically.
+   */
+  public enum Staticness {
+    STATIC,
+    DYNAMIC
+  }
+
+  /**
    * Types of ELF files that can be created by the linker (.a, .so, .lo,
    * executable).
    */
   public enum LinkTargetType {
     /** A normal static archive. */
-    STATIC_LIBRARY(".a", true, "c++-link-static-library", ArtifactCategory.STATIC_LIBRARY),
+    STATIC_LIBRARY(
+        ".a",
+        Staticness.STATIC,
+        "c++-link-static-library",
+        Picness.NOPIC,
+        ArtifactCategory.STATIC_LIBRARY),
 
     /** A static archive with .pic.o object files (compiled with -fPIC). */
     PIC_STATIC_LIBRARY(
-        ".pic.a", true, "c++-link-pic-static-library", ArtifactCategory.PIC_STATIC_LIBRARY),
+        ".pic.a",
+        Staticness.STATIC,
+        "c++-link-pic-static-library",
+        Picness.PIC,
+        ArtifactCategory.STATIC_LIBRARY),
 
     /** An interface dynamic library. */
     INTERFACE_DYNAMIC_LIBRARY(
-        ".ifso", false, "c++-link-interface-dynamic-library", ArtifactCategory.INTERFACE_LIBRARY),
+        ".ifso",
+        Staticness.DYNAMIC,
+        "c++-link-interface-dynamic-library",
+        Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
+        ArtifactCategory.INTERFACE_LIBRARY),
 
     /** A dynamic library. */
-    DYNAMIC_LIBRARY(".so", false, "c++-link-dynamic-library", ArtifactCategory.DYNAMIC_LIBRARY),
+    DYNAMIC_LIBRARY(
+        ".so",
+        Staticness.DYNAMIC,
+        "c++-link-dynamic-library",
+        Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
+        ArtifactCategory.DYNAMIC_LIBRARY),
 
     /** A static archive without removal of unused object files. */
     ALWAYS_LINK_STATIC_LIBRARY(
         ".lo",
-        true,
+        Staticness.STATIC,
         "c++-link-alwayslink-static-library",
+        Picness.NOPIC,
         ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY),
 
     /** A PIC static archive without removal of unused object files. */
     ALWAYS_LINK_PIC_STATIC_LIBRARY(
         ".pic.lo",
-        true,
+        Staticness.STATIC,
         "c++-link-alwayslink-pic-static-library",
-        ArtifactCategory.ALWAYSLINK_PIC_STATIC_LIBRARY),
+        Picness.PIC,
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY),
 
     /** An executable binary. */
-    EXECUTABLE("", false, "c++-link-executable", ArtifactCategory.EXECUTABLE);
+    EXECUTABLE(
+        "",
+        Staticness.DYNAMIC,
+        "c++-link-executable",
+        Picness.NOPIC,  // Picness is not indicate in the file name
+        ArtifactCategory.EXECUTABLE);
 
     private final String extension;
-    private final boolean staticLibraryLink;
+    private final Staticness staticness;
     private final String actionName;
     private final ArtifactCategory linkerOutput;
+    private final Picness picness;
 
-    private LinkTargetType(
+    LinkTargetType(
         String extension,
-        boolean staticLibraryLink,
+        Staticness staticness,
         String actionName,
+        Picness picness,
         ArtifactCategory linkerOutput) {
       this.extension = extension;
-      this.staticLibraryLink = staticLibraryLink;
+      this.staticness = staticness;
       this.actionName = actionName;
       this.linkerOutput = linkerOutput;
+      this.picness = picness;
+    }
+
+    /**
+     * Returns whether the name of the output file should denote that the code in the file is PIC.
+     */
+    public Picness picness() {
+      return picness;
     }
 
     public String getExtension() {
       return extension;
     }
 
-    public boolean isStaticLibraryLink() {
-      return staticLibraryLink;
+    public Staticness staticness() {
+      return staticness;
     }
     
     /** Returns an {@code ArtifactCategory} identifying the artifact type this link action emits. */
     public ArtifactCategory getLinkerOutput() {
       return linkerOutput;
     }
-    
+
     /**
      * The name of a link action with this LinkTargetType, for the purpose of crosstool feature
      * selection.
@@ -279,7 +330,9 @@ public abstract class Link {
         // deps is true, in which case this code only computes the list of inputs for the link
         // action (so the order isn't critical).
         if (passMembersToLinkCmd || (deps && needMembersForLink)) {
-          delayList = LinkerInputs.simpleLinkerInputs(inputLibrary.getObjectFiles()).iterator();
+          delayList = LinkerInputs
+              .simpleLinkerInputs(inputLibrary.getObjectFiles(), ArtifactCategory.OBJECT_FILE)
+              .iterator();
         }
 
         if (!(passMembersToLinkCmd || (deps && useStartEndLib(inputLibrary, archiveType)))) {

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
@@ -160,10 +161,10 @@ public abstract class NativeDepsHelper {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(ruleContext, sharedLibrary, configuration, toolchain);
     if (useDynamicRuntime) {
-      builder.setRuntimeInputs(
+      builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
           toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());
     } else {
-      builder.setRuntimeInputs(
+      builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
           toolchain.getStaticRuntimeLinkMiddleman(), toolchain.getStaticRuntimeLinkInputs());
     }
     CppLinkAction linkAction =

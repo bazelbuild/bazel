@@ -19,9 +19,7 @@ package com.google.devtools.build.lib.rules.cpp;
  */
 public enum ArtifactCategory {
   STATIC_LIBRARY("lib%{base_name}.a"),
-  PIC_STATIC_LIBRARY("lib%{base_name}.pic.a"),
   ALWAYSLINK_STATIC_LIBRARY("lib%{base_name}.lo"),
-  ALWAYSLINK_PIC_STATIC_LIBRARY("lib%{base_name}.pic.lo"),
   DYNAMIC_LIBRARY("lib%{base_name}.so"),
   EXECUTABLE("%{base_name}"),
   INTERFACE_LIBRARY("lib%{base_name}.ifso"),
@@ -38,12 +36,8 @@ public enum ArtifactCategory {
 
   private final String defaultPattern;
 
-  private ArtifactCategory(String defaultPattern) {
+  ArtifactCategory(String defaultPattern) {
     this.defaultPattern = defaultPattern;
-  }
-
-  private ArtifactCategory() {
-    this.defaultPattern = null;
   }
 
   /** Returns the name of the category. */

@@ -95,6 +95,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
   
   private final CppConfiguration cppConfiguration;
   private final LibraryToLink outputLibrary;
+  private final Artifact linkOutput;
   private final LibraryToLink interfaceOutputLibrary;
   private final Map<String, String> toolchainEnv;
   private final ImmutableSet<String> executionRequirements;
@@ -139,6 +140,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
       ImmutableList<Artifact> outputs,
       CppConfiguration cppConfiguration,
       LibraryToLink outputLibrary,
+      Artifact linkOutput,
       LibraryToLink interfaceOutputLibrary,
       boolean fake,
       boolean isLTOIndexing,
@@ -150,6 +152,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     this.mandatoryInputs = inputs;
     this.cppConfiguration = cppConfiguration;
     this.outputLibrary = outputLibrary;
+    this.linkOutput = linkOutput;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
     this.fake = fake;
     this.isLTOIndexing = isLTOIndexing;
@@ -208,6 +211,10 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     return linkCommandLine;
   }
 
+  /**
+   * Returns the output of this action as a {@link LibraryToLink} or null if it is an executable.
+   */
+  @Nullable
   public LibraryToLink getOutputLibrary() {
     return outputLibrary;
   }
@@ -217,10 +224,17 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
   }
 
   /**
+   * Returns the output of the linking.
+   */
+  public Artifact getLinkOutput() {
+    return linkOutput;
+  }
+
+  /**
    * Returns the path to the output artifact produced by the linker.
    */
   public Path getOutputFile() {
-    return outputLibrary.getArtifact().getPath();
+    return linkOutput.getPath();
   }
 
   @Override
@@ -440,8 +454,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
 
   @Override
   protected String getRawProgressMessage() {
-    return (isLTOIndexing ? "LTO indexing " : "Linking ")
-        + outputLibrary.getArtifact().prettyPrint();
+    return (isLTOIndexing ? "LTO indexing " : "Linking ") + linkOutput.prettyPrint();
   }
 
   @Override
@@ -505,6 +518,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     final NestedSet<Artifact> crosstoolInputs;
     final Artifact runtimeMiddleman;
     final NestedSet<Artifact> runtimeInputs;
+    final ArtifactCategory runtimeType;
     final NestedSet<Artifact> compilationInputs;
     final ImmutableSet<Artifact> linkstamps;
     final ImmutableList<String> linkopts;
@@ -530,6 +544,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
       this.runtimeMiddleman = builder.getRuntimeMiddleman();
       this.runtimeInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getRuntimeInputs()).build();
+      this.runtimeType = builder.getRuntimeType();
       this.compilationInputs = NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(builder.getCompilationInputs().build()).build();
       this.linkstamps = ImmutableSet.copyOf(builder.getLinkstamps());
