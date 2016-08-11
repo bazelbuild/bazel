@@ -103,7 +103,6 @@ import javax.annotation.Nullable;
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
-
   /**
    * The configured version of FilesetEntry.
    */
@@ -520,8 +519,8 @@ public final class RuleContext extends TargetContext
    */
   public Root getBinOrGenfilesDirectory() {
     return rule.hasBinaryOutput()
-        ? getConfiguration().getBinDirectory()
-        : getConfiguration().getGenfilesDirectory();
+        ? getConfiguration().getBinDirectory(rule.getRepository())
+        : getConfiguration().getGenfilesDirectory(rule.getRepository());
   }
 
   /**
@@ -537,8 +536,12 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getBinArtifact(String relative) {
+    return getBinArtifact(new PathFragment(relative));
+  }
+
+  public Artifact getBinArtifact(PathFragment relative) {
     return getPackageRelativeArtifact(
-        new PathFragment(relative), getConfiguration().getBinDirectory());
+        relative, getConfiguration().getBinDirectory(rule.getRepository()));
   }
 
   /**
@@ -546,8 +549,12 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getGenfilesArtifact(String relative) {
+    return getGenfilesArtifact(new PathFragment(relative));
+  }
+
+  public Artifact getGenfilesArtifact(PathFragment relative) {
     return getPackageRelativeArtifact(
-        new PathFragment(relative), getConfiguration().getGenfilesDirectory());
+        relative, getConfiguration().getGenfilesDirectory(rule.getRepository()));
   }
 
   /**
@@ -1311,7 +1318,7 @@ public final class RuleContext extends TargetContext
    */
   public final Artifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
-    return getDerivedArtifact(file, getConfiguration().getBinDirectory());
+    return getDerivedArtifact(file, getConfiguration().getBinDirectory(rule.getRepository()));
   }
 
   /**

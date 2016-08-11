@@ -193,7 +193,8 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
     Iterable<Artifact> generatedSourceFiles = checkShouldCreateSources(ruleContext)
         ? ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.m")
         : ImmutableList.<Artifact>of();
-    PathFragment objcFileRootExecPath = ruleContext.getConfiguration().getGenfilesDirectory()
+    PathFragment objcFileRootExecPath = ruleContext.getConfiguration()
+        .getGenfilesDirectory(ruleContext.getRule().getRepository())
         .getExecPath();
     Iterable<PathFragment> headerSearchPaths = J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
         ruleContext, objcFileRootExecPath, protoSources);

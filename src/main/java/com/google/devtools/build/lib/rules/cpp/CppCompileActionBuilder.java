@@ -387,7 +387,7 @@ public class CppCompileActionBuilder {
       if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {
         // Just set the path, no artifact is constructed
         dotdFile = new DotdFile(
-            configuration.getBinDirectory().getExecPath()
+            configuration.getBinDirectory(ruleContext.getRule().getRepository()).getExecPath()
                 .getRelative(CppHelper.getObjDirectory(ruleContext.getLabel()))
                 .getRelative(dotdFileName));
       } else {

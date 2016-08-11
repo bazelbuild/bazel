@@ -161,8 +161,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         }
 
         if (createDynamicLibrary) {
-          soImplArtifact = ruleContext.getPackageRelativeArtifact(
-              soImplFilename, ruleContext.getConfiguration().getBinDirectory());
+          soImplArtifact = ruleContext.getBinArtifact(soImplFilename);
         }
       }
     }

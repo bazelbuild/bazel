@@ -927,7 +927,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       return middlemanFactory.createErrorPropagatingMiddleman(
           owner, ruleContext.getLabel().toString(), purpose,
           ImmutableList.copyOf(compilationPrerequisites),
-          ruleContext.getConfiguration().getMiddlemanDirectory());
+          ruleContext.getConfiguration().getMiddlemanDirectory(
+              ruleContext.getRule().getRepository()));
     }
 
     /**
@@ -939,8 +940,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         return null;
       }
 
-      return middlemanFactory.getErrorPropagatingMiddlemanArtifact(ruleContext.getLabel()
-          .toString(), purpose, ruleContext.getConfiguration().getMiddlemanDirectory());
+      return middlemanFactory.getErrorPropagatingMiddlemanArtifact(
+          ruleContext.getLabel().toString(),
+          purpose,
+          ruleContext.getConfiguration().getMiddlemanDirectory(
+              ruleContext.getRule().getRepository()));
     }
   }
 }

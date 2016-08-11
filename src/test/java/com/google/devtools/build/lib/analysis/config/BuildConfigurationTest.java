@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -53,15 +54,15 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
 
     assertEquals(outputDirPrefix,
-                 config.getOutputDirectory().getPath().toString());
+                 config.getOutputDirectory(RepositoryName.MAIN).getPath().toString());
     assertEquals(outputDirPrefix + "/bin",
-                 config.getBinDirectory().getPath().toString());
+                 config.getBinDirectory(RepositoryName.MAIN).getPath().toString());
     assertEquals(outputDirPrefix + "/include",
-                 config.getIncludeDirectory().getPath().toString());
+                 config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString());
     assertEquals(outputDirPrefix + "/genfiles",
-                 config.getGenfilesDirectory().getPath().toString());
+                 config.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString());
     assertEquals(outputDirPrefix + "/testlogs",
-                 config.getTestLogsDirectory().getPath().toString());
+                 config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString());
   }
 
   @Test
@@ -72,7 +73,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration config = create("--platform_suffix=-test");
     assertEquals(outputBase + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test",
-        config.getOutputDirectory().getPath().toString());
+        config.getOutputDirectory(RepositoryName.MAIN).getPath().toString());
   }
 
   @Test

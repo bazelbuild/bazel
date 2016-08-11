@@ -84,7 +84,8 @@ public final class PythonUtils {
    * subdirectory to avoid conflicts (eg. when the input file is generated).
    */
   private static Artifact get2to3OutputArtifact(RuleContext ruleContext, Artifact input) {
-    Root root = ruleContext.getConfiguration().getGenfilesDirectory();
+    Root root = ruleContext.getConfiguration().getGenfilesDirectory(
+        ruleContext.getRule().getRepository());
     PathFragment path = new PathFragment("python3").getRelative(input.getRootRelativePath());
     return ruleContext.getShareableArtifact(path, root);
   }

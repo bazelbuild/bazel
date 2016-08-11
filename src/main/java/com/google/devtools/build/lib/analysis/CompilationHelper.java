@@ -55,7 +55,8 @@ public final class CompilationHelper {
     MiddlemanFactory factory = env.getMiddlemanFactory();
     return ImmutableList.of(factory.createMiddlemanAllowMultiple(
         env, actionOwner, ruleContext.getPackageDirectory(), purpose, filesToBuild,
-        ruleContext.getConfiguration().getMiddlemanDirectory()));
+        ruleContext.getConfiguration().getMiddlemanDirectory(
+            ruleContext.getRule().getRepository())));
   }
 
   // TODO(bazel-team): remove this duplicated code after the ConfiguredTarget migration
@@ -87,6 +88,7 @@ public final class CompilationHelper {
     Iterable<Artifact> artifacts = dep.getProvider(FileProvider.class).getFilesToBuild();
     return ImmutableList.of(
         factory.createMiddlemanAllowMultiple(env, actionOwner, ruleContext.getPackageDirectory(),
-            purpose, artifacts, ruleContext.getConfiguration().getMiddlemanDirectory()));
+            purpose, artifacts, ruleContext.getConfiguration().getMiddlemanDirectory(
+                ruleContext.getRule().getRepository())));
   }
 }

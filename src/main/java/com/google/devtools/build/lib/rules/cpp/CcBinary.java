@@ -190,8 +190,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (!isLinkShared(ruleContext)) {
       binaryPath = new PathFragment(binaryPath.getPathString() + OsUtils.executableExtension());
     }
-    Artifact binary = ruleContext.getPackageRelativeArtifact(
-        binaryPath, ruleContext.getConfiguration().getBinDirectory());
+    Artifact binary = ruleContext.getBinArtifact(binaryPath);
     CppLinkActionBuilder linkActionBuilder =
         determineLinkerArguments(
             ruleContext,
@@ -229,9 +228,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     linkActionBuilder.setFeatureConfiguration(featureConfiguration);
 
     if (CppLinkAction.enableSymbolsCounts(cppConfiguration, fake, linkType)) {
-      linkActionBuilder.setSymbolCountsOutput(ruleContext.getPackageRelativeArtifact(
-          CppLinkAction.symbolCountsFileName(binaryPath),
-          ruleContext.getConfiguration().getBinDirectory()));
+      linkActionBuilder.setSymbolCountsOutput(ruleContext.getBinArtifact(
+          CppLinkAction.symbolCountsFileName(binaryPath)));
     }
 
     // Store immutable context for use in other *_binary rules that are implemented by

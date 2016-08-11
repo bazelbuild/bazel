@@ -132,7 +132,8 @@ public class ProtoCommon {
   public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
       ImmutableList<Artifact> protoSources, String extension, boolean pythonNames) {
     ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
-    Root genfiles = ruleContext.getConfiguration().getGenfilesDirectory();
+    Root genfiles = ruleContext.getConfiguration().getGenfilesDirectory(
+        ruleContext.getRule().getRepository());
     for (Artifact src : protoSources) {
       PathFragment srcPath = src.getRootRelativePath();
       if (pythonNames) {

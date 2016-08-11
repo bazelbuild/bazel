@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -444,12 +445,12 @@ public final class BuildConfiguration {
     }
 
     @Option(
-      name = "define",
-      converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
-      category = "semantics",
-      allowMultiple = true,
-      help = "Each --define option specifies an assignment for a build variable."
+        name = "define",
+        converter = Converters.AssignmentConverter.class,
+        defaultValue = "",
+        category = "semantics",
+        allowMultiple = true,
+        help = "Each --define option specifies an assignment for a build variable."
     )
     public List<Map.Entry<String, String>> commandLineBuildVariables;
 
@@ -557,7 +558,7 @@ public final class BuildConfiguration {
         defaultValue = "fastbuild",
         category = "semantics", // Should this be "flags"?
         help = "Specify the mode the binary will be built in. "
-               + "Values: 'fastbuild', 'dbg', 'opt'.")
+            + "Values: 'fastbuild', 'dbg', 'opt'.")
     public CompilationMode compilationMode;
 
     /**
@@ -590,7 +591,7 @@ public final class BuildConfiguration {
             + "will be read from the Bazel client environment, or by the name=value pair. "
             + "This option can be used multiple times to specify several variables. "
             + "Used only by the 'bazel test' command."
-        )
+    )
     public List<Map.Entry<String, String>> testEnvironment;
 
     @Option(name = "collect_code_coverage",
@@ -600,7 +601,7 @@ public final class BuildConfiguration {
             + "possible) and will collect coverage information during tests. Only targets that "
             + " match --instrumentation_filter will be affected. Usually this option should "
             + " not be specified directly - 'bazel coverage' command should be used instead."
-        )
+    )
     public boolean collectCodeCoverage;
 
     @Option(name = "microcoverage",
@@ -611,7 +612,7 @@ public final class BuildConfiguration {
             + "--instrumentation_filter will be affected. Usually this option should not be "
             + "specified directly - 'blaze coverage --microcoverage' command should be used "
             + "instead."
-        )
+    )
     public boolean collectMicroCoverage;
 
     @Option(name = "coverage_support",
@@ -704,7 +705,7 @@ public final class BuildConfiguration {
             + "executable. Can be used multiple times to specify several arguments. "
             + "If multiple tests are executed, each of them will receive identical arguments. "
             + "Used only by the 'bazel test' command."
-        )
+    )
     public List<String> testArguments;
 
     @Option(name = "test_filter",
@@ -727,31 +728,31 @@ public final class BuildConfiguration {
     public boolean checkFilesetDependenciesRecursively;
 
     @Option(
-      name = "experimental_skyframe_native_filesets",
-      defaultValue = "false",
-      category = "experimental",
-      help =
-          "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
-              + " This offers improved performance in incremental builds of Filesets as well as"
-              + " correct incremental behavior, but is not yet stable. The default is false,"
-              + " meaning Blaze uses the legacy impelementation of Fileset."
+        name = "experimental_skyframe_native_filesets",
+        defaultValue = "false",
+        category = "experimental",
+        help =
+            "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
+                + " This offers improved performance in incremental builds of Filesets as well as"
+                + " correct incremental behavior, but is not yet stable. The default is false,"
+                + " meaning Blaze uses the legacy impelementation of Fileset."
     )
     public boolean skyframeNativeFileset;
 
     @Option(
-      name = "run_under",
-      category = "run",
-      defaultValue = "null",
-      converter = RunUnderConverter.class,
-      help =
-          "Prefix to insert in front of command before running. "
-              + "Examples:\n"
-              + "\t--run_under=valgrind\n"
-              + "\t--run_under=strace\n"
-              + "\t--run_under='strace -c'\n"
-              + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-              + "\t--run_under=//package:target\n"
-              + "\t--run_under='//package:target --options'\n"
+        name = "run_under",
+        category = "run",
+        defaultValue = "null",
+        converter = RunUnderConverter.class,
+        help =
+            "Prefix to insert in front of command before running. "
+                + "Examples:\n"
+                + "\t--run_under=valgrind\n"
+                + "\t--run_under=strace\n"
+                + "\t--run_under='strace -c'\n"
+                + "\t--run_under='valgrind --quiet --num-callers=20'\n"
+                + "\t--run_under=//package:target\n"
+                + "\t--run_under='//package:target --options'\n"
     )
     public RunUnder runUnder;
 
@@ -789,13 +790,13 @@ public final class BuildConfiguration {
     public boolean checkLicenses;
 
     @Option(
-      name = "enforce_constraints",
-      defaultValue = "true",
-      category = "undocumented",
-      help =
-          "Checks the environments each target is compatible with and reports errors if any "
-              + "target has dependencies that don't support the same environments",
-      oldName = "experimental_enforce_constraints"
+        name = "enforce_constraints",
+        defaultValue = "true",
+        category = "undocumented",
+        help =
+            "Checks the environments each target is compatible with and reports errors if any "
+                + "target has dependencies that don't support the same environments",
+        oldName = "experimental_enforce_constraints"
     )
     public boolean enforceConstraints;
 
@@ -849,18 +850,18 @@ public final class BuildConfiguration {
     public boolean useDynamicConfigurations;
 
     @Option(
-      name = "experimental_enable_runfiles",
-      defaultValue = "auto",
-      category = "undocumented",
-      help = "Enable runfiles; off on Windows, on on other platforms"
+        name = "experimental_enable_runfiles",
+        defaultValue = "auto",
+        category = "undocumented",
+        help = "Enable runfiles; off on Windows, on on other platforms"
     )
     public TriState enableRunfiles;
 
     @Option(
-      name = "build_python_zip",
-      defaultValue = "auto",
-      category = "undocumented",
-      help = "Build python executable zip; on on Windows, off on other platforms"
+        name = "build_python_zip",
+        defaultValue = "auto",
+        category = "undocumented",
+        help = "Build python executable zip; on on Windows, off on other platforms"
     )
     public TriState buildPythonZip;
 
@@ -1153,8 +1154,8 @@ public final class BuildConfiguration {
         == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
       reporter.handle(Event.warn(
           "Heuristic sharding is intended as a one-off experimentation tool for determing the "
-          + "benefit from sharding certain tests. Please don't keep this option in your "
-          + ".blazerc or continuous build"));
+              + "benefit from sharding certain tests. Please don't keep this option in your "
+              + ".blazerc or continuous build"));
     }
 
     if (options.useDynamicConfigurations && !options.useDistinctHostConfiguration) {
@@ -1256,8 +1257,8 @@ public final class BuildConfiguration {
     globalMakeEnvBuilder.put("COMPILATION_MODE", options.compilationMode.toString());
     globalMakeEnvBuilder.put("BINMODE", "-"
         + ((options.compilationMode == CompilationMode.FASTBUILD)
-            ? "dbg"
-            : options.compilationMode.toString()));
+        ? "dbg"
+        : options.compilationMode.toString()));
     /*
      * Attention! Document these in the build-encyclopedia
      */
@@ -1351,7 +1352,7 @@ public final class BuildConfiguration {
               if (lateBoundDefaults.containsKey(option.name())) {
                 value = lateBoundDefaults.get(option.name());
               } else if (!option.defaultValue().equals("null")) {
-                 // See {@link Option#defaultValue} for an explanation of default "null" strings.
+                // See {@link Option#defaultValue} for an explanation of default "null" strings.
                 value = option.defaultValue();
               }
             }
@@ -1469,10 +1470,10 @@ public final class BuildConfiguration {
    */
   public interface TransitionApplier {
     /**
-      * Creates a new instance of this transition applier bound to the specified source
-      * configuration.
-      */
-     TransitionApplier create(BuildConfiguration config);
+     * Creates a new instance of this transition applier bound to the specified source
+     * configuration.
+     */
+    TransitionApplier create(BuildConfiguration config);
 
     /**
      * Accepts the given configuration transition. The implementation decides how to turn
@@ -1810,7 +1811,7 @@ public final class BuildConfiguration {
    */
   @VisibleForTesting
   static Map<String, String> getMapping(List<String> variables,
-                                        Map<String, String> environment) {
+      Map<String, String> environment) {
     Map<String, String> result = new HashMap<>();
     for (String var : variables) {
       if (environment.containsKey(var)) {
@@ -1868,7 +1869,7 @@ public final class BuildConfiguration {
   /**
    * Returns the output directory for this build configuration.
    */
-  public Root getOutputDirectory() {
+  public Root getOutputDirectory(RepositoryName repositoryName) {
     return outputRoots.outputDirectory;
   }
 
@@ -1882,6 +1883,18 @@ public final class BuildConfiguration {
   }
 
   /**
+   * TODO(kchodorow): This (and the other get*Directory functions) won't work with external
+   * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
+   * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
+   * repositories (external) but will need to be fixed.
+   * TODO(kchodorow): Use the repository name to derive the bin directory.
+   */
+  @SuppressWarnings("unused")
+  public Root getBinDirectory(RepositoryName repositoryName) {
+    return getBinDirectory();
+  }
+
+  /**
    * Returns a relative path to the bin directory at execution time.
    */
   public PathFragment getBinFragment() {
@@ -1890,8 +1903,10 @@ public final class BuildConfiguration {
 
   /**
    * Returns the include directory for this build configuration.
+   * TODO(kchodorow): Use the repository name to derive the include directory.
    */
-  public Root getIncludeDirectory() {
+  @SuppressWarnings("unused")
+  public Root getIncludeDirectory(RepositoryName repositoryName) {
     return outputRoots.includeDirectory;
   }
 
@@ -1904,19 +1919,29 @@ public final class BuildConfiguration {
     return outputRoots.genfilesDirectory;
   }
 
+  // TODO(kchodorow): Use the repository name to derive the genfiles directory.
+  @SuppressWarnings("unused")
+  public Root getGenfilesDirectory(RepositoryName repositoryName) {
+    return getGenfilesDirectory();
+  }
+
   /**
    * Returns the directory where coverage-related artifacts and metadata files
    * should be stored. This includes for example uninstrumented class files
    * needed for Jacoco's coverage reporting tools.
+   * TODO(kchodorow): Use the repository name to derive the coverage directory.
    */
-  public Root getCoverageMetadataDirectory() {
+  @SuppressWarnings("unused")
+  public Root getCoverageMetadataDirectory(RepositoryName repositoryName) {
     return outputRoots.coverageMetadataDirectory;
   }
 
   /**
    * Returns the testlogs directory for this build configuration.
+   * TODO(kchodorow): Use the repository name to derive the test directory.
    */
-  public Root getTestLogsDirectory() {
+  @SuppressWarnings("unused")
+  public Root getTestLogsDirectory(RepositoryName repositoryName) {
     return outputRoots.testLogsDirectory;
   }
 
@@ -1942,8 +1967,10 @@ public final class BuildConfiguration {
 
   /**
    * Returns the internal directory (used for middlemen) for this build configuration.
+   * TODO(kchodorow): Use the repository name to derive the middleman directory.
    */
-  public Root getMiddlemanDirectory() {
+  @SuppressWarnings("unused")
+  public Root getMiddlemanDirectory(RepositoryName repositoryName) {
     return outputRoots.middlemanDirectory;
   }
 
@@ -1977,12 +2004,11 @@ public final class BuildConfiguration {
   }
 
   @SkylarkCallable(
-    name = "default_shell_env",
-    structField = true,
-    doc =
-        "A dictionary representing the local shell environment. It maps variables "
-            + "to their values (strings).  The local shell environment contains settings that are "
-            + "machine specific, therefore its use should be avoided in rules meant to be hermetic."
+      name = "default_shell_env",
+      structField = true,
+      doc = "A dictionary representing the local shell environment. It maps variables "
+          + "to their values (strings).  The local shell environment contains settings that are "
+          + "machine specific, therefore its use should be avoided in rules meant to be hermetic."
   )
   public ImmutableMap<String, String> getLocalShellEnvironment() {
     return localShellEnvironment;
@@ -2263,9 +2289,9 @@ public final class BuildConfiguration {
     // Configuration-specific roots.
     roots.add(getBinDirectory());
     roots.add(getGenfilesDirectory());
-    roots.add(getIncludeDirectory());
-    roots.add(getMiddlemanDirectory());
-    roots.add(getTestLogsDirectory());
+    roots.add(getIncludeDirectory(RepositoryName.MAIN));
+    roots.add(getMiddlemanDirectory(RepositoryName.MAIN));
+    roots.add(getTestLogsDirectory(RepositoryName.MAIN));
 
     return ImmutableList.copyOf(roots);
   }

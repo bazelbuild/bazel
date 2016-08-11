@@ -99,9 +99,8 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
       NestedSet<Artifact> additionalSourceFiles, NestedSet<Artifact> metadataFiles) {
     // Instrumented manifest makes sense only for rules with binary output.
     Preconditions.checkState(ruleContext.getRule().hasBinaryOutput());
-    Artifact instrumentedFileManifest = ruleContext.getPackageRelativeArtifact(
-        ruleContext.getTarget().getName()  + ".instrumented_files",
-        ruleContext.getConfiguration().getBinDirectory());
+    Artifact instrumentedFileManifest = ruleContext.getBinArtifact(
+        ruleContext.getTarget().getName()  + ".instrumented_files");
 
     NestedSet<Artifact> inputs = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(additionalSourceFiles)

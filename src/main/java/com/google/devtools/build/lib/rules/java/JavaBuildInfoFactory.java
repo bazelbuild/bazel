@@ -21,16 +21,15 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Java build info creation - generates properties file that contain the corresponding build-info
@@ -121,7 +120,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
       boolean includeNonVolatile) {
-    Root outputPath = config.getIncludeDirectory();
+    Root outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
     final Artifact output = context.getBuildInfoArtifact(propertyFileName, outputPath,
         includeVolatile && !inputs.isEmpty() ? BuildInfoType.NO_REBUILD
             : BuildInfoType.FORCE_REBUILD_IF_CHANGED);

@@ -784,8 +784,7 @@ public final class CppModel {
           linkTargetType.getLinkerOutput(), ruleContext, ImmutableMap.<String, String>of());
       PathFragment artifactFragment = new PathFragment(ruleContext.getLabel().getName())
           .getParentDirectory().getRelative(templatedName);
-      result = ruleContext.getPackageRelativeArtifact(
-          artifactFragment, ruleContext.getConfiguration().getBinDirectory());
+      result = ruleContext.getBinArtifact(artifactFragment);
     } catch (ExpansionException e) {
       ruleContext.throwWithRuleError(e.getMessage());
     }

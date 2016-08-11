@@ -74,7 +74,7 @@ public final class IntermediateArtifacts {
         ruleContext.getDerivedArtifact(
             entitlementsDirectory.replaceName(
                 addOutputPrefix(entitlementsDirectory.getBaseName(), extension)),
-            buildConfiguration.getBinDirectory());
+            buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
     return artifact;
   }
 
@@ -204,8 +204,8 @@ public final class IntermediateArtifacts {
   private Artifact scopedArtifact(PathFragment scopeRelative, boolean inGenfiles) {
     Root root =
         inGenfiles
-            ? buildConfiguration.getGenfilesDirectory()
-            : buildConfiguration.getBinDirectory();
+            ? buildConfiguration.getGenfilesDirectory(ruleContext.getRule().getRepository())
+            : buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository());
 
     // The path of this artifact will be RULE_PACKAGE/SCOPERELATIVE
     return ruleContext.getPackageRelativeArtifact(scopeRelative, root);

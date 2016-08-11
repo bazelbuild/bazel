@@ -217,7 +217,7 @@ public interface JavaSemantics {
    * May add extra command line options to the Java compile command line.
    */
   void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
-      CustomCommandLine.Builder result);
+      CustomCommandLine.Builder result, Label targetLabel);
 
 
   /**

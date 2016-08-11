@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -408,14 +409,26 @@ public final class AnalysisTestUtil {
     Map<String, String> rootMap = new HashMap<>();
     BuildConfiguration targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
-    rootMap.put(targetConfiguration.getBinDirectory().getPath().toString(), "bin");
-    rootMap.put(targetConfiguration.getGenfilesDirectory().getPath().toString(), "genfiles");
-    rootMap.put(targetConfiguration.getMiddlemanDirectory().getPath().toString(), "internal");
+    rootMap.put(
+        targetConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
+        "bin");
+    rootMap.put(
+        targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
+        "genfiles");
+    rootMap.put(
+        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
+        "internal");
 
     BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
-    rootMap.put(hostConfiguration.getBinDirectory().getPath().toString(), "bin(host)");
-    rootMap.put(hostConfiguration.getGenfilesDirectory().getPath().toString(), "genfiles(host)");
-    rootMap.put(hostConfiguration.getMiddlemanDirectory().getPath().toString(), "internal(host)");
+    rootMap.put(
+        hostConfiguration.getBinDirectory(RepositoryName.MAIN).getPath().toString(),
+        "bin(host)");
+    rootMap.put(
+        hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString(),
+        "genfiles(host)");
+    rootMap.put(
+        hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getPath().toString(),
+        "internal(host)");
 
     if (targetConfiguration.useDynamicConfigurations()) {
       // With dynamic configurations, the output paths that bin, genfiles, etc. refer to may

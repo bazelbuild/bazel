@@ -139,8 +139,8 @@ public final class ConfiguredTargetFactory {
       boolean isFileset, ArtifactFactory artifactFactory) {
     Rule rule = outputFile.getAssociatedRule();
     Root root = rule.hasBinaryOutput()
-        ? configuration.getBinDirectory()
-        : configuration.getGenfilesDirectory();
+        ? configuration.getBinDirectory(rule.getRepository())
+        : configuration.getGenfilesDirectory(rule.getRepository());
     ArtifactOwner owner =
         new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
     PathFragment rootRelativePath =

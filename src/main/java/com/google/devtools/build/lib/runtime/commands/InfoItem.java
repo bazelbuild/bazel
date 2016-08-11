@@ -22,6 +22,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
@@ -216,7 +217,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(configurationSupplier);
-      return print(configurationSupplier.get().getBinDirectory().getPath());
+      return print(configurationSupplier.get().getBinDirectory(RepositoryName.MAIN).getPath());
     }
   }
 
@@ -237,7 +238,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(configurationSupplier);
-      return print(configurationSupplier.get().getGenfilesDirectory().getPath());
+      return print(
+          configurationSupplier.get().getGenfilesDirectory(RepositoryName.MAIN).getPath());
     }
   }
 
@@ -258,7 +260,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(configurationSupplier);
-      return print(configurationSupplier.get().getTestLogsDirectory().getPath());
+      return print(
+          configurationSupplier.get().getTestLogsDirectory(RepositoryName.MAIN).getPath());
     }
   }
 

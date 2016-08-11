@@ -204,7 +204,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     // We need to use getDerivedArtifact here because extra actions are at
     // <EXTRA ACTION LABEL> / <RULE LABEL> instead of <RULE LABEL> / <EXTRA ACTION LABEL>. Bummer.
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(rootRelativePath,
-        ruleContext.getConfiguration().getOutputDirectory());
+        ruleContext.getConfiguration().getOutputDirectory(ruleContext.getRule().getRepository()));
   }
 
   /**

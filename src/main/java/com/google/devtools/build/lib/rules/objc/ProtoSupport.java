@@ -318,7 +318,8 @@ final class ProtoSupport {
 
   private Artifact getProtoInputListFile() {
     return ruleContext.getUniqueDirectoryArtifact(
-        "_protos", "_proto_input_files", ruleContext.getConfiguration().getGenfilesDirectory());
+        "_protos", "_proto_input_files", ruleContext.getConfiguration().getGenfilesDirectory(
+            ruleContext.getRule().getRepository()));
   }
 
   private String getProtoInputListFileContents() {

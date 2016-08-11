@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CToolchainIdeInfo;
@@ -28,15 +29,13 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link AndroidStudioInfoAspect} validating proto's contents.
@@ -937,9 +936,11 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         ArtifactLocation.newBuilder()
             .setRootPath(
                 testLegacyAswbPluginVersionCompatibility()
-                    ? targetConfig.getGenfilesDirectory().getPath().getPathString() : "")
+                    ? targetConfig.getGenfilesDirectory(RepositoryName.MAIN).getPath()
+                        .getPathString()
+                    : "")
             .setRootExecutionPathFragment(
-                targetConfig.getGenfilesDirectory().getExecPathString())
+                targetConfig.getGenfilesDirectory(RepositoryName.MAIN).getExecPathString())
             .setRelativePath("com/google/example/gen.java")
             .setIsSource(false)
             .build(),

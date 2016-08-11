@@ -27,11 +27,13 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -145,7 +147,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
-      CustomCommandLine.Builder result) {
+      Builder result, Label targetLabel) {
   }
 
   @Override

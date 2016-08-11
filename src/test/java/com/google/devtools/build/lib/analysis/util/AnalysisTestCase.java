@@ -66,13 +66,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
-
-import org.junit.Before;
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.Before;
 
 /**
  * Testing framework for tests of the analysis phase that uses the BuildView and LoadingPhaseRunner
@@ -388,7 +386,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     Label label = owner.getLabel();
     return buildView.getArtifactFactory().getDerivedArtifact(
         label.getPackageFragment().getRelative(packageRelativePath),
-        getTargetConfiguration().getBinDirectory(),
+        getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
         new ConfiguredTargetKey(owner));
   }
 

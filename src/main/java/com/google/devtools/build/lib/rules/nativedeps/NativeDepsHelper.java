@@ -64,7 +64,7 @@ public abstract class NativeDepsHelper {
         public Artifact create(RuleContext ruleContext, BuildConfiguration configuration,
             PathFragment rootRelativePath) {
           return ruleContext.getShareableArtifact(rootRelativePath,
-              configuration.getBinDirectory());
+              configuration.getBinDirectory(ruleContext.getRule().getRepository()));
         }
       };
 
@@ -103,7 +103,7 @@ public abstract class NativeDepsHelper {
         .getPathString();
     Artifact nativeDeps = ruleContext.getUniqueDirectoryArtifact(ANDROID_UNIQUE_DIR,
         labelName.replaceName("lib" + labelName.getBaseName() + ".so"),
-        configuration.getBinDirectory());
+        configuration.getBinDirectory(ruleContext.getRule().getRepository()));
 
     return createNativeDepsAction(
             ruleContext,
@@ -113,7 +113,7 @@ public abstract class NativeDepsHelper {
             toolchain,
             nativeDeps,
             libraryIdentifier,
-            configuration.getBinDirectory(),
+            configuration.getBinDirectory(ruleContext.getRule().getRepository()),
             /*useDynamicRuntime*/ false)
         .getLibrary();
   }
@@ -153,7 +153,7 @@ public abstract class NativeDepsHelper {
       libraryIdentifier = sharedPath.getPathString();
       sharedLibrary = ruleContext.getShareableArtifact(
           sharedPath.replaceName(sharedPath.getBaseName() + ".so"),
-          configuration.getBinDirectory());
+          configuration.getBinDirectory(ruleContext.getRule().getRepository()));
     } else {
       sharedLibrary = nativeDeps;
     }

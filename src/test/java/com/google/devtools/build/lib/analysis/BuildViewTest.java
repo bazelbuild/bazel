@@ -152,7 +152,10 @@ public class BuildViewTest extends BuildViewTestBase {
     OutputFileConfiguredTarget outputCT = (OutputFileConfiguredTarget)
         getConfiguredTarget("//pkg:a.out");
     Artifact outputArtifact = outputCT.getArtifact();
-    assertEquals(outputCT.getConfiguration().getBinDirectory(), outputArtifact.getRoot());
+    assertEquals(
+        outputCT.getConfiguration().getBinDirectory(
+            outputCT.getTarget().getLabel().getPackageIdentifier().getRepository()),
+        outputArtifact.getRoot());
     assertEquals(outputCT.getConfiguration().getBinFragment().getRelative("pkg/a.out"),
         outputArtifact.getExecPath());
     assertEquals(new PathFragment("pkg/a.out"), outputArtifact.getRootRelativePath());

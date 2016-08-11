@@ -85,7 +85,8 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     @Override
     public Artifact create(RuleContext ruleContext, BuildConfiguration configuration,
                            PathFragment rootRelativePath) {
-      return ruleContext.getDerivedArtifact(rootRelativePath, configuration.getBinDirectory());
+      return ruleContext.getDerivedArtifact(
+          rootRelativePath, configuration.getBinDirectory(ruleContext.getRule().getRepository()));
     }
   };
 

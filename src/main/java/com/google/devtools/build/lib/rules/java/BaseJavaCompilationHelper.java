@@ -104,7 +104,8 @@ public class BaseJavaCompilationHelper {
       String ijarBasename = FileSystemUtils.removeExtension(jar.getFilename()) + "-ijar.jar";
       return ruleContext.getDerivedArtifact(
           ruleBase.getRelative(artifactDirFragment).getRelative(ijarBasename),
-          ruleContext.getConfiguration().getGenfilesDirectory());
+          ruleContext.getConfiguration().getGenfilesDirectory(
+              ruleContext.getRule().getRepository()));
     } else {
       return derivedArtifact(jar, "", "-ijar.jar");
     }

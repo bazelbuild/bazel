@@ -28,6 +28,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -693,5 +694,12 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       }
     }
     return labels.values();
+  }
+
+  /**
+   * @return The repository name.
+   */
+  public RepositoryName getRepository() {
+    return getLabel().getPackageIdentifier().getRepository();
   }
 }

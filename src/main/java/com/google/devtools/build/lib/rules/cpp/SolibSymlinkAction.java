@@ -163,7 +163,7 @@ public final class SolibSymlinkAction extends AbstractAction {
     Preconditions.checkArgument(!library.getRootRelativePath().getSegment(0).startsWith("_solib_"));
 
     // Ignore libraries that are already represented by the symlinks.
-    Root root = configuration.getBinDirectory();
+    Root root = configuration.getBinDirectory(ruleContext.getRule().getRepository());
     Artifact symlink = ruleContext.getShareableArtifact(symlinkName, root);
     ruleContext.registerAction(
         new SolibSymlinkAction(ruleContext.getActionOwner(), library, symlink));

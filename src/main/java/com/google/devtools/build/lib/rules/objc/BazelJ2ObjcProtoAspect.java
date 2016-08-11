@@ -69,7 +69,8 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
       Iterable<Artifact> headerMappingFiles,
       Iterable<Artifact> classMappingFiles,
       J2ObjcSource j2ObjcSource) {
-    String genDir = ruleContext.getConfiguration().getGenfilesDirectory().getExecPathString();
+    String genDir = ruleContext.getConfiguration().getGenfilesDirectory(
+        ruleContext.getRule().getRepository()).getExecPathString();
     Artifact compiler = ruleContext.getPrerequisiteArtifact("$protoc", Mode.HOST);
     Artifact j2objcPlugin = ruleContext.getPrerequisiteArtifact("$j2objc_plugin", Mode.HOST);
 

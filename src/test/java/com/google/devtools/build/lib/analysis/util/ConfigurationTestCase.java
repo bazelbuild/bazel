@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -49,16 +50,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
-import org.junit.Before;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Testing framework for tests which check ConfigurationFactory.
@@ -179,12 +178,14 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     Map<Root, BuildConfiguration> outputPaths = new HashMap<>();
     for (BuildConfiguration config : allConfigs) {
       if (config.isActionsEnabled()) {
-        BuildConfiguration otherConfig = outputPaths.get(config.getOutputDirectory());
+        BuildConfiguration otherConfig = outputPaths.get(
+            config.getOutputDirectory(RepositoryName.MAIN));
         if (otherConfig != null) {
-          throw new IllegalStateException("The output path '" + config.getOutputDirectory()
+          throw new IllegalStateException("The output path '"
+              + config.getOutputDirectory(RepositoryName.MAIN)
               + "' is the same for configurations '" + config + "' and '" + otherConfig + "'");
         } else {
-          outputPaths.put(config.getOutputDirectory(), config);
+          outputPaths.put(config.getOutputDirectory(RepositoryName.MAIN), config);
         }
       }
     }

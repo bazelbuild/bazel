@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -38,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -213,8 +211,7 @@ public class AndroidIdlHelper {
       PathFragment javaOutputPath = FileSystemUtils.replaceExtension(
           new PathFragment(ruleName + "_aidl").getRelative(idl.getRootRelativePath()),
           ".java");
-      Artifact output = ruleContext.getPackageRelativeArtifact(
-          javaOutputPath, ruleContext.getConfiguration().getGenfilesDirectory());
+      Artifact output = ruleContext.getGenfilesArtifact(javaOutputPath.getPathString());
       outputJavaSources.put(idl, output);
     }
     return outputJavaSources.build();
@@ -268,7 +265,9 @@ public class AndroidIdlHelper {
       Artifact idlClassJar,
       Artifact idlSourceJar) {
     String basename = FileSystemUtils.removeExtension(classJar.getExecPath().getBaseName());
-    PathFragment idlTempDir = ruleContext.getConfiguration().getBinDirectory().getExecPath()
+    PathFragment idlTempDir = ruleContext.getConfiguration()
+        .getBinDirectory(ruleContext.getRule().getRepository())
+        .getExecPath()
         .getRelative(ruleContext.getUniqueDirectory("_idl"))
         .getRelative(basename + "_temp");
     ruleContext.registerAction(new SpawnAction.Builder()

@@ -893,7 +893,7 @@ public final class JavaCompileAction extends AbstractAction {
       if (paramFile == null) {
         paramFile = artifactFactory.create(
             ParameterFile.derivePath(outputJar.getRootRelativePath()),
-            configuration.getBinDirectory());
+            configuration.getBinDirectory(targetLabel.getPackageIdentifier().getRepository()));
       }
 
       // ImmutableIterable is safe to use here because we know that none of the components of
@@ -953,7 +953,8 @@ public final class JavaCompileAction extends AbstractAction {
           strictJavaDeps,
           compileTimeDependencyArtifacts
       );
-      semantics.buildJavaCommandLine(outputs, configuration, paramFileContentsBuilder);
+      semantics.buildJavaCommandLine(
+          outputs, configuration, paramFileContentsBuilder, targetLabel);
       CommandLine paramFileContents = paramFileContentsBuilder.build();
       Action parameterFileWriteAction = new ParameterFileWriteAction(owner, paramFile,
           paramFileContents, ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);

@@ -588,10 +588,11 @@ public class CppLinkActionBuilder {
       opts.add("-Wl,-plugin-opt,thinlto-emit-imports-files");
       opts.add(
           "-Wl,-plugin-opt,thinlto-prefix-replace="
-              + configuration.getBinDirectory().getExecPathString()
+              + configuration.getBinDirectory(ruleContext.getRule().getRepository())
+                  .getExecPathString()
               + ";"
               + configuration
-                  .getBinDirectory()
+                  .getBinDirectory(ruleContext.getRule().getRepository())
                   .getExecPath()
                   .getRelative(ltoOutputRootPrefix)
                   .toString());
@@ -1262,7 +1263,7 @@ public class CppLinkActionBuilder {
 
       PathFragment solibDir =
           configuration
-              .getBinDirectory()
+              .getBinDirectory(ruleContext.getRule().getRepository())
               .getExecPath()
               .getRelative(cppConfiguration.getSolibDirectory());
       String runtimeSolibName = runtimeSolibDir != null ? runtimeSolibDir.getBaseName() : null;

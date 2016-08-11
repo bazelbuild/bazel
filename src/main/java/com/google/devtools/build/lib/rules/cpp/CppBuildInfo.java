@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -68,7 +69,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
       BuildConfiguration config, PathFragment headerName,
       Collection<Artifact> inputs,
       boolean writeVolatileInfo, boolean writeNonVolatileInfo) {
-    Root outputPath = config.getIncludeDirectory();
+    Root outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
     final Artifact header =
         buildInfoContext.getBuildInfoArtifact(headerName, outputPath,
             writeVolatileInfo && !inputs.isEmpty()

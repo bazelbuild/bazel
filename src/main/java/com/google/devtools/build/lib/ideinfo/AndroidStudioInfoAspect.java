@@ -485,7 +485,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       String suffix) {
     BuildConfiguration configuration = ruleContext.getConfiguration();
     assert configuration != null;
-    Root genfilesDirectory = configuration.getGenfilesDirectory();
+    Root genfilesDirectory = configuration.getGenfilesDirectory(
+        ruleContext.getRule().getRepository());
 
     PathFragment derivedFilePath =
         getOutputFilePath(base, ruleContext, suffix);

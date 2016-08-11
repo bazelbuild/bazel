@@ -155,7 +155,9 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setDirectJars(attributes.getDirectJars());
     builder.addCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setRuleKind(attributes.getRuleKind());
-    builder.setTargetLabel(attributes.getTargetLabel());
+    builder.setTargetLabel(
+        attributes.getTargetLabel() == null
+            ? ruleContext.getLabel() : attributes.getTargetLabel());
     getAnalysisEnvironment().registerAction(builder.build());
   }
 
@@ -442,6 +444,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
     builder.setJavacOpts(getDefaultJavacOptsFromRule(getRuleContext()));
     builder.setJavacJvmOpts(javaToolchain.getJvmOptions());
+    builder.setTargetLabel(ruleContext.getLabel());
     getAnalysisEnvironment().registerAction(builder.build());
     return resourceJar;
   }
@@ -452,6 +455,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setJavaExecutable(
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable());
     builder.setJavaBaseInputs(getHostJavabaseInputsNonStatic(ruleContext));
+    builder.setTargetLabel(ruleContext.getLabel());
     return builder;
   }
 
@@ -479,7 +483,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
    */
   private PathFragment workDir(Artifact outputJar, String suffix) {
     String basename = FileSystemUtils.removeExtension(outputJar.getExecPath().getBaseName());
-    return getConfiguration().getBinDirectory().getExecPath()
+    return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository()).getExecPath()
         .getRelative(ruleContext.getUniqueDirectory("_javac"))
         .getRelative(basename + suffix);
   }

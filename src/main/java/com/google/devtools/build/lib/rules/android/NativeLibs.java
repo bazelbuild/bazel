@@ -160,7 +160,8 @@ public final class NativeLibs {
     Artifact nativeLibsMiddleman =
         ruleContext.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
             ruleContext.getActionOwner(), null, symlinks.values(),
-            ruleContext.getConfiguration().getMiddlemanDirectory(), "android_native_libs");
+            ruleContext.getConfiguration().getMiddlemanDirectory(
+                ruleContext.getRule().getRepository()), "android_native_libs");
 
     ruleContext.registerAction(
         new SymlinkTreeAction(

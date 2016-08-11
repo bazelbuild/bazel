@@ -182,7 +182,7 @@ public final class TestActionBuilder {
     PathFragment targetName = new PathFragment(ruleContext.getLabel().getName());
     BuildConfiguration config = ruleContext.getConfiguration();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-    Root root = config.getTestLogsDirectory();
+    Root root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(

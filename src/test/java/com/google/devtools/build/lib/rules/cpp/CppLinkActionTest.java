@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -225,10 +226,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testCommandLineSplitting() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
     Artifact output = getDerivedArtifact(
-        new PathFragment("output/path.xyz"), getTargetConfiguration().getBinDirectory(),
+        new PathFragment("output/path.xyz"), getTargetConfiguration().getBinDirectory(
+            RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
     final Artifact outputIfso = getDerivedArtifact(
-        new PathFragment("output/path.ifso"), getTargetConfiguration().getBinDirectory(),
+        new PathFragment("output/path.ifso"), getTargetConfiguration().getBinDirectory(
+            RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
     CppLinkActionBuilder builder = new CppLinkActionBuilder(ruleContext, output);
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
@@ -316,7 +319,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
         new CppLinkActionBuilder(
                 ruleContext,
                 new Artifact(
-                    new PathFragment(outputPath), getTargetConfiguration().getBinDirectory()),
+                    new PathFragment(outputPath),
+                    getTargetConfiguration().getBinDirectory(
+                        ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
                 shouldIncludeToolchain ? CppHelper.getToolchain(ruleContext) : null)
             .addObjectFiles(nonLibraryInputs)
@@ -344,8 +349,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   public Artifact getOutputArtifact(String relpath) {
     return new Artifact(
-        getTargetConfiguration().getBinDirectory().getPath().getRelative(relpath),
-        getTargetConfiguration().getBinDirectory(),
+        getTargetConfiguration().getBinDirectory(RepositoryName.MAIN).getPath()
+            .getRelative(relpath),
+        getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
         getTargetConfiguration().getBinFragment().getRelative(relpath));
   }
 

@@ -81,7 +81,8 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     // is actually a symlink into the source tree.
     PathFragment includeDirectory = new PathFragment("_")
         .getRelative(ruleContext.getTarget().getName());
-    PathFragment includePath = ruleContext.getConfiguration().getIncludeDirectory().getExecPath()
+    PathFragment includePath = ruleContext.getConfiguration()
+        .getIncludeDirectory(ruleContext.getRule().getRepository()).getExecPath()
         .getRelative(packageFragment)
         .getRelative(includeDirectory);
 
@@ -112,7 +113,8 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
 
       // These virtual artifacts have the symlink action as generating action.
       Artifact virtualArtifact = ruleContext.getPackageRelativeArtifact(
-          virtualPath, ruleContext.getConfiguration().getIncludeDirectory());
+          virtualPath, ruleContext.getConfiguration()
+              .getIncludeDirectory(ruleContext.getRule().getRepository()));
       virtualArtifactMapBuilder.put(virtualArtifact, src);
     }
     ImmutableSortedMap<Artifact, Artifact> virtualArtifactMap = virtualArtifactMapBuilder.build();

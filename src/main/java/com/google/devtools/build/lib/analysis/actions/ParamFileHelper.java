@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -55,7 +56,7 @@ public final class ParamFileHelper {
    * @param analysisEnvironment the analysis environment
    * @param outputs outputs of the action (used to construct a filename for the params file)
    */
-  public static Artifact getParamsFileMaybe(
+  static Artifact getParamsFileMaybe(
       List<String> executableArgs,
       @Nullable Iterable<String> arguments,
       @Nullable CommandLine commandLine,
@@ -72,10 +73,10 @@ public final class ParamFileHelper {
       return null;
     }
 
-    PathFragment paramFilePath =
-        ParameterFile.derivePath(Iterables.getFirst(outputs, null).getRootRelativePath());
-
-    return analysisEnvironment.getDerivedArtifact(paramFilePath, configuration.getBinDirectory());
+    Artifact output = Iterables.getFirst(outputs, null);
+    Preconditions.checkNotNull(output);
+    PathFragment paramFilePath = ParameterFile.derivePath(output.getRootRelativePath());
+    return analysisEnvironment.getDerivedArtifact(paramFilePath, output.getRoot());
   }
 
   /**

@@ -26,16 +26,15 @@ import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-
+import java.util.ArrayList;
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * A test for {@link MiddlemanAction}.
@@ -63,7 +62,7 @@ public class MiddlemanActionTest extends BuildViewTestCase {
     middle = middlemanFactory.createAggregatingMiddleman(
         NULL_ACTION_OWNER, "middleman_test",
         Arrays.asList(a, b),
-        targetConfig.getMiddlemanDirectory());
+        targetConfig.getMiddlemanDirectory(RepositoryName.MAIN));
     analysisEnvironment.registerWith(getMutableActionGraph());
   }
 
@@ -89,7 +88,8 @@ public class MiddlemanActionTest extends BuildViewTestCase {
   @Test
   public void testMiddlemanIsNullForEmptyInputs() throws Exception {
     assertNull(middlemanFactory.createAggregatingMiddleman(NULL_ACTION_OWNER,
-        "middleman_test", new ArrayList<Artifact>(), targetConfig.getMiddlemanDirectory()));
+        "middleman_test", new ArrayList<Artifact>(),
+        targetConfig.getMiddlemanDirectory(RepositoryName.MAIN)));
   }
 
   @Test
@@ -98,7 +98,7 @@ public class MiddlemanActionTest extends BuildViewTestCase {
         middlemanFactory.createAggregatingMiddleman(
             NULL_ACTION_OWNER, "middleman_test",
             Lists.newArrayList(a),
-            targetConfig.getMiddlemanDirectory()));
+            targetConfig.getMiddlemanDirectory(RepositoryName.MAIN)));
   }
 
   @Test
@@ -112,10 +112,12 @@ public class MiddlemanActionTest extends BuildViewTestCase {
 
     analysisEnvironment.clear();
     Artifact middlemanForC = middlemanFactory.createRunfilesMiddleman(
-        NULL_ACTION_OWNER, c, Arrays.asList(c, common), targetConfig.getMiddlemanDirectory(),
+        NULL_ACTION_OWNER, c, Arrays.asList(c, common),
+        targetConfig.getMiddlemanDirectory(RepositoryName.MAIN),
         "runfiles");
     Artifact middlemanForD = middlemanFactory.createRunfilesMiddleman(
-        NULL_ACTION_OWNER, d, Arrays.asList(d, common), targetConfig.getMiddlemanDirectory(),
+        NULL_ACTION_OWNER, d, Arrays.asList(d, common),
+        targetConfig.getMiddlemanDirectory(RepositoryName.MAIN),
         "runfiles");
     analysisEnvironment.registerWith(getMutableActionGraph());
 

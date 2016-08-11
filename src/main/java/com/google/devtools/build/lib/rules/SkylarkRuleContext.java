@@ -568,7 +568,7 @@ public final class SkylarkRuleContext {
 
   private Root newFileRoot() {
     return isForAspect()
-        ? getConfiguration().getBinDirectory()
+        ? getConfiguration().getBinDirectory(ruleContext.getRule().getRepository())
         : ruleContext.getBinOrGenfilesDirectory();
   }
 

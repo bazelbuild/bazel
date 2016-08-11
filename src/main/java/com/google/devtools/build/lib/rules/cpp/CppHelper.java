@@ -342,8 +342,7 @@ public class CppHelper {
       name = name.replaceName("lib" + name.getBaseName() + linkType.getExtension());
     }
 
-    return ruleContext.getPackageRelativeArtifact(
-        name, ruleContext.getConfiguration().getBinDirectory());
+    return ruleContext.getBinArtifact(name);
   }
 
   /**
@@ -445,7 +444,8 @@ public class CppHelper {
     Artifact mapFile = ruleContext.getPackageRelativeArtifact(
         ruleContext.getLabel().getName()
             + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()),
-        ruleContext.getConfiguration().getGenfilesDirectory());
+        ruleContext.getConfiguration().getGenfilesDirectory(
+            ruleContext.getRule().getRepository()));
     return new CppModuleMap(mapFile, ruleContext.getLabel().toString());
   }
 
@@ -497,7 +497,8 @@ public class CppHelper {
     }
     return ImmutableList.of(
         factory.createMiddlemanAllowMultiple(env, actionOwner, ruleContext.getPackageDirectory(),
-            purpose, artifacts, configuration.getMiddlemanDirectory()));
+            purpose, artifacts, configuration.getMiddlemanDirectory(
+                ruleContext.getRule().getRepository())));
   }
 
   /**
@@ -606,7 +607,7 @@ public class CppHelper {
   static Artifact getCompileOutputArtifact(RuleContext ruleContext, String outputName) {
     PathFragment objectDir = getObjDirectory(ruleContext.getLabel());
     return ruleContext.getDerivedArtifact(objectDir.getRelative(outputName),
-        ruleContext.getConfiguration().getBinDirectory());
+        ruleContext.getConfiguration().getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
   static String getCompileArtifactName(RuleContext ruleContext, ArtifactCategory category,
