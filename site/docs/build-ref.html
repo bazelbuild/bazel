@@ -834,7 +834,7 @@ arg ::= IDENTIFIER '=' expr
       Like binaries, tests also have runfiles trees, and the files
       beneath it are the only files that a test may legitimately open
       at runtime.  For example, a program <code>cc_test(name='x',
-      data=['//foo:bar])</code> may open and
+      data=['//foo:bar'])</code> may open and
 
       read <code>$TEST_SRCDIR/workspace/foo/bar</code> during execution.
       (Each programming language has its own utility function for
