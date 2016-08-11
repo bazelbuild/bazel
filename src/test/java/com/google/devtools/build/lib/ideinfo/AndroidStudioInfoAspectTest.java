@@ -1360,6 +1360,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     assertThat(ruleIdeInfo.getDependenciesList()).contains("//com/google/example:lib");
     assertThat(ruleIdeInfo.getDependenciesList()).hasSize(2);
+
+    assertThat(getIdeCompileFiles()).containsExactly(
+        "com/google/example/liblib.a",
+        "com/google/example/libsimple.a");
   }
 
   @Test

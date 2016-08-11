@@ -271,6 +271,10 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     return getOutputGroupResult(AndroidStudioInfoAspect.IDE_RESOLVE);
   }
 
+  protected List<String> getIdeCompileFiles() {
+    return getOutputGroupResult(AndroidStudioInfoAspect.IDE_COMPILE);
+  }
+
   protected static List<RuleIdeInfo> findJavaToolchain(Map<String, RuleIdeInfo> ruleIdeInfos) {
     List<RuleIdeInfo> result = Lists.newArrayList();
     for (RuleIdeInfo ruleIdeInfo : ruleIdeInfos.values()) {

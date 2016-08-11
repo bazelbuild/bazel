@@ -198,11 +198,11 @@ def tool_label(label_str):
 def build_c_rule_ide_info(target, ctx):
   """Build CRuleIdeInfo.
 
-  Returns a pair of (CRuleIdeInfo proto, a set of ide-resolve-files).
-  (or (None, empty set) if the rule is not a C rule).
+  Returns a tuple of (CRuleIdeInfo proto, a set of ide-resolve-files, a set of ide-compile-files).
+  (or (None, empty set, empty set) if the rule is not a C rule).
   """
   if not hasattr(target, "cc"):
-    return (None, set())
+    return (None, set(), set())
 
   sources = sources_from_rule(ctx)
 
@@ -229,7 +229,8 @@ def build_c_rule_ide_info(target, ctx):
       transitive_system_include_directory = cc_provider.system_include_directories,
   )
   ide_resolve_files = cc_provider.transitive_headers
-  return (c_rule_ide_info, ide_resolve_files)
+  ide_compile_files = cc_provider.libs
+  return (c_rule_ide_info, ide_resolve_files, ide_compile_files)
 
 def build_c_toolchain_ide_info(target, ctx):
   """Build CToolchainIdeInfo.
@@ -427,6 +428,7 @@ def _aspect_impl_helper(target, ctx, for_test):
   prerequisites = direct_dep_targets + runtime_dep_targets + list_omit_none(legacy_resource_target)
   ide_info_text = set()
   ide_resolve_files = set()
+  ide_compile_files = set()
   intellij_infos = dict()
   for dep in prerequisites:
     ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
@@ -435,8 +437,9 @@ def _aspect_impl_helper(target, ctx, for_test):
       intellij_infos.update(dep.intellij_infos)
 
   # Collect C-specific information
-  (c_rule_ide_info, c_ide_resolve_files) = build_c_rule_ide_info(target, ctx)
+  (c_rule_ide_info, c_ide_resolve_files, c_ide_compile_files) = build_c_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | c_ide_resolve_files
+  ide_compile_files = ide_compile_files | c_ide_compile_files
 
   (c_toolchain_ide_info, c_toolchain_ide_resolve_files) = build_c_toolchain_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | c_toolchain_ide_resolve_files
@@ -491,8 +494,9 @@ def _aspect_impl_helper(target, ctx, for_test):
   return struct_omit_none(
       intellij_aspect = True,
       output_groups = {
-        "ide-info-text" : ide_info_text,
-        "ide-resolve" : ide_resolve_files,
+          "ide-info-text" : ide_info_text,
+          "ide-resolve" : ide_resolve_files,
+          "ide-compile": ide_compile_files,
       },
       intellij_info_files = struct(
         ide_info_text = ide_info_text,

@@ -29,6 +29,7 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
   private final NestedSet<Artifact> ideInfoFiles;
   private final NestedSet<Artifact> ideInfoTextFiles;
   private final NestedSet<Artifact> ideResolveFiles;
+  private final NestedSet<Artifact> ideCompileFiles;
   private final NestedSet<Label> exportedDeps;
 
   /**
@@ -38,12 +39,14 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
     private final NestedSetBuilder<Artifact> ideInfoFilesBuilder;
     private final NestedSetBuilder<Artifact> ideInfoTextFilesBuilder;
     private final NestedSetBuilder<Artifact> ideResolveFilesBuilder;
+    private final NestedSetBuilder<Artifact> ideCompileFilesBuilder;
     private NestedSetBuilder<Label> exportedDepsBuilder;
 
     public Builder() {
       ideInfoFilesBuilder = NestedSetBuilder.stableOrder();
       ideInfoTextFilesBuilder = NestedSetBuilder.stableOrder();
       ideResolveFilesBuilder = NestedSetBuilder.stableOrder();
+      ideCompileFilesBuilder = NestedSetBuilder.stableOrder();
       exportedDepsBuilder = NestedSetBuilder.stableOrder();
     }
 
@@ -59,6 +62,10 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
       return ideResolveFilesBuilder;
     }
 
+    public NestedSetBuilder<Artifact> ideCompileFilesBuilder() {
+      return ideCompileFilesBuilder;
+    }
+
     public NestedSetBuilder<Label> exportedDepsBuilder() {
       return exportedDepsBuilder;
     }
@@ -68,6 +75,7 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
           ideInfoFilesBuilder.build(),
           ideInfoTextFilesBuilder.build(),
           ideResolveFilesBuilder.build(),
+          ideCompileFilesBuilder.build(),
           exportedDepsBuilder.build()
       );
     }
@@ -77,10 +85,12 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
       NestedSet<Artifact> ideInfoFiles,
       NestedSet<Artifact> ideInfoTextFiles,
       NestedSet<Artifact> ideResolveFiles,
+      NestedSet<Artifact> ideCompileFiles,
       NestedSet<Label> exportedDeps) {
     this.ideInfoFiles = ideInfoFiles;
     this.ideInfoTextFiles = ideInfoTextFiles;
     this.ideResolveFiles = ideResolveFiles;
+    this.ideCompileFiles = ideCompileFiles;
     this.exportedDeps = exportedDeps;
   }
 
@@ -94,6 +104,10 @@ public final class AndroidStudioInfoFilesProvider implements TransitiveInfoProvi
 
   public NestedSet<Artifact> getIdeResolveFiles() {
     return ideResolveFiles;
+  }
+
+  public NestedSet<Artifact> getIdeCompileFiles() {
+    return ideCompileFiles;
   }
 
   public NestedSet<Label> getExportedDeps() {
