@@ -74,12 +74,14 @@ public final class CommandEnvironment {
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
 
-  private final UUID commandId;  // Unique identifier for the command being run
+  private UUID commandId;  // Unique identifier for the command being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
   private final Map<String, String> clientEnv = new HashMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
+
+  private String[] crashData;
 
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
@@ -108,7 +110,7 @@ public final class CommandEnvironment {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
-    this.commandId = UUID.randomUUID();
+    this.commandId = null; // Will be set once we get the client environment
     this.reporter = new Reporter();
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
@@ -170,6 +172,23 @@ public final class CommandEnvironment {
     for (Map.Entry<String, String> entry : env) {
       clientEnv.put(entry.getKey(), entry.getValue());
     }
+    // Try to set the clientId from the client environment.
+    if (commandId == null) {
+      String uuidString = clientEnv.get("BAZEL_INTERNAL_INVOCATION_ID");
+      if (uuidString != null) {
+        try {
+          commandId = UUID.fromString(uuidString);
+        } catch (IllegalArgumentException e) {
+          // String was malformed, so we will resort to generating a random UUID
+        }
+      }
+    }
+    if (commandId == null) {
+      // We have been provided with the client environment, but it didn't contain
+      // the invocation id; hence generate our own.
+      commandId = UUID.randomUUID();
+    }
+    setCommandIdInCrashData();
   }
 
   public TimestampGranularityMonitor getTimestampGranularityMonitor() {
@@ -203,6 +222,13 @@ public final class CommandEnvironment {
    * the build info.
    */
   public UUID getCommandId() {
+    if (commandId == null) {
+      // The commandId should not be requested before the beforeCommand is executed, as the
+      // commandId might be set through the client environment. However, to simplify testing,
+      // we set the id value before we throw the exception.
+      commandId = UUID.randomUUID();
+      throw new IllegalArgumentException("Build Id requested before client environment provided");
+    }
     return commandId;
   }
 
@@ -288,14 +314,31 @@ public final class CommandEnvironment {
 
   /**
    * An array of String values useful if Blaze crashes.
-   * For now, just returns the size of the action cache and the build id.
+   * For now, just returns the size of the action cache and the build id; the latter as
+   * soon as it is determined.
    */
   public String[] getCrashData() {
-    return new String[]{
+    if (crashData == null) {
+      String buildId;
+      if (commandId == null) {
+        buildId = " (build id not set yet)";
+      } else {
+        buildId = commandId + " (build id)";
+      }
+      crashData = new String[]{
         getFileSizeString(CompactPersistentActionCache.cacheFile(workspace.getCacheDirectory()),
                           "action cache"),
-        getCommandId() + " (build id)",
-    };
+        buildId,
+      };
+    }
+    return crashData;
+  }
+
+  private void setCommandIdInCrashData() {
+    // Update the command id in the crash data, if it is already generated
+    if (crashData != null && crashData.length >= 2) {
+      crashData[1] = getCommandId() + " (build id)";
+    }
   }
 
   private static String getFileSizeString(Path path, String type) {
@@ -361,7 +404,7 @@ public final class CommandEnvironment {
       skyframeExecutor.resetEvaluator();
     }
     skyframeExecutor.sync(reporter, packageCacheOptions, getOutputBase(),
-        getWorkingDirectory(), defaultsPackageContents, commandId,
+        getWorkingDirectory(), defaultsPackageContents, getCommandId(),
         timestampGranularityMonitor);
   }
 
@@ -466,7 +509,7 @@ public final class CommandEnvironment {
     }
 
     eventBus.post(new CommandStartEvent(
-        command.name(), commandId, getClientEnv(), workingDirectory, getDirectories(),
+        command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),
         waitTimeInMs + options.waitTime));
   }
 
