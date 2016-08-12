@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -56,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -305,8 +303,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /**
    * Returns a list of all possible values an attribute can take for this rule.
    *
-   * <p>Note that when an attribute uses multiple selects, it can potentially take on many
-   * values. So be cautious about unnecessarily relying on this method.
+   * <p>Note that when an attribute uses multiple selects, or is a {@link Attribute.ComputedDefault}
+   * that depends on configurable attributes, it can potentially take on many values. So be cautious
+   * about unnecessarily relying on this method.
    */
   public <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
     // If this attribute value is configurable, visit all possible values.
@@ -324,11 +323,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // or y1, then compute default values for the (x1,y1), (x1,y2), (x2,y1), and (x2,y2) cases.
     Attribute.ComputedDefault computedDefault = getComputedDefault(attributeName, type);
     if (computedDefault != null) {
-      // This will hold every (value1, value2, ..) combination of the declared dependencies.
-      List<Map<String, Object>> depMaps = new LinkedList<>();
-      // Collect those combinations.
-      mapDepsForComputedDefault(computedDefault.dependencies(), depMaps,
-          ImmutableMap.<String, Object>of());
+      // The depMaps list holds every assignment of possible values to the computed default's
+      // declared possibly-configurable dependencies.
+      List<Map<String, Object>> depMaps = visitAttributes(computedDefault.dependencies());
+
       List<T> possibleValues = new ArrayList<>(); // Not ImmutableList.Builder: values may be null.
       // For each combination, call getDefault on a specialized AttributeMap providing those values.
       for (Map<String, Object> depMap : depMaps) {
@@ -446,13 +444,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Given (possibly configurable) attributes that a computed default depends on, creates an
-   * {attrName -> attrValue} map for every possible combination of those attribute values and
-   * returns a list of all the maps. This defines the complete dependency space that can affect
-   * the computed default's values.
+   * Given a list of attributes, creates an {attrName -> attrValue} map for every possible
+   * combination of those attributes' values and returns a list of all the maps.
    *
-   * <p>For example, given dependencies x and y, which might respectively have values x1, x2 and
+   * <p>For example, given attributes x and y, which respectively have possible values x1, x2 and
    * y1, y2, this returns:
+   *
    * <pre>
    *   [
    *    {x: x1, y: y1},
@@ -462,19 +459,29 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *   ]
    * </pre>
    *
-   * @param depAttributes the names of the attributes this computed default depends on
-   * @param mappings the list of {attrName --> attrValue} maps defining the computed default's
-   *                 dependency space. This is where this method's results are written.
-   * @param currentMap a (possibly non-empty) map to add {attrName --> attrValue}
-   *                   entries to. Outside callers can just pass in an empty map.
+   * <p>This uses time and space exponential on the number of inputs. To guard against misuse,
+   * {@code attributes.size()} must be two or less.
    */
-  private void mapDepsForComputedDefault(List<String> depAttributes,
-      List<Map<String, Object>> mappings, Map<String, Object> currentMap) {
-    // Because this method uses exponential time/space on the number of inputs, keep the
-    // maximum number of inputs conservatively small.
-    Preconditions.checkState(depAttributes.size() <= 2);
+  private List<Map<String, Object>> visitAttributes(List<String> attributes) {
+    Preconditions.checkState(attributes.size() <= 2);
+    List<Map<String, Object>> depMaps = new LinkedList<>();
+    visitAttributesInner(attributes, depMaps, ImmutableMap.<String, Object>of());
+    return depMaps;
+  }
 
-    if (depAttributes.isEmpty()) {
+  /**
+   * A recursive function used in the implementation of {@link #visitAttributes(List)}.
+   *
+   * @param attributes a list of attributes that are not yet assigned values in the {@code
+   *     currentMap} parameter.
+   * @param mappings a mutable list of {attrName --> attrValue} maps collected so far. This method
+   *     will add newly discovered maps to the list.
+   * @param currentMap a (possibly non-empty) map holding {attrName --> attrValue} assignments for
+   *     attributes not in the {@code attributes} list.
+   */
+  private void visitAttributesInner(
+      List<String> attributes, List<Map<String, Object>> mappings, Map<String, Object> currentMap) {
+    if (attributes.isEmpty()) {
       // Recursive base case: store whatever's already been populated in currentMap.
       mappings.add(currentMap);
       return;
@@ -484,19 +491,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // value x, copy currentMap with the additional entry { firstAttrName: x }, then feed
     // this recursively into a subcall over all remaining dependencies. This recursively
     // continues until we run out of values.
-    String firstAttribute = depAttributes.get(0);
-    for (Object value : visitAttribute(firstAttribute, getAttributeType(firstAttribute))) {
+    String firstAttribute = attributes.get(0);
+    Iterable<?> firstAttributePossibleValues =
+        visitAttribute(firstAttribute, getAttributeType(firstAttribute));
+    for (Object value : firstAttributePossibleValues) {
       Map<String, Object> newMap = new HashMap<>();
       newMap.putAll(currentMap);
       newMap.put(firstAttribute, value);
-      mapDepsForComputedDefault(depAttributes.subList(1, depAttributes.size()), mappings, newMap);
+      visitAttributesInner(attributes.subList(1, attributes.size()), mappings, newMap);
     }
   }
 
   /**
-   * A custom {@link AttributeMap} that reads attribute values from the given Map. All
-   * non-configurable attributes are also readable. Any attempt to read an attribute
-   * that's not in one of these two cases triggers an IllegalArgumentException.
+   * Returns an {@link AttributeMap} that delegates to {@code AggregatingAttributeMapper.this}
+   * except for {@link #get} calls for attributes that are configurable. In that case, the {@link
+   * AttributeMap} looks up an attribute's value in {@code directMap}. Any attempt to {@link #get} a
+   * configurable attribute that's not in {@code directMap} causes an {@link
+   * IllegalArgumentException} to be thrown.
    */
   private AttributeMap mapBackedAttributeMap(final Map<String, Object> directMap) {
     final AggregatingAttributeMapper owner = AggregatingAttributeMapper.this;
