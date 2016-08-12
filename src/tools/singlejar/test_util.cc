@@ -28,7 +28,7 @@
 
 namespace singlejar_test_util {
 
-bool AllocateFile(const std::string &name, size_t size) {
+bool AllocateFile(const string &name, size_t size) {
   int fd = open(name.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0777);
   if (fd < 0) {
     perror(name.c_str());
@@ -49,7 +49,7 @@ bool AllocateFile(const std::string &name, size_t size) {
 }
 
 int RunCommand(const char *cmd, ...) {
-  std::string args_string(cmd);
+  string args_string(cmd);
   va_list ap;
   va_start(ap, cmd);
   for (const char *arg = va_arg(ap, const char *); arg;
@@ -65,33 +65,31 @@ int RunCommand(const char *cmd, ...) {
 // List zip file contents.
 void LsZip(const char *zip_name) {
 #if !defined(__APPLE__)
-  std::string command = (std::string("unzip -v ") + zip_name).c_str();
-  system(command.c_str());
+  RunCommand("unzip", "-v", zip_name, nullptr);
 #endif
 }
 
-std::string OutputFilePath(const std::string &relpath) {
+string OutputFilePath(const string &relpath) {
   const char *out_dir = getenv("TEST_TMPDIR");
   return blaze_util::JoinPath((nullptr == out_dir) ? "." : out_dir,
                               relpath.c_str());
 }
 
-int VerifyZip(const std::string &zip_path) {
-  std::string verify_command;
+int VerifyZip(const string &zip_path) {
+  string verify_command;
   blaze_util::StringPrintf(&verify_command, "zip -Tv %s", zip_path.c_str());
   return system(verify_command.c_str());
 }
 
-std::string GetEntryContents(const std::string &zip_path,
-                             const std::string &entry_name) {
-  std::string contents;
-  std::string command;
+string GetEntryContents(const string &zip_path, const string &entry_name) {
+  string contents;
+  string command;
   blaze_util::StringPrintf(&command, "unzip -p %s %s", zip_path.c_str(),
                            entry_name.c_str());
   FILE *fp = popen(command.c_str(), "r");
   if (!fp) {
     ADD_FAILURE() << "Command " << command << " failed.";
-    return std::string("");
+    return string("");
   }
 
   char buf[1024];
@@ -102,7 +100,17 @@ std::string GetEntryContents(const std::string &zip_path,
     return contents;
   }
   ADD_FAILURE() << "Command " << command << " failed on close.";
-  return std::string("");
+  return string("");
+}
+
+string CreateTextFile(const string& relpath, const char *contents) {
+  string out_path = OutputFilePath(relpath);
+  blaze::MakeDirectories(blaze_util::Dirname(out_path), 0777);
+  if (blaze::WriteFile(contents, out_path)) {
+    return out_path;
+  }
+  ADD_FAILURE() << "Cannot write " << out_path;
+  return string("");
 }
 
 }  // namespace singlejar_test_util

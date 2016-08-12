@@ -18,9 +18,10 @@
 #include <string>
 
 namespace singlejar_test_util {
+  using std::string;
 
-// Allocate a file with given name and size. The contents is zeroes.
-  bool AllocateFile(const std::string& name, size_t size);
+  // Allocate a file with given name and size. The contents is zeroes.
+  bool AllocateFile(const string& name, size_t size);
 
   // Combine the passed arguments to a shell command and run it.
   // E.g. calling RunCommand("cmd", "arg1", "arg2", nullptr) results in
@@ -32,16 +33,19 @@ namespace singlejar_test_util {
   void LsZip(const char *zip_name);
 
   // Return the full path to a file in a temporary directory.
-  std::string OutputFilePath(const std::string& relpath);
+  std::string OutputFilePath(const string& relpath);
 
   // Verify given archive contents by running 'zip -Tv' on it,
   // returning its exit code (0 means success). Diagnostics goes
   // tp stdout/stderr.
-  int VerifyZip(const std::string& zip_path);
+  int VerifyZip(const string& zip_path);
 
   // Read the contents of the given archive entry and return it as string.
-  std::string GetEntryContents(const std::string &zip_path,
-                        const std::string& entry_name);
+  string GetEntryContents(const string &zip_path, const string& entry_name);
+
+  // Create a file in the output directory with given contents,
+  // return file's path.
+  string CreateTextFile(const string& file_path, const char *contents);
 
 }  // namespace singlejar_test_util
 #endif  //  SRC_TOOLS_SINGLEJAR_TEST_UTIL_H_
