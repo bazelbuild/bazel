@@ -250,7 +250,18 @@ bool KillServerProcess(
     return false;
   }
 
+  // Kill the process and make sure it's dead before proceeding.
   killpg(pid, SIGKILL);
+  int check_killed_retries = 10;
+  while (killpg(pid, 0) == 0) {
+    if (check_killed_retries-- > 0) {
+      sleep(1);
+    } else {
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "Attempted to kill stale blaze server process (pid=%d) using "
+          "SIGKILL, but it did not die in a timely fashion.", pid);
+    }
+  }
   return true;
 }
 
