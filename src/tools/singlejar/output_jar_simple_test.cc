@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdlib.h>
+
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/port.h"
@@ -22,10 +24,17 @@
 #include "src/tools/singlejar/test_util.h"
 #include "gtest/gtest.h"
 
+#if !defined(JAR_TOOL_PATH)
+#error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="
+#endif
+
 namespace {
 
+using singlejar_test_util::CreateTextFile;
+using singlejar_test_util::GetEntryContents;
 using singlejar_test_util::GetEntryContents;
 using singlejar_test_util::OutputFilePath;
+using singlejar_test_util::RunCommand;
 using singlejar_test_util::VerifyZip;
 
 using std::string;
@@ -90,6 +99,41 @@ TEST_F(OutputJarSimpleTest, Empty) {
       EXPECT_EQ(lh->uncompressed_file_size(), cdh->uncompressed_file_size())
           << "Entry: " << cdh->file_name_string();
     }
+    // Verify that each entry has a reasonable timestamp.
+    EXPECT_EQ(lh->last_mod_file_date(), cdh->last_mod_file_date())
+        << "Entry: " << lh->file_name_string();
+    EXPECT_EQ(lh->last_mod_file_time(), cdh->last_mod_file_time())
+        << "Entry: " << lh->file_name_string();
+    uint16_t dos_time = lh->last_mod_file_time();
+    uint16_t dos_date = lh->last_mod_file_date();
+
+    // Current time, rounded to even number of seconds because MSDOS timestamp
+    // does this, too.
+    time_t now = (time(nullptr) + 1) & ~1;
+    struct tm tm_now;
+    localtime_r(&now, &tm_now);
+    char now_time_str[50];
+    strftime(now_time_str, sizeof(now_time_str), "%c", &tm_now);
+
+    // Unpack MSDOS file timestamp. See the comment about its format in
+    // output_jar.cc.
+    struct tm tm;
+    tm.tm_sec = (dos_time & 31) << 1;
+    tm.tm_min = (dos_time >> 5) & 63;
+    tm.tm_hour = (dos_time >> 11) & 31;
+    tm.tm_mday = (dos_date & 31);
+    tm.tm_mon = ((dos_date >> 5) & 15) - 1;
+    tm.tm_year = ((dos_date >> 9) & 127) + 80;
+    tm.tm_isdst = tm_now.tm_isdst;
+    time_t entry_time = mktime(&tm);
+    char entry_time_str[50];
+    strftime(entry_time_str, sizeof(entry_time_str), "%c", &tm);
+
+    // Without --normalize option all the entries should have reasonably
+    // current timestamp (which we arbitrarily choose to be <5 minutes).
+    EXPECT_GE(now, entry_time) << now_time_str << " vs. " << entry_time_str;
+    EXPECT_LE(now, entry_time + 300) << now_time_str << " vs. "
+                                     << entry_time_str;
   }
   input_jar.Close();
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
@@ -112,6 +156,7 @@ TEST_F(OutputJarSimpleTest, Source) {
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
   const CDH *cdh;
+  int file_count = 0;
   while ((cdh = input_jar.NextEntry(&lh))) {
     ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
     ASSERT_NE(nullptr, lh) << "No local header.";
@@ -123,7 +168,11 @@ TEST_F(OutputJarSimpleTest, Source) {
       EXPECT_EQ(lh->uncompressed_file_size(), cdh->uncompressed_file_size())
           << "Entry: " << cdh->file_name_string();
     }
+    if (lh->file_name()[lh->file_name_length() - 1] != '/') {
+      ++file_count;
+    }
   }
+  ASSERT_LE(4, file_count);
   input_jar.Close();
 }
 
@@ -187,12 +236,11 @@ TEST_F(OutputJarSimpleTest, ExtraBuildInfo) {
 
 // --build_info_file and --extra_build_info options.
 TEST_F(OutputJarSimpleTest, BuildInfoFile) {
-  string build_info_path1 = OutputFilePath("buildinfo1");
-  ASSERT_TRUE(blaze::WriteFile("property11=value11\nproperty12=value12\n",
-                               build_info_path1));
-  string build_info_path2 = OutputFilePath("buildinfo2");
-  ASSERT_TRUE(blaze::WriteFile("property21=value21\nproperty22=value22\n",
-                               build_info_path2));
+  string build_info_path1 =
+      CreateTextFile("buildinfo1", "property11=value11\nproperty12=value12\n");
+  string build_info_path2 =
+      CreateTextFile("buildinfo2", "property21=value21\nproperty22=value22\n");
+
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--build_info_file", build_info_path1.c_str(),
                "--extra_build_info", "property=value", "--build_info_file",
@@ -207,16 +255,13 @@ TEST_F(OutputJarSimpleTest, BuildInfoFile) {
 
 // --resources option.
 TEST_F(OutputJarSimpleTest, Resources) {
-  string res11_path = OutputFilePath("res11");
+  string res11_path = CreateTextFile("res11", "res11.line1\nres11.line2\n");
   string res11_spec = string("res1:") + res11_path;
-  ASSERT_TRUE(blaze::WriteFile("res11.line1\nres11.line2\n", res11_path));
 
-  string res12_path = OutputFilePath("res12");
+  string res12_path = CreateTextFile("res12", "res12.line1\nres12.line2\n");
   string res12_spec = string("res1:") + res12_path;
-  ASSERT_TRUE(blaze::WriteFile("res12.line1\nres12.line2\n", res12_path));
 
-  string res2_path = OutputFilePath("res2");
-  ASSERT_TRUE(blaze::WriteFile("res2.line1\nres2.line2\n", res2_path));
+  string res2_path = CreateTextFile("res2", "res2.line1\nres2.line2\n");
 
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--resources", res11_spec.c_str(), res12_spec.c_str(),
@@ -244,16 +289,13 @@ TEST_F(OutputJarSimpleTest, ClasspathResources) {
 
 // Duplicate entries for --resources or --classpath_resources
 TEST_F(OutputJarSimpleTest, DuplicateResources) {
-  string cp_res_path = OutputFilePath("cp_res");
-  ASSERT_TRUE(blaze::WriteFile("line1\nline2\n", cp_res_path));
+  string cp_res_path = CreateTextFile("cp_res", "line1\nline2\n");
 
-  string res1_path = OutputFilePath("res1");
+  string res1_path = CreateTextFile("res1", "resline1\nresline2\n");
   string res1_spec = "foo:" + res1_path;
-  ASSERT_TRUE(blaze::WriteFile("resline1\nresline2\n", res1_path));
 
-  string res2_path = OutputFilePath("res2");
+  string res2_path = CreateTextFile("res2", "line3\nline4\n");
   string res2_spec = "foo:" + res2_path;
-  ASSERT_TRUE(blaze::WriteFile("line3\nline4\n", res2_path));
 
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, "--warn_duplicate_resources", "--resources",
@@ -306,6 +348,80 @@ TEST_F(OutputJarSimpleTest, IncludeHeaders) {
   }
   input_jar.Close();
   EXPECT_EQ(expected_entries, jar_entries);
+}
+
+// --normalize
+TEST_F(OutputJarSimpleTest, Normalize) {
+  // Creates output jar containing entries from all possible sources:
+  //  * archives created by java_library rule, by jar tool, by zip
+  //  * resource files
+  //  * classpath resource files
+  //  *
+  string out_path = OutputFilePath("out.jar");
+  string testjar_path = OutputFilePath("testinput.jar");
+  {
+    char *jar_tool_path = realpath(JAR_TOOL_PATH, nullptr);
+    string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
+    string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
+    unlink(testjar_path.c_str());
+    ASSERT_EQ(
+        0, RunCommand(jar_tool_path, "-cf", testjar_path.c_str(),
+                      textfile_path.c_str(), classfile_path.c_str(), nullptr));
+    free(jar_tool_path);
+  }
+
+  string testzip_path = OutputFilePath("testinput.zip");
+  {
+    string textfile_path = CreateTextFile("zip_testinput.txt", "zip_inputtext");
+    string classfile_path = CreateTextFile("ZipTestInput.class", "Dummy");
+    unlink(testzip_path.c_str());
+    ASSERT_EQ(
+        0, RunCommand("zip", "-m", testzip_path.c_str(), textfile_path.c_str(),
+                      classfile_path.c_str(), nullptr));
+  }
+
+  string resource_path = CreateTextFile("resource", "resource_text");
+  string cp_resource_path = CreateTextFile("cp_resource", "cp_resource_text");
+
+  // TODO(asmundak): check the following generated entries, too:
+  //  * services
+  //  * spring.schemas
+  //  * spring.handlers
+  //  * protobuf.meta
+  //  * extra combiner
+
+  CreateOutput(out_path, "--normalize", "--sources",
+               DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+               testjar_path.c_str(), testzip_path.c_str(), "--resources",
+               resource_path.c_str(), "--classpath_resources",
+               cp_resource_path.c_str(), nullptr);
+
+  // Scan all entries, verify that *.class entries have timestamp
+  // 01/01/1980 00:00:02 and the rest have the timestamp of 01/01/1980 00:00:00.
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    string entry_name = cdh->file_name_string();
+    EXPECT_EQ(lh->last_mod_file_date(), cdh->last_mod_file_date())
+        << entry_name << " modification date";
+    EXPECT_EQ(lh->last_mod_file_time(), cdh->last_mod_file_time())
+        << entry_name << " modification time";
+    EXPECT_EQ(33, cdh->last_mod_file_date())
+        << entry_name << " modification date should be 01/01/1980";
+    auto n = entry_name.size() - strlen(".class");
+    if (0 == strcmp(entry_name.c_str() + n, ".class")) {
+      EXPECT_EQ(1, cdh->last_mod_file_time())
+          << entry_name
+          << " modification time for .class entry should be 00:00:02";
+    } else {
+      EXPECT_EQ(0, cdh->last_mod_file_time())
+          << entry_name
+          << " modification time for non .class entry should be 00:00:00";
+    }
+  }
+  input_jar.Close();
 }
 
 }  // namespace

@@ -122,12 +122,14 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    copts = ["-Ithird_party/bazel"],
+    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
     data = [
         ":data1",
         ":data2",
         ":test1",
         ":test2",
+        "//external:jar",
+        "//external:jdk-default",
     ],
     deps = [
         ":input_jar",

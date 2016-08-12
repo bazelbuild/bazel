@@ -25,7 +25,7 @@
 #include <sys/sendfile.h>
 #endif
 #include <sys/stat.h>
-#include <sys/times.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "src/main/cpp/util/file.h"
@@ -78,7 +78,6 @@ int OutputJar::Doit(Options *options) {
 
   // TODO(asmundak): handle these options.
   TODO(!options_->force_compression, "Handle --compression");
-  TODO(!options_->normalize_timestamps, "Handle --normalize");
   TODO(!options_->preserve_compression, "Handle --dont_change_compression");
 
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
@@ -343,6 +342,35 @@ bool OutputJar::AddJar(int jar_path_index) {
       num_bytes += lh->compressed_file_size();
     }
     off_t output_position = Position();
+
+    // When normalize_timestamps is set, entry's timestamp is to be set to
+    // 01/01/1980 00:00:00 (or to 01/01/1980 00:00:02, if an entry is a .class
+    // file). This is somewhat expensive because we have to copy the local
+    // header to memory as input jar is memory mapped as read-only. Try to copy
+    // as little as possible.
+    uint16_t normalized_time = 0;
+    bool fix_timestamp = false;
+    if (options_->normalize_timestamps) {
+      if (ends_with(file_name, file_name_length, ".class")) {
+        normalized_time = 1;
+      }
+      fix_timestamp = jar_entry->last_mod_file_date() != 0 ||
+                      jar_entry->last_mod_file_time() != normalized_time;
+    }
+    if (fix_timestamp) {
+      LH lh_new;
+      memcpy(&lh_new, lh, sizeof(lh_new));
+      lh_new.last_mod_file_date(33);
+      lh_new.last_mod_file_time(normalized_time);
+      // Now write these few bytes and adjust read/write positions accordingly.
+      if (!WriteBytes(reinterpret_cast<uint8_t *>(&lh_new), sizeof(lh_new))) {
+        diag_err(1, "%s:%d: Cannot copy modified local header for %.*s",
+                 __FILE__, __LINE__, file_name_length, file_name);
+      }
+      copy_from += sizeof(lh_new);
+      num_bytes -= sizeof(lh_new);
+    }
+
     // Do the actual copy. Use sendfile, avoiding copying the data to user
     // space and back.
     ssize_t n_copied = AppendFile(input_jar.fd(), &copy_from, num_bytes);
@@ -358,7 +386,12 @@ bool OutputJar::AddJar(int jar_path_index) {
     // Append central directory header for this file to the output central
     // directory we are building.
     TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
-    AppendToDirectoryBuffer(jar_entry)->local_header_offset32(output_position);
+    CDH *out_cdh = AppendToDirectoryBuffer(jar_entry);
+    out_cdh->local_header_offset32(output_position);
+    if (fix_timestamp) {
+      out_cdh->last_mod_file_time(normalized_time);
+      out_cdh->last_mod_file_date(33);
+    }
     ++entries_;
   }
   return input_jar.Close();
@@ -389,16 +422,33 @@ void OutputJar::WriteEntry(void *buffer) {
                                                             : "compressed",
             entry->compressed_file_size());
   }
-  uint8_t *data_end = entry->data() + entry->in_zip_size();
+
+  // Set this entry's timestamp.
+  // MSDOS file timestamp format that Zip uses is described here:
+  // https://msdn.microsoft.com/en-us/library/9kkf9tah.aspx
+  // ("32-Bit Windows Time/Date Formats")
+  if (options_->normalize_timestamps) {
+    // Regular "normalized" timestamp is 01/01/1980 00:00:00. No need to handle
+    // .class files here, they are always copied from the input jars.
+    entry->last_mod_file_time(0);
+    entry->last_mod_file_date(33);
+  } else {
+    struct tm tm;
+    // Time has 2-second resolution, so round up:
+    time_t t_adjusted = (time(nullptr) + 1) & ~1;
+    localtime_r(&t_adjusted, &tm);
+    uint16_t dos_date =
+        ((tm.tm_year - 80) << 9) | ((tm.tm_mon + 1) << 5) | tm.tm_mday;
+    uint16_t dos_time =
+        (tm.tm_hour << 11) | (tm.tm_min << 5) | (tm.tm_sec >> 1);
+    entry->last_mod_file_time(dos_time);
+    entry->last_mod_file_date(dos_date);
+  }
+
   uint8_t *data = reinterpret_cast<uint8_t *>(entry);
   off_t output_position = Position();
-  while (data < data_end) {
-    ssize_t written = write(fd_, data, data_end - data);
-    if (written >= 0) {
-      data += written;
-    } else if (errno != EINTR) {
-      diag_err(1, "%s:%d: write", __FILE__, __LINE__);
-    }
+  if (!WriteBytes(data, entry->data() + entry->in_zip_size() - data)) {
+    diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
   // Data written, allocate CDH space and populate CDH.
   CDH *cdh = reinterpret_cast<CDH *>(
@@ -434,8 +484,6 @@ void OutputJar::AddDirectory(const char *path) {
   lh->version(20);
   lh->bit_flag(0);  // TODO(asmundak): should I set UTF8 flag?
   lh->compression_method(Z_NO_COMPRESSION);
-  lh->last_mod_file_time(0);
-  lh->last_mod_file_date(33);
   lh->crc32(0);
   lh->compressed_file_size32(0);
   lh->uncompressed_file_size32(0);
@@ -504,15 +552,9 @@ bool OutputJar::Close() {
   TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
   ecd->cen_offset32(output_position);
 
-  // Write Central Directory.
-  uint8_t *cen_end = cen_ + cen_size_;
-  uint8_t *cen = cen_;
-  while (cen < cen_end) {
-    ssize_t n = write(fd_, cen, cen_end - cen);
-    if (n < 0) {
-      diag_err(1, "%s:%d: Cannot write central directory", __FILE__, __LINE__);
-    }
-    cen += n;
+  // Save Central Directory and wrap up.
+  if (!WriteBytes(cen_, cen_size_)) {
+    diag_err(1, "%s:%d: Cannot write central directory", __FILE__, __LINE__);
   }
   free(cen_);
 
@@ -581,16 +623,8 @@ ssize_t OutputJar::AppendFile(int in_fd, off_t *in_offset, size_t count) {
     ssize_t n_read =
         read(in_fd, buffer, std::min(sizeof(buffer), count - total_written));
     if (n_read > 0) {
-      uint8_t *write_buffer = buffer;
-      uint8_t *write_buffer_end = write_buffer + n_read;
-      while (write_buffer < write_buffer_end) {
-        ssize_t n_written =
-            write(fd_, write_buffer, write_buffer_end - write_buffer);
-        if (n_written > 0) {
-          write_buffer += n_written;
-        } else if (EAGAIN != errno) {
-          return -1;
-        }
+      if (!WriteBytes(buffer, n_read)) {
+        return -1;
       }
       total_written += n_read;
     } else if (n_read == 0) {
@@ -632,4 +666,16 @@ void OutputJar::ExtraCombiner(const std::string &entry_name,
                               Combiner *combiner) {
   extra_combiners_.emplace_back(combiner);
   known_members_.emplace(entry_name, EntryInfo{combiner});
+}
+
+bool OutputJar::WriteBytes(uint8_t *buffer, size_t count) {
+  for (uint8_t *buffer_end = buffer + count; buffer < buffer_end;) {
+    ssize_t n_written = write(fd_, buffer, buffer_end - buffer);
+    if (n_written > 0) {
+      buffer += n_written;
+    } else if (EAGAIN == errno) {
+      return false;
+    }
+  }
+  return true;
 }

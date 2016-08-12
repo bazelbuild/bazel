@@ -65,6 +65,8 @@ class OutputJar {
                          const std::string& resource_path);
   // Copy the bytes from the given file.
   ssize_t AppendFile(int in_fd, off_t *in_offset, size_t count);
+  // Write bytes to the output file, return true on success.
+  bool WriteBytes(uint8_t *buffer, size_t count);
 
   // The purpose  of these two tiny utility methods is to avoid creating a
   // std::string instance (which always involves allocating an object on the
