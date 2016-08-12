@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -203,8 +205,20 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().addAll(common.getCompiledArchive().asSet());
 
+    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
+    compilationSupport.addXcodeSettings(xcodeProviderBuilder, common);
+    new XcodeSupport(ruleContext)
+        .addFilesToBuild(filesToBuild)
+        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
+        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
+        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
+        .addNonPropagatedDependencies(
+            xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
+        .registerActions(xcodeProviderBuilder.build());
+
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProviders(info.getProviders())
+        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();
   }
 
