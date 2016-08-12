@@ -60,12 +60,20 @@ while [[ $# -gt 0 ]]; do
       done < "${ARG}"
       ARGS+=("${HASHED_FILELIST}")
       ;;
+   # Output flag
+    -o)
+     ARGS+=("${ARG}")
+     ARG="$1"
+     shift
+     ARGS+=("${ARG}")
+     OUTPUTFILE="${ARG}"
+     ;;
    # Flags with no args
     -static|-s|-a|-c|-L|-T|-no_warning_for_no_symbols)
       ARGS+=("${ARG}")
       ;;
    # Single-arg flags
-   -o|-arch_only|-syslibroot)
+   -arch_only|-syslibroot)
      ARGS+=("${ARG}")
      ARG="$1"
      shift
@@ -83,4 +91,11 @@ while [[ $# -gt 0 ]]; do
    esac
 done
 
+# Ensure 0 timestamping for hermetic results.
+export ZERO_AR_DATE=1
+
 "${WRAPPER}" libtool "${ARGS[@]}"
+
+# Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld
+# would cause ld to error.
+touch "$OUTPUTFILE"
