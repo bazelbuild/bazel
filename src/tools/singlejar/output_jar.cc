@@ -80,7 +80,6 @@ int OutputJar::Doit(Options *options) {
   TODO(!options_->force_compression, "Handle --compression");
   TODO(!options_->normalize_timestamps, "Handle --normalize");
   TODO(!options_->preserve_compression, "Handle --dont_change_compression");
-  TODO(!options_->include_prefixes.size(), "Handle --include_prefixes");
 
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
   if (options_->verbose) {
@@ -261,6 +260,20 @@ bool OutputJar::AddJar(int jar_path_index) {
     if (ends_with(file_name, file_name_length, ".SF") ||
         ends_with(file_name, file_name_length, ".RSA") ||
         ends_with(file_name, file_name_length, ".DSA")) {
+      continue;
+    }
+
+    bool include_entry = true;
+    if (!options_->include_prefixes.empty()) {
+      for (auto& prefix : options_->include_prefixes) {
+        if ((include_entry =
+                 (prefix.size() <= file_name_length &&
+                  0 == strncmp(file_name, prefix.c_str(), prefix.size())))) {
+          break;
+        }
+      }
+    }
+    if (!include_entry) {
       continue;
     }
 

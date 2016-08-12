@@ -284,4 +284,28 @@ TEST_F(OutputJarSimpleTest, ExtraCombiners) {
       extra_file_contents);
 }
 
+// --include_headers
+TEST_F(OutputJarSimpleTest, IncludeHeaders) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, "--sources",
+               DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+               DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
+               "--include_prefixes", "tools/singlejar/data",
+               nullptr);
+  std::vector<string> expected_entries(
+      {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
+       "tools/singlejar/data/", "tools/singlejar/data/extra_file1",
+       "tools/singlejar/data/extra_file2"});
+  std::vector<string> jar_entries;
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    jar_entries.push_back(cdh->file_name_string());
+  }
+  input_jar.Close();
+  EXPECT_EQ(expected_entries, jar_entries);
+}
+
 }  // namespace
