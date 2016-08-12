@@ -761,7 +761,7 @@ public final class CompilationSupport {
    * Returns the copts for the compile action in the current rule context (using a combination
    * of the rule's "copts" attribute as well as the current configuration copts).
    */
-  private Iterable<String> getCompileRuleCopts() {
+  Iterable<String> getCompileRuleCopts() {
     List<String> copts = Lists.newArrayList(
         Iterables.concat(objcConfiguration.getCopts(), attributes.copts()));
 

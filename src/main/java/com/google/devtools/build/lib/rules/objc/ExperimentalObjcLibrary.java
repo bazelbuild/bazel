@@ -177,6 +177,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addPublicHeaders(publicHdrs)
             .addPrecompiledFiles(precompiledFiles)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+            .addCopts(compilationSupport.getCompileRuleCopts())
             .addVariableExtension(
                 new ObjcVariablesExtension(
                     ruleContext, common.getObjcProvider(), compilationArtifacts));
