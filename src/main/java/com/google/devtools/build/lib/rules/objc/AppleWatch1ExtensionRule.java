@@ -51,8 +51,8 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(binary) -->
-        The binary target containing the logic for the watch extension.
-        ${SYNOPSIS}
+        The binary target containing the logic for the watch extension. This must be an
+        <code>apple_watch1_extension_binary</code> target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("binary", LABEL)
             .allowedRuleClasses("apple_watch_extension_binary")
