@@ -786,12 +786,13 @@ public class AndroidCommon {
     if (!ruleContext.attributes().has("resources", BuildType.LABEL)) {
       return null;
     }
-
     TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite("resources", Mode.TARGET);
     if (prerequisite == null) {
       return null;
     }
-
+    ruleContext.ruleWarning(
+        "The use of the android_resources rule and the resources attribute is deprecated. "
+            + "Please use the resource_files, assets, and manifest attributes of android_library.");
     return prerequisite.getProvider(AndroidResourcesProvider.class);
   }
 

@@ -51,10 +51,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.util.FileType;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -433,7 +431,7 @@ public final class AndroidRuleClasses {
   public static final class AndroidResourceSupportRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.setUndocumented()
+      return builder
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(manifest) -->
           The name of the Android manifest file, normally <code>AndroidManifest.xml</code>.
           Must be defined if resource_files or assets are defined.
@@ -471,7 +469,10 @@ public final class AndroidRuleClasses {
           and for any <code>android_binary</code> that has an <code>android_library</code>
           in its transitive closure.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("inline_constants", BOOLEAN).value(false))
+          .add(
+              attr("inline_constants", BOOLEAN)
+                  .undocumented("deprecated noop on library")
+                  .value(false))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(custom_package) -->
           Java package for which java sources will be generated.
           By default the package is inferred from the directory where the BUILD file
@@ -480,7 +481,7 @@ public final class AndroidRuleClasses {
           libraries that will only be detected at runtime.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("custom_package", STRING))
-        .build();
+          .build();
     }
 
     @Override
