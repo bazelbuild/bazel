@@ -50,8 +50,17 @@ a lot of time in a patch.
 
 ## Setting up your coding environment
 
-For now we have partial support for the Eclipse and IntelliJ IDEs for Java. We
-don't have IDE support for other languages in Bazel right now.
+For now we have support for IntelliJ, and partial support for the Eclipse IDE
+for Java. We don't have IDE support for other languages in Bazel right now.
+
+### Creating an IntelliJ project
+
+To work with IntelliJ:
+
+* Install the [IntelliJ-with-Bazel](https://github.com/bazelbuild/intellij)
+  plugin.
+* Follow the instructions at [ij.bazel.io](www.ij.bazel.io) to setup your
+  project.
 
 ### Creating an Eclipse project
 
@@ -63,14 +72,6 @@ To work with Eclipse:
   `Import Bazel Workspace`).
 * Select `src > main > java` and `src > test > java` as directories and add
   `//src/main/java/...` and `//src/test/java/...` as targets.
-
-### Creating an IntelliJ project
-
-To work with IntelliJ:
-
-* Run `sh scripts/setup-intellij.sh` from the root of the source tree to create
-  the necessary project files.
-* Open the folder as a project in IntelliJ.
 
 <a name="compile-bazel"></a>
 ### Compiling Bazel
@@ -123,7 +124,8 @@ But if you want to debug the Java code, you must attach to the server using the 
   run `jdb -attach localhost:5005`. From within Eclipse, use the
   [remote Java application launch
   configuration](http://help.eclipse.org/luna/index.jsp?topic=%2Forg.eclipse.jdt.doc.user%2Ftasks%2Ftask-remotejava_launch_config.htm).
-  For IntelliJ, you can refer to [Run/Debug Configuration: Remote](https://www.jetbrains.com/idea/help/run-debug-configuration-remote.html).
+* Our IntelliJ plugin has built-in
+  [debugging support](www.ij.bazel.io/docs/run-configurations.html)
 
 ## Bazel's code description
 
