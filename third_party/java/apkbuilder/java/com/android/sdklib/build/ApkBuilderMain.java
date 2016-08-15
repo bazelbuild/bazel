@@ -19,9 +19,6 @@ package com.android.sdklib.build;
 import com.google.devtools.build.singlejar.ZipCombiner;
 import com.google.devtools.build.singlejar.ZipEntryFilter;
 
-import com.android.SdkConstants;
-import com.android.sdklib.build.ApkBuilder.FileEntry;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
