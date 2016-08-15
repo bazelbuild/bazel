@@ -38,7 +38,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.List;
 import java.util.Set;
 
@@ -375,7 +374,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-        throws InvalidConfigurationException {
+        throws InvalidConfigurationException, InterruptedException {
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
       Label androidSdk = RedirectChaser.followRedirects(env, androidOptions.sdk, "android_sdk");

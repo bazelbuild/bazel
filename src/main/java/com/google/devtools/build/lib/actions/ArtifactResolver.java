@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -69,12 +67,13 @@ public interface ArtifactResolver {
    * @param execPaths list of exec paths of the artifacts to resolve
    * @param resolver object that helps to resolve package root of given paths
    * @return map which contains list of execPaths and corresponding Artifacts. Map can contain
-   *         existing or new source Artifacts for the given execPaths. The artifact is null if the
-   *         root cannot be determined and the artifact did not exist before. Return null if any
-   *         dependencies are missing.
+   *     existing or new source Artifacts for the given execPaths. The artifact is null if the root
+   *     cannot be determined and the artifact did not exist before. Return null if any dependencies
+   *     are missing.
    * @throws PackageRootResolutionException failure to determine package roots of {@code execPaths}
    */
   @Nullable
-  Map<PathFragment, Artifact> resolveSourceArtifacts(Iterable<PathFragment> execPaths,
-      PackageRootResolver resolver) throws PackageRootResolutionException;
+  Map<PathFragment, Artifact> resolveSourceArtifacts(
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
+      throws PackageRootResolutionException, InterruptedException;
 }

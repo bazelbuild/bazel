@@ -396,7 +396,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean fake,
       Artifact binary,
       LinkStaticness linkStaticness,
-      List<String> linkopts) {
+      List<String> linkopts)
+      throws InterruptedException {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(context, binary)
             .setCrosstoolInputs(CppHelper.getToolchain(context).getLink())

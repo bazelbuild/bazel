@@ -45,7 +45,8 @@ class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
 
   @ThreadSafety.ThreadSafe
   @Override
-  public void missingEdge(Target target, Label label, NoSuchThingException e) {
+  public void missingEdge(Target target, Label label, NoSuchThingException e)
+      throws InterruptedException {
     eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
         TargetUtils.formatMissingEdge(target, label, e)));
     super.missingEdge(target, label, e);

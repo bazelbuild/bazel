@@ -86,8 +86,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Override that also visits the rule's configurable attribute keys (which are
-   * themselves labels).
+   * Override that also visits the rule's configurable attribute keys (which are themselves labels).
    *
    * <p>Note that we directly parse the selectors rather than just calling {@link #visitAttribute}
    * to iterate over all possible values. That's because {@link #visitAttribute} can grow
@@ -96,12 +95,14 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * path whenever actual value iteration isn't specifically needed.
    */
   @Override
-  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer) {
+  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer)
+      throws InterruptedException {
     visitLabels(attribute, true, observer);
   }
 
-  private void visitLabels(Attribute attribute, boolean includeSelectKeys,
-    AcceptsLabelAttribute observer) {
+  private void visitLabels(
+      Attribute attribute, boolean includeSelectKeys, AcceptsLabelAttribute observer)
+      throws InterruptedException {
     Type<?> type = attribute.getType();
     SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
     if (selectorList == null) {
@@ -137,12 +138,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Returns all labels reachable via the given attribute. If a label is listed multiple times,
-   * each instance appears in the returned list.
+   * Returns all labels reachable via the given attribute. If a label is listed multiple times, each
+   * instance appears in the returned list.
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
-  public List<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
+  public List<Label> getReachableLabels(String attributeName, boolean includeSelectKeys)
+      throws InterruptedException {
     final ImmutableList.Builder<Label> builder = ImmutableList.builder();
     visitLabels(getAttributeDefinition(attributeName), includeSelectKeys,
         new AcceptsLabelAttribute() {
@@ -520,8 +522,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
           return owner.get(attributeName, type);
         }
         if (!directMap.containsKey(attributeName)) {
-          throw new IllegalArgumentException("attribute \"" + attributeName
-              + "\" isn't available in this computed default context");
+          throw new IllegalArgumentException(
+              "attribute \""
+                  + attributeName
+                  + "\" isn't available in this computed default context");
         }
         return type.cast(directMap.get(attributeName));
       }
@@ -531,34 +535,70 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         return owner.isConfigurable(attributeName, type);
       }
 
-      @Override public String getName() { return owner.getName(); }
-      @Override public Label getLabel() { return owner.getLabel(); }
-      @Override public Iterable<String> getAttributeNames() {
-        return ImmutableList.<String>builder()
-            .addAll(directMap.keySet()).addAll(nonConfigurableAttributes).build();
+      @Override
+      public String getName() {
+        return owner.getName();
       }
+
       @Override
-      public void visitLabels(AcceptsLabelAttribute observer) { owner.visitLabels(observer); }
+      public Label getLabel() {
+        return owner.getLabel();
+      }
+
       @Override
-      public String getPackageDefaultHdrsCheck() { return owner.getPackageDefaultHdrsCheck(); }
+      public Iterable<String> getAttributeNames() {
+        return ImmutableList.<String>builder()
+            .addAll(directMap.keySet())
+            .addAll(nonConfigurableAttributes)
+            .build();
+      }
+
       @Override
-      public Boolean getPackageDefaultTestOnly() { return owner.getPackageDefaultTestOnly(); }
+      public void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException {
+        owner.visitLabels(observer);
+      }
+
       @Override
-      public String getPackageDefaultDeprecation() { return owner.getPackageDefaultDeprecation(); }
+      public String getPackageDefaultHdrsCheck() {
+        return owner.getPackageDefaultHdrsCheck();
+      }
+
+      @Override
+      public Boolean getPackageDefaultTestOnly() {
+        return owner.getPackageDefaultTestOnly();
+      }
+
+      @Override
+      public String getPackageDefaultDeprecation() {
+        return owner.getPackageDefaultDeprecation();
+      }
+
       @Override
       public ImmutableList<String> getPackageDefaultCopts() {
         return owner.getPackageDefaultCopts();
       }
-      @Nullable @Override
-      public Type<?> getAttributeType(String attrName) { return owner.getAttributeType(attrName); }
-      @Nullable @Override  public Attribute getAttributeDefinition(String attrName) {
+
+      @Nullable
+      @Override
+      public Type<?> getAttributeType(String attrName) {
+        return owner.getAttributeType(attrName);
+      }
+
+      @Nullable
+      @Override
+      public Attribute getAttributeDefinition(String attrName) {
         return owner.getAttributeDefinition(attrName);
       }
-      @Override public boolean isAttributeValueExplicitlySpecified(String attributeName) {
+
+      @Override
+      public boolean isAttributeValueExplicitlySpecified(String attributeName) {
         return owner.isAttributeValueExplicitlySpecified(attributeName);
       }
+
       @Override
-      public boolean has(String attrName, Type<?> type) { return owner.has(attrName, type); }
+      public boolean has(String attrName, Type<?> type) {
+        return owner.has(attrName, type);
+      }
     };
   }
 }

@@ -41,10 +41,9 @@ public interface PythonSemantics {
    */
   void collectRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder, PyCommon common);
 
- /**
-   * Extends the default runfiles of {@code py_binary} rules with custom elements.
-   */
-  void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder);
+  /** Extends the default runfiles of {@code py_binary} rules with custom elements. */
+  void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder)
+      throws InterruptedException;
 
   /**
    * Returns the coverage instrumentation specification to be used in Python rules.

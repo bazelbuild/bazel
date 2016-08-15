@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -26,34 +24,33 @@ import javax.annotation.Nullable;
 public interface PackageRootResolver {
 
   /**
-   * Returns mapping from execPath to Root. Root will be null if the path has no containing
-   * package.
+   * Returns mapping from execPath to Root. Root will be null if the path has no containing package.
    *
    * @param execPaths the paths to find {@link Root}s for. The search for a containing package will
-   *    start with the path's parent directory, since the path is assumed to be a file.
-   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we
-   *    cannot determine the result at this time (such as when used within a SkyFunction)
+   *     start with the path's parent directory, since the path is assumed to be a file.
+   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we cannot
+   *     determine the result at this time (such as when used within a SkyFunction)
    * @throws PackageRootResolutionException if unable to determine package roots or lack thereof,
-   *    typically caused by exceptions encountered while attempting to locate BUILD files
+   *     typically caused by exceptions encountered while attempting to locate BUILD files
    */
   @Nullable
   Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException;
+      throws PackageRootResolutionException, InterruptedException;
 
   /**
-   * Returns mapping from execPath to Root. Root will be null if the path has no containing
-   * package. Unlike {@link #findPackageRootsForFiles(Iterable)}, this function allows directories
-   * in the list of exec paths.
+   * Returns mapping from execPath to Root. Root will be null if the path has no containing package.
+   * Unlike {@link #findPackageRootsForFiles(Iterable)}, this function allows directories in the
+   * list of exec paths.
    *
    * @param execPaths the paths to find {@link Root}s for. The search for a containing package will
-   *    start with the path's parent directory, since the path is assumed to be a file.
-   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we
-   *    cannot determine the result at this time (such as when used within a SkyFunction)
+   *     start with the path's parent directory, since the path is assumed to be a file.
+   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we cannot
+   *     determine the result at this time (such as when used within a SkyFunction)
    * @throws PackageRootResolutionException if unable to determine package roots or lack thereof,
-   *    typically caused by exceptions encountered while attempting to locate BUILD files
+   *     typically caused by exceptions encountered while attempting to locate BUILD files
    */
   // TODO(bazel-team): Remove this once we don't need to find package roots for directories.
   @Nullable
   Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException;
+      throws PackageRootResolutionException, InterruptedException;
 }

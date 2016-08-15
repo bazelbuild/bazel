@@ -75,7 +75,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -84,7 +83,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -416,15 +414,18 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * transitive closure.
    *
    * <p>This method is heavily performance-optimized. Because it, in aggregate, reads over every
-   * edge in the configured target graph, small inefficiencies can have observable impact on
-   * build analysis time. Keep this in mind when making modifications and performance-test any
-   * changes you make.
+   * edge in the configured target graph, small inefficiencies can have observable impact on build
+   * analysis time. Keep this in mind when making modifications and performance-test any changes you
+   * make.
    */
   @Nullable
-  static OrderedSetMultimap<Attribute, Dependency> trimConfigurations(Environment env,
-      TargetAndConfiguration ctgValue, OrderedSetMultimap<Attribute, Dependency> originalDeps,
-      BuildConfiguration hostConfiguration, RuleClassProvider ruleClassProvider)
-      throws DependencyEvaluationException {
+  static OrderedSetMultimap<Attribute, Dependency> trimConfigurations(
+      Environment env,
+      TargetAndConfiguration ctgValue,
+      OrderedSetMultimap<Attribute, Dependency> originalDeps,
+      BuildConfiguration hostConfiguration,
+      RuleClassProvider ruleClassProvider)
+      throws DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
     // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
@@ -684,7 +685,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       Map<SkyKey, ConfiguredTarget> configuredTargetMap,
       Iterable<Dependency> deps,
       NestedSetBuilder<Package> transitivePackages)
-      throws AspectCreationException {
+      throws AspectCreationException, InterruptedException {
     OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> aspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
@@ -766,18 +767,21 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Returns the set of {@link ConfigMatchingProvider}s that key the configurable attributes
-   * used by this rule.
+   * Returns the set of {@link ConfigMatchingProvider}s that key the configurable attributes used by
+   * this rule.
    *
-   * <p>>If the configured targets supplying those providers aren't yet resolved by the
-   * dependency resolver, returns null.
+   * <p>>If the configured targets supplying those providers aren't yet resolved by the dependency
+   * resolver, returns null.
    */
   @Nullable
-  static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(Target target,
-      Environment env, SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue,
+  static ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions(
+      Target target,
+      Environment env,
+      SkyframeDependencyResolver resolver,
+      TargetAndConfiguration ctgValue,
       NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Label> transitiveLoadingRootCauses)
-      throws DependencyEvaluationException {
+      throws DependencyEvaluationException, InterruptedException {
     if (!(target instanceof Rule)) {
       return NO_CONFIG_CONDITIONS;
     }
@@ -847,15 +851,19 @@ final class ConfiguredTargetFunction implements SkyFunction {
     return ImmutableMap.copyOf(configConditions);
   }
 
-  /***
-   * Resolves the targets referenced in depValueNames and returns their ConfiguredTarget instances.
+  /**
+   * * Resolves the targets referenced in depValueNames and returns their ConfiguredTarget
+   * instances.
    *
    * <p>Returns null if not all instances are available yet.
    */
   @Nullable
   private static Map<SkyKey, ConfiguredTarget> resolveConfiguredTargetDependencies(
-      Environment env, Collection<Dependency> deps, NestedSetBuilder<Package> transitivePackages,
-      NestedSetBuilder<Label> transitiveLoadingRootCauses) throws DependencyEvaluationException {
+      Environment env,
+      Collection<Dependency> deps,
+      NestedSetBuilder<Package> transitivePackages,
+      NestedSetBuilder<Label> transitiveLoadingRootCauses)
+      throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
     boolean failed = false;
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);

@@ -15,10 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-
 import java.util.Collection;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /** Convenience class for {@link NodeEntry} implementations that delegate many operations. */
@@ -35,23 +33,23 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public SkyValue getValue() {
+  public SkyValue getValue() throws InterruptedException {
     return getDelegate().getValue();
   }
 
   @Override
-  public SkyValue getValueMaybeWithMetadata() {
+  public SkyValue getValueMaybeWithMetadata() throws InterruptedException {
     return getDelegate().getValueMaybeWithMetadata();
   }
 
   @Override
-  public SkyValue toValue() {
+  public SkyValue toValue() throws InterruptedException {
     return getDelegate().toValue();
   }
 
   @Nullable
   @Override
-  public ErrorInfo getErrorInfo() {
+  public ErrorInfo getErrorInfo() throws InterruptedException {
     return getDelegate().getErrorInfo();
   }
 
@@ -61,7 +59,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> setValue(SkyValue value, Version version) {
+  public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
     return getDelegate().setValue(value, version);
   }
 
@@ -86,7 +84,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> markClean() {
+  public Set<SkyKey> markClean() throws InterruptedException {
     return getDelegate().markClean();
   }
 
@@ -156,7 +154,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getDirectDeps() {
+  public Iterable<SkyKey> getDirectDeps() throws InterruptedException {
     return getDelegate().getDirectDeps();
   }
 
@@ -187,7 +185,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
 
   @Override
   @Nullable
-  public MarkedDirtyResult markDirty(boolean isChanged) {
+  public MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException {
     return getThinDelegate().markDirty(isChanged);
   }
 

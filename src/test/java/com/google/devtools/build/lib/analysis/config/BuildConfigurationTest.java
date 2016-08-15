@@ -221,13 +221,11 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
       @Override
       public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-          throws InvalidConfigurationException {
+          throws InvalidConfigurationException, InterruptedException {
         for (Class<? extends Fragment> fragmentType : dependsOn) {
           env.getFragment(buildOptions, fragmentType);
         }
-        return new Fragment() {
-
-        };
+        return new Fragment() {};
       }
     };
   }

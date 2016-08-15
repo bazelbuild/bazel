@@ -95,7 +95,7 @@ public interface TargetPatternResolver<T> {
    * Returns true, if and only if the given package identifier corresponds to a package, i.e., a
    * file with the name {@code packageName/BUILD} exists in the appropriat repository.
    */
-  boolean isPackage(PackageIdentifier packageIdentifier);
+  boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException;
 
   /**
    * Returns the target kind of the given target, for example {@code cc_library rule}.

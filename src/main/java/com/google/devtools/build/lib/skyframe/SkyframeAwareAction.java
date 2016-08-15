@@ -40,7 +40,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 public interface SkyframeAwareAction {
 
   /** Wrapper and/or base class for exceptions raised in {@link #establishSkyframeDependencies}. */
-  public static class ExceptionBase extends Exception {
+  class ExceptionBase extends Exception {
     public ExceptionBase(String message) {
       super(message);
     }
@@ -53,11 +53,11 @@ public interface SkyframeAwareAction {
   /**
    * Establish dependencies on Skyframe values before executing the action.
    *
-   * <p><b>IMPORTANT</b>: actions that implement this interface should override
-   * {@code Action.executeUnconditionally} and return true. See {@link SkyframeAwareAction} why.
+   * <p><b>IMPORTANT</b>: actions that implement this interface should override {@code
+   * Action.executeUnconditionally} and return true. See {@link SkyframeAwareAction} why.
    *
-   * <p>This method should perform as little computation as possible: ideally it should request
-   * one or a few SkyValues, perhaps set some state somewhere and return. If this method needs to
+   * <p>This method should perform as little computation as possible: ideally it should request one
+   * or a few SkyValues, perhaps set some state somewhere and return. If this method needs to
    * perform anything more complicated than that, including perhaps some non-trivial computation,
    * you should implement that as a SkyFunction and request the corresponding SkyValue in this
    * method.
@@ -69,5 +69,5 @@ public interface SkyframeAwareAction {
    * exceptions); that is the responsibility of the caller. It should return as soon as possible,
    * ready to be called again at a later time if need be.
    */
-  void establishSkyframeDependencies(Environment env) throws ExceptionBase;
+  void establishSkyframeDependencies(Environment env) throws ExceptionBase, InterruptedException;
 }

@@ -47,13 +47,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -211,17 +209,17 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   /**
-   * Computes the set of Labels corresponding to a collection of PathFragments representing
-   * absolute import paths.
-   * 
+   * Computes the set of Labels corresponding to a collection of PathFragments representing absolute
+   * import paths.
+   *
    * @return a map from the computed {@link Label}s to the corresponding {@link PathFragment}s;
-   *   {@code null} if any Skyframe dependencies are unavailable.
+   *     {@code null} if any Skyframe dependencies are unavailable.
    * @throws SkylarkImportFailedException
    */
   @Nullable
   static ImmutableMap<PathFragment, Label> labelsForAbsoluteImports(
       ImmutableSet<PathFragment> pathsToLookup, Environment env)
-          throws SkylarkImportFailedException {
+      throws SkylarkImportFailedException, InterruptedException {
 
     // Import PathFragments are absolute, so there is a 1-1 mapping from corresponding Labels.
     ImmutableMap.Builder<PathFragment, Label> outputMap = new ImmutableMap.Builder<>();
@@ -290,19 +288,17 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
   /**
    * Computes the set of {@link Label}s corresponding to a set of Skylark {@link LoadStatement}s.
-   * 
+   *
    * @param imports a collection of Skylark {@link LoadStatement}s
    * @param containingFileLabel the {@link Label} of the file containing the load statements
-   * @return an {@link ImmutableMap} which maps a {@link String} used in the load statement to
-   *     its corresponding {@Label}. Returns {@code null} if any Skyframe dependencies are
-   *     unavailable.
-   * @throws SkylarkImportFailedException if no package can be found that contains the
-   *     loaded file
+   * @return an {@link ImmutableMap} which maps a {@link String} used in the load statement to its
+   *     corresponding {@Label}. Returns {@code null} if any Skyframe dependencies are unavailable.
+   * @throws SkylarkImportFailedException if no package can be found that contains the loaded file
    */
   @Nullable
   static ImmutableMap<String, Label> findLabelsForLoadStatements(
       ImmutableCollection<SkylarkImport> imports, Label containingFileLabel, Environment env)
-          throws SkylarkImportFailedException {
+      throws SkylarkImportFailedException, InterruptedException {
     Preconditions.checkArgument(
         !containingFileLabel.getPackageIdentifier().getRepository().isDefault());
     Map<String, Label> outputMap = Maps.newHashMapWithExpectedSize(imports.size());

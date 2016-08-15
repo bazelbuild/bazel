@@ -43,15 +43,16 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
   private volatile boolean hasErrors = false;
 
   /**
-   * Reports an unresolved label error and records the fact that an error was
-   * encountered.
+   * Reports an unresolved label error and records the fact that an error was encountered.
+   *
    * @param target the target that referenced the unresolved label
    * @param label the label that could not be resolved
    * @param e the exception that was thrown when the label could not be resolved
    */
   @ThreadSafety.ThreadSafe
   @Override
-  public void missingEdge(Target target, Label label, NoSuchThingException e) {
+  public void missingEdge(Target target, Label label, NoSuchThingException e)
+      throws InterruptedException {
     hasErrors = true;
   }
 

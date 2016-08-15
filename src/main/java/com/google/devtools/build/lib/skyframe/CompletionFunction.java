@@ -46,15 +46,11 @@ import javax.annotation.Nullable;
 public final class CompletionFunction<TValue extends SkyValue, TResult extends SkyValue>
     implements SkyFunction {
 
-  /**
-   * A strategy for completing the build.
-   */
-  public interface Completor<TValue, TResult extends SkyValue> {
+  /** A strategy for completing the build. */
+  interface Completor<TValue, TResult extends SkyValue> {
 
-    /**
-     * Obtains an analysis result value from environment.
-     */
-    TValue getValueFromSkyKey(SkyKey skyKey, Environment env);
+    /** Obtains an analysis result value from environment. */
+    TValue getValueFromSkyKey(SkyKey skyKey, Environment env) throws InterruptedException;
 
     /**
      * Returns the options which determine the artifacts to build for the top-level targets.
@@ -104,7 +100,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
   private static class TargetCompletor
       implements Completor<ConfiguredTargetValue, TargetCompletionValue> {
     @Override
-    public ConfiguredTargetValue getValueFromSkyKey(SkyKey skyKey, Environment env) {
+    public ConfiguredTargetValue getValueFromSkyKey(SkyKey skyKey, Environment env)
+        throws InterruptedException {
       TargetCompletionKey tcKey = (TargetCompletionKey) skyKey.argument();
       LabelAndConfiguration lac = tcKey.labelAndConfiguration();
       return (ConfiguredTargetValue)
@@ -162,7 +159,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
   private static class AspectCompletor implements Completor<AspectValue, AspectCompletionValue> {
     @Override
-    public AspectValue getValueFromSkyKey(SkyKey skyKey, Environment env) {
+    public AspectValue getValueFromSkyKey(SkyKey skyKey, Environment env)
+        throws InterruptedException {
       AspectCompletionKey acKey = (AspectCompletionKey) skyKey.argument();
       AspectKey aspectKey = acKey.aspectKey();
       return (AspectValue) env.getValue(AspectValue.key(aspectKey));
@@ -237,7 +235,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws CompletionFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws CompletionFunctionException, InterruptedException {
     TValue value = completor.getValueFromSkyKey(skyKey, env);
     TopLevelArtifactContext topLevelContext = completor.getTopLevelArtifactContext(skyKey);
     if (env.valuesMissing()) {

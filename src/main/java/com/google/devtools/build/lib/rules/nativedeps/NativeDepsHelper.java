@@ -87,13 +87,16 @@ public abstract class NativeDepsHelper {
    *
    * @param ruleContext the rule context to determine the native deps library
    * @param linkParams the {@link CcLinkParams} for the rule, collected with linkstatic = 1 and
-   *        linkshared = 1
+   *     linkshared = 1
    * @return the native deps library runfiles. If the transitive deps closure of the rule contains
-   *         no native code libraries, its fields are null.
+   *     no native code libraries, its fields are null.
    */
-  public static Artifact maybeCreateAndroidNativeDepsAction(final RuleContext ruleContext,
-      CcLinkParams linkParams, final BuildConfiguration configuration,
-      CcToolchainProvider toolchain) {
+  public static Artifact maybeCreateAndroidNativeDepsAction(
+      final RuleContext ruleContext,
+      CcLinkParams linkParams,
+      final BuildConfiguration configuration,
+      CcToolchainProvider toolchain)
+      throws InterruptedException {
     if (linkParams.getLibraries().isEmpty()) {
       return null;
     }
@@ -128,7 +131,8 @@ public abstract class NativeDepsHelper {
       Artifact nativeDeps,
       String libraryIdentifier,
       Root bindirIfShared,
-      boolean useDynamicRuntime) {
+      boolean useDynamicRuntime)
+      throws InterruptedException {
     Preconditions.checkState(
         ruleContext.isLegalFragment(CppConfiguration.class),
         "%s does not have access to CppConfiguration",

@@ -425,7 +425,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Builds the Action as configured and returns it. */
-  public CppLinkAction build() {
+  public CppLinkAction build() throws InterruptedException {
     Preconditions.checkState(
         (libraryIdentifier == null) == (linkType == LinkTargetType.EXECUTABLE));
     if (interfaceOutput != null && (fake || linkType != LinkTargetType.DYNAMIC_LIBRARY)) {
@@ -1026,7 +1026,7 @@ public class CppLinkActionBuilder {
    * #addLibraries}, and {@link #addLinkstamps}.
    */
   public CppLinkActionBuilder addLinkParams(
-      CcLinkParams linkParams, RuleErrorConsumer errorListener) {
+      CcLinkParams linkParams, RuleErrorConsumer errorListener) throws InterruptedException {
     addLinkopts(linkParams.flattenedLinkopts());
     addLibraries(linkParams.getLibraries());
     ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();

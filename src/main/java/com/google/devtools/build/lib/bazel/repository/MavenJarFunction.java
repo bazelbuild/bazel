@@ -23,12 +23,10 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -36,7 +34,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
+import java.io.IOException;
+import java.util.Map;
+import javax.annotation.Nullable;
 import org.apache.maven.settings.Server;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
@@ -49,11 +49,6 @@ import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
-
-import java.io.IOException;
-import java.util.Map;
-
-import javax.annotation.Nullable;
 
 /**
  * Implementation of maven_jar.
@@ -68,7 +63,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
   @Override
   protected byte[] getRuleSpecificMarkerData(Rule rule, Environment env)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     MavenServerValue serverValue = getServer(rule, env);
     if (env.valuesMissing()) {
       return null;
@@ -80,11 +75,11 @@ public class MavenJarFunction extends HttpArchiveFunction {
         .digestAndReset();
   }
 
-  private MavenServerValue getServer(Rule rule, Environment env)
-      throws RepositoryFunctionException {
+  private static MavenServerValue getServer(Rule rule, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    boolean hasRepository = mapper.has("repository", Type.STRING)
-        && !mapper.get("repository", Type.STRING).isEmpty();
+    boolean hasRepository =
+        mapper.has("repository", Type.STRING) && !mapper.get("repository", Type.STRING).isEmpty();
     boolean hasServer = mapper.has("server", Type.STRING)
         && !mapper.get("server", Type.STRING).isEmpty();
 

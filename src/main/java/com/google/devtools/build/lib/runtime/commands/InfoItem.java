@@ -94,10 +94,12 @@ public abstract class InfoItem {
 
   /**
    * Returns the value of the info key. The return value is directly printed to stdout.
+   *
    * @param env TODO(lpino):
    */
-  public abstract byte[] get(Supplier<BuildConfiguration> configurationSupplier,
-      CommandEnvironment env) throws AbruptExitException;
+  public abstract byte[] get(
+      Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+      throws AbruptExitException, InterruptedException;
 
   private static byte[] print(Object value) {
     if (value instanceof byte[]) {

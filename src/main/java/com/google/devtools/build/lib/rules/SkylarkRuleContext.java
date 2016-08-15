@@ -653,17 +653,27 @@ public final class SkylarkRuleContext {
     return attributesCollection.getExecutableRunfilesMap().get(executable);
   }
 
-  @SkylarkCallable(name = "info_file", structField = true, documented = false,
-      doc = "Returns the file that is used to hold the non-volatile workspace status for the "
-          + "current build request.")
-  public Artifact getStableWorkspaceStatus() {
+  @SkylarkCallable(
+    name = "info_file",
+    structField = true,
+    documented = false,
+    doc =
+        "Returns the file that is used to hold the non-volatile workspace status for the "
+            + "current build request."
+  )
+  public Artifact getStableWorkspaceStatus() throws InterruptedException {
     return ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact();
   }
 
-  @SkylarkCallable(name = "version_file", structField = true, documented = false,
-      doc = "Returns the file that is used to hold the volatile workspace status for the "
-          + "current build request.")
-  public Artifact getVolatileWorkspaceStatus() {
+  @SkylarkCallable(
+    name = "version_file",
+    structField = true,
+    documented = false,
+    doc =
+        "Returns the file that is used to hold the volatile workspace status for the "
+            + "current build request."
+  )
+  public Artifact getVolatileWorkspaceStatus() throws InterruptedException {
     return ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact();
   }
 

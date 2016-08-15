@@ -29,14 +29,13 @@ public interface Globber {
   }
 
   /**
-   * Asynchronously starts the given glob computation and returns a token for fetching the
-   * result.
+   * Asynchronously starts the given glob computation and returns a token for fetching the result.
    *
    * @throws BadGlobException if any of the patterns in {@code includes} or {@code excludes} are
    *     invalid.
    */
   Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
-      throws BadGlobException;
+      throws BadGlobException, InterruptedException;
 
   /**
    * Fetches the result of a previously started glob computation. The returned list must be ordered

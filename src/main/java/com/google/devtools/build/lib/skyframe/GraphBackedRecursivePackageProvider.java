@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +78,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
-      throws NoSuchPackageException {
+      throws NoSuchPackageException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
 
     PackageValue pkgValue;
@@ -98,8 +97,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(EventHandler eventHandler,
-      Iterable<PackageIdentifier> pkgIds) throws NoSuchPackageException {
+  public Map<PackageIdentifier, Package> bulkGetPackages(
+      EventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+      throws NoSuchPackageException, InterruptedException {
     Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
 
     ImmutableMap.Builder<PackageIdentifier, Package> pkgResults = ImmutableMap.builder();
@@ -133,7 +133,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
+  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
+      throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageName);
     if (!graph.exists(packageLookupKey)) {
       // If the package lookup key does not exist in the graph, then it must not correspond to any
@@ -158,8 +159,10 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
-      RepositoryName repository, PathFragment directory,
-      ImmutableSet<PathFragment> excludedSubdirectories) {
+      RepositoryName repository,
+      PathFragment directory,
+      ImmutableSet<PathFragment> excludedSubdirectories)
+      throws InterruptedException {
     PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
 
     // Check that this package is covered by at least one of our universe patterns.
@@ -208,7 +211,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   private void collectPackagesUnder(
       final RepositoryName repository,
       Set<TraversalInfo> traversals,
-      ImmutableList.Builder<PathFragment> builder) {
+      ImmutableList.Builder<PathFragment> builder)
+      throws InterruptedException {
     Map<TraversalInfo, SkyKey> traversalToKeyMap =
         Maps.asMap(
             traversals,
@@ -256,7 +260,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Target getTarget(EventHandler eventHandler, Label label)
-      throws NoSuchPackageException, NoSuchTargetException {
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }
 

@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -50,7 +48,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     PrepareDepsOfTargetsUnderDirectoryKey argument =
         (PrepareDepsOfTargetsUnderDirectoryKey) skyKey.argument();
     FilteringPolicy filteringPolicy = argument.getFilteringPolicy();
@@ -102,13 +100,13 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
     }
 
     @Override
-    public void visitPackageValue(Package pkg, Environment env) {
+    public void visitPackageValue(Package pkg, Environment env) throws InterruptedException {
       loadTransitiveTargets(env, pkg, filteringPolicy);
     }
   }
 
   private static void loadTransitiveTargets(
-      Environment env, Package pkg, FilteringPolicy filteringPolicy) {
+      Environment env, Package pkg, FilteringPolicy filteringPolicy) throws InterruptedException {
     ResolvedTargets<Target> packageTargets =
         TargetPatternResolverUtil.resolvePackageTargets(pkg, filteringPolicy);
     ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();

@@ -16,9 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.EventHandler;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -67,56 +65,83 @@ public interface SkyFunction {
   String extractTag(SkyKey skyKey);
 
   /**
-   * The services provided to the {@link SkyFunction} implementation by the graph implementation.
+   * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
+   * evaluation framework.
    */
   interface Environment {
     /**
      * Returns a direct dependency. If the specified value is not in the set of already evaluated
-     * direct dependencies, returns {@code null}. Also returns {@code null} if the specified
-     * value has already been evaluated and found to be in error.
+     * direct dependencies, returns {@code null}. Also returns {@code null} if the specified value
+     * has already been evaluated and found to be in error.
      *
      * <p>On a subsequent evaluation, if any of this value's dependencies have changed they will be
-     * re-evaluated in the same order as originally requested by the {@code SkyFunction} using
-     * this {@code getValue} call (see {@link #getValues} for when preserving the order is not
+     * re-evaluated in the same order as originally requested by the {@code SkyFunction} using this
+     * {@code getValue} call (see {@link #getValues} for when preserving the order is not
      * important).
+     *
+     * <p>This method and the ones below may throw {@link InterruptedException}. Such exceptions
+     * must not be caught by the {@link SkyFunction#compute} implementation. Instead, they should be
+     * propagated up to the caller of {@link SkyFunction#compute}.
      */
     @Nullable
-    SkyValue getValue(SkyKey valueName);
+    SkyValue getValue(SkyKey valueName) throws InterruptedException;
 
     /**
      * Returns a direct dependency. If the specified value is not in the set of already evaluated
-     * direct dependencies, returns {@code null}. If the specified value has already been
-     * evaluated and found to be in error, throws the exception coming from the error, so long as
-     * the exception is of one of the specified types. SkyFunction implementations may use this
-     * method to continue evaluation even if one of their dependencies is in error by catching
-     * the thrown exception and proceeding. The caller must specify the exception type(s) that
-     * might be thrown using the {@code exceptionClass} argument(s). If the dependency's
-     * exception is not an instance of {@code exceptionClass}, {@code null} is returned.
+     * direct dependencies, returns {@code null}. If the specified value has already been evaluated
+     * and found to be in error, throws the exception coming from the error, so long as the
+     * exception is of one of the specified types. SkyFunction implementations may use this method
+     * to continue evaluation even if one of their dependencies is in error by catching the thrown
+     * exception and proceeding. The caller must specify the exception type(s) that might be thrown
+     * using the {@code exceptionClass} argument(s). If the dependency's exception is not an
+     * instance of {@code exceptionClass}, {@code null} is returned.
      *
      * <p>The exception class given cannot be a supertype or a subtype of {@link RuntimeException},
-     * or a subtype of {@link InterruptedException}. See
-     * {@link SkyFunctionException#validateExceptionType} for details.
+     * or a subtype of {@link InterruptedException}. See {@link
+     * SkyFunctionException#validateExceptionType} for details.
      */
     @Nullable
-    <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass) throws E;
+    <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
+        throws E, InterruptedException;
+
     @Nullable
-    <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(SkyKey depKey,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2;
+    <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(
+        SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
+        throws E1, E2, InterruptedException;
+
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getValueOrThrow(
-        SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
-        Class<E3> exceptionClass3) throws E1, E2, E3;
+        SkyKey depKey,
+        Class<E1> exceptionClass1,
+        Class<E2> exceptionClass2,
+        Class<E3> exceptionClass3)
+        throws E1, E2, E3, InterruptedException;
+
     @Nullable
     <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-        SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
-        Class<E2> exceptionClass2, Class<E3> exceptionClass3, Class<E4> exceptionClass4)
-            throws E1, E2, E3, E4;
+        SkyValue getValueOrThrow(
+            SkyKey depKey,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3,
+            Class<E4> exceptionClass4)
+            throws E1, E2, E3, E4, InterruptedException;
+
     @Nullable
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception,
-     E5 extends Exception>
-        SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
-        Class<E2> exceptionClass2, Class<E3> exceptionClass3, Class<E4> exceptionClass4,
-        Class<E5> exceptionClass5) throws E1, E2, E3, E4, E5;
+    <
+            E1 extends Exception,
+            E2 extends Exception,
+            E3 extends Exception,
+            E4 extends Exception,
+            E5 extends Exception>
+        SkyValue getValueOrThrow(
+            SkyKey depKey,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3,
+            Class<E4> exceptionClass4,
+            Class<E5> exceptionClass5)
+            throws E1, E2, E3, E4, E5, InterruptedException;
 
     /**
      * Requests {@code depKeys} "in parallel", independent of each others' values. These keys may be
@@ -131,27 +156,27 @@ public interface SkyFunction {
      * <p>This means that on subsequent evaluations, when checking to see if dependencies require
      * re-evaluation, all the values in this group may be simultaneously checked. A SkyFunction
      * should request a dependency group if checking the deps serially on a subsequent evaluation
-     * would take too long, and if the {@link #compute} method would request all deps anyway as
-     * long as no earlier deps had changed. SkyFunction.Environment implementations may also
-     * choose to request these deps in parallel on the first evaluation, potentially speeding it up.
+     * would take too long, and if the {@link #compute} method would request all deps anyway as long
+     * as no earlier deps had changed. SkyFunction.Environment implementations may also choose to
+     * request these deps in parallel on the first evaluation, potentially speeding it up.
      *
-     * <p>While re-evaluating every value in the group may take longer than re-evaluating just
-     * the first one and finding that it has changed, no extra work is done: the contract of the
+     * <p>While re-evaluating every value in the group may take longer than re-evaluating just the
+     * first one and finding that it has changed, no extra work is done: the contract of the
      * dependency group means that the {@link #compute} method, when called to re-evaluate this
      * value, will request all values in the group again anyway, so they would have to have been
      * built in any case.
      *
      * <p>Example of when to use getValues: A ListProcessor value is built with key inputListRef.
-     * The {@link #compute} method first calls getValue(InputList.key(inputListRef)), and
-     * retrieves inputList. It then iterates through inputList, calling getValue on each input.
-     * Finally, it processes the whole list and returns. Say inputList is (a, b, c). Since the
-     * {@link #compute} method will unconditionally call getValue(a), getValue(b), and getValue
-     * (c), the {@link #compute} method can instead just call getValues({a, b, c}). If the value
-     * is later dirtied the evaluator will evaluate a, b, and c in parallel (assuming the inputList
-     * value was unchanged), and re-evaluate the ListProcessor value only if at least one of them
-     * was changed. On the other hand, if the InputList changes to be (a, b, d), then the
-     * evaluator will see that the first dep has changed, and call the {@link #compute} method to
-     * re-evaluate from scratch, without considering the dep group of {a, b, c}.
+     * The {@link #compute} method first calls getValue(InputList.key(inputListRef)), and retrieves
+     * inputList. It then iterates through inputList, calling getValue on each input. Finally, it
+     * processes the whole list and returns. Say inputList is (a, b, c). Since the {@link #compute}
+     * method will unconditionally call getValue(a), getValue(b), and getValue (c), the {@link
+     * #compute} method can instead just call getValues({a, b, c}). If the value is later dirtied
+     * the evaluator will evaluate a, b, and c in parallel (assuming the inputList value was
+     * unchanged), and re-evaluate the ListProcessor value only if at least one of them was changed.
+     * On the other hand, if the InputList changes to be (a, b, d), then the evaluator will see that
+     * the first dep has changed, and call the {@link #compute} method to re-evaluate from scratch,
+     * without considering the dep group of {a, b, c}.
      *
      * <p>Example of when not to use getValues: A BestMatch value is built with key
      * &lt;potentialMatchesRef, matchCriterion&gt;. The {@link #compute} method first calls
@@ -165,43 +190,64 @@ public interface SkyFunction {
      * is {@code true}, and, {@code m.get(k) != null} iff the dependency was already evaluated and
      * was not in error.
      */
-    Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys);
+    Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) throws InterruptedException;
 
     /**
-     * Similar to {@link #getValues} but allows the caller to specify a set of types that are
-     * proper subtypes of Exception (see {@link SkyFunctionException} for more details) to find
-     * out whether any of the dependencies' evaluations resulted in exceptions of those types.
-     * The returned objects may throw when attempting to retrieve their value.
+     * Similar to {@link #getValues} but allows the caller to specify a set of types that are proper
+     * subtypes of Exception (see {@link SkyFunctionException} for more details) to find out whether
+     * any of the dependencies' evaluations resulted in exceptions of those types. The returned
+     * objects may throw when attempting to retrieve their value.
      *
-     * <p>Callers should prioritize their responsibility to detect and handle errors in the
-     * returned map over their responsibility to return {@code null} if values are missing. This
-     * is because in nokeep_going evaluations, an error from a low level dependency is given a
-     * chance to be enriched by its reverse-dependencies, if possible.
+     * <p>Callers should prioritize their responsibility to detect and handle errors in the returned
+     * map over their responsibility to return {@code null} if values are missing. This is because
+     * in nokeep_going evaluations, an error from a low level dependency is given a chance to be
+     * enriched by its reverse-dependencies, if possible.
      *
-     * <p>Returns a map, {@code m}. For all {@code k} in {@code depKeys}, {@code m.get(k) !=
-     * null}. For all {@code v} such that there is some {@code k} such that {@code m.get(k) ==
-     * v}, the following is true: {@code v.get() != null} iff the dependency {@code k} was
-     * already evaluated and was not in error. {@code v.get()} throws {@code E} iff the
-     * dependency {@code k} was already evaluated with an error in the specified set of {@link
-     * Exception} types.
+     * <p>Returns a map, {@code m}. For all {@code k} in {@code depKeys}, {@code m.get(k) != null}.
+     * For all {@code v} such that there is some {@code k} such that {@code m.get(k) == v}, the
+     * following is true: {@code v.get() != null} iff the dependency {@code k} was already evaluated
+     * and was not in error. {@code v.get()} throws {@code E} iff the dependency {@code k} was
+     * already evaluated with an error in the specified set of {@link Exception} types.
      */
     <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-        Iterable<SkyKey> depKeys, Class<E> exceptionClass);
-    <E1 extends Exception, E2 extends Exception> Map<SkyKey, ValueOrException2<E1, E2>>
-    getValuesOrThrow(Iterable<SkyKey> depKeys, Class<E1> exceptionClass1,
-        Class<E2> exceptionClass2);
+        Iterable<SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException;
+
+    <E1 extends Exception, E2 extends Exception>
+        Map<SkyKey, ValueOrException2<E1, E2>> getValuesOrThrow(
+            Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
+            throws InterruptedException;
+
     <E1 extends Exception, E2 extends Exception, E3 extends Exception>
-    Map<SkyKey, ValueOrException3<E1, E2, E3>> getValuesOrThrow(Iterable<SkyKey> depKeys,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3);
+        Map<SkyKey, ValueOrException3<E1, E2, E3>> getValuesOrThrow(
+            Iterable<SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3)
+            throws InterruptedException;
+
     <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
-    Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(Iterable<SkyKey> depKeys,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3,
-        Class<E4> exceptionClass4);
-    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception,
-     E5 extends Exception>
-    Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(Iterable<SkyKey> depKeys,
-        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3,
-        Class<E4> exceptionClass4, Class<E5> exceptionClass5);
+        Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
+            Iterable<SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3,
+            Class<E4> exceptionClass4)
+            throws InterruptedException;
+
+    <
+            E1 extends Exception,
+            E2 extends Exception,
+            E3 extends Exception,
+            E4 extends Exception,
+            E5 extends Exception>
+        Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
+            Iterable<SkyKey> depKeys,
+            Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2,
+            Class<E3> exceptionClass3,
+            Class<E4> exceptionClass4,
+            Class<E5> exceptionClass5)
+            throws InterruptedException;
 
     /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing

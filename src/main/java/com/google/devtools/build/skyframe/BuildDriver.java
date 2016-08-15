@@ -17,7 +17,6 @@ package com.google.devtools.build.skyframe;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsClassProvider;
-
 import javax.annotation.Nullable;
 
 /** A BuildDriver wraps a MemoizingEvaluator, passing along the proper Version. */
@@ -41,11 +40,11 @@ public interface BuildDriver {
   MemoizingEvaluator getGraphForTesting();
 
   @Nullable
-  SkyValue getExistingValueForTesting(SkyKey key);
+  SkyValue getExistingValueForTesting(SkyKey key) throws InterruptedException;
 
   @Nullable
-  ErrorInfo getExistingErrorForTesting(SkyKey key);
+  ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
 
   @Nullable
-  NodeEntry getEntryForTesting(SkyKey key);
+  NodeEntry getEntryForTesting(SkyKey key) throws InterruptedException;
 }

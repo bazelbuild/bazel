@@ -29,12 +29,8 @@ import com.google.devtools.build.skyframe.SkyValue;
  * runs.
  */
 public final class TestCompletionFunction implements SkyFunction {
-
-  public TestCompletionFunction() {
-  }
-
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     TestCompletionValue.TestCompletionKey key =
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
     LabelAndConfiguration lac = key.labelAndConfiguration();

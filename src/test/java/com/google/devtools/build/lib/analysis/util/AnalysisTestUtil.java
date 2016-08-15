@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -165,18 +164,19 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getStableWorkspaceStatusArtifact() {
+    public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
       return original.getStableWorkspaceStatusArtifact();
     }
 
     @Override
-    public Artifact getVolatileWorkspaceStatusArtifact() {
+    public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
       return original.getVolatileWorkspaceStatusArtifact();
     }
 
     @Override
-    public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key,
-        BuildConfiguration config) {
+    public ImmutableList<Artifact> getBuildInfo(
+        RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config)
+        throws InterruptedException {
       return original.getBuildInfo(ruleContext, key, config);
     }
 

@@ -20,10 +20,8 @@ import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
-
 import javax.annotation.Nullable;
 
 /**
@@ -106,8 +104,7 @@ public final class EagerInvalidator {
             state,
             dirtyKeyTracker,
             forkJoinPool,
-            supportInterruptions,
-            errorHandler);
+            supportInterruptions);
   }
 
   /**
@@ -141,8 +138,7 @@ public final class EagerInvalidator {
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       ForkJoinPool forkJoinPool,
-      boolean supportInterruptions,
-      ErrorHandler errorHandler)
+      boolean supportInterruptions)
       throws InterruptedException {
     DirtyingNodeVisitor visitor =
         createInvalidatingVisitorIfNeeded(
@@ -153,7 +149,7 @@ public final class EagerInvalidator {
             dirtyKeyTracker,
             forkJoinPool,
             supportInterruptions,
-            errorHandler);
+            ErrorHandler.NullHandler.INSTANCE);
     if (visitor != null) {
       visitor.run();
     }

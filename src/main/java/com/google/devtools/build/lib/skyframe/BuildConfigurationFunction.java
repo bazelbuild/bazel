@@ -29,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -52,7 +51,8 @@ public class BuildConfigurationFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, BuildConfigurationFunctionException {
     BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
     Set<Fragment> fragments;
     try {
@@ -83,7 +83,7 @@ public class BuildConfigurationFunction implements SkyFunction {
   }
 
   private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key, Environment env)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
 
     // Get SkyKeys for the fragments we need to load.
     Set<SkyKey> fragmentKeys = new LinkedHashSet<>();

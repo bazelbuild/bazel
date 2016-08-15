@@ -49,7 +49,8 @@ public final class FilesetEntryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws FilesetEntryFunctionException {
+  public SkyValue compute(SkyKey key, Environment env)
+      throws FilesetEntryFunctionException, InterruptedException {
     FilesetTraversalParams t = (FilesetTraversalParams) key.argument();
     Preconditions.checkState(
         t.getNestedTraversal().isPresent() != t.getDirectTraversal().isPresent(),
@@ -226,8 +227,9 @@ public final class FilesetEntryFunction implements SkyFunction {
     return null;
   }
 
-  private RecursiveFilesystemTraversalValue traverse(Environment env, String errorInfo,
-      DirectTraversal traversal) throws MissingDepException {
+  private static RecursiveFilesystemTraversalValue traverse(
+      Environment env, String errorInfo, DirectTraversal traversal)
+      throws MissingDepException, InterruptedException {
     SkyKey depKey = RecursiveFilesystemTraversalValue.key(
         new RecursiveFilesystemTraversalValue.TraversalRequest(traversal.getRoot().asRootedPath(),
             traversal.isGenerated(), traversal.getPackageBoundaryMode(), traversal.isPackage(),

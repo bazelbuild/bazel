@@ -39,7 +39,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException4;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,25 +104,26 @@ abstract class RecursiveDirectoryTraversalFunction
   interface Visitor {
 
     /**
-     * Called iff the directory contains a package. Provides an {@link Environment} {@code env}
-     * so that the visitor may do additional lookups. {@link Environment#valuesMissing} will be
-     * checked afterwards.
+     * Called iff the directory contains a package. Provides an {@link Environment} {@code env} so
+     * that the visitor may do additional lookups. {@link Environment#valuesMissing} will be checked
+     * afterwards.
      */
-    void visitPackageValue(Package pkg, Environment env);
+    void visitPackageValue(Package pkg, Environment env) throws InterruptedException;
   }
 
   /**
-   * Looks in the directory specified by {@code recursivePkgKey} for a package, does some work
-   * as specified by {@link Visitor} if such a package exists, then recursively does work in each
+   * Looks in the directory specified by {@code recursivePkgKey} for a package, does some work as
+   * specified by {@link Visitor} if such a package exists, then recursively does work in each
    * non-excluded subdirectory as specified by {@link #getSkyKeyForSubdirectory}, and finally
-   * aggregates the {@link Visitor} value along with values from each subdirectory as specified
-   * by {@link #aggregateWithSubdirectorySkyValues}, and returns that aggregation.
+   * aggregates the {@link Visitor} value along with values from each subdirectory as specified by
+   * {@link #aggregateWithSubdirectorySkyValues}, and returns that aggregation.
    *
    * <p>Returns null if {@code env.valuesMissing()} is true, checked after each call to one of
    * {@link RecursiveDirectoryTraversalFunction}'s abstract methods that were given {@code env}.
    * (And after each of {@code visitDirectory}'s own uses of {@code env}, of course.)
    */
-  TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env) {
+  TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env)
+      throws InterruptedException {
     RootedPath rootedPath = recursivePkgKey.getRootedPath();
     ImmutableSet<PathFragment> excludedPaths = recursivePkgKey.getExcludedPaths();
     Path root = rootedPath.getRoot();

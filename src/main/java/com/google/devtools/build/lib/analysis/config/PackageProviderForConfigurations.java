@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.io.IOException;
 
 /**
@@ -35,18 +34,15 @@ public interface PackageProviderForConfigurations {
    * Adds dependency to fileName if needed. Used only in skyframe, for creating correct dependencies
    * for {@link com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue}.
    */
-  void addDependency(Package pkg, String fileName) throws LabelSyntaxException, IOException;
-  
-  /**
-   * Returns fragment based on fragment type and build options.
-   */
-  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
-      throws InvalidConfigurationException;
-  
-  /**
-   * Returns blaze directories and adds dependency to that value.
-   */
-  BlazeDirectories getDirectories();
+  void addDependency(Package pkg, String fileName)
+      throws LabelSyntaxException, IOException, InterruptedException;
+
+  /** Returns fragment based on fragment type and build options. */
+  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
+      throws InvalidConfigurationException, InterruptedException;
+
+  /** Returns blaze directories and adds dependency to that value. */
+  BlazeDirectories getDirectories() throws InterruptedException;
   
   /**
    * Returns true if any dependency is missing (value of some node hasn't been evaluated yet).
@@ -59,8 +55,9 @@ public interface PackageProviderForConfigurations {
    * function evaluation.
    *
    * @throws NoSuchPackageException if the package could not be found
-   * @throws NoSuchTargetException if the package was loaded successfully, but
-   *         the specified {@link Target} was not found in it
+   * @throws NoSuchTargetException if the package was loaded successfully, but the specified {@link
+   *     Target} was not found in it
    */
-  Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException;
+  Target getTarget(Label label)
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException;
 }

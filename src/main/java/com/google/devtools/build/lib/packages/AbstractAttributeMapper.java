@@ -136,7 +136,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(AcceptsLabelAttribute observer) {
+  public void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException {
     for (Attribute attribute : ruleClass.getAttributes()) {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
@@ -148,10 +148,9 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
   }
 
-  /**
-   * Visits all labels reachable from the given attribute.
-   */
-  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer) {
+  /** Visits all labels reachable from the given attribute. */
+  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer)
+      throws InterruptedException {
     Type<?> type = attribute.getType();
     Object value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.

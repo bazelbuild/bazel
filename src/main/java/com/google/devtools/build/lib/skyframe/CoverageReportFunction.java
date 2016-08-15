@@ -30,7 +30,7 @@ public class CoverageReportFunction implements SkyFunction {
   CoverageReportFunction() {}
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
         CoverageReportValue.SKY_KEY.equals(skyKey), String.format(
             "Expected %s for SkyKey but got %s instead", CoverageReportValue.SKY_KEY, skyKey));

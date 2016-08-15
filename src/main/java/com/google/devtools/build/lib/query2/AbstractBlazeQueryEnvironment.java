@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -165,7 +164,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     }
   }
 
-  public abstract Target getTarget(Label label) throws TargetNotFoundException, QueryException;
+  public abstract Target getTarget(Label label)
+      throws TargetNotFoundException, QueryException, InterruptedException;
 
   protected boolean validateScope(Label label, boolean strict) throws QueryException {
     if (!labelFilter.apply(label)) {
@@ -181,7 +181,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   }
 
   public Set<T> evalTargetPattern(QueryExpression caller, String pattern)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     try {
       preloadOrThrow(caller, ImmutableList.of(pattern));
     } catch (TargetParsingException e) {

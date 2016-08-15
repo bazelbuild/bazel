@@ -41,12 +41,10 @@ import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Resolver;
 import com.google.devtools.build.workspace.maven.Resolver.InvalidArtifactCoordinateException;
 import com.google.devtools.build.workspace.maven.Rule;
-
-import org.apache.maven.model.building.ModelSource;
-import org.apache.maven.model.resolution.UnresolvableModelException;
-
 import java.io.IOException;
 import java.util.List;
+import org.apache.maven.model.building.ModelSource;
+import org.apache.maven.model.resolution.UnresolvableModelException;
 
 /**
  * Finds the transitive dependencies of a WORKSPACE file.
@@ -73,10 +71,8 @@ public class WorkspaceResolver {
     this.environmentExtensions = environmentExtensions.build();
   }
 
-  /**
-   * Converts the WORKSPACE file content into an ExternalPackage.
-   */
-  public Package parse(Path workspacePath) {
+  /** Converts the WORKSPACE file content into an ExternalPackage. */
+  public Package parse(Path workspacePath) throws InterruptedException {
     Package.Builder builder = Package.newExternalPackageBuilder(
         Package.Builder.DefaultHelper.INSTANCE,
         workspacePath,

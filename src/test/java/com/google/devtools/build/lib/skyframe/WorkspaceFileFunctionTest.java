@@ -36,7 +36,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
+import java.io.IOException;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.junit.Before;
@@ -47,8 +47,6 @@ import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
-import java.io.IOException;
 
 /**
  * Test for {@link WorkspaceFileFunction}.
@@ -148,7 +146,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     public void describeTo(Description description) {}
   }
 
-  private SkyFunction.Environment getEnv() {
+  private SkyFunction.Environment getEnv() throws InterruptedException {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.FILE))))
         .thenReturn(fakeWorkspaceFileValue);

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -136,7 +135,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public void getTargetsMatchingPattern(
-      QueryExpression caller, String pattern, Callback<Target> callback) throws QueryException {
+      QueryExpression caller, String pattern, Callback<Target> callback)
+      throws QueryException, InterruptedException {
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
 

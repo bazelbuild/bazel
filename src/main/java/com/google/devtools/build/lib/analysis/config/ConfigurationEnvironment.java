@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.vfs.Path;
-
 import javax.annotation.Nullable;
 
 /**
@@ -48,18 +46,19 @@ public interface ConfigurationEnvironment {
    *
    * @see TargetProvider#getTarget
    */
-  Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException;
+  Target getTarget(Label label)
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException;
 
   /** Returns a path for the given file within the given package. */
-  Path getPath(Package pkg, String fileName);
-  
+  Path getPath(Package pkg, String fileName) throws InterruptedException;
+
   /** Returns fragment based on fragment class and build options. */
-  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
-      throws InvalidConfigurationException;
+  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
+      throws InvalidConfigurationException, InterruptedException;
 
   /** Returns global value of BlazeDirectories. */
   @Nullable
-  BlazeDirectories getBlazeDirectories();
+  BlazeDirectories getBlazeDirectories() throws InterruptedException;
 
   /**
    * An implementation backed by a {@link PackageProvider} instance.

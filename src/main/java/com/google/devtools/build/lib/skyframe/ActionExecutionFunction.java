@@ -196,11 +196,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    * the action cache's view of this action contains additional inputs, it will request metadata for
    * them, so we consider those inputs as dependencies of this action as well. Returns null if some
    * dependencies were missing and this ActionExecutionFunction needs to restart.
+   *
    * @throws ActionExecutionFunctionException
    */
   @Nullable
   private AllInputs collectInputs(Action action, Environment env)
-      throws ActionExecutionFunctionException {
+      throws ActionExecutionFunctionException, InterruptedException {
     Iterable<Artifact> allKnownInputs = Iterables.concat(
         action.getInputs(), action.getRunfilesSupplier().getArtifacts());
     if (action.inputsKnown()) {
@@ -264,7 +265,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     @Override
     public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-        throws PackageRootResolutionException {
+        throws PackageRootResolutionException, InterruptedException {
       Preconditions.checkState(keysRequested.isEmpty(),
           "resolver should only be called once: %s %s", keysRequested, execPaths);
       // Create SkyKeys list based on execPaths.
@@ -316,7 +317,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     @Override
     @Nullable
     public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-        throws PackageRootResolutionException {
+        throws PackageRootResolutionException, InterruptedException {
       // call sites for this implementation of PackageRootResolver shouldn't be passing in
       // directories.
       return findPackageRootsForFiles(execPaths);
@@ -454,8 +455,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   private static void addDiscoveredInputs(
-      Map<Artifact, FileArtifactValue> inputData, Iterable<Artifact> discoveredInputs,
-      Environment env) {
+      Map<Artifact, FileArtifactValue> inputData,
+      Iterable<Artifact> discoveredInputs,
+      Environment env)
+      throws InterruptedException {
     Set<SkyKey> keys = new HashSet<>();
     for (Artifact artifact : discoveredInputs) {
       if (!inputData.containsKey(artifact)) {
@@ -479,8 +482,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
   }
 
-  private void establishSkyframeDependencies(Environment env, Action action)
-      throws ActionExecutionException {
+  private static void establishSkyframeDependencies(Environment env, Action action)
+      throws ActionExecutionException, InterruptedException {
     // Before we may safely establish Skyframe dependencies, we must build all action inputs by
     // requesting their ArtifactValues.
     // This is very important to do, because the establishSkyframeDependencies method may request
@@ -619,12 +622,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   /**
-   * Declares skyframe dependencies for any {@code action}'s inputs that are not already in
-   * {@code knownInputs}. Returns the result of {@code env.getValues(...)} for these inputs,
-   * which should contain {@link Artifact} keys and {@link FileArtifactValue} or null values.
+   * Declares skyframe dependencies for any {@code action}'s inputs that are not already in {@code
+   * knownInputs}. Returns the result of {@code env.getValues(...)} for these inputs, which should
+   * contain {@link Artifact} keys and {@link FileArtifactValue} or null values.
    */
-  private static Map<SkyKey, SkyValue> declareAdditionalDependencies(Environment env,
-      Action action, Set<Artifact> knownInputs) {
+  private static Map<SkyKey, SkyValue> declareAdditionalDependencies(
+      Environment env, Action action, Set<Artifact> knownInputs) throws InterruptedException {
     Preconditions.checkState(action.discoversInputs(), action);
     Iterable<Artifact> newArtifacts =
         Iterables.filter(action.getInputs(), Predicates.not(Predicates.in(knownInputs)));

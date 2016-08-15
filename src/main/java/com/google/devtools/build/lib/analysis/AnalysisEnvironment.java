@@ -127,13 +127,13 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current
    * build request.
    */
-  Artifact getStableWorkspaceStatusArtifact();
+  Artifact getStableWorkspaceStatusArtifact() throws InterruptedException;
 
   /**
-   * Returns the Artifact that is used to hold the volatile workspace status (e.g. build
-   * changelist) for the current build request.
+   * Returns the Artifact that is used to hold the volatile workspace status (e.g. build changelist)
+   * for the current build request.
    */
-  Artifact getVolatileWorkspaceStatusArtifact();
+  Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException;
 
   /**
    * Returns the Artifacts that contain the workspace status for the current build request.
@@ -142,7 +142,8 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * @param config the current build configuration.
    */
   ImmutableList<Artifact> getBuildInfo(
-      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config);
+      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config)
+      throws InterruptedException;
 
   /**
    * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be

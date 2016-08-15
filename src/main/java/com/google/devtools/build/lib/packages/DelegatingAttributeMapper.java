@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import javax.annotation.Nullable;
 
 /**
@@ -74,7 +73,7 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(AcceptsLabelAttribute observer) {
+  public void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException {
     delegate.visitLabels(observer);
   }
 

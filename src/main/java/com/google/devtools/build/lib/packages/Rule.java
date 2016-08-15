@@ -398,10 +398,8 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     return false;
   }
 
-  /**
-   * Returns a new List instance containing all direct dependencies (all types).
-   */
-  public Collection<Label> getLabels() {
+  /** Returns a new List instance containing all direct dependencies (all types). */
+  public Collection<Label> getLabels() throws InterruptedException {
     final List<Label> labels = Lists.newArrayList();
     AggregatingAttributeMapper.of(this).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
       @Override
@@ -413,29 +411,30 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   }
 
   /**
-   * Returns a new Collection containing all Labels that match a given Predicate,
-   * not including outputs.
+   * Returns a new Collection containing all Labels that match a given Predicate, not including
+   * outputs.
    *
-   * @param predicate A binary predicate that determines if a label should be
-   *     included in the result. The predicate is evaluated with this rule and
-   *     the attribute that contains the label. The label will be contained in the
-   *     result iff (the predicate returned {@code true} and the labels are not outputs)
+   * @param predicate A binary predicate that determines if a label should be included in the
+   *     result. The predicate is evaluated with this rule and the attribute that contains the
+   *     label. The label will be contained in the result iff (the predicate returned {@code true}
+   *     and the labels are not outputs)
    */
-  public Collection<Label> getLabels(BinaryPredicate<? super Rule, Attribute> predicate) {
+  public Collection<Label> getLabels(BinaryPredicate<? super Rule, Attribute> predicate)
+      throws InterruptedException {
     return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
   }
 
   /**
-   * Returns a new Multimap containing all attributes that match a given Predicate and
-   * corresponding labels, not including outputs.
+   * Returns a new Multimap containing all attributes that match a given Predicate and corresponding
+   * labels, not including outputs.
    *
-   * @param predicate A binary predicate that determines if a label should be
-   *     included in the result. The predicate is evaluated with this rule and
-   *     the attribute that contains the label. The label will be contained in the
-   *     result iff (the predicate returned {@code true} and the labels are not outputs)
+   * @param predicate A binary predicate that determines if a label should be included in the
+   *     result. The predicate is evaluated with this rule and the attribute that contains the
+   *     label. The label will be contained in the result iff (the predicate returned {@code true}
+   *     and the labels are not outputs)
    */
   public Multimap<Attribute, Label> getTransitions(
-      final BinaryPredicate<? super Rule, Attribute> predicate) {
+      final BinaryPredicate<? super Rule, Attribute> predicate) throws InterruptedException {
     final Multimap<Attribute, Label> transitions = HashMultimap.create();
     // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
     // be visited may depend on the calling context. We shouldn't implicitly decide this for
@@ -651,7 +650,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   // null-valued, with a packageFragment that is null...). The bug that prompted
   // the introduction of this code is #2210848 (NullPointerException in
   // Package.checkForConflicts() ).
-  void checkForNullLabels() {
+  void checkForNullLabels() throws InterruptedException {
     AggregatingAttributeMapper.of(this).visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
           @Override

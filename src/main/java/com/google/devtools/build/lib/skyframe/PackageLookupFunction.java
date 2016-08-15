@@ -47,7 +47,8 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws PackageLookupFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws PackageLookupFunctionException, InterruptedException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
     if (PackageFunction.isDefaultsPackage(packageKey)) {
@@ -94,9 +95,9 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   @Nullable
-  private FileValue getFileValue(
+  private static FileValue getFileValue(
       RootedPath fileRootedPath, Environment env, PackageIdentifier packageIdentifier)
-      throws PackageLookupFunctionException {
+      throws PackageLookupFunctionException, InterruptedException {
     String basename = fileRootedPath.asPath().getBaseName();
     SkyKey fileSkyKey = FileValue.key(fileRootedPath);
     FileValue fileValue = null;
@@ -122,12 +123,12 @@ public class PackageLookupFunction implements SkyFunction {
     return fileValue;
   }
 
-  private PackageLookupValue getPackageLookupValue(
+  private static PackageLookupValue getPackageLookupValue(
       Environment env,
       ImmutableList<Path> packagePathEntries,
       PackageIdentifier packageIdentifier,
       BuildFileName buildFileName)
-      throws PackageLookupFunctionException {
+      throws PackageLookupFunctionException, InterruptedException {
     // TODO(bazel-team): The following is O(n^2) on the number of elements on the package path due
     // to having restart the SkyFunction after every new dependency. However, if we try to batch
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
@@ -147,9 +148,9 @@ public class PackageLookupFunction implements SkyFunction {
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
-  private PackageLookupValue computeWorkspacePackageLookupValue(
+  private static PackageLookupValue computeWorkspacePackageLookupValue(
       Environment env, ImmutableList<Path> packagePathEntries)
-      throws PackageLookupFunctionException {
+      throws PackageLookupFunctionException, InterruptedException {
     PackageLookupValue result =
         getPackageLookupValue(
             env, packagePathEntries, Label.EXTERNAL_PACKAGE_IDENTIFIER, BuildFileName.WORKSPACE);
@@ -182,11 +183,11 @@ public class PackageLookupFunction implements SkyFunction {
    * Gets a PackageLookupValue from a different Bazel repository.
    *
    * <p>To do this, it looks up the "external" package and finds a path mapping for the repository
-   * name.</p>
+   * name.
    */
-  private PackageLookupValue computeExternalPackageLookupValue(
+  private static PackageLookupValue computeExternalPackageLookupValue(
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
-      throws PackageLookupFunctionException {
+      throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
     SkyKey repositoryKey = RepositoryValue.key(id.getRepository());
     RepositoryValue repositoryValue;

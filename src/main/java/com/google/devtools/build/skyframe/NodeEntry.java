@@ -16,10 +16,8 @@ package com.google.devtools.build.skyframe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-
 import java.util.Collection;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -27,6 +25,9 @@ import javax.annotation.Nullable;
  *
  * <p>This interface is public only for the benefit of alternative graph implementations outside of
  * the package.
+ *
+ * <p>Certain graph implementations' node entries can throw {@link InterruptedException} on various
+ * accesses. Such exceptions should not be caught locally -- they should be allowed to propagate up.
  */
 public interface NodeEntry extends ThinNodeEntry {
   /**
@@ -81,7 +82,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * this node is complete, i.e., after {@link #setValue} has been called.
    */
   @ThreadSafe
-  SkyValue getValue();
+  SkyValue getValue() throws InterruptedException;
 
   /**
    * Returns an immutable iterable of the direct deps of this node. This method may only be called
@@ -93,7 +94,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * each call takes time proportional to the number of direct deps of the node.
    */
   @ThreadSafe
-  Iterable<SkyKey> getDirectDeps();
+  Iterable<SkyKey> getDirectDeps() throws InterruptedException;
 
   /** Removes a reverse dependency. */
   @ThreadSafe
@@ -123,21 +124,19 @@ public interface NodeEntry extends ThinNodeEntry {
    * <p>Use the static methods of {@link ValueWithMetadata} to extract metadata if necessary.
    */
   @ThreadSafe
-  SkyValue getValueMaybeWithMetadata();
+  SkyValue getValueMaybeWithMetadata() throws InterruptedException;
 
-  /**
-   * Returns the value, even if dirty or changed. Returns null otherwise.
-   */
+  /** Returns the value, even if dirty or changed. Returns null otherwise. */
   @ThreadSafe
-  SkyValue toValue();
+  SkyValue toValue() throws InterruptedException;
 
   /**
-   * Returns the error, if any, associated to this node. This method may only be called after
-   * the evaluation of this node is complete, i.e., after {@link #setValue} has been called.
+   * Returns the error, if any, associated to this node. This method may only be called after the
+   * evaluation of this node is complete, i.e., after {@link #setValue} has been called.
    */
   @Nullable
   @ThreadSafe
-  ErrorInfo getErrorInfo();
+  ErrorInfo getErrorInfo() throws InterruptedException;
 
   /**
    * Returns the set of reverse deps that have been declared so far this build. Only for use in
@@ -153,10 +152,9 @@ public interface NodeEntry extends ThinNodeEntry {
    * signaled.
    *
    * <p>This is an atomic operation to avoid a race where two threads work on two nodes, where one
-   * node depends on another (b depends on a). When a finishes, it signals <b>exactly</b> the set
-   * of reverse dependencies that are registered at the time of the {@code setValue} call. If b
-   * comes in before a, it is signaled (and re-scheduled) by a, otherwise it needs to do that
-   * itself.
+   * node depends on another (b depends on a). When a finishes, it signals <b>exactly</b> the set of
+   * reverse dependencies that are registered at the time of the {@code setValue} call. If b comes
+   * in before a, it is signaled (and re-scheduled) by a, otherwise it needs to do that itself.
    *
    * <p>{@code version} indicates the graph version at which this node is being written. If the
    * entry determines that the new value is equal to the previous value, the entry will keep its
@@ -164,7 +162,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * changed.
    */
   @ThreadSafe
-  Set<SkyKey> setValue(SkyValue value, Version version);
+  Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException;
 
   /**
    * Queries if the node is done and adds the given key as a reverse dependency. The return code
@@ -238,7 +236,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * @return {@link Set} of reverse dependencies to signal that this node is done.
    */
   @ThreadSafe
-  Set<SkyKey> markClean();
+  Set<SkyKey> markClean() throws InterruptedException;
 
   /**
    * Forces this node to be re-evaluated, even if none of its dependencies are known to have

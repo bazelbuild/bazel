@@ -28,12 +28,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
 
 /**
@@ -51,7 +49,8 @@ public class FileFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws FileFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws FileFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
     RootedPath realRootedPath = null;
     FileStateValue realFileStateValue = null;
@@ -132,9 +131,9 @@ public class FileFunction implements SkyFunction {
    * {@code null} if there was a missing dep.
    */
   @Nullable
-  private Pair<RootedPath, FileStateValue> resolveFromAncestors(
+  private static Pair<RootedPath, FileStateValue> resolveFromAncestors(
       RootedPath rootedPath, Environment env)
-      throws FileFunctionException, FileOutsidePackageRootsException {
+      throws FileFunctionException, FileOutsidePackageRootsException, InterruptedException {
     PathFragment relativePath = rootedPath.getRelativePath();
     RootedPath realRootedPath = rootedPath;
     FileValue parentFileValue = null;
@@ -180,14 +179,17 @@ public class FileFunction implements SkyFunction {
   }
 
   /**
-   * Returns the symlink target and file state of {@code rootedPath}'s symlink to
-   * {@code symlinkTarget}, accounting for ancestor symlinks, or {@code null} if there was a
-   * missing dep.
+   * Returns the symlink target and file state of {@code rootedPath}'s symlink to {@code
+   * symlinkTarget}, accounting for ancestor symlinks, or {@code null} if there was a missing dep.
    */
   @Nullable
-  private Pair<RootedPath, FileStateValue> getSymlinkTargetRootedPath(RootedPath rootedPath,
-      PathFragment symlinkTarget, TreeSet<Path> orderedSeenPaths,
-      Iterable<RootedPath> symlinkChain, Environment env) throws FileFunctionException {
+  private Pair<RootedPath, FileStateValue> getSymlinkTargetRootedPath(
+      RootedPath rootedPath,
+      PathFragment symlinkTarget,
+      TreeSet<Path> orderedSeenPaths,
+      Iterable<RootedPath> symlinkChain,
+      Environment env)
+      throws FileFunctionException, InterruptedException {
     RootedPath symlinkTargetRootedPath;
     if (symlinkTarget.isAbsolute()) {
       Path path = rootedPath.asPath().getFileSystem().getRootDirectory().getRelative(

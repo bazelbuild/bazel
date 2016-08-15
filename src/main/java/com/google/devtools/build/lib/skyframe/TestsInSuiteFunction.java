@@ -35,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,7 +52,7 @@ import javax.annotation.Nullable;
 // TODO(ulfjack): What about test_suite rules that include each other.
 final class TestsInSuiteFunction implements SkyFunction {
   @Override
-  public SkyValue compute(SkyKey key, Environment env) {
+  public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestsInSuite expansion = (TestsInSuite) key.argument();
     ResolvedTargets<Target> result =
         computeTestsInSuite(env, expansion.getTestSuite(), expansion.isStrict());
@@ -65,13 +63,13 @@ final class TestsInSuiteFunction implements SkyFunction {
   }
 
   /**
-   * Populates 'result' with all the tests associated with the specified
-   * 'testSuite'.  Throws an exception if any target is missing.
+   * Populates 'result' with all the tests associated with the specified 'testSuite'. Throws an
+   * exception if any target is missing.
    *
-   * <p>CAUTION!  Keep this logic consistent with {@code TestSuite}!
+   * <p>CAUTION! Keep this logic consistent with {@code TestSuite}!
    */
-  private ResolvedTargets<Target> computeTestsInSuite(
-      Environment env, Rule testSuite, boolean strict) {
+  private static ResolvedTargets<Target> computeTestsInSuite(
+      Environment env, Rule testSuite, boolean strict) throws InterruptedException {
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     List<Target> testsAndSuites = new ArrayList<>();
     // Note that testsAndSuites can contain input file targets; the test_suite rule does not
@@ -132,8 +130,9 @@ final class TestsInSuiteFunction implements SkyFunction {
    * found a problem during the lookup process; the actual error message is reported to the
    * environment.
    */
-  private boolean getPrerequisites(Environment env, Rule testSuite, String attrName,
-      List<Target> targets) {
+  private static boolean getPrerequisites(
+      Environment env, Rule testSuite, String attrName, List<Target> targets)
+      throws InterruptedException {
     List<Label> labels =
         NonconfigurableAttributeMapper.of(testSuite).get(attrName, BuildType.LABEL_LIST);
     Set<PackageIdentifier> pkgIdentifiers = new LinkedHashSet<>();

@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 final class TargetPatternPhaseFunction implements SkyFunction {
 
   @Override
-  public TargetPatternPhaseValue compute(SkyKey key, Environment env) {
+  public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternList options = (TargetPatternList) key.argument();
     PackageValue packageValue = null;
     boolean workspaceError = false;
@@ -189,8 +189,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param compileOneDependency if true, enables alternative interpretation of targetPatterns; see
    *     {@link LoadingOptions#compileOneDependency}
    */
-  private static ResolvedTargets<Target> getTargetsToBuild(Environment env,
-      List<String> targetPatterns, String offset, boolean compileOneDependency) {
+  private static ResolvedTargets<Target> getTargetsToBuild(
+      Environment env, List<String> targetPatterns, String offset, boolean compileOneDependency)
+      throws InterruptedException {
     List<SkyKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(targetPatterns, FilteringPolicies.FILTER_MANUAL, offset)) {
@@ -253,8 +254,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param targetPatterns the list of command-line target patterns specified by the user
    * @param testFilter the test filter
    */
-  private static ResolvedTargets<Target> determineTests(Environment env,
-      List<String> targetPatterns, String offset, TestFilter testFilter) {
+  private static ResolvedTargets<Target> determineTests(
+      Environment env, List<String> targetPatterns, String offset, TestFilter testFilter)
+      throws InterruptedException {
     List<SkyKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
         TargetPatternValue.keys(targetPatterns, FilteringPolicies.FILTER_TESTS, offset)) {

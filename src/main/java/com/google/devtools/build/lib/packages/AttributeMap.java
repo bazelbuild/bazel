@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Type;
-
 import javax.annotation.Nullable;
 
 /**
@@ -91,19 +90,19 @@ public interface AttributeMap {
     /**
      * Accept a (Label, Attribute) pair describing a dependency edge.
      *
-     * @param label the target node of the (Rule, Label) edge.
-     *     The source node should already be known.
+     * @param label the target node of the (Rule, Label) edge. The source node should already be
+     *     known.
      * @param attribute the attribute.
      */
-    void acceptLabelAttribute(Label label, Attribute attribute);
+    void acceptLabelAttribute(Label label, Attribute attribute) throws InterruptedException;
   }
 
   /**
-   * For all attributes that contain labels in their values (either by *being* a label or
-   * being a collection that includes labels), visits every label and notifies the
-   * specified observer at each visit.
+   * For all attributes that contain labels in their values (either by *being* a label or being a
+   * collection that includes labels), visits every label and notifies the specified observer at
+   * each visit.
    */
-  void visitLabels(AcceptsLabelAttribute observer);
+  void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException;
 
   // TODO(bazel-team): These methods are here to support computed defaults that inherit
   // package-level default values. Instead, we should auto-inherit and remove the computed

@@ -30,12 +30,10 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /** Tests for {@link com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
@@ -250,16 +248,18 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     scratch.file("bar/BUILD");
   }
 
-  private void assertValidValue(WalkableGraph graph, SkyKey key) {
+  private static void assertValidValue(WalkableGraph graph, SkyKey key)
+      throws InterruptedException {
     assertValidValue(graph, key, /*expectTransitiveException=*/ false);
   }
 
   /**
-   * A node in the walkable graph may have both a value and an exception. This happens when one
-   * of a node's transitive dependencies throws an exception, but its parent recovers from it.
+   * A node in the walkable graph may have both a value and an exception. This happens when one of a
+   * node's transitive dependencies throws an exception, but its parent recovers from it.
    */
-  private void assertValidValue(
-      WalkableGraph graph, SkyKey key, boolean expectTransitiveException) {
+  private static void assertValidValue(
+      WalkableGraph graph, SkyKey key, boolean expectTransitiveException)
+      throws InterruptedException {
     assertTrue(graph.exists(key));
     assertNotNull(graph.getValue(key));
     if (expectTransitiveException) {
@@ -269,7 +269,8 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     }
   }
 
-  private Exception assertException(WalkableGraph graph, SkyKey key) {
+  private static Exception assertException(WalkableGraph graph, SkyKey key)
+      throws InterruptedException {
     assertTrue(graph.exists(key));
     assertNull(graph.getValue(key));
     Exception exception = graph.getException(key);

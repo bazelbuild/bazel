@@ -41,7 +41,7 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
 
   @Override
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     CppConfiguration cppConfiguration = env.getFragment(buildOptions, CppConfiguration.class);
     if (cppConfiguration == null) {
       return null;

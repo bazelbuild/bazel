@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-
 import javax.annotation.Nullable;
 
 /**
@@ -77,7 +76,8 @@ public class DeterministicHelper extends NotifyingHelper {
     return entry == null ? null : new DeterministicValueEntry(key, entry);
   }
 
-  private static Map<SkyKey, NodeEntry> makeDeterministic(Map<SkyKey, NodeEntry> map) {
+  private static Map<SkyKey, ? extends NodeEntry> makeDeterministic(
+      Map<SkyKey, ? extends NodeEntry> map) {
     Map<SkyKey, NodeEntry> result = new TreeMap<>(ALPHABETICAL_SKYKEY_COMPARATOR);
     result.putAll(map);
     return result;
@@ -89,10 +89,9 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(
-        @Nullable SkyKey requestor,
-        Reason reason,
-        Iterable<SkyKey> keys) {
+    public Map<SkyKey, ? extends NodeEntry> getBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }
@@ -112,16 +111,16 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> createIfAbsentBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        throws InterruptedException {
       return makeDeterministic(super.createIfAbsentBatch(requestor, reason, keys));
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(
-        @Nullable SkyKey requestor,
-        Reason reason,
-        Iterable<SkyKey> keys) {
+    public Map<SkyKey, ? extends NodeEntry> getBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }

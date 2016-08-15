@@ -19,10 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.EventHandler;
-
 import java.io.PrintStream;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -118,7 +116,7 @@ public interface MemoizingEvaluator {
    */
   @VisibleForTesting
   @Nullable
-  ErrorInfo getExistingErrorForTesting(SkyKey key);
+  ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
 
   @Nullable
   NodeEntry getExistingEntryForTesting(SkyKey key);

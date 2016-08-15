@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -29,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /** A {@link QuiescingExecutor} implementation that wraps an {@link ExecutorService}. */
@@ -143,7 +141,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private final boolean ownExecutorService;
 
   private final ErrorClassifier errorClassifier;
-  private final ErrorHandler errorHandler;
 
   private static final Logger LOG = Logger.getLogger(AbstractQueueVisitor.class.getName());
 
@@ -176,25 +173,23 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         failFastOnException,
         poolName,
         EXECUTOR_FACTORY,
-        ErrorClassifier.DEFAULT,
-        ErrorHandler.NullHandler.INSTANCE);
+        ErrorClassifier.DEFAULT);
   }
 
   /**
    * Create the {@link AbstractQueueVisitor}.
    *
    * @param concurrent {@code true} if concurrency should be enabled. Only set to {@code false} for
-   *                   debugging.
+   *     debugging.
    * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
-   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
-   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
+   *     parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code corePoolSize} and
+   *     {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
-   *                 null}, default thread naming will be used.
+   *     null}, default thread naming will be used.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
-   * @param errorHandler a handler for classified errors.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
@@ -203,8 +198,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       TimeUnit units,
       boolean failFastOnException,
       String poolName,
-      ErrorClassifier errorClassifier,
-      ErrorHandler errorHandler) {
+      ErrorClassifier errorClassifier) {
     this(
         concurrent,
         parallelism,
@@ -213,27 +207,25 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         failFastOnException,
         poolName,
         EXECUTOR_FACTORY,
-        errorClassifier,
-        errorHandler);
+        errorClassifier);
   }
 
   /**
    * Create the {@link AbstractQueueVisitor}.
    *
    * @param concurrent {@code true} if concurrency should be enabled. Only set to {@code false} for
-   *                   debugging.
+   *     debugging.
    * @param parallelism a measure of parallelism for the {@link ExecutorService}, such as {@code
-   *                    parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code
-   *                    corePoolSize} and {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
+   *     parallelism} in {@link java.util.concurrent.ForkJoinPool}, or both {@code corePoolSize} and
+   *     {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
    * @param units the time units of keepAliveTime.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
-   *                 null}, default thread naming will be used.
+   *     null}, default thread naming will be used.
    * @param executorFactory the factory for constructing the executor service if {@code concurrent}
-   *                        is {@code true}.
+   *     is {@code true}.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
-   * @param errorHandler a handler for classified errors.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
@@ -243,8 +235,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       boolean failFastOnException,
       String poolName,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory,
-      ErrorClassifier errorClassifier,
-      ErrorHandler errorHandler) {
+      ErrorClassifier errorClassifier) {
     Preconditions.checkNotNull(poolName);
     Preconditions.checkNotNull(executorFactory);
     Preconditions.checkNotNull(errorClassifier);
@@ -258,7 +249,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
                     parallelism, keepAliveTime, units, poolName, new BlockingStack<Runnable>()))
             : null;
     this.errorClassifier = errorClassifier;
-    this.errorHandler = errorHandler;
   }
 
   /**
@@ -278,8 +268,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         executorService,
         shutdownOnCompletion,
         failFastOnException,
-        ErrorClassifier.DEFAULT,
-        ErrorHandler.NullHandler.INSTANCE);
+        ErrorClassifier.DEFAULT);
   }
 
   /**
@@ -305,37 +294,32 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = executorService;
     this.errorClassifier = ErrorClassifier.DEFAULT;
-    this.errorHandler = ErrorHandler.NullHandler.INSTANCE;
   }
 
   /**
    * Create the AbstractQueueVisitor.
    *
    * @param concurrent if {@code false}, run tasks inline instead of using the {@link
-   *                   ExecutorService}.
+   *     ExecutorService}.
    * @param executorService The {@link ExecutorService} to use.
    * @param shutdownOnCompletion If {@code true}, pass ownership of the {@link ExecutorService} to
-   *                             this class. The service will be shut down after a
-   *                             call to {@link #awaitQuiescence}. Callers must not shut down the
-   *                             {@link ExecutorService} while queue visitors use it.
+   *     this class. The service will be shut down after a call to {@link #awaitQuiescence}. Callers
+   *     must not shut down the {@link ExecutorService} while queue visitors use it.
    * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
-   * @param errorHandler a handler for classified errors.
    */
   public AbstractQueueVisitor(
       boolean concurrent,
       ExecutorService executorService,
       boolean shutdownOnCompletion,
       boolean failFastOnException,
-      ErrorClassifier errorClassifier,
-      ErrorHandler errorHandler) {
+      ErrorClassifier errorClassifier) {
     Preconditions.checkArgument(executorService != null || !concurrent);
     this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = executorService;
     this.errorClassifier = errorClassifier;
-    this.errorHandler = errorHandler;
   }
 
   /**
@@ -358,8 +342,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         false,
         poolName,
         EXECUTOR_FACTORY,
-        ErrorClassifier.DEFAULT,
-        ErrorHandler.NullHandler.INSTANCE);
+        ErrorClassifier.DEFAULT);
   }
 
 
@@ -437,7 +420,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         default:
           break;
     }
-    errorHandler.handle(e, errorClassification);
     if (unhandled == null
         || errorClassification.compareTo(errorClassifier.classify(unhandled)) > 0) {
       // Save the most severe error.

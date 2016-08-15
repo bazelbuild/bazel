@@ -31,10 +31,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
 import java.util.regex.Pattern;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,7 +52,8 @@ public final class GlobFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws GlobFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws GlobFunctionException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file

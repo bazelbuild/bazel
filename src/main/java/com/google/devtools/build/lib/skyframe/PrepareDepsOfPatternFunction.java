@@ -44,11 +44,9 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
 
 /**
@@ -177,16 +175,17 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public ResolvedTargets<Void> getTargetsInPackage(String originalPattern,
-        PackageIdentifier packageIdentifier, boolean rulesOnly) throws TargetParsingException {
+    public ResolvedTargets<Void> getTargetsInPackage(
+        String originalPattern, PackageIdentifier packageIdentifier, boolean rulesOnly)
+        throws TargetParsingException, InterruptedException {
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
       return getTargetsInPackage(originalPattern, packageIdentifier, policy);
     }
 
-    private ResolvedTargets<Void> getTargetsInPackage(String originalPattern,
-        PackageIdentifier packageIdentifier, FilteringPolicy policy)
-        throws TargetParsingException {
+    private ResolvedTargets<Void> getTargetsInPackage(
+        String originalPattern, PackageIdentifier packageIdentifier, FilteringPolicy policy)
+        throws TargetParsingException, InterruptedException {
       try {
         Package pkg = packageProvider.getPackage(env.getListener(), packageIdentifier);
         ResolvedTargets<Target> packageTargets =
@@ -209,7 +208,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public boolean isPackage(PackageIdentifier packageIdentifier) {
+    public boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException {
       return packageProvider.isPackage(env.getListener(), packageIdentifier);
     }
 

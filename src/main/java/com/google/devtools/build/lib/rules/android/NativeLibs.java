@@ -65,7 +65,8 @@ public final class NativeLibs {
       String nativeDepsFileName,
       Multimap<String, TransitiveInfoCollection> depsByArchitecture,
       Map<String, CcToolchainProvider> toolchainMap,
-      Map<String, BuildConfiguration> configurationMap) {
+      Map<String, BuildConfiguration> configurationMap)
+      throws InterruptedException {
     Map<String, Iterable<Artifact>> result = new LinkedHashMap<>();
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         depsByArchitecture.asMap().entrySet()) {

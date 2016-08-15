@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -71,8 +70,9 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public List<Target> getLabelListAttr(QueryExpression caller, Target target, String attrName,
-      String errorMsgPrefix) throws QueryException {
+  public List<Target> getLabelListAttr(
+      QueryExpression caller, Target target, String attrName, String errorMsgPrefix)
+      throws QueryException, InterruptedException {
     Preconditions.checkArgument(target instanceof Rule);
 
     List<Target> result = new ArrayList<>();
@@ -163,7 +163,8 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public Set<QueryVisibility<Target>> getVisibility(Target target) throws QueryException {
+  public Set<QueryVisibility<Target>> getVisibility(Target target)
+      throws QueryException, InterruptedException {
     ImmutableSet.Builder<QueryVisibility<Target>> result = ImmutableSet.builder();
     result.add(QueryVisibility.samePackage(target, this));
     convertVisibility(result, target);
@@ -172,9 +173,8 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
 
   // CAUTION: keep in sync with ConfiguredTargetFactory#convertVisibility()
   private void convertVisibility(
-      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,
-      Target target)
-      throws QueryException {
+      ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications, Target target)
+      throws QueryException, InterruptedException {
    RuleVisibility ruleVisibility = target.getVisibility();
    if (ruleVisibility instanceof ConstantRuleVisibility) {
      if (((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()) {
@@ -203,7 +203,7 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
 
   private void convertGroupVisibility(
       PackageGroup group, ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications)
-      throws QueryException, TargetNotFoundException {
+      throws QueryException, TargetNotFoundException, InterruptedException {
     for (Label include : group.getIncludes()) {
       convertGroupVisibility((PackageGroup) queryEnvironment.getTarget(include),
           packageSpecifications);

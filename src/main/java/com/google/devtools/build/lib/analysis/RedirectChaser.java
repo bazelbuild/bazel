@@ -71,7 +71,7 @@ public final class RedirectChaser {
    */
   @Nullable
   public static Label followRedirects(ConfigurationEnvironment env, Label label, String name)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     Label oldLabel = null;
     Set<Label> visitedLabels = new HashSet<>();
     visitedLabels.add(label);

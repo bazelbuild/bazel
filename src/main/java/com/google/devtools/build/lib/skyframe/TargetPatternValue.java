@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -32,9 +30,9 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -209,13 +207,15 @@ public final class TargetPatternValue implements SkyValue {
       return excludedSubdirectories;
     }
 
-    public ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
-        Iterable<PathFragment> blacklistedPackagePrefixes) {
-      return getAllSubdirectoriesToExclude(Suppliers.ofInstance(blacklistedPackagePrefixes));
+    ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
+        Iterable<PathFragment> blacklistedPackagePrefixes) throws InterruptedException {
+      return getAllSubdirectoriesToExclude(
+          new InterruptibleSupplier.Instance<>(blacklistedPackagePrefixes));
     }
 
     public ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
-        Supplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes) {
+        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+        throws InterruptedException {
       ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
       excludedPathsBuilder.addAll(getExcludedSubdirectories());
       if (parsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {

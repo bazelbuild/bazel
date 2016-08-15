@@ -13,18 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction.Environment} backed by a {@link QueryableGraph}. For use when a single
@@ -41,41 +36,40 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
     this.eventHandler = eventHandler;
   }
 
-  private static final Function<NodeEntry, ValueOrUntypedException> NODE_ENTRY_TO_UNTYPED_VALUE =
-      new Function<NodeEntry, ValueOrUntypedException>() {
-        @Override
-        public ValueOrUntypedException apply(@Nullable NodeEntry nodeEntry) {
-          if (nodeEntry == null || !nodeEntry.isDone()) {
-            return ValueOrExceptionUtils.ofNull();
-          }
-          SkyValue maybeWrappedValue = nodeEntry.getValueMaybeWithMetadata();
-          SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
-          if (justValue != null) {
-            return ValueOrExceptionUtils.ofValueUntyped(justValue);
-          }
-          ErrorInfo errorInfo =
-              Preconditions.checkNotNull(ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue));
-          Exception exception = errorInfo.getException();
+  private static ValueOrUntypedException toUntypedValue(NodeEntry nodeEntry)
+      throws InterruptedException {
+    if (nodeEntry == null || !nodeEntry.isDone()) {
+      return ValueOrExceptionUtils.ofNull();
+    }
+    SkyValue maybeWrappedValue = nodeEntry.getValueMaybeWithMetadata();
+    SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
+    if (justValue != null) {
+      return ValueOrExceptionUtils.ofValueUntyped(justValue);
+    }
+    ErrorInfo errorInfo =
+        Preconditions.checkNotNull(ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue));
+    Exception exception = errorInfo.getException();
 
-          if (exception != null) {
-            // Give SkyFunction#compute a chance to handle this exception.
-            return ValueOrExceptionUtils.ofExn(exception);
-          }
-          // In a cycle.
-          Preconditions.checkState(
-              !Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s", errorInfo, maybeWrappedValue);
-          return ValueOrExceptionUtils.ofNull();
-        }
-      };
+    if (exception != null) {
+      // Give SkyFunction#compute a chance to handle this exception.
+      return ValueOrExceptionUtils.ofExn(exception);
+    }
+    // In a cycle.
+    Preconditions.checkState(
+        !Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s", errorInfo, maybeWrappedValue);
+    return ValueOrExceptionUtils.ofNull();
+  }
 
   @Override
-  protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(Set<SkyKey> depKeys) {
-    Map<SkyKey, NodeEntry> resultMap = queryableGraph.getBatch(null, Reason.DEP_REQUESTED, depKeys);
-    Map<SkyKey, NodeEntry> resultWithMissingKeys = new HashMap<>(resultMap);
-    for (SkyKey missingDep : Sets.difference(depKeys, resultMap.keySet())) {
-      resultWithMissingKeys.put(missingDep, null);
+  protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(Set<SkyKey> depKeys)
+      throws InterruptedException {
+    Map<SkyKey, ? extends NodeEntry> resultMap =
+        queryableGraph.getBatch(null, Reason.DEP_REQUESTED, depKeys);
+    Map<SkyKey, ValueOrUntypedException> result = Maps.newHashMapWithExpectedSize(depKeys.size());
+    for (SkyKey dep : depKeys) {
+      result.put(dep, toUntypedValue(resultMap.get(dep)));
     }
-    return Maps.transformValues(resultWithMissingKeys, NODE_ENTRY_TO_UNTYPED_VALUE);
+    return result;
   }
 
   @Override

@@ -51,14 +51,12 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -176,8 +174,13 @@ public class JavaCommon {
    * Creates an action to aggregate all metadata artifacts into a single
    * &lt;target_name&gt;_instrumented.jar file.
    */
-  public static void createInstrumentedJarAction(RuleContext ruleContext, JavaSemantics semantics,
-      List<Artifact> metadataArtifacts, Artifact instrumentedJar, String mainClass) {
+  public static void createInstrumentedJarAction(
+      RuleContext ruleContext,
+      JavaSemantics semantics,
+      List<Artifact> metadataArtifacts,
+      Artifact instrumentedJar,
+      String mainClass)
+      throws InterruptedException {
     // In Jacoco's setup, metadata artifacts are real jars.
     new DeployArchiveBuilder(semantics, ruleContext)
         .setOutputJar(instrumentedJar)

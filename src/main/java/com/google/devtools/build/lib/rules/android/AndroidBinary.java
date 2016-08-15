@@ -68,14 +68,12 @@ import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -798,7 +796,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static Artifact getStubDex(
-      RuleContext ruleContext, JavaSemantics javaSemantics, boolean split) {
+      RuleContext ruleContext, JavaSemantics javaSemantics, boolean split)
+      throws InterruptedException {
     String attribute =
         split ? "$incremental_split_stub_application" : "$incremental_stub_application";
 
@@ -868,8 +867,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   /** Generates an uncompressed _deploy.jar of all the runtime jars. */
   public static Artifact createDeployJar(
-      RuleContext ruleContext, JavaSemantics javaSemantics, AndroidCommon common,
-      JavaTargetAttributes attributes, Artifact deployJar) {
+      RuleContext ruleContext,
+      JavaSemantics javaSemantics,
+      AndroidCommon common,
+      JavaTargetAttributes attributes,
+      Artifact deployJar)
+      throws InterruptedException {
     new DeployArchiveBuilder(javaSemantics, ruleContext)
         .setOutputJar(deployJar)
         .setAttributes(attributes)

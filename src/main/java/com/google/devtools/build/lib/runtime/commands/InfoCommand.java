@@ -34,7 +34,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -188,6 +187,8 @@ public class InfoCommand implements BlazeCommand {
       return e.getExitCode();
     } catch (IOException e) {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+    } catch (InterruptedException e) {
+      return ExitCode.INTERRUPTED;
     }
     return ExitCode.SUCCESS;
   }

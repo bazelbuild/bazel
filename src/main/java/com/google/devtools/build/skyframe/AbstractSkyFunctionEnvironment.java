@@ -18,11 +18,9 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -32,14 +30,16 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Environment {
   protected boolean valuesMissing = false;
-  private <E extends Exception> ValueOrException<E> getValueOrException(SkyKey depKey,
-      Class<E> exceptionClass) {
+  private <E extends Exception> ValueOrException<E> getValueOrException(
+      SkyKey depKey, Class<E> exceptionClass) throws InterruptedException {
     return ValueOrExceptionUtils.downconvert(
         getValueOrException(depKey, exceptionClass, BottomException.class), exceptionClass);
   }
 
-  private <E1 extends Exception, E2 extends Exception> ValueOrException2<E1, E2>
-  getValueOrException(SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) {
+  private <E1 extends Exception, E2 extends Exception>
+      ValueOrException2<E1, E2> getValueOrException(
+          SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
+          throws InterruptedException {
     return ValueOrExceptionUtils.downconvert(getValueOrException(depKey, exceptionClass1,
         exceptionClass2, BottomException.class), exceptionClass1, exceptionClass2);
   }
@@ -49,7 +49,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           SkyKey depKey,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3) {
+          Class<E3> exceptionClass3)
+          throws InterruptedException {
     return ValueOrExceptionUtils.downconvert(
         getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3,
             BottomException.class),
@@ -64,7 +65,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4) {
+          Class<E4> exceptionClass4)
+          throws InterruptedException {
     return ValueOrExceptionUtils.downconvert(
         getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3,
             exceptionClass4, BottomException.class),
@@ -74,15 +76,20 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
         exceptionClass4);
   }
 
-  private <E1 extends Exception, E2 extends Exception, E3 extends Exception,
-           E4 extends Exception, E5 extends Exception>
+  private <
+          E1 extends Exception,
+          E2 extends Exception,
+          E3 extends Exception,
+          E4 extends Exception,
+          E5 extends Exception>
       ValueOrException5<E1, E2, E3, E4, E5> getValueOrException(
           SkyKey depKey,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
           Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5) {
+          Class<E5> exceptionClass5)
+          throws InterruptedException {
     return getValueOrExceptions(
         ImmutableSet.of(depKey),
         exceptionClass1,
@@ -92,7 +99,11 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
         exceptionClass5).get(depKey);
   }
 
-  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception,
+  private <
+          E1 extends Exception,
+          E2 extends Exception,
+          E3 extends Exception,
+          E4 extends Exception,
           E5 extends Exception>
       Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValueOrExceptions(
           Set<SkyKey> depKeys,
@@ -100,7 +111,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           final Class<E2> exceptionClass2,
           final Class<E3> exceptionClass3,
           final Class<E4> exceptionClass4,
-          final Class<E5> exceptionClass5) {
+          final Class<E5> exceptionClass5)
+          throws InterruptedException {
     SkyFunctionException.validateExceptionType(exceptionClass1);
     SkyFunctionException.validateExceptionType(exceptionClass2);
     SkyFunctionException.validateExceptionType(exceptionClass3);
@@ -158,11 +170,11 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
 
   /** Implementations should set {@link #valuesMissing} as necessary. */
   protected abstract Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-      Set<SkyKey> depKeys);
+      Set<SkyKey> depKeys) throws InterruptedException;
 
   @Override
   @Nullable
-  public SkyValue getValue(SkyKey depKey) {
+  public SkyValue getValue(SkyKey depKey) throws InterruptedException {
     try {
       return getValueOrThrow(depKey, BottomException.class);
     } catch (BottomException e) {
@@ -173,16 +185,15 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   @Override
   @Nullable
   public <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
-      throws E {
+      throws E, InterruptedException {
     return getValueOrException(depKey, exceptionClass).get();
   }
 
   @Override
   @Nullable
   public <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(
-      SkyKey depKey,
-      Class<E1> exceptionClass1,
-      Class<E2> exceptionClass2) throws E1, E2 {
+      SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
+      throws E1, E2, InterruptedException {
     return getValueOrException(depKey, exceptionClass1, exceptionClass2).get();
   }
 
@@ -193,7 +204,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           SkyKey depKey,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3) throws E1, E2, E3 {
+          Class<E3> exceptionClass3)
+          throws E1, E2, E3, InterruptedException {
     return getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3).get();
   }
 
@@ -204,7 +216,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4) throws E1, E2, E3, E4 {
+          Class<E4> exceptionClass4)
+          throws E1, E2, E3, E4, InterruptedException {
     return getValueOrException(
         depKey,
         exceptionClass1,
@@ -214,7 +227,11 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   }
 
   @Override
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception,
+  public <
+          E1 extends Exception,
+          E2 extends Exception,
+          E3 extends Exception,
+          E4 extends Exception,
           E5 extends Exception>
       SkyValue getValueOrThrow(
           SkyKey depKey,
@@ -222,8 +239,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
           Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5
-  ) throws E1, E2, E3, E4, E5 {
+          Class<E5> exceptionClass5)
+          throws E1, E2, E3, E4, E5, InterruptedException {
     return getValueOrException(
         depKey,
         exceptionClass1,
@@ -234,14 +251,14 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) {
+  public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) throws InterruptedException {
     return Maps.transformValues(getValuesOrThrow(depKeys, BottomException.class),
         GET_VALUE_FROM_VOE);
   }
 
   @Override
   public <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-      Iterable<SkyKey> depKeys, Class<E> exceptionClass) {
+      Iterable<SkyKey> depKeys, Class<E> exceptionClass) throws InterruptedException {
     return Maps.transformValues(
         getValuesOrThrow(depKeys, exceptionClass, BottomException.class),
         makeSafeDowncastToVOEFunction(exceptionClass));
@@ -250,9 +267,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   @Override
   public <E1 extends Exception, E2 extends Exception>
       Map<SkyKey, ValueOrException2<E1, E2>> getValuesOrThrow(
-          Iterable<SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2) {
+          Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
+          throws InterruptedException {
     return Maps.transformValues(
         getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2, BottomException.class),
         makeSafeDowncastToVOE2Function(exceptionClass1, exceptionClass2));
@@ -264,7 +280,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Iterable<SkyKey> depKeys,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3) {
+          Class<E3> exceptionClass3)
+          throws InterruptedException {
     return Maps.transformValues(
         getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2, exceptionClass3,
             BottomException.class),
@@ -278,7 +295,8 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4) {
+          Class<E4> exceptionClass4)
+          throws InterruptedException {
     return Maps.transformValues(
         getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2, exceptionClass3,
             exceptionClass4, BottomException.class),
@@ -287,15 +305,20 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
   }
 
   @Override
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception,
-          E4 extends Exception, E5 extends Exception>
+  public <
+          E1 extends Exception,
+          E2 extends Exception,
+          E3 extends Exception,
+          E4 extends Exception,
+          E5 extends Exception>
       Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValuesOrThrow(
           Iterable<SkyKey> depKeys,
           Class<E1> exceptionClass1,
           Class<E2> exceptionClass2,
           Class<E3> exceptionClass3,
           Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5) {
+          Class<E5> exceptionClass5)
+          throws InterruptedException {
     Set<SkyKey> keys = ImmutableSet.copyOf(depKeys);
     Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> result = getValueOrExceptions(keys,
         exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4, exceptionClass5);

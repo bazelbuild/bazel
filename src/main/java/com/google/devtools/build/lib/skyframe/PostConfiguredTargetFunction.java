@@ -38,12 +38,10 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -134,8 +132,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
    * target, or null if not all dependencies have yet been SkyFrame-evaluated.
    */
   @Nullable
-  private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeConditions(
-      TargetAndConfiguration ctg, Environment env) {
+  private static ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeConditions(
+      TargetAndConfiguration ctg, Environment env) throws InterruptedException {
     if (!(ctg.getTarget() instanceof Rule)) {
       return ImmutableMap.of();
     }

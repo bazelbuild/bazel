@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.concurrent.ErrorHandler;
 import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
@@ -41,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 
 /**
@@ -113,8 +110,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
             /*failFastOnException=*/ true,
             "skyframe-invalidator",
             executorFactory,
-            errorClassifier,
-            ErrorHandler.NullHandler.INSTANCE);
+            errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);
     this.invalidationReceiver = invalidationReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -126,9 +122,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       @Nullable EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      ForkJoinPool forkJoinPool,
-      ErrorHandler errorHandler) {
-    this.executor = new ForkJoinQuiescingExecutor(forkJoinPool, errorClassifier, errorHandler);
+      ForkJoinPool forkJoinPool) {
+    this.executor = new ForkJoinQuiescingExecutor(forkJoinPool, errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);
     this.invalidationReceiver = invalidationReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -270,7 +265,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       for (SkyKey key : unvisitedKeys) {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
-      final Map<SkyKey, NodeEntry> entries =
+      final Map<SkyKey, ? extends NodeEntry> entries =
           graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
       for (final SkyKey key : unvisitedKeys) {
         executor.execute(
@@ -303,13 +298,23 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
                       entry.isDone()
                           ? ImmutableSet.<SkyKey>of()
                           : entry.getTemporaryDirectDeps().toSet();
-                  Iterable<SkyKey> directDeps =
-                      entry.isDone()
-                          ? entry.getDirectDeps()
-                          : entry.getAllDirectDepsForIncompleteNode();
-                  Map<SkyKey, NodeEntry> depMap =
+                  Iterable<SkyKey> directDeps;
+                  try {
+                    directDeps =
+                        entry.isDone()
+                            ? entry.getDirectDeps()
+                            : entry.getAllDirectDepsForIncompleteNode();
+                  } catch (InterruptedException e) {
+                    throw new IllegalStateException(
+                        "Deletion cannot happen on a graph that may have blocking operations: "
+                            + key
+                            + ", "
+                            + entry,
+                        e);
+                  }
+                  Map<SkyKey, ? extends NodeEntry> depMap =
                       graph.getBatch(key, Reason.INVALIDATION, directDeps);
-                  for (Map.Entry<SkyKey, NodeEntry> directDepEntry : depMap.entrySet()) {
+                  for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
                     NodeEntry dep = directDepEntry.getValue();
                     if (dep != null) {
                       if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
@@ -373,9 +378,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
         ForkJoinPool forkJoinPool,
-        boolean supportInterruptions,
-        ErrorHandler errorHandler) {
-      super(graph, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool, errorHandler);
+        boolean supportInterruptions) {
+      super(graph, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool);
       this.supportInterruptions = supportInterruptions;
     }
 
@@ -435,8 +439,16 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
           pendingVisitations.add(Pair.of(key, invalidationType));
         }
       }
-      final Map<SkyKey, ? extends ThinNodeEntry> entries =
-          graph.getBatch(null, Reason.INVALIDATION, keysToGet);
+      final Map<SkyKey, ? extends ThinNodeEntry> entries;
+      try {
+        entries = graph.getBatch(null, Reason.INVALIDATION, keysToGet);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        // This can only happen if the main thread has been interrupted, and so the
+        // AbstractQueueVisitor is shutting down. We haven't yet removed the pending visitations, so
+        // we can resume next time.
+        return;
+      }
       if (enqueueingKeyForExistenceCheck != null && entries.size() != keysToGet.size()) {
         Set<SkyKey> missingKeys = Sets.difference(ImmutableSet.copyOf(keysToGet), entries.keySet());
         throw new IllegalStateException(
@@ -471,7 +483,16 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
                 // method.
                 // Any exception thrown should be unrecoverable.
                 // This entry remains in the graph in this dirty state until it is re-evaluated.
-                MarkedDirtyResult markedDirtyResult = entry.markDirty(isChanged);
+                MarkedDirtyResult markedDirtyResult = null;
+                try {
+                  markedDirtyResult = entry.markDirty(isChanged);
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  // This can only happen if the main thread has been interrupted, and so the
+                  // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
+                  // visitation, so we can resume next time.
+                  return;
+                }
                 if (markedDirtyResult == null) {
                   // Another thread has already dirtied this node. Don't do anything in this thread.
                   if (supportInterruptions) {

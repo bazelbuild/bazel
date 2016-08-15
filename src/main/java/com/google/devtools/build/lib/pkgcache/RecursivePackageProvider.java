@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-
 import java.util.Map;
 
 /**
@@ -32,16 +31,18 @@ public interface RecursivePackageProvider extends PackageProvider {
   /**
    * Returns the names of all the packages under a given directory.
    *
-   * <p>Packages returned by this method and passed into
-   * {@link #bulkGetPackages(EventHandler, Iterable)} are expected to return successful
-   * {@link Package} values.
+   * <p>Packages returned by this method and passed into {@link #bulkGetPackages(EventHandler,
+   * Iterable)} are expected to return successful {@link Package} values.
    *
    * @param directory a {@link RootedPath} specifying the directory to search
-   * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath
-   *     {@code directory}, specifying transitive subdirectories to exclude
+   * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath {@code
+   *     directory}, specifying transitive subdirectories to exclude
    */
-  Iterable<PathFragment> getPackagesUnderDirectory(RepositoryName repository,
-      PathFragment directory, ImmutableSet<PathFragment> excludedSubdirectories);
+  Iterable<PathFragment> getPackagesUnderDirectory(
+      RepositoryName repository,
+      PathFragment directory,
+      ImmutableSet<PathFragment> excludedSubdirectories)
+      throws InterruptedException;
 
 
   /**

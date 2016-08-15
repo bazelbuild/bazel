@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -87,10 +86,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> getBatch(
-        @Nullable SkyKey requestor,
-        Reason reason,
-        Iterable<SkyKey> keys) {
+    public Map<SkyKey, ? extends NodeEntry> getBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        throws InterruptedException {
       return Maps.transformEntries(
           delegate.getBatch(requestor, reason, keys),
           notifyingHelper.wrapEntry);
@@ -98,7 +96,8 @@ public class NotifyingHelper {
 
     @Nullable
     @Override
-    public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+    public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
+        throws InterruptedException {
       return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
   }
@@ -122,8 +121,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, NodeEntry> createIfAbsentBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
       }
@@ -245,7 +245,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) {
+    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
       Set<SkyKey> result = super.setValue(value, version);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
@@ -253,7 +253,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public MarkedDirtyResult markDirty(boolean isChanged) {
+    public MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException {
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
       MarkedDirtyResult result = super.markDirty(isChanged);
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
@@ -261,7 +261,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> markClean() {
+    public Set<SkyKey> markClean() throws InterruptedException {
       graphListener.accept(myKey, EventType.MARK_CLEAN, Order.BEFORE, this);
       Set<SkyKey> result = super.markClean();
       graphListener.accept(myKey, EventType.MARK_CLEAN, Order.AFTER, this);
@@ -287,7 +287,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public SkyValue getValueMaybeWithMetadata() {
+    public SkyValue getValueMaybeWithMetadata() throws InterruptedException {
       graphListener.accept(myKey, EventType.GET_VALUE_WITH_METADATA, Order.BEFORE, this);
       return super.getValueMaybeWithMetadata();
     }

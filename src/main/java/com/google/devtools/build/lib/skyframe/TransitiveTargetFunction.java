@@ -118,10 +118,13 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  void processDeps(TransitiveTargetValueBuilder builder, EventHandler eventHandler,
+  void processDeps(
+      TransitiveTargetValueBuilder builder,
+      EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
       Iterable<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries) {
+          depEntries)
+      throws InterruptedException {
     boolean successfulTransitiveLoading = builder.isSuccessfulTransitiveLoading();
     Target target = targetAndErrorIfAny.getTarget();
     NestedSetBuilder<Label> transitiveRootCauses = builder.getTransitiveRootCauses();
@@ -241,9 +244,13 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
+  protected Collection<Label> getAspectLabels(
+      Rule fromRule,
+      Attribute attr,
+      Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      final Environment env) {
+      final Environment env)
+      throws InterruptedException {
     SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
     try {
       PackageValue pkgValue =
@@ -269,14 +276,15 @@ public class TransitiveTargetFunction
 
   @Override
   TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
-      throws NoSuchTargetException, NoSuchPackageException {
+      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     return (TargetMarkerValue)
         env.getValueOrThrow(
             targetMarkerKey, NoSuchTargetException.class, NoSuchPackageException.class);
   }
 
-  private void maybeReportErrorAboutMissingEdge(
-      Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler) {
+  private static void maybeReportErrorAboutMissingEdge(
+      Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler)
+      throws InterruptedException {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
       if (depLabel.equals(nste.getLabel())) {

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
-
 import java.util.Collection;
 import java.util.Set;
 
@@ -48,7 +47,7 @@ public abstract class DirtyBuildingState extends BuildingState {
   protected final GroupedList<SkyKey> lastBuildDirectDeps;
 
   /** The value of the node the last time it was built. */
-  protected abstract SkyValue getLastBuildValue();
+  protected abstract SkyValue getLastBuildValue() throws InterruptedException;
 
   /**
    * Group of children to be checked next in the process of determining if this entry needs to be
@@ -144,7 +143,7 @@ public abstract class DirtyBuildingState extends BuildingState {
    * <p>Changes in direct deps do <i>not</i> force this to return false. Only the value is
    * considered.
    */
-  final boolean unchangedFromLastBuild(SkyValue newValue) {
+  final boolean unchangedFromLastBuild(SkyValue newValue) throws InterruptedException {
     checkFinishedBuildingWhenAboutToSetValue();
     return !(newValue instanceof NotComparableSkyValue) && getLastBuildValue().equals(newValue);
   }

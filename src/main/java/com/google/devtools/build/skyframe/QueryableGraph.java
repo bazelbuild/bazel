@@ -15,10 +15,15 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
-/** A graph that exposes its entries and structure, for use by classes that must traverse it. */
+/**
+ * A graph that exposes its entries and structure, for use by classes that must traverse it.
+ *
+ * <p>Certain graph implementations can throw {@link InterruptedException} when trying to retrieve
+ * node entries. Such exceptions should not be caught locally -- they should be allowed to propagate
+ * up.
+ */
 @ThreadSafe
 public interface QueryableGraph {
   /**
@@ -29,18 +34,19 @@ public interface QueryableGraph {
    * @param reason the reason the node is being requested.
    */
   @Nullable
-  NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key);
+  NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) throws InterruptedException;
 
   /**
    * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
    * keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and {@code
    * !m.containsKey(k)} iff {@code get(k) == null}.
-   * 
+   *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
-  Map<SkyKey, NodeEntry> getBatch(@Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
+  Map<SkyKey, ? extends NodeEntry> getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) throws InterruptedException;
 
   /**
    * The reason that a node is being looked up in the Skyframe graph.

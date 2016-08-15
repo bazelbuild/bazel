@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -49,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -287,21 +285,21 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getStableWorkspaceStatusArtifact() {
+  public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
     return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
             .getStableArtifact();
   }
 
   @Override
-  public Artifact getVolatileWorkspaceStatusArtifact() {
+  public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
     return ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
             .getVolatileArtifact();
   }
 
   // See SkyframeBuildView#getWorkspaceStatusValues for the code that this method is attempting to
   // verify.
-  private NullPointerException collectDebugInfoAndCrash(
-      BuildInfoKey key, BuildConfiguration config) {
+  private NullPointerException collectDebugInfoAndCrash(BuildInfoKey key, BuildConfiguration config)
+      throws InterruptedException {
     String debugInfo = key + " " + config;
     Preconditions.checkState(skyframeEnv.valuesMissing(), debugInfo);
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = Preconditions.checkNotNull(
@@ -314,7 +312,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public ImmutableList<Artifact> getBuildInfo(
-      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config) {
+      RuleContext ruleContext, BuildInfoKey key, BuildConfiguration config)
+      throws InterruptedException {
     boolean stamp = AnalysisUtils.isStampingEnabled(ruleContext, config);
     BuildInfoCollectionValue collectionValue =
         (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(

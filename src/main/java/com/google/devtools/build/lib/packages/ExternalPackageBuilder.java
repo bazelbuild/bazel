@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Map;
 
 /**
@@ -69,7 +68,7 @@ public class ExternalPackageBuilder {
     return rule;
   }
 
-  void addBindRule(
+  static void addBindRule(
       Builder pkg,
       RuleClass bindRuleClass,
       Label virtual,
@@ -102,7 +101,8 @@ public class ExternalPackageBuilder {
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }
 
-  private void overwriteRule(Package.Builder pkg, Rule rule) throws Package.NameConflictException {
+  private static void overwriteRule(Package.Builder pkg, Rule rule)
+      throws Package.NameConflictException, InterruptedException {
     Preconditions.checkArgument(rule.getOutputFiles().isEmpty());
     Target old = pkg.targets.get(rule.getName());
     if (old != null) {

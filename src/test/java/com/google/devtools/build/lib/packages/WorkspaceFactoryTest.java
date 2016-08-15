@@ -28,13 +28,11 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.io.IOException;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Tests for WorkspaceFactory.
@@ -137,7 +135,7 @@ public class WorkspaceFactoryTest {
       this.exception = exception;
     }
 
-    public Package getPackage() {
+    public Package getPackage() throws InterruptedException {
       return builder.build();
     }
 

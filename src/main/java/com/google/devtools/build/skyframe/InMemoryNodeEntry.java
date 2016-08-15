@@ -21,11 +21,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -163,9 +161,13 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (isDone()) {
       return getErrorInfo() == null ? getValue() : null;
     } else if (isChanged() || isDirty()) {
-      return (getDirtyBuildingState().getLastBuildValue() == null)
-          ? null
-          : ValueWithMetadata.justValue(getDirtyBuildingState().getLastBuildValue());
+      SkyValue lastBuildValue = null;
+      try {
+        lastBuildValue = getDirtyBuildingState().getLastBuildValue();
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("Interruption unexpected: " + this, e);
+      }
+      return (lastBuildValue == null) ? null : ValueWithMetadata.justValue(lastBuildValue);
     } else {
       // Value has not finished evaluating. It's probably about to be cleaned from the graph.
       return null;
@@ -230,7 +232,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> setValue(SkyValue value, Version version) {
+  public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
+      throws InterruptedException {
     Preconditions.checkState(isReady(), "%s %s", this, value);
     // This check may need to be removed when we move to a non-linear versioning sequence.
     Preconditions.checkState(
@@ -370,7 +373,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> markClean() {
+  public synchronized Set<SkyKey> markClean() throws InterruptedException {
     this.value = getDirtyBuildingState().getLastBuildValue();
     Preconditions.checkState(isReady(), "Should be ready when clean: %s", this);
     Preconditions.checkState(

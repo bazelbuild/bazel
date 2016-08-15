@@ -62,7 +62,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       new PathFragment("include/stdc-predef.h");
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws RuleErrorException, InterruptedException {
     TransitiveInfoCollection lipoContextCollector =
         ruleContext.getPrerequisite(":lipo_context_collector", Mode.DONT_CHECK);
     if (lipoContextCollector != null

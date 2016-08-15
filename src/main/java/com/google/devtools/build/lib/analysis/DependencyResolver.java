@@ -45,14 +45,12 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -232,12 +230,15 @@ public abstract class DependencyResolver {
     }
   }
 
-  private void resolveExplicitAttributes(final RuleResolver depResolver) {
+  private void resolveExplicitAttributes(final RuleResolver depResolver)
+      throws InterruptedException {
     depResolver.attributeMap.visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
           @Override
-          public void acceptLabelAttribute(Label label, Attribute attribute) {
-            if (attribute.getType() == BuildType.NODEP_LABEL || attribute.isImplicit()
+          public void acceptLabelAttribute(Label label, Attribute attribute)
+              throws InterruptedException {
+            if (attribute.getType() == BuildType.NODEP_LABEL
+                || attribute.isImplicit()
                 || attribute.isLateBound()) {
               return;
             }
@@ -246,10 +247,8 @@ public abstract class DependencyResolver {
         });
   }
 
-  /**
-   * Resolves the dependencies for all implicit attributes in this rule.
-   */
-  private void resolveImplicitAttributes(RuleResolver depResolver) {
+  /** Resolves the dependencies for all implicit attributes in this rule. */
+  private void resolveImplicitAttributes(RuleResolver depResolver) throws InterruptedException {
     // Since the attributes that come from aspects do not appear in attributeMap, we have to get
     // their values from somewhere else. This incidentally means that aspects attributes are not
     // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
@@ -455,7 +454,8 @@ public abstract class DependencyResolver {
    * @param attrName the name of the attribute to add dependency labels to
    * @param labels the dependencies to add
    */
-  private void addExplicitDeps(RuleResolver depResolver, String attrName, Iterable<Label> labels) {
+  private void addExplicitDeps(RuleResolver depResolver, String attrName, Iterable<Label> labels)
+      throws InterruptedException {
     Rule rule = depResolver.rule;
     if (!rule.isAttrDefined(attrName, BuildType.LABEL_LIST)
         && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
@@ -468,13 +468,16 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Converts the given multimap of attributes to labels into a multi map of attributes to
-   * {@link Dependency} objects using the proper configuration transition for each attribute.
+   * Converts the given multimap of attributes to labels into a multi map of attributes to {@link
+   * Dependency} objects using the proper configuration transition for each attribute.
    *
    * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
    */
-  public final Collection<Dependency> resolveRuleLabels(TargetAndConfiguration node,
-      OrderedSetMultimap<Attribute, Label> depLabels, NestedSetBuilder<Label> rootCauses) {
+  public final Collection<Dependency> resolveRuleLabels(
+      TargetAndConfiguration node,
+      OrderedSetMultimap<Attribute, Label> depLabels,
+      NestedSetBuilder<Label> rootCauses)
+      throws InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
@@ -489,8 +492,12 @@ public abstract class DependencyResolver {
     return outgoingEdges.values();
   }
 
-  private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,
-      NestedSetBuilder<Label> rootCauses, Collection<Dependency> outgoingEdges) {
+  private void visitPackageGroup(
+      TargetAndConfiguration node,
+      PackageGroup packageGroup,
+      NestedSetBuilder<Label> rootCauses,
+      Collection<Dependency> outgoingEdges)
+      throws InterruptedException {
     for (Label label : packageGroup.getIncludes()) {
       Target target = getTarget(packageGroup, label, rootCauses);
       if (target == null) {
@@ -508,7 +515,7 @@ public abstract class DependencyResolver {
     }
   }
 
-  private ImmutableSet<AspectDescriptor> requiredAspects(
+  private static ImmutableSet<AspectDescriptor> requiredAspects(
       @Nullable Aspect aspect, Attribute attribute, final Target target, Rule originalRule) {
     if (!(target instanceof Rule)) {
       return ImmutableSet.of();
@@ -613,10 +620,10 @@ public abstract class DependencyResolver {
     }
 
     /**
-     * Resolves the given dep for the given attribute, including determining which
-     * configurations to apply to it.
+     * Resolves the given dep for the given attribute, including determining which configurations to
+     * apply to it.
      */
-    void resolveDep(Attribute attribute, Label depLabel) {
+    void resolveDep(Attribute attribute, Label depLabel) throws InterruptedException {
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
@@ -633,13 +640,14 @@ public abstract class DependencyResolver {
     /**
      * Resolves the given dep for the given attribute using a pre-prepared configuration.
      *
-     * <p>Use this method with care: it skips Bazel's standard config transition semantics
-     * ({@link BuildConfiguration#evaluateTransition}). That means attributes passed through here
-     * won't obey standard rules on which configurations apply to their deps. This should only
-     * be done for special circumstances that really justify the difference. When in doubt, use
-     * {@link #resolveDep(Attribute, Label)}.
+     * <p>Use this method with care: it skips Bazel's standard config transition semantics ({@link
+     * BuildConfiguration#evaluateTransition}). That means attributes passed through here won't obey
+     * standard rules on which configurations apply to their deps. This should only be done for
+     * special circumstances that really justify the difference. When in doubt, use {@link
+     * #resolveDep(Attribute, Label)}.
      */
-    void resolveDep(Attribute attribute, Label depLabel, BuildConfiguration config) {
+    void resolveDep(Attribute attribute, Label depLabel, BuildConfiguration config)
+        throws InterruptedException {
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
         return; // Skip this round: this is either a loading error or unevaluated Skyframe dep.
@@ -686,8 +694,11 @@ public abstract class DependencyResolver {
     }
   }
 
-  private void visitTargetVisibility(TargetAndConfiguration node,
-      NestedSetBuilder<Label> rootCauses, Collection<Dependency> outgoingEdges) {
+  private void visitTargetVisibility(
+      TargetAndConfiguration node,
+      NestedSetBuilder<Label> rootCauses,
+      Collection<Dependency> outgoingEdges)
+      throws InterruptedException {
     Target target = node.getTarget();
     for (Label label : target.getVisibility().getDependencyLabels()) {
       Target visibilityTarget = getTarget(target, label, rootCauses);
@@ -733,22 +744,24 @@ public abstract class DependencyResolver {
    * @param to the missing target
    * @param e the exception that was thrown, e.g., by {@link #getTarget}
    */
-  protected abstract void missingEdgeHook(Target from, Label to, NoSuchThingException e);
+  protected abstract void missingEdgeHook(Target from, Label to, NoSuchThingException e)
+      throws InterruptedException;
 
   /**
    * Returns the target by the given label.
    *
    * <p>Returns null if the target is not ready to be returned at this moment. If getTarget returns
    * null once or more during a {@link #dependentNodeMap} call, the results of that call will be
-   * incomplete. For use within Skyframe, where several iterations may be needed to discover
-   * all dependencies.
+   * incomplete. For use within Skyframe, where several iterations may be needed to discover all
+   * dependencies.
    */
   @Nullable
-  protected abstract Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses);
+  protected abstract Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses)
+      throws InterruptedException;
 
   /**
-   * Returns the build configurations with the given options and fragments, in the same order as
-   * the input options.
+   * Returns the build configurations with the given options and fragments, in the same order as the
+   * input options.
    *
    * <p>Returns null if any configurations aren't ready to be returned at this moment. If
    * getConfigurations returns null once or more during a {@link #dependentNodeMap} call, the
@@ -758,5 +771,6 @@ public abstract class DependencyResolver {
   @Nullable
   protected abstract List<BuildConfiguration> getConfigurations(
       Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-      Iterable<BuildOptions> buildOptions) throws InvalidConfigurationException;
+      Iterable<BuildOptions> buildOptions)
+      throws InvalidConfigurationException, InterruptedException;
 }

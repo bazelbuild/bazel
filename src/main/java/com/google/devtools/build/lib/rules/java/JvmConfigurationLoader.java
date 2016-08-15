@@ -34,9 +34,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -60,7 +58,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
 
   @Override
   public Jvm create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
     if (javaOptions.disableJvm) {
       // TODO(bazel-team): Instead of returning null here, add another method to the interface.
@@ -92,8 +90,8 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
   }
 
   @Nullable
-  private Jvm createDefault(ConfigurationEnvironment lookup, String javaHome, String cpu)
-      throws InvalidConfigurationException, LabelSyntaxException {
+  private static Jvm createDefault(ConfigurationEnvironment lookup, String javaHome, String cpu)
+      throws InvalidConfigurationException, LabelSyntaxException, InterruptedException {
     try {
       Label label = Label.parseAbsolute(javaHome);
       label = RedirectChaser.followRedirects(lookup, label, "jdk");

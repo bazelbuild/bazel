@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
-
 import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -292,13 +291,12 @@ final class LabelVisitor {
     }
 
     /**
-     * Visit the specified labels and follow the transitive closure of their
-     * outbound dependencies.
+     * Visit the specified labels and follow the transitive closure of their outbound dependencies.
      *
      * @param targets the targets to visit
      */
     @ThreadSafe
-    public void visitTargets(Iterable<Target> targets) {
+    public void visitTargets(Iterable<Target> targets) throws InterruptedException {
       for (Target target : targets) {
         visit(null, null, target, 0, 0);
       }
@@ -340,13 +338,15 @@ final class LabelVisitor {
 
     private Runnable newVisitRunnable(final Target from, final Attribute attr, final Label label,
         final int depth, final int count) {
-      return new Runnable () {
+      return new Runnable() {
         @Override
         public void run() {
           try {
-            visit(from, attr, packageProvider.getTarget(eventHandler, label), depth + 1, count);
-          } catch (NoSuchThingException e) {
-            observeError(from, label, e);
+            try {
+              visit(from, attr, packageProvider.getTarget(eventHandler, label), depth + 1, count);
+            } catch (NoSuchThingException e) {
+              observeError(from, label, e);
+            }
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
@@ -381,7 +381,8 @@ final class LabelVisitor {
      * @param rule the rule to visit
      */
     @ThreadSafe
-    private void visitRule(final Rule rule, final int depth, final int count) {
+    private void visitRule(final Rule rule, final int depth, final int count)
+        throws InterruptedException {
       // Follow all labels defined by this rule:
       AggregatingAttributeMapper.of(rule).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
         @Override
@@ -404,11 +405,11 @@ final class LabelVisitor {
     /**
      * Visits the target and its package.
      *
-     * <p>Potentially blocking invocations into the package cache are
-     * enqueued in the worker pool if CONCURRENT.
+     * <p>Potentially blocking invocations into the package cache are enqueued in the worker pool if
+     * CONCURRENT.
      */
-    private void visit(
-        Target from, Attribute attribute, final Target target, int depth, int count) {
+    private void visit(Target from, Attribute attribute, final Target target, int depth, int count)
+        throws InterruptedException {
       if (target == null) {
         throw new NullPointerException(
             String.format("'%s' attribute '%s'",
@@ -439,12 +440,11 @@ final class LabelVisitor {
     }
 
     /**
-     * Visit the specified target.
-     * Called in a worker thread if CONCURRENT.
+     * Visit the specified target. Called in a worker thread if CONCURRENT.
      *
      * @param target the target to visit
      */
-    private void visitTargetNode(Target target, int depth, int count) {
+    private void visitTargetNode(Target target, int depth, int count) throws InterruptedException {
       Integer minTargetDepth = visitedTargets.putIfAbsent(target.getLabel(), depth);
       if (minTargetDepth != null) {
         // The target was already visited at a greater depth.
@@ -493,7 +493,8 @@ final class LabelVisitor {
       }
     }
 
-    private void observeError(Target from, Label label, NoSuchThingException e) {
+    private void observeError(Target from, Label label, NoSuchThingException e)
+        throws InterruptedException {
       for (TargetEdgeObserver observer : observers) {
         observer.missingEdge(from, label, e);
       }

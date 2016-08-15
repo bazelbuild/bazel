@@ -868,7 +868,7 @@ public final class CcLibraryHelper {
    *
    * @throws RuleErrorException
    */
-  public Info build() throws RuleErrorException {
+  public Info build() throws RuleErrorException, InterruptedException {
     // Fail early if there is no lipo context collector on the rule - otherwise we end up failing
     // in lipo optimization.
     Preconditions.checkState(

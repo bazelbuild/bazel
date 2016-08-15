@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
 
   @Override
   public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
-      throws NoSuchPackageException, MissingDepException {
+      throws NoSuchPackageException, MissingDepException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
     PackageValue pkgValue =
         (PackageValue) env.getValueOrThrow(pkgKey, NoSuchPackageException.class);
@@ -93,7 +92,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
 
   @Override
   public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageId)
-      throws MissingDepException {
+      throws MissingDepException, InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     try {
       PackageLookupValue packageLookupValue =
@@ -111,9 +110,10 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
-      RepositoryName repository, PathFragment directory,
+      RepositoryName repository,
+      PathFragment directory,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws MissingDepException {
+      throws MissingDepException, InterruptedException {
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (packageLocator == null) {
       throw new MissingDepException();
@@ -156,8 +156,9 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label) throws NoSuchPackageException,
-      NoSuchTargetException, MissingDepException {
+  public Target getTarget(EventHandler eventHandler, Label label)
+      throws NoSuchPackageException, NoSuchTargetException, MissingDepException,
+          InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }
 

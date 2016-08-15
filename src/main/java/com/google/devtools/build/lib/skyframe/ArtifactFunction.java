@@ -54,7 +54,8 @@ class ArtifactFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws ArtifactFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws ArtifactFunctionException, InterruptedException {
     OwnedArtifact ownedArtifact = (OwnedArtifact) skyKey.argument();
     Artifact artifact = ownedArtifact.getArtifact();
     if (artifact.isSourceArtifact()) {
@@ -116,9 +117,9 @@ class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private TreeArtifactValue createTreeArtifactValueFromActionTemplate(
+  private static TreeArtifactValue createTreeArtifactValueFromActionTemplate(
       SpawnActionTemplate actionTemplate, Artifact treeArtifact, Environment env)
-      throws ArtifactFunctionException {
+      throws ArtifactFunctionException, InterruptedException {
     // Request the list of expanded actions from the ActionTemplate.
     ActionTemplateExpansionValue expansionValue = (ActionTemplateExpansionValue) env.getValue(
         ActionTemplateExpansionValue.key(actionTemplate));
@@ -167,7 +168,7 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private FileArtifactValue createSourceValue(Artifact artifact, boolean mandatory, Environment env)
-      throws MissingInputFileException {
+      throws MissingInputFileException, InterruptedException {
     SkyKey fileSkyKey = FileValue.key(RootedPath.toRootedPath(artifact.getRoot().getPath(),
         artifact.getPath()));
     FileValue fileValue;
@@ -253,7 +254,8 @@ class ArtifactFunction implements SkyFunction {
       Artifact artifact,
       ActionAnalysisMetadata action,
       FileArtifactValue value,
-      SkyFunction.Environment env) {
+      SkyFunction.Environment env)
+      throws InterruptedException {
     // This artifact aggregates other artifacts. Keep track of them so callers can find them.
     ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> inputs = ImmutableList.builder();
     for (Map.Entry<SkyKey, SkyValue> entry :
@@ -286,8 +288,8 @@ class ArtifactFunction implements SkyFunction {
     return Label.print(((OwnedArtifact) skyKey.argument()).getArtifact().getOwner());
   }
 
-  private ActionAnalysisMetadata extractActionFromArtifact(
-      Artifact artifact, SkyFunction.Environment env) {
+  private static ActionAnalysisMetadata extractActionFromArtifact(
+      Artifact artifact, SkyFunction.Environment env) throws InterruptedException {
     ArtifactOwner artifactOwner = artifact.getArtifactOwner();
 
     Preconditions.checkState(artifactOwner instanceof ActionLookupKey, "", artifact, artifactOwner);

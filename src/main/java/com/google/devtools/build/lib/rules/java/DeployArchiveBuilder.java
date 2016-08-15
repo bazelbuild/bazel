@@ -25,11 +25,9 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -193,10 +191,8 @@ public class DeployArchiveBuilder {
     return args;
   }
 
-  /**
-   * Builds the action as configured.
-   */
-  public void build() {
+  /** Builds the action as configured. */
+  public void build() throws InterruptedException {
     ImmutableList<Artifact> classpathResources = attributes.getClassPathResources();
     Set<String> classPathResourceNames = new HashSet<>();
     for (Artifact artifact : classpathResources) {

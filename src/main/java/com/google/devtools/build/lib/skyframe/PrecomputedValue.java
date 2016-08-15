@@ -32,10 +32,8 @@ import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
 import java.util.UUID;
-
 import javax.annotation.Nullable;
 
 /**
@@ -138,7 +136,7 @@ public final class PrecomputedValue implements SkyValue {
     return "<BuildVariable " + value + ">";
   }
 
-  public static final void dependOnBuildId(SkyFunction.Environment env) {
+  public static void dependOnBuildId(SkyFunction.Environment env) throws InterruptedException {
     BUILD_ID.get(env);
   }
 
@@ -166,7 +164,7 @@ public final class PrecomputedValue implements SkyValue {
      */
     @Nullable
     @SuppressWarnings("unchecked")
-    public T get(SkyFunction.Environment env) {
+    public T get(SkyFunction.Environment env) throws InterruptedException {
       PrecomputedValue value = (PrecomputedValue) env.getValue(key);
       if (value == null) {
         return null;

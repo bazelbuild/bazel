@@ -34,12 +34,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
@@ -444,7 +442,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public AppleConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-        throws InvalidConfigurationException {
+        throws InvalidConfigurationException, InterruptedException {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
       XcodeVersionProperties xcodeVersionProperties = getXcodeVersionProperties(env, appleOptions);
 
@@ -487,18 +485,19 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     }
     
     /**
-     * Uses the {@link AppleCommandLineOptions#xcodeVersion} and
-     * {@link AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and
-     * return the effective xcode version properties. Returns absent if no explicit xcode version
-     * is declared, and host system defaults should be used.
+     * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
+     * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
+     * effective xcode version properties. Returns absent if no explicit xcode version is declared,
+     * and host system defaults should be used.
      *
      * @param env the current configuration environment
      * @param appleOptions the command line options
      * @throws InvalidConfigurationException if the options given (or configuration targets) were
      *     malformed and thus the xcode version could not be determined
      */
-    private XcodeVersionProperties getXcodeVersionProperties(ConfigurationEnvironment env,
-        AppleCommandLineOptions appleOptions) throws InvalidConfigurationException {
+    private static XcodeVersionProperties getXcodeVersionProperties(
+        ConfigurationEnvironment env, AppleCommandLineOptions appleOptions)
+        throws InvalidConfigurationException, InterruptedException {
       Optional<DottedVersion> xcodeVersionCommandLineFlag = 
           Optional.fromNullable(appleOptions.xcodeVersion);
       Label xcodeVersionConfigLabel = appleOptions.xcodeVersionConfig;

@@ -265,10 +265,14 @@ public interface JavaSemantics {
    *
    * @return new main class
    */
-  String addCoverageSupport(JavaCompilationHelper helper,
+  String addCoverageSupport(
+      JavaCompilationHelper helper,
       JavaTargetAttributes.Builder attributes,
-      Artifact executable, Artifact instrumentationMetadata,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder, String mainClass);
+      Artifact executable,
+      Artifact instrumentationMetadata,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
+      String mainClass)
+      throws InterruptedException;
 
   /**
    * Return the JVM flags to be used in a Java binary.

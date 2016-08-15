@@ -248,7 +248,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public void establishSkyframeDependencies(Environment env) throws ExceptionBase {
+    public void establishSkyframeDependencies(Environment env)
+        throws ExceptionBase, InterruptedException {
       // Establish some Skyframe dependency. A real action would then use this to compute and
       // cache data for the execute(...) method.
       env.getValue(actionDepKey);

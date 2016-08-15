@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.io.IOException;
 
 /**
@@ -59,7 +58,7 @@ public class NewRepositoryBuildFileHandler {
    *     retrieved, written, or symlinked.
    */
   public boolean prepareBuildFile(Rule rule, Environment env)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     boolean hasBuildFile = mapper.isAttributeValueExplicitlySpecified("build_file");
@@ -115,7 +114,7 @@ public class NewRepositoryBuildFileHandler {
   }
 
   private FileValue getBuildFileValue(Rule rule, Environment env)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String buildFileAttribute = mapper.get("build_file", Type.STRING);
     RootedPath rootedBuild;

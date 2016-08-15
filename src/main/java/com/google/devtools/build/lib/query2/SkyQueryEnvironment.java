@@ -18,8 +18,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -82,6 +80,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -146,7 +145,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   // The following fields are set in the #beforeEvaluateQuery method.
   protected WalkableGraph graph;
-  private Supplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
+  private InterruptibleSupplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
 
   public SkyQueryEnvironment(
@@ -186,7 +185,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     checkEvaluationResult(result, universeKey);
 
     graph = result.getWalkableGraph();
-    blacklistPatternsSupplier = Suppliers.memoize(new BlacklistSupplier(graph));
+    blacklistPatternsSupplier = InterruptibleSupplier.Memoize.of(new BlacklistSupplier(graph));
 
     ImmutableList<TargetPatternKey> universeTargetPatternKeys =
         PrepareDepsOfPatternsFunction.getTargetPatternKeys(
@@ -345,7 +344,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new QueryEvalResult(!eventHandler.hasErrors(), empty.get());
   }
 
-  private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
+  private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input)
+      throws InterruptedException {
     ImmutableMap.Builder<Target, Collection<Target>> result = ImmutableMap.builder();
 
     Map<SkyKey, Target> allTargets =
@@ -365,15 +365,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return result.build();
   }
 
-  private Map<Target, Collection<Target>> getRawFwdDeps(Iterable<Target> targets) {
+  private Map<Target, Collection<Target>> getRawFwdDeps(Iterable<Target> targets)
+      throws InterruptedException {
     return makeTargetsMap(graph.getDirectDeps(makeTransitiveTraversalKeys(targets)));
   }
 
-  private Map<Target, Collection<Target>> getRawReverseDeps(Iterable<Target> targets) {
+  private Map<Target, Collection<Target>> getRawReverseDeps(Iterable<Target> targets)
+      throws InterruptedException {
     return makeTargetsMap(graph.getReverseDeps(makeTransitiveTraversalKeys(targets)));
   }
 
-  private Set<Label> getAllowedDeps(Rule rule) {
+  private Set<Label> getAllowedDeps(Rule rule) throws InterruptedException {
     Set<Label> allowedLabels = new HashSet<>(rule.getTransitions(dependencyFilter).values());
     allowedLabels.addAll(rule.getVisibility().getDependencyLabels());
     // We should add deps from aspects, otherwise they are going to be filtered out.
@@ -381,7 +383,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return allowedLabels;
   }
 
-  private Collection<Target> filterFwdDeps(Target target, Collection<Target> rawFwdDeps) {
+  private Collection<Target> filterFwdDeps(Target target, Collection<Target> rawFwdDeps)
+      throws InterruptedException {
     if (!(target instanceof Rule)) {
       return rawFwdDeps;
     }
@@ -405,7 +408,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Collection<Target> getFwdDeps(Iterable<Target> targets) {
+  public Collection<Target> getFwdDeps(Iterable<Target> targets) throws InterruptedException {
     Set<Target> result = new HashSet<>();
     Map<Target, Collection<Target>> rawFwdDeps = getRawFwdDeps(targets);
     warnIfMissingTargets(targets, rawFwdDeps.keySet());
@@ -416,14 +419,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Collection<Target> getReverseDeps(Iterable<Target> targets) {
+  public Collection<Target> getReverseDeps(Iterable<Target> targets) throws InterruptedException {
     Map<Target, Collection<Target>> rawReverseDeps = getRawReverseDeps(targets);
     warnIfMissingTargets(targets, rawReverseDeps.keySet());
 
     return processRawReverseDeps(rawReverseDeps);
   }
 
-  private Collection<Target> processRawReverseDeps(Map<Target, Collection<Target>> rawReverseDeps) {
+  private Collection<Target> processRawReverseDeps(Map<Target, Collection<Target>> rawReverseDeps)
+      throws InterruptedException {
     Set<Target> result = CompactHashSet.create();
     CompactHashSet<Target> visited =
         CompactHashSet.createWithExpectedSize(totalSizeOfCollections(rawReverseDeps.values()));
@@ -457,7 +461,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Set<Target> getTransitiveClosure(Set<Target> targets) {
+  public Set<Target> getTransitiveClosure(Set<Target> targets) throws InterruptedException {
     Set<Target> visited = new HashSet<>();
     Collection<Target> current = targets;
     while (!current.isEmpty()) {
@@ -471,7 +475,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   // Implemented with a breadth-first search.
   @Override
-  public Set<Target> getNodesOnPath(Target from, Target to) {
+  public Set<Target> getNodesOnPath(Target from, Target to) throws InterruptedException {
     // Tree of nodes visited so far.
     Map<Target, Target> nodeToParent = new HashMap<>();
     // Contains all nodes left to visit in a (LIFO) stack.
@@ -595,7 +599,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Target getTarget(Label label) throws TargetNotFoundException, QueryException {
+  public Target getTarget(Label label)
+      throws TargetNotFoundException, QueryException, InterruptedException {
     SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     if (!graph.exists(packageKey)) {
       throw new QueryException(packageKey + " does not exist in graph");
@@ -617,7 +622,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
-  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds) {
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
+      throws InterruptedException {
     Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
     ImmutableMap.Builder<PackageIdentifier, Package> pkgResults = ImmutableMap.builder();
     Map<SkyKey, SkyValue> packages = graph.getSuccessfulValues(pkgKeys);
@@ -631,7 +637,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public void buildTransitiveClosure(QueryExpression caller, Set<Target> targets, int maxDepth)
-      throws QueryException {
+      throws QueryException, InterruptedException {
     // Everything has already been loaded, so here we just check for errors so that we can
     // pre-emptively throw/report if needed.
     Iterable<SkyKey> transitiveTraversalKeys = makeTransitiveTraversalKeys(targets);
@@ -694,7 +700,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   };
 
-  private Map<SkyKey, Target> makeTargetsFromSkyKeys(Iterable<SkyKey> keys) {
+  private Map<SkyKey, Target> makeTargetsFromSkyKeys(Iterable<SkyKey> keys)
+      throws InterruptedException {
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = ArrayListMultimap.create();
     for (SkyKey key : keys) {
       Label label = SKYKEY_TO_LABEL.apply(key);
@@ -776,7 +783,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
-  private Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments) {
+  private Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments)
+      throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
     Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
     for (PathFragment pathFragment : pathFragments) {
@@ -898,7 +906,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         .build();
   }
 
-  private static class BlacklistSupplier implements Supplier<ImmutableSet<PathFragment>> {
+  private static class BlacklistSupplier
+      implements InterruptibleSupplier<ImmutableSet<PathFragment>> {
     private final WalkableGraph graph;
 
     BlacklistSupplier(WalkableGraph graph) {
@@ -906,7 +915,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     @Override
-    public ImmutableSet<PathFragment> get() {
+    public ImmutableSet<PathFragment> get() throws InterruptedException {
       return ((BlacklistedPackagePrefixesValue)
               graph.getValue(BlacklistedPackagePrefixesValue.key()))
           .getPatterns();

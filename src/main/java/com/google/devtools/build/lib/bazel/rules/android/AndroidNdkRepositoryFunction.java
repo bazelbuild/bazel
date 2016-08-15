@@ -44,11 +44,9 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +78,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws SkyFunctionException {
+      throws InterruptedException, RepositoryFunctionException {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
     Path ndkSymlinkTreeDirectory = outputDirectory.getRelative("ndk");
@@ -267,7 +265,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   }
 
   private static NdkRelease getNdkRelease(Path directory, Environment env)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
 
     // For NDK r11+
     Path releaseFilePath = directory.getRelative("ndk/source.properties");

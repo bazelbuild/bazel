@@ -24,7 +24,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import javax.annotation.Nullable;
 
 /**
@@ -44,7 +43,8 @@ public class PackageErrorFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws PackageErrorFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws PackageErrorFunctionException, InterruptedException {
     PackageIdentifier packageIdentifier = (PackageIdentifier) skyKey.argument();
     try {
       SkyKey packageKey = PackageValue.key(packageIdentifier);

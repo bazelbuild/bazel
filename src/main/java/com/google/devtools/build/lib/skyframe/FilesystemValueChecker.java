@@ -45,7 +45,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -62,7 +61,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -123,9 +121,9 @@ public class FilesystemValueChecker {
         dirtinessChecker, /*checkMissingValues=*/true);
   }
 
-  private static interface ValueFetcher {
+  private interface ValueFetcher {
     @Nullable
-    SkyValue get(SkyKey key);
+    SkyValue get(SkyKey key) throws InterruptedException;
   }
 
   private static class WalkableGraphBackedValueFetcher implements ValueFetcher {
@@ -137,7 +135,7 @@ public class FilesystemValueChecker {
 
     @Override
     @Nullable
-    public SkyValue get(SkyKey key) {
+    public SkyValue get(SkyKey key) throws InterruptedException {
       return walkableGraph.exists(key) ? walkableGraph.getValue(key) : null;
     }
   }

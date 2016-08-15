@@ -25,7 +25,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import javax.annotation.Nullable;
 
 /**
@@ -37,7 +36,8 @@ import javax.annotation.Nullable;
 public final class TargetMarkerFunction implements SkyFunction {
 
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws TargetMarkerFunctionException {
+  public SkyValue compute(SkyKey key, Environment env)
+      throws TargetMarkerFunctionException, InterruptedException {
     try {
       return computeTargetMarkerValue(key, env);
     } catch (NoSuchTargetException e) {
@@ -50,7 +50,7 @@ public final class TargetMarkerFunction implements SkyFunction {
 
   @Nullable
   static TargetMarkerValue computeTargetMarkerValue(SkyKey key, Environment env)
-      throws NoSuchTargetException, NoSuchPackageException {
+      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     Label label = (Label) key.argument();
     PathFragment pkgForLabel = label.getPackageFragment();
 

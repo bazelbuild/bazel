@@ -35,10 +35,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
-
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -55,9 +53,9 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   }
   
   /**
-   * Uses the {@link AppleCommandLineOptions#xcodeVersion} and
-   * {@link AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and
-   * return the effective xcode version and its properties.
+   * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
+   * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
+   * effective xcode version and its properties.
    *
    * @param env the current configuration environment
    * @param xcodeConfigLabel the label for the xcode_config target to parse
@@ -68,9 +66,12 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
    * @throws InvalidConfigurationException if the options given (or configuration targets) were
    *     malformed and thus the xcode version could not be determined
    */
-  public static XcodeVersionProperties resolveXcodeVersion(ConfigurationEnvironment env,
-      Label xcodeConfigLabel, Optional<DottedVersion> xcodeVersionOverrideFlag,
-      String errorDescription) throws InvalidConfigurationException {
+  static XcodeVersionProperties resolveXcodeVersion(
+      ConfigurationEnvironment env,
+      Label xcodeConfigLabel,
+      Optional<DottedVersion> xcodeVersionOverrideFlag,
+      String errorDescription)
+      throws InvalidConfigurationException, InterruptedException {
     Rule xcodeConfigRule =
         getRuleForLabel(xcodeConfigLabel, "xcode_config", env, errorDescription);
     
@@ -88,16 +89,18 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
 
   /**
    * Returns the {@link XcodeVersionRuleData} associated with the {@code xcode_version} target
-   * explicitly defined in the {@code --xcode_version_config} build flag and selected by the
-   * {@code --xcode_version} flag. If {@code --xcode_version} is unspecified, then this
-   * will return the default rule data as specified in the {@code --xcode_version_config} target.
-   * Returns null if either the {@code --xcode_version} did not match any {@code xcode_version}
-   * target, or if {@code --xcode_version} is unspecified and {@code --xcode_version_config}
-   * specified no default target.
+   * explicitly defined in the {@code --xcode_version_config} build flag and selected by the {@code
+   * --xcode_version} flag. If {@code --xcode_version} is unspecified, then this will return the
+   * default rule data as specified in the {@code --xcode_version_config} target. Returns null if
+   * either the {@code --xcode_version} did not match any {@code xcode_version} target, or if {@code
+   * --xcode_version} is unspecified and {@code --xcode_version_config} specified no default target.
    */
-  @Nullable private static XcodeVersionRuleData resolveExplicitlyDefinedVersion(
-      ConfigurationEnvironment env, Rule xcodeConfigTarget,
-      Optional<DottedVersion> versionOverrideFlag) throws InvalidConfigurationException {
+  @Nullable
+  private static XcodeVersionRuleData resolveExplicitlyDefinedVersion(
+      ConfigurationEnvironment env,
+      Rule xcodeConfigTarget,
+      Optional<DottedVersion> versionOverrideFlag)
+      throws InvalidConfigurationException, InterruptedException {
 
     Map<String, XcodeVersionRuleData> aliasesToVersionMap =
         aliasesToVersionMap(env, xcodeConfigTarget);
@@ -129,11 +132,13 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns the default xcode version to use, if no {@code --xcode_version} command line flag
-   * was specified.
+   * Returns the default xcode version to use, if no {@code --xcode_version} command line flag was
+   * specified.
    */
-  @Nullable private static XcodeVersionRuleData getDefaultVersion(ConfigurationEnvironment env,
-      Rule xcodeConfigTarget) throws InvalidConfigurationException {
+  @Nullable
+  private static XcodeVersionRuleData getDefaultVersion(
+      ConfigurationEnvironment env, Rule xcodeConfigTarget)
+      throws InvalidConfigurationException, InterruptedException {
     Label defaultVersionLabel = NonconfigurableAttributeMapper.of(xcodeConfigTarget)
         .get(XcodeConfigRule.DEFAULT_ATTR_NAME, BuildType.LABEL);
     if (defaultVersionLabel != null) {
@@ -146,15 +151,15 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a map where keys are "names" of xcode versions as defined by the configuration
-   * target, and values are the rule data objects which contain information regarding that
-   * xcode version.
+   * Returns a map where keys are "names" of xcode versions as defined by the configuration target,
+   * and values are the rule data objects which contain information regarding that xcode version.
    *
    * @throws InvalidConfigurationException if there are duplicate aliases (if two xcode versions
    *     were registered to the same alias)
    */
-  private static Map<String, XcodeVersionRuleData> aliasesToVersionMap(ConfigurationEnvironment env,
-      Rule xcodeConfigTarget) throws InvalidConfigurationException {
+  private static Map<String, XcodeVersionRuleData> aliasesToVersionMap(
+      ConfigurationEnvironment env, Rule xcodeConfigTarget)
+      throws InvalidConfigurationException, InterruptedException {
     List<Label> xcodeVersionLabels = NonconfigurableAttributeMapper.of(xcodeConfigTarget)
         .get(XcodeConfigRule.VERSIONS_ATTR_NAME, BuildType.LABEL_LIST);
     ImmutableList.Builder<XcodeVersionRuleData> xcodeVersionRuleListBuilder =
@@ -206,12 +211,13 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * If the given label (following redirects) is a target for a rule of type {@code type},
-   * then returns the {@link Rule} representing that target. Otherwise, throws a
-   * {@link InvalidConfigurationException}.
+   * If the given label (following redirects) is a target for a rule of type {@code type}, then
+   * returns the {@link Rule} representing that target. Otherwise, throws a {@link
+   * InvalidConfigurationException}.
    */
-  private static Rule getRuleForLabel(Label label, String type, ConfigurationEnvironment env,
-      String description) throws InvalidConfigurationException {
+  private static Rule getRuleForLabel(
+      Label label, String type, ConfigurationEnvironment env, String description)
+      throws InvalidConfigurationException, InterruptedException {
     label = RedirectChaser.followRedirects(env, label, description);
 
     if (label == null) {

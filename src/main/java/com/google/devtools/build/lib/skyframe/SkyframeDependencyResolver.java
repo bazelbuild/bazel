@@ -31,12 +31,10 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -65,7 +63,8 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   }
 
   @Override
-  protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+  protected void missingEdgeHook(Target from, Label to, NoSuchThingException e)
+      throws InterruptedException {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
       if (to.equals(nste.getLabel())) {
@@ -87,7 +86,8 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   @Nullable
   @Override
-  protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
+  protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses)
+      throws InterruptedException {
     SkyKey key = PackageValue.key(label.getPackageIdentifier());
     PackageValue packageValue;
     try {
@@ -125,7 +125,8 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Override
   protected List<BuildConfiguration> getConfigurations(
       Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-      Iterable<BuildOptions> buildOptions) throws InvalidConfigurationException {
+      Iterable<BuildOptions> buildOptions)
+      throws InvalidConfigurationException, InterruptedException {
     List<SkyKey> keys = new ArrayList<>();
     for (BuildOptions options : buildOptions) {
       keys.add(BuildConfigurationValue.key(fragments, options));

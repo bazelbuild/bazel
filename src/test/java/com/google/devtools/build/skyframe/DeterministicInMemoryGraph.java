@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * {@link DeterministicHelper.DeterministicProcessableGraph} that implements the {@link
@@ -27,6 +28,36 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
+  public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    try {
+      return super.createIfAbsentBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Nullable
+  @Override
+  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+    try {
+      return super.get(requestor, reason, key);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    try {
+      return super.getBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Override
   public Map<SkyKey, SkyValue> getValues() {
     return ((InMemoryGraph) delegate).getValues();
   }
@@ -36,8 +67,9 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
     return ((InMemoryGraph) delegate).getDoneValues();
   }
 
+
   @Override
-  public Map<SkyKey, NodeEntry> getAllValues() {
+  public Map<SkyKey, ? extends NodeEntry> getAllValues() {
     return ((InMemoryGraph) delegate).getAllValues();
   }
 }

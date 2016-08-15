@@ -26,13 +26,11 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -369,7 +367,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   @Override
   public synchronized Map<PathFragment, Artifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver)
-          throws PackageRootResolutionException {
+      throws PackageRootResolutionException, InterruptedException {
     Map<PathFragment, Artifact> result = new HashMap<>();
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 

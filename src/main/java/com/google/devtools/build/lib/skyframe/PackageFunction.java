@@ -172,17 +172,19 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Marks the given dependencies, and returns those already present. Ignores any exception
-   * thrown while building the dependency, except for filesystem inconsistencies.
+   * Marks the given dependencies, and returns those already present. Ignores any exception thrown
+   * while building the dependency, except for filesystem inconsistencies.
    *
    * <p>We need to mark dependencies implicitly used by the legacy package loading code, but we
    * don't care about any skyframe errors since the package knows whether it's in error or not.
    */
   private static Pair<? extends Map<PathFragment, PackageLookupValue>, Boolean>
-  getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
-      PackageIdentifier packageIdentifier,
-      Iterable<SkyKey> depKeys, Environment env, boolean packageWasInError)
-          throws InternalInconsistentFilesystemException {
+      getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
+          PackageIdentifier packageIdentifier,
+          Iterable<SkyKey> depKeys,
+          Environment env,
+          boolean packageWasInError)
+          throws InternalInconsistentFilesystemException, InterruptedException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE_LOOKUP)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -216,7 +218,7 @@ public class PackageFunction implements SkyFunction {
       Environment env,
       boolean packageWasInError)
       throws InternalInconsistentFilesystemException, FileOutsidePackageRootsException,
-          SymlinkOutsidePackageRootsException {
+          SymlinkOutsidePackageRootsException, InterruptedException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.FILE)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -249,7 +251,7 @@ public class PackageFunction implements SkyFunction {
       Environment env,
       boolean packageWasInError)
       throws InternalInconsistentFilesystemException, FileOutsidePackageRootsException,
-          SymlinkOutsidePackageRootsException {
+          SymlinkOutsidePackageRootsException, InterruptedException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -289,7 +291,7 @@ public class PackageFunction implements SkyFunction {
       PackageIdentifier packageIdentifier,
       boolean containsErrors)
       throws InternalInconsistentFilesystemException, FileOutsidePackageRootsException,
-          SymlinkOutsidePackageRootsException {
+          SymlinkOutsidePackageRootsException, InterruptedException {
     boolean packageShouldBeInError = containsErrors;
 
     // TODO(bazel-team): This means that many packages will have to be preprocessed twice. Ouch!
@@ -368,11 +370,12 @@ public class PackageFunction implements SkyFunction {
 
   /**
    * Adds a dependency on the WORKSPACE file, representing it as a special type of package.
+   *
    * @throws PackageFunctionException if there is an error computing the workspace file or adding
-   * its rules to the //external package.
+   *     its rules to the //external package.
    */
   private SkyValue getExternalPackage(Environment env, Path packageLookupPath)
-      throws PackageFunctionException {
+      throws PackageFunctionException, InterruptedException {
     RootedPath workspacePath = RootedPath.toRootedPath(
         packageLookupPath, Label.EXTERNAL_PACKAGE_FILE_NAME);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
@@ -567,7 +570,8 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  private FileValue getBuildFileValue(Environment env, RootedPath buildFileRootedPath) {
+  private static FileValue getBuildFileValue(Environment env, RootedPath buildFileRootedPath)
+      throws InterruptedException {
     FileValue buildFileValue;
     try {
       buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
@@ -747,7 +751,7 @@ public class PackageFunction implements SkyFunction {
 
   private static void handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
       Path pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
-          throws InternalInconsistentFilesystemException {
+      throws InternalInconsistentFilesystemException, InterruptedException {
     Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
     Map<Target, SkyKey> targetToKey = new HashMap<>();
     for (Target target : pkgBuilder.getTargets()) {
@@ -921,7 +925,7 @@ public class PackageFunction implements SkyFunction {
 
     @Override
     public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
-        throws BadGlobException {
+        throws BadGlobException, InterruptedException {
       List<SkyKey> globKeys = new ArrayList<>(includes.size() + excludes.size());
       LinkedHashSet<SkyKey> includesKeys = Sets.newLinkedHashSetWithExpectedSize(includes.size());
       LinkedHashSet<SkyKey> excludesKeys = Sets.newLinkedHashSetWithExpectedSize(excludes.size());

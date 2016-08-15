@@ -823,8 +823,9 @@ public final class CppModel {
    *
    * @throws RuleErrorException
    */
-  public CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs,
-      Iterable<Artifact> nonCodeLinkerInputs) throws RuleErrorException {
+  public CcLinkingOutputs createCcLinkActions(
+      CcCompilationOutputs ccOutputs, Iterable<Artifact> nonCodeLinkerInputs)
+      throws RuleErrorException, InterruptedException {
     // For now only handle static links. Note that the dynamic library link below ignores linkType.
     // TODO(bazel-team): Either support non-static links or move this check to setLinkType().
     Preconditions.checkState(

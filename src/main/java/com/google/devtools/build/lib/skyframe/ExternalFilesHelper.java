@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -82,12 +81,12 @@ public class ExternalFilesHelper {
      * external repository). Such files are theoretically mutable, but certain Blaze flags may tell
      * Blaze to assume these files are immutable.
      *
-     * Note that {@link ExternalFilesHelper#maybeHandleExternalFile} is only used for
-     * {@link FileStateValue} and {@link DirectoryStateValue}, and also note that output files do
-     * not normally have corresponding {@link FileValue} instances (and thus also
-     * {@link FileStateValue} instances) in the Skyframe graph ({@link ArtifactFunction} only uses
-     * {@link FileValue}s for source files). But {@link FileStateValue}s for output files can still
-     * make their way into the Skyframe graph if e.g. a source file is a symlink to an output file.
+     * <p>Note that {@link ExternalFilesHelper#maybeHandleExternalFile} is only used for {@link
+     * FileStateValue} and {@link DirectoryListingStateValue}, and also note that output files do
+     * not normally have corresponding {@link FileValue} instances (and thus also {@link
+     * FileStateValue} instances) in the Skyframe graph ({@link ArtifactFunction} only uses {@link
+     * FileValue}s for source files). But {@link FileStateValue}s for output files can still make
+     * their way into the Skyframe graph if e.g. a source file is a symlink to an output file.
      */
     // TODO(nharmata): Consider an alternative design where we have an OutputFileDiffAwareness. This
     // could work but would first require that we clean up all RootedPath usage.
@@ -157,8 +156,8 @@ public class ExternalFilesHelper {
    * ERROR_OUT, it will throw an error instead.
    */
   @ThreadSafe
-  public void maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
-      throws IOException {
+  void maybeHandleExternalFile(RootedPath rootedPath, SkyFunction.Environment env)
+      throws IOException, InterruptedException {
     FileType fileType = getAndNoteFileType(rootedPath);
     if (fileType == FileType.INTERNAL) {
       return;

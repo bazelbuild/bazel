@@ -158,10 +158,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
         new ActionCombinationFactory() {
 
           @Override
-          public Action generate(int i) {
+          public Action generate(int i) throws InterruptedException {
             CppLinkActionBuilder builder =
-                new CppLinkActionBuilder(ruleContext, (i & 2) == 0
-                    ? dynamicOutputFile : staticOutputFile) {
+                new CppLinkActionBuilder(
+                    ruleContext, (i & 2) == 0 ? dynamicOutputFile : staticOutputFile) {
                   @Override
                   protected Artifact getInterfaceSoBuilder() {
                     return interfaceSoBuilder;
@@ -209,10 +209,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
         new ActionCombinationFactory() {
 
           @Override
-          public Action generate(int i) {
+          public Action generate(int i) throws InterruptedException {
             CppLinkActionBuilder builder =
-                new CppLinkActionBuilder(ruleContext, (i & 2) == 0
-                    ? staticOutputFile : dynamicOutputFile) {
+                new CppLinkActionBuilder(
+                    ruleContext, (i & 2) == 0 ? staticOutputFile : dynamicOutputFile) {
                   @Override
                   protected Artifact getInterfaceSoBuilder() {
                     return interfaceSoBuilder;
@@ -372,7 +372,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     }
   }
 
-  private void assertError(String expectedSubstring, CppLinkActionBuilder builder) {
+  private static void assertError(String expectedSubstring, CppLinkActionBuilder builder)
+      throws InterruptedException {
     try {
       builder.build();
       fail();

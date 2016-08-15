@@ -26,21 +26,18 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for AbstractQueueVisitor.
@@ -350,20 +347,8 @@ public class AbstractQueueVisitorTest {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(3, 3, 0, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>());
 
-    final AtomicBoolean throwableSeen = new AtomicBoolean(false);
-    ErrorHandler errorHandler = new ErrorHandler() {
-      @Override
-      public void handle(Throwable t, ErrorClassification classification) {
-        if (t == THROWABLE) {
-          assertThat(classification).isEqualTo(ErrorClassification.CRITICAL);
-          throwableSeen.compareAndSet(false, true);
-        } else {
-          fail();
-        }
-      }
-    };
-    final AbstractQueueVisitor visitor = createQueueVisitorWithConstantErrorClassification(
-        executor, ErrorClassification.CRITICAL, errorHandler);
+    final AbstractQueueVisitor visitor =
+        createQueueVisitorWithConstantErrorClassification(executor, ErrorClassification.CRITICAL);
     final CountDownLatch latch1 = new CountDownLatch(1);
     final AtomicBoolean wasInterrupted = new AtomicBoolean(false);
 
@@ -386,6 +371,7 @@ public class AbstractQueueVisitorTest {
     visitor.execute(r1);
     latch1.await();
     visitor.execute(throwingRunnable());
+    CountDownLatch exnLatch = visitor.getExceptionLatchForTestingOnly();
 
     try {
       visitor.awaitQuiescence(/*interruptWorkers=*/ true);
@@ -396,7 +382,7 @@ public class AbstractQueueVisitorTest {
 
     assertTrue(wasInterrupted.get());
     assertTrue(executor.isShutdown());
-    assertTrue(throwableSeen.get());
+    assertTrue(exnLatch.await(0, TimeUnit.MILLISECONDS));
   }
 
   @Test
@@ -404,20 +390,9 @@ public class AbstractQueueVisitorTest {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>());
     final Error error = new Error("bad!");
-    final AtomicBoolean criticalErrorSeen = new AtomicBoolean(false);
-    ErrorHandler errorHandler = new ErrorHandler() {
-      @Override
-      public void handle(Throwable t, ErrorClassification classification) {
-        if (t == error) {
-          assertThat(classification).isEqualTo(ErrorClassification.AS_CRITICAL_AS_POSSIBLE);
-          criticalErrorSeen.compareAndSet(false, true);
-        } else {
-          fail();
-        }
-      }
-    };
-    AbstractQueueVisitor visitor = createQueueVisitorWithConstantErrorClassification(
-        executor, ErrorClassification.NOT_CRITICAL, errorHandler);
+    AbstractQueueVisitor visitor =
+        createQueueVisitorWithConstantErrorClassification(
+            executor, ErrorClassification.NOT_CRITICAL);
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicBoolean sleepFinished = new AtomicBoolean(false);
     final AtomicBoolean sleepInterrupted = new AtomicBoolean(false);
@@ -444,6 +419,7 @@ public class AbstractQueueVisitorTest {
         }
       }
     };
+    CountDownLatch exnLatch = visitor.getExceptionLatchForTestingOnly();
     visitor.execute(errorRunnable);
     visitor.execute(sleepRunnable);
     Error thrownError = null;
@@ -457,7 +433,7 @@ public class AbstractQueueVisitorTest {
     assertTrue(sleepInterrupted.get());
     assertFalse(sleepFinished.get());
     assertEquals(error, thrownError);
-    assertTrue(criticalErrorSeen.get());
+    assertTrue(exnLatch.await(0, TimeUnit.MILLISECONDS));
   }
 
   private static class ClassifiedException extends RuntimeException {
@@ -472,7 +448,6 @@ public class AbstractQueueVisitorTest {
   public void mostSevereErrorPropagated() throws Exception {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>());
-    final Set<Throwable> seenErrors = Sets.newConcurrentHashSet();
     final ClassifiedException criticalException =
         new ClassifiedException(ErrorClassification.CRITICAL);
     final ClassifiedException criticalAndLogException =
@@ -485,21 +460,13 @@ public class AbstractQueueVisitorTest {
             : ErrorClassification.NOT_CRITICAL;
       }
     };
-    ErrorHandler errorHandler = new ErrorHandler() {
-      @Override
-      public void handle(Throwable t, ErrorClassification classification) {
-        assertThat(classification).isEqualTo(errorClassifier.classify(t));
-        seenErrors.add(t);
-      }
-    };
     AbstractQueueVisitor visitor =
         new AbstractQueueVisitor(
-        /*concurrent=*/ true,
-        executor,
-        /*shutdownOnCompletion=*/ true,
-        /*failFastOnException=*/ false,
-        errorClassifier,
-        errorHandler);
+            /*concurrent=*/ true,
+            executor,
+            /*shutdownOnCompletion=*/ true,
+            /*failFastOnException=*/ false,
+            errorClassifier);
     final CountDownLatch exnLatch = visitor.getExceptionLatchForTestingOnly();
     Runnable criticalExceptionRunnable = new Runnable() {
       @Override
@@ -532,7 +499,6 @@ public class AbstractQueueVisitorTest {
       exn = e;
     }
     assertEquals(criticalAndLogException, exn);
-    assertThat(seenErrors).containsExactly(criticalException, criticalAndLogException);
   }
 
   private static Runnable throwingRunnable() {
@@ -636,8 +602,7 @@ public class AbstractQueueVisitorTest {
   }
 
   private static AbstractQueueVisitor createQueueVisitorWithConstantErrorClassification(
-      ThreadPoolExecutor executor, final ErrorClassification classification,
-      ErrorHandler errorHandler) {
+      ThreadPoolExecutor executor, final ErrorClassification classification) {
     return new AbstractQueueVisitor(
         /*concurrent=*/ true,
         executor,
@@ -648,7 +613,6 @@ public class AbstractQueueVisitorTest {
           protected ErrorClassification classifyException(Exception e) {
             return classification;
           }
-        },
-        errorHandler);
+        });
   }
 }

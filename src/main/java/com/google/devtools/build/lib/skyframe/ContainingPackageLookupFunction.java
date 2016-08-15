@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import javax.annotation.Nullable;
 
 /**
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
 public class ContainingPackageLookupFunction implements SkyFunction {
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     PackageIdentifier dir = (PackageIdentifier) skyKey.argument();
     PackageLookupValue pkgLookupValue =
         (PackageLookupValue) env.getValue(PackageLookupValue.key(dir));

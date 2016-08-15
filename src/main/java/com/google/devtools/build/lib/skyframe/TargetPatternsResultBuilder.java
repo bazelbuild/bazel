@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -43,10 +42,9 @@ abstract class TargetPatternsResultBuilder {
     hasError = true;
   }
 
-  /**
-   * Returns final set of targets and sets error flag if required.
-   */
-  public ResolvedTargets<Target> build(WalkableGraph walkableGraph) throws TargetParsingException {
+  /** Returns final set of targets and sets error flag if required. */
+  public ResolvedTargets<Target> build(WalkableGraph walkableGraph)
+      throws TargetParsingException, InterruptedException {
     precomputePackages(walkableGraph);
     ResolvedTargets.Builder<Target> resolvedTargetsBuilder = buildInternal();
     if (hasError) {
@@ -74,7 +72,7 @@ abstract class TargetPatternsResultBuilder {
     return resolvedTargetsBuilder;
   }
 
-  private void precomputePackages(WalkableGraph walkableGraph) {
+  private void precomputePackages(WalkableGraph walkableGraph) throws InterruptedException {
     Set<PackageIdentifier> packagesToRequest = getPackagesIdentifiers();      
     packages = Maps.newHashMapWithExpectedSize(packagesToRequest.size());
     for (PackageIdentifier pkgIdentifier : packagesToRequest) {
@@ -102,8 +100,8 @@ abstract class TargetPatternsResultBuilder {
     return packagesIdentifiers;
   }
 
-  private Package findPackageInGraph(PackageIdentifier pkgIdentifier,
-      WalkableGraph walkableGraph) {
+  private static Package findPackageInGraph(
+      PackageIdentifier pkgIdentifier, WalkableGraph walkableGraph) throws InterruptedException {
     return Preconditions.checkNotNull(
             ((PackageValue) walkableGraph.getValue(PackageValue.key(pkgIdentifier))), pkgIdentifier)
         .getPackage();

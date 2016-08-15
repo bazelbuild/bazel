@@ -27,16 +27,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-
+import java.io.IOException;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
-
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Test for WorkspaceASTFunction.
@@ -65,7 +63,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
         workspacePath.getParentDirectory(), new PathFragment(workspacePath.getBaseName()));
   }
 
-  private SkyFunction.Environment getEnv() {
+  private SkyFunction.Environment getEnv() throws InterruptedException {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.FILE))))
         .thenReturn(fakeWorkspaceFileValue);

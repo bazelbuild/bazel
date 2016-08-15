@@ -47,17 +47,19 @@ public interface PackageProvider extends TargetProvider {
   /**
    * Returns whether a package with the given name exists. That is, returns whether all the
    * following hold
+   *
    * <ol>
-   *   <li>{@code packageName} is a valid package name</li>
-   *   <li>there is a BUILD file for the package</li>
-   *   <li>the package is not considered deleted via --deleted_packages</li>
+   * <li>{@code packageName} is a valid package name
+   * <li>there is a BUILD file for the package
+   * <li>the package is not considered deleted via --deleted_packages
    * </ol>
    *
-   * <p> If these don't hold, then attempting to read the package with {@link #getPackage} may fail
+   * <p>If these don't hold, then attempting to read the package with {@link #getPackage} may fail
    * or may return a package containing errors.
    *
    * @param eventHandler the eventHandler on which to report warnings and errors
    * @param packageName the name of the package.
    */
-  boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName);
+  boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
+      throws InterruptedException;
 }

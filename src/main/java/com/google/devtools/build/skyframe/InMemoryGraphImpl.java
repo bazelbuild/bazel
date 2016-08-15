@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
 
-  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap =
+  protected final ConcurrentMap<SkyKey, InMemoryNodeEntry> nodeMap =
       new MapMaker().initialCapacity(1024).concurrencyLevel(200).makeMap();
   private final boolean keepEdges;
 
@@ -50,7 +50,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey skyKey) {
+  public InMemoryNodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey skyKey) {
     return nodeMap.get(skyKey);
   }
 
@@ -58,7 +58,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
     ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
-      NodeEntry entry = get(null, reason, key);
+      InMemoryNodeEntry entry = get(null, Reason.OTHER, key);
       if (entry != null) {
         builder.put(key, entry);
       }
@@ -66,16 +66,17 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return builder.build();
   }
 
-  protected NodeEntry createIfAbsent(SkyKey key) {
-    NodeEntry newval = keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
-    NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
+  protected InMemoryNodeEntry createIfAbsent(SkyKey key) {
+    InMemoryNodeEntry newval =
+        keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
+    InMemoryNodeEntry oldval = nodeMap.putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> createIfAbsentBatch(
+  public Map<SkyKey, InMemoryNodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, InMemoryNodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
       builder.put(key, createIfAbsent(key));
     }
@@ -87,9 +88,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return Collections.unmodifiableMap(
         Maps.transformValues(
             nodeMap,
-            new Function<NodeEntry, SkyValue>() {
+            new Function<InMemoryNodeEntry, SkyValue>() {
               @Override
-              public SkyValue apply(NodeEntry entry) {
+              public SkyValue apply(InMemoryNodeEntry entry) {
                 return entry.toValue();
               }
             }));
@@ -101,9 +102,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
         Maps.filterValues(
             Maps.transformValues(
                 nodeMap,
-                new Function<NodeEntry, SkyValue>() {
+                new Function<InMemoryNodeEntry, SkyValue>() {
                   @Override
-                  public SkyValue apply(NodeEntry entry) {
+                  public SkyValue apply(InMemoryNodeEntry entry) {
                     return entry.isDone() ? entry.getValue() : null;
                   }
                 }),
@@ -111,12 +112,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getAllValues() {
+  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
     return Collections.unmodifiableMap(nodeMap);
   }
 
   @VisibleForTesting
-  protected ConcurrentMap<SkyKey, NodeEntry> getNodeMap() {
+  protected ConcurrentMap<SkyKey, ? extends NodeEntry> getNodeMap() {
     return nodeMap;
   }
 

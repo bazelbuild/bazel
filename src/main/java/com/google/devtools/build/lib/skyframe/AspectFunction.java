@@ -57,7 +57,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import javax.annotation.Nullable;
 
 /**
@@ -93,9 +92,9 @@ public final class AspectFunction implements SkyFunction {
    * @return {@code null} if dependencies cannot be satisfied.
    */
   @Nullable
-  public static SkylarkAspect loadSkylarkAspect(
+  static SkylarkAspect loadSkylarkAspect(
       Environment env, Label extensionLabel, String skylarkValueName)
-          throws AspectCreationException {
+      throws AspectCreationException, InterruptedException {
     SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false);
     try {
       SkylarkImportLookupValue skylarkImportLookupValue =
@@ -275,8 +274,13 @@ public final class AspectFunction implements SkyFunction {
     }
   }
 
-  private SkyValue createAliasAspect(Environment env, Target originalTarget, Label aliasLabel,
-      Aspect aspect, AspectKey originalKey) {
+  private static SkyValue createAliasAspect(
+      Environment env,
+      Target originalTarget,
+      Label aliasLabel,
+      Aspect aspect,
+      AspectKey originalKey)
+      throws InterruptedException {
     SkyKey depKey = AspectValue.key(aliasLabel,
         originalKey.getAspectConfiguration(),
         originalKey.getBaseConfiguration(),

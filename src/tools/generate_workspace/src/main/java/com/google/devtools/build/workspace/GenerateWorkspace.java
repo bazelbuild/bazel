@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Resolver;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -48,7 +47,7 @@ public class GenerateWorkspace {
   private final List<String> inputs;
   private final Path outputDir;
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws InterruptedException {
     OptionsParser parser = OptionsParser.newOptionsParser(GenerateWorkspaceOptions.class);
     parser.parseAndExitUponError(args);
     GenerateWorkspaceOptions options = parser.getOptions(GenerateWorkspaceOptions.class);
@@ -99,7 +98,7 @@ public class GenerateWorkspace {
         ? new JavaIoFileSystem() : new UnixFileSystem();
   }
 
-  private void generateFromWorkspace(List<String> projects) {
+  private void generateFromWorkspace(List<String> projects) throws InterruptedException {
     for (String project : projects) {
       WorkspaceResolver workspaceResolver = new WorkspaceResolver(resolver, handler);
       Path projectPath = fileSystem.getPath(getAbsolute(project)).getRelative("WORKSPACE");

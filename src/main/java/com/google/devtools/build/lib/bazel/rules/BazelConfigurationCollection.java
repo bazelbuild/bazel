@@ -35,11 +35,9 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
-
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -53,7 +51,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       Cache<String, BuildConfiguration> cache,
       PackageProviderForConfigurations packageProvider,
       BuildOptions buildOptions,
-      EventHandler eventHandler) throws InvalidConfigurationException {
+      EventHandler eventHandler)
+      throws InvalidConfigurationException, InterruptedException {
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
         packageProvider, buildOptions, false, cache);
@@ -114,29 +113,28 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   }
 
   /**
-   * Gets the correct host configuration for this build. The behavior
-   * depends on the value of the --distinct_host_configuration flag.
+   * Gets the correct host configuration for this build. The behavior depends on the value of the
+   * --distinct_host_configuration flag.
    *
-   * <p>With --distinct_host_configuration=false, we use identical configurations
-   * for the host and target, and you can ignore everything below.  But please
-   * note: if you're cross-compiling for k8 on a piii machine, your build will
-   * fail.  This is a stopgap measure.
+   * <p>With --distinct_host_configuration=false, we use identical configurations for the host and
+   * target, and you can ignore everything below. But please note: if you're cross-compiling for k8
+   * on a piii machine, your build will fail. This is a stopgap measure.
    *
-   * <p>Currently, every build is (in effect) a cross-compile, in the strict
-   * sense that host and target configurations are unequal, thus we do not
-   * issue a "cross-compiling" warning.  (Perhaps we should?)
-   *   *
-   * @param requestConfig the requested target (not host!) configuration for
-   *   this build.
+   * <p>Currently, every build is (in effect) a cross-compile, in the strict sense that host and
+   * target configurations are unequal, thus we do not issue a "cross-compiling" warning. (Perhaps
+   * we should?) *
+   *
+   * @param requestConfig the requested target (not host!) configuration for this build.
    * @param buildOptions the configuration options used for the target configuration
    */
   @Nullable
-  private BuildConfiguration getHostConfigurationFromRequest(
+  private static BuildConfiguration getHostConfigurationFromRequest(
       ConfigurationFactory configurationFactory,
       PackageProviderForConfigurations loadedPackageProvider,
-      BuildConfiguration requestConfig, BuildOptions buildOptions,
+      BuildConfiguration requestConfig,
+      BuildOptions buildOptions,
       Cache<String, BuildConfiguration> cache)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
     if (!commonOptions.useDistinctHostConfiguration) {
       return requestConfig;

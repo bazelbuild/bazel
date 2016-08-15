@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.io.IOException;
 
 /**
@@ -56,7 +55,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
   }
 
   private Package getPackage(final PackageIdentifier pkgIdentifier)
-      throws NoSuchPackageException {
+      throws NoSuchPackageException, InterruptedException {
     SkyKey key = PackageValue.key(pkgIdentifier);
     PackageValue value = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
     if (value != null) {
@@ -66,13 +65,15 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
   }
 
   @Override
-  public Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
+  public Target getTarget(Label label)
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     Package pkg = getPackage(label.getPackageIdentifier());
     return pkg == null ? null : pkg.getTarget(label.getName());
   }
 
   @Override
-  public void addDependency(Package pkg, String fileName) throws LabelSyntaxException, IOException {
+  public void addDependency(Package pkg, String fileName)
+      throws LabelSyntaxException, IOException, InterruptedException {
     RootedPath fileRootedPath = RootedPath.toRootedPath(pkg.getSourceRoot(),
         pkg.getPackageIdentifier().getSourceRoot().getRelative(fileName));
     FileValue result = (FileValue) env.getValue(FileValue.key(fileRootedPath));
@@ -83,7 +84,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
 
   @Override
   public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     ConfigurationFragmentValue fragmentNode = (ConfigurationFragmentValue) env.getValueOrThrow(
         ConfigurationFragmentValue.key(buildOptions, fragmentType, ruleClassProvider),
         InvalidConfigurationException.class);
@@ -94,7 +95,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
   }
 
   @Override
-  public BlazeDirectories getDirectories() {
+  public BlazeDirectories getDirectories() throws InterruptedException {
     return PrecomputedValue.BLAZE_DIRECTORIES.get(env);
   }
 

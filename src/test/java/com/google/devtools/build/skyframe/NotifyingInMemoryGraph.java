@@ -14,12 +14,43 @@
 package com.google.devtools.build.skyframe;
 
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** {@link NotifyingHelper} that additionally implements the {@link InMemoryGraph} interface. */
 class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
     implements InMemoryGraph {
   NotifyingInMemoryGraph(InMemoryGraph delegate, NotifyingHelper.Listener graphListener) {
     super(delegate, graphListener);
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    try {
+      return super.createIfAbsentBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Nullable
+  @Override
+  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+    try {
+      return super.get(requestor, reason, key);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    try {
+      return super.getBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Override
@@ -33,7 +64,7 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getAllValues() {
+  public Map<SkyKey, ? extends NodeEntry> getAllValues() {
     return ((InMemoryGraph) delegate).getAllValues();
   }
 }

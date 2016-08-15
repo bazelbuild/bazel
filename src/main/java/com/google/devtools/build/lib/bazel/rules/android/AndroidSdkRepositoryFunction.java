@@ -33,7 +33,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.Properties;
 
@@ -49,7 +48,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws SkyFunctionException {
+      throws SkyFunctionException, InterruptedException {
 
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
@@ -111,7 +110,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
 
   private static Properties getBuildToolsSourceProperties(
       Path directory, String buildToolsDirectory, Environment env)
-          throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
 
     Path sourcePropertiesFilePath = directory.getRelative(
         "build-tools/" + buildToolsDirectory + "/source.properties");

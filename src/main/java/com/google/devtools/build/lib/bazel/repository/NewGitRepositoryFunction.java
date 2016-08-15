@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHand
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
@@ -30,7 +29,7 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws SkyFunctionException { 
+      throws InterruptedException, RepositoryFunctionException {
     NewRepositoryBuildFileHandler buildFileHandler =
         new NewRepositoryBuildFileHandler(directories.getWorkspace());
     if (!buildFileHandler.prepareBuildFile(rule, env)) {

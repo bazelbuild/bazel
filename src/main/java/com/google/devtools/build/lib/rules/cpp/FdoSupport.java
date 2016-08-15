@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.ZipFileSystem;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.zip.ZipException;
@@ -233,11 +232,14 @@ public class FdoSupport {
     return fdoRoot;
   }
 
-  /**
-   * Creates an initialized {@link FdoSupport} instance.
-   */
-  static FdoSupport create(SkyFunction.Environment env, PathFragment fdoInstrument,
-      Path fdoProfile, LipoMode lipoMode, Path execRoot) throws IOException, FdoException {
+  /** Creates an initialized {@link FdoSupport} instance. */
+  static FdoSupport create(
+      SkyFunction.Environment env,
+      PathFragment fdoInstrument,
+      Path fdoProfile,
+      LipoMode lipoMode,
+      Path execRoot)
+      throws IOException, FdoException, InterruptedException {
     FdoMode fdoMode;
     if (fdoProfile != null && isAutoFdo(fdoProfile.getBaseName())) {
       fdoMode = FdoMode.AUTO_FDO;

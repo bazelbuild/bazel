@@ -48,9 +48,6 @@ import com.google.devtools.build.skyframe.DelegatingWalkableGraph;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
-import org.junit.Before;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,8 +55,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCase {
   // Convenience constants, so test args are readable vs true/false
@@ -179,7 +176,8 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
    * loaded targets.
    */
   public static Set<Label> getVisitedLabels(
-      Iterable<Label> startingLabels, SkyframeExecutor skyframeExecutor) {
+      Iterable<Label> startingLabels, SkyframeExecutor skyframeExecutor)
+      throws InterruptedException {
     final WalkableGraph graph =
         new DelegatingWalkableGraph(
             ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting())

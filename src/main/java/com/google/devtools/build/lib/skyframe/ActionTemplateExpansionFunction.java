@@ -38,7 +38,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws ActionTemplateExpansionFunctionException {
+      throws ActionTemplateExpansionFunctionException, InterruptedException {
     ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
     SpawnActionTemplate actionTemplate = key.getActionTemplate();
 

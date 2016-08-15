@@ -391,7 +391,7 @@ public final class RuleContext extends TargetContext
     return getAnalysisEnvironment().getOwner();
   }
 
-  public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) {
+  public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) throws InterruptedException {
     return getAnalysisEnvironment().getBuildInfo(this, key, getConfiguration());
   }
 

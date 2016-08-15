@@ -49,9 +49,9 @@ public final class TargetPatternResolverUtil {
     return builder.build();
   }
 
-  public static void validatePatternPackage(String originalPattern,
-      PathFragment packageNameFragment, TargetPatternResolver<?> resolver)
-      throws TargetParsingException {
+  public static void validatePatternPackage(
+      String originalPattern, PathFragment packageNameFragment, TargetPatternResolver<?> resolver)
+      throws TargetParsingException, InterruptedException {
     String packageName = packageNameFragment.toString();
     // It's possible for this check to pass, but for
     // Label.validatePackageNameFull to report an error because the

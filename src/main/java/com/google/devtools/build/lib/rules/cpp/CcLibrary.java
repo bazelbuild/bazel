@@ -92,7 +92,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   }
 
   @Override
-  public ConfiguredTarget create(RuleContext context) throws RuleErrorException {
+  public ConfiguredTarget create(RuleContext context)
+      throws RuleErrorException, InterruptedException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
     LinkTargetType linkType = getStaticLinkType(context);
     boolean linkStatic = context.attributes().get("linkstatic", Type.BOOLEAN);
@@ -113,7 +114,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean linkStatic,
       boolean collectLinkstamp,
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
     final CcCommon common = new CcCommon(ruleContext);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);

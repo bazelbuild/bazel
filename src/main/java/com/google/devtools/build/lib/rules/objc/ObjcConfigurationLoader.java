@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public ObjcConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
 

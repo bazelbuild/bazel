@@ -31,14 +31,15 @@ public class ActionTester {
 
     /**
      * Returns a new action instance. The parameter {@code i} is used to vary the parameters used to
-     * create the action. Implementations should do something like this:
-     * <code><pre>
+     * create the action. Implementations should do something like this: <code>
+     * <pre>
      * return new MyAction(owner, inputs, outputs, configuration,
      *     (i & 1) == 0 ? a1 : a2,
      *     (i & 2) == 0 ? b1 : b2,
      *     (i & 4) == 0 ? c1 : c2);
      *     (i & 16) == 0 ? d1 : d2);
-     * </pre></code>
+     * </pre>
+     * </code>
      *
      * <p>The wrap-around (in this case at 32) is intentional and is checked for by the testing
      * method.
@@ -50,7 +51,7 @@ public class ActionTester {
      * <p>Furthermore, when called with identical parameters, this method should return different
      * instances (i.e. according to {@code ==}), but they should have the same key.
      */
-    Action generate(int i);
+    Action generate(int i) throws InterruptedException;
   }
 
   /**

@@ -81,7 +81,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -568,19 +567,26 @@ public class BuildView {
     String error = createErrorMessage(loadingResult, skyframeAnalysisResult);
 
     final WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
-    final ActionGraph actionGraph = new ActionGraph() {
-      @Nullable
-      @Override
-      public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
-        ArtifactOwner artifactOwner = artifact.getArtifactOwner();
-        if (artifactOwner instanceof ActionLookupValue.ActionLookupKey) {
-          SkyKey key = ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
-          ActionLookupValue val = (ActionLookupValue) graph.getValue(key);
-          return val == null ? null : val.getGeneratingAction(artifact);
-        }
-        return null;
-      }
-    };
+    final ActionGraph actionGraph =
+        new ActionGraph() {
+          @Nullable
+          @Override
+          public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
+            ArtifactOwner artifactOwner = artifact.getArtifactOwner();
+            if (artifactOwner instanceof ActionLookupValue.ActionLookupKey) {
+              SkyKey key = ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
+              ActionLookupValue val;
+              try {
+                val = (ActionLookupValue) graph.getValue(key);
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(
+                    "Interruption not expected from this graph: " + key, e);
+              }
+              return val == null ? null : val.getGeneratingAction(artifact);
+            }
+            return null;
+          }
+        };
     return new AnalysisResult(
         configuredTargets,
         aspects,

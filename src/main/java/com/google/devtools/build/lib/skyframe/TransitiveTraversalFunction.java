@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.util.Collection;
 import java.util.Map.Entry;
-
 import javax.annotation.Nullable;
 
 /**
@@ -117,7 +115,7 @@ public class TransitiveTraversalFunction
 
   @Override
   TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
-      throws NoSuchTargetException, NoSuchPackageException {
+      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     return TargetMarkerFunction.computeTargetMarkerValue(targetMarkerKey, env);
   }
 

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-
 import javax.annotation.Nullable;
 
 /**
@@ -47,7 +46,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
   @Nullable
   private CrosstoolConfig.CToolchain getToolchain(
       ConfigurationEnvironment env, BuildOptions buildOptions, Label crosstoolTop)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     CrosstoolConfigurationLoader.CrosstoolFile file =
         CrosstoolConfigurationLoader.readCrosstool(env, crosstoolTop);
     if (file == null) {
@@ -59,7 +58,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
 
   @Override
   public PythonConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
     CppConfiguration cppConfiguration = env.getFragment(buildOptions, CppConfiguration.class);
     if (cppConfiguration == null) {

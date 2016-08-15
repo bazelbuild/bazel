@@ -312,7 +312,7 @@ public final class ReleaseBundlingSupport {
     return this;
   }
 
-  private void registerEmbedLabelPlistAction() {
+  private void registerEmbedLabelPlistAction() throws InterruptedException {
     Artifact buildInfo = Iterables.getOnlyElement(
         ruleContext.getBuildInfo(ObjcBuildInfoFactory.KEY));
     String generatedVersionPlistPath = getGeneratedVersionPlist().getShellEscapedExecPathString();

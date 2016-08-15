@@ -142,11 +142,12 @@ public class SkylarkRepositoryContext {
             + "during the analysis phase and thus cannot depends on a target result (the "
             + "label should point to a non-generated file)."
   )
-  public SkylarkPath path(Object path) throws EvalException {
+  public SkylarkPath path(Object path) throws EvalException, InterruptedException {
     return getPath("path()", path);
   }
 
-  private SkylarkPath getPath(String method, Object path) throws EvalException {
+  private SkylarkPath getPath(String method, Object path)
+      throws EvalException, InterruptedException {
     if (path instanceof String) {
       PathFragment pathFragment = new PathFragment(path.toString());
       return new SkylarkPath(pathFragment.isAbsolute()
@@ -171,7 +172,8 @@ public class SkylarkRepositoryContext {
         "Create a symlink on the filesystem, the destination of the symlink should be in the "
             + "output directory. <code>from</code> can also be a label to a file."
   )
-  public void symlink(Object from, Object to) throws RepositoryFunctionException, EvalException {
+  public void symlink(Object from, Object to)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath fromPath = getPath("symlink()", from);
     SkylarkPath toPath = getPath("symlink()", to);
     try {
@@ -198,26 +200,25 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(name = "file", documented = false)
-  public void createFile(Object path) throws RepositoryFunctionException, EvalException {
+  public void createFile(Object path)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     createFile(path, "");
   }
 
-  @SkylarkCallable(
-      name = "file",
-      documented = false
-  )
+  @SkylarkCallable(name = "file", documented = false)
   public void createFile(Object path, String content)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     createFile(path, content, true);
   }
 
   @SkylarkCallable(
     name = "file",
-    doc = "Generate a file in the output directory with the provided content. An optional third "
-        + "argument set the executable bit to on or off (default to True)."
+    doc =
+        "Generate a file in the output directory with the provided content. An optional third "
+            + "argument set the executable bit to on or off (default to True)."
   )
   public void createFile(Object path, String content, Boolean executable)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("file()", path);
     try {
       checkInOutputDirectory(p);
@@ -233,28 +234,25 @@ public class SkylarkRepositoryContext {
     }
   }
 
-  @SkylarkCallable(
-      name = "template",
-      documented = false
-  )
+  @SkylarkCallable(name = "template", documented = false)
   public void createFileFromTemplate(
       Object path, Object template, Map<String, String> substitutions)
-      throws RepositoryFunctionException, EvalException {
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     createFileFromTemplate(path, template, substitutions, true);
   }
 
   @SkylarkCallable(
-      name = "template",
-      doc =
-          "Generate a new file using a <code>template</code>. Every occurrence in "
-              + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
-              + "the corresponding value. The result is written in <code>path</code>. An optional"
-              + "<code>executable</code> argument (default to true) can be set to turn on or off"
-              + "the executable bit."
+    name = "template",
+    doc =
+        "Generate a new file using a <code>template</code>. Every occurrence in "
+            + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
+            + "the corresponding value. The result is written in <code>path</code>. An optional"
+            + "<code>executable</code> argument (default to true) can be set to turn on or off"
+            + "the executable bit."
   )
   public void createFileFromTemplate(
-        Object path, Object template, Map<String, String> substitutions, Boolean executable)
-    throws RepositoryFunctionException, EvalException {
+      Object path, Object template, Map<String, String> substitutions, Boolean executable)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
     try {
@@ -522,7 +520,7 @@ public class SkylarkRepositoryContext {
   }
 
   // Resolve the label given by value into a file path.
-  private SkylarkPath getPathFromLabel(Label label) throws EvalException {
+  private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
     // Look for package.
     if (label.getPackageIdentifier().getRepository().isDefault()) {
       try {

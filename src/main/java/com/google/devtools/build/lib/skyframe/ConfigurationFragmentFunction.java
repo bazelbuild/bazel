@@ -43,7 +43,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -100,8 +99,11 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
    * those returned from {@link BuildOptions#getAllLabels()}, and the implicit ones are those that
    * are returned from {@link Fragment#getImplicitLabels}.
    */
-  private void sanityCheck(Fragment fragment, BuildOptions buildOptions,
-      PackageProviderForConfigurations packageProvider) throws InvalidConfigurationException {
+  private static void sanityCheck(
+      Fragment fragment,
+      BuildOptions buildOptions,
+      PackageProviderForConfigurations packageProvider)
+      throws InvalidConfigurationException, InterruptedException {
     if (fragment == null) {
       return;
     }
@@ -134,8 +136,9 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     }
   }
 
-  private void collectAllTransitiveLabels(PackageProviderForConfigurations packageProvider,
-      Set<Label> reachableLabels, Label from) throws NoSuchThingException {
+  private static void collectAllTransitiveLabels(
+      PackageProviderForConfigurations packageProvider, Set<Label> reachableLabels, Label from)
+      throws NoSuchThingException, InterruptedException {
     if (!reachableLabels.add(from)) {
       return;
     }
@@ -189,12 +192,13 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     }
 
     @Override
-    public Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
+    public Target getTarget(Label label)
+        throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
       return packageProvider.getTarget(label);
     }
 
     @Override
-    public Path getPath(Package pkg, String fileName) {
+    public Path getPath(Package pkg, String fileName) throws InterruptedException {
       Path result = pkg.getPackageDirectory().getRelative(fileName);
       try {
         packageProvider.addDependency(pkg, fileName);
@@ -205,13 +209,13 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     }
 
     @Override
-    public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
-        throws InvalidConfigurationException {
+    public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
+        throws InvalidConfigurationException, InterruptedException {
       return packageProvider.getFragment(buildOptions, fragmentType);
     }
 
     @Override
-    public BlazeDirectories getBlazeDirectories() {
+    public BlazeDirectories getBlazeDirectories() throws InterruptedException {
       return packageProvider.getDirectories();
     }
   }

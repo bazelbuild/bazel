@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsClassProvider;
-
 import javax.annotation.Nullable;
 
 /**
@@ -60,7 +59,7 @@ public class SequentialBuildDriver implements BuildDriver {
 
   @Nullable
   @Override
-  public ErrorInfo getExistingErrorForTesting(SkyKey key) {
+  public ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException {
     return memoizingEvaluator.getExistingErrorForTesting(key);
   }
 

@@ -31,12 +31,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
+import javax.annotation.Nullable;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.settings.building.DefaultSettingsBuilder;
@@ -44,12 +46,6 @@ import org.apache.maven.settings.building.DefaultSettingsBuilderFactory;
 import org.apache.maven.settings.building.DefaultSettingsBuildingRequest;
 import org.apache.maven.settings.building.SettingsBuildingException;
 import org.apache.maven.settings.building.SettingsBuildingResult;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
-
-import javax.annotation.Nullable;
 
 /**
  * Implementation of maven_repository.
@@ -66,7 +62,7 @@ public class MavenServerFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException {
+      throws InterruptedException, RepositoryFunctionException {
     String repository = (String) skyKey.argument();
     Rule repositoryRule = null;
     try {
@@ -175,7 +171,7 @@ public class MavenServerFunction implements SkyFunction {
   }
 
   private Map<String, FileValue> getDefaultSettingsFile(
-      BlazeDirectories directories, Environment env) {
+      BlazeDirectories directories, Environment env) throws InterruptedException {
     // The system settings file is at $M2_HOME/conf/settings.xml.
     String m2Home = System.getenv("M2_HOME");
     ImmutableList.Builder<SkyKey> settingsFilesBuilder = ImmutableList.builder();

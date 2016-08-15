@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -171,7 +170,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public boolean isPackage(PackageIdentifier packageIdentifier) {
+  public boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException {
     return recursivePackageProvider.isPackage(eventHandler, packageIdentifier);
   }
 

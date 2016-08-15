@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import javax.annotation.Nullable;
 
 /**
@@ -47,23 +46,23 @@ public interface ThinNodeEntry {
 
   /**
    * Marks this node dirty, or changed if {@code isChanged} is true. The node is put in the
-   * just-created state. It will be re-evaluated if necessary during the evaluation phase,
-   * but if it has not changed, it will not force a re-evaluation of its parents.
+   * just-created state. It will be re-evaluated if necessary during the evaluation phase, but if it
+   * has not changed, it will not force a re-evaluation of its parents.
    *
-   * <p>{@code markDirty(b)} must not be called on an undone node if {@code isChanged() == b}.
-   * It is the caller's responsibility to ensure that this does not happen.  Calling
-   * {@code markDirty(false)} when {@code isChanged() == true} has no effect. The idea here is that
-   * the caller will only ever want to call {@code markDirty()} a second time if a transition from a
+   * <p>{@code markDirty(b)} must not be called on an undone node if {@code isChanged() == b}. It is
+   * the caller's responsibility to ensure that this does not happen. Calling {@code
+   * markDirty(false)} when {@code isChanged() == true} has no effect. The idea here is that the
+   * caller will only ever want to call {@code markDirty()} a second time if a transition from a
    * dirty-unchanged state to a dirty-changed state is required.
    *
-   * @return A {@link ThinNodeEntry.MarkedDirtyResult} if the node was previously clean, and
-   * {@code null} if it was already dirty. If it was already dirty, the caller should abort its
-   * handling of this node, since another thread is already dealing with it. Note the warning on
-   * {@link ThinNodeEntry.MarkedDirtyResult} regarding the collection it provides.
+   * @return A {@link ThinNodeEntry.MarkedDirtyResult} if the node was previously clean, and {@code
+   *     null} if it was already dirty. If it was already dirty, the caller should abort its
+   *     handling of this node, since another thread is already dealing with it. Note the warning on
+   *     {@link ThinNodeEntry.MarkedDirtyResult} regarding the collection it provides.
    */
   @Nullable
   @ThreadSafe
-  MarkedDirtyResult markDirty(boolean isChanged);
+  MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException;
 
   /**
    * Returned by {@link #markDirty} if that call changed the node from clean to dirty. Contains an

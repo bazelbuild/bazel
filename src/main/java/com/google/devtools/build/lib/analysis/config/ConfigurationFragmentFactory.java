@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-
 import javax.annotation.Nullable;
 
 /**
@@ -31,7 +30,7 @@ public interface ConfigurationFragmentFactory {
    */
   @Nullable
   BuildConfiguration.Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException;
+      throws InvalidConfigurationException, InterruptedException;
 
   /**
    * @return the exact type of the fragment this factory creates.
