@@ -86,11 +86,13 @@ public class TestSuiteModel {
    * listener!
    */
   private TestCaseNode getTestCase(Description description) {
-    return testCaseMap.get(description);
+    // TODO(cpovirk): Is it legitimate to pass null here?
+    return description == null ? null : testCaseMap.get(description);
   }
 
   private TestNode getTest(Description description) {
-    return testsMap.get(description);
+    // TODO(cpovirk): Is it legitimate to pass null here?
+    return description == null ? null : testsMap.get(description);
   }
 
   // VisibleForTesting
