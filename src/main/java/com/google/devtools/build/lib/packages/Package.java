@@ -1030,7 +1030,7 @@ public class Package {
     }
 
     /**
-     * Same to {@link #createRule(Label, RuleClass, Location, AttributeContainer)}, except
+     * Same as {@link #createRule(Label, RuleClass, Location, AttributeContainer)}, except
      * allows specifying an {@link ImplicitOutputsFunction} override. Only use if you know what
      * you're doing.
      */
