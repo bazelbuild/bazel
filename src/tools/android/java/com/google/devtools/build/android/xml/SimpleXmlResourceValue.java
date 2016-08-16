@@ -218,10 +218,10 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
     SerializeFormat.DataValue.Builder builder =
-        XmlResourceValues.newSerializableDataValueBuilder(source);
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
     Builder xmlValueBuilder =
         builder
             .getXmlValueBuilder()

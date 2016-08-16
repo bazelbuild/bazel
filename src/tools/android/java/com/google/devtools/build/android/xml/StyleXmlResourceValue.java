@@ -112,7 +112,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder()
@@ -124,7 +124,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     }
     return XmlResourceValues.serializeProtoDataValue(
         output,
-        XmlResourceValues.newSerializableDataValueBuilder(source).setXmlValue(xmlValueBuilder));
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId).setXmlValue(xmlValueBuilder));
   }
 
   @Override

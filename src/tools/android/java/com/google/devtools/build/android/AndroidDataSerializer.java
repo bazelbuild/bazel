@@ -14,10 +14,10 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
-import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -27,7 +27,6 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -71,19 +70,31 @@ public class AndroidDataSerializer {
     try (OutputStream outStream =
         new BufferedOutputStream(
             Files.newOutputStream(out, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE))) {
+
       // Set the header for the deserialization process.
-      Header.newBuilder()
-          .setEntryCount(entries.size())
+      SerializeFormat.Header.Builder headerBuilder = Header.newBuilder()
+          .setEntryCount(entries.size());
+
+      // Create table of source paths to allow references in the serialization format via an index.
+      ByteArrayOutputStream sourceTableOutputStream = new ByteArrayOutputStream(2048);
+      DataSourceTable sourceTable =
+          DataSourceTable.createAndWrite(entries, sourceTableOutputStream, headerBuilder);
+
+      headerBuilder
           .build()
           .writeDelimitedTo(outStream);
 
-      writeKeyValuesTo(entries, outStream);
+      writeKeyValuesTo(entries, outStream, sourceTable, sourceTableOutputStream.toByteArray());
     }
     logger.fine(
         String.format("Serialized merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }
 
-  private void writeKeyValuesTo(NavigableMap<DataKey, DataValue> map, OutputStream outStream)
+  private void writeKeyValuesTo(
+      NavigableMap<DataKey, DataValue> map,
+      OutputStream outStream,
+      DataSourceTable sourceTable,
+      byte[] sourceTableBytes)
       throws IOException {
     Set<Entry<DataKey, DataValue>> entries = map.entrySet();
     int[] orderedValueSizes = new int[entries.size()];
@@ -94,13 +105,15 @@ public class AndroidDataSerializer {
     ByteArrayOutputStream valuesOutputStream = new ByteArrayOutputStream(2048);
     for (Map.Entry<DataKey, DataValue> entry : entries) {
       orderedValueSizes[valueSizeIndex++] = entry.getValue()
-          .serializeTo(entry.getKey(), valuesOutputStream);
+          .serializeTo(entry.getKey(), sourceTable, valuesOutputStream);
     }
     // Serialize all the keys in sorted order
     valueSizeIndex = 0;
     for (Map.Entry<DataKey, DataValue> entry : entries) {
       entry.getKey().serializeTo(outStream, orderedValueSizes[valueSizeIndex++]);
     }
+    // write the source table
+    outStream.write(sourceTableBytes);
     // write the values to the output stream.
     outStream.write(valuesOutputStream.toByteArray());
   }
@@ -122,7 +135,7 @@ public class AndroidDataSerializer {
       if (header == null) {
         throw new DeserializationException("No Header found in " + inPath);
       }
-      readEntriesSegment(consumers, in, currentFileSystem, header.getEntryCount());
+      readEntriesSegment(consumers, in, currentFileSystem, header);
     } catch (IOException e) {
       throw new DeserializationException(e);
     } finally {
@@ -135,9 +148,11 @@ public class AndroidDataSerializer {
       KeyValueConsumers consumers,
       InputStream in,
       FileSystem currentFileSystem,
-      int numberOfEntries)
-      throws IOException, InvalidProtocolBufferException {
-    Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>> keys = new LinkedHashMap<>();
+      Header header)
+      throws IOException {
+    int numberOfEntries = header.getEntryCount();
+    Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>> keys =
+        Maps.newLinkedHashMapWithExpectedSize(numberOfEntries);
     for (int i = 0; i < numberOfEntries; i++) {
       SerializeFormat.DataKey protoKey = SerializeFormat.DataKey.parseDelimitedFrom(in);
       if (protoKey.hasResourceType()) {
@@ -152,9 +167,13 @@ public class AndroidDataSerializer {
       }
     }
 
+    // Read back the sources table.
+    DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
+
     // TODO(corysmith): Make this a lazy read of the values.
     for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
       SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
+      Path source = sourceTable.sourceFromId(protoValue.getSourceId());
       if (protoValue.hasXmlValue()) {
         // TODO(corysmith): Figure out why the generics are wrong.
         // If I use Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>>, I can put
@@ -165,12 +184,12 @@ public class AndroidDataSerializer {
         @SuppressWarnings("unchecked")
         KeyValueConsumer<DataKey, DataValue> value =
             (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.consume(entry.getKey(), DataResourceXml.from(protoValue, currentFileSystem));
+        value.consume(entry.getKey(), DataResourceXml.from(protoValue, source));
       } else {
         @SuppressWarnings("unchecked")
         KeyValueConsumer<DataKey, DataValue> value =
             (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.consume(entry.getKey(), DataValueFile.from(protoValue, currentFileSystem));
+        value.consume(entry.getKey(), DataValueFile.from(source));
       }
     }
   }

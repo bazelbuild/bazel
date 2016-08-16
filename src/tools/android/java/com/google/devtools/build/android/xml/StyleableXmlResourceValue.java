@@ -143,11 +143,11 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
     return XmlResourceValues.serializeProtoDataValue(
         output,
-        XmlResourceValues.newSerializableDataValueBuilder(source)
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId)
             .setXmlValue(
                 SerializeFormat.DataValueXml.newBuilder()
                     .setType(XmlType.STYLEABLE)

@@ -134,7 +134,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
     Map<String, String> assignments = Maps.newLinkedHashMapWithExpectedSize(typeToId.size());
     for (Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
@@ -143,7 +143,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
       assignments.put(entry.getKey().toString(), stringValue);
     }
     SerializeFormat.DataValue.Builder builder =
-        XmlResourceValues.newSerializableDataValueBuilder(source);
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
     builder.setXmlValue(
         builder
             .getXmlValueBuilder()

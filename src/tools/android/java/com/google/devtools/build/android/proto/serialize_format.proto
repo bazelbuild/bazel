@@ -24,7 +24,9 @@ option java_package = "com.google.devtools.build.android.proto";
 // how these messages are used.
 message Header {
   // The number of entries stored in a serialized buffer.
-  optional int32 entry_count = 1;
+  optional uint32 entry_count = 1;
+  // The number of ProtoSource entries.
+  optional uint32 source_count = 2;
 }
 
 // The serialized format for a DataKey.
@@ -44,8 +46,10 @@ message DataKey {
 
 // The serialized format for a DataValue.
 message DataValue {
+  // The index of the ProtoSource in the source table section.
   // Required
-  optional ProtoSource source = 1;
+  optional uint32 source_id = 1;
+
   // If xml_value is defined it's an xml value, otherwise, it's a file value.
   optional DataValueXml xml_value= 2;
 }

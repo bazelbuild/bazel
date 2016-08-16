@@ -32,5 +32,6 @@ public interface DataValue {
   /**
    * Serializes to a supplied stream and returns the number of bytes written.
    */
-  int serializeTo(DataKey key, OutputStream output) throws IOException;
+  int serializeTo(
+      DataKey key, DataSourceTable sourceTable, OutputStream output) throws IOException;
 }

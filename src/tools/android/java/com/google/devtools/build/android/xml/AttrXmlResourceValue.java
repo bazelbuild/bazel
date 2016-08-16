@@ -343,10 +343,10 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   @SuppressWarnings("deprecation")
   @Override
-  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
     SerializeFormat.DataValue.Builder builder =
-        XmlResourceValues.newSerializableDataValueBuilder(source);
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId);
     SerializeFormat.DataValueXml.Builder xmlValueBuilder =
         SerializeFormat.DataValueXml.newBuilder();
     xmlValueBuilder

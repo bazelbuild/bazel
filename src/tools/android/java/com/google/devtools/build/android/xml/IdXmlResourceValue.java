@@ -87,7 +87,7 @@ public class IdXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public int serializeTo(Path source, Namespaces namespaces, OutputStream output)
+  public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
     Builder xmlValue =
         SerializeFormat.DataValueXml.newBuilder()
@@ -97,7 +97,7 @@ public class IdXmlResourceValue implements XmlResourceValue {
       xmlValue.setValue(value);
     }
     SerializeFormat.DataValue dataValue =
-        XmlResourceValues.newSerializableDataValueBuilder(source).setXmlValue(xmlValue).build();
+        XmlResourceValues.newSerializableDataValueBuilder(sourceId).setXmlValue(xmlValue).build();
     dataValue.writeDelimitedTo(output);
     return CodedOutputStream.computeUInt32SizeNoTag(dataValue.getSerializedSize())
         + dataValue.getSerializedSize();

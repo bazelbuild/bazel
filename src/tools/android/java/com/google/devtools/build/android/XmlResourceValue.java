@@ -32,8 +32,8 @@ public interface XmlResourceValue {
   void write(FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter);
 
   /** Serializes the resource value to the OutputStream and returns the bytes written. */
-  int serializeTo(Path source, Namespaces namespaces, OutputStream out) throws IOException;
-  
+  int serializeTo(int sourceId, Namespaces namespaces, OutputStream out) throws IOException;
+
   /**
    * Combines these xml values together and returns a single value.
    * 

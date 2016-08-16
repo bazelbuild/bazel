@@ -419,9 +419,9 @@ public class XmlResourceValues {
     return false;
   }
 
-  public static SerializeFormat.DataValue.Builder newSerializableDataValueBuilder(Path source) {
+  public static SerializeFormat.DataValue.Builder newSerializableDataValueBuilder(int sourceId) {
     SerializeFormat.DataValue.Builder builder = SerializeFormat.DataValue.newBuilder();
-    return builder.setSource(builder.getSourceBuilder().setFilename(source.toString()));
+    return builder.setSourceId(sourceId);
   }
 
   public static int serializeProtoDataValue(

@@ -39,7 +39,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -134,11 +133,11 @@ public class DataResourceXml implements DataResource {
   }
 
   @SuppressWarnings("deprecation")
-  public static DataValue from(SerializeFormat.DataValue protoValue, FileSystem currentFileSystem)
+  public static DataValue from(SerializeFormat.DataValue protoValue, Path source)
       throws InvalidProtocolBufferException {
     DataValueXml xmlValue = protoValue.getXmlValue();
     return createWithNamespaces(
-        currentFileSystem.getPath(protoValue.getSource().getFilename()),
+        source,
         valueFromProto(xmlValue),
         Namespaces.from(xmlValue.getNamespace()));
   }
@@ -293,8 +292,9 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public int serializeTo(DataKey key, OutputStream outStream) throws IOException {
-    return xml.serializeTo(source, namespaces, outStream);
+  public int serializeTo(DataKey key, DataSourceTable sourceTable, OutputStream outStream)
+      throws IOException {
+    return xml.serializeTo(sourceTable.getSourceId(source), namespaces, outStream);
   }
 
   // TODO(corysmith): Clean up all the casting. The type structure is unclean.
