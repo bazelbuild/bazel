@@ -48,6 +48,8 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
+import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
+import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelJ2ObjcLibraryRule;
@@ -396,12 +398,14 @@ public class BazelRuleClassProvider {
         new AndroidStudioInfoAspect(toolsRepository, new BazelAndroidStudioInfoSemantics());
     ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
     BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect();
+    BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect = new BazelJavaLiteProtoAspect();
 
     builder.addNativeAspectClass(bazelJ2ObjcProtoAspect);
     builder.addNativeAspectClass(j2ObjcAspect);
     builder.addNativeAspectClass(androidStudioInfoAspect);
     builder.addNativeAspectClass(objcProtoAspect);
     builder.addNativeAspectClass(bazelJavaProtoAspect);
+    builder.addNativeAspectClass(bazelJavaLiteProtoAspect);
 
     builder.addRuleDefinition(new BazelShRuleClasses.ShRule());
     builder.addRuleDefinition(new BazelShLibraryRule());
@@ -479,6 +483,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new AndroidSdkRepositoryRule());
     builder.addRuleDefinition(new AndroidNdkRepositoryRule());
     builder.addRuleDefinition(new BazelJavaProtoLibraryRule(bazelJavaProtoAspect));
+    builder.addRuleDefinition(new BazelJavaLiteProtoLibraryRule(bazelJavaLiteProtoAspect));
 
     builder.addConfigurationFragment(new PythonConfigurationLoader(Functions.<String>identity()));
     builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());

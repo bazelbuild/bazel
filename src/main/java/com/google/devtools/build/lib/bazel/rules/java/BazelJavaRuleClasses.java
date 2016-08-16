@@ -126,6 +126,7 @@ public class BazelJavaRuleClasses {
           "java_import",
           "java_library",
           "java_proto_library",
+          "java_lite_proto_library",
           "proto_library",
           "sh_binary",
           "sh_library");

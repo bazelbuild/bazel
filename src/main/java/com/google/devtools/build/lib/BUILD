@@ -741,6 +741,8 @@ java_library(
         "rules/java/ProguardLibraryRule.java",
         "rules/java/ProguardSpecProvider.java",
         "rules/java/proto/JavaCompilationArgsAspectProvider.java",
+        "rules/java/proto/JavaLiteProtoAspect.java",
+        "rules/java/proto/JavaLiteProtoLibrary.java",
         "rules/java/proto/JavaProtoAspect.java",
         "rules/java/proto/JavaProtoLibrary.java",
         "rules/java/proto/JavaProtoLibraryTransitiveFilesToBuildProvider.java",
