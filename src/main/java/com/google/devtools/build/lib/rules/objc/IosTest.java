@@ -84,17 +84,10 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-
-    Optional<ObjcProvider> protosObjcProvider = Optional.absent();
-    Optional<XcodeProvider> protosXcodeProvider = Optional.absent();
-
-    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-      ProtobufSupport protoSupport =
-          new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
-      protosObjcProvider = Optional.of(protoSupport.getObjcProvider());
-      protosXcodeProvider = Optional.of(protoSupport.getXcodeProvider());
-    }
+    ProtobufSupport protoSupport =
+        new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
+    Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
+    Optional<XcodeProvider> protosXcodeProvider = protoSupport.getXcodeProvider();
 
     ObjcCommon common = common(ruleContext, protosObjcProvider);
 
@@ -168,6 +161,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     new ReleaseBundlingSupport(
             ruleContext,
             common.getObjcProvider(),

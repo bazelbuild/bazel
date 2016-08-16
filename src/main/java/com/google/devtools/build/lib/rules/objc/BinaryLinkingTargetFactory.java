@@ -72,17 +72,11 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    ProtobufSupport protoSupport =
+        new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
 
-    Optional<ObjcProvider> protosObjcProvider = Optional.absent();
-    Optional<XcodeProvider> protosXcodeProvider = Optional.absent();
-    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-      ProtobufSupport protoSupport =
-          new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
-
-      protosObjcProvider = Optional.of(protoSupport.getObjcProvider());
-      protosXcodeProvider = Optional.of(protoSupport.getXcodeProvider());
-    }
+    Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
+    Optional<XcodeProvider> protosXcodeProvider = protoSupport.getXcodeProvider();
 
     ObjcCommon common = common(ruleContext, protosObjcProvider);
 
@@ -128,6 +122,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     switch (hasReleaseBundlingSupport) {
       case YES:
         AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);

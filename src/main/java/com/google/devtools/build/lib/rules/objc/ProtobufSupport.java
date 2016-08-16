@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -71,6 +72,7 @@ final class ProtobufSupport {
   private static final String UNIQUE_DIRECTORY_NAME = "_generated_protos";
 
   private final RuleContext ruleContext;
+  private final BuildConfiguration buildConfiguration;
   private final ProtoAttributes attributes;
 
   // Each entry of this map represents a generation action and a compilation action. The input set
@@ -98,7 +100,23 @@ final class ProtobufSupport {
    * @param ruleContext context this proto library is constructed in
    */
   public ProtobufSupport(RuleContext ruleContext) throws RuleErrorException {
+    this(ruleContext, null);
+  }
+
+  /**
+   * Creates a new proto support for the protobuf library. This support code bundles up all the
+   * transitive protos within the groups in which they were defined. We use that information to
+   * minimize the number of inputs per generation/compilation actions by only providing what is
+   * really needed to the actions.
+   *
+   * @param ruleContext context this proto library is constructed in
+   * @param buildConfiguration the configuration from which to get prerequisites when building proto
+   *     targets in a split configuration
+   */
+  public ProtobufSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration)
+      throws RuleErrorException {
     this.ruleContext = ruleContext;
+    this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
     this.inputsToOutputsMap = getInputsToOutputsMap();
   }
@@ -163,26 +181,31 @@ final class ProtobufSupport {
       filesToBuild.addAll(generatedSources).addAll(generatedHeaders);
     }
 
-    if (!ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos()) {
-      int actionId = 0;
-      for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
-        ImmutableSet<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
-        IntermediateArtifacts intermediateArtifacts = getUniqueIntermediateArtifacts(actionId);
+    int actionId = 0;
+    for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
+      ImmutableSet<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
+      IntermediateArtifacts intermediateArtifacts = getUniqueIntermediateArtifacts(actionId);
 
-        CompilationArtifacts compilationArtifacts =
-            getCompilationArtifacts(intermediateArtifacts, inputProtos, outputProtos);
+      CompilationArtifacts compilationArtifacts =
+          getCompilationArtifacts(intermediateArtifacts, inputProtos, outputProtos);
 
-        ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
-        filesToBuild.addAll(common.getCompiledArchive().asSet());
-        actionId++;
-      }
+      ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
+      filesToBuild.addAll(common.getCompiledArchive().asSet());
+      actionId++;
     }
 
     return this;
   }
 
-  /** Returns the ObjcProvider for this target. */
-  public ObjcProvider getObjcProvider() {
+  /**
+   * Returns the ObjcProvider for this target, or Optional.absent() if there were no protos to
+   * generate.
+   */
+  public Optional<ObjcProvider> getObjcProvider() {
+    if (inputsToOutputsMap.isEmpty()) {
+      return Optional.absent();
+    }
+
     Iterable<PathFragment> userHeaderSearchPaths =
         ImmutableList.of(getWorkspaceRelativeOutputDir());
     ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
@@ -200,22 +223,24 @@ final class ProtobufSupport {
       actionId++;
     }
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos()) {
-      commonBuilder.addDirectDependencyHeaderSearchPaths(userHeaderSearchPaths);
-    } else {
-      commonBuilder.addUserHeaderSearchPaths(userHeaderSearchPaths);
-    }
-
-    return commonBuilder.build().getObjcProvider();
+    commonBuilder.addDirectDependencyHeaderSearchPaths(userHeaderSearchPaths);
+    return Optional.of(commonBuilder.build().getObjcProvider());
   }
 
-  /** Returns the XcodeProvider for this target. */
-  public XcodeProvider getXcodeProvider() throws RuleErrorException {
+  /**
+   * Returns the XcodeProvider for this target or Optional.absent() if there were no protos to
+   * generate.
+   */
+  public Optional<XcodeProvider> getXcodeProvider() throws RuleErrorException {
+    if (inputsToOutputsMap.isEmpty()) {
+      return Optional.absent();
+    }
+
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     new XcodeSupport(ruleContext, intermediateArtifacts, getXcodeLabel(getBundledProtosSuffix()))
-        .addXcodeSettings(xcodeProviderBuilder, getObjcProvider(), LIBRARY_STATIC);
+        .addXcodeSettings(xcodeProviderBuilder, getObjcProvider().get(), LIBRARY_STATIC);
 
     int actionId = 0;
     for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
@@ -234,12 +259,11 @@ final class ProtobufSupport {
       actionId++;
     }
 
-    return xcodeProviderBuilder.build();
+    return Optional.of(xcodeProviderBuilder.build());
   }
 
   private NestedSet<Artifact> getPortableProtoFilters() {
-    Iterable<ObjcProtoProvider> objcProtoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+    Iterable<ObjcProtoProvider> objcProtoProviders = getObjcProtoProviders();
 
     NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
@@ -250,8 +274,7 @@ final class ProtobufSupport {
   }
 
   private NestedSet<Artifact> getProtobufHeaders() {
-    Iterable<ObjcProtoProvider> objcProtoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+    Iterable<ObjcProtoProvider> objcProtoProviders = getObjcProtoProviders();
 
     NestedSetBuilder<Artifact> protobufHeaders = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
@@ -261,8 +284,7 @@ final class ProtobufSupport {
   }
 
   private NestedSet<PathFragment> getProtobufHeaderSearchPaths() {
-    Iterable<ObjcProtoProvider> objcProtoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+    Iterable<ObjcProtoProvider> objcProtoProviders = getObjcProtoProviders();
 
     NestedSetBuilder<PathFragment> protobufHeaderSearchPaths = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
@@ -273,10 +295,8 @@ final class ProtobufSupport {
 
   private ImmutableSetMultimap<ImmutableSet<Artifact>, Artifact> getInputsToOutputsMap()
       throws RuleErrorException {
-    Iterable<ObjcProtoProvider> objcProtoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
-    Iterable<ProtoSourcesProvider> protoProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
+    Iterable<ObjcProtoProvider> objcProtoProviders = getObjcProtoProviders();
+    Iterable<ProtoSourcesProvider> protoProviders = getProtoSourcesProviders();
 
     ImmutableList.Builder<NestedSet<Artifact>> protoSets =
         new ImmutableList.Builder<NestedSet<Artifact>>();
@@ -415,10 +435,7 @@ final class ProtobufSupport {
             .addAdditionalHdrs(getGeneratedProtoOutputs(filteredInputProtos, ".pbobjc.h"))
             .addAdditionalHdrs(getProtobufHeaders());
 
-    boolean experimentalAutoUnion =
-        ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos();
-
-    if (!experimentalAutoUnion || isLinkingTarget()) {
+    if (isLinkingTarget()) {
       compilationArtifacts.addNonArcSrcs(getGeneratedProtoOutputs(outputProtoFiles, ".pbobjc.m"));
     }
 
@@ -510,6 +527,24 @@ final class ProtobufSupport {
       }
     }
     return builder.build();
+  }
+
+  private Iterable<ObjcProtoProvider> getObjcProtoProviders() {
+    if (buildConfiguration != null) {
+      return ruleContext
+          .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class)
+          .get(buildConfiguration);
+    }
+    return ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+  }
+
+  private Iterable<ProtoSourcesProvider> getProtoSourcesProviders() {
+    if (buildConfiguration != null) {
+      return ruleContext
+          .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ProtoSourcesProvider.class)
+          .get(buildConfiguration);
+    }
+    return ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
   }
 
   /**

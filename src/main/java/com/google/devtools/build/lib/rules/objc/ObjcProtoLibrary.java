@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -43,23 +44,19 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   private ConfiguredTarget createProtobufTarget(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-    boolean experimentalAutoUnion =
-        ObjcRuleClasses.objcConfiguration(ruleContext).experimentalAutoTopLevelUnionObjCProtos();
 
     ProtobufSupport protoSupport =
         new ProtobufSupport(ruleContext).registerGenerationActions().addFilesToBuild(filesToBuild);
 
-    if (!experimentalAutoUnion) {
-      protoSupport.registerCompilationActions();
-    }
+    Optional<XcodeProvider> xcodeProvider = protoSupport.getXcodeProvider();
 
-    XcodeProvider xcodeProvider = protoSupport.getXcodeProvider();
-
-    new XcodeSupport(ruleContext).registerActions(xcodeProvider).addFilesToBuild(filesToBuild);
+    new XcodeSupport(ruleContext)
+        .registerActions(xcodeProvider.get())
+        .addFilesToBuild(filesToBuild);
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(ObjcProvider.class, protoSupport.getObjcProvider())
-        .addProvider(XcodeProvider.class, xcodeProvider)
+        .addProvider(ObjcProvider.class, protoSupport.getObjcProvider().get())
+        .addProvider(XcodeProvider.class, xcodeProvider.get())
         .build();
   }
 
