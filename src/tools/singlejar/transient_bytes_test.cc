@@ -227,7 +227,9 @@ TEST_F(TransientBytesTest, DecompressEntryContents) {
   input_jar->Close();
 }
 
-TEST_F(TransientBytesTest, WriteCompress) {
+// Verify CompressOut: if compressed size is less than original, it writes out
+// compressed data.
+TEST_F(TransientBytesTest, CompressOut) {
   std::unique_ptr<InputJar> input_jar(new InputJar);
   ASSERT_TRUE(input_jar->Open(kCompressedJar));
   const LH *lh;
@@ -248,7 +250,7 @@ TEST_F(TransientBytesTest, WriteCompress) {
     ASSERT_NE(nullptr, buffer);
     uint32_t crc32 = 0;
     uint64_t bytes_written;
-    uint16_t rc = transient_bytes_->Write(buffer, &crc32, &bytes_written);
+    uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
 
     EXPECT_EQ(Z_DEFLATED, rc) << "TransientBytes::Write did not compress "
                               << cdh->file_name_string();
@@ -294,15 +296,30 @@ TEST_F(TransientBytesTest, WriteCompress) {
   input_jar->Close();
 }
 
-TEST_F(TransientBytesTest, WriteStore) {
+// Verify CompressOut: if compressed size exceeds original, it writes out
+// original data
+TEST_F(TransientBytesTest, CompressOutStore) {
   transient_bytes_->Append("a");
   uint8_t buffer[400] = {0xfe, 0xfb};
   uint32_t crc32 = 0;
   uint64_t bytes_written;
-  uint16_t rc = transient_bytes_->Write(buffer, &crc32, &bytes_written);
+  uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
   ASSERT_EQ(Z_NO_COMPRESSION, rc);
   ASSERT_EQ(1, bytes_written);
+  ASSERT_EQ('a', buffer[0]);
   ASSERT_EQ(0xfb, buffer[1]);
+  ASSERT_EQ(0xE8B7BE43, crc32);
+}
+
+// Verify CopyOut.
+TEST_F(TransientBytesTest, CopyOut) {
+  transient_bytes_->Append("a");
+  uint8_t buffer[400] = {0xfe, 0xfb};
+  uint32_t crc32 = 0;
+  transient_bytes_->CopyOut(buffer, &crc32);
+  ASSERT_EQ('a', buffer[0]);
+  ASSERT_EQ(0xfb, buffer[1]);
+  ASSERT_EQ(0xE8B7BE43, crc32);
 }
 
 }  // namespace

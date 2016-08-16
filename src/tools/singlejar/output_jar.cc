@@ -188,14 +188,14 @@ int OutputJar::Doit(Options *options) {
   // file, followed by the build properties file.
   AddDirectory("META-INF/");
   manifest_.Append("\r\n");
-  WriteEntry(manifest_.OutputEntry());
+  WriteEntry(manifest_.OutputEntry(options_->force_compression));
   if (!options_->exclude_build_data) {
-    WriteEntry(build_properties_.OutputEntry());
+    WriteEntry(build_properties_.OutputEntry(options_->force_compression));
   }
 
   // Then classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
-    WriteEntry(classpath_resource->OutputEntry());
+    WriteEntry(classpath_resource->OutputEntry(options_->force_compression));
   }
 
   // Then copy source files' contents.
@@ -323,6 +323,29 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
+    // Decide what to do with the existing entry depending on force_compress
+    // and preserve_compress options and entry's current state:
+    //   force_compress    preserve_compress   compressed    Action
+    //         N                  N                 N        Copy
+    //         N                  N                 Y        Decompress
+    //         N                  Y                 *        Copy
+    //         Y                  *                 N        Compress
+    //         Y                  N                 Y        Copy
+    //         Y                  Y      can't be
+    if ((options_->force_compression &&
+         jar_entry->compression_method() == Z_NO_COMPRESSION) ||
+        (!options_->force_compression && !options_->preserve_compression &&
+         jar_entry->compression_method() == Z_DEFLATED)) {
+      // Change compression.
+      Concatenator combiner(jar_entry->file_name_string());
+      if (!combiner.Merge(jar_entry, lh)) {
+        diag_err(1, "%s:%d: cannot add %.*s", __FILE__, __LINE__,
+                 jar_entry->file_name_length(), jar_entry->file_name());
+      }
+      WriteEntry(combiner.OutputEntry(options_->force_compression));
+      continue;
+    }
+
     // Now we have to copy:
     //  local header
     //  file data
@@ -428,10 +451,12 @@ void OutputJar::WriteEntry(void *buffer) {
   // https://msdn.microsoft.com/en-us/library/9kkf9tah.aspx
   // ("32-Bit Windows Time/Date Formats")
   if (options_->normalize_timestamps) {
-    // Regular "normalized" timestamp is 01/01/1980 00:00:00. No need to handle
-    // .class files here, they are always copied from the input jars.
-    entry->last_mod_file_time(0);
+    // Regular "normalized" timestamp is 01/01/1980 00:00:00, while for the
+    // .class file it is 01/01/1980 00:00:02
     entry->last_mod_file_date(33);
+    entry->last_mod_file_time(
+        ends_with(entry->file_name(), entry->file_name_length(), ".class") ? 1
+                                                                           : 0);
   } else {
     struct tm tm;
     // Time has 2-second resolution, so round up:
@@ -525,14 +550,14 @@ bool OutputJar::Close() {
   }
 
   for (auto &service_handler : service_handlers_) {
-    WriteEntry(service_handler->OutputEntry());
+    WriteEntry(service_handler->OutputEntry(options_->force_compression));
   }
   for (auto &extra_combiner : extra_combiners_) {
-    WriteEntry(extra_combiner->OutputEntry());
+    WriteEntry(extra_combiner->OutputEntry(options_->force_compression));
   }
-  WriteEntry(spring_handlers_.OutputEntry());
-  WriteEntry(spring_schemas_.OutputEntry());
-  WriteEntry(protobuf_meta_handler_.OutputEntry());
+  WriteEntry(spring_handlers_.OutputEntry(options_->force_compression));
+  WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
+  WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
   off_t output_position = lseek(fd_, 0, SEEK_CUR);
   if (output_position == (off_t)-1) {

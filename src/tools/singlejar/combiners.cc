@@ -34,7 +34,7 @@ bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
   return true;
 }
 
-void *Concatenator::OutputEntry() {
+void *Concatenator::OutputEntry(bool compress) {
   if (!buffer_.get()) {
     return nullptr;
   }
@@ -82,7 +82,14 @@ void *Concatenator::OutputEntry() {
 
   uint32_t checksum;
   uint64_t compressed_size;
-  uint16_t method = buffer_->Write(lh->data(), &checksum, &compressed_size);
+  uint16_t method;
+  if (compress) {
+    method = buffer_->CompressOut(lh->data(), &checksum, &compressed_size);
+  } else {
+    buffer_->CopyOut(lh->data(), &checksum);
+    method = Z_NO_COMPRESSION;
+    compressed_size = buffer_->data_size();
+  }
   lh->crc32(checksum);
   lh->compression_method(method);
   if (huge_buffer) {
@@ -103,7 +110,7 @@ NullCombiner::~NullCombiner() {}
 
 bool NullCombiner::Merge(const CDH *cdh, const LH *lh) { return true; }
 
-void *NullCombiner::OutputEntry() { return nullptr; }
+void *NullCombiner::OutputEntry(bool compress) { return nullptr; }
 
 XmlCombiner::~XmlCombiner() {}
 
@@ -117,14 +124,14 @@ bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
   return concatenator_->Merge(cdh, lh);
 }
 
-void *XmlCombiner::OutputEntry() {
+void *XmlCombiner::OutputEntry(bool compress) {
   if (!concatenator_.get()) {
     return nullptr;
   }
   concatenator_->Append("</");
   concatenator_->Append(xml_tag_);
   concatenator_->Append(">\n");
-  return concatenator_->OutputEntry();
+  return concatenator_->OutputEntry(compress);
 }
 
 PropertyCombiner::~PropertyCombiner() {}

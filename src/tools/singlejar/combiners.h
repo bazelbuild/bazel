@@ -27,9 +27,12 @@ class Combiner {
   virtual ~Combiner();
   // Merges the contents of the given Zip entry to this instance.
   virtual bool Merge(const CDH *cdh, const LH *lh) = 0;
-  // Returns a point to the buffer  containing Local Header followed by the
-  // payload. The caller is responsible of freeing the buffer.
-  virtual void *OutputEntry() = 0;
+  // Returns a point to the buffer containing Local Header followed by the
+  // payload. The caller is responsible of freeing the buffer. If `compress'
+  // is not set, the payload is a copy of the bytes held by this combiner.
+  // Otherwise the payload is compressed, provided that the compressed data
+  // is smaller than the original.
+  virtual void *OutputEntry(bool compress) = 0;
 };
 
 // An output jar entry consisting of a concatenation of the input jar
@@ -42,7 +45,7 @@ class Concatenator : public Combiner {
 
   bool Merge(const CDH *cdh, const LH *lh) override;
 
-  void *OutputEntry() override;
+  void *OutputEntry(bool compress) override;
 
   void Append(const char *s, size_t n) {
     CreateBuffer();
@@ -73,7 +76,7 @@ class NullCombiner : public Combiner {
  public:
   ~NullCombiner() override;
   bool Merge(const CDH *cdh, const LH *lh) override;
-  void *OutputEntry() override;
+  void *OutputEntry(bool compress) override;
 };
 
 // Combines the contents of the multiple input entries which are XML
@@ -86,7 +89,7 @@ class XmlCombiner : public Combiner {
 
   bool Merge(const CDH *cdh, const LH *lh) override;
 
-  void *OutputEntry() override;
+  void *OutputEntry(bool compress) override;
 
   const std::string filename() const { return filename_; }
 

@@ -143,7 +143,8 @@ class TransientBytes {
   // shorter of compressed or uncompressed. Sets the checksum and number of
   // bytes written and returns Z_DEFLATED if compression took place or
   // Z_NO_COMPRESSION otherwise.
-  uint16_t Write(uint8_t *buffer, uint32_t *checksum, uint64_t *bytes_written) {
+  uint16_t CompressOut(uint8_t *buffer, uint32_t *checksum,
+                       uint64_t *bytes_written) {
     Deflater deflater;
     deflater.next_out = buffer;
     *checksum = 0;
@@ -195,6 +196,13 @@ class TransientBytes {
     }
 
     // Compression does not help, just copy the bytes to the output buffer.
+    CopyOut(buffer, checksum);
+    *bytes_written = data_size();
+    return Z_NO_COMPRESSION;
+  }
+
+  // Copies the bytes to the buffer and sets the checksum.
+  void CopyOut(uint8_t *buffer, uint32_t *checksum) {
     uint64_t to_copy = data_size();
     uint8_t *buffer_end = buffer + to_copy;
     *checksum = 0;
@@ -206,8 +214,6 @@ class TransientBytes {
       memcpy(buffer_end - to_copy, data_block->data_, chunk_size);
       to_copy -= chunk_size;
     }
-    *bytes_written = data_size();
-    return Z_NO_COMPRESSION;
   }
 
   // Number of data bytes.
