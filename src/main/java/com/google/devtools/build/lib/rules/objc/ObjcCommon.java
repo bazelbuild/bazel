@@ -62,6 +62,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.CppRunfilesProvider;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -251,9 +251,7 @@ public final class ObjcCommon {
       for (TransitiveInfoCollection dep : deps) {
         addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.class);
         addAnyProviders(cppDeps, dep, CppCompilationContext.class);
-        // Hack to determine if dep is a cc target. Required so objc_library archives packed in
-        // CcLinkParamsProvider do not get consumed as cc targets.
-        if (dep.getProvider(CppRunfilesProvider.class) != null) {
+        if (isCcLibrary(dep)) {
           cppDepLinkParams.add(dep.getProvider(CcLinkParamsProvider.class));
         }
       }
@@ -579,6 +577,15 @@ public final class ObjcCommon {
       return new ObjcCommon(objcProvider.build(), compilationArtifacts);
     }
 
+    private static boolean isCcLibrary(TransitiveInfoCollection info) {
+      try {
+        AbstractConfiguredTarget target = (AbstractConfiguredTarget) info;
+        return target.getTarget().getTargetKind().equals("cc_library rule");
+      } catch (Exception e) {
+        return false;
+      }
+    }
+    
     /**
      * Returns {@code true} if the given rule context has a launch storyboard set.
      */
