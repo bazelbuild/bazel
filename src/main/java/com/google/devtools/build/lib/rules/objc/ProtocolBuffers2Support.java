@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,8 +66,7 @@ final class ProtocolBuffers2Support {
 
   /**
    * Register the proto generation actions. These actions generate the ObjC/CPP code to be compiled
-   * by this rule, and also generates the Xcode project call the protoc compiler to generate
-   * ObjC/CPP code.
+   * by this rule.
    */
   public ProtocolBuffers2Support registerGenerationActions() throws InterruptedException {
     ruleContext.registerAction(

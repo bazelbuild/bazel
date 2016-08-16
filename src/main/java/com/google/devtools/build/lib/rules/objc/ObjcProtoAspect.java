@@ -77,7 +77,7 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
 
       for (ProtoSourcesProvider protoProvider : protoProviders) {
-        aspectObjcProtoProvider.addProtoSources(protoProvider.getTransitiveProtoSources());
+        aspectObjcProtoProvider.addProtoGroup(protoProvider.getTransitiveProtoSources());
       }
 
       // Propagate protobuf's headers and search paths so the BinaryLinkingTargetFactory subclasses

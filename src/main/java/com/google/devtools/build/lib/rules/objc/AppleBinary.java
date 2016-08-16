@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
-import com.google.devtools.build.lib.rules.objc.ProtoSupport.TargetType;
 import java.util.List;
 import java.util.Set;
 
@@ -95,11 +94,28 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
 
     for (BuildConfiguration childConfig : childConfigurations) {
+      Optional<ObjcProvider> protosObjcProvider = Optional.absent();
+      ObjcConfiguration objcConfiguration = childConfig.getFragment(ObjcConfiguration.class);
+      if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
+        ProtobufSupport protoSupport =
+            new ProtobufSupport(ruleContext)
+                .registerGenerationActions()
+                .registerCompilationActions();
+
+        protosObjcProvider = Optional.of(protoSupport.getObjcProvider());
+      }
+
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
-      ObjcCommon common = common(ruleContext, childConfig, intermediateArtifacts,
-          nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
-          nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)));
+
+      ObjcCommon common =
+          common(
+              ruleContext,
+              childConfig,
+              intermediateArtifacts,
+              nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
+              nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
+              protosObjcProvider);
       ImmutableList.Builder<J2ObjcMappingFileProvider> j2ObjcMappingFileProviders =
           ImmutableList.builder();
       J2ObjcEntryClassProvider.Builder j2ObjcEntryClassProviderBuilder =
@@ -119,19 +135,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-      ObjcConfiguration objcConfiguration = childConfig.getFragment(ObjcConfiguration.class);
-      if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-        ProtoSupport protoSupport =
-            new ProtoSupport(ruleContext, TargetType.LINKING_TARGET).registerActions();
-
-        ObjcCommon protoCommon = protoSupport.getCommon();
-        new CompilationSupport(
-                ruleContext,
-                protoSupport.getIntermediateArtifacts(),
-                new CompilationAttributes.Builder().build())
-            .registerCompileAndArchiveActions(protoCommon, protoSupport.getUserHeaderSearchPaths());
-      }
-
       new CompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
           .registerLinkActions(
@@ -143,7 +146,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
               DsymOutputType.APP)
           .validateAttributes();
       ruleContext.assertNoErrors();
-      
+
       objcProviderBuilder.addTransitiveAndPropagate(common.getObjcProvider());
     }
 
@@ -165,22 +168,16 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     return targetBuilder.build();
   }
 
-  private ObjcCommon common(RuleContext ruleContext, BuildConfiguration buildConfiguration,
+  private ObjcCommon common(
+      RuleContext ruleContext,
+      BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       List<TransitiveInfoCollection> propagatedDeps,
-      List<ObjcProvider> nonPropagatedObjcDeps) {
+      List<ObjcProvider> nonPropagatedObjcDeps,
+      Optional<ObjcProvider> protosObjcProvider) {
 
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
-
-    Optional<Artifact> protoLib;
-    ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
-    if (objcConfiguration.experimentalAutoTopLevelUnionObjCProtos()) {
-      ProtoSupport protoSupport = new ProtoSupport(ruleContext, TargetType.LINKING_TARGET);
-      protoLib = protoSupport.getCommon().getCompiledArchive();
-    } else {
-      protoLib = Optional.absent();
-    }
 
     return new ObjcCommon.Builder(ruleContext, buildConfiguration)
         .setCompilationAttributes(
@@ -191,12 +188,12 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         .addDeps(propagatedDeps)
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
+        .addDepObjcProviders(protosObjcProvider.asSet())
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
         // TODO(b/29152500): Enable module map generation.
         .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary())
-        .addExtraImportLibraries(protoLib.asSet())
         .build();
   }
 
