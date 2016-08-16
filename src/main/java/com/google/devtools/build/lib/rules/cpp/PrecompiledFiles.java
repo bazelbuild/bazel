@@ -19,7 +19,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -55,13 +54,19 @@ public final class PrecompiledFiles {
   }
 
   public Iterable<Artifact> getStaticLibraries() {
-    return FileType.filter(files, CppFileTypes.ARCHIVE, CppFileTypes.ALWAYS_LINK_LIBRARY);
+    return FileType.filter(files, CppFileTypes.ARCHIVE);
   }
 
-  public Iterable<LibraryToLink> getPicStaticLibraries() {
-    return LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.STATIC_LIBRARY,
-        FileType.filter(files, CppFileTypes.PIC_ARCHIVE,
-            CppFileTypes.ALWAYS_LINK_PIC_LIBRARY));
+  public Iterable<Artifact> getAlwayslinkStaticLibraries() {
+    return FileType.filter(files, CppFileTypes.ALWAYS_LINK_LIBRARY);
+  }
+
+  public Iterable<Artifact> getPicStaticLibraries() {
+    return FileType.filter(files, CppFileTypes.PIC_ARCHIVE);
+  }
+
+  public Iterable<Artifact> getPicAlwayslinkLibraries() {
+    return FileType.filter(files, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY);
   }
 
   public Iterable<Artifact> getObjectFiles(final boolean usePic) {

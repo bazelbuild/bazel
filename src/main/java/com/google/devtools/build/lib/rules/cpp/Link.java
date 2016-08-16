@@ -247,7 +247,8 @@ public abstract class Link {
     // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
     // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
     return archiveType == ArchiveType.START_END_LIB
-        && linkerInput.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
+        && (linkerInput.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
+            || linkerInput.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY)
         && linkerInput.containsObjectFiles();
   }
 
@@ -327,12 +328,13 @@ public abstract class Link {
         // files - otherwise getObjectFiles returns null, which would lead to an NPE in
         // simpleLinkerInputs.
         boolean needMembersForLink = archiveType != ArchiveType.FAT
-            && inputLibrary.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
+            && (inputLibrary.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
+                || inputLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY)
             && inputLibrary.containsObjectFiles();
 
         // True if we will pass the members instead of the original archive.
-        boolean passMembersToLinkCmd = needMembersForLink
-            && (globalNeedWholeArchive || LINK_LIBRARY_FILETYPES.matches(name));
+        boolean passMembersToLinkCmd = needMembersForLink && (globalNeedWholeArchive
+            || inputLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
 
         // If deps is false (when computing the inputs to be passed on the command line), then it's
         // an if-then-else, i.e., the passMembersToLinkCmd flag decides whether to pass the object

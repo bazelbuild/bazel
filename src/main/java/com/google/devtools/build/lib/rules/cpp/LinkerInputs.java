@@ -251,8 +251,12 @@ public abstract class LinkerInputs {
         Iterable<Artifact> ltoBitcodeFiles) {
       String basename = libraryArtifact.getFilename();
       switch (category) {
+        case ALWAYSLINK_STATIC_LIBRARY:
+          Preconditions.checkState(Link.LINK_LIBRARY_FILETYPES.matches(basename));
+          break;
+
         case STATIC_LIBRARY:
-          Preconditions.checkState(Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
+          Preconditions.checkState(Link.ARCHIVE_FILETYPES.matches(basename));
           break;
 
         case DYNAMIC_LIBRARY:

@@ -221,9 +221,18 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
      */
     Iterable<LibraryToLink> staticLibrariesFromSrcs = LinkerInputs.opaqueLibrariesToLink(
         ArtifactCategory.STATIC_LIBRARY, precompiledFiles.getStaticLibraries());
+    Iterable<LibraryToLink> alwayslinkLibrariesFromSrcs = LinkerInputs.opaqueLibrariesToLink(
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
+        precompiledFiles.getAlwayslinkStaticLibraries());
+    Iterable<LibraryToLink> picStaticLibrariesFromSrcs = LinkerInputs.opaqueLibrariesToLink(
+        ArtifactCategory.STATIC_LIBRARY, precompiledFiles.getPicStaticLibraries());
+    Iterable<LibraryToLink> picAlwayslinkLibrariesFromSrcs = LinkerInputs.opaqueLibrariesToLink(
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY, precompiledFiles.getPicAlwayslinkLibraries());
+
     helper.addStaticLibraries(staticLibrariesFromSrcs);
-    helper.addPicStaticLibraries(Iterables.filter(staticLibrariesFromSrcs, PIC_STATIC_FILTER));
-    helper.addPicStaticLibraries(precompiledFiles.getPicStaticLibraries());
+    helper.addStaticLibraries(alwayslinkLibrariesFromSrcs);
+    helper.addPicStaticLibraries(picStaticLibrariesFromSrcs);
+    helper.addPicStaticLibraries(picAlwayslinkLibrariesFromSrcs);
     helper.addDynamicLibraries(Iterables.transform(precompiledFiles.getSharedLibraries(),
         new Function<Artifact, LibraryToLink>() {
       @Override
