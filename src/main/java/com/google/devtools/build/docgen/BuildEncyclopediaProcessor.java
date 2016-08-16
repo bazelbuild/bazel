@@ -67,7 +67,7 @@ public class BuildEncyclopediaProcessor {
    * @param outputRootDir output directory where to write the build encyclopedia
    * @param blackList optional path to a file listing rules to not document
    */
-  public void generateDocumentation(String[] inputDirs, String outputDir, String blackList)
+  public void generateDocumentation(List<String> inputDirs, String outputDir, String blackList)
       throws BuildEncyclopediaDocException, IOException {
     writeStaticPage(outputDir, "make-variables");
     writeStaticPage(outputDir, "predefined-python-variables");

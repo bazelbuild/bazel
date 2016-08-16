@@ -87,7 +87,7 @@ public class BuildDocCollector {
    * @param blackList specify an optional black list file that list some rules that should
    *                  not be listed in the output.
    */
-  public Map<String, RuleDocumentation> collect(String[] inputDirs, String blackList)
+  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String blackList)
       throws BuildEncyclopediaDocException, IOException {
     // Read the blackList file
     Set<String> blacklistedRules = readBlackList(blackList);

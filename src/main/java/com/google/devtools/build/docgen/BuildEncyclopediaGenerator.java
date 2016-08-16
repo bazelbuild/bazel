@@ -14,26 +14,26 @@
 package com.google.devtools.build.docgen;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.common.options.OptionsParser;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
 
 /**
  * The main class for the docgen project. The class checks the input arguments
  * and uses the BuildEncyclopediaProcessor for the actual documentation generation.
  */
 public class BuildEncyclopediaGenerator {
-
-  private static boolean checkArgs(String[] args) {
-    if (args.length < 2) {
-      System.err.println("There has to be two to four input parameters\n"
-          + " - a comma separated list for input directories\n"
-          + " - the name of the rule class provider\n"
-          + " - an output directory (optional)."
-          + " - a path to a file listing rules to not document (optional)");
-      return false;
-    }
-    return true;
+  private static void printUsage(OptionsParser parser) {
+    System.err.println(
+        "Usage: docgen_bin -p rule_class_provider (-i input_dir)+\n"
+        + "    [-o outputdir] [-b blacklist] [-h]\n\n"
+        + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
+        + "The rule class provider (-p) and at least one input_dir (-i) must be specified.\n");
+    System.err.println(
+        parser.describeOptions(
+            Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
   }
 
   private static void fail(Throwable e, boolean printStackTrace) {
@@ -53,22 +53,30 @@ public class BuildEncyclopediaGenerator {
   }
 
   public static void main(String[] args) {
-    if (checkArgs(args)) {
-      // TODO(bazel-team): use flags
-      try {
-        BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
-            createRuleClassProvider(args[1]));
-        processor.generateDocumentation(
-            args[0].split(","), getArgsOrNull(args, 2), getArgsOrNull(args, 3));
-      } catch (BuildEncyclopediaDocException e) {
-        fail(e, false);
-      } catch (Throwable e) {
-        fail(e, true);
-      }
-    }
-  }
+    OptionsParser parser = OptionsParser.newOptionsParser(BuildEncyclopediaOptions.class);
+    parser.setAllowResidue(false);
+    parser.parseAndExitUponError(args);
+    BuildEncyclopediaOptions options = parser.getOptions(BuildEncyclopediaOptions.class);
 
-  private static String getArgsOrNull(String[] args, int idx) {
-    return args.length > idx ? args[idx] : null;
+    if (options.help) {
+      printUsage(parser);
+      Runtime.getRuntime().exit(0);
+    }
+
+    if (options.inputDirs.size() == 0 || options.provider.isEmpty()) {
+      printUsage(parser);
+      Runtime.getRuntime().exit(1);
+    }
+
+    try {
+      BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
+          createRuleClassProvider(options.provider));
+      processor.generateDocumentation(
+          options.inputDirs, options.outputDir, options.blacklist);
+    } catch (BuildEncyclopediaDocException e) {
+      fail(e, false);
+    } catch (Throwable e) {
+      fail(e, true);
+    }
   }
 }

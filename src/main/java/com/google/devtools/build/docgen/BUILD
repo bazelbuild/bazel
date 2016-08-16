@@ -17,6 +17,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -31,6 +32,7 @@ java_binary(
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )
 

@@ -1071,9 +1071,9 @@ genrule(
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " $$PWD/src/main/java/com/google/devtools/build/lib " +
-        "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
-        " $(@D)/be &&" +
+        " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --output_dir=$(@D)/be &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
     tools = [
