@@ -50,19 +50,19 @@ static bool HasSubstr(const string &s, const string &what) {
 class OutputJarSimpleTest : public ::testing::Test {
  protected:
   void CreateOutput(const string &out_path, const char *first_arg...) {
-    string args_string;
     va_list ap;
     va_start(ap, first_arg);
     const char *args[100] = {"--output", out_path.c_str()};
     unsigned nargs = 2;
+    fprintf(stderr, "Creation arguments: ");
     if (first_arg) {
       args[nargs++] = first_arg;
+      fprintf(stderr, "%s", first_arg);
       while (nargs < arraysize(args)) {
         const char *arg = va_arg(ap, const char *);
         if (arg) {
           args[nargs++] = arg;
-          args_string += ' ';
-          args_string += arg;
+          fprintf(stderr, " %s", arg);
         } else {
           break;
         }
@@ -70,7 +70,7 @@ class OutputJarSimpleTest : public ::testing::Test {
       va_end(ap);
       ASSERT_GE(arraysize(args), nargs);
     }
-    printf("Arguments: %s\n", args_string.c_str());
+    fprintf(stderr, "\n");
     options_.ParseCommandLine(nargs, args);
     ASSERT_EQ(0, output_jar_.Doit(&options_));
     EXPECT_EQ(0, VerifyZip(out_path));
@@ -422,6 +422,60 @@ TEST_F(OutputJarSimpleTest, Normalize) {
     }
   }
   input_jar.Close();
+}
+
+// The files names META-INF/services/<something> are concatenated.
+// The files named META-INF/spring.handlers are concatenated.
+// The files named META-INF/spring.schemas are concatenated.
+TEST_F(OutputJarSimpleTest, Services) {
+  CreateTextFile("META-INF/services/spi.DateProvider",
+                 "my.DateProviderImpl1\n");
+  CreateTextFile("META-INF/services/spi.TimeProvider",
+                 "my.TimeProviderImpl1\n");
+  CreateTextFile("META-INF/spring.handlers", "handler1\n");
+  CreateTextFile("META-INF/spring.schemas", "schema1\n");
+
+  // We have to be in the output directory if we want to have entries in the
+  // archive to start with META-INF. The resulting zip will contain 4 entries:
+  //   META-INF/services/spi.DateProvider
+  //   META-INF/services/spi.TimeProvider
+  //   META-INF/spring.handlers
+  //   META-INF/spring.schemas
+  string out_dir = OutputFilePath("");
+  ASSERT_EQ(0,
+              RunCommand("cd", out_dir.c_str(), ";",
+                         "zip", "-mr", "testinput1.zip", "META-INF", nullptr));
+  string zip1_path = OutputFilePath("testinput1.zip");
+
+  // Create the second zip, with 3 files:
+  //   META-INF/services/spi.DateProvider.
+  //   META-INF/spring.handlers
+  //   META-INF/spring.schemas
+  CreateTextFile("META-INF/services/spi.DateProvider",
+                 "my.DateProviderImpl2\n");
+  CreateTextFile("META-INF/spring.handlers", "handler2\n");
+  CreateTextFile("META-INF/spring.schemas", "schema2\n");
+  ASSERT_EQ(0,
+              RunCommand("cd ", out_dir.c_str(), ";",
+                         "zip", "-mr", "testinput2.zip", "META-INF", nullptr));
+  string zip2_path = OutputFilePath("testinput2.zip");
+
+  // The output jar should contain two service entries. The contents of the
+  // META-INF/services/spi.DateProvider should be the concatenation of the
+  // contents of this entry from both archives. And it should also contain
+  // spring.handlers and spring.schemas entries.
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               "--sources", zip1_path.c_str(), zip2_path.c_str(), nullptr);
+  EXPECT_EQ("my.DateProviderImpl1\n" "my.DateProviderImpl2\n",
+            GetEntryContents(out_path, "META-INF/services/spi.DateProvider"));
+  EXPECT_EQ("my.TimeProviderImpl1\n",
+            GetEntryContents(out_path, "META-INF/services/spi.TimeProvider"));
+
+  EXPECT_EQ("schema1\n" "schema2\n",
+            GetEntryContents(out_path, "META-INF/spring.schemas"));
+  EXPECT_EQ("handler1\n" "handler2\n",
+            GetEntryContents(out_path, "META-INF/spring.handlers"));
 }
 
 }  // namespace
