@@ -79,23 +79,15 @@ public class RuleLinkExpanderTest {
     assertEquals(expected, expander.expand(docs));
   }
 
-  @Test public void testStaticPageWithHeadingRef() {
-    String docs = "<a href=\"${link common-definitions.label-expansion}\">Label Expansion</a>";
-    String expected = "<a href=\"common-definitions.html#label-expansion\">Label Expansion</a>";
-    assertEquals(expected, expander.expand(docs));
-  }
-
-  @Test public void testStaticPageWithPeriodsInHeading() {
-    String docs =
-        "<a href=\"${link make-variables.predefined_variables.genrule.cmd}\">genrule cmd</a>";
-    String expected =
-        "<a href=\"make-variables.html#predefined_variables.genrule.cmd\">genrule cmd</a>";
-    assertEquals(expected, expander.expand(docs));
-  }
-
   @Test(expected = IllegalArgumentException.class)
   public void testRefNotFound() {
     String docs = "<a href=\"${link foo.bar}\">bar</a>";
+    expander.expand(docs);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testIncorrectStaticPageHeadingLink() {
+    String docs = "<a href=\"${link common-definitions.label-expansion}\">Label Expansion</a>";
     expander.expand(docs);
   }
 

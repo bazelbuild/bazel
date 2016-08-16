@@ -107,17 +107,16 @@ class RuleLinkExpander {
       }
 
       // The name is not the name of a rule but is the name of a static page, such as
-      // common-definitions. Generate a link to that page, and append the page heading if
-      // specified. For example, ${link common-definitions.label-expansion} expands to
-      // common-definitions.html#label-expansion.
-      // TODO(dzc): Deprecate this in favor of the ${link static-page#heading} syntax below.
+      // common-definitions. Generate a link to that page.
       if (STATIC_PAGES.contains(name)) {
         String link = name + ".html";
-        // The fourth capture group matches the attribute name, or page heading, e.g.
-        // "label-expansion" in "common-definitions.label-expansion".
+        // For referencing headings on a static page, use the following syntax:
+        // ${link static_page_name#heading_name}, example: ${link make-variables#gendir}
         String pageHeading = matcher.group(4);
         if (pageHeading != null) {
-          link = link + "#" + pageHeading;
+          throw new IllegalArgumentException(
+              "Invalid link syntax for BE page: " + matcher.group()
+              + "\nUse ${link static-page#heading} syntax instead.");
         }
         matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
         continue;
