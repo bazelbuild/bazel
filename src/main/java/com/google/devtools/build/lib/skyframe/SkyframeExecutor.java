@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -486,35 +487,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * This method exists only to allow a module to make a top-level Skyframe call during the
    * transition to making it fully Skyframe-compatible. Do not add additional callers!
    */
-  public <E extends Exception> SkyValue evaluateSkyKeyForCodeMigration(
-      final EventHandler eventHandler, final SkyKey key, final Class<E> clazz) throws E {
-    try {
-      return callUninterruptibly(new Callable<SkyValue>() {
-        @Override
-        public SkyValue call() throws E, InterruptedException {
-          synchronized (valueLookupLock) {
-            // We evaluate in keepGoing mode because in the case that the graph does not store its
-            // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
-            // permitted.
-            EvaluationResult<SkyValue> result = buildDriver.evaluate(
-                ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(),
-                eventHandler);
-            if (!result.hasError()) {
-              return Preconditions.checkNotNull(result.get(key), "%s %s", result, key);
-            }
-            ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(key),
-                "%s %s", key, result);
-            Throwables.propagateIfPossible(errorInfo.getException(), clazz);
-            if (errorInfo.getException() != null) {
-              throw new IllegalStateException(errorInfo.getException());
-            }
-            throw new IllegalStateException(errorInfo.toString());
-          }
-        }
-      });
-    } catch (Exception e) {
-      Throwables.propagateIfPossible(e, clazz);
-      throw new IllegalStateException(e);
+  public SkyValue evaluateSkyKeyForExecutionSetup(final EventHandler eventHandler, final SkyKey key)
+      throws EnvironmentalExecException, InterruptedException {
+    synchronized (valueLookupLock) {
+      // We evaluate in keepGoing mode because in the case that the graph does not store its
+      // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
+      // permitted.
+      EvaluationResult<SkyValue> result =
+          buildDriver.evaluate(
+              ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(), eventHandler);
+      if (!result.hasError()) {
+        return Preconditions.checkNotNull(result.get(key), "%s %s", result, key);
+      }
+      ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(key), "%s %s", key, result);
+      Throwables.propagateIfPossible(errorInfo.getException(), EnvironmentalExecException.class);
+      if (errorInfo.getException() != null) {
+        throw new IllegalStateException(errorInfo.getException());
+      }
+      throw new IllegalStateException(errorInfo.toString());
     }
   }
 
