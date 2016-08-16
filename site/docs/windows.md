@@ -19,7 +19,7 @@ To bootstrap Bazel on Windows, you will need:
 *    [msys2](https://msys2.github.io/) (need to be installed at
      ``C:\tools\msys64\``).
 *    Several msys2 packages. Use the ``pacman`` command to install them:
-     ``pacman -S gcc git curl zip unzip zlib-devel``
+     ``pacman -Syuu gcc git curl zip unzip zlib-devel``
 
 To build Bazel:
 
