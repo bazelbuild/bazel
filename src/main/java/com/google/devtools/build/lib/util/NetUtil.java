@@ -25,8 +25,8 @@ public final class NetUtil {
   }
 
   /**
-   * Returns the short hostname or <code>unknown</code> if the host name could
-   * not be determined.
+   * Returns the short hostname or <code>unknown</code> if the host name could not be determined.
+   * Performs reverse DNS lookup and can take seconds to complete!
    */
   public static String findShortHostName() {
     try {
