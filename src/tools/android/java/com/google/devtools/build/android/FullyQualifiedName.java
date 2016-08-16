@@ -282,7 +282,9 @@ public class FullyQualifiedName implements DataKey {
   }
 
   public static boolean isOverwritable(FullyQualifiedName name) {
-    return !(name.resourceType == ResourceType.ID || name.resourceType == ResourceType.STYLEABLE);
+    return !(name.resourceType == ResourceType.ID
+        || name.resourceType == ResourceType.PUBLIC
+        || name.resourceType == ResourceType.STYLEABLE);
   }
 
   /**

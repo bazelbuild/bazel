@@ -15,6 +15,7 @@ package com.google.devtools.build.android;
 
 import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
+import static com.android.resources.ResourceType.PUBLIC;
 
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
@@ -29,6 +30,7 @@ import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
+import com.google.devtools.build.android.xml.PublicXmlResourceValue;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
@@ -103,9 +105,11 @@ public class DataResourceXml implements DataResource {
             XmlResourceValues.parseDeclareStyleable(
                 fqnFactory, path, overwritingConsumer, combiningConsumer, eventReader, start);
           } else {
-            // Of simple resources, only IDs are combining.
+            // Of simple resources, only IDs and Public are combining.
             KeyValueConsumer<DataKey, DataResource> consumer =
-                resourceType == ID ? combiningConsumer : overwritingConsumer;
+                (resourceType == ID || resourceType == PUBLIC)
+                    ? combiningConsumer
+                    : overwritingConsumer;
             String elementName = XmlResourceValues.getElementName(start);
             if (elementName == null) {
               throw new XMLStreamException(
@@ -153,6 +157,8 @@ public class DataResourceXml implements DataResource {
         return IdXmlResourceValue.of();
       case PLURAL:
         return PluralXmlResourceValue.from(proto);
+      case PUBLIC:
+        return PublicXmlResourceValue.from(proto);
       case STYLE:
         return StyleXmlResourceValue.from(proto);
       case STYLEABLE:
@@ -185,6 +191,8 @@ public class DataResourceXml implements DataResource {
         return XmlResourceValues.parsePlurals(eventReader, start, namespacesCollector);
       case ATTR:
         return XmlResourceValues.parseAttr(eventReader, start);
+      case PUBLIC:
+        return XmlResourceValues.parsePublic(eventReader, start, namespacesCollector);
       case LAYOUT:
       case DIMEN:
       case STRING:
@@ -199,7 +207,6 @@ public class DataResourceXml implements DataResource {
       case INTERPOLATOR:
       case MENU:
       case MIPMAP:
-      case PUBLIC:
       case RAW:
       case STYLEABLE:
       case TRANSITION:

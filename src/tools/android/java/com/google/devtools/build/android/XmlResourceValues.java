@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.SdkConstants;
 import com.android.resources.ResourceType;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
@@ -22,6 +24,7 @@ import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
+import com.google.devtools.build.android.xml.PublicXmlResourceValue;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
@@ -204,6 +207,47 @@ public class XmlResourceValues {
             : SimpleXmlResourceValue.Type.from(resourceType),
         ImmutableMap.copyOf(parseTagAttributes(start)),
         contents);
+  }
+
+  static XmlResourceValue parsePublic(
+      XMLEventReader eventReader, StartElement start, Namespaces.Collector namespacesCollector)
+      throws XMLStreamException {
+    namespacesCollector.collectFrom(start);
+    // The tag should be unary.
+    if (!isEndTag(eventReader.peek(), start.getName())) {
+      throw new XMLStreamException(
+          String.format("<public> tag should be unary %s", start), start.getLocation());
+    }
+    // The tag should have a valid type attribute, and optionally an id attribute.
+    ImmutableMap<String, String> attributes = ImmutableMap.copyOf(parseTagAttributes(start));
+    String typeAttr = attributes.get(SdkConstants.ATTR_TYPE);
+    ResourceType type;
+    if (typeAttr != null) {
+      type = ResourceType.getEnum(typeAttr);
+      if (type == null || type == ResourceType.PUBLIC) {
+        throw new XMLStreamException(
+            String.format("<public> tag has invalid type attribute %s", start),
+            start.getLocation());
+      }
+    } else {
+      throw new XMLStreamException(
+          String.format("<public> tag missing type attribute %s", start), start.getLocation());
+    }
+    String idValueAttr = attributes.get(SdkConstants.ATTR_ID);
+    Optional<Integer> id = Optional.absent();
+    if (idValueAttr != null) {
+      try {
+        id = Optional.of(Integer.decode(idValueAttr));
+      } catch (NumberFormatException e) {
+        throw new XMLStreamException(
+            String.format("<public> has invalid id number %s", start), start.getLocation());
+      }
+    }
+    if (attributes.size() > 2) {
+      throw new XMLStreamException(
+          String.format("<public> has unexpected attributes %s", start), start.getLocation());
+    }
+    return PublicXmlResourceValue.create(type, id);
   }
 
   public static Map<String, String> parseTagAttributes(StartElement start) {

@@ -63,9 +63,10 @@ message DataValueXml {
     ATTR = 1;
     ID = 2;
     PLURAL = 3;
-    SIMPLE = 4;
-    STYLEABLE = 5;
-    STYLE = 6;
+    PUBLIC = 4;
+    SIMPLE = 5;
+    STYLEABLE = 6;
+    STYLE = 7;
   }
 
   optional XmlType type = 1;
