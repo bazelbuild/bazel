@@ -247,7 +247,7 @@ public abstract class Link {
     // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
     // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
     return archiveType == ArchiveType.START_END_LIB
-        && ARCHIVE_FILETYPES.matches(linkerInput.getArtifact().getFilename())
+        && linkerInput.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
         && linkerInput.containsObjectFiles();
   }
 
@@ -327,7 +327,8 @@ public abstract class Link {
         // files - otherwise getObjectFiles returns null, which would lead to an NPE in
         // simpleLinkerInputs.
         boolean needMembersForLink = archiveType != ArchiveType.FAT
-            && ARCHIVE_LIBRARY_FILETYPES.matches(name) && inputLibrary.containsObjectFiles();
+            && inputLibrary.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
+            && inputLibrary.containsObjectFiles();
 
         // True if we will pass the members instead of the original archive.
         boolean passMembersToLinkCmd = needMembersForLink
