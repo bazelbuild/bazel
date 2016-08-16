@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
@@ -908,10 +907,10 @@ public class BuildView {
       }
 
       @Override
-      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
+      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses)
+          throws InterruptedException {
         try {
-          return LoadedPackageProvider.getLoadedTarget(
-              skyframeExecutor.getPackageManager(), eventHandler, label);
+          return skyframeExecutor.getPackageManager().getTarget(eventHandler, label);
         } catch (NoSuchThingException e) {
           throw new IllegalStateException(e);
         }

@@ -85,7 +85,7 @@ public interface ConfigurationEnvironment {
 
     @Override
     public Target getTarget(final Label label)
-        throws NoSuchPackageException, NoSuchTargetException {
+        throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
       return packageProvider.getLoadedTarget(label);
     }
 

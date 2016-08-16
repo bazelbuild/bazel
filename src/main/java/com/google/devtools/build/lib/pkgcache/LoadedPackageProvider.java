@@ -13,15 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-
-import java.util.concurrent.Callable;
 
 /**
  * A bridge class that implements the legacy semantics of {@link #getLoadedTarget} using a normal
@@ -43,35 +39,13 @@ public final class LoadedPackageProvider {
   }
 
   /**
-   * Returns a target if it was recently loaded, i.e., since the most recent cache sync. This
-   * throws an exception if the target was not loaded or not validated, even if it exists in the
+   * Returns a target if it was recently loaded, i.e., since the most recent cache sync. This throws
+   * an exception if the target was not loaded or not validated, even if it exists in the
    * surrounding package. If the surrounding package is in error, still attempts to retrieve the
    * target.
    */
-  public Target getLoadedTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
-    return getLoadedTarget(packageProvider, eventHandler, label);
-  }
-
-  /**
-   * Uninterruptible method to convert a label into a target using a given package provider and
-   * event handler.
-   */
-  @VisibleForTesting
-  public static Target getLoadedTarget(
-      final PackageProvider packageProvider, final EventHandler eventHandler, final Label label)
-          throws NoSuchPackageException, NoSuchTargetException {
-    try {
-      return Uninterruptibles.callUninterruptibly(new Callable<Target>() {
-        @Override
-        public Target call()
-            throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-          return packageProvider.getTarget(eventHandler, label);
-        }
-      });
-    } catch (NoSuchPackageException | NoSuchTargetException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
-    }
+  public Target getLoadedTarget(Label label)
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+    return packageProvider.getTarget(eventHandler, label);
   }
 }

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -44,7 +43,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -349,8 +347,9 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     }
   }
 
-  private Set<Target> getTargetsForLabels(
-      LoadedPackageProvider loadedPackageProvider, Collection<Label> labels) {
+  private static Set<Target> getTargetsForLabels(
+      LoadedPackageProvider loadedPackageProvider, Collection<Label> labels)
+      throws InterruptedException {
     Set<Target> result = new HashSet<>();
     for (Label label : labels) {
       try {
@@ -362,9 +361,13 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     return result;
   }
 
-  private ImmutableSet<Target> filterErrorFreeTargets(EventHandler eventHandler,
-      EventBus eventBus, TransitivePackageLoader pkgLoader, Collection<Target> targetsToLoad,
-      ListMultimap<String, Label> labelsToLoadUnconditionally) throws LoadingFailedException {
+  private ImmutableSet<Target> filterErrorFreeTargets(
+      EventHandler eventHandler,
+      EventBus eventBus,
+      TransitivePackageLoader pkgLoader,
+      Collection<Target> targetsToLoad,
+      ListMultimap<String, Label> labelsToLoadUnconditionally)
+      throws LoadingFailedException, InterruptedException {
     // Error out if any of the labels needed for the configuration could not be loaded.
     Multimap<Label, Label> rootCauses = pkgLoader.getRootCauses();
     for (Map.Entry<String, Label> entry : labelsToLoadUnconditionally.entries()) {

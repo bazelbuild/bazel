@@ -250,16 +250,17 @@ public final class BuildTool {
   }
 
   /**
-   * Checks that if this is an environment-restricted build, all top-level targets support
-   * the expected environments.
+   * Checks that if this is an environment-restricted build, all top-level targets support the
+   * expected environments.
    *
    * @param topLevelTargets the build's top-level targets
    * @throws ViewCreationFailedException if constraint enforcement is on, the build declares
-   *     environment-restricted top level configurations, and any top-level target doesn't
-   *     support the expected environments
+   *     environment-restricted top level configurations, and any top-level target doesn't support
+   *     the expected environments
    */
-  private void checkTargetEnvironmentRestrictions(Iterable<ConfiguredTarget> topLevelTargets,
-      LoadedPackageProvider packageManager) throws ViewCreationFailedException {
+  private static void checkTargetEnvironmentRestrictions(
+      Iterable<ConfiguredTarget> topLevelTargets, LoadedPackageProvider packageManager)
+      throws ViewCreationFailedException, InterruptedException {
     for (ConfiguredTarget topLevelTarget : topLevelTargets) {
       BuildConfiguration config = topLevelTarget.getConfiguration();
       if (config == null) {
