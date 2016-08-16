@@ -68,21 +68,19 @@ public abstract class JavaHelper {
       return null;
     }
     // BUILD rule "launcher" attribute
-    if (ruleContext.getRule().isAttrDefined("launcher", BuildType.LABEL)) {
-      Label launcher = ruleContext.attributes().get("launcher", BuildType.LABEL);
-      if (launcher != null) {
-        return isJdkLauncher(ruleContext, launcher) ? null : "launcher";
+    if (ruleContext.getRule().isAttrDefined("launcher", BuildType.LABEL)
+        && ruleContext.attributes().get("launcher", BuildType.LABEL) != null) {
+      if (isJdkLauncher(ruleContext, ruleContext.attributes().get("launcher", BuildType.LABEL))) {
+        return null;
       }
+      return "launcher";
     }
     // Blaze flag --java_launcher
-    if (ruleContext.getRule().isAttrDefined("$default_launcher", BuildType.LABEL)) {
-      JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-      if (javaConfig.getJavaLauncherLabel() != null) {
-        return isJdkLauncher(ruleContext, javaConfig.getJavaLauncherLabel())
-            ? null
-            : ":cmdline_launcher";
-      }
-      return "$default_launcher";
+    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
+    if (ruleContext.getRule().isAttrDefined(":java_launcher", BuildType.LABEL)
+        && javaConfig.getJavaLauncherLabel() != null
+        && !isJdkLauncher(ruleContext, javaConfig.getJavaLauncherLabel())) {
+      return ":java_launcher";
     }
     return null;
   }

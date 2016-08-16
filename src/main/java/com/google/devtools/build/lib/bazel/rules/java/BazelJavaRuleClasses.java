@@ -30,11 +30,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -44,7 +41,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -60,22 +56,6 @@ public class BazelJavaRuleClasses {
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
   protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner_deploy.jar";
-
-  /**
-   * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
-   * default, so it returns null for the configuration-independent default value.
-   */
-  public static final LateBoundLabel<BuildConfiguration> JAVA_LAUNCHER =
-      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          // don't read --java_launcher if this target overrides via a launcher attribute
-          if (attributes != null && attributes.isAttributeValueExplicitlySpecified("launcher")) {
-            return attributes.get("launcher", LABEL);
-          }
-          return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
-        }
-      };
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -407,7 +387,7 @@ public class BazelJavaRuleClasses {
               attr("launcher", LABEL)
                   .allowedFileTypes(FileTypeSet.NO_FILE)
                   .allowedRuleClasses("cc_binary"))
-          .add(attr(":cmdline_launcher", LABEL).value(JAVA_LAUNCHER))
+          .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER)) // blaze flag
           .add(
               attr("$no_launcher", NODEP_LABEL_LIST)
                   .value(
