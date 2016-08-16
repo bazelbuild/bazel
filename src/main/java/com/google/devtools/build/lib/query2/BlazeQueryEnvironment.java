@@ -185,29 +185,22 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             }
           } catch (NoSuchThingException e) {
             /* ignore */
-          } catch (InterruptedException e) {
-            throw new QueryException("interrupted");
           }
         }
       }
     }
-    try {
-      callback.process(result);
-    } catch (InterruptedException e) {
-      throw new QueryException(caller, e.getMessage());
-    }
+    callback.process(result);
   }
 
   @Override
-  public Target getTarget(Label label) throws TargetNotFoundException, QueryException {
+  public Target getTarget(Label label)
+      throws TargetNotFoundException, QueryException, InterruptedException {
     // Can't use strictScope here because we are expecting a target back.
     validateScope(label, true);
     try {
       return getNode(getTargetOrThrow(label)).getLabel();
     } catch (NoSuchThingException e) {
       throw new TargetNotFoundException(e);
-    } catch (InterruptedException e) {
-      throw new QueryException("interrupted");
     }
   }
 
@@ -309,16 +302,13 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     };
   }
 
-  private void preloadTransitiveClosure(Set<Target> targets, int maxDepth) throws QueryException {
+  private void preloadTransitiveClosure(Set<Target> targets, int maxDepth)
+      throws QueryException, InterruptedException {
     if (maxDepth >= MAX_DEPTH_FULL_SCAN_LIMIT && transitivePackageLoader != null) {
       // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
       // preloading will be outweighed by the cost of doing more work than necessary.
-      try {
-        transitivePackageLoader.sync(eventHandler, targets, ImmutableSet.<Label>of(), keepGoing,
-            loadingPhaseThreads, -1);
-      } catch (InterruptedException e) {
-        throw new QueryException("interrupted");
-      }
+      transitivePackageLoader.sync(
+          eventHandler, targets, ImmutableSet.<Label>of(), keepGoing, loadingPhaseThreads, -1);
     }
   }
 
@@ -426,19 +416,14 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
-      throws TargetParsingException {
+      throws TargetParsingException, InterruptedException {
     if (!resolvedTargetPatterns.keySet().containsAll(patterns)) {
-      try {
-        // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
-        // being called from within a SkyFunction.
-        resolvedTargetPatterns.putAll(
-            Maps.transformValues(
-                targetPatternEvaluator.preloadTargetPatterns(eventHandler, patterns, keepGoing),
-                RESOLVED_TARGETS_TO_TARGETS));
-      } catch (InterruptedException e) {
-        // TODO(bazel-team): Propagate the InterruptedException from here [skyframe-loading].
-        throw new TargetParsingException("interrupted");
-      }
+      // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
+      // being called from within a SkyFunction.
+      resolvedTargetPatterns.putAll(
+          Maps.transformValues(
+              targetPatternEvaluator.preloadTargetPatterns(eventHandler, patterns, keepGoing),
+              RESOLVED_TARGETS_TO_TARGETS));
     }
   }
 

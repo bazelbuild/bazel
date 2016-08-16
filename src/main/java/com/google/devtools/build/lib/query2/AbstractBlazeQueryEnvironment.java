@@ -194,12 +194,12 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   }
 
   /**
-   * Perform any work that should be done ahead of time to resolve the target patterns in the
-   * query. Implementations may choose to cache the results of resolving the patterns, cache
-   * intermediate work, or not cache and resolve patterns on the fly.
+   * Perform any work that should be done ahead of time to resolve the target patterns in the query.
+   * Implementations may choose to cache the results of resolving the patterns, cache intermediate
+   * work, or not cache and resolve patterns on the fly.
    */
   protected abstract void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
-      throws QueryException, TargetParsingException;
+      throws QueryException, TargetParsingException, InterruptedException;
 
   @Override
   public boolean isSettingEnabled(Setting setting) {
