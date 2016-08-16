@@ -1248,12 +1248,6 @@ public class CppLinkActionBuilder {
       CppHelper.getFdoSupport(ruleContext).getLinkOptions(featureConfiguration, buildVariables);
     }
 
-    private boolean isDynamicLibrary(LinkerInput linkInput) {
-      Artifact libraryArtifact = linkInput.getArtifact();
-      String name = libraryArtifact.getFilename();
-      return Link.SHARED_LIBRARY_FILETYPES.matches(name) && name.startsWith("lib");
-    }
-
     private boolean isSharedNativeLibrary() {
       return isNativeDeps && cppConfiguration.shareNativeDeps();
     }
@@ -1374,7 +1368,7 @@ public class CppLinkActionBuilder {
       }
 
       for (LinkerInput input : linkerInputs) {
-        if (isDynamicLibrary(input)) {
+        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
           Preconditions.checkState(
               libDir.startsWith(solibDir),
@@ -1395,7 +1389,7 @@ public class CppLinkActionBuilder {
       for (LinkerInput input : runtimeLinkerInputs) {
         List<String> optionsList = needWholeArchive ? noWholeArchiveInputs : linkerInputParameters;
 
-        if (isDynamicLibrary(input)) {
+        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
           Preconditions.checkState(
               runtimeSolibDir != null && libDir.equals(runtimeSolibDir),
@@ -1445,7 +1439,7 @@ public class CppLinkActionBuilder {
         Set<String> libOpts,
         PathFragment solibDir,
         String rpathRoot) {
-      Preconditions.checkState(isDynamicLibrary(input));
+      Preconditions.checkState(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY);
       Preconditions.checkState(!Link.useStartEndLib(input, cppConfiguration.archiveType()));
 
       Artifact inputArtifact = input.getArtifact();
@@ -1486,7 +1480,7 @@ public class CppLinkActionBuilder {
      */
     private void addStaticInputLinkOptions(
         LinkerInput input, List<String> options, @Nullable Map<Artifact, Artifact> ltoMap) {
-      Preconditions.checkState(!isDynamicLibrary(input));
+      Preconditions.checkState(!(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY));
 
       // start-lib/end-lib library: adds its input object files.
       if (Link.useStartEndLib(input, cppConfiguration.archiveType())) {
