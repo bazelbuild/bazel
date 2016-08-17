@@ -168,7 +168,7 @@ public abstract class NativeDepsHelper {
       builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
           toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());
     } else {
-      builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
+      builder.setRuntimeInputs(ArtifactCategory.STATIC_LIBRARY,
           toolchain.getStaticRuntimeLinkMiddleman(), toolchain.getStaticRuntimeLinkInputs());
     }
     CppLinkAction linkAction =
