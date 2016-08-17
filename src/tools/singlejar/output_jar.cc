@@ -76,10 +76,6 @@ int OutputJar::Doit(Options *options) {
   }
   options_ = options;
 
-  // TODO(asmundak): handle these options.
-  TODO(!options_->force_compression, "Handle --compression");
-  TODO(!options_->preserve_compression, "Handle --dont_change_compression");
-
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());
@@ -183,19 +179,21 @@ int OutputJar::Doit(Options *options) {
     }
   }
 
-  // Ready to write zip entries.
+  // Ready to write zip entries. Decide whether created entries should be
+  // compressed.
+  bool compress = options_->force_compression || options_->preserve_compression;
   // First, write a directory entry for the META-INF, followed by the manifest
   // file, followed by the build properties file.
   AddDirectory("META-INF/");
   manifest_.Append("\r\n");
-  WriteEntry(manifest_.OutputEntry(options_->force_compression));
+  WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
-    WriteEntry(build_properties_.OutputEntry(options_->force_compression));
+    WriteEntry(build_properties_.OutputEntry(compress));
   }
 
   // Then classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
-    WriteEntry(classpath_resource->OutputEntry(options_->force_compression));
+    WriteEntry(classpath_resource->OutputEntry(compress));
   }
 
   // Then copy source files' contents.
@@ -276,8 +274,8 @@ bool OutputJar::AddJar(int jar_path_index) {
       continue;
     }
 
-    bool is_dir = (file_name[file_name_length - 1] != '/');
-    if (is_dir &&
+    bool is_file = (file_name[file_name_length - 1] != '/');
+    if (is_file &&
         begins_with(file_name, file_name_length, "META-INF/services/")) {
       // The contents of the META-INF/services/<SERVICE> on the output is the
       // concatenation of the META-INF/services/<SERVICE> files from all inputs.
@@ -298,11 +296,11 @@ bool OutputJar::AddJar(int jar_path_index) {
     // the first input jar (in order to provide diagnostics on duplicate).
     auto got =
         known_members_.emplace(std::string(file_name, file_name_length),
-                               EntryInfo{is_dir ? &null_combiner_ : nullptr,
-                                         is_dir ? -1 : jar_path_index});
+                               EntryInfo{is_file ? nullptr : &null_combiner_,
+                                         is_file ? jar_path_index: -1});
     if (!got.second) {
       auto &entry_info = got.first->second;
-      // Handle special entries (the ones that have a combiner.
+      // Handle special entries (the ones that have a combiner).
       if (entry_info.combiner_ != nullptr) {
         entry_info.combiner_->Merge(jar_entry, lh);
         continue;
@@ -323,8 +321,9 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
-    // Decide what to do with the existing entry depending on force_compress
-    // and preserve_compress options and entry's current state:
+    // For the file entries and unless preserve_compression option is set,
+    // decide what to do with an entry depending on force_compress option
+    // and entry's current state:
     //   force_compress    preserve_compress   compressed    Action
     //         N                  N                 N        Copy
     //         N                  N                 Y        Decompress
@@ -332,10 +331,12 @@ bool OutputJar::AddJar(int jar_path_index) {
     //         Y                  *                 N        Compress
     //         Y                  N                 Y        Copy
     //         Y                  Y      can't be
-    if ((options_->force_compression &&
-         jar_entry->compression_method() == Z_NO_COMPRESSION) ||
-        (!options_->force_compression && !options_->preserve_compression &&
-         jar_entry->compression_method() == Z_DEFLATED)) {
+    if (is_file &&
+        !options_->preserve_compression &&
+        ((options_->force_compression &&
+          jar_entry->compression_method() == Z_NO_COMPRESSION) ||
+         (!options_->force_compression && !options_->preserve_compression &&
+          jar_entry->compression_method() == Z_DEFLATED))) {
       // Change compression.
       Concatenator combiner(jar_entry->file_name_string());
       if (!combiner.Merge(jar_entry, lh)) {

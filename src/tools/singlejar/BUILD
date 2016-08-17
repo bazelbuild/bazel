@@ -126,6 +126,7 @@ cc_test(
     data = [
         ":data1",
         ":data2",
+        ":stored_jar",
         ":test1",
         ":test2",
         "//external:jar",
@@ -321,4 +322,12 @@ java_library(
         "data/extra_file1",
         "data/extra_file3",
     ],
+)
+
+genrule(
+    name = "stored_jar",
+    srcs = ["output_jar.cc"],
+    outs = ["stored.jar"],
+    cmd = "$(location //external:jar) -0cf \"$@\" $(location :output_jar.cc)",
+    tools = ["//external:jar"],
 )

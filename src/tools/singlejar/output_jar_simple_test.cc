@@ -49,31 +49,37 @@ static bool HasSubstr(const string &s, const string &what) {
 
 class OutputJarSimpleTest : public ::testing::Test {
  protected:
-  void CreateOutput(const string &out_path, const char *first_arg...) {
-    va_list ap;
-    va_start(ap, first_arg);
-    const char *args[100] = {"--output", out_path.c_str()};
-    unsigned nargs = 2;
-    fprintf(stderr, "Creation arguments: ");
-    if (first_arg) {
-      args[nargs++] = first_arg;
-      fprintf(stderr, "%s", first_arg);
-      while (nargs < arraysize(args)) {
-        const char *arg = va_arg(ap, const char *);
-        if (arg) {
-          args[nargs++] = arg;
-          fprintf(stderr, " %s", arg);
-        } else {
-          break;
-        }
+  void CreateOutput(const string &out_path, const std::vector<string> &args) {
+    const char *option_list[100] = {"--output", out_path.c_str()};
+    int nargs = 2;
+    for (auto &arg : args) {
+      if (arg.empty()) {
+        continue;
       }
-      va_end(ap);
-      ASSERT_GE(arraysize(args), nargs);
+      option_list[nargs++] = arg.c_str();
+      if (arg.find(' ') == string::npos) {
+        fprintf(stderr, " '%s'", arg.c_str());
+      } else {
+        fprintf(stderr, " %s", arg.c_str());
+      }
     }
     fprintf(stderr, "\n");
-    options_.ParseCommandLine(nargs, args);
+    options_.ParseCommandLine(nargs, option_list);
     ASSERT_EQ(0, output_jar_.Doit(&options_));
     EXPECT_EQ(0, VerifyZip(out_path));
+  }
+
+  string CompressionOptionsTestingJar(const string &compression_option) {
+    string cp_res_path =
+        CreateTextFile("cp_res", "line1\nline2\nline3\nline4\n");
+    string out_path = OutputFilePath("out.jar");
+    CreateOutput(out_path,
+                 {compression_option, "--sources",
+                  DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+                  DATA_DIR_TOP "src/tools/singlejar/stored.jar", "--resources",
+                  cp_res_path, "--deploy_manifest_lines", "property1: value1",
+                  "property2: value2"});
+    return out_path;
   }
 
   OutputJar output_jar_;
@@ -83,7 +89,7 @@ class OutputJarSimpleTest : public ::testing::Test {
 // No inputs at all.
 TEST_F(OutputJarSimpleTest, Empty) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, nullptr);
+  CreateOutput(out_path, {});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
@@ -149,9 +155,9 @@ TEST_F(OutputJarSimpleTest, Empty) {
 // Source jars.
 TEST_F(OutputJarSimpleTest, Source) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--sources",
-               DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-               DATA_DIR_TOP "src/tools/singlejar/libtest2.jar", nullptr);
+  CreateOutput(out_path,
+               {"--sources", DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+                DATA_DIR_TOP "src/tools/singlejar/libtest2.jar"});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
@@ -180,7 +186,7 @@ TEST_F(OutputJarSimpleTest, Source) {
 TEST_F(OutputJarSimpleTest, JavaLauncher) {
   string out_path = OutputFilePath("out.jar");
   const char *launcher_path = DATA_DIR_TOP "src/tools/singlejar/libtest1.jar";
-  CreateOutput(out_path, "--java_launcher", launcher_path, nullptr);
+  CreateOutput(out_path, {"--java_launcher", launcher_path});
   // check that the offset of the first entry equals launcher size.
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path.c_str()));
@@ -199,7 +205,7 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
 // --main_class option.
 TEST_F(OutputJarSimpleTest, MainClass) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--main_class", "com.google.my.Main", nullptr);
+  CreateOutput(out_path, {"--main_class", "com.google.my.Main"});
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
@@ -212,8 +218,8 @@ TEST_F(OutputJarSimpleTest, MainClass) {
 // --deploy_manifest_lines option.
 TEST_F(OutputJarSimpleTest, DeployManifestLines) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--deploy_manifest_lines", "property1: foo",
-               "property2: bar", nullptr);
+  CreateOutput(out_path,
+               {"--deploy_manifest_lines", "property1: foo", "property2: bar"});
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
@@ -227,8 +233,8 @@ TEST_F(OutputJarSimpleTest, DeployManifestLines) {
 // --extra_build_info option
 TEST_F(OutputJarSimpleTest, ExtraBuildInfo) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--extra_build_info", "property1=value1",
-               "--extra_build_info", "property2=value2", nullptr);
+  CreateOutput(out_path, {"--extra_build_info", "property1=value1",
+                          "--extra_build_info", "property2=value2"});
   string build_properties = GetEntryContents(out_path, "build-data.properties");
   EXPECT_PRED2(HasSubstr, build_properties, "\nproperty1=value1\n");
   EXPECT_PRED2(HasSubstr, build_properties, "\nproperty2=value2\n");
@@ -242,9 +248,9 @@ TEST_F(OutputJarSimpleTest, BuildInfoFile) {
       CreateTextFile("buildinfo2", "property21=value21\nproperty22=value22\n");
 
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--build_info_file", build_info_path1.c_str(),
-               "--extra_build_info", "property=value", "--build_info_file",
-               build_info_path2.c_str(), nullptr);
+  CreateOutput(out_path, {"--build_info_file", build_info_path1,
+                          "--extra_build_info", "property=value",
+                          "--build_info_file", build_info_path2.c_str()});
   string build_properties = GetEntryContents(out_path, "build-data.properties");
   EXPECT_PRED2(HasSubstr, build_properties, "property11=value11\n");
   EXPECT_PRED2(HasSubstr, build_properties, "property12=value12\n");
@@ -264,8 +270,7 @@ TEST_F(OutputJarSimpleTest, Resources) {
   string res2_path = CreateTextFile("res2", "res2.line1\nres2.line2\n");
 
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--resources", res11_spec.c_str(), res12_spec.c_str(),
-               res2_path.c_str(), nullptr);
+  CreateOutput(out_path, {"--resources", res11_spec, res12_spec, res2_path});
 
   // The output should have 'res1' entry containing the concatenation of the
   // 'res11' and 'res12' files.
@@ -282,7 +287,7 @@ TEST_F(OutputJarSimpleTest, ClasspathResources) {
   string res1_path = OutputFilePath("cp_res");
   ASSERT_TRUE(blaze::WriteFile("line1\nline2\n", res1_path));
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--classpath_resources", res1_path.c_str(), nullptr);
+  CreateOutput(out_path, {"--classpath_resources", res1_path.c_str()});
   string res = GetEntryContents(out_path, "cp_res");
   EXPECT_EQ("line1\nline2\n", res);
 }
@@ -298,9 +303,9 @@ TEST_F(OutputJarSimpleTest, DuplicateResources) {
   string res2_spec = "foo:" + res2_path;
 
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--warn_duplicate_resources", "--resources",
-               res1_spec.c_str(), res2_spec.c_str(), "--classpath_resources",
-               cp_res_path.c_str(), cp_res_path.c_str(), nullptr);
+  CreateOutput(out_path,
+               {"--warn_duplicate_resources", "--resources", res1_spec,
+                res2_spec, "--classpath_resources", cp_res_path, cp_res_path});
 
   string cp_res = GetEntryContents(out_path, "cp_res");
   EXPECT_EQ("line1\nline2\n", cp_res);
@@ -314,9 +319,9 @@ TEST_F(OutputJarSimpleTest, ExtraCombiners) {
   string out_path = OutputFilePath("out.jar");
   const char kEntry[] = "tools/singlejar/data/extra_file1";
   output_jar_.ExtraCombiner(kEntry, new Concatenator(kEntry));
-  CreateOutput(out_path, "--sources",
-               DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
-               DATA_DIR_TOP "src/tools/singlejar/libdata2.jar", nullptr);
+  CreateOutput(out_path,
+               {"--sources", DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
+                DATA_DIR_TOP "src/tools/singlejar/libdata2.jar"});
   string extra_file_contents = GetEntryContents(out_path, kEntry);
   EXPECT_EQ(
       "extra_file_1 line1\n"
@@ -329,11 +334,10 @@ TEST_F(OutputJarSimpleTest, ExtraCombiners) {
 // --include_headers
 TEST_F(OutputJarSimpleTest, IncludeHeaders) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, "--sources",
-               DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-               DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
-               "--include_prefixes", "tools/singlejar/data",
-               nullptr);
+  CreateOutput(out_path,
+               {"--sources", DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
+                DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
+                "--include_prefixes", "tools/singlejar/data"});
   std::vector<string> expected_entries(
       {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
        "tools/singlejar/data/", "tools/singlejar/data/extra_file1",
@@ -390,11 +394,11 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   //  * protobuf.meta
   //  * extra combiner
 
-  CreateOutput(out_path, "--normalize", "--sources",
-               DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-               testjar_path.c_str(), testzip_path.c_str(), "--resources",
-               resource_path.c_str(), "--classpath_resources",
-               cp_resource_path.c_str(), nullptr);
+  CreateOutput(out_path,
+               {"--normalize", "--sources",
+                DATA_DIR_TOP "src/tools/singlejar/libtest1.jar", testjar_path,
+                testzip_path, "--resources", resource_path,
+                "--classpath_resources", cp_resource_path});
 
   // Scan all entries, verify that *.class entries have timestamp
   // 01/01/1980 00:00:02 and the rest have the timestamp of 01/01/1980 00:00:00.
@@ -465,8 +469,7 @@ TEST_F(OutputJarSimpleTest, Services) {
   // contents of this entry from both archives. And it should also contain
   // spring.handlers and spring.schemas entries.
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path,
-               "--sources", zip1_path.c_str(), zip2_path.c_str(), nullptr);
+  CreateOutput(out_path, {"--sources", zip1_path, zip2_path});
   EXPECT_EQ("my.DateProviderImpl1\n" "my.DateProviderImpl2\n",
             GetEntryContents(out_path, "META-INF/services/spi.DateProvider"));
   EXPECT_EQ("my.TimeProviderImpl1\n",
@@ -476,6 +479,83 @@ TEST_F(OutputJarSimpleTest, Services) {
             GetEntryContents(out_path, "META-INF/spring.schemas"));
   EXPECT_EQ("handler1\n" "handler2\n",
             GetEntryContents(out_path, "META-INF/spring.handlers"));
+}
+
+// Test that in the absence of the compression option all the plain files in
+// the output archive are not compressed but just stored.
+TEST_F(OutputJarSimpleTest, NoCompressionOption) {
+  string out_path = CompressionOptionsTestingJar("");
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    string entry_name = lh->file_name_string();
+    // Each file entry is compressed, each directory entry is uncompressed.
+    EXPECT_EQ(lh->compression_method(), cdh->compression_method());
+    EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())
+        << "Entry " << entry_name << " should be stored.";
+  }
+  input_jar.Close();
+}
+
+// Test --compression option. If enabled, all file entries are compressed
+// while all directory entries remain uncompressed.
+TEST_F(OutputJarSimpleTest, CompressionOption) {
+  string out_path = CompressionOptionsTestingJar("--compression");
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    string entry_name = lh->file_name_string();
+    // Each file entry is compressed, each directory entry is uncompressed.
+    EXPECT_EQ(lh->compression_method(), cdh->compression_method());
+    if (lh->file_name()[lh->file_name_length() - 1] != '/') {
+      EXPECT_EQ(Z_DEFLATED, lh->compression_method())
+          << "File entry " << entry_name << " should be compressed.";
+    } else {
+      EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())
+          << "Directory entry " << entry_name << " should be stored.";
+    }
+  }
+  input_jar.Close();
+}
+
+// Test --dontchangecompression option. If enabled, existing file entries are
+// copied as is, and created entries are compressed.
+// Test --compression option. If enabled, all file entries are compressed
+// while all directory entries remain uncompressed.
+TEST_F(OutputJarSimpleTest, DontChangeCompressionOption) {
+  string out_path = CompressionOptionsTestingJar("--dont_change_compression");
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  const char kStoredEntry[] =
+      DATA_DIR_TOP "src/tools/singlejar/output_jar.cc";
+
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    string entry_name = lh->file_name_string();
+    EXPECT_EQ(lh->compression_method(), cdh->compression_method());
+    if (lh->file_name()[lh->file_name_length() - 1] != '/') {
+      // All created file entries are compressed, and so are all the file
+      // entries from the input jar created by the java_library rule. Only
+      // the file entries from the 'stored_jar' should be uncompressed, and
+      // it contains a single one:
+      if (entry_name == kStoredEntry) {
+        EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())
+            << "File entry " << entry_name << " should be stored.";
+      } else {
+        EXPECT_EQ(Z_DEFLATED, lh->compression_method())
+            << "File entry " << entry_name << " should be compressed.";
+      }
+    } else {
+      EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())
+          << "Directory entry " << entry_name << " should be stored.";
+    }
+  }
+  input_jar.Close();
 }
 
 }  // namespace
