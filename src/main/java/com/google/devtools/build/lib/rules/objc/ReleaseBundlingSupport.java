@@ -467,6 +467,10 @@ public final class ReleaseBundlingSupport {
     if (processingNeeded) {
       SpawnAction.Builder processAction =
           ObjcRuleClasses.spawnBashOnDarwinActionBuilder(actionCommandLine)
+              // TODO(cparsons): This bundling support is used for other platform types, as well.
+              // The platform type should be passed from the caller.
+              .setEnvironment(ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration,
+                  appleConfiguration.getMultiArchPlatform(PlatformType.IOS)))
               .setMnemonic("ObjcProcessIpa")
               .setProgressMessage("Processing iOS IPA: " + ruleContext.getLabel())
               .addTransitiveInputs(inputs.build())
