@@ -114,7 +114,7 @@ public class TreeArtifactValue implements SkyValue {
     }
 
     TreeArtifactValue that = (TreeArtifactValue) other;
-    if (that.digest != digest) {
+    if (!Arrays.equals(digest, that.digest)) {
       return false;
     }
 
