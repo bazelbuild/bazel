@@ -261,7 +261,8 @@ public final class TargetUtils {
     }
 
     Rule rule = (Rule) target;
-    if (!rule.getRuleClass().equals("bind")) {
+    String ruleClass = rule.getRuleClass();
+    if (!(ruleClass.equals("alias") || ruleClass.equals("bind"))) {
       return null;
     }
 

@@ -1620,6 +1620,35 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleIdeInfo.hasCRuleIdeInfo()).isFalse();
   }
 
+  @Test
+  public void testAlias() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "    name = 'test',",
+        "    srcs = ['Test.java'],",
+        "    deps = [':alias']",
+        ")",
+        "alias(",
+        "    name = 'alias',",
+        "    actual = ':alias2',",
+        ")",
+        "alias(",
+        "    name = 'alias2',",
+        "    actual = ':real',",
+        ")",
+        "java_library(",
+        "    name = 'real',",
+        "    srcs = ['Real.java'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:test");
+    RuleIdeInfo testInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:test", ruleIdeInfos);
+    assertThat(testInfo.getDependenciesList())
+        .contains("//com/google/example:real");
+    assertThat(getRuleInfoAndVerifyLabel("//com/google/example:real", ruleIdeInfos)).isNotNull();
+  }
+
   /**
    * Returns true if we are testing the native aspect, not the Skylark one.
    * Eventually Skylark aspect will be equivalent to a native one, and this method
