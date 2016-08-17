@@ -15,52 +15,44 @@ android_library(
     deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
 )
 
-sh_binary(
+alias(
     name = "aar_generator",
-    srcs = ["aar_generator.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction",
 )
 
-sh_binary(
+alias(
     name = "manifest_merger",
-    srcs = ["manifest_merger.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android:ManifestMergerAction"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android:ManifestMergerAction",
 )
 
-sh_binary(
+alias(
     name = "rclass_generator",
-    srcs = ["rclass_generator.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android:RClassGeneratorAction"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android:RClassGeneratorAction",
 )
 
-sh_binary(
+alias(
     name = "resources_processor",
-    srcs = ["resources_processor.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction",
 )
 
-sh_binary(
+alias(
     name = "resource_parser",
-    srcs = ["resource_parser.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction",
 )
 
-sh_binary(
+alias(
     name = "resource_shrinker",
-    srcs = ["resource_shrinker.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android:ResourceShrinkerAction"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceShrinkerAction",
 )
 
-sh_binary(
+alias(
     name = "merge_dexzips",
-    srcs = ["merge_dexzips.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android/ziputils:reducer"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android/ziputils:reducer",
 )
 
-sh_binary(
+alias(
     name = "shuffle_jars",
-    srcs = ["shuffle_jars.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android/ziputils:mapper"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android/ziputils:mapper",
 )
 
 sh_binary(
@@ -73,10 +65,9 @@ sh_binary(
     srcs = ["fail.sh"],
 )
 
-sh_binary(
+alias(
     name = "IdlClass",
-    srcs = ["idlclass.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
 )
 
 filegroup(
