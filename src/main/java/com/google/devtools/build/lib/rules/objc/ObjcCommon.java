@@ -580,7 +580,13 @@ public final class ObjcCommon {
     private static boolean isCcLibrary(TransitiveInfoCollection info) {
       try {
         AbstractConfiguredTarget target = (AbstractConfiguredTarget) info;
-        return target.getTarget().getTargetKind().equals("cc_library rule");
+        String targetName = target.getTarget().getTargetKind();
+        for (String ruleClassName : ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES) {
+          if (targetName.equals(ruleClassName + " rule")) {
+            return true;
+          }
+        }
+        return false;
       } catch (Exception e) {
         return false;
       }

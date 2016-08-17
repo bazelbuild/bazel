@@ -27,6 +27,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -677,15 +678,23 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
+    
+    /**
+     * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
+     * rule.
+     */
+    static final Iterable<String> ALLOWED_CC_DEPS_RULE_CLASSES =
+        ImmutableSet.of(
+            "cc_library",
+            "cc_inc_library"); 
     /**
      * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
      */
     static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
-        ImmutableSet.of(
-            "cc_library",
-            "cc_inc_library",
-            "experimental_objc_library");
-
+        Iterables.<String>concat(
+            ALLOWED_CC_DEPS_RULE_CLASSES,
+            ImmutableList.of("experimental_objc_library"));
+        
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
