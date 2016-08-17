@@ -434,6 +434,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Label.parseAbsoluteUnchecked("//foo:a.config"),
             Label.parseAbsoluteUnchecked("//foo:b.txt"))
         .inOrder();
+    getSkyframeExecutor().resetEvaluator();
+    getSkyframeExecutor().preparePackageLoading(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        ConstantRuleVisibility.PUBLIC, true, 7, "",
+        UUID.randomUUID(), tsgm);
+    value = validPackage(skyKey);
+    assertThat(
+            (Iterable<Label>)
+                value
+                    .getPackage()
+                    .getTarget("foo")
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .containsExactly(
+            Label.parseAbsoluteUnchecked("//foo:a.config"),
+            Label.parseAbsoluteUnchecked("//foo:b.txt"))
+        .inOrder();
   }
 
   @Test
