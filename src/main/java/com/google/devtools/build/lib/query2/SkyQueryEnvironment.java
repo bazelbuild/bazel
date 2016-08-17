@@ -512,7 +512,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public void getTargetsMatchingPattern(
-      QueryExpression owner, String pattern, Callback<Target> callback) throws QueryException {
+      QueryExpression owner, String pattern, Callback<Target> callback)
+      throws QueryException, InterruptedException {
     // Directly evaluate the target pattern, making use of packages in the graph.
     try {
       TargetPatternKey targetPatternKey =
@@ -526,8 +527,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       parsedPattern.eval(resolver, subdirectoriesToExclude, callback, QueryException.class);
     } catch (TargetParsingException e) {
       reportBuildFileError(owner, e.getMessage());
-    } catch (InterruptedException e) {
-      throw new QueryException(owner, e.getMessage());
     }
   }
 
