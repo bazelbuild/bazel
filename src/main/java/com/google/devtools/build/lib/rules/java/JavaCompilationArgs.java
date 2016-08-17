@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.FileType;
-
 import java.util.Collection;
 
 /**
@@ -159,29 +158,6 @@ public final class JavaCompilationArgs {
           ? dep.getRecursiveJavaCompilationArgs()
           : dep.getJavaCompilationArgs();
       addTransitiveArgs(args, type);
-      return this;
-    }
-
-    public Builder addTransitiveCompilationArgs(
-        SourcesJavaCompilationArgsProvider dep, boolean recursive, ClasspathType type) {
-      JavaCompilationArgs args;
-      if (recursive) {
-        args = dep.getRecursiveJavaCompilationArgs();
-      } else {
-        args = dep.getJavaCompilationArgs();
-      }
-      addTransitiveArgs(args, type);
-      return this;
-    }
-
-    public Builder addSourcesTransitiveCompilationArgs(
-        Iterable<? extends SourcesJavaCompilationArgsProvider> deps,
-        boolean recursive,
-        ClasspathType type) {
-      for (SourcesJavaCompilationArgsProvider dep : deps) {
-        addTransitiveCompilationArgs(dep, recursive, type);
-      }
-
       return this;
     }
 

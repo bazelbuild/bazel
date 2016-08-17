@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -549,19 +548,6 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     addArgsAndJarsToAttributes(args, directJars);
   }
 
-  private void addProvidersToAttributesInternal(
-      Iterable<? extends SourcesJavaCompilationArgsProvider> deps, boolean isNeverLink) {
-    JavaCompilationArgs args = JavaCompilationArgs.builder()
-        .addSourcesTransitiveCompilationArgs(deps, true,
-            isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH)
-        .build();
-
-    NestedSet<Artifact> directJars = isStrict()
-        ? getNonRecursiveCompileTimeJarsFromProvider(deps, isNeverLink)
-        : null;
-    addArgsAndJarsToAttributes(args, directJars);
-  }
-
   private boolean isStrict() {
     return getStrictJavaDeps() != OFF;
   }
@@ -571,14 +557,6 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder();
     builder.addTransitiveTargets(deps, /*recursive=*/false);
     return builder.build().getCompileTimeJars();
-  }
-
-  private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromProvider(
-      Iterable<? extends SourcesJavaCompilationArgsProvider> deps, boolean isNeverLink) {
-    return JavaCompilationArgs.builder()
-        .addSourcesTransitiveCompilationArgs(deps, false,
-            isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH)
-        .build().getCompileTimeJars();
   }
 
   static void addDependencyArtifactsToAttributes(
@@ -610,13 +588,6 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
       addDependencyArtifactsToAttributes(
           attributes, AnalysisUtils.getProviders(deps, JavaCompilationArgsProvider.class));
     }
-  }
-
-  public void addProvidersToAttributes(Iterable<? extends SourcesJavaCompilationArgsProvider> deps,
-      boolean isNeverLink) {
-    // see addLibrariesToAttributes() for explanation
-    attributes.setStrictJavaDeps(getStrictJavaDeps());
-    addProvidersToAttributesInternal(deps, isNeverLink);
   }
 
   /**

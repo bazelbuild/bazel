@@ -826,7 +826,6 @@ java_library(
         "rules/java/MessageBundleProvider.java",
         "rules/java/NativeLibraryNestedSetBuilder.java",
         "rules/java/SingleJarActionBuilder.java",
-        "rules/java/SourcesJavaCompilationArgsProvider.java",
         "rules/java/WriteBuildInfoPropertiesAction.java",
     ],
     deps = [

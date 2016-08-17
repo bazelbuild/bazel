@@ -59,10 +59,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaCompilationHelper helper = new JavaCompilationHelper(
         ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
     helper.addLibrariesToAttributes(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources =
-        JavaCommon.compilationArgsFromSources(ruleContext);
-    helper.addProvidersToAttributes(
-        compilationArgsFromSources, JavaCommon.isNeverLink(ruleContext));
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -139,10 +135,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> transitiveSourceJars = common.collectTransitiveSourceJars(srcJar);
 
     // If sources are empty, treat this library as a forwarding node for dependencies.
-    JavaCompilationArgs javaCompilationArgs = common.collectJavaCompilationArgs(
-        false, neverLink, compilationArgsFromSources, false);
-    JavaCompilationArgs recursiveJavaCompilationArgs = common.collectJavaCompilationArgs(
-        true, neverLink, compilationArgsFromSources, false);
+    JavaCompilationArgs javaCompilationArgs =
+        common.collectJavaCompilationArgs(false, neverLink, false);
+    JavaCompilationArgs recursiveJavaCompilationArgs =
+        common.collectJavaCompilationArgs(true, neverLink, false);
     NestedSet<Artifact> compileTimeJavaDepArtifacts = common.collectCompileTimeDependencyArtifacts(
         javaArtifacts.getCompileTimeDependencyArtifact());
     NestedSet<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);

@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
-import com.google.devtools.build.lib.rules.java.SourcesJavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -555,8 +554,6 @@ public class AndroidCommon {
         ruleContext, semantics, javaCommon.getJavacOpts(), attributes);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    helper.addProvidersToAttributes(
-        JavaCommon.compilationArgsFromSources(ruleContext), asNeverLink);
     attributes.setStrictJavaDeps(getStrictAndroidDeps());
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
@@ -807,9 +804,7 @@ public class AndroidCommon {
       boolean hasSrcs) {
     boolean exportDeps = !hasSrcs
         && ruleContext.getFragment(AndroidConfiguration.class).allowSrcsLessAndroidLibraryDeps();
-    Iterable<SourcesJavaCompilationArgsProvider> fromSrcs =
-        ImmutableList.<SourcesJavaCompilationArgsProvider> of();
-    return javaCommon.collectJavaCompilationArgs(recursive, isNeverLink, fromSrcs, exportDeps);
+    return javaCommon.collectJavaCompilationArgs(recursive, isNeverLink, exportDeps);
   }
 
   public ImmutableList<String> getJavacOpts() {

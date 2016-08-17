@@ -264,7 +264,6 @@ public class JavaCommon {
    * (deprecated behaviour for android_library only)
    */
   public JavaCompilationArgs collectJavaCompilationArgs(boolean recursive, boolean isNeverLink,
-      Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources,
       boolean srcLessDepsExport) {
     ClasspathType type = isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
     JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder()
@@ -274,8 +273,7 @@ public class JavaCommon {
     if (recursive || srcLessDepsExport) {
       builder
           .addTransitiveTargets(targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), recursive, type)
-          .addTransitiveTargets(getRuntimeDeps(ruleContext), recursive, ClasspathType.RUNTIME_ONLY)
-          .addSourcesTransitiveCompilationArgs(compilationArgsFromSources, recursive, type);
+          .addTransitiveTargets(getRuntimeDeps(ruleContext), recursive, ClasspathType.RUNTIME_ONLY);
     }
     return builder.build();
   }
@@ -686,12 +684,6 @@ public class JavaCommon {
         .build();
     attributes.addRuntimeClassPathEntries(args.getRuntimeJars());
     attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
-  }
-
-  public static Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources(
-      RuleContext ruleContext) {
-    return ruleContext.getPrerequisites("srcs", Mode.TARGET,
-        SourcesJavaCompilationArgsProvider.class);
   }
 
   /**
