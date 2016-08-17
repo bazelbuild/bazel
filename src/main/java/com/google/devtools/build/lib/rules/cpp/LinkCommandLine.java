@@ -443,6 +443,7 @@ public final class LinkCommandLine extends CommandLine {
         // Since the objc case is not hardcoded in CppConfiguration, we can use the actual tool.
         // TODO(b/30109612): make this pattern the case for all link variants.
       case OBJC_ARCHIVE:
+      case OBJC_FULLY_LINKED_ARCHIVE:
         argv.add(
             featureConfiguration
                 .getToolForAction(actionName)

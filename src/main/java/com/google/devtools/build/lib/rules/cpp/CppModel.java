@@ -872,7 +872,7 @@ public final class CppModel {
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(libraryIdentifier)
-            .addVariablesExtension(variablesExtensions)
+            .addVariablesExtensions(variablesExtensions)
             .setFeatureConfiguration(featureConfiguration)
             .build();
     env.registerAction(maybePicAction);
@@ -901,7 +901,7 @@ public final class CppModel {
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
               .addActionInputs(linkActionInputs)
               .setLibraryIdentifier(libraryIdentifier)
-              .addVariablesExtension(variablesExtensions)
+              .addVariablesExtensions(variablesExtensions)
               .setFeatureConfiguration(featureConfiguration)
               .build();
       env.registerAction(picAction);
@@ -961,7 +961,7 @@ public final class CppModel {
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
                 CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
             .setFeatureConfiguration(featureConfiguration)
-            .addVariablesExtension(variablesExtensions);
+            .addVariablesExtensions(variablesExtensions);
 
     if (!ccOutputs.getLtoBitcodeFiles().isEmpty()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {

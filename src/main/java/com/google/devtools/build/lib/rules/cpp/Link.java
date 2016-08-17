@@ -128,6 +128,10 @@ public abstract class Link {
         "objc-archive", 
         Picness.NOPIC,
         ArtifactCategory.STATIC_LIBRARY),
+    
+    /** An objc fully linked static archive. */
+    OBJC_FULLY_LINKED_ARCHIVE(
+        ".a", Staticness.STATIC, "objc-fully-link", Picness.NOPIC, ArtifactCategory.STATIC_LIBRARY),
 
     /** A static archive with .pic.o object files (compiled with -fPIC). */
     PIC_STATIC_LIBRARY(

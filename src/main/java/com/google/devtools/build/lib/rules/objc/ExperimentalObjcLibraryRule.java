@@ -32,7 +32,9 @@ public class ExperimentalObjcLibraryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
-        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(
+            ImplicitOutputsFunction.fromFunctions(
+                CompilationSupport.FULLY_LINKED_LIB, XcodeSupport.PBXPROJ))
         .build();
   }
 

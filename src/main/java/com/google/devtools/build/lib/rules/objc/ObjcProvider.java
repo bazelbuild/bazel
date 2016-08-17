@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -468,6 +468,26 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   public boolean hasAssetCatalogs() {
     return !get(XCASSETS_DIR).isEmpty();
+  }
+
+  /** Returns the list of .a files required for linking that arise from objc libraries. */
+  ImmutableList<Artifact> getObjcLibraries() {
+    // JRE libraries must be ordered after all regular objc libraries.
+    NestedSet<Artifact> jreLibs = get(JRE_LIBRARY);
+    return ImmutableList.<Artifact>builder()
+        .addAll(Iterables.filter(
+            get(LIBRARY), Predicates.not(Predicates.in(jreLibs.toSet()))))
+        .addAll(jreLibs)
+        .build();
+  }
+
+  /** Returns the list of .a files required for linking that arise from cc libraries. */
+  ImmutableList<Artifact> getCcLibraries() {
+    ImmutableList.Builder<Artifact> ccLibraryBuilder = ImmutableList.builder();
+    for (LinkerInputs.LibraryToLink libraryToLink : get(CC_LIBRARY)) {
+      ccLibraryBuilder.add(libraryToLink.getArtifact());
+    }
+    return ccLibraryBuilder.build();
   }
 
   /**
