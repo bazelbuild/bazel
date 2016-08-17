@@ -71,6 +71,9 @@ import javax.annotation.Nullable;
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
+  private static final String SPEED_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
+  private static final String SPEED_PROTO_RUNTIME_LABEL = "//external:protobuf/java_runtime";
+
   /**
    * The attribute name for holding a list of protos for which no code should be generated because
    * the proto-runtime already contains them.
@@ -78,8 +81,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$proto_source_file_blacklist";
 
   private final JavaSemantics javaSemantics;
-  private final String protoRuntimeAttr;
-  private final String protoRuntimeLabel;
   private final ImmutableList<String> protoSourceFileBlacklistLabels;
 
   @Nullable private final String jacocoLabel;
@@ -88,15 +89,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
   protected JavaProtoAspect(
       JavaSemantics javaSemantics,
-      String protoRuntimeAttr,
-      String protoRuntimeLabel,
       ImmutableList<String> protoSourceFileBlacklistLabels,
       @Nullable String jacocoLabel,
       ImmutableList<String> protoCompilerPluginOptions,
       RpcSupport rpcSupport) {
     this.javaSemantics = javaSemantics;
-    this.protoRuntimeAttr = protoRuntimeAttr;
-    this.protoRuntimeLabel = protoRuntimeLabel;
     this.protoSourceFileBlacklistLabels = protoSourceFileBlacklistLabels;
     this.jacocoLabel = jacocoLabel;
     this.protoCompilerPluginOptions = protoCompilerPluginOptions;
@@ -122,7 +119,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         new Impl(
                 ruleContext,
                 supportData,
-                protoRuntimeAttr,
                 protoCompilerPluginOptions,
                 javaSemantics,
             rpcSupport)
@@ -139,9 +135,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProvider(ProtoSourcesProvider.class)
             .add(
-                attr(protoRuntimeAttr, LABEL)
+                attr(SPEED_PROTO_RUNTIME_ATTR, LABEL)
                     .legacyAllowAnyFileType()
-                    .value(parseAbsoluteUnchecked(protoRuntimeLabel)))
+                    .value(parseAbsoluteUnchecked(SPEED_PROTO_RUNTIME_LABEL)))
             .add(
                 attr(PROTO_SOURCE_FILE_BLACKLIST_ATTR, LABEL_LIST)
                     .cfg(HOST)
@@ -185,7 +181,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     private final SupportData supportData;
 
     private final RpcSupport rpcSupport;
-    private final String protoRuntimeAttr;
     private final JavaSemantics javaSemantics;
 
     /**
@@ -198,13 +193,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     Impl(
         final RuleContext ruleContext,
         final SupportData supportData,
-        String protoRuntimeAttr,
         ImmutableList<String> protoCompilerPluginOptions,
         JavaSemantics javaSemantics,
         RpcSupport rpcSupport) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
-      this.protoRuntimeAttr = protoRuntimeAttr;
       this.protoCompilerPluginOptions = protoCompilerPluginOptions;
       this.javaSemantics = javaSemantics;
       this.rpcSupport = rpcSupport;
@@ -327,7 +320,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           .addDep(dependencyCompilationArgs)
           .addDep(
               ruleContext.getPrerequisite(
-                  protoRuntimeAttr, Mode.TARGET, JavaCompilationArgsProvider.class))
+                  SPEED_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class))
           .setCompilationStrictDepsMode(StrictDepsMode.OFF);
       rpcSupport.mutateJavaCompileAction(ruleContext, helper);
       return helper.buildCompilationArgsProvider(

@@ -64,20 +64,17 @@ import javax.annotation.Nullable;
 /** An Aspect which JavaLiteProtoLibrary injects to build Java Lite protos. */
 public class JavaLiteProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
+  public static final String LITE_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
+  public static final String LITE_PROTO_RUNTIME_LABEL = "//external:protobuf/javalite_runtime";
+
   private final JavaSemantics javaSemantics;
-  private final String protoRuntimeAttr;
-  private final String protoRuntimeLabel;
 
   @Nullable private final String jacocoLabel;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
-      String protoRuntimeAttr,
-      String protoRuntimeLabel,
       @Nullable String jacocoLabel) {
     this.javaSemantics = javaSemantics;
-    this.protoRuntimeAttr = protoRuntimeAttr;
-    this.protoRuntimeLabel = protoRuntimeLabel;
     this.jacocoLabel = jacocoLabel;
   }
 
@@ -92,9 +89,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     SupportData supportData =
         checkNotNull(base.getProvider(ProtoSupportDataProvider.class)).getSupportData();
 
-    aspect.addProviders(
-        new Impl(ruleContext, supportData, protoRuntimeAttr, javaSemantics)
-            .createProviders());
+    aspect.addProviders(new Impl(ruleContext, supportData, javaSemantics).createProviders());
 
     return aspect.build();
   }
@@ -107,9 +102,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProvider(ProtoSourcesProvider.class)
             .add(
-                attr(protoRuntimeAttr, LABEL)
+                attr(LITE_PROTO_RUNTIME_ATTR, LABEL)
                     .legacyAllowAnyFileType()
-                    .value(parseAbsoluteUnchecked(protoRuntimeLabel)))
+                    .value(parseAbsoluteUnchecked(LITE_PROTO_RUNTIME_LABEL)))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
@@ -140,17 +135,14 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
      * Java compilation action.
      */
     private final JavaCompilationArgsProvider dependencyCompilationArgs;
-    private final String protoRuntimeAttr;
     private final JavaSemantics javaSemantics;
 
     Impl(
         final RuleContext ruleContext,
         final SupportData supportData,
-        String protoRuntimeAttr,
         JavaSemantics javaSemantics) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
-      this.protoRuntimeAttr = protoRuntimeAttr;
       this.javaSemantics = javaSemantics;
 
       dependencyCompilationArgs =
@@ -236,7 +228,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       helper
           .addDep(
               ruleContext.getPrerequisite(
-                  protoRuntimeAttr, Mode.TARGET, JavaCompilationArgsProvider.class))
+                  LITE_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class))
           .setCompilationStrictDepsMode(StrictDepsMode.OFF);
       JavaCompilationArgs artifacts = helper.build(javaSemantics);
       compileTimeJarToRuntimeJar.put(

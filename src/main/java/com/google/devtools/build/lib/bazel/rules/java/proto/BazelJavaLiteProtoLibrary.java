@@ -18,7 +18,4 @@ import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
 
 /** Implementation of the java_lite_proto_library rule. */
 public class BazelJavaLiteProtoLibrary extends JavaLiteProtoLibrary {
-  public BazelJavaLiteProtoLibrary() {
-    super(BazelJavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR);
-  }
 }

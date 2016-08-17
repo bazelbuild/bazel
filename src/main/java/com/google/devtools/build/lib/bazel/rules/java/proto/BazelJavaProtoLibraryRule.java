@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibrary;
 import javax.annotation.Nullable;
 
 /** Declaration of the {@code java_proto_library} rule. */
@@ -72,7 +73,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_proto_library")
-        .factoryClass(BazelJavaProtoLibrary.class)
+        .factoryClass(JavaProtoLibrary.class)
         .ancestors(BaseRuleClasses.RuleBase.class)
         .build();
   }

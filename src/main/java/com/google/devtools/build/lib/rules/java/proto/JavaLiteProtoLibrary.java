@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java.proto;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -41,12 +42,6 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 
 /** Implementation of the java_lite_proto_library rule. */
 public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
-
-  private final String protoRuntimeAttr;
-
-  public JavaLiteProtoLibrary(String protoRuntimeAttr) {
-    this.protoRuntimeAttr = protoRuntimeAttr;
-  }
 
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
@@ -98,7 +93,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
             ProguardSpecProvider.class,
             new ProguardSpecProvider(
                 new ProguardLibrary(ruleContext)
-                    .collectProguardSpecs(ImmutableMultimap.of(Mode.TARGET, protoRuntimeAttr))))
+                    .collectProguardSpecs(
+                        ImmutableMultimap.of(Mode.TARGET, LITE_PROTO_RUNTIME_ATTR))))
         .add(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
         .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
         .build();

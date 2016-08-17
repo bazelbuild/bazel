@@ -49,3 +49,6 @@ docker_repository()
 
 # This allows rules written in skylark to locate apple build tools.
 bind(name = "xcrunwrapper", actual = "@bazel_tools//tools/objc:xcrunwrapper")
+
+bind(name = "protobuf/java_runtime", actual = "//third_party/protobuf:protobuf")
+bind(name = "protobuf/javalite_runtime", actual = "//third_party/protobuf:protobuf-lite")

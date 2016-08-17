@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
-import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR;
-import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect.LITE_PROTO_RUNTIME_LABEL;
 import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR;
+import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.base.Function;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
 import javax.annotation.Nullable;
 
 /** Declaration of the {@code java_lite_proto_library} rule. */
@@ -84,7 +85,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_lite_proto_library")
-        .factoryClass(BazelJavaLiteProtoLibrary.class)
+        .factoryClass(JavaLiteProtoLibrary.class)
         .ancestors(BaseRuleClasses.RuleBase.class)
         .build();
   }

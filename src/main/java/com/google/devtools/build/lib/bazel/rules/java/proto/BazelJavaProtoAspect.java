@@ -28,14 +28,9 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 /** An Aspect which BazelJavaProtoLibrary injects to build Java SPEED protos. */
 public class BazelJavaProtoAspect extends JavaProtoAspect {
 
-  static final String SPEED_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
-  static final String SPEED_PROTO_RUNTIME_LABEL = "//third_party/protobuf:protobuf";
-
   public BazelJavaProtoAspect() {
     super(
         BazelJavaSemantics.INSTANCE,
-        SPEED_PROTO_RUNTIME_ATTR,
-        SPEED_PROTO_RUNTIME_LABEL,
         ImmutableList.<String>of(),
         null, /* jacocoAttr */
         ImmutableList.of("shared", "immutable"),

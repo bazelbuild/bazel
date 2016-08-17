@@ -19,14 +19,7 @@ import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
 
 /** An Aspect which BazelJavaLiteProtoLibrary injects to build Java Lite protos. */
 public class BazelJavaLiteProtoAspect extends JavaLiteProtoAspect {
-  static final String LITE_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
-  static final String LITE_PROTO_RUNTIME_LABEL = "//third_party/protobuf:protobuf";
-
   public BazelJavaLiteProtoAspect() {
-    super(
-        BazelJavaSemantics.INSTANCE,
-        LITE_PROTO_RUNTIME_ATTR,
-        LITE_PROTO_RUNTIME_LABEL,
-        null /* jacocoLabel */);
+    super(BazelJavaSemantics.INSTANCE, null /* jacocoLabel */);
   }
 }
