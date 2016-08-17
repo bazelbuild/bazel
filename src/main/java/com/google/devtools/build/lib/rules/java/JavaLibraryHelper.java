@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 
@@ -92,6 +93,7 @@ public final class JavaLibraryHelper {
   }
 
   public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
+    checkNotNull(provider);
     this.deps.add(provider);
     return this;
   }
