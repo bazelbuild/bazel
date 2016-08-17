@@ -52,7 +52,7 @@ public abstract class DocumentationTestUtil {
   public static void validateUserManual(
       List<Class<? extends BlazeModule>> modules,
       ConfiguredRuleClassProvider ruleClassProvider,
-      String documentationSource) {
+      String documentationSource) throws Exception {
     // if there is a class missing, one can find it using
     //   find . -name "*.java" -exec grep -Hn "@Option(name = " {} \; | grep "xxx"
     // where 'xxx' is a flag name.

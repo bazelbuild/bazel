@@ -47,10 +47,10 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
- * A module Blaze can load at the beginning of its execution. Modules are supplied with extension
+ * A module Bazel can load at the beginning of its execution. Modules are supplied with extension
  * points to augment the functionality at specific, well-defined places.
  *
- * <p>The constructors of individual Blaze modules should be empty. All work should be done in the
+ * <p>The constructors of individual Bazel modules should be empty. All work should be done in the
  * methods (e.g. {@link #blazeStartup}).
  */
 public abstract class BlazeModule {
@@ -59,15 +59,16 @@ public abstract class BlazeModule {
    * Returns the extra startup options this module contributes.
    *
    * <p>This method will be called at the beginning of Blaze startup (before {@link #globalInit}).
+   * The startup options need to be parsed very early in the process, which requires this to be
+   * separate from {@link #serverInit}.
    */
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
     return ImmutableList.of();
   }
 
   /**
-   * Called before {@link #getFileSystem} and {@link #blazeStartup}.
-   *
-   * <p>This method will be called at the beginning of Blaze startup.
+   * Called at the beginning of Bazel startup, before {@link #getFileSystem} and
+   * {@link #blazeStartup}.
    *
    * @param startupOptions the server's startup options
    *
@@ -77,11 +78,11 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the file system implementation used by Blaze. It is an error if more than one module
+   * Returns the file system implementation used by Bazel. It is an error if more than one module
    * returns a file system. If all return null, the default unix file system is used.
    *
-   * <p>This method will be called at the beginning of Blaze startup (in-between #globalInit and
-   * #blazeStartup).
+   * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
+   * and {@link #blazeStartup}).
    *
    * @param startupOptions the server's startup options
    */
@@ -90,9 +91,17 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Called when Blaze starts up.
+   * Called when Bazel starts up after {@link #getStartupOptions}, {@link #globalInit}, and
+   * {@link #getFileSystem}.
+   *
+   * @param startupOptions the server's startup options
+   * @param versionInfo the Bazel version currently running
+   * @param instanceId the id of the current Bazel server
+   * @param directories the install directory
+   * @param clock the clock
+   *
+   * @throws AbruptExitException to shut down the server immediately
    */
-  @SuppressWarnings("unused")
   public void blazeStartup(OptionsProvider startupOptions,
       BlazeVersionInfo versionInfo, UUID instanceId, ServerDirectories directories,
       Clock clock) throws AbruptExitException {
@@ -105,19 +114,23 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server startup options
    * @param builder builder class that collects the server configuration
+   *
+   * @throws AbruptExitException to shut down the server immediately
    */
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {}
-
-  /** Called when Blaze initializes a new workspace. */
-  @SuppressWarnings("unused")
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {}
+  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
+      throws AbruptExitException {
+  }
 
   /**
-   * Adds the rule classes supported by this module.
+   * Sets up the configured rule class provider, which contains the built-in rule classes, aspects,
+   * configuration fragments, and other things; called during Blaze startup (after
+   * {@link #blazeStartup}).
+   * 
+   * <p>Bazel only creates one provider per server, so it is not possible to have different contents
+   * for different workspaces.
    *
-   * <p>This method will be called during Blaze startup (after #blazeStartup).
+   * @param builder the configured rule class provider builder
    */
-  @SuppressWarnings("unused")
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
   }
 
@@ -131,22 +144,14 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Services provided for Blaze modules via BlazeRuntime.
+   * Called when Bazel initializes a new workspace; this is only called after {@link #serverInit},
+   * and only if the server initialization was successful. Modules can override this method to
+   * affect how the workspace is configured.
+   *
+   * @param directories the workspace directories
+   * @param builder the workspace builder
    */
-  public interface ModuleEnvironment {
-    /**
-     * Gets a file from the depot based on its label and returns the {@link Path} where it can
-     * be found.
-     */
-    Path getFileFromWorkspace(Label label)
-        throws NoSuchThingException, InterruptedException, IOException;
-
-    /**
-     * Exits Blaze as early as possible. This is currently a hack and should only be called in
-     * event handlers for {@code BuildStartingEvent}, {@code GotOptionsEvent} and
-     * {@code LoadingPhaseCompleteEvent}.
-     */
-    void exit(AbruptExitException exception);
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
   }
 
   /**
@@ -332,5 +337,24 @@ public abstract class BlazeModule {
   @Nullable
   public CoverageReportActionFactory getCoverageReportFactory(OptionsClassProvider commandOptions) {
     return null;
+  }
+
+  /**
+   * Services provided for Blaze modules via BlazeRuntime.
+   */
+  public interface ModuleEnvironment {
+    /**
+     * Gets a file from the depot based on its label and returns the {@link Path} where it can
+     * be found.
+     */
+    Path getFileFromWorkspace(Label label)
+        throws NoSuchThingException, InterruptedException, IOException;
+
+    /**
+     * Exits Blaze as early as possible. This is currently a hack and should only be called in
+     * event handlers for {@code BuildStartingEvent}, {@code GotOptionsEvent} and
+     * {@code LoadingPhaseCompleteEvent}.
+     */
+    void exit(AbruptExitException exception);
   }
 }
