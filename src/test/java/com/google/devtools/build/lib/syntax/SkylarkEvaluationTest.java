@@ -671,6 +671,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True, optionalNamed=True)")
         .testLookup("b", "with_params(1, true, true, true, true)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("")
+        .testIfExactError(
+            "Type Mock has no function with_params(int, bool, bool named, bool posOrNamed, int n)",
+            "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
   }
 
   @Test
