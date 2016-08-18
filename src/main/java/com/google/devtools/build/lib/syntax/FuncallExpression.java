@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
@@ -436,54 +437,61 @@ public final class FuncallExpression extends Expression {
     ImmutableList.Builder<Object> builder = ImmutableList.builder();
     Class<?>[] params = method.getMethod().getParameterTypes();
     SkylarkCallable callable = method.getAnnotation();
-    int i = 0;
-    int nbPositional = callable.mandatoryPositionals();
-    if (nbPositional < 0) {
+    int mandatoryPositionals = callable.mandatoryPositionals();
+    if (mandatoryPositionals < 0) {
       if (callable.parameters().length > 0) {
-        nbPositional = 0;
+        mandatoryPositionals = 0;
       } else {
-        nbPositional = params.length;
+        mandatoryPositionals = params.length;
       }
     }
-    if (nbPositional > args.size() || args.size() > nbPositional + callable.parameters().length) {
+    if (mandatoryPositionals > args.size()
+        || args.size() > mandatoryPositionals + callable.parameters().length) {
       return null;
     }
     // First process the legacy positional parameters
-    for (Class<?> param : params) {
-      Object value = args.get(i);
-      if (!param.isAssignableFrom(value.getClass())) {
-        return null;
-      }
-      builder.add(value);
-      i++;
-      if (nbPositional >= 0 && i >= nbPositional) {
-        // Stops for specified parameters instead.
-        break;
+    int i = 0;
+    if (mandatoryPositionals > 0) {
+      for (Class<?> param : params) {
+        Object value = args.get(i);
+        if (!param.isAssignableFrom(value.getClass())) {
+          return null;
+        }
+        builder.add(value);
+        i++;
+        if (mandatoryPositionals >= 0 && i >= mandatoryPositionals) {
+          // Stops for specified parameters instead.
+          break;
+        }
       }
     }
     // Then the parameters specified in callable.parameters()
     Set<String> keys = new HashSet<>(kwargs.keySet());
     for (Param param : callable.parameters()) {
       SkylarkType type = getType(param);
+      Object value = null;
       if (i < args.size()) {
-        if (!param.positional() || !type.contains(args.get(i))) {
+        value = args.get(i);
+        if (!param.positional() || !type.contains(value)) {
           return null; // next positional argument is not of the good type
         }
-        builder.add(args.get(i));
         i++;
       } else if (param.named() && keys.remove(param.name())) {
         // Named parameters
-        Object value = kwargs.get(param.name());
+        value = kwargs.get(param.name());
         if (!type.contains(value)) {
           return null; // type does not match
         }
-        builder.add(value);
       } else {
         // Use default value
         if (param.defaultValue().isEmpty()) {
           return null; // no default value
         }
-        builder.add(SkylarkSignatureProcessor.getDefaultValue(param, null));
+        value = SkylarkSignatureProcessor.getDefaultValue(param, null);
+      }
+      builder.add(value);
+      if (!param.noneable() && value instanceof NoneType) {
+        return null; // cannot be None
       }
     }
     if (i < args.size() || !keys.isEmpty()) {
