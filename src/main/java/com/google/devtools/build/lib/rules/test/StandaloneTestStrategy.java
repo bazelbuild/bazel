@@ -155,11 +155,18 @@ public class StandaloneTestStrategy extends TestStrategy {
     vars.putAll(config.getLocalShellEnvironment());
     vars.putAll(action.getTestEnv());
 
+    String tmpDirString;
+    if (tmpDir.startsWith(execRoot)) {
+      tmpDirString = tmpDir.relativeTo(execRoot).getPathString();
+    } else {
+      tmpDirString = tmpDir.getPathString();
+    }
+
     String testSrcDir = runfilesDir.relativeTo(execRoot).getPathString();
     vars.put("JAVA_RUNFILES", testSrcDir);
     vars.put("PYTHON_RUNFILES", testSrcDir);
     vars.put("TEST_SRCDIR", testSrcDir);
-    vars.put("TEST_TMPDIR", tmpDir.relativeTo(execRoot).getPathString());
+    vars.put("TEST_TMPDIR", tmpDirString);
     vars.put("TEST_WORKSPACE", action.getRunfilesPrefix());
     vars.put("XML_OUTPUT_FILE", xmlOutputPath.relativeTo(execRoot).getPathString());
     if (!action.isEnableRunfiles()) {

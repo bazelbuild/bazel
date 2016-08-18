@@ -91,7 +91,7 @@ function test_unlimited_local_jobs() {
 
 function test_tmpdir() {
   mkdir -p foo
-  cat > foo/bar_test.sh <<EOF
+  cat > foo/bar_test.sh <<'EOF'
 #!/bin/bash
 echo TEST_TMPDIR=$TEST_TMPDIR
 EOF
@@ -106,9 +106,23 @@ EOF
     fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=/.*"
 
-  bazel test --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
+  bazel test --nocache_test_results --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
+
+  # If we run `bazel test //src/test/shell/bazel:bazel_test_test` on Linux, it
+  # will be sandboxed and this "inner test" creating /foo/bar will actually
+  # succeed. If we run it on OS X (or in general without sandboxing enabled),
+  # it will fail to create /foo/bar, since obviously we don't have write
+  # permissions.
+  if bazel test --nocache_test_results --test_output=all \
+    --test_tmpdir=/foo/bar //foo:bar_test >& $TEST_log; then
+    # We are in a sandbox.
+    expect_log "TEST_TMPDIR=/foo/bar"
+  else
+    # We are not sandboxed.
+    expect_log "Could not create TEST_TMPDIR"
+  fi
 }
 
 function test_env_vars() {
