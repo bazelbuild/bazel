@@ -434,6 +434,19 @@ EOF
   expect_log "Sandboxed execution failed, which may be legitimate"
 }
 
+function test_sandbox_different_nobody_uid() {
+  cat /etc/passwd | sed 's/\(^nobody:[^:]*:\)[0-9]*:[0-9]*/\15000:16000/g' > \
+      "${TEST_TMPDIR}/passwd"
+  unshare --user --mount --map-root-user -- bash - \
+      << EOF || fail "Hermetic genrule with different UID for nobody failed" \
+set -e
+set -u
+
+mount --bind ${TEST_TMPDIR}/passwd /etc/passwd
+bazel build examples/genrule:works &> ${TEST_log}
+EOF
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
 check_sandbox_allowed || exit 0

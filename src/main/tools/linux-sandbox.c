@@ -565,7 +565,7 @@ static void SetupDirectories() {
       perror("getpwuid(getuid())");
       exit(EXIT_FAILURE);
     } else {
-      DIE("UID %d not found in passwd file", (int)getuid());
+      DIE("UID %d not found in passwd file\n", (int)getuid());
     }
   }
   char *homedir = uid_passwd->pw_dir;
