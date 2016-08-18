@@ -25,17 +25,15 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * A test for {@link CompileOneDependencyTransformer}.
@@ -92,7 +90,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   }
 
   private Set<Label> parseListCompileOneDepRelative(String... patterns)
-      throws TargetParsingException, IOException {
+      throws TargetParsingException, IOException, InterruptedException {
     Path foo = scratch.dir("foo");
     TargetPatternEvaluator fooOffsetParser = getPackageManager().newTargetPatternEvaluator();
     fooOffsetParser.updateOffset(foo.relativeTo(rootDirectory));

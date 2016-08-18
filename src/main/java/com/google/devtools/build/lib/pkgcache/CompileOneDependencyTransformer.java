@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -50,8 +49,9 @@ public final class CompileOneDependencyTransformer {
    * For each input file in the original result, returns a rule in the same package which has the
    * input file as a source.
    */
-  public ResolvedTargets<Target> transformCompileOneDependency(EventHandler eventHandler,
-      ResolvedTargets<Target> original) throws TargetParsingException {
+  public ResolvedTargets<Target> transformCompileOneDependency(
+      EventHandler eventHandler, ResolvedTargets<Target> original)
+      throws TargetParsingException, InterruptedException {
     if (original.hasError()) {
       return original;
     }
@@ -93,7 +93,7 @@ public final class CompileOneDependencyTransformer {
       Collection<Label> srcLabels,
       Label source,
       Set<Label> visitedRuleLabels)
-      throws TargetParsingException {
+      throws TargetParsingException, InterruptedException {
     if (srcLabels.contains(source)) {
       return true;
     }
@@ -108,9 +108,6 @@ public final class CompileOneDependencyTransformer {
         // Just ignore failing sources/packages. We could report them here, but as long as we do
         // early return, the presence of this error would then be determined by the order of items
         // in the srcs attribute. A proper error will be created by the subsequent loading.
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new TargetParsingException("interrupted");
       }
       if (target == null || target instanceof FileTarget) {
         continue;
@@ -135,7 +132,7 @@ public final class CompileOneDependencyTransformer {
   }
 
   private Target transformCompileOneDependency(EventHandler eventHandler, Target target)
-      throws TargetParsingException {
+      throws TargetParsingException, InterruptedException {
     if (!(target instanceof FileTarget)) {
       throw new TargetParsingException(
           "--compile_one_dependency target '" + target.getLabel() + "' must be a file");
