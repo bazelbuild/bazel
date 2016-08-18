@@ -278,7 +278,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           _add_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
           # Enable coloring even if there's no attached terminal. Bazel removes the
           # escape sequences if --nocolor is specified.
-          _add_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics")) + [
+          _add_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics") +
+          # If the compiler sometimes rewrites paths in the .d files without symlinks
+          # (ie when they're shorter), it confuses Bazel's logic for verifying all
+          # #included header files are listed as inputs to the action.
+          _add_option_if_supported(repository_ctx, cc, "-fno-canonical-system-headers")) + [
               # Keep stack frames for debugging, even in opt mode.
               "-fno-omit-frame-pointer",
           ],
