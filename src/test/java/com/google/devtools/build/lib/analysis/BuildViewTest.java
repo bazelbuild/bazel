@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -60,7 +61,6 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.concurrent.CountDownLatch;
@@ -437,8 +437,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   // Regression test: cycle node depends on error.
-  // Note that this test can have nondeterministic behavior in Skyframe, depending on if the cycle
-  // is detected during the bubbling-up phase.
   @Test
   public void testErrorBelowCycle() throws Exception {
     scratch.file("foo/BUILD",
@@ -449,6 +447,12 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_library(name = 'cycle2', deps = ['cycle1'])");
     scratch.file("badbuild/BUILD", "");
     reporter.removeHandler(failFastHandler);
+    injectGraphListenerForTesting(
+        new Listener() {
+          @Override
+          public void accept(SkyKey key, EventType type, Order order, Object context) {}
+        },
+        /*deterministic=*/ true);
     try {
       update("//foo:top");
       fail();
@@ -458,11 +462,9 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
         + "package 'badbuild'");
     assertContainsEvent("and referenced by '//foo:bad'");
-    if (eventCollector.count() > 1) {
-      assertContainsEvent("in sh_library rule //foo");
-      assertContainsEvent("cycle in dependency graph");
-      assertEventCount(3, eventCollector);
-    }
+    assertContainsEvent("in sh_library rule //foo");
+    assertContainsEvent("cycle in dependency graph");
+    assertEventCountAtLeast(2, eventCollector);
   }
 
   @Test

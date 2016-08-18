@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
-
 import java.lang.ref.Reference;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
@@ -267,12 +266,20 @@ public class MoreAsserts {
   }
 
   /**
-   * If the specified EventCollector does not contain an event which has
-   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
-   * the matching event is returned.
+   * If the specified EventCollector contains an unexpected number of events, an informative
+   * assertion fails in the context of the specified TestCase.
    */
-  public static Event assertContainsEvent(Iterable<Event> eventCollector,
-      String expectedEvent) {
+  public static void assertEventCountAtLeast(int minCount, EventCollector eventCollector) {
+    assertWithMessage(eventsToString(eventCollector))
+        .that(eventCollector.count())
+        .isAtLeast(minCount);
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event which has 'expectedEvent' as a
+   * substring, an informative assertion fails. Otherwise the matching event is returned.
+   */
+  public static Event assertContainsEvent(Iterable<Event> eventCollector, String expectedEvent) {
     return assertContainsEvent(eventCollector, expectedEvent, EventKind.ALL_EVENTS);
   }
 
