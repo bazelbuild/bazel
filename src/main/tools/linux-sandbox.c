@@ -795,13 +795,13 @@ int main(int argc, char *const argv[]) {
   // outside environment.
   CHECK_CALL(mount("none", "/", NULL, MS_REC | MS_PRIVATE, NULL));
 
-  SetupDirectories();
-
   if (opt.fake_root) {
     SetupUserNamespace(uid, gid, 0, 0);
   } else {
     SetupUserNamespaceForNobody(uid, gid);
   }
+
+  SetupDirectories();
 
   ChangeRoot();
 
