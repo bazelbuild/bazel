@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.List;
 
 /**
@@ -42,11 +41,11 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxDebug;
 
   @Option(
-    name = "sandbox_add_path",
+    name = "sandbox_block_path",
     allowMultiple = true,
     defaultValue = "",
     category = "config",
-    help = "Add additional path to mount to sandbox. Path including workspace is not allowed."
+    help = "For sandboxed actions, disallow access to this path."
   )
-  public List<String> sandboxAddPath;
+  public List<String> sandboxBlockPath;
 }

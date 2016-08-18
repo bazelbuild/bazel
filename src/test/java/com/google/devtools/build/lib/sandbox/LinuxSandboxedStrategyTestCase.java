@@ -36,10 +36,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsParser;
-
-import org.junit.Before;
-
 import java.io.IOException;
+import org.junit.Before;
 
 /**
  * Common parts of all {@link LinuxSandboxedStrategy} tests.
@@ -50,7 +48,6 @@ public class LinuxSandboxedStrategyTestCase {
 
   protected FileSystem fileSystem;
   protected Path workspaceDir;
-  protected Path fakeSandboxDir;
 
   protected BlazeExecutor executor;
   protected BlazeDirectories blazeDirs;
@@ -75,9 +72,6 @@ public class LinuxSandboxedStrategyTestCase {
     outputBase = testRoot.getRelative("outputBase");
     outputBase.createDirectory();
 
-    fakeSandboxDir = testRoot.getRelative("sandbox");
-    fakeSandboxDir.createDirectory();
-
     blazeDirs = new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
     BlazeTestUtils.getIntegrationBinTools(blazeDirs);
 
@@ -101,7 +95,6 @@ public class LinuxSandboxedStrategyTestCase {
                 "",
                 new LinuxSandboxedStrategy(
                     optionsParser.getOptions(SandboxOptions.class),
-                    ImmutableMap.<String, String>of(),
                     blazeDirs,
                     MoreExecutors.newDirectExecutorService(),
                     true,

@@ -20,11 +20,9 @@ import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
@@ -35,66 +33,30 @@ import java.util.concurrent.Executors;
  * This module provides the Sandbox spawn strategy.
  */
 public class SandboxModule extends BlazeModule {
-  public static final String SANDBOX_NOT_SUPPORTED_MESSAGE =
-      "Sandboxed execution is not supported on your system and thus hermeticity of actions cannot "
-          + "be guaranteed. See http://bazel.io/docs/bazel-user-manual.html#sandboxing for more "
-          + "information. You can turn off this warning via --ignore_unsupported_sandboxing";
-
   // Per-server state
   private ExecutorService backgroundWorkers;
-  private Boolean sandboxingSupported = null;
 
   // Per-command state
   private CommandEnvironment env;
   private BuildRequest buildRequest;
 
-  private synchronized boolean isSandboxingSupported(CommandEnvironment env) {
-    switch (OS.getCurrent()) {
-      case LINUX:
-        sandboxingSupported = LinuxSandboxRunner.isSupported(env);
-        break;
-      case DARWIN:
-        sandboxingSupported = DarwinSandboxRunner.isSupported();
-        break;
-      default:
-        sandboxingSupported = false;
-    }
-    return sandboxingSupported.booleanValue();
-  }
-
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
-    Preconditions.checkNotNull(buildRequest);
     Preconditions.checkNotNull(env);
-    if (isSandboxingSupported(env)) {
-      Iterable<ActionContextProvider> ret;
-      try {
-        ret =
-            ImmutableList.<ActionContextProvider>of(
-                SandboxActionContextProvider.create(env, buildRequest, backgroundWorkers));
-      } catch (IOException e) {
-        throw new IllegalArgumentException(e);
-      }
-      return ret;
+    Preconditions.checkNotNull(buildRequest);
+    Preconditions.checkNotNull(backgroundWorkers);
+    try {
+      return ImmutableList.<ActionContextProvider>of(
+          SandboxActionContextProvider.create(env, buildRequest, backgroundWorkers));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
     }
-
-    // For now, sandboxing is only supported on Linux and there's not much point in showing a scary
-    // warning to the user if they can't do anything about it.
-    if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing
-        && OS.getCurrent() == OS.LINUX) {
-      env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
-    }
-
-    return ImmutableList.of();
   }
 
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
     Preconditions.checkNotNull(env);
-    if (isSandboxingSupported(env)) {
-      return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer());
-    }
-    return ImmutableList.of();
+    return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer(env));
   }
 
   @Override

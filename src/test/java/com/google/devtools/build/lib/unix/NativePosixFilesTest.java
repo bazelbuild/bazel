@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
-
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.File;
-import java.io.FileNotFoundException;
 
 /**
  * This class tests the FilesystemUtils class.
@@ -104,9 +103,12 @@ public class NativePosixFilesTest {
     File foo = new File("/bin");
     try {
       NativePosixFiles.setWritable(foo);
-      fail("Expected FilePermissionException, but wasn't thrown.");
+      fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
       assertThat(e).hasMessage(foo + " (Operation not permitted)");
+    } catch (IOException e) {
+      // When running in a sandbox, /bin might actually be a read-only file system.
+      assertThat(e).hasMessage(foo + " (Read-only file system)");
     }
   }
 }

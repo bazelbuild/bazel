@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef NETWORK_TOOLS_H__
-#define NETWORK_TOOLS_H__
+#ifndef LINUX_SANDBOX_PID1_H__
+#define LINUX_SANDBOX_PID1_H__
 
-// Bring up the given network interface like "lo".
-void BringupInterface(const char *name);
+int Pid1Main(void *sync_pipe_param);
 
-#endif  // NETWORK_TOOLS_H__
+#endif

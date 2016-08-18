@@ -222,7 +222,7 @@ function test_sandbox_cleanup() {
   bazel build examples/genrule:tools_work &> $TEST_log \
     || fail "Hermetic genrule failed: examples/genrule:tools_work"
   bazel shutdown &> $TEST_log || fail "bazel shutdown failed"
-  ls -la "$(bazel info execution_root)/bazel-sandbox"
+  ls -la "$(bazel info output_base)/bazel-sandbox"
   if [[ "$(ls -A "$(bazel info execution_root)"/bazel-sandbox)" ]]; then
     fail "Build left files around afterwards"
   fi
@@ -301,7 +301,7 @@ function test_sandbox_undeclared_deps_skylark_with_local_tag() {
 function test_sandbox_block_filesystem() {
   output_file="${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt"
 
-  bazel build examples/genrule:breaks2 &> $TEST_log \
+  bazel build --sandbox_block_path=/var/log examples/genrule:breaks2 &> $TEST_log \
     && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2" || true
 
   [ -f "$output_file" ] ||
@@ -311,7 +311,7 @@ function test_sandbox_block_filesystem() {
     fail "Output contained more than one line: $output_file"
   fi
 
-  fgrep "No such file or directory" $output_file ||
+  fgrep "Permission denied" $output_file ||
     fail "Output did not contain expected error message: $output_file"
 }
 
@@ -379,62 +379,9 @@ EOF
   kill_nc
 }
 
-function test_sandbox_add_path_valid_path() {
-  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt"
-
-  bazel build --sandbox_add_path=/var/log examples/genrule:breaks2 &> $TEST_log \
-    || fail "Non-hermetic genrule failed: examples/genrule:breaks2 (with additional path)"
-
-  [ -f "$output_file" ] ||
-    fail "Action did not produce output: $output_file"
-
-  if [ $(wc -l < $output_file) -le 1 ]; then
-    fail "Output contained less than or equal to one line: $output_file"
-  fi
-}
-
-function test_sandbox_add_path_workspace_parent() {
-  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/check_sandbox_contain_WORKSPACE.txt"
-  parent_path="$(dirname "$(pwd)")"
-
-  bazel build --sandbox_add_path=$parent_path examples/genrule:check_sandbox_contain_WORKSPACE &> $TEST_log \
-    || fail "Non-hermetic genrule succeeded: examples/genrule:works (with additional path)"
-  [ -f "$output_file" ] \
-    || fail "Genrule did not produce output: examples/genrule:check_sandbox_contain_WORKSPACE (with additional path: WORKSPACE/..)"
-  cat $output_file &> $TEST_log
-
-  # file and directory inside workspace (except project) should not be mounted
-  egrep "\bWORKSPACE\b" $output_file \
-    && fail "WORKSPACE file should not be mounted." || true
-}
-
-function test_sandbox_add_path_workspace_child() {
-  child_path="$(pwd)/examples"
-  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/works.txt"
-
-  bazel build --sandbox_add_path=$child_path examples/genrule:works &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:works (with additional path: WORKSPACE:/examples)" || true
-
-  expect_log "Mounting subdirectory of WORKSPACE or OUTPUTBASE to sandbox is not allowed"
-}
-
-function test_sandbox_fail_command() {
-  mkdir -p "javatests/orange"
-  echo "java_test(name = 'Orange', srcs = ['Orange.java'])" > javatests/orange/BUILD
-  cat > javatests/orange/Orange.java <<EOF
-package orange;
-import junit.framework.TestCase;
-public class Orange extends TestCase {
-  public void testFails() { fail("juice"); }
-}
-EOF
-  bazel test --sandbox_debug --verbose_failures //javatests/orange:Orange >& $TEST_log \
-    && fail "Expected failure" || true
-
-  expect_log "Sandboxed execution failed, which may be legitimate"
-}
-
-function test_sandbox_different_nobody_uid() {
+# TODO(philwo) - this doesn't work on Ubuntu 14.04 due to "unshare" being too
+# old and not understanding the --user flag.
+function DISABLED_test_sandbox_different_nobody_uid() {
   cat /etc/passwd | sed 's/\(^nobody:[^:]*:\)[0-9]*:[0-9]*/\15000:16000/g' > \
       "${TEST_TMPDIR}/passwd"
   unshare --user --mount --map-root-user -- bash - \

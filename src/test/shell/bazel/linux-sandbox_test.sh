@@ -29,97 +29,87 @@ readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
 
-SANDBOX_DEFAULT_OPTS="-S $SANDBOX_DIR"
-for dir in /bin* /lib* /usr/bin* /usr/lib*; do
-  SANDBOX_DEFAULT_OPTS="$SANDBOX_DEFAULT_OPTS -M $dir"
-done
+SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
 function set_up {
   rm -rf $OUT_DIR
   mkdir -p $SANDBOX_DIR
 }
 
-function assert_stdout() {
-  assert_equals "$1" "$(cat $OUT)"
-}
-
-function assert_output() {
-  assert_equals "$1" "$(cat $OUT)"
-  assert_equals "$2" "$(cat $ERR)"
-}
-
 function test_basic_functionality() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/echo hi there || fail
-  assert_output "hi there" ""
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/echo hi there &> $TEST_log || fail
+  expect_log "hi there"
 }
 
 function test_default_user_is_nobody() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /usr/bin/id || fail
-  assert_output "uid=65534 gid=65534 groups=65534" ""
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
+  expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"
 }
 
 function test_user_switched_to_root() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -r -l $OUT -L $ERR -- /usr/bin/id || fail
-  assert_contains "uid=0 gid=0" "$OUT"
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -R -- /usr/bin/id &> $TEST_log || fail
+  expect_log "uid=0(root) gid=0(root)"
 }
 
 function test_network_namespace() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -l $OUT -L $ERR  -- /bin/ip link ls || fail
-  assert_contains "LOOPBACK,UP" "$OUT"
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N  -- /bin/ip link ls &> $TEST_log || fail
+  expect_log "LOOPBACK,UP"
 }
 
 function test_ping_loopback() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -n -r -- \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -N -R -- \
     /bin/sh -c 'ping6 -c 1 ::1 || ping -c 1 127.0.0.1' &>$TEST_log || fail
   expect_log "1 received"
 }
 
-function test_to_stderr() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c "/bin/echo hi there >&2" || fail
-  assert_output "" "hi there"
-}
-
 function test_exit_code() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c "exit 71" || code=$?
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c "exit 71" &> $TEST_log || code=$?
   assert_equals 71 "$code"
 }
 
 function test_signal_death() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c 'kill -ABRT $$' || code=$?
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c 'kill -ABRT $$' &> $TEST_log || code=$?
   assert_equals 134 "$code" # SIGNAL_BASE + SIGABRT = 128 + 6
 }
 
+# Tests that even when the child catches SIGTERM and exits with code 0, that the sandbox exits with
+# code 142 (telling us about the expired timeout).
 function test_signal_catcher() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -l $OUT -L $ERR -- /bin/bash -c \
-    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
+    'trap "echo later; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  assert_stdout "later"
+  expect_log "^later$"
 }
 
 function test_basic_timeout() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 3 -t 3 -l $OUT -L $ERR -- /bin/bash -c "echo before; sleep 1000; echo after" && fail
-  assert_output "before" ""
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 3 -t 3 -- /bin/bash -c "echo before; sleep 1000; echo after" &> $TEST_log && fail
+  expect_log "^before$" ""
 }
 
 function test_timeout_grace() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -l $OUT -L $ERR -- /bin/bash -c \
-    'trap "echo -n before; sleep 1; echo -n after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
+    'trap "echo -n before; sleep 1; echo -n after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  assert_stdout "beforeafter"
+  expect_log "^beforeafter$"
 }
 
 function test_timeout_kill() {
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -l $OUT -L $ERR -- /bin/bash -c \
-    'trap "echo before; sleep 1000; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' || code=$?
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -T 2 -t 3 -- /bin/bash -c \
+    'trap "echo before; sleep 1000; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 1000' &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
-  assert_stdout "before"
+  expect_log "^before$"
 }
 
 function test_debug_logging() {
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile -l $OUT -L $ERR -- /bin/true || code=$?
-  assert_contains "mount: /usr/bin\$" "$ERR"
-  assert_contains "mount: ${TEST_TMPDIR}/testfile -> <sandbox>/tmp/sandboxed_testfile\$" "$ERR"
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -- /bin/true &> $TEST_log || code=$?
+  expect_log "child exited normally with exitcode 0"
+}
+
+function test_redirect_output() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -l $OUT -L $ERR -- /bin/bash -c "echo out; echo err >&2" &> $TEST_log || code=$?
+  assert_equals "out" "$(cat $OUT)"
+  assert_equals "err" "$(cat $ERR)"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

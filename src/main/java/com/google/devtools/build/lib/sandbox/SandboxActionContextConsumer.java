@@ -15,18 +15,30 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableMultimap.Builder;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for sandboxed
  * execution.
  */
 public class SandboxActionContextConsumer implements ActionContextConsumer {
+
+  private final ImmutableMultimap<Class<? extends ActionContext>, String> contexts;
+
+  public SandboxActionContextConsumer(CommandEnvironment env) {
+    ImmutableMultimap.Builder<Class<? extends ActionContext>, String> contexts =
+        ImmutableMultimap.builder();
+
+    if (LinuxSandboxedStrategy.isSupported(env)) {
+      contexts.put(SpawnActionContext.class, "sandboxed");
+    }
+
+    this.contexts = contexts.build();
+  }
 
   @Override
   public ImmutableMap<String, String> getSpawnActionContexts() {
@@ -35,13 +47,6 @@ public class SandboxActionContextConsumer implements ActionContextConsumer {
 
   @Override
   public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
-    Builder<Class<? extends ActionContext>, String> contexts = ImmutableMultimap.builder();
-
-    if (OS.getCurrent() == OS.LINUX) {
-      contexts.put(SpawnActionContext.class, "sandboxed");
-    }
-
-    return contexts.build();
+    return contexts;
   }
-
 }
