@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Collection;
@@ -74,12 +73,10 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     this.remoteWorkExecutor = workExecutor;
   }
 
-  /**
-   * Executes the given {@code spawn}.
-   */
+  /** Executes the given {@code spawn}. */
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     if (!spawn.isRemotable()) {
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
@@ -188,7 +185,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       int timeout,
       EventHandler eventHandler,
       FileOutErr outErr)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (remoteWorkExecutor == null) {
       return false;
     }
@@ -225,9 +222,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
           Event.warn(mnemonic + " timed out executing work remotely (" + e + "), running locally"));
       return false;
     } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
       eventHandler.handle(Event.warn(mnemonic + " remote work interrupted (" + e + ")"));
-      return false;
+      throw e;
     } catch (WorkTooLargeException e) {
       eventHandler.handle(Event.warn(mnemonic + " cannot be run remotely (" + e + ")"));
       return false;

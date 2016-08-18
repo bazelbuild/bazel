@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.remote.RemoteProtocol.RemoteWorkResponse;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.util.Collection;
 
@@ -31,11 +30,10 @@ import java.util.Collection;
 @ThreadCompatible
 public interface RemoteWorkExecutor {
   /**
-   * Submit the work to this work executor.
-   * The output of running this action should be written to {@link RemoteActionCache} indexed
-   * by |actionOutputKey|.
+   * Submit the work to this work executor. The output of running this action should be written to
+   * {@link RemoteActionCache} indexed by {@code actionOutputKey}.
    *
-   * Returns a future for the response of this work request.
+   * <p>Returns a future for the response of this work request.
    */
   ListenableFuture<RemoteWorkResponse> executeRemotely(
       Path execRoot,
@@ -46,5 +44,5 @@ public interface RemoteWorkExecutor {
       ImmutableMap<String, String> environment,
       Collection<? extends ActionInput> outputs,
       int timeout)
-      throws IOException, WorkTooLargeException;
+      throws IOException, WorkTooLargeException, InterruptedException;
 }

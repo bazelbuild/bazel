@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.util.Collection;
 
@@ -28,19 +27,12 @@ import java.util.Collection;
 @ThreadCompatible
 interface RemoteActionCache {
   /**
-   * Put the file in cache if it is not already in it. No-op if the file is already stored in
-   * cache.
+   * Put the file in cache if it is not already in it. No-op if the file is already stored in cache.
    *
    * @return The key for fetching the file from cache.
    */
-  String putFileIfNotExist(Path file) throws IOException;
-
-  /**
-   * Same as {@link putFileIfNotExist(Path)} but this methods takes an ActionInput.
-   *
-   * @return The key for fetching the file from cache.
-   */
-  String putFileIfNotExist(ActionInputFileCache cache, ActionInput file) throws IOException;
+  String putFileIfNotExist(ActionInputFileCache cache, ActionInput file)
+      throws IOException, InterruptedException;
 
   /**
    * Write the file in cache identified by key to the file system. The key must uniquely identify
@@ -58,14 +50,11 @@ interface RemoteActionCache {
   void writeActionOutput(String key, Path execRoot)
       throws IOException, CacheNotFoundException;
 
-  /**
-   * Update the cache with the action outputs for the specified key.
-   */
+  /** Update the cache with the action outputs for the specified key. */
   void putActionOutput(String key, Collection<? extends ActionInput> outputs)
-      throws IOException;
+      throws IOException, InterruptedException;
 
-  /**
-   * Update the cache with the files for the specified key.
-   */
-  void putActionOutput(String key, Path execRoot, Collection<Path> files) throws IOException;
+  /** Update the cache with the files for the specified key. */
+  void putActionOutput(String key, Path execRoot, Collection<Path> files)
+      throws IOException, InterruptedException;
 }

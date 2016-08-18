@@ -43,24 +43,14 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
   private static final int MAX_MEMORY_KBYTES = 512 * 1024;
   private final Semaphore uploadMemoryAvailable = new Semaphore(MAX_MEMORY_KBYTES, true);
 
-  public ConcurrentMapActionCache(
-      Path execRoot, RemoteOptions options, ConcurrentMap<String, byte[]> cache) {
+  public ConcurrentMapActionCache(Path execRoot, ConcurrentMap<String, byte[]> cache) {
     this.execRoot = execRoot;
     this.cache = cache;
   }
 
   @Override
-  public String putFileIfNotExist(Path file) throws IOException {
-    String contentKey = HashCode.fromBytes(file.getMD5Digest()).toString();
-    if (containsFile(contentKey)) {
-      return contentKey;
-    }
-    putFile(contentKey, file);
-    return contentKey;
-  }
-
-  @Override
-  public String putFileIfNotExist(ActionInputFileCache cache, ActionInput file) throws IOException {
+  public String putFileIfNotExist(ActionInputFileCache cache, ActionInput file)
+      throws IOException, InterruptedException {
     String contentKey = HashCode.fromBytes(cache.getDigest(file)).toString();
     if (containsFile(contentKey)) {
       return contentKey;
@@ -69,7 +59,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
     return contentKey;
   }
 
-  private void putFile(String key, Path file) throws IOException {
+  private void putFile(String key, Path file) throws IOException, InterruptedException {
     int fileSizeKBytes = (int) (file.getFileSize() / 1024);
     Preconditions.checkArgument(fileSizeKBytes < MAX_MEMORY_KBYTES);
     try {
@@ -84,8 +74,6 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
                 .build()
                 .toByteArray());
       }
-    } catch (InterruptedException e) {
-      throw new IOException("Failed to put file to memory cache.", e);
     } finally {
       uploadMemoryAvailable.release(fileSizeKBytes);
     }
@@ -123,7 +111,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
 
   @Override
   public void putActionOutput(String key, Collection<? extends ActionInput> outputs)
-      throws IOException {
+      throws IOException, InterruptedException {
     CacheEntry.Builder actionOutput = CacheEntry.newBuilder();
     for (ActionInput output : outputs) {
       Path file = execRoot.getRelative(output.getExecPathString());
@@ -134,7 +122,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
 
   @Override
   public void putActionOutput(String key, Path execRoot, Collection<Path> files)
-      throws IOException {
+      throws IOException, InterruptedException {
     CacheEntry.Builder actionOutput = CacheEntry.newBuilder();
     for (Path file : files) {
       addToActionOutput(file, file.relativeTo(execRoot).getPathString(), actionOutput);
@@ -144,7 +132,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
 
   /** Add the file to action output cache entry. Put the file to cache if necessary. */
   private void addToActionOutput(Path file, String execPathString, CacheEntry.Builder actionOutput)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (file.isDirectory()) {
       // TODO(alpha): Implement this for directory.
       throw new UnsupportedOperationException("Storing a directory is not yet supported.");
@@ -157,5 +145,14 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
         .setPath(execPathString)
         .setContentKey(contentKey)
         .setExecutable(file.isExecutable());
+  }
+
+  private String putFileIfNotExist(Path file) throws IOException, InterruptedException {
+    String contentKey = HashCode.fromBytes(file.getMD5Digest()).toString();
+    if (containsFile(contentKey)) {
+      return contentKey;
+    }
+    putFile(contentKey, file);
+    return contentKey;
   }
 }

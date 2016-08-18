@@ -69,8 +69,7 @@ public class RemoteWorker extends RemoteWorkImplBase {
     Path tempRoot = workPath.getRelative("build-" + UUID.randomUUID().toString());
     try {
       FileSystemUtils.createDirectoryAndParents(tempRoot);
-      final ConcurrentMapActionCache actionCache =
-          new ConcurrentMapActionCache(tempRoot, remoteOptions, cache);
+      final ConcurrentMapActionCache actionCache = new ConcurrentMapActionCache(tempRoot, cache);
       final MemcacheWorkExecutor workExecutor =
           MemcacheWorkExecutor.createLocalWorkExecutor(actionCache, tempRoot);
       if (LOG_FINER) {
@@ -96,10 +95,13 @@ public class RemoteWorker extends RemoteWorkImplBase {
       } else {
         LOG.warning("Preserving work directory " + tempRoot.toString() + ".");
       }
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException e) {
       RemoteWorkResponse.Builder response = RemoteWorkResponse.newBuilder();
       response.setSuccess(false).setOut("").setErr("").setException(e.toString());
       responseObserver.onNext(response.build());
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
     } finally {
       responseObserver.onCompleted();
     }

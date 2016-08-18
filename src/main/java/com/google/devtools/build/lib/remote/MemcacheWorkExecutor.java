@@ -114,7 +114,7 @@ public class MemcacheWorkExecutor implements RemoteWorkExecutor {
       ImmutableMap<String, String> environment,
       Collection<? extends ActionInput> outputs,
       int timeout)
-      throws IOException, WorkTooLargeException {
+      throws IOException, WorkTooLargeException, InterruptedException {
     RemoteWorkRequest.Builder work = RemoteWorkRequest.newBuilder();
     work.setOutputKey(actionOutputKey);
 
@@ -162,7 +162,8 @@ public class MemcacheWorkExecutor implements RemoteWorkExecutor {
   }
 
   /** Execute a work item locally. */
-  public RemoteWorkResponse executeLocally(RemoteWorkRequest work) throws IOException {
+  public RemoteWorkResponse executeLocally(RemoteWorkRequest work)
+      throws IOException, InterruptedException {
     ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     ByteArrayOutputStream stderr = new ByteArrayOutputStream();
     try {

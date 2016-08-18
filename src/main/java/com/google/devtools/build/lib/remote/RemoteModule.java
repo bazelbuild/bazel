@@ -69,13 +69,11 @@ public final class RemoteModule extends BlazeModule {
         cache =
             new ConcurrentMapActionCache(
                 this.env.getDirectories().getExecRoot(),
-                options,
                 HazelcastCacheFactory.create(options));
       } else if (options.restCacheUrl != null) {
         cache =
             new ConcurrentMapActionCache(
                 this.env.getDirectories().getExecRoot(),
-                options,
                 RestUrlCacheFactory.create(options));
       }
       actionCache = cache;
