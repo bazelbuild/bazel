@@ -144,9 +144,7 @@ public class SkylarkRuleClassFunctions {
   /** Parent rule class for executable non-test Skylark rules. */
   public static final RuleClass binaryBaseRule =
       new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
-          .add(
-              attr("args", STRING_LIST)
-                  .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
           .build();
 
@@ -175,8 +173,7 @@ public class SkylarkRuleClassFunctions {
         .add(attr("shard_count", INTEGER).value(-1))
         .add(attr("local", BOOLEAN).value(false).taggable()
             .nonconfigurable("policy decision: this should be consistent across configurations"))
-        .add(attr("args", STRING_LIST)
-            .nonconfigurable("policy decision: should be consistent across configurations"))
+        .add(attr("args", STRING_LIST))
         // Input files for every test action
         .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
             labelCache.getUnchecked(toolsRepository + "//tools/test:runtime"))))

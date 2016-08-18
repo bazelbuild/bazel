@@ -44,8 +44,7 @@ public class BazelBaseRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("args", STRING_LIST)
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
           .add(attr("$is_executable", BOOLEAN).value(true)
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))

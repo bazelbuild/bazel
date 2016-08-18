@@ -126,8 +126,7 @@ public class BaseRuleClasses {
           .add(attr("shard_count", INTEGER).value(-1))
           .add(attr("local", BOOLEAN).value(false).taggable()
               .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("args", STRING_LIST)
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(attr("args", STRING_LIST))
           // Input files for every test action
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
               env.getToolsLabel("//tools/test:runtime"))))
