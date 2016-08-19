@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.DataResourceXml;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
@@ -65,6 +66,14 @@ public class IdXmlResourceValue implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    if (!DataResourceXml.isInValuesFolder(source)) {
+      /* Don't write IDs that were never defined in values, into the merged values.xml, to preserve
+       * the way initializers are assigned in the R class. Depends on
+       * DataResourceXml#combineSources to accurately determine when a value is ever defined in a
+       * values file.
+       */
+      return;
+    }
     StartTag startTag =
         mergedDataWriter
             .define(key)

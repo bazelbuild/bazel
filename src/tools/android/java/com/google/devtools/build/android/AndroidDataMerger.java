@@ -157,7 +157,6 @@ public class AndroidDataMerger {
 
   private final SourceChecker deDuplicator;
   private final ListeningExecutorService executorService;
-  private boolean parseIds;
 
   /** Creates a merger with no path deduplication and a default {@link ExecutorService}. */
   public static AndroidDataMerger createWithDefaults() {
@@ -185,10 +184,6 @@ public class AndroidDataMerger {
   private AndroidDataMerger(SourceChecker deDuplicator, ListeningExecutorService executorService) {
     this.deDuplicator = deDuplicator;
     this.executorService = executorService;
-  }
-
-  void enableIdParsing() {
-    this.parseIds = true;
   }
 
   /**
@@ -304,8 +299,7 @@ public class AndroidDataMerger {
 
     try {
       // Extract the primary resources.
-      ParsedAndroidData parsedPrimary = parseIds ? ParsedAndroidData.parseWithIds(primaryData)
-          : ParsedAndroidData.from(primaryData);
+      ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primaryData);
 
       // Create the builders for the final parsed data.
       final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();

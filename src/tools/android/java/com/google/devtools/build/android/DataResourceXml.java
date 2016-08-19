@@ -17,6 +17,7 @@ import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 import static com.android.resources.ResourceType.PUBLIC;
 
+import com.android.SdkConstants;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -304,9 +305,29 @@ public class DataResourceXml implements DataResource {
       throw new IllegalArgumentException(resource + " is not a combinable with " + this);
     }
     DataResourceXml xmlResource = (DataResourceXml) resource;
-    // TODO(corysmith): Combine the sources so that we know both of the originating files.
-    // For right now, use the current source.
     return createWithNamespaces(
-        source, xml.combineWith(xmlResource.xml), namespaces.union(xmlResource.namespaces));
+        combineSources(xmlResource.source),
+        xml.combineWith(xmlResource.xml),
+        namespaces.union(xmlResource.namespaces));
+  }
+
+  private Path combineSources(Path otherSource) {
+    // TODO(corysmith): Combine the sources so that we know both of the originating files.
+    // For now, prefer sources that have explicit definitions (values/ and not layout/), since the
+    // values are ultimately written out to a merged values.xml. Sources from layout/menu, etc.
+    // can come from "@+id" definitions.
+    boolean thisInValuesFolder = isInValuesFolder(source);
+    boolean otherInValuesFolder = isInValuesFolder(otherSource);
+    if (thisInValuesFolder && !otherInValuesFolder) {
+      return source;
+    }
+    if (!thisInValuesFolder && otherInValuesFolder) {
+      return otherSource;
+    }
+    return source;
+  }
+
+  public static boolean isInValuesFolder(Path source) {
+    return source.getParent().getFileName().toString().startsWith(SdkConstants.FD_RES_VALUES);
   }
 }
