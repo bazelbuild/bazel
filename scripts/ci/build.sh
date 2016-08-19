@@ -69,6 +69,9 @@ function setup_android_repositories() {
     cp WORKSPACE WORKSPACE.bak
     trap '[ -f WORKSPACE.bak ] && rm WORKSPACE && mv WORKSPACE.bak WORKSPACE' \
       EXIT
+    # Make sure that WORKSPACE ends with a newline, otherwise we'll end up with
+    # a syntax error.
+    echo >>WORKSPACE
     cat >>WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
