@@ -51,7 +51,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -127,8 +126,9 @@ public abstract class TestStrategy implements TestActionContext {
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
-  // Used for generating unique temporary directory names.
-  private final AtomicInteger tmpIndex = new AtomicInteger(0);
+  // Used for generating unique temporary directory names. Contains the next numeric index for every
+  // executable base name.
+  private final Map<String, Integer> tmpIndex = new HashMap<>();
   protected final ImmutableMap<String, String> clientEnv;
   protected final ExecutionOptions executionOptions;
   protected final BinTools binTools;
@@ -296,7 +296,13 @@ public abstract class TestStrategy implements TestActionContext {
    * <p>This does not create the directory.</p>
    */
   protected String getTmpDirName(PathFragment execPath) {
-    return execPath.getBaseName() + "_" + tmpIndex.incrementAndGet();
+    String basename = execPath.getBaseName();
+
+    synchronized (tmpIndex) {
+      int index = tmpIndex.containsKey(basename) ? tmpIndex.get(basename) : 1;
+      tmpIndex.put(basename, index + 1);
+      return basename + "_" + index;
+    }
   }
 
   /**
