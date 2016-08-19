@@ -29,6 +29,7 @@ package com.google.devtools.build.lib.shell;
 public final class TerminationStatus {
 
   private final int waitResult;
+  private final boolean timedout;
 
   /**
    * Values taken from the glibc strsignal(3) function.
@@ -79,8 +80,9 @@ public final class TerminationStatus {
    *
    * @param waitResult the value returned by {@link java.lang.Process#waitFor}.
    */
-  public TerminationStatus(int waitResult) {
+  public TerminationStatus(int waitResult, boolean timedout) {
     this.waitResult = waitResult;
+    this.timedout = timedout;
   }
 
   /**
@@ -110,7 +112,14 @@ public final class TerminationStatus {
    * Returns true iff the process exited normally.
    */
   public boolean exited() {
-    return waitResult < SIGNAL_1 || waitResult > SIGNAL_63;
+    return !timedout && (waitResult < SIGNAL_1 || waitResult > SIGNAL_63);
+  }
+
+  /**
+   * Returns true if the process timed out.
+   */
+  public boolean timedout() {
+    return timedout;
   }
 
   /**
@@ -128,7 +137,7 @@ public final class TerminationStatus {
    * if exited() returns true.
    */
   public int getTerminatingSignal() {
-    if (exited()) {
+    if (exited() || timedout) {
       throw new IllegalStateException("getTerminatingSignal() not defined");
     }
     return waitResult - SIGNAL_1 + 1;
@@ -139,16 +148,20 @@ public final class TerminationStatus {
    * e.g. "Exit 1" or "Hangup".
    */
   public String toShortString() {
-    return exited()
-      ? ("Exit " + getExitCode())
-      : (getSignalString(getTerminatingSignal()));
+    return exited() ? "Exit " + getExitCode()
+      : timedout ? "Timeout"
+      : getSignalString(getTerminatingSignal());
   }
 
   @Override
   public String toString() {
-    return exited()
-      ? ("Process exited with status " + getExitCode())
-      : ("Process terminated by signal " + getTerminatingSignal());
+    if (exited()) {
+      return "Process exited with status " + getExitCode();
+    } else if (timedout) {
+      return "Timed out";
+    } else {
+      return "Process terminated by signal " + getTerminatingSignal();
+    }
   }
 
   @Override

@@ -53,6 +53,11 @@ public interface Subprocess extends Closeable {
   boolean finished();
 
   /**
+   * Returns if the process timed out.
+   */
+  boolean timedout();
+
+  /**
    * Waits for the process to finish.
    */
   void waitFor() throws InterruptedException;

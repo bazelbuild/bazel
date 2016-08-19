@@ -412,21 +412,29 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetExitCode(
   return exit_code;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
+// return values:
+// 0: Wait completed successfully
+// 1: Timeout
+// 2: Wait returned with an error
+extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWaitFor(
-    JNIEnv *env, jclass clazz, jlong process_long) {
+    JNIEnv *env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   HANDLE handles[1] = { process->process_ };
-  switch (WaitForMultipleObjects(1, handles, FALSE, INFINITE)) {
+  DWORD win32_timeout = java_timeout < 0 ? INFINITE : java_timeout;
+  switch (WaitForMultipleObjects(1, handles, FALSE, win32_timeout)) {
     case 0:
-      return true;
+      return 0;
+
+    case WAIT_TIMEOUT:
+      return 1;
 
     case WAIT_FAILED:
-      return false;
+      return 2;
 
     default:
       process->error_ = "WaitForMultipleObjects() returned unknown result";
-      return false;
+      return 2;
   }
 }
 

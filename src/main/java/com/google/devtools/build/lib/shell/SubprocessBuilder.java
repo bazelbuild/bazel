@@ -45,6 +45,7 @@ public class SubprocessBuilder {
   private StreamAction stderrAction;
   private File stderrFile;
   private File workingDirectory;
+  private long timeoutMillis = -1;
 
   private static Subprocess.Factory factory = JavaSubprocessFactory.INSTANCE;
 
@@ -113,6 +114,15 @@ public class SubprocessBuilder {
     this.stdoutAction = StreamAction.REDIRECT;
     this.stdoutFile = file;
     return this;
+  }
+
+  public SubprocessBuilder setTimeoutMillis(long timeoutMillis) {
+    this.timeoutMillis = timeoutMillis;
+    return this;
+  }
+
+  public long getTimeoutMillis() {
+    return timeoutMillis;
   }
 
   public StreamAction getStderr() {

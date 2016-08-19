@@ -133,7 +133,7 @@ public class WindowsProcessesTest {
   @Test
   public void testExitCode() throws Exception {
     process = WindowsProcesses.nativeCreateProcess(mockArgs("X42"), null, null, null, null);
-    assertThat(WindowsProcesses.nativeWaitFor(process)).isTrue();
+    assertThat(WindowsProcesses.nativeWaitFor(process, -1)).isEqualTo(0);
     assertThat(WindowsProcesses.nativeGetExitCode(process)).isEqualTo(42);
     assertNoProcessError();
   }
@@ -302,7 +302,7 @@ public class WindowsProcessesTest {
         null, null, stdoutFile, stderrFile);
     assertThat(process).isGreaterThan(0L);
     assertNoProcessError();
-    assertThat(WindowsProcesses.nativeWaitFor(process)).isTrue();
+    assertThat(WindowsProcesses.nativeWaitFor(process, -1)).isEqualTo(0);
     WindowsProcesses.nativeGetExitCode(process);
     assertNoProcessError();
     byte[] stdout = Files.readAllBytes(Paths.get(stdoutFile));
@@ -319,7 +319,7 @@ public class WindowsProcessesTest {
         null, null, file, file);
     assertThat(process).isGreaterThan(0L);
     assertNoProcessError();
-    assertThat(WindowsProcesses.nativeWaitFor(process)).isTrue();
+    assertThat(WindowsProcesses.nativeWaitFor(process, -1)).isEqualTo(0);
     WindowsProcesses.nativeGetExitCode(process);
     assertNoProcessError();
     byte[] bytes = Files.readAllBytes(Paths.get(file));
@@ -337,7 +337,7 @@ public class WindowsProcessesTest {
     byte[] buf = new byte[1];
     assertThat(readStdout(buf, 0, 1)).isEqualTo(-1);
     assertThat(readStderr(buf, 0, 1)).isEqualTo(-1);
-    WindowsProcesses.nativeWaitFor(process);
+    WindowsProcesses.nativeWaitFor(process, -1);
   }
 
   @Test
@@ -352,7 +352,7 @@ public class WindowsProcessesTest {
     process = WindowsProcesses.nativeCreateProcess(mockArgs("O-out2", "E-err2"), null,
         null, stdoutFile, stderrFile);
     assertNoProcessError();
-    WindowsProcesses.nativeWaitFor(process);
+    WindowsProcesses.nativeWaitFor(process, -1);
     WindowsProcesses.nativeGetExitCode(process);
     assertNoProcessError();
     byte[] stdoutBytes = Files.readAllBytes(Paths.get(stdoutFile));
@@ -372,6 +372,11 @@ public class WindowsProcessesTest {
     int len = readStdout(buf, 0, 1024);
     assertNoProcessError();
     assertThat(new String(buf, 0, len, UTF8).replace("\\", "/")).isEqualTo(dir1);
+  }
 
+  @Test
+  public void testTimeout() throws Exception {
+    process = WindowsProcesses.nativeCreateProcess(mockArgs("W5", "X0"), null, null, null, null);
+    assertThat(WindowsProcesses.nativeWaitFor(process, 1000)).isEqualTo(1);
   }
 }

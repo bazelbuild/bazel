@@ -60,6 +60,12 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
     }
 
     @Override
+    public boolean timedout() {
+      // Not supported.
+      return false;
+    }
+
+    @Override
     public void waitFor() throws InterruptedException {
       process.waitFor();
     }
@@ -93,6 +99,9 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
 
   @Override
   public Subprocess create(SubprocessBuilder params) throws IOException {
+    if (params.getTimeoutMillis() >= 0) {
+      throw new UnsupportedOperationException("Timeouts are not supported");
+    }
     ProcessBuilder builder = new ProcessBuilder();
     builder.command(params.getArgv());
     if (params.getEnv() != null) {

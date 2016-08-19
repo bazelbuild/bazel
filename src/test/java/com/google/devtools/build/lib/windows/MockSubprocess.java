@@ -34,6 +34,7 @@ import java.util.Map;
  *   <li><code>O&lt;register&gt;</code>: Write the contents of a register to stdout</li>
  *   <li><code>E&lt;register&gt;</code>: Write the contents of a register to stderr</li>
  *   <li><code>X&lt;exit code%gt;</code>: Exit with the specified exit code</li>
+ *   <li><code>S&lt;seconds&gt;</code>: Wait the specified number of seconds</li>
  * </ul>
  *
  * <p>Registers are single characters. Each command line argument is interpreted as a single
@@ -93,6 +94,15 @@ public class MockSubprocess {
 
         case 'O':
           writeBytes(System.out, arg);
+          break;
+
+        case 'W':
+          try {
+            Thread.sleep(Integer.parseInt(arg.substring(1)) * 1000);
+          } catch (InterruptedException e) {
+            // This is good enough for a mock process
+            throw new IllegalStateException(e);
+          }
           break;
 
         case 'X':

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.devtools.build.lib.shell.Subprocess;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,6 +22,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -124,12 +124,14 @@ public class WindowsSubprocess implements Subprocess {
   private final ProcessInputStream stdoutStream;
   private final ProcessInputStream stderrStream;
   private final CountDownLatch waitLatch;
+  private final long timeoutMillis;
+  private final AtomicBoolean timedout = new AtomicBoolean(false);
 
-
-  WindowsSubprocess(
-      long nativeProcess, String commandLine, boolean stdoutRedirected, boolean stderrRedirected) {
+  WindowsSubprocess(long nativeProcess, String commandLine, boolean stdoutRedirected,
+      boolean stderrRedirected, long timeoutMillis) {
     this.commandLine = commandLine;
     this.nativeProcess = nativeProcess;
+    this.timeoutMillis = timeoutMillis;
     stdoutStream =
         stdoutRedirected
             ? null
@@ -150,11 +152,24 @@ public class WindowsSubprocess implements Subprocess {
   }
 
   private void waiterThreadFunc() {
-    if (!WindowsProcesses.nativeWaitFor(nativeProcess)) {
-      // There isn't a lot we can do -- the process is still alive but WaitForMultipleObjects()
-      // failed for some odd reason. We'll pretend it terminated and log a message to jvm.out .
-      System.err.println("Waiting for process "
-          + WindowsProcesses.nativeGetProcessPid(nativeProcess) + " failed");
+    switch (WindowsProcesses.nativeWaitFor(nativeProcess, timeoutMillis)) {
+      case 0:
+        // Excellent, process finished in time.
+        break;
+
+      case 1:
+        // Timeout. Terminate the process if we can.
+        timedout.set(true);
+        WindowsProcesses.nativeTerminate(nativeProcess);
+        break;
+
+      case 2:
+        // Error. There isn't a lot we can do -- the process is still alive but
+        // WaitForMultipleObjects() failed for some odd reason. We'll pretend it terminated and
+        // log a message to jvm.out .
+        System.err.println("Waiting for process "
+            + WindowsProcesses.nativeGetProcessPid(nativeProcess) + " failed");
+        break;
     }
 
     waitLatch.countDown();
@@ -195,6 +210,11 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public boolean finished() {
     return waitLatch.getCount() == 0;
+  }
+
+  @Override
+  public boolean timedout() {
+    return timedout.get();
   }
 
   @Override

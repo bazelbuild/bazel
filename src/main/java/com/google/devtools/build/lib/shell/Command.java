@@ -163,6 +163,16 @@ public final class Command {
   }
 
   /**
+   * Just like {@link Command(String, Map<String, String>, File, long), but without a timeout.
+   */
+  public Command(
+      String[] commandLineElements,
+      Map<String, String> environmentVariables,
+      File workingDirectory) {
+    this(commandLineElements, environmentVariables, workingDirectory, -1);
+  }
+
+  /**
    * Creates a new {@link Command} for the given command line elements. The
    * command line is executed without a shell.
    *
@@ -180,15 +190,17 @@ public final class Command {
    *
    * @param commandLineElements elements of raw command line to execute
    * @param environmentVariables environment variables to replace JVM's
-   *  environment variables; may be null
+   *    environment variables; may be null
    * @param workingDirectory working directory for execution; if null, current
-   * working directory is used
+   *    working directory is used
+   * @param timeoutMillis timeout in milliseconds. Only supported on Windows.
    * @throws IllegalArgumentException if commandLine is null or empty
    */
   public Command(
       String[] commandLineElements,
-      final Map<String, String> environmentVariables,
-      final File workingDirectory) {
+      Map<String, String> environmentVariables,
+      File workingDirectory,
+      long timeoutMillis) {
     if (commandLineElements == null || commandLineElements.length == 0) {
       throw new IllegalArgumentException("command line is null or empty");
     }
@@ -203,6 +215,7 @@ public final class Command {
     subprocessBuilder.setArgv(ImmutableList.copyOf(commandLineElements));
     subprocessBuilder.setEnv(environmentVariables);
     subprocessBuilder.setWorkingDirectory(workingDirectory);
+    subprocessBuilder.setTimeoutMillis(timeoutMillis);
   }
 
   /**
@@ -676,7 +689,7 @@ public final class Command {
       final Consumers.OutErrConsumers outErrConsumers,
       final boolean killSubprocessOnInterrupt,
       final boolean closeOutputStreams)
-    throws CommandException {
+      throws CommandException {
 
     logCommand();
 
@@ -872,7 +885,7 @@ public final class Command {
       while (true) {
         try {
           process.waitFor();
-          return new TerminationStatus(process.exitValue());
+          return new TerminationStatus(process.exitValue(), process.timedout());
         } catch (InterruptedException ie) {
           wasInterrupted = true;
           if (killSubprocessOnInterrupt) {

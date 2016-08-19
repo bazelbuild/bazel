@@ -52,8 +52,8 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
       throw new IOException(error);
     }
 
-    return new WindowsSubprocess(
-        nativeProcess, commandLine, stdoutPath != null, stderrPath != null);
+    return new WindowsSubprocess(nativeProcess, commandLine, stdoutPath != null,
+        stderrPath != null, builder.getTimeoutMillis());
   }
 
   private String getRedirectPath(StreamAction action, File file) {

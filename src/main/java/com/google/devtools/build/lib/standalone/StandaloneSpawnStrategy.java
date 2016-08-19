@@ -77,11 +77,11 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
         .getEventBus()
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "standalone"));
 
-    int timeout = -1;
+    int timeoutSeconds = -1;
     String timeoutStr = spawn.getExecutionInfo().get("timeout");
     if (timeoutStr != null) {
       try {
-        timeout = Integer.parseInt(timeoutStr);
+        timeoutSeconds = Integer.parseInt(timeoutStr);
       } catch (NumberFormatException e) {
         throw new UserExecException("could not parse timeout: ", e);
       }
@@ -97,7 +97,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       // Disable it for now to make the setup easier and to avoid further PATH hacks.
       // Ideally we should have a native implementation of process-wrapper for Windows.
       args.add(processWrapper.getPathString());
-      args.add(Integer.toString(timeout));
+      args.add(Integer.toString(timeoutSeconds));
       args.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
 
       // TODO(bazel-team): use process-wrapper redirection so we don't have to
@@ -109,7 +109,8 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
 
     String cwd = executor.getExecRoot().getPathString();
     Command cmd = new Command(args.toArray(new String[]{}),
-        locallyDeterminedEnv(spawn.getEnvironment()), new File(cwd));
+        locallyDeterminedEnv(spawn.getEnvironment()), new File(cwd),
+        OS.getCurrent() == OS.WINDOWS && timeoutSeconds >= 0 ? timeoutSeconds * 1000 : -1);
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
     try {
@@ -121,7 +122,8 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
           /*killSubprocessOnInterrupt*/ true);
     } catch (AbnormalTerminationException e) {
       TerminationStatus status = e.getResult().getTerminationStatus();
-      boolean timedOut = !status.exited() && (status.getTerminatingSignal() == 14 /* SIGALRM */);
+      boolean timedOut = !status.exited() && (
+          status.timedout() || status.getTerminatingSignal() == 14 /* SIGALRM */);
       String message =
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
