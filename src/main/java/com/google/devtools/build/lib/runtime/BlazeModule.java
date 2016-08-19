@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -42,7 +41,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
-import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -214,14 +212,6 @@ public abstract class BlazeModule {
    */
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of();
-  }
-
-  /**
-   * Returns a map of option categories to descriptive strings. This is used by {@code HelpCommand}
-   * to show a more readable list of flags.
-   */
-  public Map<String, String> getOptionCategories() {
-    return ImmutableMap.of();
   }
 
   /**
