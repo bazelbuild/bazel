@@ -367,8 +367,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         }
         // state.discoveredInputs can be null even after include scanning if action discovers them
         // during execution.
-        if (state.discoveredInputs != null
-            && !containsAll(state.inputArtifactData.keySet(), state.discoveredInputs)) {
+        if (state.discoveredInputs != null) {
           addDiscoveredInputs(state.inputArtifactData, state.discoveredInputs, env);
           if (env.valuesMissing()) {
             return null;
@@ -395,16 +394,18 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
     if (action.discoversInputs()) {
+      Iterable<Artifact> newInputs =
+          filterKnownInputs(action.getInputs(), state.inputArtifactData.keySet());
       Map<SkyKey, SkyValue> metadataFoundDuringActionExecution =
-          declareAdditionalDependencies(env, action, state.inputArtifactData.keySet());
+          env.getValues(toKeys(newInputs, action.getMandatoryInputs()));
       if (state.discoveredInputs == null) {
         // Include scanning didn't find anything beforehand -- these are the definitive discovered
         // inputs.
-        state.discoveredInputs = artifacts(metadataFoundDuringActionExecution.keySet());
+        state.discoveredInputs = newInputs;
         if (env.valuesMissing()) {
           return null;
         }
-        if (!metadataFoundDuringActionExecution.isEmpty()) {
+        if (!Iterables.isEmpty(newInputs)) {
           // We are in the interesting case of an action that discovered its inputs during
           // execution, and found some new ones, but the new ones were already present in the graph.
           // We must therefore cache the metadata for those new ones.
@@ -418,33 +419,32 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
         }
-      } else if (!metadataFoundDuringActionExecution.isEmpty()) {
+      } else if (!Iterables.isEmpty(newInputs)) {
         // The action has run and discovered more inputs. This is a bug, probably the result of
         // the action dynamically executing locally instead of remotely, and a discrepancy between
         // our include scanning and the action's compiler. Fail the build so that the user notices,
         // and also report the issue.
-        String errorMessage =
+        String errorMessageStart =
             action.prettyPrint()
                 + " discovered unexpected inputs. This indicates a mismatch between the build"
                 + " system and the action's compiler. Please report this issue. The ";
-        if (metadataFoundDuringActionExecution.size() > 10) {
-          errorMessage += "first ten ";
-        }
-        errorMessage += "additional inputs found were: ";
+        String errorMessageEnd = "";
         int artifactPrinted = 0;
-        for (Artifact extraArtifact : artifacts(metadataFoundDuringActionExecution.keySet())) {
+        for (Artifact extraArtifact : newInputs) {
           if (artifactPrinted >= 10) {
+            errorMessageStart += "first ten ";
             break;
           }
           if (artifactPrinted > 0) {
-            errorMessage += ", ";
+            errorMessageEnd += ", ";
           }
           artifactPrinted++;
-          errorMessage += extraArtifact.prettyPrint();
+          errorMessageEnd += extraArtifact.prettyPrint();
         }
+        errorMessageStart += "additional inputs found were: " + errorMessageEnd;
         ActionExecutionException exception =
-            new ActionExecutionException(errorMessage, action, /*catastrophe=*/ false);
-        LoggingUtil.logToRemote(Level.SEVERE, errorMessage, exception);
+            new ActionExecutionException(errorMessageStart, action, /*catastrophe=*/ false);
+        LoggingUtil.logToRemote(Level.SEVERE, errorMessageStart, exception);
         throw skyframeActionExecutor.processAndThrow(
             exception, action, actionExecutionContext.getFileOutErr());
       }
@@ -454,18 +454,26 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return state.value;
   }
 
+  private static final Function<Artifact, SkyKey> TO_NONMANDATORY_SKYKEY =
+      new Function<Artifact, SkyKey>() {
+        @Nullable
+        @Override
+        public SkyKey apply(@Nullable Artifact artifact) {
+          return ArtifactSkyKey.key(artifact, /*mandatory=*/ false);
+        }
+      };
+
+  private static Iterable<SkyKey> newlyDiscoveredInputsToSkyKeys(
+      Iterable<Artifact> discoveredInputs, Set<Artifact> knownInputs) {
+    return Iterables.transform(
+        filterKnownInputs(discoveredInputs, knownInputs), TO_NONMANDATORY_SKYKEY);
+  }
+
   private static void addDiscoveredInputs(
       Map<Artifact, FileArtifactValue> inputData,
       Iterable<Artifact> discoveredInputs,
       Environment env)
       throws InterruptedException {
-    Set<SkyKey> keys = new HashSet<>();
-    for (Artifact artifact : discoveredInputs) {
-      if (!inputData.containsKey(artifact)) {
-        // Note that if the artifact is derived, the mandatory flag is ignored.
-        keys.add(ArtifactSkyKey.key(artifact, /*mandatory=*/ false));
-      }
-    }
     // We do not do a getValuesOrThrow() call for the following reasons:
     // 1. No exceptions can be thrown for non-mandatory inputs;
     // 2. Any derived inputs must be in the transitive closure of this action's inputs. Therefore,
@@ -473,9 +481,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // this action already, through one of its declared inputs, and we would not have reached input
     // discovery.
     // Therefore there is no need to catch and rethrow exceptions as there is with #checkInputs.
-    Map<SkyKey, SkyValue> data = env.getValues(keys);
+    Map<SkyKey, SkyValue> nonMandatoryDiscovered =
+        env.getValues(newlyDiscoveredInputsToSkyKeys(discoveredInputs, inputData.keySet()));
     if (!env.valuesMissing()) {
-      for (Entry<SkyKey, SkyValue> entry : data.entrySet()) {
+      for (Entry<SkyKey, SkyValue> entry : nonMandatoryDiscovered.entrySet()) {
         inputData.put(
             ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
       }
@@ -621,17 +630,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return Pair.of(inputArtifactData, Collections.unmodifiableMap(expandedArtifacts));
   }
 
-  /**
-   * Declares skyframe dependencies for any {@code action}'s inputs that are not already in {@code
-   * knownInputs}. Returns the result of {@code env.getValues(...)} for these inputs, which should
-   * contain {@link Artifact} keys and {@link FileArtifactValue} or null values.
-   */
-  private static Map<SkyKey, SkyValue> declareAdditionalDependencies(
-      Environment env, Action action, Set<Artifact> knownInputs) throws InterruptedException {
-    Preconditions.checkState(action.discoversInputs(), action);
-    Iterable<Artifact> newArtifacts =
-        Iterables.filter(action.getInputs(), Predicates.not(Predicates.in(knownInputs)));
-    return env.getValues(toKeys(newArtifacts, action.getMandatoryInputs()));
+  private static Iterable<Artifact> filterKnownInputs(
+      Iterable<Artifact> newInputs, Set<Artifact> knownInputs) {
+    return Iterables.filter(newInputs, Predicates.not(Predicates.in(knownInputs)));
   }
 
   /**
@@ -748,26 +749,5 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     public boolean isCatastrophic() {
       return actionException.isCatastrophe();
     }
-  }
-
-  private static boolean containsAll(Collection<Artifact> haystack, Iterable<Artifact> needles) {
-    for (Artifact needle : needles) {
-      if (!haystack.contains(needle)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private static Iterable<Artifact> artifacts(Iterable<SkyKey> keys) {
-    return Iterables.transform(
-        keys,
-        new Function<SkyKey, Artifact>() {
-          @Override
-          public Artifact apply(SkyKey key) {
-            return ArtifactSkyKey.artifact(key);
-          }
-        });
-
   }
 }
