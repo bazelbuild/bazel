@@ -166,7 +166,7 @@ int OutputJar::Doit(Options *options) {
   }
 
   for (auto &rdesc : options_->resources) {
-    // A resource description is either NAME or NAME:PATH
+    // A resource description is either NAME or PATH:NAME
     std::size_t colon = rdesc.find_first_of(':');
     if (0 == colon) {
       diag_errx(1, "%s:%d: Bad resource description %s", __FILE__, __LINE__,
@@ -175,7 +175,7 @@ int OutputJar::Doit(Options *options) {
     if (std::string::npos == colon) {
       ClasspathResource(rdesc, rdesc);
     } else {
-      ClasspathResource(rdesc.substr(0, colon), rdesc.substr(colon + 1));
+      ClasspathResource(rdesc.substr(colon + 1), rdesc.substr(0, colon));
     }
   }
 

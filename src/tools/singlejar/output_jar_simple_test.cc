@@ -262,10 +262,10 @@ TEST_F(OutputJarSimpleTest, BuildInfoFile) {
 // --resources option.
 TEST_F(OutputJarSimpleTest, Resources) {
   string res11_path = CreateTextFile("res11", "res11.line1\nres11.line2\n");
-  string res11_spec = string("res1:") + res11_path;
+  string res11_spec = res11_path + ":res1";
 
   string res12_path = CreateTextFile("res12", "res12.line1\nres12.line2\n");
-  string res12_spec = string("res1:") + res12_path;
+  string res12_spec = res12_path + ":res1";
 
   string res2_path = CreateTextFile("res2", "res2.line1\nres2.line2\n");
 
@@ -297,10 +297,10 @@ TEST_F(OutputJarSimpleTest, DuplicateResources) {
   string cp_res_path = CreateTextFile("cp_res", "line1\nline2\n");
 
   string res1_path = CreateTextFile("res1", "resline1\nresline2\n");
-  string res1_spec = "foo:" + res1_path;
+  string res1_spec = res1_path + ":foo";
 
   string res2_path = CreateTextFile("res2", "line3\nline4\n");
-  string res2_spec = "foo:" + res2_path;
+  string res2_spec = res2_path + ":foo";
 
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path,
