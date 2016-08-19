@@ -33,7 +33,7 @@ package com.google.devtools.build.lib.analysis;
  *  <li>It must be from the set of {String, Integer, int, Boolean, bool, Label, PathFragment,
  * Artifact}, OR</li>
  *  <li>it must be an ImmutableList/List/Collection/Iterable of T, where T is either
- * one of the types above with a default serializer or T implements ValueSerializer), OR</li>
+ * one of the types above with a default serializer or T implements ValueSerializer, OR</li>
  *  <li>it must be serializable (TBD)</li>
  * </ul>
  * <li>If the method takes arguments, it must declare a custom serializer (TBD).</li>
