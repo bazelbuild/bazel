@@ -55,21 +55,39 @@ public final class SingleJarActionBuilder {
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
     NestedSet<Artifact> hostJavabaseInputs = JavaHelper.getHostJavabaseInputs(ruleContext);
     Artifact singleJar = getSingleJar(ruleContext);
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .addOutput(outputJar)
-            .addInputs(resources.values())
-            .addInputs(resourceJars)
-            .addTransitiveInputs(hostJavabaseInputs)
-            .setJarExecutable(
-                javaPath,
-                singleJar,
-                JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
-            .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
-            .useParameterFile(ParameterFileType.SHELL_QUOTED)
-            .setProgressMessage("Building source jar " + outputJar.prettyPrint())
-            .setMnemonic("JavaSourceJar")
-            .build(ruleContext));
+    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
+    // TODO(asmundak): once b/28640279 is fixed (that is, the native singlejar is released),
+    // eliminate this check, allowing only native singlejar.
+    if (singleJar.getFilename().endsWith(".jar")) {
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addOutput(outputJar)
+              .addInputs(resources.values())
+              .addInputs(resourceJars)
+              .addTransitiveInputs(hostJavabaseInputs)
+              .setJarExecutable(
+                  javaPath,
+                  singleJar,
+                  JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+              .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
+              .useParameterFile(ParameterFileType.SHELL_QUOTED)
+              .setProgressMessage("Building source jar " + outputJar.prettyPrint())
+              .setMnemonic("JavaSourceJar")
+              .build(ruleContext));
+    } else {
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addOutput(outputJar)
+              .addInputs(resources.values())
+              .addInputs(resourceJars)
+              .addTransitiveInputs(hostJavabaseInputs)
+              .setExecutable(singleJar)
+              .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
+              .useParameterFile(ParameterFileType.SHELL_QUOTED)
+              .setProgressMessage("Building source jar " + outputJar.prettyPrint())
+              .setMnemonic("JavaSourceJar")
+              .build(ruleContext));
+    }
   }
 
   /** Returns the SingleJar deploy jar Artifact. */
