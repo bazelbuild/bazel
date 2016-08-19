@@ -182,6 +182,8 @@ EOF
 # Verifies contents of .a files do not contain timestamps -- if they did, the
 # results would not be hermetic.
 function test_archive_timestamps() {
+  setup_objc_test_support
+
   mkdir -p objclib
   cat > objclib/BUILD <<EOF
 objc_library(
@@ -196,7 +198,8 @@ int aFunction() {
 }
 EOF
 
-  bazel build --verbose_failures //objclib:objclib >"$TEST_log" 2>&1 || \
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      //objclib:objclib >"$TEST_log" 2>&1 || \
       fail "Should build objc_library"
 
   # Based on timezones, ar -tv may show the timestamp of the contents as either
