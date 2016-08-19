@@ -479,7 +479,7 @@ final class ProtobufSupport {
     // Sort the file names to make the remote action key independent of the precise deps structure.
     // compile_protos.py will sort the input list anyway.
     Iterable<Artifact> sorted = Ordering.natural().immutableSortedCopy(outputProtos);
-    return Artifact.joinExecPaths("\n", sorted);
+    return Artifact.joinRootRelativePaths("\n", sorted);
   }
 
   private CustomCommandLine getGenerationCommandLine(Artifact protoInputsFile) {
@@ -491,9 +491,18 @@ final class ProtobufSupport {
         .add(getWorkspaceRelativeOutputDir().getSafePathString())
         .add("--force")
         .add("--proto-root-dir")
+        .add(getGenfilesPathString())
+        .add("--proto-root-dir")
         .add(".")
         .addBeforeEachExecPath("--config", getPortableProtoFilters())
         .build();
+  }
+
+  private String getGenfilesPathString() {
+    if (buildConfiguration != null) {
+      return buildConfiguration.getGenfilesDirectory().getExecPathString();
+    }
+    return ruleContext.getConfiguration().getGenfilesDirectory().getExecPathString();
   }
 
   private PathFragment getWorkspaceRelativeOutputDir() {
