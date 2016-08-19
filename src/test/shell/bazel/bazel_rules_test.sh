@@ -219,8 +219,8 @@ EOF
   expect_log "Hello, World!"
 }
 
-
-function test_genrule_default_env() {
+# TODO(b/30966418): Fix and re-enable tests.
+function disabled_test_genrule_default_env() {
   mkdir -p pkg
   cat <<'EOF' >pkg/BUILD
 genrule(

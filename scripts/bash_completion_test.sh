@@ -527,7 +527,8 @@ test_directory_expansion_in_subdir() {
                      'build streamer2/stuff/'
 }
 
-test_target_expansion() {
+# TODO(b/30966418): Re-enable when fixed.
+disabled_test_target_expansion() {
     # 'Test expansion of target names within packages'
 
     make_packages
