@@ -205,8 +205,13 @@ class BlazeStartupOptions {
 
   // Returns the candidate pathnames for the RC files.
   static void FindCandidateBlazercPaths(const string& workspace,
-                                        const string& cwd, const string& arg0,
+                                        const string& cwd,
+                                        const std::vector<string>& args,
                                         std::vector<string>* result);
+
+  // Sanity check for the startup options
+  static blaze_exit_code::ExitCode ValidateStartupOptions(
+      const std::vector<string>& args, string* error);
 
   // Returns the candidate pathnames for the RC file in the workspace,
   // the first readable one of which will be chosen.

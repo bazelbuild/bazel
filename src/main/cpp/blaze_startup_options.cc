@@ -216,11 +216,16 @@ static string FindSystemWideBlazerc() {
 }
 
 void BlazeStartupOptions::FindCandidateBlazercPaths(
-    const string& workspace, const string& cwd, const string& arg0,
+    const string& workspace, const string& cwd, const vector<string>& args,
     std::vector<string>* result) {
   result->push_back(FindDepotBlazerc(workspace));
-  result->push_back(FindAlongsideBinaryBlazerc(cwd, arg0));
+  result->push_back(FindAlongsideBinaryBlazerc(cwd, args[0]));
   result->push_back(FindSystemWideBlazerc());
+}
+
+blaze_exit_code::ExitCode BlazeStartupOptions::ValidateStartupOptions(
+    const std::vector<string>& args, string* error) {
+  return blaze_exit_code::SUCCESS;
 }
 
 void BlazeStartupOptions::WorkspaceRcFileSearchPath(

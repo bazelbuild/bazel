@@ -263,4 +263,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "directories (e.g. productName-bin for binaries) as well as for printing error "
           + "messages and logging")
   public String productName;
+
+  @Option(name = "exoblaze",
+      defaultValue = "false",
+      category = "server startup",
+      help = "If true, Blaze runs as Exoblaze")
+  public boolean exoblaze;
 }

@@ -237,12 +237,18 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     }
   }
 
+  blaze_exit_code::ExitCode validate_startup_options_exit_code =
+      BlazeStartupOptions::ValidateStartupOptions(args, error);
+  if (validate_startup_options_exit_code != blaze_exit_code::SUCCESS) {
+    return validate_startup_options_exit_code;
+  }
+
   // Parse depot and user blazerc files.
   // This is a little inefficient (copying a multimap around), but it is a
   // small one and this way I don't have to care about memory management.
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
-    BlazeStartupOptions::FindCandidateBlazercPaths(workspace, cwd, args[0],
+    BlazeStartupOptions::FindCandidateBlazercPaths(workspace, cwd, args,
                                                    &candidate_blazerc_paths);
   }
 
