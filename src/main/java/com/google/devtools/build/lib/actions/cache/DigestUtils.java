@@ -17,21 +17,33 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
-
 import javax.annotation.Nullable;
 
 /**
  * Utility class for getting md5 digests of files.
+ *
+ * <p>Note that this class is responsible for digesting file metadata in an order-independent
+ * manner. Care must be taken to do this properly. The digest must be a function of the set of
+ * (path, metadata) tuples. While the order of these pairs must not matter, it would <b>not</b> be
+ * safe to make the digest be a function of the set of paths and the set of metadata.
+ *
+ * <p>Note that the (path, metadata) tuples must be unique, otherwise the XOR-based approach will
+ * fail.
  */
 public class DigestUtils {
+
   // Object to synchronize on when serializing large file reads.
   private static final Object MD5_LOCK = new Object();
   private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
@@ -120,6 +132,65 @@ public class DigestUtils {
       return getDigestInExclusiveMode(path);
     } else {
       return getDigestInternal(path);
+    }
+  }
+
+  /**
+   * @param source the byte buffer source.
+   * @return the digest from the given buffer.
+   * @throws IOException if the byte buffer is incorrectly formatted.
+   */
+  public static Md5Digest read(ByteBuffer source) throws IOException {
+    int size = VarInt.getVarInt(source);
+    if (size != Md5Digest.MD5_SIZE) {
+      throw new IOException("Unexpected digest length: " + size);
+    }
+    byte[] bytes = new byte[size];
+    source.get(bytes);
+    return new Md5Digest(bytes);
+  }
+
+  /** Write the digest to the output stream. */
+  public static void write(Md5Digest digest, OutputStream sink) throws IOException {
+    VarInt.putVarInt(digest.getDigestBytesUnsafe().length, sink);
+    sink.write(digest.getDigestBytesUnsafe());
+  }
+
+  /**
+   * @param mdMap A collection of (execPath, Metadata) pairs. Values may be null.
+   * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
+   */
+  public static Md5Digest fromMetadata(Map<String, Metadata> mdMap) {
+    byte[] result = new byte[Md5Digest.MD5_SIZE];
+    // Profiling showed that MD5 engine instantiation was a hotspot, so create one instance for
+    // this computation to amortize its cost.
+    Fingerprint fp = new Fingerprint();
+    for (Map.Entry<String, Metadata> entry : mdMap.entrySet()) {
+      xorWith(result, getDigest(fp, entry.getKey(), entry.getValue()));
+    }
+    return new Md5Digest(result);
+  }
+
+  private static byte[] getDigest(Fingerprint fp, String execPath, Metadata md) {
+    fp.addStringLatin1(execPath);
+
+    if (md == null) {
+      // Move along, nothing to see here.
+    } else if (md.digest == null) {
+      // Use the timestamp if the digest is not present, but not both.
+      // Modifying a timestamp while keeping the contents of a file the
+      // same should not cause rebuilds.
+      fp.addLong(md.mtime);
+    } else {
+      fp.addBytes(md.digest);
+    }
+    return fp.digestAndReset();
+  }
+
+  /** Compute lhs ^= rhs bitwise operation of the arrays. */
+  private static void xorWith(byte[] lhs, byte[] rhs) {
+    for (int i = 0; i < lhs.length; i++) {
+      lhs[i] ^= rhs[i];
     }
   }
 }

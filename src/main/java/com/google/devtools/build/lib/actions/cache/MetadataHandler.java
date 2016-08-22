@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.vfs.FileStatus;
-
 import java.io.IOException;
 
 /** Retrieves {@link Metadata} of {@link Artifact}s, and inserts virtual metadata as well. */
@@ -46,8 +45,8 @@ public interface MetadataHandler {
    */
   Metadata getMetadata(Artifact artifact) throws IOException;
 
-  /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
-  void setDigestForVirtualArtifact(Artifact artifact, Digest digest);
+  /** Sets digest for virtual artifacts (e.g. middlemen). {@code md5Digest} must not be null. */
+  void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest);
 
   /**
    * Registers the given output as contents of a TreeArtifact, without injecting its digest.

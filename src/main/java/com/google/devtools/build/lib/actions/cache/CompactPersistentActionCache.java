@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -352,14 +351,18 @@ public class CompactPersistentActionCache implements ActionCache {
       // + 16 bytes for the digest
       // + 5 bytes max for the file list length
       // + 5 bytes max for each file id
-      int maxSize = VarInt.MAX_VARINT_SIZE + actionKeyBytes.length + Digest.MD5_SIZE
-          + VarInt.MAX_VARINT_SIZE + files.size() * VarInt.MAX_VARINT_SIZE;
+      int maxSize =
+          VarInt.MAX_VARINT_SIZE
+              + actionKeyBytes.length
+              + Md5Digest.MD5_SIZE
+              + VarInt.MAX_VARINT_SIZE
+              + files.size() * VarInt.MAX_VARINT_SIZE;
       ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
       VarInt.putVarInt(actionKeyBytes.length, sink);
       sink.write(actionKeyBytes);
 
-      entry.getFileDigest().write(sink);
+      DigestUtils.write(entry.getFileDigest(), sink);
 
       VarInt.putVarInt(entry.discoversInputs() ? files.size() : NO_INPUT_DISCOVERY_COUNT, sink);
       for (String file : files) {
@@ -385,7 +388,7 @@ public class CompactPersistentActionCache implements ActionCache {
       source.get(actionKeyBytes);
       String actionKey = new String(actionKeyBytes, ISO_8859_1);
 
-      Digest digest = Digest.read(source);
+      Md5Digest md5Digest = DigestUtils.read(source);
 
       int count = VarInt.getVarInt(source);
       ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
@@ -400,8 +403,8 @@ public class CompactPersistentActionCache implements ActionCache {
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
-      return new Entry(actionKey,
-          count == NO_INPUT_DISCOVERY_COUNT ? null : builder.build(), digest);
+      return new Entry(
+          actionKey, count == NO_INPUT_DISCOVERY_COUNT ? null : builder.build(), md5Digest);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

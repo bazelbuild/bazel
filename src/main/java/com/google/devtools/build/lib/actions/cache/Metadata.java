@@ -18,7 +18,6 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Arrays;
 import java.util.Date;
 

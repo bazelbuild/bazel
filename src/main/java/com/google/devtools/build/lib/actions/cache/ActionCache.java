@@ -19,7 +19,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -28,7 +27,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -73,9 +71,9 @@ public interface ActionCache {
     @Nullable
     // Null iff the corresponding action does not do input discovery.
     private final List<String> files;
-    // If null, digest is non-null and the entry is immutable.
+    // If null, md5Digest is non-null and the entry is immutable.
     private Map<String, Metadata> mdMap;
-    private Digest digest;
+    private Md5Digest md5Digest;
 
     public Entry(String key, boolean discoversInputs) {
       actionKey = key;
@@ -83,10 +81,10 @@ public interface ActionCache {
       mdMap = new HashMap<>();
     }
 
-    public Entry(String key, @Nullable List<String> files, Digest digest) {
+    public Entry(String key, @Nullable List<String> files, Md5Digest md5Digest) {
       actionKey = key;
       this.files = files;
-      this.digest = digest;
+      this.md5Digest = md5Digest;
       mdMap = null;
     }
 
@@ -97,7 +95,7 @@ public interface ActionCache {
     public void addFile(PathFragment relativePath, Metadata md) {
       Preconditions.checkState(mdMap != null);
       Preconditions.checkState(!isCorrupted());
-      Preconditions.checkState(digest == null);
+      Preconditions.checkState(md5Digest == null);
 
       String execPath = relativePath.getPathString();
       if (discoversInputs()) {
@@ -114,17 +112,17 @@ public interface ActionCache {
     }
 
     /**
-     * Returns the combined digest of the action's inputs and outputs.
+     * Returns the combined md5Digest of the action's inputs and outputs.
      *
-     * This may compresses the data into a more compact representation, and
-     * makes the object immutable.
+     * <p>This may compresses the data into a more compact representation, and makes the object
+     * immutable.
      */
-    public Digest getFileDigest() {
-      if (digest == null) {
-        digest = Digest.fromMetadata(mdMap);
+    public Md5Digest getFileDigest() {
+      if (md5Digest == null) {
+        md5Digest = DigestUtils.fromMetadata(mdMap);
         mdMap = null;
       }
-      return digest;
+      return md5Digest;
     }
 
     /**
@@ -153,10 +151,10 @@ public interface ActionCache {
       StringBuilder builder = new StringBuilder();
       builder.append("      actionKey = ").append(actionKey).append("\n");
       builder.append("      digestKey = ");
-      if (digest == null) {
-        builder.append(Digest.fromMetadata(mdMap)).append(" (from mdMap)\n");
+      if (md5Digest == null) {
+        builder.append(DigestUtils.fromMetadata(mdMap)).append(" (from mdMap)\n");
       } else {
-        builder.append(digest).append("\n");
+        builder.append(md5Digest).append("\n");
       }
 
       if (discoversInputs()) {

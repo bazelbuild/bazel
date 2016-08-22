@@ -19,7 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
-import com.google.devtools.build.lib.actions.cache.Digest;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.Event;
@@ -108,7 +108,7 @@ public class ActionCacheChecker {
     for (Artifact artifact : artifacts) {
       mdMap.put(artifact.getExecPathString(), metadataHandler.getMetadataMaybe(artifact));
     }
-    return !Digest.fromMetadata(mdMap).equals(entry.getFileDigest());
+    return !DigestUtils.fromMetadata(mdMap).equals(entry.getFileDigest());
   }
 
   private void reportCommand(EventHandler handler, Action action) {

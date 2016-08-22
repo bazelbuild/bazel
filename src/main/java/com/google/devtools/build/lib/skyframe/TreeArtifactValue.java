@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.cache.Digest;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +69,7 @@ public class TreeArtifactValue implements SkyValue {
     }
 
     return new TreeArtifactValue(
-        Digest.fromMetadata(digestBuilder).asMetadata().digest,
+        DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
         ImmutableMap.copyOf(childFileValues));
   }
 

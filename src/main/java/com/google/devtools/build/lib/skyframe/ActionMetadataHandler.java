@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.cache.Digest;
+import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.TreeArtifactException;
@@ -264,11 +264,11 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void setDigestForVirtualArtifact(Artifact artifact, Digest digest) {
+  public void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest) {
     Preconditions.checkArgument(artifact.isMiddlemanArtifact(), artifact);
-    Preconditions.checkNotNull(digest, artifact);
-    additionalOutputData.put(artifact,
-        FileArtifactValue.createProxy(digest.asMetadata().digest));
+    Preconditions.checkNotNull(md5Digest, artifact);
+    additionalOutputData.put(
+        artifact, FileArtifactValue.createProxy(md5Digest.getDigestBytesUnsafe()));
   }
 
   private Set<TreeFileArtifact> getTreeArtifactContents(Artifact artifact) {

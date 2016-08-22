@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.actions.cache.Digest;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -103,7 +103,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       Metadata subdigest = new Metadata(tree.getPath().getRelative(child).getMD5Digest());
       digestBuilder.put(child.getPathString(), subdigest);
     }
-    assertThat(Digest.fromMetadata(digestBuilder).asMetadata().digest).isEqualTo(value.getDigest());
+    assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())
+        .isEqualTo(value.getDigest());
     return value;
   }
 
