@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -460,73 +459,47 @@ public class CppHelper {
   static List<Artifact> getAggregatingMiddlemanForCppRuntimes(RuleContext ruleContext,
       String purpose, TransitiveInfoCollection dep, String solibDirOverride,
       BuildConfiguration configuration) {
-    return getMiddlemanInternal(
-        ruleContext.getAnalysisEnvironment(), ruleContext, ruleContext.getActionOwner(), purpose,
+    return getMiddlemanInternal(ruleContext, ruleContext.getActionOwner(), purpose,
         dep, true, true, solibDirOverride, configuration);
   }
 
   @VisibleForTesting
-  public static List<Artifact> getAggregatingMiddlemanForTesting(AnalysisEnvironment env,
+  public static List<Artifact> getAggregatingMiddlemanForTesting(
       RuleContext ruleContext, ActionOwner owner, String purpose, TransitiveInfoCollection dep,
       boolean useSolibSymlinks, BuildConfiguration configuration) {
     return getMiddlemanInternal(
-        env, ruleContext, owner, purpose, dep, useSolibSymlinks, false, null, configuration);
+        ruleContext, owner, purpose, dep, useSolibSymlinks, false, null, configuration);
   }
 
   /**
    * Internal implementation for getAggregatingMiddlemanForCppRuntimes.
    */
-  private static List<Artifact> getMiddlemanInternal(AnalysisEnvironment env,
+  private static List<Artifact> getMiddlemanInternal(
       RuleContext ruleContext, ActionOwner actionOwner, String purpose,
       TransitiveInfoCollection dep, boolean useSolibSymlinks, boolean isCppRuntime,
       String solibDirOverride, BuildConfiguration configuration) {
     if (dep == null) {
       return ImmutableList.of();
     }
-    MiddlemanFactory factory = env.getMiddlemanFactory();
+    MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     Iterable<Artifact> artifacts = dep.getProvider(FileProvider.class).getFilesToBuild();
     if (useSolibSymlinks) {
       List<Artifact> symlinkedArtifacts = new ArrayList<>();
       for (Artifact artifact : artifacts) {
-        symlinkedArtifacts.add(solibArtifactMaybe(
-            ruleContext, artifact, isCppRuntime, solibDirOverride, configuration));
+        Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
+        symlinkedArtifacts.add(isCppRuntime
+            ? SolibSymlinkAction.getCppRuntimeSymlink(
+                ruleContext, artifact, solibDirOverride, configuration)
+            : SolibSymlinkAction.getDynamicLibrarySymlink(
+                ruleContext, artifact, false, true, configuration));
       }
       artifacts = symlinkedArtifacts;
       purpose += "_with_solib";
     }
     return ImmutableList.of(
-        factory.createMiddlemanAllowMultiple(env, actionOwner, ruleContext.getPackageDirectory(),
-            purpose, artifacts, configuration.getMiddlemanDirectory(
-                ruleContext.getRule().getRepository())));
-  }
-
-  /**
-   * If the artifact is a shared library, returns the solib symlink artifact associated with it.
-   *
-   * @param ruleContext the context of the rule that creates the symlink
-   * @param artifact the library the solib symlink should point to
-   * @param isCppRuntime whether the library is a C++ runtime
-   * @param solibDirOverride if not null, forces the solib symlink to be in this directory
-   */
-  private static Artifact solibArtifactMaybe(RuleContext ruleContext, Artifact artifact,
-      boolean isCppRuntime, String solibDirOverride, BuildConfiguration configuration) {
-    if (SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
-      return isCppRuntime
-        ? SolibSymlinkAction.getCppRuntimeSymlink(
-            ruleContext, artifact, solibDirOverride, configuration)
-        : SolibSymlinkAction.getDynamicLibrarySymlink(
-            ruleContext, artifact, false, true, configuration);
-    } else {
-      return artifact;
-    }
-  }
-
-  /**
-   * Returns the type of archives being used.
-   */
-  public static Link.ArchiveType archiveType(BuildConfiguration config) {
-    CppConfiguration cppConfig = config.getFragment(CppConfiguration.class);
-    return cppConfig.archiveType();
+        factory.createMiddlemanAllowMultiple(ruleContext.getAnalysisEnvironment(), actionOwner,
+            ruleContext.getPackageDirectory(), purpose, artifacts,
+            configuration.getMiddlemanDirectory(ruleContext.getRule().getRepository())));
   }
 
   /**

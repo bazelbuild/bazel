@@ -445,6 +445,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.getDirectPrerequisitesForTesting(reporter, target, masterConfig);
   }
 
+  protected ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
+      throws Exception {
+    Label candidateLabel = Label.parseAbsolute(label);
+    for (ConfiguredTarget candidate : getDirectPrerequisites(target)) {
+      if (candidate.getLabel().equals(candidateLabel)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
   /**
    * Asserts that a target's prerequisites contain the given dependency.
    */
@@ -494,6 +506,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected RuleContext getRuleContext(ConfiguredTarget target) throws Exception {
     return view.getRuleContextForTesting(
         reporter, target, new StubAnalysisEnvironment(), masterConfig);
+  }
+
+  protected RuleContext getRuleContext(ConfiguredTarget target,
+      AnalysisEnvironment analysisEnvironment) throws Exception {
+    return view.getRuleContextForTesting(
+        reporter, target, analysisEnvironment, masterConfig);
   }
 
   /**
