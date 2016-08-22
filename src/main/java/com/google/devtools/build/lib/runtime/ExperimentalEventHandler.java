@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
@@ -541,18 +542,7 @@ public class ExperimentalEventHandler implements EventHandler {
     }
     if (threadToWaitFor != null) {
       threadToWaitFor.interrupt();
-      boolean gotInterrupted = false;
-      while (true) {
-        try {
-          threadToWaitFor.join();
-          break;
-        } catch (InterruptedException e) {
-          gotInterrupted = true;
-        }
-      }
-      if (gotInterrupted) {
-        Thread.currentThread().interrupt();
-      }
+      Uninterruptibles.joinUninterruptibly(threadToWaitFor);
     }
   }
 
