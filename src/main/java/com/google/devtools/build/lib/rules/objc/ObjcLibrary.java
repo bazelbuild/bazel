@@ -93,6 +93,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    // Support treating objc_library as experimental_objc_library
+    if (ruleContext.getFragment(ObjcConfiguration.class).useExperimentalObjcLibrary()) {
+      return ExperimentalObjcLibrary.configureExperimentalObjcLibrary(ruleContext);
+    }
+    
     ObjcCommon common = common(ruleContext);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();

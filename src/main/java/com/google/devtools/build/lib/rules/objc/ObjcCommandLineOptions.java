@@ -200,6 +200,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean deviceDebugEntitlements;
 
+  @Option(
+    name = "experimental_objc_library",
+    defaultValue = "false",
+    category = "undocumented"
+  )
+  public boolean experimentalObjcLibrary;
+  
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @SuppressWarnings("unchecked")

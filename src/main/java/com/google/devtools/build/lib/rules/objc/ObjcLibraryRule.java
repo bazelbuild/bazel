@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * Rule definition for objc_library.
@@ -30,7 +31,8 @@ public class ObjcLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class)
+        .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class,
+            CppConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_library).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
@@ -50,7 +52,8 @@ public class ObjcLibraryRule implements RuleDefinition {
         .name("objc_library")
         .factoryClass(ObjcLibrary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.CompilingRule.class,
-            ObjcRuleClasses.AlwaysLinkRule.class, ObjcRuleClasses.XcodegenRule.class)
+            ObjcRuleClasses.CrosstoolRule.class, ObjcRuleClasses.AlwaysLinkRule.class, 
+            ObjcRuleClasses.XcodegenRule.class)
         .build();
   }
 }

@@ -71,6 +71,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean debugWithGlibcxx;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
+  private final boolean experimentalObjcLibrary;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -95,6 +96,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
+    this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
   }
 
   /**
@@ -275,5 +277,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements;
+  }
+  
+  /**
+   * Returns true if all objc_library targets should be configured as if they were
+   * experimental_objc_library targets.
+   */
+  public boolean useExperimentalObjcLibrary() {
+    return experimentalObjcLibrary;
   }
 }
