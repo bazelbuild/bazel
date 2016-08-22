@@ -256,7 +256,6 @@ public final class CcLibraryHelper {
   private final List<TransitiveInfoCollection> implementationDeps = new ArrayList<>();
   private final List<TransitiveInfoCollection> interfaceDeps = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
-  private final List<Artifact> prerequisites = new ArrayList<>();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
@@ -651,17 +650,6 @@ public final class CcLibraryHelper {
     for (TransitiveInfoCollection linkstamp : linkstamps) {
       this.linkstamps.addTransitive(linkstamp.getProvider(FileProvider.class).getFilesToBuild());
     }
-    return this;
-  }
-
-  /**
-   * Adds the given prerequisites as prerequisites for the generated compile actions. This ensures
-   * that the corresponding files exist - otherwise the action fails. Note that these dependencies
-   * add edges to the action graph, and can therefore increase the length of the critical path,
-   * i.e., make the build slower.
-   */
-  public CcLibraryHelper addCompilationPrerequisites(Iterable<Artifact> prerequisites) {
-    Iterables.addAll(this.prerequisites, prerequisites);
     return this;
   }
 
@@ -1140,7 +1128,6 @@ public final class CcLibraryHelper {
         CppHelper.createExtractInclusions(ruleContext, semantics, publicTextualHeaders));
     contextBuilder.addPregreppedHeaderMap(
         CppHelper.createExtractInclusions(ruleContext, semantics, privateHeaders));
-    contextBuilder.addCompilationPrerequisites(prerequisites);
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.

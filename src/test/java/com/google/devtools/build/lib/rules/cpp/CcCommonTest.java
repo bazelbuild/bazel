@@ -853,6 +853,13 @@ public class CcCommonTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void testLibraryInHdrs() throws Exception {
+    scratchConfiguredTarget("a", "a",
+        "cc_library(name='a', srcs=['a.cc'], hdrs=[':b'])",
+        "cc_library(name='b', srcs=['b.cc'])");
+  }
+
   @RunWith(JUnit4.class)
   public static class OnlyCppRules extends CcCommonTest {
     @Override
