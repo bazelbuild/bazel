@@ -60,10 +60,6 @@ public abstract class Link {
       CppFileTypes.VERSIONED_SHARED_LIBRARY,
       CppFileTypes.INTERFACE_SHARED_LIBRARY);
 
-  /**
-   * These need special handling when --thin_archive is true. {@link CppLinkAction} checks that
-   * these files are never added as non-libraries.
-   */
   public static final FileTypeSet ARCHIVE_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.ARCHIVE,
       CppFileTypes.PIC_ARCHIVE,
@@ -239,12 +235,11 @@ public abstract class Link {
   }
 
   /**
-   * Types of archive.
+   * How to pass archives to the linker on the command line.
    */
   public enum ArchiveType {
-    FAT,            // Regular archive that includes its members.
-    THIN,           // Thin archive that just points to its members.
-    START_END_LIB   // A --start-lib ... --end-lib group in the command line.
+    REGULAR,        // Put the archive itself on the linker command line.
+    START_END_LIB   // Put the object files enclosed by --start-lib / --end-lib on the command line
   }
 
   static boolean useStartEndLib(LinkerInput linkerInput, ArchiveType archiveType) {
@@ -331,7 +326,7 @@ public abstract class Link {
         // start_end_lib archive (aka static library). Also check if the library contains object
         // files - otherwise getObjectFiles returns null, which would lead to an NPE in
         // simpleLinkerInputs.
-        boolean needMembersForLink = archiveType != ArchiveType.FAT
+        boolean needMembersForLink = archiveType != ArchiveType.REGULAR
             && (inputLibrary.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
                 || inputLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY)
             && inputLibrary.containsObjectFiles();

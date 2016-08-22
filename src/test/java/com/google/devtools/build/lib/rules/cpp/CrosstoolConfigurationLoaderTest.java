@@ -117,7 +117,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             + "  tool_path { name: \"dwp\" path: \"path-to-dwp\" }"
             + optionalTool
             + "  supports_gold_linker: true"
-            + "  supports_thin_archives: true"
             + "  supports_normalizing_ar: true"
             + "  supports_incremental_linker: true"
             + "  supports_fission: true"
@@ -195,7 +194,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertEquals("abi-libc-version", toolchain.getAbiGlibcVersion());
 
     assertTrue(toolchain.supportsGoldLinker());
-    assertTrue(toolchain.supportsThinArchives());
     assertFalse(toolchain.supportsStartEndLib());
     assertFalse(toolchain.supportsInterfaceSharedObjects());
     assertFalse(toolchain.supportsEmbeddedRuntimes());
@@ -228,8 +226,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     assertEquals(Arrays.asList("objcopy"), toolchain.getObjCopyOptionsForEmbedding());
     assertEquals(Arrays.<String>asList(), toolchain.getLdOptionsForEmbedding());
-    assertEquals(Arrays.asList("rcsD"), toolchain.getArFlags(/*thinArchives=*/ false));
-    assertEquals(Arrays.asList("rcsDT"), toolchain.getArFlags(/*thinArchives=*/ true));
+    assertEquals(Arrays.asList("rcsD"), toolchain.getArFlags());
 
     assertThat(toolchain.getAdditionalMakeVariables().entrySet())
         .containsExactlyElementsIn(
@@ -285,7 +282,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-A\" }\n"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
                 + "  supports_gold_linker: true\n"
-                + "  supports_thin_archives: true\n"
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
@@ -305,7 +301,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  ld_embed_flag: \"ld-embed-flag-A-1\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-A-2\"\n"
                 + "  ar_flag : \"ar-flag-A\"\n"
-                + "  ar_thin_archives_flag : \"ar-thin-archives-flag-A\"\n"
                 + "  compilation_mode_flags {\n"
                 + "    mode: FASTBUILD\n"
                 + "    compiler_flag: \"fastbuild-flag-A-1\"\n"
@@ -375,7 +370,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-B\" }\n"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
                 + "  supports_gold_linker: true\n"
-                + "  supports_thin_archives: true\n"
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
@@ -399,7 +393,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  ld_embed_flag: \"ld-embed-flag-B-1\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-B-2\"\n"
                 + "  ar_flag : \"ar-flag-B\"\n"
-                + "  ar_thin_archives_flag : \"ar-thin-archives-flag-B\"\n"
                 + "  compilation_mode_flags {\n"
                 + "    mode: FASTBUILD\n"
                 + "    compiler_flag: \"fastbuild-flag-B-1\"\n"
@@ -505,7 +498,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertEquals(getToolPath("path/to/objdump-A"), toolchainA.getToolPathFragment(Tool.OBJDUMP));
     assertEquals(getToolPath("path/to/strip-A"), toolchainA.getToolPathFragment(Tool.STRIP));
     assertTrue(toolchainA.supportsGoldLinker());
-    assertTrue(toolchainA.supportsThinArchives());
     assertTrue(toolchainA.supportsStartEndLib());
     assertTrue(toolchainA.supportsEmbeddedRuntimes());
     assertTrue(toolchainA.toolchainNeedsPic());
@@ -596,9 +588,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertEquals(
         Arrays.asList("ld-embed-flag-A-1", "ld-embed-flag-A-2"),
         toolchainA.getLdOptionsForEmbedding());
-    assertEquals(Arrays.asList("ar-flag-A"), toolchainA.getArFlags(/*thinArchives=*/ false));
-    assertEquals(
-        Arrays.asList("ar-thin-archives-flag-A"), toolchainA.getArFlags(/*thinArchives=*/ true));
+    assertEquals(Arrays.asList("ar-flag-A"), toolchainA.getArFlags());
 
     assertThat(toolchainA.getAdditionalMakeVariables().entrySet())
         .containsExactlyElementsIn(
@@ -635,7 +625,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertEquals("abi-libc-version-C", toolchainC.getAbiGlibcVersion());
     // Don't bother with testing the list of tools again.
     assertFalse(toolchainC.supportsGoldLinker());
-    assertFalse(toolchainC.supportsThinArchives());
     assertFalse(toolchainC.supportsStartEndLib());
     assertFalse(toolchainC.supportsInterfaceSharedObjects());
     assertFalse(toolchainC.supportsEmbeddedRuntimes());

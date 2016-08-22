@@ -303,6 +303,7 @@ message CToolchain {
   // Feature flags.
   // TODO(bazel-team): Sink those into 'Feature' instances.
   optional bool supports_gold_linker = 10 [default = false];
+  // Legacy field, ignored by Bazel.
   optional bool supports_thin_archives = 11 [default = false];
   optional bool supports_start_end_lib = 28 [default = false];
   optional bool supports_interface_shared_objects = 32 [default = false];
@@ -347,8 +348,7 @@ message CToolchain {
   // Ar flags for combining object files into archives. If this is not set, it
   // defaults to "rcsD".
   repeated string ar_flag = 47;
-  // Ar flags for combining object files into archives when thin_archives is
-  // enabled. If this is not set, it defaults to "rcsDT".
+  // Legacy field, ignored by Bazel.
   repeated string ar_thin_archives_flag = 48;
   // Additional compiler flags that are added for cc_plugin rules of type 'gcc'
   repeated string gcc_plugin_compiler_flag = 34;

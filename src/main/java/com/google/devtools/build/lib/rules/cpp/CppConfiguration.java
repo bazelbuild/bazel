@@ -271,7 +271,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   private final CcToolchainFeatures toolchainFeatures;
   private final boolean supportsGoldLinker;
-  private final boolean supportsThinArchives;
   private final boolean supportsStartEndLib;
   private final boolean supportsDynamicLinker;
   private final boolean supportsInterfaceSharedObjects;
@@ -324,7 +323,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> objcopyOptions;
   private final ImmutableList<String> ldOptions;
   private final ImmutableList<String> arOptions;
-  private final ImmutableList<String> arThinArchivesOptions;
 
   private final ImmutableMap<String, String> additionalMakeVariables;
 
@@ -409,7 +407,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     toolchain = addLegacyFeatures(toolchain);
     this.toolchainFeatures = new CcToolchainFeatures(toolchain);
     this.supportsGoldLinker = toolchain.getSupportsGoldLinker();
-    this.supportsThinArchives = toolchain.getSupportsThinArchives();
     this.supportsStartEndLib = toolchain.getSupportsStartEndLib();
     this.supportsInterfaceSharedObjects = toolchain.getSupportsInterfaceSharedObjects();
     this.supportsEmbeddedRuntimes = toolchain.getSupportsEmbeddedRuntimes();
@@ -515,8 +512,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.objcopyOptions = ImmutableList.copyOf(toolchain.getObjcopyEmbedFlagList());
     this.ldOptions = ImmutableList.copyOf(toolchain.getLdEmbedFlagList());
     this.arOptions = copyOrDefaultIfEmpty(toolchain.getArFlagList(), "rcsD");
-    this.arThinArchivesOptions = copyOrDefaultIfEmpty(
-        toolchain.getArThinArchivesFlagList(), "rcsDT");
 
     this.abi = toolchain.getAbiVersion();
     this.abiGlibcVersion = toolchain.getAbiLibcVersion();
@@ -1239,13 +1234,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns whether the toolchain supports thin archives.
-   */
-  public boolean supportsThinArchives() {
-    return supportsThinArchives;
-  }
-
-  /**
    * Returns whether the toolchain supports the --start-lib/--end-lib options.
    */
   public boolean supportsStartEndLib() {
@@ -1311,20 +1299,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the type of archives being used.
    */
   public Link.ArchiveType archiveType() {
-    if (useStartEndLib()) {
-      return Link.ArchiveType.START_END_LIB;
-    }
-    if (useThinArchives()) {
-      return Link.ArchiveType.THIN;
-    }
-    return Link.ArchiveType.FAT;
+    return useStartEndLib() ? Link.ArchiveType.START_END_LIB : Link.ArchiveType.REGULAR;
   }
 
   /**
    * Returns the ar flags to be used.
    */
-  public ImmutableList<String> getArFlags(boolean thinArchives) {
-    return thinArchives ? arThinArchivesOptions : arOptions;
+  public ImmutableList<String> getArFlags() {
+    return arOptions;
   }
 
   /**
@@ -1705,10 +1687,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useStartEndLib() {
     return cppOptions.useStartEndLib && supportsStartEndLib();
-  }
-
-  public boolean useThinArchives() {
-    return cppOptions.useThinArchives && supportsThinArchives();
   }
 
   /**

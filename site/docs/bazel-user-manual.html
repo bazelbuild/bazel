@@ -684,7 +684,6 @@ $ bazel fetch //...
   <li>Use the same values of these options as specified in the request
     configuration:
     <code class='flag'>--compiler</code>,
-    <code class='flag'>--thin_archives</code>,
     <code class='flag'>--use_ijars</code>,
     <code class='flag'>--java_toolchain</code>,
     If <code class='flag'>--host_crosstool_top</code> is used, then the value of
@@ -1890,20 +1889,6 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   unless <code class='flag'>--keep_going</code> is specified, in which case the
   build will proceed to the execution phase, but only for the targets
   that were successfully analyzed.
-</p>
-
-<h4 id='flag--thin_archives'><code class='flag'>--[no]thin_archives</code></h4>
-<p>
-  This option enables use of <i>thin archives</i>, an optimization which avoids
-  duplicating the content of object files when they are placed in archive
-  libraries; the archive library references the object file by name, and the
-  linker follows this reference as needed.  This may give a speedup for C++
-  builds, especially when building a single large executable from clean.
-</p>
-
-<p>
-  This option is enabled by default;
-  use <code class='flag'>--nothin_archives</code> to disable.
 </p>
 
 <h4 id='flag--use_ijars'><code class='flag'>--[no]use_ijars</code></h4>

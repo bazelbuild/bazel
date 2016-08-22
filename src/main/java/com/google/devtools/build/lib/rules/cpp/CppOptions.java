@@ -173,16 +173,6 @@ public class CppOptions extends FragmentOptions {
   )
   public String glibc;
 
-  @Option(
-    name = "thin_archives",
-    defaultValue = "false",
-    category = "strategy", // but also adds edges to the action graph
-    help =
-        "Pass the 'T' flag to ar if supported by the toolchain. "
-            + "All supported toolchains support this setting."
-  )
-  public boolean useThinArchives;
-
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
   // option, however tempting to remove, has a use case. Look in our telemetry data.
   @Option(
@@ -581,7 +571,6 @@ public class CppOptions extends FragmentOptions {
     // -g0 first and let the user options override it.
     host.coptList = ImmutableList.<String>builder().add("-g0").addAll(hostCoptList).build();
 
-    host.useThinArchives = useThinArchives;
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
     host.fdoOptimize = null;

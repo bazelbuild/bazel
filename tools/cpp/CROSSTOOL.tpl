@@ -31,7 +31,6 @@ toolchain {
   supports_interface_shared_objects: false
   supports_normalizing_ar: false
   supports_start_end_lib: false
-  supports_thin_archives: false
   target_libc: "armeabi-v7a"
   target_cpu: "armeabi-v7a"
   target_system_name: "armeabi-v7a"
@@ -118,7 +117,6 @@ toolchain {
     path: "wrapper/bin/msvc_nop.bat"
   }
   supports_gold_linker: false
-  supports_thin_archives: false
   supports_start_end_lib: false
   supports_interface_shared_objects: false
   supports_incremental_linker: false

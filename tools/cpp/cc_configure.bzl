@@ -214,7 +214,6 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
       "supports_start_end_lib": False,
-      "supports_thin_archives": False,
       "target_libc": "macosx" if darwin else "local",
       "target_cpu": cpu_value,
       "target_system_name": "local",

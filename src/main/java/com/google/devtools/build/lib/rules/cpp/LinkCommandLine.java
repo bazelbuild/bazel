@@ -433,8 +433,7 @@ public final class LinkCommandLine extends CommandLine {
         // The static library link command follows this template:
         // ar <cmd> <output_archive> <input_files...>
         argv.add(cppConfiguration.getArExecutable().getPathString());
-        argv.addAll(
-            cppConfiguration.getArFlags(cppConfiguration.archiveType() == Link.ArchiveType.THIN));
+        argv.addAll(cppConfiguration.getArFlags());
         argv.add(output.getExecPathString());
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         argv.addAll(noWholeArchiveFlags);
