@@ -326,7 +326,10 @@ java_library(
 
 genrule(
     name = "stored_jar",
-    srcs = ["output_jar.cc"],
+    srcs = [
+        "output_jar.cc",
+        "//tools/defaults:jdk",
+    ],
     outs = ["stored.jar"],
     cmd = "$(location //external:jar) -0cf \"$@\" $(location :output_jar.cc)",
     tools = ["//external:jar"],
