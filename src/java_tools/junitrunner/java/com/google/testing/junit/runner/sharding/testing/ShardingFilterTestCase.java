@@ -14,16 +14,15 @@
 
 package com.google.testing.junit.runner.sharding.testing;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ListMultimap;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import junit.framework.TestCase;
 import org.junit.Test;
@@ -75,18 +74,16 @@ public abstract class ShardingFilterTestCase extends TestCase {
   }
 
   public final void testShardingIsCompleteAndPartitioned_duplicateDescriptions() {
-    ImmutableList<Description> descriptions = ImmutableList.<Description>builder()
-        .addAll(createGenericTestCaseDescriptions(6))
-        .addAll(createGenericTestCaseDescriptions(6))
-        .build();
+    List<Description> descriptions = new ArrayList<>();
+    descriptions.addAll(createGenericTestCaseDescriptions(6));
+    descriptions.addAll(createGenericTestCaseDescriptions(6));
     assertShardingIsCompleteAndPartitioned(createFilters(descriptions, 7), descriptions);
   }
 
   public final void testShardingIsStable_duplicateDescriptions() {
-    ImmutableList<Description> descriptions = ImmutableList.<Description>builder()
-        .addAll(createGenericTestCaseDescriptions(6))
-        .addAll(createGenericTestCaseDescriptions(6))
-        .build();
+    List<Description> descriptions = new ArrayList<>();
+    descriptions.addAll(createGenericTestCaseDescriptions(6));
+    descriptions.addAll(createGenericTestCaseDescriptions(6));
     assertShardingIsStable(createFilters(descriptions, 7), descriptions);
   }
 
@@ -102,20 +99,20 @@ public abstract class ShardingFilterTestCase extends TestCase {
    * @param numDescriptions the number of generic test descriptions to add to the list.
    */
   public static List<Description> createGenericTestCaseDescriptions(int numDescriptions) {
-    ImmutableList.Builder<Description> builder = ImmutableList.builder();
+    List<Description> descriptions = new ArrayList<>();
     for (int i = 0; i < numDescriptions; i++) {
-      builder.add(Description.createTestDescription(Test.class, "test" + i));
+      descriptions.add(Description.createTestDescription(Test.class, "test" + i));
     }
-    return builder.build();
+    return descriptions;
   }
 
   protected static final List<Filter> createFilters(List<Description> descriptions, int numShards,
       ShardingFilterFactory factory) {
-    ImmutableList.Builder<Filter> builder = ImmutableList.builder();
+    List<Filter> filters = new ArrayList<>();
     for (int shardIndex = 0; shardIndex < numShards; shardIndex++) {
-      builder.add(factory.createFilter(descriptions, shardIndex, numShards));
+      filters.add(factory.createFilter(descriptions, shardIndex, numShards));
     }
-    return builder.build();
+    return filters;
   }
 
   protected final List<Filter> createFilters(List<Description> descriptions, int numShards) {
@@ -137,13 +134,13 @@ public abstract class ShardingFilterTestCase extends TestCase {
    * @return a mapping from each filter to the descriptions of the tests that would be run
    *   by the shard associated with that filter.
    */
-  protected static ListMultimap<Filter, Description> simulateTestRun(List<Filter> filters,
+  protected static Map<Filter, List<Description>> simulateTestRun(List<Filter> filters,
       List<Description> descriptions) {
-    ListMultimap<Filter, Description> descriptionsRun = ArrayListMultimap.create();
+    Map<Filter, List<Description>> descriptionsRun = new HashMap<>();
     for (Filter filter : filters) {
       for (Description description : descriptions) {
         if (filter.shouldRun(description)) {
-          descriptionsRun.put(filter, description);
+          addDescriptionForFilterToMap(descriptionsRun, filter, description);
         }
       }
     }
@@ -159,20 +156,20 @@ public abstract class ShardingFilterTestCase extends TestCase {
    * @return a mapping from each filter to the descriptions of the tests that would be run
    *   by the shard associated with that filter.
    */
-  protected static ListMultimap<Filter, Description> simulateSelfRandomizingTestRun(
+  protected static Map<Filter, List<Description>> simulateSelfRandomizingTestRun(
       List<Filter> filters, List<Description> descriptions) {
     if (descriptions.isEmpty()) {
-      return ArrayListMultimap.create();
+      return new HashMap<>();
     }
     Deque<Description> mutatingDescriptions = new LinkedList<>(descriptions);
-    ListMultimap<Filter, Description> descriptionsRun = ArrayListMultimap.create();
+    Map<Filter, List<Description>> descriptionsRun = new HashMap<>();
 
     for (Filter filter : filters) {
       // rotate the queue so that each filter gets the descriptions in a different order
       mutatingDescriptions.addLast(mutatingDescriptions.pollFirst());
       for (Description description : descriptions) {
         if (filter.shouldRun(description)) {
-          descriptionsRun.put(filter, description);
+          addDescriptionForFilterToMap(descriptionsRun, filter, description);
         }
       }
     }
@@ -197,13 +194,12 @@ public abstract class ShardingFilterTestCase extends TestCase {
    */
   protected static void assertShardingIsCompleteAndPartitioned(List<Filter> filters,
       List<Description> descriptions) {
-    ListMultimap<Filter, Description> run = simulateTestRun(filters, descriptions);
-    assertThatCollectionContainsExactlyElementsInList(run.values(), descriptions);
+    Map<Filter, List<Description>> run = simulateTestRun(filters, descriptions);
+    assertThatCollectionContainsExactlyElementsInList(getAllValuesInMap(run), descriptions);
 
-    simulateSelfRandomizingTestRun(filters, descriptions);
-    assertThatCollectionContainsExactlyElementsInList(run.values(), descriptions);
+    run = simulateSelfRandomizingTestRun(filters, descriptions);
+    assertThatCollectionContainsExactlyElementsInList(getAllValuesInMap(run), descriptions);
   }
-
   /**
    * Tests that sharding is stable for the given filters, regardless of the
    * ordering of the descriptions.  This is useful for verifying that sharding
@@ -212,15 +208,33 @@ public abstract class ShardingFilterTestCase extends TestCase {
    */
   protected static void assertShardingIsStable(
       List<Filter> filters, List<Description> descriptions) {
-    ListMultimap<Filter, Description> run1 = simulateTestRun(filters, descriptions);
-    ListMultimap<Filter, Description> run2 = simulateTestRun(filters, descriptions);
+    Map<Filter, List<Description>> run1 = simulateTestRun(filters, descriptions);
+    Map<Filter, List<Description>> run2 = simulateTestRun(filters, descriptions);
     assertEquals(run1, run2);
 
-    ListMultimap<Filter, Description> randomizedRun1 =
+    Map<Filter, List<Description>> randomizedRun1 =
         simulateSelfRandomizingTestRun(filters, descriptions);
-    ListMultimap<Filter, Description> randomizedRun2 =
+    Map<Filter, List<Description>> randomizedRun2 =
         simulateSelfRandomizingTestRun(filters, descriptions);
     assertEquals(randomizedRun1, randomizedRun2);
+  }
+
+  private static void addDescriptionForFilterToMap(
+      Map<Filter, List<Description>> descriptionsRun, Filter filter, Description description) {
+    List<Description> descriptions = descriptionsRun.get(filter);
+    if (descriptions == null) {
+      descriptions = new ArrayList<>();
+      descriptionsRun.put(filter, descriptions);
+    }
+    descriptions.add(description);
+  }
+
+  private static Collection<Description> getAllValuesInMap(Map<Filter, List<Description>> map) {
+    Collection<Description> allDescriptions = new ArrayList<>();
+    for (List<Description> descriptions : map.values()) {
+      allDescriptions.addAll(descriptions);
+    }
+    return allDescriptions;
   }
 
   /**
