@@ -909,7 +909,8 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for {@code objc_*} rules that create a bundle.
+   * Common attributes for {@code objc_*} rules that create a bundle. Specifically, for rules
+   * which use the {@link Bundling} helper class.
    */
   public static class BundlingRule implements RuleDefinition {
     static final String INFOPLIST_ATTR = "infoplist";
@@ -981,11 +982,6 @@ public class ObjcRuleClasses {
                   .cfg(HOST)
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:momcwrapper")))
-          .add(
-              attr("$swiftstdlibtoolwrapper", LABEL)
-                  .cfg(HOST)
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:swiftstdlibtoolwrapper")))
           .build();
     }
 
@@ -1185,7 +1181,8 @@ public class ObjcRuleClasses {
 
   /**
    * Common attributes for rules that require tools to create a bundle meant for
-   * release (e.g. application or extension).
+   * release (e.g. application or extension). Specifically, for rules which use the
+   * {@link ReleaseBundlingSupport} helper class.
    */
   public static class ReleaseBundlingToolsRule implements RuleDefinition {
     @Override
@@ -1201,6 +1198,11 @@ public class ObjcRuleClasses {
                   .cfg(HOST)
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:environment_plist")))
+          .add(
+              attr("$swiftstdlibtoolwrapper", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/objc:swiftstdlibtoolwrapper")))
           .build();
     }
     @Override
