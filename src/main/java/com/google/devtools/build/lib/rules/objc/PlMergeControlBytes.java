@@ -23,11 +23,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos.Control;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -65,7 +63,7 @@ public final class PlMergeControlBytes extends ByteSource {
         bundling.getPrimaryBundleId(),
         bundling.getFallbackBundleId(),
         bundling.variableSubstitutions(),
-        bundling.getName(),
+        bundling.getExecutableName(),
         mergedPlist,
         OutputFormat.BINARY);
   }

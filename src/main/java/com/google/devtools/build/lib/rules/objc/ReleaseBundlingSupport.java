@@ -768,6 +768,7 @@ public final class ReleaseBundlingSupport {
     Bundling.Builder bundling =
         new Builder()
             .setName(bundleName)
+            .setExecutableName(bundleName)
             // Architecture that determines which nested bundles are kept.
             .setArchitecture(appleConfiguration.getDependencySingleArchitecture())
             .setBundleDirFormat(bundleDirFormat)
