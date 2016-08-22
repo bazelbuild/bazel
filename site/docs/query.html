@@ -1593,15 +1593,11 @@ maxrank
 </p>
 
 <p>
-  The location information varies by target kind (see the <a
-  href='#kind'>kind</a> operator).  For rules, the
-  location of the rule's declaration within the BUILD file is printed.
-  For source files, the location of line 1 of the actual file is
-  printed.  For a generated file, the location of the rule that
-  generates it is printed.  (The query tool does not have sufficient
-  information to find the actual location of the generated file, and
-  in any case, it might not exist if a build has not yet been
-  performed.)
+The location printed is the place in the BUILD file where the target is defined.
+For rules, this is the first line of the definition of the rule in the BUILD
+file, for output files, the first line of the definition of the rule that
+outputs the file and for input files, the first line of the definition of a
+rule that references this input file.
 </p>
 
 <h3 id="output-package">Print the set of packages</h3>
