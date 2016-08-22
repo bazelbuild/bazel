@@ -117,6 +117,13 @@ public class AndroidResourceProcessingAction {
         help = "Path to where the symbolsTxt should be written.")
     public Path symbolsTxtOut;
 
+    @Option(name = "dataBindingInfoOut",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        help = "Path to where data binding's layout info output should be written.")
+    public Path dataBindingInfoOut;
+
     @Option(name = "packagePath",
         defaultValue = "null",
         converter = PathConverter.class,
@@ -306,7 +313,8 @@ public class AndroidResourceProcessingAction {
           options.mainDexProguardOutput,
           options.resourcesOutput != null
               ? processedData.getResourceDir().resolve("values").resolve("public.xml")
-              : null);
+              : null,
+          options.dataBindingInfoOut);
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       if (options.srcJarOutput != null) {

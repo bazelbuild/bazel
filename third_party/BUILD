@@ -8,6 +8,7 @@ filegroup(
         "//third_party/ijar:srcs",
         "//third_party/iossim:srcs",
         "//third_party/grpc:srcs",
+        "//third_party/java/android_databinding:srcs",
         "//third_party/java/apkbuilder:srcs",
         "//third_party/java/buck-ios-support:srcs",
         "//third_party/java/dd_plist:srcs",

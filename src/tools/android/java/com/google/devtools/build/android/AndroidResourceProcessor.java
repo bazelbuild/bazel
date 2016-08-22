@@ -15,7 +15,10 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import android.databinding.AndroidDataBinding;
+import android.databinding.cli.ProcessXmlOptions;
 import com.android.annotations.Nullable;
+import com.android.builder.core.DefaultManifestParser;
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.dependency.SymbolFileProvider;
 import com.android.builder.internal.SymbolLoader;
@@ -414,10 +417,13 @@ public class AndroidResourceProcessor {
       Path packageOut,
       Path proguardOut,
       Path mainDexProguardOut,
-      Path publicResourcesOut)
+      Path publicResourcesOut,
+      Path dataBindingInfoOut)
       throws IOException, InterruptedException, LoggedErrorException, UnrecognizedSplitsException {
     Path androidManifest = primaryData.getManifest();
-    final Path resourceDir = primaryData.getResourceDir();
+    final Path resourceDir = processDataBindings(primaryData.getResourceDir(), dataBindingInfoOut,
+        variantType, customPackageForR, androidManifest);
+
     final Path assetsDir = primaryData.getAssetDir();
     if (publicResourcesOut != null) {
       prepareOutputPath(publicResourcesOut.getParent());
@@ -540,6 +546,62 @@ public class AndroidResourceProcessor {
       }
     }
     return outputWithSourceContext;
+  }
+
+  /**
+   * If resources exist and a data binding layout info file is requested: processes data binding
+   * declarations over those resources, populates the output file, and creates a new resources
+   * directory with data binding expressions stripped out (so aapt, which doesn't understand
+   * data binding, can properly read them).
+   *
+   * <p>Returns the resources directory that aapt should read.
+   */
+  private Path processDataBindings(Path resourceDir, Path dataBindingInfoOut,
+      VariantConfiguration.Type variantType, String packagePath, Path androidManifest)
+      throws IOException {
+
+    if (dataBindingInfoOut == null) {
+      return resourceDir;
+    } else if (!Files.isDirectory(resourceDir)) {
+      // No resources: no data binding needed. Create a dummy file to satisfy declared outputs.
+      Files.createFile(dataBindingInfoOut);
+      return resourceDir;
+    }
+
+    // Strip the file name (the data binding library automatically adds it back in).
+    // ** The data binding library assumes this file is called "layout-info.zip". **
+    dataBindingInfoOut = dataBindingInfoOut.getParent();
+    if (Files.notExists(dataBindingInfoOut)) {
+      Files.createDirectory(dataBindingInfoOut);
+    }
+
+    Path processedResourceDir = resourceDir.resolveSibling("res_without_databindings");
+    if (Files.notExists(processedResourceDir)) {
+      Files.createDirectory(processedResourceDir);
+    }
+
+    ProcessXmlOptions options = new ProcessXmlOptions();
+    options.setAppId(packagePath);
+    options.setLibrary(variantType == VariantConfiguration.Type.LIBRARY);
+    options.setResInput(resourceDir.toFile());
+    options.setResOutput(processedResourceDir.toFile());
+    options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
+    options.setZipLayoutInfo(true); // Aggregate data-bound .xml files into a single .zip.
+
+    Object minSdk = new DefaultManifestParser().getMinSdkVersion(androidManifest.toFile());
+    if (minSdk instanceof Integer) {
+      options.setMinSdk(((Integer) minSdk).intValue());
+    } else {
+      // TODO(bazel-team): Enforce the minimum SDK check.
+      options.setMinSdk(15);
+    }
+
+    try {
+      AndroidDataBinding.doRun(options);
+    } catch (Throwable t) {
+      throw new RuntimeException(t);
+    }
+    return processedResourceDir;
   }
 
   /** Task to parse java package from AndroidManifest.xml */
