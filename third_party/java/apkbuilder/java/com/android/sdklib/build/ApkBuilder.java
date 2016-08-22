@@ -85,6 +85,7 @@ public final class ApkBuilder implements IArchiveBuilder {
      * resources, and also record whether the zip file contains native libraries.
      * <p/>Used in {@link SignedJarBuilder#writeZip(java.io.InputStream, IZipEntryFilter)} when
      * we only want the java resources from external jars.
+     *
      */
     private final class JavaAndNativeResourceFilter implements IZipEntryFilter {
         private final List<String> mNativeLibs = new ArrayList<String>();
@@ -987,19 +988,21 @@ public final class ApkBuilder implements IArchiveBuilder {
             return false;
         }
 
-        return !"aidl".equalsIgnoreCase(extension) &&           // Aidl files
-                !"rs".equalsIgnoreCase(extension) &&            // RenderScript files
-                !"fs".equalsIgnoreCase(extension) &&            // FilterScript files
-                !"rsh".equalsIgnoreCase(extension) &&           // RenderScript header files
-                !"d".equalsIgnoreCase(extension) &&             // Dependency files
-                !"java".equalsIgnoreCase(extension) &&          // Java files
-                !"scala".equalsIgnoreCase(extension) &&         // Scala files
-                !"class".equalsIgnoreCase(extension) &&         // Java class files
-                !"scc".equalsIgnoreCase(extension) &&           // VisualSourceSafe
-                !"swp".equalsIgnoreCase(extension) &&           // vi swap file
-                !"thumbs.db".equalsIgnoreCase(fileName) &&      // image index file
-                !"picasa.ini".equalsIgnoreCase(fileName) &&     // image index file
-                !"package.html".equalsIgnoreCase(fileName) &&   // Javadoc
-                !"overview.html".equalsIgnoreCase(fileName);    // Javadoc
+        return !"aidl".equalsIgnoreCase(extension) &&             // Aidl files
+                !"rs".equalsIgnoreCase(extension) &&              // RenderScript files
+                !"fs".equalsIgnoreCase(extension) &&              // FilterScript files
+                !"rsh".equalsIgnoreCase(extension) &&             // RenderScript header files
+                !"d".equalsIgnoreCase(extension) &&               // Dependency files
+                !"java".equalsIgnoreCase(extension) &&            // Java files
+                !"scala".equalsIgnoreCase(extension) &&           // Scala files
+                !"class".equalsIgnoreCase(extension) &&           // Java class files
+                !"scc".equalsIgnoreCase(extension) &&             // VisualSourceSafe
+                !"swp".equalsIgnoreCase(extension) &&             // vi swap file
+                !"thumbs.db".equalsIgnoreCase(fileName) &&        // image index file
+                !"picasa.ini".equalsIgnoreCase(fileName) &&       // image index file
+                !"package.html".equalsIgnoreCase(fileName) &&     // Javadoc
+                !"overview.html".equalsIgnoreCase(fileName) &&    // Javadoc
+                !"protobuf.meta".equalsIgnoreCase(fileName) &&    // protobuf.meta
+                !"flags.xml".equalsIgnoreCase(fileName);          // flags.xml
     }
 }
