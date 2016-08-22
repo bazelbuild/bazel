@@ -14,9 +14,12 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -112,7 +115,7 @@ public class GlobCacheTest {
 
   @Test
   public void testSafeGlob() throws Exception {
-    List<Path> paths = cache.safeGlobUnsorted("*.js", false).get();
+    List<Path> paths = cache.safeGlob("*.js", false).get();
     assertPathsAre(paths,
         "/workspace/isolated/first.js", "/workspace/isolated/second.js");
   }
@@ -122,7 +125,7 @@ public class GlobCacheTest {
     for (String pattern : new String[] {
         "Foo?.txt", "List{Test}.py", "List(Test).py" }) {
       try {
-        cache.safeGlobUnsorted(pattern, false);
+        cache.safeGlob(pattern, false);
         fail("Expected pattern " + pattern + " to fail");
       } catch (BadGlobException expected) {
       }
@@ -131,13 +134,13 @@ public class GlobCacheTest {
 
   @Test
   public void testGetGlob() throws Exception {
-    List<String> glob = cache.getGlobUnsorted("*.js");
+    List<String> glob = cache.getGlob("*.js");
     assertThat(glob).containsExactly("first.js", "second.js");
   }
 
   @Test
   public void testGetGlob_subdirectory() throws Exception {
-    List<String> glob = cache.getGlobUnsorted("foo/*.js");
+    List<String> glob = cache.getGlob("foo/*.js");
     assertThat(glob).containsExactly("foo/first.js", "foo/second.js");
   }
 
@@ -145,108 +148,148 @@ public class GlobCacheTest {
   public void testGetKeySet() throws Exception {
     assertThat(cache.getKeySet()).isEmpty();
 
-    cache.getGlobUnsorted("*.java");
+    cache.getGlob("*.java");
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false));
 
-    cache.getGlobUnsorted("*.java");
+    cache.getGlob("*.java");
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false));
 
-    cache.getGlobUnsorted("*.js");
+    cache.getGlob("*.js");
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false));
 
-    cache.getGlobUnsorted("*.java", true);
+    cache.getGlob("*.java", true);
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false),
         Pair.of("*.java", true));
 
     try {
-      cache.getGlobUnsorted("invalid?");
+      cache.getGlob("invalid?");
       fail("Expected an invalid regex exception");
     } catch (BadGlobException expected) {
     }
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.js", false),
         Pair.of("*.java", true));
 
-    cache.getGlobUnsorted("foo/first.*");
+    cache.getGlob("foo/first.*");
     assertThat(cache.getKeySet()).containsExactly(Pair.of("*.java", false), Pair.of("*.java", true),
         Pair.of("*.js", false), Pair.of("foo/first.*", false));
   }
 
   @Test
   public void testGlob() throws Exception {
-    assertEmpty(cache.globUnsorted(list("*.java"), NONE, false));
+    assertEmpty(cache.glob(list("*.java"), NONE, false));
 
-    assertThat(cache.globUnsorted(list("*.*"), NONE, false)).containsExactly(
-        "first.js", "first.txt", "second.js", "second.txt");
+    assertThat(cache.glob(list("*.*"), NONE, false)).containsExactly("first.js", "first.txt",
+        "second.js", "second.txt").inOrder();
 
-    assertThat(cache.globUnsorted(list("*.*"), list("first.js"), false)).containsExactly(
-        "first.txt", "second.js", "second.txt");
+    assertThat(cache.glob(list("*.*"), list("first.js"), false)).containsExactly("first.txt",
+        "second.js", "second.txt").inOrder();
 
-    assertThat(cache.globUnsorted(list("*.txt", "first.*"), NONE, false)).containsExactly(
-        "first.txt", "second.txt", "first.js");
+    assertThat(cache.glob(list("*.txt", "first.*"), NONE, false)).containsExactly("first.txt",
+        "second.txt", "first.js").inOrder();
+  }
+
+  @Test
+  public void testSetGlobPaths() throws Exception {
+    // This pattern matches no files.
+    String pattern = "fake*.java";
+    assertThat(cache.getKeySet()).doesNotContain(pattern);
+
+    List<String> results = cache.getGlob(pattern, false);
+
+    assertThat(cache.getKeySet()).contains(Pair.of(pattern, false));
+    assertThat(results).isEmpty();
+
+    cache.setGlobPaths(pattern, false, Futures.<List<Path>>immediateFuture(Lists.newArrayList(
+        scratch.resolve("isolated/fake.txt"),
+        scratch.resolve("isolated/fake.py"))));
+
+    assertThat(cache.getGlob(pattern, false)).containsExactly("fake.py", "fake.txt");
+  }
+
+  @Test
+  public void testGlobsUpToDate() throws Exception {
+    assertTrue(cache.globsUpToDate());
+
+    // Initialize the cache
+    cache.getGlob("*.txt");
+    assertTrue(cache.globsUpToDate());
+
+    cache.getGlob("*.js");
+    assertTrue(cache.globsUpToDate());
+
+    // Change the filesystem
+    scratch.file("isolated/third.txt",
+        "# this is third.txt");
+    assertFalse(cache.globsUpToDate());
+
+    // Fool the cache to observe the method's behavior.
+    cache.setGlobPaths("*.txt", false, Futures.<List<Path>>immediateFuture(Lists.newArrayList(
+        scratch.resolve("isolated/first.txt"),
+        scratch.resolve("isolated/second.txt"),
+        scratch.resolve("isolated/third.txt"))));
+    assertTrue(cache.globsUpToDate());
   }
 
   @Test
   public void testRecursiveGlobDoesNotMatchSubpackage() throws Exception {
-    List<String> glob = cache.getGlobUnsorted("**/*.js");
+    List<String> glob = cache.getGlob("**/*.js");
     assertThat(glob).containsExactly("first.js", "second.js", "foo/first.js", "bar/first.js",
         "foo/second.js", "bar/second.js");
   }
 
   @Test
   public void testSingleFileExclude_Star() throws Exception {
-    assertThat(cache.globUnsorted(list("*"), list("first.txt"), false)).containsExactly(
-        "BUILD", "bar", "first.js", "foo", "second.js", "second.txt");
+    assertThat(cache.glob(list("*"), list("first.txt"), false)).containsExactly(
+        "BUILD", "bar", "first.js", "foo", "second.js", "second.txt").inOrder();
   }
 
   @Test
   public void testSingleFileExclude_StarStar() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("first.txt"), false)).containsExactly(
+    assertThat(cache.glob(list("**"), list("first.txt"), false)).containsExactly(
         "BUILD", "bar", "bar/first.js", "bar/second.js", "first.js", "foo", "foo/first.js",
-        "foo/second.js", "second.js", "second.txt");
+        "foo/second.js", "second.js", "second.txt").inOrder();
   }
 
   @Test
   public void testExcludeAll_Star() throws Exception {
-    assertThat(cache.globUnsorted(list("*"), list("*"), false)).isEmpty();
+    assertThat(cache.glob(list("*"), list("*"), false)).isEmpty();
   }
 
   @Test
   public void testExcludeAll_Star_NoMatchesAnyway() throws Exception {
-    assertThat(cache.globUnsorted(list("nope"), list("*"), false)).isEmpty();
+    assertThat(cache.glob(list("nope"), list("*"), false)).isEmpty();
   }
 
   @Test
   public void testExcludeAll_StarStar() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("**"), false)).isEmpty();
+    assertThat(cache.glob(list("**"), list("**"), false)).isEmpty();
   }
 
   @Test
   public void testExcludeAll_Manual() throws Exception {
-    assertThat(cache.globUnsorted(list("**"), list("*", "*/*", "*/*/*"), false)).isEmpty();
+    assertThat(cache.glob(list("**"), list("*", "*/*", "*/*/*"), false)).isEmpty();
   }
 
   @Test
   public void testSingleFileExcludeDoesntMatch() throws Exception {
-    assertThat(cache.globUnsorted(list("first.txt"), list("nope.txt"), false)).containsExactly(
-        "first.txt");
+    assertThat(cache.glob(list("first.txt"), list("nope.txt"), false)).containsExactly("first.txt");
   }
 
   @Test
   public void testExcludeDirectory() throws Exception {
-    assertThat(cache.globUnsorted(list("foo/*"), NONE, true)).containsExactly(
+    assertThat(cache.glob(list("foo/*"), NONE, true)).containsExactly(
         "foo/first.js", "foo/second.js");
-    assertThat(cache.globUnsorted(list("foo/*"), list("foo"), false)).containsExactly(
+    assertThat(cache.glob(list("foo/*"), list("foo"), false)).containsExactly(
         "foo/first.js", "foo/second.js");
   }
 
   @Test
   public void testChildGlobWithChildExclude() throws Exception {
-    assertThat(cache.globUnsorted(list("foo/*"), list("foo/*"), false)).isEmpty();
-    assertThat(
-        cache.globUnsorted(list("foo/first.js", "foo/second.js"), list("foo/*"), false)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("foo/first.js"), false)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/first.js"), false)).isEmpty();
-    assertThat(cache.globUnsorted(list("foo/first.js"), list("*/*"), false)).isEmpty();
+    assertThat(cache.glob(list("foo/*"), list("foo/*"), false)).isEmpty();
+    assertThat(cache.glob(list("foo/first.js", "foo/second.js"), list("foo/*"), false)).isEmpty();
+    assertThat(cache.glob(list("foo/first.js"), list("foo/first.js"), false)).isEmpty();
+    assertThat(cache.glob(list("foo/first.js"), list("*/first.js"), false)).isEmpty();
+    assertThat(cache.glob(list("foo/first.js"), list("*/*"), false)).isEmpty();
   }
 
   private void assertEmpty(Collection<?> glob) {

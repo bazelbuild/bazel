@@ -25,7 +25,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -71,7 +69,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -154,10 +151,10 @@ public class PackageFunction implements SkyFunction {
     private final T value;
     private final Set<SkyKey> globDepKeys;
     @Nullable
-    private final LegacyGlobber legacyGlobber;
+    private final Globber legacyGlobber;
 
     private CacheEntryWithGlobDeps(T value, Set<SkyKey> globDepKeys,
-        @Nullable LegacyGlobber legacyGlobber) {
+        @Nullable Globber legacyGlobber) {
       this.value = value;
       this.globDepKeys = globDepKeys;
       this.legacyGlobber = legacyGlobber;
@@ -902,15 +899,15 @@ public class PackageFunction implements SkyFunction {
     private final PackageIdentifier packageId;
     private final Path packageRoot;
     private final Environment env;
-    private final LegacyGlobber legacyGlobber;
+    private final Globber delegate;
     private final Set<SkyKey> globDepsRequested = Sets.newConcurrentHashSet();
 
     private SkyframeHybridGlobber(PackageIdentifier packageId, Path packageRoot, Environment env,
-        LegacyGlobber legacyGlobber) {
+        Globber delegate) {
       this.packageId = packageId;
       this.packageRoot = packageRoot;
       this.env = env;
-      this.legacyGlobber = legacyGlobber;
+      this.delegate = delegate;
     }
 
     private Set<SkyKey> getGlobDepsRequested() {
@@ -975,15 +972,15 @@ public class PackageFunction implements SkyFunction {
           excludesKeys.remove(missingKey);
         }
       }
-      Token legacyIncludesToken =
-          legacyGlobber.runAsync(includesToDelegate, ImmutableList.<String>of(), excludeDirs);
+      Token delegateIncludesToken =
+          delegate.runAsync(includesToDelegate, ImmutableList.<String>of(), excludeDirs);
       // See the HybridToken class-comment for why we pass excludesToDelegate as the includes
       // parameter here.
-      Token legacyExcludesToken =
-          legacyGlobber.runAsync(excludesToDelegate, ImmutableList.<String>of(), excludeDirs);
+      Token delegateExcludesToken =
+          delegate.runAsync(excludesToDelegate, ImmutableList.<String>of(), excludeDirs);
 
       return new HybridToken(globValueMap, includesKeys, excludesKeys,
-          legacyIncludesToken, legacyExcludesToken);
+          delegateIncludesToken, delegateExcludesToken);
     }
 
     private Collection<SkyKey> getMissingKeys(Collection<SkyKey> globKeys,
@@ -1011,17 +1008,17 @@ public class PackageFunction implements SkyFunction {
     @Override
     public List<String> fetch(Token token) throws IOException, InterruptedException {
       HybridToken hybridToken = (HybridToken) token;
-      return hybridToken.resolve(legacyGlobber);
+      return hybridToken.resolve(delegate);
     }
 
     @Override
     public void onInterrupt() {
-      legacyGlobber.onInterrupt();
+      delegate.onInterrupt();
     }
 
     @Override
     public void onCompletion() {
-      legacyGlobber.onCompletion();
+      delegate.onCompletion();
     }
 
     /**
@@ -1065,9 +1062,9 @@ public class PackageFunction implements SkyFunction {
       // (this is excludes_sky above).
       private final Iterable<SkyKey> excludesGlobKeys;
       // A token for computing includes_leg.
-      private final Token legacyIncludesToken;
+      private final Token delegateIncludesToken;
       // A token for computing excludes_leg.
-      private final Token legacyExcludesToken;
+      private final Token delegateExcludesToken;
 
       private HybridToken(Map<SkyKey, ValueOrException4<IOException, BuildFileNotFoundException,
           FileSymlinkCycleException, InconsistentFilesystemException>> globValueMap,
@@ -1076,35 +1073,42 @@ public class PackageFunction implements SkyFunction {
         this.globValueMap = globValueMap;
         this.includesGlobKeys = includesGlobKeys;
         this.excludesGlobKeys = excludesGlobKeys;
-        this.legacyIncludesToken = delegateIncludesToken;
-        this.legacyExcludesToken = delegateExcludesToken;
+        this.delegateIncludesToken = delegateIncludesToken;
+        this.delegateExcludesToken = delegateExcludesToken;
       }
 
       private List<String> resolve(Globber delegate) throws IOException, InterruptedException {
-        HashSet<String> matches = new HashSet<>();
+        LinkedHashSet<String> matches = Sets.newLinkedHashSet();
+        // Skyframe globbing does not sort the list of results alphabetically, while legacy globbing
+        // does. To avoid non-deterministic sorting, we sort the result if it has any skyframe
+        // globs. We must also sort if merging legacy and Skyframe globs, since the end result
+        // should be deterministically ordered.
+        boolean needsSorting = false;
         for (SkyKey includeGlobKey : includesGlobKeys) {
           // TODO(bazel-team): NestedSet expansion here is suboptimal.
           for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap)) {
+            needsSorting = true;
             matches.add(match.getPathString());
           }
         }
-        matches.addAll(delegate.fetch(legacyIncludesToken));
+        matches.addAll(delegate.fetch(delegateIncludesToken));
         for (SkyKey excludeGlobKey : excludesGlobKeys) {
           for (PathFragment match : getGlobMatches(excludeGlobKey, globValueMap)) {
+            needsSorting = true;
             matches.remove(match.getPathString());
           }
         }
-        for (String delegateExcludeMatch : delegate.fetch(legacyExcludesToken)) {
+        for (String delegateExcludeMatch : delegate.fetch(delegateExcludesToken)) {
           matches.remove(delegateExcludeMatch);
         }
         List<String> result = new ArrayList<>(matches);
-        // Skyframe glob results are unsorted. And we used a LegacyGlobber that doesn't sort.
-        // Therefore, we want to unconditionally sort here.
-        Collections.sort(result);
+        if (needsSorting) {
+          Collections.sort(result);
+        }
         return result;
       }
 
-      private static NestedSet<PathFragment> getGlobMatches(
+      private static Iterable<PathFragment> getGlobMatches(
           SkyKey globKey,
           Map<
                   SkyKey,
@@ -1118,6 +1122,7 @@ public class PackageFunction implements SkyFunction {
                 Preconditions.checkNotNull(globValueMap.get(globKey), "%s should not be missing",
                     globKey);
         try {
+          // TODO(bazel-team): NestedSet expansion here is suboptimal.
           return Preconditions.checkNotNull((GlobValue) valueOrException.get(),
               "%s should not be missing", globKey).getMatches();
         } catch (BuildFileNotFoundException | FileSymlinkCycleException
@@ -1168,9 +1173,7 @@ public class PackageFunction implements SkyFunction {
           if (showLoadingProgress.get()) {
             env.getListener().handle(Event.progress("Loading package: " + packageId));
           }
-          // We use a LegacyGlobber that doesn't sort the matches for each individual glob pattern,
-          // since we want to sort the final result anyway.
-          LegacyGlobber legacyGlobber = packageFactory.createLegacyGlobberThatDoesntSort(
+          Globber legacyGlobber = packageFactory.createLegacyGlobber(
               buildFilePath.getParentDirectory(), packageId, packageLocator);
           SkyframeHybridGlobber skyframeGlobber = new SkyframeHybridGlobber(packageId, packageRoot,
               env, legacyGlobber);
@@ -1208,7 +1211,7 @@ public class PackageFunction implements SkyFunction {
           // legacy globber instance during BUILD file evaluation since the performance argument
           // below does not apply.
           Set<SkyKey> globDepsRequested = skyframeGlobber.getGlobDepsRequested();
-          LegacyGlobber legacyGlobberToStore = globDepsRequested.isEmpty() ? null : legacyGlobber;
+          Globber legacyGlobberToStore = globDepsRequested.isEmpty() ? null : legacyGlobber;
           astCacheEntry = new CacheEntryWithGlobDeps<>(
               new AstAfterPreprocessing(preprocessingResult, ast, astParsingEventHandler),
               globDepsRequested, legacyGlobberToStore);
@@ -1234,7 +1237,7 @@ public class PackageFunction implements SkyFunction {
         // If a legacy globber was used to evaluate globs during preprocessing, it's important that
         // we reuse that globber during BUILD file evaluation for performance, in the case that
         // globs were fetched lazily during preprocessing. See Preprocessor.Factory#considersGlobs.
-        LegacyGlobber legacyGlobber = astCacheEntry.legacyGlobber != null
+        Globber legacyGlobber = astCacheEntry.legacyGlobber != null
             ? astCacheEntry.legacyGlobber
             : packageFactory.createLegacyGlobber(
                 buildFilePath.getParentDirectory(), packageId, packageLocator);

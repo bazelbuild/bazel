@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -286,11 +285,9 @@ public final class PackageFactory {
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
     private final GlobCache globCache;
-    private final boolean sort;
 
-    private LegacyGlobber(GlobCache globCache, boolean sort) {
+    public LegacyGlobber(GlobCache globCache) {
       this.globCache = globCache;
-      this.sort = sort;
     }
 
     private static class Token extends Globber.Token {
@@ -309,25 +306,20 @@ public final class PackageFactory {
     public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
         throws BadGlobException {
       for (String pattern : Iterables.concat(includes, excludes)) {
-        globCache.getGlobUnsortedAsync(pattern, excludeDirs);
+        globCache.getGlobAsync(pattern, excludeDirs);
       }
       return new Token(includes, excludes, excludeDirs);
     }
 
     @Override
     public List<String> fetch(Globber.Token token) throws IOException, InterruptedException {
-      List<String> result;
       Token legacyToken = (Token) token;
       try {
-        result = globCache.globUnsorted(legacyToken.includes, legacyToken.excludes,
+        return globCache.glob(legacyToken.includes, legacyToken.excludes,
             legacyToken.excludeDirs);
       } catch (BadGlobException e) {
         throw new IllegalStateException(e);
       }
-      if (sort) {
-        Collections.sort(result);
-      }
-      return result;
     }
 
     @Override
@@ -1436,31 +1428,10 @@ public final class PackageFactory {
     }
   }
 
-  /** Returns a new {@link LegacyGlobber}. */
-  public LegacyGlobber createLegacyGlobber(
-      Path packageDirectory,
-      PackageIdentifier packageId,
-      CachingPackageLocator locator) {
-    return createLegacyGlobber(new GlobCache(packageDirectory, packageId, locator, syscalls,
-        threadPool));
-  }
-
-  /** Returns a new {@link LegacyGlobber}. */
-  public static LegacyGlobber createLegacyGlobber(GlobCache globCache) {
-    return new LegacyGlobber(globCache, /*sort=*/ true);
-  }
-
-  /**
-   * Returns a new {@link LegacyGlobber}, the same as in {@link #createLegacyGlobber}, except that
-   * the implementation of {@link Globber#fetch} intentionally breaks the contract and doesn't
-   * return sorted results.
-   */
-  public LegacyGlobber createLegacyGlobberThatDoesntSort(
-      Path packageDirectory,
-      PackageIdentifier packageId,
+  public LegacyGlobber createLegacyGlobber(Path packageDirectory, PackageIdentifier packageId,
       CachingPackageLocator locator) {
     return new LegacyGlobber(new GlobCache(packageDirectory, packageId, locator, syscalls,
-        threadPool), /*sort=*/ false);
+        threadPool));
   }
 
   @Nullable

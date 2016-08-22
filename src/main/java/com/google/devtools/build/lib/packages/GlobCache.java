@@ -18,6 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -31,7 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,26 +126,26 @@ public class GlobCache {
    * @throws BadGlobException if the glob was syntactically invalid, or
    *  contained uplevel references.
    */
-  Future<List<Path>> getGlobUnsortedAsync(String pattern, boolean excludeDirs)
+  Future<List<Path>> getGlobAsync(String pattern, boolean excludeDirs)
       throws BadGlobException {
     Future<List<Path>> cached = globCache.get(Pair.of(pattern, excludeDirs));
     if (cached == null) {
-      cached = safeGlobUnsorted(pattern, excludeDirs);
+      cached = safeGlob(pattern, excludeDirs);
       setGlobPaths(pattern, excludeDirs, cached);
     }
     return cached;
   }
 
   @VisibleForTesting
-  List<String> getGlobUnsorted(String pattern)
+  List<String> getGlob(String pattern)
       throws IOException, BadGlobException, InterruptedException {
-    return getGlobUnsorted(pattern, false);
+    return getGlob(pattern, false);
   }
 
   @VisibleForTesting
-  protected List<String> getGlobUnsorted(String pattern, boolean excludeDirs)
+  protected List<String> getGlob(String pattern, boolean excludeDirs)
       throws IOException, BadGlobException, InterruptedException {
-    Future<List<Path>> futureResult = getGlobUnsortedAsync(pattern, excludeDirs);
+    Future<List<Path>> futureResult = getGlobAsync(pattern, excludeDirs);
     List<Path> globPaths = fromFuture(futureResult);
     // Replace the UnixGlob.GlobFuture with a completed future object, to allow
     // garbage collection of the GlobFuture and GlobVisitor objects.
@@ -167,8 +168,11 @@ public class GlobCache {
     return result;
   }
 
-  /** Adds glob entries to the cache. */
-  private void setGlobPaths(String pattern, boolean excludeDirectories, Future<List<Path>> result) {
+  /**
+   * Adds glob entries to the cache, making sure they are sorted first.
+   */
+  @VisibleForTesting
+  void setGlobPaths(String pattern, boolean excludeDirectories, Future<List<Path>> result) {
     globCache.put(Pair.of(pattern, excludeDirectories), result);
   }
 
@@ -177,7 +181,7 @@ public class GlobCache {
    * getGlob().
    */
   @VisibleForTesting
-  Future<List<Path>> safeGlobUnsorted(String pattern, boolean excludeDirs) throws BadGlobException {
+  Future<List<Path>> safeGlob(String pattern, boolean excludeDirs) throws BadGlobException {
     // Forbidden patterns:
     if (pattern.indexOf('?') != -1) {
       throw new BadGlobException("glob pattern '" + pattern + "' contains forbidden '?' wildcard");
@@ -213,28 +217,64 @@ public class GlobCache {
   }
 
   /**
-   * Helper for evaluating the build language expression "glob(includes, excludes)" in the
+   * Returns true iff all this package's globs are up-to-date.  That is,
+   * re-evaluating the package's BUILD file at this moment would yield an
+   * equivalent Package instance.  (This call requires filesystem I/O to
+   * re-evaluate the globs.)
+   */
+  public boolean globsUpToDate() throws InterruptedException {
+    // Start all globs in parallel.
+    Map<Pair<String, Boolean>, Future<List<Path>>> newGlobs = new HashMap<>();
+    try {
+      for (Map.Entry<Pair<String, Boolean>, Future<List<Path>>> entry : globCache.entrySet()) {
+        Pair<String, Boolean> key = entry.getKey();
+        try {
+          newGlobs.put(key, safeGlob(key.first, key.second));
+        } catch (BadGlobException e) {
+          return false;
+        }
+      }
+
+      for (Map.Entry<Pair<String, Boolean>, Future<List<Path>>> entry : globCache.entrySet()) {
+        try {
+          Pair<String, Boolean> key = entry.getKey();
+          List<Path> newGlob = fromFuture(newGlobs.get(key));
+          List<Path> oldGlob = fromFuture(entry.getValue());
+          if (!oldGlob.equals(newGlob)) {
+            return false;
+          }
+        } catch (IOException e) {
+          return false;
+        }
+      }
+
+      return true;
+    } finally {
+      finishBackgroundTasks(newGlobs.values());
+    }
+  }
+
+  /**
+   * Evaluate the build language expression "glob(includes, excludes)" in the
    * context of this package.
    *
    * <p>Called by PackageFactory via Package.
    */
-  public List<String> globUnsorted(
-      List<String> includes,
-      List<String> excludes,
-      boolean excludeDirs) throws IOException, BadGlobException, InterruptedException {
+  public List<String> glob(List<String> includes, List<String> excludes, boolean excludeDirs)
+      throws IOException, BadGlobException, InterruptedException {
     // Start globbing all patterns in parallel. The getGlob() calls below will
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
     for (String pattern : Iterables.concat(includes, excludes)) {
-      getGlobUnsortedAsync(pattern, excludeDirs);
+      getGlobAsync(pattern, excludeDirs);
     }
 
-    HashSet<String> results = new HashSet<>();
+    LinkedHashSet<String> results = Sets.newLinkedHashSetWithExpectedSize(includes.size());
     for (String pattern : includes) {
-      results.addAll(getGlobUnsorted(pattern, excludeDirs));
+      results.addAll(getGlob(pattern, excludeDirs));
     }
     for (String pattern : excludes) {
-      for (String excludeMatch : getGlobUnsorted(pattern, excludeDirs)) {
+      for (String excludeMatch : getGlob(pattern, excludeDirs)) {
         results.remove(excludeMatch);
       }
     }

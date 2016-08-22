@@ -23,9 +23,9 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
@@ -55,8 +55,6 @@ import java.util.regex.Pattern;
  *
  * <p><code>**</code> gets special treatment in include patterns. If it is used as a complete path
  * segment it matches the filenames in subdirectories recursively.
- *
- * <p>Importantly, note that the glob matches are in an unspecified order.
  */
 public final class UnixGlob {
   private UnixGlob() {}
@@ -398,7 +396,7 @@ public final class UnixGlob {
     }
 
     /**
-     * Executes the glob and returns the result.
+     * Executes the glob.
      *
      * @throws InterruptedException if the thread is interrupted.
      */
@@ -501,10 +499,9 @@ public final class UnixGlob {
     }
 
     /**
-     * Performs wildcard globbing: returns the list of filenames that match any of
+     * Performs wildcard globbing: returns the sorted list of filenames that match any of
      * {@code patterns} relative to {@code base}. Directories are traversed if and only if they
-     * match {@code dirPred}. The predicate is also called for the root of the traversal. The order
-     * of the returned list is unspecified.
+     * match {@code dirPred}. The predicate is also called for the root of the traversal.
      *
      * <p>Patterns may include "*" and "?", but not "[a-z]".
      *
@@ -533,10 +530,6 @@ public final class UnixGlob {
       return "**".equals(pattern);
     }
 
-    /**
-     * Same as {@link #glob}, except does so asynchronously and returns a {@link Future} for the
-     * result.
-     */
     public Future<List<Path>> globAsync(Path base, Collection<String> patterns,
         boolean excludeDirectories, Predicate<Path> dirPred, FilesystemCalls syscalls) {
 
@@ -642,7 +635,7 @@ public final class UnixGlob {
         } else if (failure.get() != null) {
           result.setException(failure.get());
         } else {
-          result.set(ImmutableList.copyOf(results));
+          result.set(Ordering.<Path>natural().immutableSortedCopy(results));
         }
       }
     }

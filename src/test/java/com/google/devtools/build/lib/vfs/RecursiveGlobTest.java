@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
@@ -28,6 +29,7 @@ import org.junit.runners.JUnit4;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -136,6 +138,20 @@ public class RecursiveGlobTest {
       expectedFiles.add(file);
     }
     return expectedFiles;
+  }
+
+  /**
+   * Tests that a recursive glob returns files in sorted order.
+   */
+  @Test
+  public void testGlobEntriesAreSorted() throws Exception {
+    List<Path> globResult = new UnixGlob.Builder(tmpPath)
+        .addPattern("**")
+        .setExcludeDirectories(false)
+        .globInterruptible();
+
+    assertThat(Ordering.natural().sortedCopy(globResult)).containsExactlyElementsIn(globResult)
+        .inOrder();
   }
 
   @Test

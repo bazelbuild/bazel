@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -274,6 +275,20 @@ public class GlobTest {
                                          String... paths) throws Exception {
     assertThat(resolvePaths(paths)).containsExactlyElementsIn(
         new UnixGlob.Builder(tmpPath).addPatterns(patterns).globInterruptible());
+  }
+
+  /**
+   * Tests that a glob returns files in sorted order.
+   */
+  @Test
+  public void testGlobEntriesAreSorted() throws Exception {
+    Collection<Path> directoryEntries = tmpPath.getDirectoryEntries();
+    List<Path> globResult = new UnixGlob.Builder(tmpPath)
+        .addPattern("*")
+        .setExcludeDirectories(false)
+        .globInterruptible();
+    assertThat(Ordering.natural().sortedCopy(directoryEntries)).containsExactlyElementsIn(
+        globResult).inOrder();
   }
 
   private void assertIllegalPattern(String pattern) throws Exception {

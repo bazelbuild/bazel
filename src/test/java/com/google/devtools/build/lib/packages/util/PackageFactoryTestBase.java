@@ -114,7 +114,7 @@ public abstract class PackageFactoryTestBase {
             PackageFactoryApparatus.createEmptyLocator(),
             null,
             TestUtils.getPool());
-    assertThat(globCache.globUnsorted(include, exclude, false)).containsExactlyElementsIn(expected);
+    assertThat(globCache.glob(include, exclude, false)).containsExactlyElementsIn(expected);
   }
 
   @Before
