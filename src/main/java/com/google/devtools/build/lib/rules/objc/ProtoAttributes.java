@@ -21,9 +21,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -50,6 +52,18 @@ final class ProtoAttributes {
   static final String PORTABLE_PROTO_FILTERS_EMPTY_ERROR =
       "The portable_proto_filters attribute can't be empty";
 
+  @VisibleForTesting
+  static final String OBJC_PROTO_LIB_DEP_IN_PROTOCOL_BUFFERS2_DEPS_ERROR =
+      "Protocol Buffers 2 objc_proto_library targets can't depend on other objc_proto_library "
+          + "targets. Please migrate your Protocol Buffers 2 objc_proto_library targets to use the "
+          + "portable_proto_filters attribute.";
+
+  @VisibleForTesting
+  static final String PROTOCOL_BUFFERS2_IN_PROTOBUF_DEPS_ERROR =
+      "Protobuf objc_proto_library targets can't depend on Protocol Buffers 2 objc_proto_library "
+          + "targets. Please migrate your Protocol Buffers 2 objc_proto_library targets to use the "
+          + "portable_proto_filters attribute.";
+
   private final RuleContext ruleContext;
 
   /**
@@ -73,11 +87,6 @@ final class ProtoAttributes {
    * </ul>
    */
   public void validate() throws RuleErrorException {
-
-    if (getProtoFiles().isEmpty()) {
-      ruleContext.throwWithRuleError(NO_PROTOS_ERROR);
-    }
-
     PrerequisiteArtifacts prerequisiteArtifacts =
         ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET);
     ImmutableList<Artifact> protos = prerequisiteArtifacts.filter(FileType.of(".proto")).list();
@@ -88,6 +97,10 @@ final class ProtoAttributes {
     if (ruleContext
         .attributes()
         .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR)) {
+      if (getProtoFiles().isEmpty() && !hasObjcProtoLibraryDependencies()) {
+        ruleContext.throwWithRuleError(NO_PROTOS_ERROR);
+      }
+
       if (getPortableProtoFilters().isEmpty()) {
         ruleContext.throwWithRuleError(PORTABLE_PROTO_FILTERS_EMPTY_ERROR);
       }
@@ -98,7 +111,15 @@ final class ProtoAttributes {
           || getOptionsFile().isPresent()) {
         ruleContext.throwWithRuleError(PORTABLE_PROTO_FILTERS_NOT_EXCLUSIVE_ERROR);
       }
+      if (hasPB2Dependencies()) {
+        ruleContext.throwWithRuleError(PROTOCOL_BUFFERS2_IN_PROTOBUF_DEPS_ERROR);
+      }
+
     } else {
+      if (getProtoFiles().isEmpty()) {
+        ruleContext.throwWithRuleError(NO_PROTOS_ERROR);
+      }
+
       if (outputsCpp()) {
         ruleContext.ruleWarning(
             "The output_cpp attribute has been deprecated. Please "
@@ -108,6 +129,9 @@ final class ProtoAttributes {
         ruleContext.ruleWarning(
             "As part of the migration process, it is recommended to enable "
                 + "use_objc_header_names. Please refer to b/29368416 for more information.");
+      }
+      if (hasObjcProtoLibraryDependencies()) {
+        ruleContext.throwWithRuleError(OBJC_PROTO_LIB_DEP_IN_PROTOCOL_BUFFERS2_DEPS_ERROR);
       }
     }
   }
@@ -216,5 +240,37 @@ final class ProtoAttributes {
     PrerequisiteArtifacts prerequisiteArtifacts =
         ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET);
     return prerequisiteArtifacts.filter(FileType.of(".proto")).list();
+  }
+
+  private boolean hasPB2Dependencies() {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (isObjcProtoLibrary(dep) && !hasProtobufProvider(dep)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean hasObjcProtoLibraryDependencies() {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (isObjcProtoLibrary(dep)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean isObjcProtoLibrary(TransitiveInfoCollection dependency) {
+    try {
+      AbstractConfiguredTarget target = (AbstractConfiguredTarget) dependency;
+      String targetName = target.getTarget().getTargetKind();
+      return targetName.equals("objc_proto_library rule");
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  private boolean hasProtobufProvider(TransitiveInfoCollection dependency) {
+    return dependency.getProvider(ObjcProtoProvider.class) != null;
   }
 }

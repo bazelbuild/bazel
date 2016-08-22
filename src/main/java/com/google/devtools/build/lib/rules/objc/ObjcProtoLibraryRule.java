@@ -49,6 +49,19 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
 
   static final String XCODE_GEN_ATTR = "$xcodegen";
 
+  private final ObjcProtoAspect objcProtoAspect;
+
+  /**
+   * Returns a newly built rule definition for objc_proto_library.
+   *
+   * @param objcProtoAspect Aspect that traverses the dependency graph through the deps attribute
+   *                        to gather all proto files and portable filters depended by
+   *                        objc_proto_library targets using the new protobuf compiler/library.
+   */
+  public ObjcProtoLibraryRule(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
+
   @Override
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
     return builder
@@ -59,7 +72,8 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         .override(
             attr("deps", LABEL_LIST)
                 // Support for files in deps is for backwards compatibility.
-                .allowedRuleClasses("proto_library", "filegroup")
+                .allowedRuleClasses("proto_library", "filegroup", "objc_proto_library")
+                .aspect(objcProtoAspect)
                 .legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->
         Optional options file to apply to protos which affects compilation (e.g. class
