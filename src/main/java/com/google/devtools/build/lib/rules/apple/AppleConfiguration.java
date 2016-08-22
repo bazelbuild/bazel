@@ -309,6 +309,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * architecture (such as in {@code objc_library}, which registers single-architecture compile
    * actions).
    */
+  @SkylarkCallable(name = "single_arch_platform", doc = "The platform of the current"
+      + " configuration. This should only be invoked in a context where only a single architecture"
+      + " may be supported; consider mutli_arch_platform for other cases.")
   public Platform getSingleArchPlatform() {
     return Platform.forTarget(applePlatformType, getSingleArchitecture());
   }
@@ -321,6 +324,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * Otherwise, this will return a simulator platform.
    */
   // TODO(bazel-team): This should support returning multiple platforms.
+  @SkylarkCallable(name = "multi_arch_platform", doc = "The platform of the current configuration "
+      + "for the given platform type. This should only be invoked in a context where multiple "
+      + "architectures may be supported; consider single_arch_platform for other cases.")
   public Platform getMultiArchPlatform(PlatformType platformType) {
     List<String> architectures = getMultiArchitectures(platformType);
     switch (platformType) {
