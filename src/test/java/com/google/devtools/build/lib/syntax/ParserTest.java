@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
+import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -1086,12 +1087,12 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testValidAbsoluteImportPath() {
+  public void testValidAbsoluteImportPath() throws SkylarkImportSyntaxException {
     String importString = "/some/skylark/file";
     List<Statement> statements =
         parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    SkylarkImport imp = stmt.getImport();
+    SkylarkImport imp = SkylarkImports.create(stmt.getImport());
 
     assertThat(imp.getImportString()).named("getImportString()").isEqualTo("/some/skylark/file");
     assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isTrue();
@@ -1106,11 +1107,11 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   private void validNonAbsoluteImportTest(String importString, String containingFileLabelString,
-      String expectedLabelString) {
+      String expectedLabelString) throws SkylarkImportSyntaxException {
     List<Statement> statements =
         parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    SkylarkImport imp = stmt.getImport();
+    SkylarkImport imp = SkylarkImports.create(stmt.getImport());
 
     assertThat(imp.getImportString()).named("getImportString()").isEqualTo(importString);
     assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
@@ -1159,7 +1160,8 @@ public class ParserTest extends EvaluationTestCase {
     invalidImportTest("\tfile", SkylarkImports.INVALID_FILENAME_PREFIX);
   }
 
-  private void validAbsoluteImportLabelTest(String importString) {
+  private void validAbsoluteImportLabelTest(String importString)
+      throws SkylarkImportSyntaxException {
     validNonAbsoluteImportTest(importString, /*irrelevant*/ "//another/path:BUILD",
         /*expected*/ importString);
   }
@@ -1242,7 +1244,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "load('/foo/bar/file', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    assertEquals("/foo/bar/file", stmt.getImport().getImportString());
+    assertEquals("/foo/bar/file", stmt.getImport());
     assertThat(stmt.getSymbols()).hasSize(1);
     Identifier sym = stmt.getSymbols().get(0);
     int startOffset = sym.getLocation().getStartOffset();
@@ -1256,7 +1258,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "load('/foo/bar/file', 'fun_test',)\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    assertEquals("/foo/bar/file", stmt.getImport().getImportString());
+    assertEquals("/foo/bar/file", stmt.getImport());
     assertThat(stmt.getSymbols()).hasSize(1);
   }
 
@@ -1265,7 +1267,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "load('file', 'foo', 'bar')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    assertEquals("file", stmt.getImport().getImportString());
+    assertEquals("file", stmt.getImport());
     assertThat(stmt.getSymbols()).hasSize(2);
   }
 

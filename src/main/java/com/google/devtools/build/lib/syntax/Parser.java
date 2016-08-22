@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
-import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1060,16 +1059,9 @@ public class Parser {
     }
     expect(TokenKind.RPAREN);
 
-    SkylarkImport imp;
-    try {
-      imp = SkylarkImports.create(importString.getValue());
-      LoadStatement stmt = new LoadStatement(imp, importString.getLocation(), symbols);
-      list.add(setLocation(stmt, start, token.left));
-    } catch (SkylarkImportSyntaxException e) {
-      String msg = "Load statement parameter '" + importString + "' is invalid. "
-          + e.getMessage();
-      reportError(importString.getLocation(), msg);
-    }
+    LoadStatement stmt = new LoadStatement(
+        importString.getValue(), importString.getLocation(), symbols);
+    list.add(setLocation(stmt, start, token.left));
   }
 
   /**

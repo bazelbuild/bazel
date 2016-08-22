@@ -33,7 +33,7 @@ public final class LoadStatement extends Statement {
 
   private final ImmutableMap<Identifier, String> symbols;
   private final ImmutableList<Identifier> cachedSymbols; // to save time
-  private final SkylarkImport imp;
+  private final String imp;
   private final Location importLocation;
 
   /**
@@ -43,7 +43,7 @@ public final class LoadStatement extends Statement {
    * the bzl file that should be loaded. If aliasing is used, the value differs from its key's
    * {@code symbol.getName()}. Otherwise, both values are identical.
    */
-  LoadStatement(SkylarkImport imp, Location importLocation, Map<Identifier, String> symbols) {
+  LoadStatement(String imp, Location importLocation, Map<Identifier, String> symbols) {
     this.imp = imp;
     this.importLocation = importLocation;
     this.symbols = ImmutableMap.copyOf(symbols);
@@ -58,14 +58,14 @@ public final class LoadStatement extends Statement {
     return cachedSymbols;
   }
 
-  public SkylarkImport getImport() {
+  public String getImport() {
     return imp;
   }
 
   @Override
   public String toString() {
     return String.format(
-        "load(\"%s\", %s)", imp.getImportString(), Joiner.on(", ").join(cachedSymbols));
+        "load(\"%s\", %s)", imp, Joiner.on(", ").join(cachedSymbols));
   }
 
   @Override
@@ -81,7 +81,7 @@ public final class LoadStatement extends Statement {
         }
         // The key is the original name that was used to define the symbol
         // in the loaded bzl file.
-        env.importSymbol(imp.getImportString(), name, declared.getName());
+        env.importSymbol(imp, name, declared.getName());
       } catch (Environment.LoadFailedException e) {
         throw new EvalException(getLocation(), e.getMessage());
       }
