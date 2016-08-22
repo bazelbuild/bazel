@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.util.concurrent.Uninterruptibles;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -221,45 +222,30 @@ class Consumers {
 
     @Override
     public void waitForCompletion() throws IOException {
-      boolean wasInterrupted = false;
       try {
-        while (true) {
-          try {
-            future.get();
-            break;
-          } catch (InterruptedException ie) {
-            wasInterrupted = true;
-            // continue waiting
-          } catch (ExecutionException ee) {
-            // Runnable threw a RuntimeException
-            Throwable nested = ee.getCause();
-            if (nested instanceof RuntimeException) {
-              final RuntimeException re = (RuntimeException) nested;
-              // The stream sink classes, unfortunately, tunnel IOExceptions
-              // out of run() in a RuntimeException. If that's the case,
-              // unpack and re-throw the IOException. Otherwise, re-throw
-              // this unexpected RuntimeException
-              final Throwable cause = re.getCause();
-              if (cause instanceof IOException) {
-                throw (IOException) cause;
-              } else {
-                throw re;
-              }
-            } else if (nested instanceof OutOfMemoryError) {
-              // OutOfMemoryError does not support exception chaining.
-              throw (OutOfMemoryError) nested;
-            } else if (nested instanceof Error) {
-              throw new Error("unhandled Error in worker thread", ee);
-            } else {
-              throw new RuntimeException("unknown execution problem", ee);
-            }
+        Uninterruptibles.getUninterruptibly(future);
+      } catch (ExecutionException ee) {
+        // Runnable threw a RuntimeException
+        Throwable nested = ee.getCause();
+        if (nested instanceof RuntimeException) {
+          final RuntimeException re = (RuntimeException) nested;
+          // The stream sink classes, unfortunately, tunnel IOExceptions
+          // out of run() in a RuntimeException. If that's the case,
+          // unpack and re-throw the IOException. Otherwise, re-throw
+          // this unexpected RuntimeException
+          final Throwable cause = re.getCause();
+          if (cause instanceof IOException) {
+            throw (IOException) cause;
+          } else {
+            throw re;
           }
-        }
-      } finally {
-        // Read this for detailed explanation:
-        // http://www.ibm.com/developerworks/java/library/j-jtp05236/
-        if (wasInterrupted) {
-          Thread.currentThread().interrupt(); // preserve interrupted status
+        } else if (nested instanceof OutOfMemoryError) {
+          // OutOfMemoryError does not support exception chaining.
+          throw (OutOfMemoryError) nested;
+        } else if (nested instanceof Error) {
+          throw new Error("unhandled Error in worker thread", ee);
+        } else {
+          throw new RuntimeException("unknown execution problem", ee);
         }
       }
     }
