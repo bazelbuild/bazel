@@ -121,6 +121,25 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Put an entry into a SkylarkList.
+   * @param key the index
+   * @param value the associated value
+   * @param loc a {@link Location} in case of error
+   * @param env an {@link Environment}, to check Mutability
+   * @throws EvalException if the key is invalid
+   */
+  public void set(Object key, E value, Location loc, Environment env) throws EvalException {
+    checkMutable(loc, env);
+    if (!(key instanceof Integer)) {
+      throw new EvalException(loc, "list indices must be integers, not '" + key + '"');
+    }
+    int index = ((Integer) key).intValue();
+    List list = getContentsUnsafe();
+    index = MethodLibrary.getListIndex(index, list.size(), loc);
+    list.set(index, value);
+  }
+
   // Other methods
   @Override
   public void write(Appendable buffer, char quotationMark) {

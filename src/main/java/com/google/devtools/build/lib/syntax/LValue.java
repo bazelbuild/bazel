@@ -84,39 +84,39 @@ public class LValue implements Serializable {
     }
 
     // Support syntax for setting an element in an array, e.g. a[5] = 2
-    // We currently do not allow slices (e.g. a[2:6] = [3]).
+    // TODO: We currently do not allow slices (e.g. a[2:6] = [3]).
     if (lvalue instanceof FuncallExpression) {
       FuncallExpression func = (FuncallExpression) lvalue;
       List<Argument.Passed> args = func.getArguments();
       if (func.getFunction().getName().equals("$index")
-          && func.getObject() instanceof Identifier
           && args.size() == 1) {
         Object key = args.get(0).getValue().eval(env);
-        assignItem(env, loc, (Identifier) func.getObject(), key, result);
+        Object evaluatedObject = func.getObject().eval(env);
+        assignItem(env, loc, evaluatedObject, key, result);
         return;
       }
     }
-
     throw new EvalException(loc,
         "can only assign to variables and tuples, not to '" + lvalue + "'");
   }
 
-  // Since dict is still immutable, the expression 'a[x] = b' creates a new dictionary and
-  // assigns it to 'a'.
   @SuppressWarnings("unchecked")
   private static void assignItem(
-      Environment env, Location loc, Identifier ident, Object key, Object value)
+      Environment env, Location loc, Object o, Object key, Object value)
       throws EvalException, InterruptedException {
-    Object o = ident.eval(env);
-    if (!(o instanceof SkylarkDict)) {
+    if (o instanceof SkylarkDict) {
+      SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) o;
+      dict.put(key, value, loc, env);
+    } else if (o instanceof  SkylarkList) {
+      SkylarkList<Object> list = (SkylarkList<Object>) o;
+      list.set(key, value, loc, env);
+    } else {
       throw new EvalException(
           loc,
-          "can only assign an element in a dictionary, not in a '"
+          "can only assign an element in a dictionary or a list, not in a '"
               + EvalUtils.getDataTypeName(o)
               + "'");
     }
-    SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) o;
-    dict.put(key, value, loc, env);
   }
 
   /**
@@ -158,7 +158,7 @@ public class LValue implements Serializable {
     }
     if (expr instanceof FuncallExpression) {
       FuncallExpression func = (FuncallExpression) expr;
-      if (func.getFunction().getName().equals("$index") && func.getObject() instanceof Identifier) {
+      if (func.getFunction().getName().equals("$index")) {
         return;
       }
     }

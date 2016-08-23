@@ -82,7 +82,7 @@ public class MethodLibrary {
     return str.substring(start, stop);
   }
 
-  private static int getListIndex(int index, int listSize, Location loc)
+  public static int getListIndex(int index, int listSize, Location loc)
       throws ConversionException, EvalException {
     // Get the nth element in the list
     if (index < 0) {

@@ -868,6 +868,36 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testNestedDictAssignmentAsLValue() throws Exception {
+    new SkylarkTest().setUp("def func():",
+        "  d = {'a' : 1}",
+        "  e = {'d': d}",
+        "  e['d']['b'] = 2",
+        "  return e",
+        "e = func()").testLookup("e", ImmutableMap.of("d", ImmutableMap.of("a", 1, "b", 2)));
+  }
+
+  @Test
+  public void testListAssignmentAsLValue() throws Exception {
+    new SkylarkTest().setUp("def func():",
+        "  a = [1, 2]",
+        "  a[1] = 3",
+        "  a[-2] = 4",
+        "  return a",
+        "a = str(func())").testLookup("a", "[4, 3]");
+  }
+
+  @Test
+  public void testNestedListAssignmentAsLValue() throws Exception {
+    new SkylarkTest().setUp("def func():",
+        "  d = [1, 2]",
+        "  e = [3, d]",
+        "  e[1][1] = 4",
+        "  return e",
+        "e = str(func())").testLookup("e", "[3, [1, 4]]");
+  }
+  
+  @Test
   public void testDictTupleAssignmentAsLValue() throws Exception {
     new SkylarkTest().setUp("def func():",
         "  d = {'a' : 1}",
@@ -899,20 +929,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "l = [1, 2]",
         "d = {0: l}",
         "d[0].append(3)").testLookup("l", MutableList.of(null, 1, 2, 3));
-  }
-
-  @Test
-  public void testListIndexAsLValueAsLValue() throws Exception {
-    new SkylarkTest()
-        .testIfErrorContains(
-            "can only assign an element in a dictionary, not in a 'list'",
-            "def id(l):",
-            "  return l",
-            "def func():",
-            "  l = id([1])",
-            "  l[0] = 2",
-            "  return l",
-            "l = func()");
   }
 
   @Test

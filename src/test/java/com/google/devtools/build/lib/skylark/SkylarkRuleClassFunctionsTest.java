@@ -908,11 +908,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testStructDictMembersAreImmutable() throws Exception {
-    checkErrorContains(
-        "can only assign to variables and tuples, not to 's.x['b']'",
+  public void testStructDictMembersAreMutable() throws Exception {
+    eval(
         "s = struct(x = {'a' : 1})",
         "s.x['b'] = 2\n");
+    assertThat(((SkylarkClassObject) lookup("s")).getValue("x"))
+        .isEqualTo(ImmutableMap.of("a", 1, "b", 2));
   }
 
   @Test
