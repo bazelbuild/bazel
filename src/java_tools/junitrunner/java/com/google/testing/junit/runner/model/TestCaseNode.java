@@ -31,7 +31,6 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.annotation.Nullable;
-import org.joda.time.Interval;
 import org.junit.runner.Description;
 
 /**
@@ -45,7 +44,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   private final ListMultimap<Description, Throwable> dynamicTestToFailures =
       Multimaps.synchronizedListMultimap(LinkedListMultimap.<Description, Throwable>create());
 
-  @Nullable private volatile Interval runTimeInterval = null;
+  @Nullable private volatile TestInterval runTimeInterval = null;
   private volatile State state = State.INITIAL;
 
   TestCaseNode(Description description, TestSuiteNode parent) {
@@ -138,15 +137,15 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
 
     if (fromState == state && toState != state) {
       state = toState;
-      runTimeInterval = runTimeInterval == null
-          ? new Interval(now, now) : runTimeInterval.withEndMillis(now);
+      runTimeInterval =
+          runTimeInterval == null ? new TestInterval(now, now) : runTimeInterval.withEndMillis(now);
       return true;
     }
     return false;
   }
 
   @Nullable
-  public Interval getRuntime() {
+  public TestInterval getRuntime() {
     return runTimeInterval;
   }
 
@@ -194,8 +193,8 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
         .build();
   }
 
-  private TestResult buildDynamicResult(Description test, @Nullable Interval runTime,
-      TestResult.Status status) {
+  private TestResult buildDynamicResult(
+      Description test, @Nullable TestInterval runTime, TestResult.Status status) {
     // The dynamic test fails if the testcase itself fails or there is
     // a dynamic failure specifically for the dynamic test.
     List<Throwable> dynamicFailures = dynamicTestToFailures.get(test);

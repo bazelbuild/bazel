@@ -24,18 +24,14 @@ import com.google.testing.junit.runner.junit4.JUnit4Runner;
 import com.google.testing.junit.runner.junit4.JUnit4RunnerModule;
 import com.google.testing.junit.runner.model.AntXmlResultWriter;
 import com.google.testing.junit.runner.model.XmlResultWriter;
-
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
-
-import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-
 import java.io.PrintStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
-
 import javax.inject.Singleton;
 
 /**
@@ -97,9 +93,9 @@ public class BazelTestRunner {
 
     printStackTracesIfJvmExitHangs(stderr);
 
-    DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
-    DateTime shutdownTime = new DateTime();
-    String formattedShutdownTime = formatter.print(shutdownTime);
+    DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    Date shutdownTime = new Date();
+    String formattedShutdownTime = format.format(shutdownTime);
     System.err.printf("-- JVM shutdown starting at %s --%n%n", formattedShutdownTime);
     System.exit(exitCode);
   }

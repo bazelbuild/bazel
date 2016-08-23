@@ -17,7 +17,6 @@ package com.google.testing.junit.runner.model;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.joda.time.Interval;
 
 /**
  * Result of executing a test suite or test case.
@@ -82,8 +81,7 @@ final class TestResult {
   private final String name, className;
   private final Map<String, String> properties;
   private final List<Throwable> failures;
-  @Nullable
-  private final Interval runTime;
+  @Nullable private final TestInterval runTime;
   private final Status status;
   private final int numTests, numFailures;
   private final List<TestResult> childResults;
@@ -117,7 +115,7 @@ final class TestResult {
   }
 
   @Nullable
-  Interval getRunTimeInterval() {
+  TestInterval getRunTimeInterval() {
     return runTime;
   }
 
@@ -153,8 +151,7 @@ final class TestResult {
     private String className = null;
     private Map<String, String> properties = null;
     private List<Throwable> failures = null;
-    @Nullable
-    private Interval runTime = null;
+    @Nullable private TestInterval runTime = null;
     private Status status = null;
     private Integer numTests = null;
     private Integer numFailures = null;
@@ -182,7 +179,7 @@ final class TestResult {
       return this;
     }
 
-    Builder runTimeInterval(@Nullable Interval runTime) {
+    Builder runTimeInterval(@Nullable TestInterval runTime) {
       if (this.runTime != null) {
         throw new IllegalStateException("runTime already set");
       }

@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import org.joda.time.Interval;
 import org.junit.runner.Description;
 
 /**
@@ -88,7 +87,7 @@ class TestSuiteNode extends TestNode {
 
   @Override
   protected TestResult buildResult() {
-    Interval runTime = null;
+    TestInterval runTime = null;
     int numTests = 0, numFailures = 0;
     LinkedList<TestResult> childResults = new LinkedList<>();
 
@@ -98,11 +97,14 @@ class TestSuiteNode extends TestNode {
       numTests += childResult.getNumTests();
       numFailures += childResult.getNumFailures();
 
-      Interval childRunTime = childResult.getRunTimeInterval();
+      TestInterval childRunTime = childResult.getRunTimeInterval();
       if (childRunTime != null) {
-        runTime = runTime == null ? childRunTime
-            : new Interval(Math.min(runTime.getStartMillis(), childRunTime.getStartMillis()),
-                         Math.max(runTime.getEndMillis(), childRunTime.getEndMillis()));
+        runTime =
+            runTime == null
+                ? childRunTime
+                : new TestInterval(
+                    Math.min(runTime.getStartMillis(), childRunTime.getStartMillis()),
+                    Math.max(runTime.getEndMillis(), childRunTime.getEndMillis()));
       }
     }
 
