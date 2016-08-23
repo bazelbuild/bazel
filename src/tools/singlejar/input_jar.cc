@@ -83,7 +83,7 @@ bool InputJar::Open(const std::string &path) {
       mapped_file_.Close();
       return false;
     }
-    if (mapped_file_.offset(ecd) <= cen_position) {
+    if (mapped_file_.offset(ecd) < cen_position) {
       diag_warnx("%s:%d: %s is corrupt: End of Central Directory at 0x%" PRIx64
                  " precedes Central Directory at 0x%" PRIx64,
                  __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd),
@@ -102,41 +102,46 @@ bool InputJar::Open(const std::string &path) {
       return false;
     }
   }
-
-  auto ecd64loc = reinterpret_cast<const ECD64Locator *>(byte_ptr(ecd) -
-                                                         sizeof(ECD64Locator));
-  if (ecd64loc->is()) {
-    auto ecd64 =
-        reinterpret_cast<const ECD64 *>(byte_ptr(ecd64loc) - sizeof(ECD64));
-    if (!ecd64->is()) {
+  if (cen_size == 0) {
+    // Empty archive, let cdh_ point to End of Central Directory.
+    cdh_ = reinterpret_cast<const CDH *>(ecd);
+    preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
+  } else {
+    auto ecd64loc = reinterpret_cast<const ECD64Locator *>(
+        byte_ptr(ecd) - sizeof(ECD64Locator));
+    if (ecd64loc->is()) {
+      auto ecd64 =
+          reinterpret_cast<const ECD64 *>(byte_ptr(ecd64loc) - sizeof(ECD64));
+      if (!ecd64->is()) {
+        diag_warnx(
+            "%s:%d: %s is corrupt, expected ECD64 record at offset 0x%" PRIx64
+            " is missing",
+            __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64));
+        mapped_file_.Close();
+        return false;
+      }
+      cdh_ = reinterpret_cast<const CDH *>(byte_ptr(ecd64) - ecd64->cen_size());
+      preamble_size_ = mapped_file_.offset(cdh_) - ecd64->cen_offset();
+      // Find CEN and preamble size.
+    } else {
+      if (cen_size == 0xFFFFFFFF || cen_position == 0xFFFFFFFF) {
+        diag_warnx(
+            "%s:%d: %s is corrupt, expected ECD64 locator record at "
+            "offset 0x%" PRIx64 " is missing",
+            __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64loc));
+        return false;
+      }
+      cdh_ = reinterpret_cast<const CDH *>(byte_ptr(ecd) - cen_size);
+      preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
+    }
+    if (!cdh_->is()) {
       diag_warnx(
-          "%s:%d: %s is corrupt, expected ECD64 record at offset 0x%" PRIx64
-          " is missing",
-          __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64));
+          "%s:%d: In %s, expected central file header signature at "
+          "offset0x%" PRIx64,
+          __FILE__, __LINE__, path.c_str(), mapped_file_.offset(cdh_));
       mapped_file_.Close();
       return false;
     }
-    cdh_ = reinterpret_cast<const CDH *>(byte_ptr(ecd64) - ecd64->cen_size());
-    preamble_size_ = mapped_file_.offset(cdh_) - ecd64->cen_offset();
-    // Find CEN and preamble size.
-  } else {
-    if (cen_size == 0xFFFFFFFF || cen_position == 0xFFFFFFFF) {
-      diag_warnx(
-          "%s:%d: %s is corrupt, expected ECD64 locator record at "
-          "offset 0x%" PRIx64 " is missing",
-          __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64loc));
-      return false;
-    }
-    cdh_ = reinterpret_cast<const CDH *>(byte_ptr(ecd) - cen_size);
-    preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
-  }
-  if (!cdh_->is()) {
-    diag_warnx(
-        "%s:%d: In %s, expected central file header signature at "
-        "offset0x%" PRIx64,
-        __FILE__, __LINE__, path.c_str(), mapped_file_.offset(cdh_));
-    mapped_file_.Close();
-    return false;
   }
   path_ = path;
   return true;
