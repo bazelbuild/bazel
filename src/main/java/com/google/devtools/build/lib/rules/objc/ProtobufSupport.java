@@ -60,8 +60,6 @@ import java.util.Set;
  */
 final class ProtobufSupport {
 
-  private static final PathFragment BAZEL_TOOLS_PREFIX = new PathFragment("external/bazel_tools/");
-
   private static final String BUNDLED_PROTOS_IDENTIFIER = "BundledProtos";
 
   /**
@@ -129,24 +127,36 @@ final class ProtobufSupport {
    */
   public ProtobufSupport registerGenerationActions() {
     int actionId = 0;
+
     for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
       Iterable<Artifact> outputProtos = inputsToOutputsMap.get(inputProtos);
-
       registerGenerationAction(outputProtos, inputProtos, getUniqueBundledProtosSuffix(actionId));
-
-      IntermediateArtifacts intermediateArtifacts = getUniqueIntermediateArtifacts(actionId);
-
-      CompilationArtifacts compilationArtifacts =
-          getCompilationArtifacts(intermediateArtifacts, inputProtos, outputProtos);
-
-      ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
-
-      new CompilationSupport(
-              ruleContext, intermediateArtifacts, new CompilationAttributes.Builder().build())
-          .registerGenerateModuleMapAction(common.getCompilationArtifacts());
       actionId++;
     }
+
+    if (!isLinkingTarget()) {
+      registerModuleMapGenerationAction();
+    }
+
     return this;
+  }
+
+  private void registerModuleMapGenerationAction() {
+    IntermediateArtifacts moduleMapIntermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    CompilationArtifacts.Builder moduleMapCompilationArtifacts =
+        new CompilationArtifacts.Builder()
+            .setIntermediateArtifacts(moduleMapIntermediateArtifacts)
+            .setPchFile(Optional.<Artifact>absent())
+            .addAdditionalHdrs(getProtobufHeaders())
+            .addAdditionalHdrs(
+                getGeneratedProtoOutputs(inputsToOutputsMap.values(), ".pbobjc.h"));
+
+    new CompilationSupport(
+            ruleContext,
+            ObjcRuleClasses.intermediateArtifacts(ruleContext),
+            new CompilationAttributes.Builder().build())
+        .registerGenerateModuleMapAction(Optional.of(moduleMapCompilationArtifacts.build()));
   }
 
   /** Registers the actions that will compile the generated code. */
@@ -210,7 +220,12 @@ final class ProtobufSupport {
 
     Iterable<PathFragment> userHeaderSearchPaths =
         ImmutableList.of(getWorkspaceRelativeOutputDir());
-    ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
+    IntermediateArtifacts moduleMapIntermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    ObjcCommon.Builder commonBuilder =
+        new ObjcCommon.Builder(ruleContext)
+            .setIntermediateArtifacts(moduleMapIntermediateArtifacts)
+            .setHasModuleMap();
 
     int actionId = 0;
     for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
@@ -326,7 +341,7 @@ final class ProtobufSupport {
       for (Artifact proto : protoSet) {
         // If the proto is well known, don't store it as we don't need to generate it; it comes
         // generated with the runtime library.
-        if (isProtoWellKnown(proto)) {
+        if (attributes.isProtoWellKnown(proto)) {
           continue;
         }
         if (!protoToGroupMap.containsKey(proto)) {
@@ -415,7 +430,6 @@ final class ProtobufSupport {
     ObjcCommon.Builder commonBuilder =
         new ObjcCommon.Builder(ruleContext)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setHasModuleMap()
             .setCompilationArtifacts(compilationArtifacts);
     if (isLinkingTarget()) {
       commonBuilder.addUserHeaderSearchPaths(getProtobufHeaderSearchPaths());
@@ -433,7 +447,7 @@ final class ProtobufSupport {
       Iterable<Artifact> outputProtoFiles) {
     // Filter the well known protos from the set of headers. We don't generate the headers for them
     // as they are part of the runtime library.
-    Iterable<Artifact> filteredInputProtos = filterWellKnownProtos(inputProtoFiles);
+    Iterable<Artifact> filteredInputProtos = attributes.filterWellKnownProtos(inputProtoFiles);
 
     CompilationArtifacts.Builder compilationArtifacts =
         new CompilationArtifacts.Builder()
@@ -625,39 +639,6 @@ final class ProtobufSupport {
       }
     }
     return casedSegments.toString();
-  }
-
-  private ImmutableSet<Artifact> filterWellKnownProtos(Iterable<Artifact> protoFiles) {
-    // Since well known protos are already linked in the runtime library, we have to filter them
-    // so they don't get generated again.
-    ImmutableSet.Builder<Artifact> filteredProtos = new ImmutableSet.Builder<Artifact>();
-    for (Artifact protoFile : protoFiles) {
-      if (!isProtoWellKnown(protoFile)) {
-        filteredProtos.add(protoFile);
-      }
-    }
-    return filteredProtos.build();
-  }
-
-  private ImmutableSet<PathFragment> getWellKnownProtoPaths(RuleContext ruleContext) {
-    ImmutableSet.Builder<PathFragment> wellKnownProtoPathsBuilder = new ImmutableSet.Builder<>();
-    Iterable<Artifact> wellKnownProtoFiles =
-        ruleContext
-            .getPrerequisiteArtifacts(ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST)
-            .list();
-    for (Artifact wellKnownProtoFile : wellKnownProtoFiles) {
-      PathFragment execPath = wellKnownProtoFile.getExecPath();
-      if (execPath.startsWith(BAZEL_TOOLS_PREFIX)) {
-        wellKnownProtoPathsBuilder.add(execPath.relativeTo(BAZEL_TOOLS_PREFIX));
-      } else {
-        wellKnownProtoPathsBuilder.add(execPath);
-      }
-    }
-    return wellKnownProtoPathsBuilder.build();
-  }
-
-  private boolean isProtoWellKnown(Artifact protoFile) {
-    return getWellKnownProtoPaths(ruleContext).contains(protoFile.getExecPath());
   }
 
   private boolean isLinkingTarget() {

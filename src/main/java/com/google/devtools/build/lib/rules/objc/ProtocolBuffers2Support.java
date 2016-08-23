@@ -73,7 +73,8 @@ final class ProtocolBuffers2Support {
         new FileWriteAction(
             ruleContext.getActionOwner(),
             getProtoInputsFile(),
-            getProtoInputsFileContents(attributes.getProtoFiles()),
+            getProtoInputsFileContents(
+                attributes.filterWellKnownProtos(attributes.getProtoFiles())),
             false));
 
     ruleContext.registerAction(
@@ -82,7 +83,7 @@ final class ProtocolBuffers2Support {
             .addInput(attributes.getProtoCompiler())
             .addInputs(attributes.getProtoCompilerSupport())
             .addInput(getProtoInputsFile())
-            .addInputs(attributes.getProtoFiles())
+            .addTransitiveInputs(attributes.getProtoFiles())
             .addInputs(attributes.getOptionsFile().asSet())
             .addOutputs(getGeneratedProtoOutputs(getHeaderExtension()))
             .addOutputs(getGeneratedProtoOutputs(getSourceExtension()))
@@ -231,7 +232,7 @@ final class ProtocolBuffers2Support {
 
   private Iterable<Artifact> getGeneratedProtoOutputs(String extension) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
-    for (Artifact protoFile : attributes.getProtoFiles()) {
+    for (Artifact protoFile : attributes.filterWellKnownProtos(attributes.getProtoFiles())) {
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
       String generatedOutputName;
       if (attributes.outputsCpp()) {
