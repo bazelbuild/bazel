@@ -221,7 +221,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
     }
 
-    NestedSet<Artifact> transitiveSourceJars = collectTransitiveSourceJars(common, srcJar);
+    NestedSet<Artifact> transitiveSourceJars = common.collectTransitiveSourceJars(srcJar);
 
     // TODO(bazel-team): if (getOptions().sourceJars) then make this a dummy prerequisite for the
     // DeployArchiveAction ? Needs a few changes there as we can't pass inputs
@@ -440,16 +440,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         builder.addSymlink(path, lib);
       }
     }
-  }
-
-  private NestedSet<Artifact> collectTransitiveSourceJars(JavaCommon common, Artifact srcJar) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-
-    builder.add(srcJar);
-    for (JavaSourceJarsProvider dep : common.getDependencies(JavaSourceJarsProvider.class)) {
-      builder.addTransitive(dep.getTransitiveSourceJars());
-    }
-    return builder.build();
   }
 
   /**
