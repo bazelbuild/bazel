@@ -402,7 +402,7 @@ This wildcard can only be used as a complete path segment. For example,
 and <code>"**.java"</code> are both illegal. No other wildcards are supported.
 </p>
 <p>
-Glob returns a list of every file in the current package that:
+Glob returns a sorted list of every file in the current package that:
 </p>
 <ul>
   <li>Matches at least one pattern in <code>include</code>. </li>
