@@ -878,7 +878,7 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void triangleBelowHeadCycle() throws Exception {
-    graph = new InMemoryGraphImpl();
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     SkyKey aKey = GraphTester.toSkyKey("a");
     SkyKey bKey = GraphTester.toSkyKey("b");
     SkyKey cKey = GraphTester.toSkyKey("c");
@@ -935,25 +935,25 @@ public class ParallelEvaluatorTest {
   /** Regression test: "value cannot be ready in a cycle". */
   @Test
   public void selfEdgeWithExtraChildrenUnderCycle() throws Exception {
-    graph = new InMemoryGraphImpl();
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     SkyKey aKey = GraphTester.toSkyKey("a");
-    SkyKey bKey = GraphTester.toSkyKey("b");
+    SkyKey zKey = GraphTester.toSkyKey("z");
     SkyKey cKey = GraphTester.toSkyKey("c");
-    tester.getOrCreate(aKey).addDependency(bKey);
-    tester.getOrCreate(bKey).addDependency(cKey).addDependency(bKey);
+    tester.getOrCreate(aKey).addDependency(zKey);
+    tester.getOrCreate(zKey).addDependency(cKey).addDependency(zKey);
     tester.getOrCreate(cKey).addDependency(aKey);
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
     assertEquals(null, result.get(aKey));
     ErrorInfo errorInfo = result.getError(aKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(bKey).inOrder();
+    assertThat(cycleInfo.getCycle()).containsExactly(zKey).inOrder();
     assertThat(cycleInfo.getPathToCycle()).containsExactly(aKey).inOrder();
   }
 
   /** Regression test: "value cannot be ready in a cycle". */
   @Test
   public void cycleWithExtraChildrenUnderCycle() throws Exception {
-    graph = new InMemoryGraphImpl();
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     SkyKey aKey = GraphTester.toSkyKey("a");
     SkyKey bKey = GraphTester.toSkyKey("b");
     SkyKey cKey = GraphTester.toSkyKey("c");
@@ -973,7 +973,7 @@ public class ParallelEvaluatorTest {
   /** Regression test: "value cannot be ready in a cycle". */
   @Test
   public void cycleAboveIndependentCycle() throws Exception {
-    graph = new InMemoryGraphImpl();
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     SkyKey aKey = GraphTester.toSkyKey("a");
     SkyKey bKey = GraphTester.toSkyKey("b");
     SkyKey cKey = GraphTester.toSkyKey("c");
@@ -1088,16 +1088,16 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void manyUnprocessedValuesInCycle() throws Exception {
-    graph = new InMemoryGraphImpl();
-    SkyKey lastSelfKey = GraphTester.toSkyKey("lastSelf");
-    SkyKey firstSelfKey = GraphTester.toSkyKey("firstSelf");
-    SkyKey midSelfKey = GraphTester.toSkyKey("midSelf");
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
+    SkyKey lastSelfKey = GraphTester.toSkyKey("zlastSelf");
+    SkyKey firstSelfKey = GraphTester.toSkyKey("afirstSelf");
+    SkyKey midSelfKey = GraphTester.toSkyKey("midSelf9");
     // We add firstSelf first so that it is processed last in cycle detection (LIFO), meaning that
     // none of the dep values have to be cleared from firstSelf.
     tester.getOrCreate(firstSelfKey).addDependency(firstSelfKey);
     for (int i = 0; i < 100; i++) {
       SkyKey firstDep = GraphTester.toSkyKey("first" + i);
-      SkyKey midDep = GraphTester.toSkyKey("mid" + i);
+      SkyKey midDep = GraphTester.toSkyKey("midSelf" + i + "dep");
       SkyKey lastDep = GraphTester.toSkyKey("last" + i);
       tester.getOrCreate(firstSelfKey).addDependency(firstDep);
       tester.getOrCreate(midSelfKey).addDependency(midDep);
@@ -1301,9 +1301,8 @@ public class ParallelEvaluatorTest {
    */
   @Test
   public void cycleWithMultipleUnfinishedChildren() throws Exception {
-    graph = new InMemoryGraphImpl();
-    tester = new GraphTester();
-    SkyKey cycleKey = GraphTester.toSkyKey("cycle");
+    graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
+    SkyKey cycleKey = GraphTester.toSkyKey("zcycle");
     SkyKey midKey = GraphTester.toSkyKey("mid");
     SkyKey topKey = GraphTester.toSkyKey("top");
     SkyKey selfEdge1 = GraphTester.toSkyKey("selfEdge1");

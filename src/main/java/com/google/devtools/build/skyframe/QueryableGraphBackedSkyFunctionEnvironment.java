@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A {@link SkyFunction.Environment} backed by a {@link QueryableGraph}. For use when a single
@@ -61,11 +60,14 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
   }
 
   @Override
-  protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(Set<SkyKey> depKeys)
-      throws InterruptedException {
+  protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
+      Iterable<SkyKey> depKeys) throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> resultMap =
         queryableGraph.getBatch(null, Reason.DEP_REQUESTED, depKeys);
-    Map<SkyKey, ValueOrUntypedException> result = Maps.newHashMapWithExpectedSize(depKeys.size());
+    // resultMap will be smaller than what we actually return if some of depKeys were not found in
+    // the graph. Pad to a minimum of 16 to avoid excessive resizing.
+    Map<SkyKey, ValueOrUntypedException> result =
+        Maps.newHashMapWithExpectedSize(Math.max(16, resultMap.size()));
     for (SkyKey dep : depKeys) {
       result.put(dep, toUntypedValue(resultMap.get(dep)));
     }

@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -106,7 +105,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           E4 extends Exception,
           E5 extends Exception>
       Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValueOrExceptions(
-          Set<SkyKey> depKeys,
+          Iterable<SkyKey> depKeys,
           final Class<E1> exceptionClass1,
           final Class<E2> exceptionClass2,
           final Class<E3> exceptionClass3,
@@ -170,7 +169,7 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
 
   /** Implementations should set {@link #valuesMissing} as necessary. */
   protected abstract Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-      Set<SkyKey> depKeys) throws InterruptedException;
+      Iterable<SkyKey> depKeys) throws InterruptedException;
 
   @Override
   @Nullable
@@ -319,9 +318,14 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
           Class<E4> exceptionClass4,
           Class<E5> exceptionClass5)
           throws InterruptedException {
-    Set<SkyKey> keys = ImmutableSet.copyOf(depKeys);
-    Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> result = getValueOrExceptions(keys,
-        exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4, exceptionClass5);
+    Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> result =
+        getValueOrExceptions(
+            depKeys,
+            exceptionClass1,
+            exceptionClass2,
+            exceptionClass3,
+            exceptionClass4,
+            exceptionClass5);
     return Collections.unmodifiableMap(result);
   }
 

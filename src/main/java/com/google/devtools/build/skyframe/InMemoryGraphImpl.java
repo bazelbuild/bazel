@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -56,14 +57,16 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, NodeEntry> getBatch(SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
+    // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
+    // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
+    HashMap<SkyKey, NodeEntry> result = new HashMap<>();
     for (SkyKey key : keys) {
       InMemoryNodeEntry entry = get(null, Reason.OTHER, key);
       if (entry != null) {
-        builder.put(key, entry);
+        result.put(key, entry);
       }
     }
-    return builder.build();
+    return result;
   }
 
   protected InMemoryNodeEntry createIfAbsent(SkyKey key) {

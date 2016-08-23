@@ -380,24 +380,20 @@ public final class ParallelEvaluator implements Evaluator {
       if (storedEventFilter.storeEvents()) {
         // Only do the work of processing children if we're going to store events.
         GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
-        Map<SkyKey, SkyValue> deps =
-            getValuesMaybeFromError(
-                null, Iterables.concat(depKeys), bubbleErrorInfo, depKeys.numElements());
+        Collection<SkyValue> deps = getDepValuesForDoneNodeMaybeFromError(depKeys);
         if (!missingChildren && depKeys.numElements() != deps.size()) {
           throw new IllegalStateException(
               "Missing keys for "
                   + skyKey
-                  + ": "
-                  + Sets.difference(depKeys.toSet(), deps.keySet())
+                  + ". Present values: "
+                  + deps
+                  + "requested from: "
+                  + depKeys
                   + ", "
                   + entry);
         }
-        for (SkyValue value : deps.values()) {
-          if (value == NULL_MARKER) {
-            Preconditions.checkState(missingChildren, "Missing dep in %s for %s", depKeys, skyKey);
-          } else {
-            eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
-          }
+        for (SkyValue value : deps) {
+          eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
         }
       }
       return eventBuilder.build();
@@ -462,43 +458,80 @@ public final class ParallelEvaluator implements Evaluator {
       this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
     }
 
-    private Map<SkyKey, SkyValue> getValuesMaybeFromError(
-        @Nullable SkyKey requestor,
-        Iterable<SkyKey> keys,
-        @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
-        int keySize)
+    /**
+     * Returns a map from key to value for the requested {@code keys}, looking at {@link
+     * #bubbleErrorInfo}, {@link #directDeps}, and the backing {@link #graph} in that order. Any
+     * keys that are not yet done will be present in the map with the value {@link #NULL_MARKER}.
+     * {@link ErrorTransienceValue#KEY} must not be present in {@code keys}.
+     */
+    private Map<SkyKey, SkyValue> getValuesMaybeFromError(Iterable<SkyKey> keys)
         throws InterruptedException {
-      ImmutableMap.Builder<SkyKey, SkyValue> builder = ImmutableMap.builder();
-      ArrayList<SkyKey> missingKeys = new ArrayList<>(keySize);
+      // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
+      // and ImmutableMap.Builder does not tolerate duplicates.  The map will be thrown away
+      // shortly in any case.
+      Map<SkyKey, SkyValue> result = new HashMap<>();
+      ArrayList<SkyKey> missingKeys = new ArrayList<>();
       for (SkyKey key : keys) {
-        NodeEntry entry = directDeps.get(key);
-        if (entry != null) {
-          SkyValue value = maybeGetValueFromError(key, entry, bubbleErrorInfo);
-          if (value != NULL_MARKER) {
-            builder.put(key, value);
-          }
-        } else {
+        Preconditions.checkState(
+            !key.equals(ErrorTransienceValue.KEY),
+            "Error transience key cannot be in requested deps of %s",
+            skyKey);
+        SkyValue value = maybeGetValueFromErrorOrDeps(key);
+        if (value == null) {
           missingKeys.add(key);
+        } else {
+          result.put(key, value);
         }
       }
       Map<SkyKey, ? extends NodeEntry> missingEntries =
-          getBatchValues(requestor, Reason.DEP_REQUESTED, missingKeys);
+          getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
       for (SkyKey key : missingKeys) {
-        builder.put(key, maybeGetValueFromError(key, missingEntries.get(key), bubbleErrorInfo));
+        result.put(key, getValueOrNullMarker(missingEntries.get(key)));
       }
-      return builder.build();
+      return result;
+    }
+
+    /**
+     * Returns just the values of the deps in {@code depKeys}, looking at {@code bubbleErrorInfo},
+     * {@link #directDeps}, and the backing {@link #graph} in that order. Any deps that are not yet
+     * done will not have their values present in the returned collection.
+     */
+    private Collection<SkyValue> getDepValuesForDoneNodeMaybeFromError(GroupedList<SkyKey> depKeys)
+        throws InterruptedException {
+      int keySize = depKeys.numElements();
+      List<SkyValue> result = new ArrayList<>(keySize);
+      // depKeys consists of all known deps of this entry. That should include all the keys in
+      // directDeps, and any keys in bubbleErrorInfo. We expect to have to retrieve the keys that
+      // are not in either one.
+      int expectedMissingKeySize =
+          Math.max(
+              keySize - directDeps.size() - (bubbleErrorInfo == null ? 0 : bubbleErrorInfo.size()),
+              0);
+      ArrayList<SkyKey> missingKeys = new ArrayList<>(expectedMissingKeySize);
+      for (SkyKey key : Iterables.concat(depKeys)) {
+        SkyValue value = maybeGetValueFromErrorOrDeps(key);
+        if (value == null) {
+          missingKeys.add(key);
+        } else {
+          result.add(value);
+        }
+      }
+      for (NodeEntry entry : getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys).values()) {
+        result.add(getValueOrNullMarker(entry));
+      }
+      return result;
+    }
+
+    @Nullable
+    private SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) throws InterruptedException {
+      return maybeGetValueFromError(key, directDeps.get(key), bubbleErrorInfo);
     }
 
     @Override
-    protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(Set<SkyKey> depKeys)
-        throws InterruptedException {
+    protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
+        Iterable<SkyKey> depKeys) throws InterruptedException {
       checkActive();
-      Preconditions.checkState(
-          !depKeys.contains(ErrorTransienceValue.KEY),
-          "Error transience key cannot be in requested deps of %s",
-          skyKey);
-      Map<SkyKey, SkyValue> values =
-          getValuesMaybeFromError(skyKey, depKeys, bubbleErrorInfo, depKeys.size());
+      Map<SkyKey, SkyValue> values = getValuesMaybeFromError(depKeys);
       for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
         SkyKey depKey = depEntry.getKey();
         SkyValue depValue = depEntry.getValue();
@@ -1710,7 +1743,7 @@ public final class ParallelEvaluator implements Evaluator {
           graph.get(null, Reason.PRE_OR_POST_EVALUATION, skyKey),
           bubbleErrorInfo);
       ValueWithMetadata valueWithMetadata =
-          unwrappedValue == NULL_MARKER ? null : ValueWithMetadata.wrapWithMetadata(unwrappedValue);
+          unwrappedValue == null ? null : ValueWithMetadata.wrapWithMetadata(unwrappedValue);
       // Cycle checking: if there is a cycle, evaluation cannot progress, therefore,
       // the final values will not be in DONE state when the work runs out.
       if (valueWithMetadata == null) {
@@ -2139,6 +2172,7 @@ public final class ParallelEvaluator implements Evaluator {
 
   private static final SkyValue NULL_MARKER = new SkyValue() {};
 
+  @Nullable
   private static SkyValue maybeGetValueFromError(
       SkyKey key,
       @Nullable NodeEntry entry,
@@ -2146,13 +2180,15 @@ public final class ParallelEvaluator implements Evaluator {
       throws InterruptedException {
     SkyValue value = bubbleErrorInfo == null ? null : bubbleErrorInfo.get(key);
     if (value != null) {
-      Preconditions.checkNotNull(
-          entry, "Value cannot have error before evaluation started: %s %s", key, value);
       return value;
     }
-    return isDoneForBuild(entry) ? entry.getValueMaybeWithMetadata() : NULL_MARKER;
+    return isDoneForBuild(entry) ? entry.getValueMaybeWithMetadata() : null;
   }
 
+  private static SkyValue getValueOrNullMarker(@Nullable NodeEntry nodeEntry)
+      throws InterruptedException {
+    return isDoneForBuild(nodeEntry) ? nodeEntry.getValueMaybeWithMetadata() : NULL_MARKER;
+  }
   /**
    * Return true if the entry does not need to be re-evaluated this build. The entry will need to be
    * re-evaluated if it is not done, but also if it was not completely evaluated last build and this
