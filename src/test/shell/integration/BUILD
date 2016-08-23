@@ -52,6 +52,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "action_env_test",
+    size = "medium",
+    srcs = ["action_env_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

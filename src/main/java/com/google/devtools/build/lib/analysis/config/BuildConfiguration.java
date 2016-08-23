@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -594,6 +595,22 @@ public final class BuildConfiguration {
     )
     public List<Map.Entry<String, String>> testEnvironment;
 
+    @Option(
+      name = "action_env",
+      converter = Converters.OptionalAssignmentConverter.class,
+      allowMultiple = true,
+      defaultValue = "",
+      category = "semantics",
+      help =
+          "Specifies the set of environment variables available available to actions. "
+              + "Variables can be either specified by name, in which case the value will be "
+              + "taken from the invocation environment, or by the name=value pair which sets "
+              + "the value independent of the invocation environment. This option can be used "
+              + "multiple times; for options given for the same variable, the latest wins, options "
+              + "for different variables accumulate."
+    )
+    public List<Map.Entry<String, String>> actionEnvironment;
+
     @Option(name = "collect_code_coverage",
         defaultValue = "false",
         category = "testing",
@@ -1046,6 +1063,7 @@ public final class BuildConfiguration {
   private final ImmutableMap<String, String> globalMakeEnv;
 
   private final ImmutableMap<String, String> localShellEnvironment;
+  private final ImmutableSet<String> envVariables;
   private final BuildOptions buildOptions;
   private final Options options;
 
@@ -1164,12 +1182,33 @@ public final class BuildConfiguration {
     }
   }
 
-  private ImmutableMap<String, String> setupShellEnvironment() {
+  /**
+   * Compute the shell environment, which, at configuration level, is a pair consisting of the
+   * statically set environment variables with their values and the set of environment variables to
+   * be inherited from the client environment.
+   */
+  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupShellEnvironment() {
     ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<>();
     for (Fragment fragment : fragments.values()) {
       fragment.setupShellEnvironment(builder);
     }
-    return builder.build();
+    // Shell environment variables specified via options take precedence over the
+    // ones inherited from the fragments. In the long run, these fragments will
+    // be replaced by appropriate default rc files anyway.
+    Map<String, String> shellEnv = new HashMap(builder.build());
+    for (Map.Entry<String, String> entry : options.actionEnvironment) {
+      shellEnv.put(entry.getKey(), entry.getValue());
+    }
+    Map<String, String> fixedShellEnv = new HashMap(shellEnv);
+    Set<String> variableShellEnv = new HashSet();
+    for (Map.Entry<String, String> entry : shellEnv.entrySet()) {
+      if (entry.getValue() == null) {
+        String key = entry.getKey();
+        fixedShellEnv.remove(key);
+        variableShellEnv.add(key);
+      }
+    }
+    return Pair.of(ImmutableMap.copyOf(fixedShellEnv), ImmutableSet.copyOf(variableShellEnv));
   }
 
   /**
@@ -1241,7 +1280,10 @@ public final class BuildConfiguration {
         ? outputRoots
         : new OutputRoots(directories, outputDirName);
 
-    this.localShellEnvironment = setupShellEnvironment();
+    Pair<ImmutableMap<String, String>, ImmutableSet<String>> shellEnvironment =
+        setupShellEnvironment();
+    this.localShellEnvironment = shellEnvironment.getFirst();
+    this.envVariables = shellEnvironment.getSecond();
 
     this.transitiveOptionsMap = computeOptionsMap(buildOptions, fragments.values());
 
@@ -2004,14 +2046,18 @@ public final class BuildConfiguration {
   }
 
   @SkylarkCallable(
-      name = "default_shell_env",
-      structField = true,
-      doc = "A dictionary representing the local shell environment. It maps variables "
-          + "to their values (strings).  The local shell environment contains settings that are "
-          + "machine specific, therefore its use should be avoided in rules meant to be hermetic."
+    name = "default_shell_env",
+    structField = true,
+    doc =
+        "A dictionary representing the static local shell environment. It maps variables "
+            + "to their values (strings)."
   )
   public ImmutableMap<String, String> getLocalShellEnvironment() {
     return localShellEnvironment;
+  }
+
+  public ImmutableSet<String> getVariableShellEnvironment() {
+    return envVariables;
   }
 
   /**
