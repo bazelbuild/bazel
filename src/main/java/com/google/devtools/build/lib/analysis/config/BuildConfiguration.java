@@ -1203,11 +1203,11 @@ public final class BuildConfiguration {
     // Shell environment variables specified via options take precedence over the
     // ones inherited from the fragments. In the long run, these fragments will
     // be replaced by appropriate default rc files anyway.
-    Map<String, String> shellEnv = new HashMap(builder.build());
+    Map<String, String> shellEnv = new TreeMap(builder.build());
     for (Map.Entry<String, String> entry : options.actionEnvironment) {
       shellEnv.put(entry.getKey(), entry.getValue());
     }
-    Map<String, String> fixedShellEnv = new HashMap(shellEnv);
+    Map<String, String> fixedShellEnv = new TreeMap(shellEnv);
     Set<String> variableShellEnv = new HashSet();
     for (Map.Entry<String, String> entry : shellEnv.entrySet()) {
       if (entry.getValue() == null) {
