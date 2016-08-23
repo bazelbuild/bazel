@@ -161,7 +161,6 @@ int OutputJar::Doit(Options *options) {
   }
 
   for (auto &rpath : options_->classpath_resources) {
-    // TODO(asmundak): On Windows, look for \, too.
     ClasspathResource(blaze_util::Basename(rpath), rpath);
   }
 
@@ -480,8 +479,8 @@ void OutputJar::WriteEntry(void *buffer) {
   CDH *cdh = reinterpret_cast<CDH *>(
       ReserveCdh(sizeof(CDH) + entry->file_name_length()));
   cdh->signature();
-  cdh->version(20);
-  cdh->version_to_extract(entry->version());
+  cdh->version(0x031E);         // Created on Unix (03), conforms to 3.0
+  cdh->version_to_extract(20);  // 2.0
   cdh->bit_flag(0x0);
   cdh->compression_method(entry->compression_method());
   cdh->last_mod_file_time(entry->last_mod_file_time());
@@ -507,7 +506,7 @@ void OutputJar::AddDirectory(const char *path) {
   size_t lh_size = sizeof(LH) + n_path;
   LH *lh = reinterpret_cast<LH *>(malloc(lh_size));
   lh->signature();
-  lh->version(20);
+  lh->version(20);  // 2.0
   lh->bit_flag(0);  // TODO(asmundak): should I set UTF8 flag?
   lh->compression_method(Z_NO_COMPRESSION);
   lh->crc32(0);
@@ -564,19 +563,41 @@ bool OutputJar::Close() {
   if (output_position == (off_t)-1) {
     diag_err(1, "%s:%d: lseek", __FILE__, __LINE__);
   }
+  bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||
+                         cen_size_ >= 0xFFFFFFFF;
+
   TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
 
-  size_t cen_size =
-      cen_size_;  // Save it before AppendToDirectoryBuffer updates it.
-  ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
-  ecd->signature();
-  ecd->this_disk_entries16((uint16_t)entries_);
-  TODO(entries_ < 0xFFFF, "Handle >=64K entries");
-  ecd->total_entries16((uint16_t)entries_);
-  TODO(cen_size < 0xFFFFFFFF, "Handle Zip64");
-  ecd->cen_size32(cen_size);
-  TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
-  ecd->cen_offset32(output_position);
+  size_t cen_size = cen_size_;  // Save it before ReserveCdh updates it.
+  if (write_zip64_ecd) {
+    ECD64 *ecd64 = reinterpret_cast<ECD64 *>(ReserveCdh(sizeof(ECD64)));
+    ECD64Locator *ecd64_locator =
+        reinterpret_cast<ECD64Locator *>(ReserveCdh(sizeof(ECD64Locator)));
+    ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
+    ecd64->signature();
+    ecd64->remaining_size(sizeof(ECD64) - 12);
+    ecd64->version(0x031E);         // Unix, version 3.0
+    ecd64->version_to_extract(45);  // 4.5 (Zip64 support)
+    ecd64->this_disk_entries(entries_);
+    ecd64->total_entries(entries_);
+    ecd64->cen_size(cen_size);
+    ecd64->cen_offset(output_position);
+    ecd64_locator->signature();
+    ecd64_locator->ecd64_offset(output_position + cen_size);
+    ecd64_locator->total_disks(1);
+    ecd->signature();
+    ecd->this_disk_entries16(0xFFFF);
+    ecd->total_entries16(0xFFFF);
+    ecd->cen_size32(0xFFFFFFFF);
+    ecd->cen_offset32(0xFFFFFFFF);
+  } else {
+    ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
+    ecd->signature();
+    ecd->this_disk_entries16((uint16_t)entries_);
+    ecd->total_entries16((uint16_t)entries_);
+    ecd->cen_size32(cen_size);
+    ecd->cen_offset32(output_position);
+  }
 
   // Save Central Directory and wrap up.
   if (!WriteBytes(cen_, cen_size_)) {

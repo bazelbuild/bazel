@@ -196,6 +196,22 @@ cc_test(
     ],
 )
 
+sh_test(
+    name = "zip64_test",
+    srcs = ["zip64_test.sh"],
+    args = [
+        "src/test/shell",
+        "$(location :singlejar)",
+        "$(location //external:jar)",
+    ],
+    data = [
+        ":singlejar",
+        "//external:jar",
+        "//tools/defaults:jdk",
+    ],
+    deps = ["//src/test/shell:bashunit"],
+)
+
 cc_library(
     name = "combiners",
     srcs = [
