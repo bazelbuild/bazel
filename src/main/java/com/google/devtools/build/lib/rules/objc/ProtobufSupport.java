@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Set;
 
 /**
  * Support for generating Objective C proto static libraries that registers actions which generate
@@ -332,7 +330,8 @@ final class ProtobufSupport {
       protoSets.add(protoProvider.getTransitiveProtoSources());
     }
 
-    HashMap<Artifact, Set<Artifact>> protoToGroupMap = new HashMap<>();
+    HashMap<Artifact, ImmutableSet<Artifact>> protoToGroupMap =
+        new HashMap<Artifact, ImmutableSet<Artifact>>();
 
     // For each proto in each proto group, store the smallest group in which it is contained. This
     // group will be considered the smallest input group with which the proto can be generated.
@@ -344,10 +343,9 @@ final class ProtobufSupport {
         if (attributes.isProtoWellKnown(proto)) {
           continue;
         }
-        if (!protoToGroupMap.containsKey(proto)) {
+        if (!protoToGroupMap.containsKey(proto)
+            || protoToGroupMap.get(proto).size() > protoSet.size()) {
           protoToGroupMap.put(proto, protoSet);
-        } else {
-          protoToGroupMap.put(proto, Sets.intersection(protoSet, protoToGroupMap.get(proto)));
         }
       }
     }
@@ -363,7 +361,7 @@ final class ProtobufSupport {
         ImmutableSetMultimap.builder();
 
     for (Artifact proto : protoToGroupMap.keySet()) {
-      inputsToOutputsMapBuilder.put(ImmutableSet.copyOf(protoToGroupMap.get(proto)), proto);
+      inputsToOutputsMapBuilder.put(protoToGroupMap.get(proto), proto);
     }
     return inputsToOutputsMapBuilder.build();
   }
