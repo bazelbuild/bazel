@@ -333,6 +333,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final boolean stripBinaries;
   private final String solibDirectory;
   private final CompilationMode compilationMode;
+  private final boolean useLLVMCoverageMap;
 
   /**
    *  If true, the ConfiguredTarget is only used to get the necessary cross-referenced
@@ -353,6 +354,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.crosstoolTop = params.crosstoolTop;
     this.ccToolchainLabel = params.ccToolchainLabel;
     this.compilationMode = params.commonOptions.compilationMode;
+    this.useLLVMCoverageMap = params.commonOptions.useLLVMCoverageMapFormat;
     this.lipoContextCollector = cppOptions.lipoCollector;
 
 
@@ -947,6 +949,30 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             toolchainBuilder);
       }
       if (!features.contains("coverage")) {
+        String compileFlags;
+        String linkerFlags;
+        if (useLLVMCoverageMap) {
+          compileFlags =
+              "flag_group {"
+              + " flag: '-fprofile-instr-generate'"
+              + " flag: '-fcoverage-mapping'"
+              + "}";
+          linkerFlags =
+              "  flag_group {"
+              + "  flag: '-fprofile-instr-generate'"
+              + "}";
+        } else {
+          compileFlags =
+              "  expand_if_all_available: 'gcov_gcno_file'"
+              + "flag_group {"
+              + "  flag: '-fprofile-arcs'"
+              + "  flag: '-ftest-coverage'"
+              + "}";
+          linkerFlags =
+              "  flag_group {"
+              + "  flag: '-lgcov'"
+              + "}";
+        }
         TextFormat.merge(
             ""
                 + "feature {"
@@ -959,19 +985,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                 + "    action: 'c++-header-parsing'"
                 + "    action: 'c++-header-preprocessing'"
                 + "    action: 'c++-module-compile'"
-                + "    expand_if_all_available: 'gcov_gcno_file'"
-                + "    flag_group {"
-                + "      flag: '-fprofile-arcs'"
-                + "      flag: '-ftest-coverage'"
-                + "    }"
+                + compileFlags
                 + "  }"
                 + "  flag_set {"
                 + "    action: 'c++-link-interface-dynamic-library'"
                 + "    action: 'c++-link-dynamic-library'"
                 + "    action: 'c++-link-executable'"
-                + "    flag_group {"
-                + "      flag: '-lgcov'"
-                + "    }"
+                + linkerFlags
                 + "  }"
                 + "}",
             toolchainBuilder);

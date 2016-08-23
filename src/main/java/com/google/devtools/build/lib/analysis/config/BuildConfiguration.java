@@ -649,6 +649,14 @@ public final class BuildConfiguration {
             + "'//tools/test:coverage_report_generator'.")
     public Label coverageReportGenerator;
 
+    @Option(name = "experimental_use_llvm_covmap",
+        defaultValue = "false",
+        category = "experimental",
+        help = "If specified, Bazel will generate llvm-cov coverage map information rather than "
+            + "gcov when collect_code_coverage is enabled."
+    )
+    public boolean useLLVMCoverageMapFormat;
+
     @Option(name = "cache_test_results",
         defaultValue = "auto",
         category = "testing",
@@ -2235,6 +2243,10 @@ public final class BuildConfiguration {
 
   public boolean isMicroCoverageEnabled() {
     return options.collectMicroCoverage;
+  }
+
+  public boolean isLLVMCoverageMapFormatEnabled() {
+    return options.useLLVMCoverageMapFormat;
   }
 
   public boolean isActionsEnabled() {
