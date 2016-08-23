@@ -19,6 +19,7 @@ java_library(
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:jsr305",
     ],
 )
@@ -75,7 +76,12 @@ bootstrap_java_library(
 
 bootstrap_java_binary(
     name = "bootstrap",
-    srcs = glob(["java/**/*.java"]) + ["//src/java_tools/singlejar/java/com/google/devtools/build/zip:java-srcs"],
+    srcs = glob(
+        ["java/**/*.java"],
+        exclude = ["java/**/SingleJarWorker.java"],
+    ) + [
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip:java-srcs",
+    ],
     main_class = "com.google.devtools.build.singlejar.SingleJar",
     visibility = ["//visibility:public"],
     deps = [

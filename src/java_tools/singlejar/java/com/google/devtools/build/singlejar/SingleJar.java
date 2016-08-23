@@ -16,7 +16,6 @@ package com.google.devtools.build.singlejar;
 
 import com.google.devtools.build.singlejar.DefaultJarEntryFilter.PathFilter;
 import com.google.devtools.build.singlejar.ZipCombiner.OutputMode;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -31,7 +30,6 @@ import java.util.Properties;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-
 import javax.annotation.concurrent.NotThreadSafe;
 
 /**
@@ -377,13 +375,53 @@ public class SingleJar {
     allowedPaths = new PrefixListPathFilter(prefixes);
   }
 
+  static int singleRun(String[] args) throws IOException {
+    SingleJar singlejar = new SingleJar(new JavaIoFileSystem());
+    return singlejar.run(Arrays.asList(args));
+  }
+
   public static void main(String[] args) {
+    if (shouldRunInWorker(args)) {
+      if (!canRunInWorker()) {
+        System.err.println("Asked to run in a worker, but no worker support");
+        System.exit(1);
+      }
+      try {
+        runWorker(args);
+      } catch (Exception e) {
+        System.err.println("Error running worker : " + e.getMessage());
+        System.exit(1);
+      }
+      return;
+    }
+
     try {
-      SingleJar singlejar = new SingleJar(new JavaIoFileSystem());
-      System.exit(singlejar.run(Arrays.asList(args)));
+      System.exit(singleRun(args));
     } catch (IOException e) {
       System.err.println("SingleJar threw exception : " + e.getMessage());
       System.exit(1);
     }
   }
+
+  private static void runWorker(String[] args) throws Exception {
+    // Invocation is done through reflection so that this code will work in bazel open source
+    // as well. SingleJar is used for bootstrap and thus can not depend on protos (used in
+    // SingleJarWorker).
+    Class<?> workerClass = Class.forName("com.google.devtools.build.singlejar.SingleJarWorker");
+    workerClass.getMethod("main", String[].class).invoke(null, (Object) args);
+  }
+
+  private static boolean shouldRunInWorker(String[] args) {
+    return Arrays.asList(args).contains("--persistent_worker");
+  }
+
+  private static boolean canRunInWorker() {
+    try {
+      Class.forName("com.google.devtools.build.singlejar.SingleJarWorker");
+      return true;
+    } catch (ClassNotFoundException e1) {
+      return false;
+    }
+  }
+  
 }
