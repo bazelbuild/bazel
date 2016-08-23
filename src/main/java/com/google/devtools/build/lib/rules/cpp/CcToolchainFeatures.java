@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -871,8 +872,8 @@ public class CcToolchainFeatures implements Serializable {
      * Builder for {@code Variables}.
      */
     public static class Builder {
-      private final ImmutableMap.Builder<String, String> variables = ImmutableMap.builder();
-      private final ImmutableMap.Builder<String, Sequence> expandables = ImmutableMap.builder();
+      private final Map<String, String> variables = Maps.newLinkedHashMap();
+      private final Map<String, Sequence> expandables = Maps.newLinkedHashMap();
       
       /**
        * Add a variable that expands {@code name} to {@code value}.
@@ -899,6 +900,15 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       /**
+       * Adds all variables to this builder.
+       */
+      public Builder addAll(Variables variables) {
+        this.variables.putAll(variables.variables);
+        this.expandables.putAll(variables.sequenceVariables);
+        return this;
+      }
+
+      /**
        * Add a variable that expands a flag group containing a reference to {@code name} for each
        * entry in {@code values}.
        */
@@ -914,7 +924,7 @@ public class CcToolchainFeatures implements Serializable {
        * @return a new {@Variables} object.
        */
       Variables build() {
-        return new Variables(variables.build(), expandables.build());
+        return new Variables(ImmutableMap.copyOf(variables), ImmutableMap.copyOf(expandables));
       }
     }
     
@@ -932,7 +942,7 @@ public class CcToolchainFeatures implements Serializable {
     interface View {
 
       /**
-       * Returns all bounds variables in the current view.
+       * Returns all bound variables in the current view.
        */
       Map<String, String> getVariables();
 
@@ -1250,7 +1260,6 @@ public class CcToolchainFeatures implements Serializable {
    *
    * @param toolchain the toolchain configuration as specified by the user.
    * @throws InvalidConfigurationException if the configuration has logical errors.
-   * @throws ArtifactNamePatternNotProvidedException
    */
   @VisibleForTesting
   public CcToolchainFeatures(CToolchain toolchain) throws InvalidConfigurationException {

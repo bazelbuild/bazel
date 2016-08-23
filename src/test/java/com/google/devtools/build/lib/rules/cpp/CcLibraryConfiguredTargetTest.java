@@ -383,7 +383,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             ActionsTestUtil.baseNamesOf(
                 getOutputGroup(x, OutputGroupProvider.COMPILATION_PREREQUISITES)))
-        .isEqualTo("y.h y.pic.pcm y.cppmap stl.cppmap crosstool.cppmap x.cppmap x.cc");
+        .isEqualTo("y.h y.cppmap stl.cppmap crosstool.cppmap x.cppmap y.pic.pcm x.cc");
   }
 
   @Test
@@ -505,7 +505,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppCompileAction aObjectAction = (CppCompileAction) getGeneratingAction(aObjectArtifact);
     assertThat(aObjectAction.getIncludeScannerSources()).containsExactly(
         getSourceArtifact("module/a.cc"));
-    assertThat(aObjectAction.getInputs()).contains(
+    assertThat(aObjectAction.getContext().getTransitiveModules(true)).contains(
         getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(aObjectAction.getInputs()).contains(
         getGenfilesArtifactWithNoOwner("module/b.cppmap"));
@@ -641,9 +641,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//module:j");
     Artifact jObjectArtifact = getBinArtifact("_objs/j/module/j.pic.o", "//module:j");
     CppCompileAction jObjectAction = (CppCompileAction) getGeneratingAction(jObjectArtifact);
-    assertThat(getHeaderModules(jObjectAction.getInputs())).containsExactly(
-        getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"),
-        getBinArtifact("_objs/g/module/g.pic.pcm", "//module:g"));
+    assertThat(getHeaderModules(jObjectAction.getContext().getTransitiveModules(true)))
+        .containsExactly(
+            getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"),
+            getBinArtifact("_objs/g/module/g.pic.pcm", "//module:g"));
     assertThat(jObjectAction.getIncludeScannerSources()).containsExactly(
         getSourceArtifact("module/j.cc"));
     assertThat(jObjectAction.getMainIncludeScannerSource()).isEqualTo(
@@ -683,7 +684,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getGenfilesArtifact("a.cppmap", "//nomodule:a"),
         getGenfilesArtifact("b.cppmap", "//module:b"),
         getGenfilesArtifact("c.cppmap", "//nomodule:e"));
-    assertThat(getHeaderModules(cObjectAction.getInputs()))
+    assertThat(getHeaderModules(cObjectAction.getContext().getTransitiveModules(true)))
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(getHeaderModuleFlags(cObjectAction.getCompilerOptions()))
         .containsExactly("b.pic.pcm");
@@ -698,7 +699,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getGenfilesArtifact("b.cppmap", "//module:b"),
         getGenfilesArtifact("c.cppmap", "//nomodule:c"),
         getGenfilesArtifact("d.cppmap", "//nomodule:d"));
-    assertThat(getHeaderModules(dObjectAction.getInputs()))
+    assertThat(getHeaderModules(dObjectAction.getContext().getTransitiveModules(true)))
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(getHeaderModuleFlags(dObjectAction.getCompilerOptions()))
         .containsExactly("b.pic.pcm");
@@ -1196,7 +1197,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
-    ConfiguredTarget a = scratchConfiguredTarget("a", "a",
-        "cc_library(name='a', hdrs=['a.h'])");
+    scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
   }
 }

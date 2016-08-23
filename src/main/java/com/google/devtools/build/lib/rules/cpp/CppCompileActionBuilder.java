@@ -245,7 +245,12 @@ public class CppCompileActionBuilder {
     if (tempOutputFile == null && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
-    realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs(usePic));
+    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+        && (!shouldScanIncludes
+            || !featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES))) {
+      realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
+    }
+    realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
 
     realMandatoryInputsBuilder.add(sourceFile);
     boolean fake = tempOutputFile != null;
@@ -268,6 +273,7 @@ public class CppCompileActionBuilder {
           variables,
           sourceFile,
           shouldScanIncludes,
+          usePic,
           sourceLabel,
           realMandatoryInputsBuilder.build(),
           outputFile,
@@ -290,6 +296,7 @@ public class CppCompileActionBuilder {
           variables,
           sourceFile,
           shouldScanIncludes,
+          usePic,
           sourceLabel,
           realMandatoryInputs,
           outputFile,

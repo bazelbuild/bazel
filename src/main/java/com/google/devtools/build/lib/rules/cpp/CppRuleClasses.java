@@ -232,6 +232,12 @@ public class CppRuleClasses {
       "header_module_includes_dependencies";
 
   /**
+   * A string constant for switching on that header modules are pruned based on the results of
+   * include scanning.
+   */
+  public static final String PRUNE_HEADER_MODULES = "prune_header_modules";
+
+  /**
    * A string constant for the no_legacy_features feature.
    *
    * <p>If this feature is enabled, Bazel will not extend the crosstool configuration with the

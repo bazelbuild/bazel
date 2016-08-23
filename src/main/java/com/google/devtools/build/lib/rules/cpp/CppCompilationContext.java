@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -54,25 +55,10 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    */
   private final NestedSet<Artifact> directModuleMaps;
 
-  /**
-   * All declared headers of the current module, if compiled as a header module.
-   */
-  private final NestedSet<Artifact> headerModuleSrcs;
-
-  /**
-   * All header modules in the transitive closure of {@code topLevelHeaderModules}.
-   */
-  private final NestedSet<Artifact> impliedHeaderModules;
-  private final NestedSet<Artifact> picImpliedHeaderModules;
-
   private final NestedSet<Pair<Artifact, Artifact>> pregreppedHdrs;
-
-  /**
-   * All header modules in our transitive closure that are not in the transitive closure of
-   * another header module in our transitive closure.
-   */
-  private final NestedSet<Artifact> topLevelHeaderModules;
-  private final NestedSet<Artifact> picTopLevelHeaderModules;
+  
+  private final ModuleInfo moduleInfo;
+  private final ModuleInfo picModuleInfo;
 
   /**
    * The module maps from all targets the current target depends on transitively.
@@ -80,8 +66,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   private final NestedSet<Artifact> transitiveModuleMaps;
 
   private final CppModuleMap cppModuleMap;
-  private final Artifact headerModule;
-  private final Artifact picHeaderModule;
   
   // True if this context is for a compilation that needs transitive module maps.
   private final boolean provideTransitiveModuleMaps;
@@ -99,16 +83,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       NestedSet<PathFragment> declaredIncludeWarnDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Pair<Artifact, Artifact>> pregreppedHdrs,
-      NestedSet<Artifact> headerModuleSrcs,
-      NestedSet<Artifact> topLevelHeaderModules,
-      NestedSet<Artifact> picTopLevelHeaderModules,
-      NestedSet<Artifact> impliedHeaderModules,
-      NestedSet<Artifact> picImpliedHeaderModules,
+      ModuleInfo moduleInfo,
+      ModuleInfo picModuleInfo,
       NestedSet<Artifact> transitiveModuleMaps,
       NestedSet<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
-      Artifact headerModule,
-      Artifact picHeaderModule,
       boolean provideTransitiveModuleMaps,
       boolean useHeaderModules) {
     Preconditions.checkNotNull(commandLineContext);
@@ -117,16 +96,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     this.declaredIncludeWarnDirs = declaredIncludeWarnDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
-    this.headerModuleSrcs = headerModuleSrcs;
-    this.impliedHeaderModules = impliedHeaderModules;
-    this.picImpliedHeaderModules = picImpliedHeaderModules;
     this.pregreppedHdrs = pregreppedHdrs;
-    this.topLevelHeaderModules = topLevelHeaderModules;
-    this.picTopLevelHeaderModules = picTopLevelHeaderModules;
+    this.moduleInfo = moduleInfo;
+    this.picModuleInfo = picModuleInfo;
     this.transitiveModuleMaps = transitiveModuleMaps;
     this.cppModuleMap = cppModuleMap;
-    this.headerModule = headerModule;
-    this.picHeaderModule = picHeaderModule;
     this.provideTransitiveModuleMaps = provideTransitiveModuleMaps;
     this.useHeaderModules = useHeaderModules;
     this.compilationPrerequisites = compilationPrerequisites;
@@ -236,22 +210,27 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   NestedSet<Pair<Artifact, Artifact>> getPregreppedHeaders() {
     return pregreppedHdrs;
   }
+  
+  public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
+    return usePic ? picModuleInfo.transitiveModules : moduleInfo.transitiveModules;
+  }
+  
+  public Set<Artifact> getTopLevelModules(boolean usePic) {
+    return usePic ? picModuleInfo.getTopLevelModules() : moduleInfo.getTopLevelModules();
+  }
+  
+  public Collection<Artifact> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
+    return usePic
+        ? picModuleInfo.getUsedModules(usedHeaders)
+        : moduleInfo.getUsedModules(usedHeaders);
+  }
 
   /**
    * Returns the immutable set of additional transitive inputs needed for
    * compilation, like C++ module map artifacts.
    */
-  public NestedSet<Artifact> getAdditionalInputs(boolean usePic) {
+  public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (useHeaderModules) {
-      if (usePic) {
-        builder.addTransitive(picTopLevelHeaderModules);
-        builder.addTransitive(picImpliedHeaderModules);
-      } else {
-        builder.addTransitive(topLevelHeaderModules);
-        builder.addTransitive(impliedHeaderModules);
-      }
-    }
     builder.addTransitive(directModuleMaps);
     if (provideTransitiveModuleMaps) {
       builder.addTransitive(transitiveModuleMaps);
@@ -259,7 +238,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     if (cppModuleMap != null) {
       builder.add(cppModuleMap.getArtifact());
     }
-
     return builder.build();
   }
 
@@ -281,23 +259,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * @return all declared headers of the current module if the current target
    * is compiled as a module.
    */
-  protected NestedSet<Artifact> getHeaderModuleSrcs() {
-    return headerModuleSrcs;
-  }
-
-  /**
-   * @return all header modules in our transitive closure that are not in the transitive closure
-   * of another header module in our transitive closure.
-   */
-  protected NestedSet<Artifact> getTopLevelHeaderModules(boolean usePic) {
-    return usePic ? picTopLevelHeaderModules : topLevelHeaderModules;
-  }
-
-  /**
-   * @return all header modules in the transitive closure of {@code getTopLevelHeaderModules()}.
-   */
-  protected NestedSet<Artifact> getImpliedHeaderModules(boolean usePic) {
-    return usePic ? picImpliedHeaderModules : impliedHeaderModules;
+  protected Set<Artifact> getHeaderModuleSrcs() {
+    return moduleInfo.headerModuleSrcs;
   }
 
   /**
@@ -321,16 +284,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
         context.declaredIncludeSrcs,
         context.pregreppedHdrs,
-        context.headerModuleSrcs,
-        context.topLevelHeaderModules,
-        context.picTopLevelHeaderModules,
-        context.impliedHeaderModules,
-        context.picImpliedHeaderModules,
+        context.moduleInfo,
+        context.picModuleInfo,
         context.transitiveModuleMaps,
         context.directModuleMaps,
         context.cppModuleMap,
-        context.headerModule,
-        context.picHeaderModule,
         context.provideTransitiveModuleMaps,
         context.useHeaderModules);
   }
@@ -365,6 +323,12 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     ImmutableSet.Builder<Artifact> prerequisites = ImmutableSet.builder();
     prerequisites.addAll(ownerContext.compilationPrerequisites);
     prerequisites.addAll(libContext.compilationPrerequisites);
+    ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
+    moduleInfo.merge(ownerContext.moduleInfo);
+    moduleInfo.merge(libContext.moduleInfo);
+    ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
+    picModuleInfo.merge(ownerContext.picModuleInfo);
+    picModuleInfo.merge(libContext.picModuleInfo);
     return new CppCompilationContext(
         libContext.commandLineContext,
         prerequisites.build(),
@@ -372,16 +336,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         mergeSets(ownerContext.declaredIncludeWarnDirs, libContext.declaredIncludeWarnDirs),
         mergeSets(ownerContext.declaredIncludeSrcs, libContext.declaredIncludeSrcs),
         mergeSets(ownerContext.pregreppedHdrs, libContext.pregreppedHdrs),
-        mergeSets(ownerContext.headerModuleSrcs, libContext.headerModuleSrcs),
-        mergeSets(ownerContext.topLevelHeaderModules, libContext.topLevelHeaderModules),
-        mergeSets(ownerContext.picTopLevelHeaderModules, libContext.picTopLevelHeaderModules),
-        mergeSets(ownerContext.impliedHeaderModules, libContext.impliedHeaderModules),
-        mergeSets(ownerContext.picImpliedHeaderModules, libContext.picImpliedHeaderModules),
+        moduleInfo.build(),
+        picModuleInfo.build(),
         mergeSets(ownerContext.transitiveModuleMaps, libContext.transitiveModuleMaps),
         mergeSets(ownerContext.directModuleMaps, libContext.directModuleMaps),
         libContext.cppModuleMap,
-        libContext.headerModule,
-        libContext.picHeaderModule,
         libContext.provideTransitiveModuleMaps,
         libContext.useHeaderModules);
   }
@@ -401,20 +360,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
-  }
-
-  /**
-   * @return the non-pic C++ header module of the owner.
-   */
-  private Artifact getHeaderModule() {
-    return headerModule;
-  }
-
-  /**
-   * @return the pic C++ header module of the owner.
-   */
-  private Artifact getPicHeaderModule() {
-    return picHeaderModule;
   }
 
   /**
@@ -456,24 +401,12 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Pair<Artifact, Artifact>> pregreppedHdrs =
         NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> headerModuleSrcs =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> topLevelHeaderModules =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> picTopLevelHeaderModules =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> impliedHeaderModules =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> picImpliedHeaderModules =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> transitiveModuleMaps =
-        NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> directModuleMaps =
-        NestedSetBuilder.stableOrder();
+    private final ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
+    private final ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
+    private final NestedSetBuilder<Artifact> transitiveModuleMaps = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Artifact> directModuleMaps = NestedSetBuilder.stableOrder();
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
-    private Artifact headerModule;
-    private Artifact picHeaderModule;
     private boolean provideTransitiveModuleMaps = false;
     private boolean useHeaderModules = false;
 
@@ -531,41 +464,22 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       declaredIncludeWarnDirs.addTransitive(otherContext.getDeclaredIncludeWarnDirs());
       declaredIncludeSrcs.addTransitive(otherContext.getDeclaredIncludeSrcs());
       pregreppedHdrs.addTransitive(otherContext.getPregreppedHeaders());
+      moduleInfo.addTransitive(otherContext.moduleInfo);
+      picModuleInfo.addTransitive(otherContext.picModuleInfo);
 
       NestedSet<Artifact> othersTransitiveModuleMaps = otherContext.getTransitiveModuleMaps();
       NestedSet<Artifact> othersDirectModuleMaps = otherContext.getDirectModuleMaps();
-      NestedSet<Artifact> othersTopLevelHeaderModules =
-          otherContext.getTopLevelHeaderModules(/*usePic=*/ false);
-      NestedSet<Artifact> othersPicTopLevelHeaderModules =
-          otherContext.getTopLevelHeaderModules(/*usePic=*/ true);
 
       // Forward transitive information.
       // The other target's transitive module maps do not include its direct module maps, so we
       // add both.
       transitiveModuleMaps.addTransitive(othersTransitiveModuleMaps);
       transitiveModuleMaps.addTransitive(othersDirectModuleMaps);
-      impliedHeaderModules.addTransitive(otherContext.getImpliedHeaderModules(/*usePic=*/ false));
-      picImpliedHeaderModules.addTransitive(otherContext.getImpliedHeaderModules(/*usePic=*/ true));
-      topLevelHeaderModules.addTransitive(othersTopLevelHeaderModules);
-      picTopLevelHeaderModules.addTransitive(othersPicTopLevelHeaderModules);
 
       // All module maps of direct dependencies are inputs to the current compile independently of
       // the build type.
       if (otherContext.getCppModuleMap() != null) {
         directModuleMaps.add(otherContext.getCppModuleMap().getArtifact());
-      }
-      if (otherContext.getHeaderModule() != null || otherContext.getPicHeaderModule() != null) {
-        // If the other context is for a target that compiles a header module, that context's
-        // header module becomes our top-level header module, and its top-level header modules
-        // become our implied header modules.
-        impliedHeaderModules.addTransitive(othersTopLevelHeaderModules);
-        picImpliedHeaderModules.addTransitive(othersPicTopLevelHeaderModules);
-        if (otherContext.getHeaderModule() != null) {
-          topLevelHeaderModules.add(otherContext.getHeaderModule());
-        }
-        if (otherContext.getPicHeaderModule() != null) {
-          picTopLevelHeaderModules.add(otherContext.getPicHeaderModule());
-        }
       }
 
       defines.addAll(otherContext.getDefines());
@@ -674,7 +588,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     public Builder addDeclaredIncludeSrc(Artifact header) {
       declaredIncludeSrcs.add(header);
       compilationPrerequisites.add(header);
-      headerModuleSrcs.add(header);
+      moduleInfo.addHeader(header);
+      picModuleInfo.addHeader(header);
       return this;
     }
 
@@ -682,9 +597,10 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * Adds multiple headers that have been declared in the {@code src} or {@code headers
      * attribute}. The headers will also be added to the compilation prerequisites.
      */
-    public Builder addDeclaredIncludeSrcs(Iterable<Artifact> declaredIncludeSrcs) {
+    public Builder addDeclaredIncludeSrcs(Collection<Artifact> declaredIncludeSrcs) {
       this.declaredIncludeSrcs.addAll(declaredIncludeSrcs);
-      this.headerModuleSrcs.addAll(declaredIncludeSrcs);
+      this.moduleInfo.addHeaders(declaredIncludeSrcs);
+      this.picModuleInfo.addHeaders(declaredIncludeSrcs);
       return addCompilationPrerequisites(declaredIncludeSrcs);
     }
 
@@ -726,17 +642,19 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
 
     /**
      * Sets the C++ header module in non-pic mode.
+     * @param headerModule The .pcm file generated for this library.
      */
     public Builder setHeaderModule(Artifact headerModule) {
-      this.headerModule = headerModule;
+      this.moduleInfo.setHeaderModule(headerModule);
       return this;
     }
 
     /**
      * Sets the C++ header module in pic mode.
+     * @param picHeaderModule The .pic.pcm file generated for this library.
      */
     public Builder setPicHeaderModule(Artifact picHeaderModule) {
-      this.picHeaderModule = picHeaderModule;
+      this.picModuleInfo.setHeaderModule(picHeaderModule);
       return this;
     }
     
@@ -768,16 +686,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
 
     @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
     public CppCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
-      // During merging we might have put header modules into topLevelHeaderModules that were
-      // also in the transitive closure of a different header module; we need to filter those out.
-      NestedSet<Artifact> impliedHeaderModules = this.impliedHeaderModules.build();
-      NestedSet<Artifact> topLevelHeaderModules =
-          filterTopLevelHeaderModules(this.topLevelHeaderModules.build(), impliedHeaderModules);
-      NestedSet<Artifact> picImpliedHeaderModules = this.picImpliedHeaderModules.build();
-      NestedSet<Artifact> picTopLevelHeaderModules =
-          filterTopLevelHeaderModules(
-              this.picTopLevelHeaderModules.build(), picImpliedHeaderModules);
-      
       // We don't create middlemen in LIPO collector subtree, because some target CT
       // will do that instead.
       Artifact prerequisiteStampFile = (ruleContext != null
@@ -798,36 +706,15 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           declaredIncludeWarnDirs.build(),
           declaredIncludeSrcs.build(),
           pregreppedHdrs.build(),
-          headerModuleSrcs.build(),
-          topLevelHeaderModules,
-          picTopLevelHeaderModules,
-          impliedHeaderModules,
-          picImpliedHeaderModules,
+          moduleInfo.build(),
+          picModuleInfo.build(),
           transitiveModuleMaps.build(),
           directModuleMaps.build(),
           cppModuleMap,
-          headerModule,
-          picHeaderModule,
           provideTransitiveModuleMaps,
           useHeaderModules);
     }
     
-    /**
-     * Filter out artifacts from {@code topLevelHeaderModuels} that are also in
-     * {@code impliedHeaderModules}.
-     */
-    private static NestedSet<Artifact> filterTopLevelHeaderModules(
-        NestedSet<Artifact> topLevelHeaderModules, NestedSet<Artifact> impliedHeaderModules) {
-      NestedSetBuilder<Artifact> filtered = NestedSetBuilder.stableOrder();
-      Set<Artifact> impliedHeaderModulesSet = impliedHeaderModules.toSet();
-      for (Artifact artifact : topLevelHeaderModules) {
-        if (!impliedHeaderModulesSet.contains(artifact)) {
-          filtered.add(artifact);
-        }
-      }
-      return filtered.build();
-    }
-
     /**
      * Creates a middleman for the compilation prerequisites.
      *
@@ -877,6 +764,199 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           purpose,
           ruleContext.getConfiguration().getMiddlemanDirectory(
               ruleContext.getRule().getRepository()));
+    }
+  }
+  
+  /**
+   * Gathers data about the direct and transitive .pcm files belonging to this context. Can be to
+   * either gather data on PIC or on no-PIC .pcm files.
+   */
+  @Immutable
+  public static final class ModuleInfo {
+    /**
+     * The module built for this context. If null, then no module is being compiled for this
+     * context.
+     */
+    private final Artifact headerModule;
+    
+    /**
+     * All header files that are compiled into this module.
+     */
+    private final ImmutableSet<Artifact> headerModuleSrcs;
+    
+    /**
+     * All transitive modules that this context depends on, excluding headerModule.
+     */
+    private final NestedSet<Artifact> transitiveModules;
+    
+    /**
+     * All implied modules that this context depends on, i.e. all transitiveModules, that are also
+     * a dependency of other transitiveModules.
+     */
+    private final NestedSet<Artifact> impliedModules;
+    
+    /**
+     * All information about mapping transitive headers to transitive modules.
+     */
+    public final NestedSet<TransitiveModuleHeaders> transitiveModuleHeaders;
+
+    public ModuleInfo(
+        Artifact headerModule,
+        ImmutableSet<Artifact> headerModuleSrcs,
+        NestedSet<Artifact> transitiveModules,
+        NestedSet<Artifact> impliedModules,
+        NestedSet<TransitiveModuleHeaders> transitiveModuleHeaders) {
+      this.headerModule = headerModule;
+      this.headerModuleSrcs = headerModuleSrcs;
+      this.transitiveModules = transitiveModules;
+      this.impliedModules = impliedModules;
+      this.transitiveModuleHeaders = transitiveModuleHeaders;
+    }
+
+    public Set<Artifact> getTopLevelModules() {
+      Set<Artifact> impliedModules = this.impliedModules.toSet();
+      Set<Artifact> topLevelModules = new LinkedHashSet<>();
+      for (Artifact module : transitiveModules) {
+        if (!impliedModules.contains(module)) {
+          topLevelModules.add(module);
+        }
+      }
+      return topLevelModules;
+    }
+
+    public Collection<Artifact> getUsedModules(Set<Artifact> usedHeaders) {
+      Set<Artifact> result = new LinkedHashSet<>();
+      for (TransitiveModuleHeaders transitiveModule : transitiveModuleHeaders) {
+        if (result.contains(transitiveModule.module)) {
+          // If result already contains this module, we will have added it and all its
+          // transitive dependencies to result already. No need to check whether to add it again.
+          continue;
+        }
+        boolean providesUsedHeader = false;
+        for (Artifact header : transitiveModule.headers) {
+          if (usedHeaders.contains(header)) {
+            providesUsedHeader = true;
+            break;
+          }
+        }
+        if (providesUsedHeader) {
+          result.addAll(transitiveModule.transitiveModules.toCollection());
+          if (!transitiveModule.module.equals(headerModule)) {
+            // Only add the module itself if it is not the main headerModule. This is done because
+            // we don't want to pass the header module when compiling the translation unit that
+            // defines it. Due to how modules are implemented, #includes from a translation unit to
+            // the headers that it implements remain textual. Thus, adding this header module as a
+            // dependency would only prolong the build without any possible benefit.
+            result.add(transitiveModule.module);
+          }
+        }
+      }
+      return result;
+    }
+
+    /**
+     * Builder class for {@link ModuleInfo}.
+     */
+    public static class Builder {
+      private Artifact headerModule = null;
+      private Set<Artifact> headerModuleSrcs = new LinkedHashSet<>();
+      private NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
+      private NestedSetBuilder<Artifact> impliedModules = NestedSetBuilder.stableOrder();
+      private NestedSetBuilder<TransitiveModuleHeaders> transitiveModuleHeaders =
+          NestedSetBuilder.stableOrder();
+      
+      public Builder setHeaderModule(Artifact headerModule) {
+        this.headerModule = headerModule;
+        return this;
+      }
+
+      public Builder addHeaders(Collection<Artifact> headers) {
+        this.headerModuleSrcs.addAll(headers);
+        return this;
+      }
+
+      public Builder addHeader(Artifact header) {
+        this.headerModuleSrcs.add(header);
+        return this;
+      }
+
+      /**
+       * Merges a {@link ModuleInfo} into this one. In contrast to addTransitive, this doesn't add
+       * the dependent module to transitiveModules, but just merges the transitive sets. The main
+       * usage is to merge multiple {@link ModuleInfo} instances for Lipo.
+       */
+      public Builder merge(ModuleInfo other) {
+        if (headerModule == null) {
+          headerModule = other.headerModule;
+        }
+        headerModuleSrcs.addAll(other.headerModuleSrcs);
+        transitiveModules.addTransitive(other.transitiveModules);
+        impliedModules.addTransitive(other.impliedModules);
+        transitiveModuleHeaders.addTransitive(other.transitiveModuleHeaders);
+        return this;
+      }
+
+      /**
+       * Adds the {@link ModuleInfo} of a dependency and builds up the transitive data structures.
+       */
+      public Builder addTransitive(ModuleInfo moduleInfo) {
+        if (moduleInfo.headerModule != null) {
+          transitiveModules.add(moduleInfo.headerModule);
+          impliedModules.addTransitive(moduleInfo.transitiveModules);
+        } else {
+          impliedModules.addTransitive(moduleInfo.impliedModules);
+        }
+        transitiveModules.addTransitive(moduleInfo.transitiveModules);
+        impliedModules.addTransitive(moduleInfo.impliedModules);
+        transitiveModuleHeaders.addTransitive(moduleInfo.transitiveModuleHeaders);
+        return this;
+      }
+
+      public ModuleInfo build() {
+        ImmutableSet<Artifact> headerModuleSrcs = ImmutableSet.copyOf(this.headerModuleSrcs);
+        NestedSet<Artifact> transitiveModules = this.transitiveModules.build();
+        if (headerModule != null) {
+          transitiveModuleHeaders.add(
+              new TransitiveModuleHeaders(headerModule, headerModuleSrcs, transitiveModules));
+        }
+        return new ModuleInfo(
+            headerModule,
+            headerModuleSrcs,
+            transitiveModules,
+            impliedModules.build(),
+            transitiveModuleHeaders.build());
+      }
+    }
+  }
+  
+  /**
+   * Collects data for a specific module in a special format that makes pruning easy.
+   */
+  @Immutable
+  public static final class TransitiveModuleHeaders {
+    /**
+     * The module that we are calculating information for.
+     */
+    private final Artifact module;
+
+    /**
+     * The headers compiled into this module.
+     */
+    private final ImmutableSet<Artifact> headers;
+
+    /**
+     * This nested set contains 'module' as well as all targets it transitively depends on.
+     * If any of the 'headers' is used, all of these modules a required for the compilation.
+     */
+    private final NestedSet<Artifact> transitiveModules;
+
+    public TransitiveModuleHeaders(
+        Artifact module,
+        ImmutableSet<Artifact> headers,
+        NestedSet<Artifact> transitiveModules) {
+      this.module = module;
+      this.headers = headers;
+      this.transitiveModules = transitiveModules;
     }
   }
 }

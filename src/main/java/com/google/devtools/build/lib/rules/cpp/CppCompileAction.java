@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -163,14 +164,15 @@ public class CppCompileAction extends AbstractAction
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final boolean shouldScanIncludes;
+  private final boolean usePic;
   private final CppCompilationContext context;
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
   private final ImmutableSet<String> executionRequirements;
 
-  @VisibleForTesting
-  final CppConfiguration cppConfiguration;
+  @VisibleForTesting final CppConfiguration cppConfiguration;
+  private final FeatureConfiguration featureConfiguration;
   protected final Class<? extends CppCompileActionContext> actionContext;
   private final SpecialInputsHandler specialInputsHandler;
 
@@ -191,6 +193,8 @@ public class CppCompileAction extends AbstractAction
    * execution.
    */
   private Collection<Artifact> additionalInputs = null;
+  
+  private CcToolchainFeatures.Variables overwrittenVariables = null;
 
   private ImmutableList<Artifact> resolvedInputs = ImmutableList.<Artifact>of();
 
@@ -233,6 +237,7 @@ public class CppCompileAction extends AbstractAction
       CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
       boolean shouldScanIncludes,
+      boolean usePic,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
       Artifact outputFile,
@@ -269,22 +274,17 @@ public class CppCompileAction extends AbstractAction
     this.context = context;
     this.specialInputsHandler = specialInputsHandler;
     this.cppConfiguration = cppConfiguration;
+    this.featureConfiguration = featureConfiguration;
     // inputsKnown begins as the logical negation of shouldScanIncludes.
     // When scanning includes, the inputs begin as not known, and become
     // known after inclusion scanning. When *not* scanning includes,
     // the inputs are as declared, hence known, and remain so.
     this.shouldScanIncludes = shouldScanIncludes;
+    this.usePic = usePic;
     this.inputsKnown = !shouldScanIncludes;
     this.cppCompileCommandLine =
         new CppCompileCommandLine(
-            sourceFile,
-            dotdFile,
-            copts,
-            coptsFilter,
-            features,
-            featureConfiguration,
-            variables,
-            actionName);
+            sourceFile, dotdFile, copts, coptsFilter, features, variables, actionName);
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
@@ -436,6 +436,21 @@ public class CppCompileAction extends AbstractAction
       this.additionalInputs = ImmutableList.of();
       return null;
     }
+
+    if (featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES)) {
+      Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
+      List<String> usedModulePaths = Lists.newArrayList();
+      for (Artifact usedModule : context.getUsedModules(usePic, initialResultSet)) {
+        initialResultSet.add(usedModule);
+        usedModulePaths.add(usedModule.getExecPathString());
+      }
+      CcToolchainFeatures.Variables.Builder variableBuilder =
+          new CcToolchainFeatures.Variables.Builder();
+      variableBuilder.addSequenceVariable("module_files", usedModulePaths);
+      this.overwrittenVariables = variableBuilder.build();
+      initialResult = initialResultSet;
+    }
+    
     this.additionalInputs = initialResult;
     // In some cases, execution backends need extra files for each included file. Add them
     // to the set of inputs the caller may need to be aware of.
@@ -589,7 +604,7 @@ public class CppCompileAction extends AbstractAction
       // module map, and we need to include-scan all headers that are referenced in the module map.
       // We need to do include scanning as long as we want to support building code bases that are
       // not fully strict layering clean.
-      builder.addTransitive(context.getHeaderModuleSrcs());
+      builder.addAll(context.getHeaderModuleSrcs());
     } else {
       builder.add(getSourceFile());
     }
@@ -661,7 +676,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   protected final List<String> getArgv(PathFragment outputFile) {
-    return cppCompileCommandLine.getArgv(outputFile);
+    return cppCompileCommandLine.getArgv(outputFile, overwrittenVariables);
   }
 
   @Override
@@ -696,7 +711,7 @@ public class CppCompileAction extends AbstractAction
    */
   @VisibleForTesting
   public List<String> getCompilerOptions() {
-    return cppCompileCommandLine.getCompilerOptions();
+    return cppCompileCommandLine.getCompilerOptions(/*updatedVariables=*/null);
   }
 
   @Override
@@ -951,6 +966,10 @@ public class CppCompileAction extends AbstractAction
       IncludeProblems problems = new IncludeProblems();
       Map<PathFragment, Artifact> allowedDerivedInputsMap = getAllowedDerivedInputsMap();
       for (Path execPath : depSet.getDependencies()) {
+        // Module .pcm files are generated and thus aren't declared inputs.
+        if (execPath.getBaseName().endsWith(".pcm")) {
+          continue;
+        }
         PathFragment execPathFragment = execPath.asFragment();
         if (execPathFragment.isAbsolute()) {
           // Absolute includes from system paths are ignored.
@@ -1271,7 +1290,6 @@ public class CppCompileAction extends AbstractAction
     private final List<String> copts;
     private final Predicate<String> coptsFilter;
     private final Collection<String> features;
-    private final FeatureConfiguration featureConfiguration;
     @VisibleForTesting public final CcToolchainFeatures.Variables variables;
     private final String actionName;
 
@@ -1281,7 +1299,6 @@ public class CppCompileAction extends AbstractAction
         ImmutableList<String> copts,
         Predicate<String> coptsFilter,
         Collection<String> features,
-        FeatureConfiguration featureConfiguration,
         CcToolchainFeatures.Variables variables,
         String actionName) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
@@ -1290,7 +1307,6 @@ public class CppCompileAction extends AbstractAction
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
       this.features = Preconditions.checkNotNull(features);
-      this.featureConfiguration = featureConfiguration;
       this.variables = variables;
       this.actionName = actionName;
     }
@@ -1302,7 +1318,8 @@ public class CppCompileAction extends AbstractAction
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     }
 
-    protected List<String> getArgv(PathFragment outputFile) {
+    protected List<String> getArgv(
+        PathFragment outputFile, CcToolchainFeatures.Variables overwrittenVariables) {
       List<String> commandLine = new ArrayList<>();
 
       // first: The command name.
@@ -1317,7 +1334,7 @@ public class CppCompileAction extends AbstractAction
       }
 
       // second: The compiler options.
-      commandLine.addAll(getCompilerOptions());
+      commandLine.addAll(getCompilerOptions(overwrittenVariables));
 
       if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
         // third: The file to compile!
@@ -1332,7 +1349,8 @@ public class CppCompileAction extends AbstractAction
       return commandLine;
     }
 
-    public List<String> getCompilerOptions() {
+    public List<String> getCompilerOptions(
+        @Nullable CcToolchainFeatures.Variables overwrittenVariables) {
       List<String> options = new ArrayList<>();
       CppConfiguration toolchain = cppConfiguration;
 
@@ -1353,7 +1371,16 @@ public class CppCompileAction extends AbstractAction
       // unfiltered compiler options to inject include paths, which is superseded by the feature
       // configuration; on the other hand toolchains switch off warnings for the layering check
       // that will be re-added by the feature flags.
-      addFilteredOptions(options, featureConfiguration.getCommandLine(actionName, variables));
+      CcToolchainFeatures.Variables updatedVariables = variables;
+      if (overwrittenVariables != null) {
+        CcToolchainFeatures.Variables.Builder variablesBuilder =
+            new CcToolchainFeatures.Variables.Builder();
+        variablesBuilder.addAll(variables);
+        variablesBuilder.addAll(overwrittenVariables);
+        updatedVariables = variablesBuilder.build();
+      }
+      addFilteredOptions(
+          options, featureConfiguration.getCommandLine(actionName, updatedVariables));
 
       // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
       // Make sure these are added after the options from the feature configuration, so that
