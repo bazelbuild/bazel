@@ -843,6 +843,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:guava",
         "//third_party:joda_time",

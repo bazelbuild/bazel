@@ -48,7 +48,7 @@ public final class JavaConfiguration extends Fragment {
     /** JavaBuilder computes the reduced classpath before invoking javac. */
     JAVABUILDER,
     /** Blaze computes the reduced classpath before invoking JavaBuilder. */
-    BLAZE
+    EXPERIMENTAL_BLAZE
   }
 
   /**
