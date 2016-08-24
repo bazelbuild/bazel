@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -68,7 +69,9 @@ public class SandboxModule extends BlazeModule {
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
-    backgroundWorkers = Executors.newCachedThreadPool();
+    backgroundWorkers = Executors.newCachedThreadPool(new ThreadFactoryBuilder()
+        .setNameFormat("linux-sandbox-background-worker-%d")
+        .build());
     this.env = env;
     env.getEventBus().register(this);
   }
