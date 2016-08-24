@@ -22,17 +22,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.testutil.TestThread;
-
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.annotation.Nullable;
 
 /**
  *
@@ -364,6 +361,11 @@ public class ResourceManagerTest {
 
     @Override
     public Iterable<Artifact> getInputs() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public Iterable<String> getClientEnvironmentVariables() {
       throw new IllegalStateException();
     }
 

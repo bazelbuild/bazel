@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The specification for a particular extra action type.
@@ -117,6 +117,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String command = createExpandedCommand(owningRule, actionToShadow, extraActionInfoFile);
 
     Map<String, String> env = owningRule.getConfiguration().getLocalShellEnvironment();
+    Set<String> clientEnvVars = owningRule.getConfiguration().getVariableShellEnvironment();
 
     CommandHelper commandHelper =
         new CommandHelper(
@@ -132,17 +133,19 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         "." + actionUniquifier + ".extra_action_script.sh", executionInfo);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
-    owningRule.registerAction(new ExtraAction(
-        ImmutableSet.copyOf(extraActionInputs.build()),
-        manifests,
-        extraActionOutputs,
-        actionToShadow,
-        createDummyOutput,
-        CommandLine.of(argv, false),
-        env,
-        executionInfo,
-        commandMessage,
-        label.getName()));
+    owningRule.registerAction(
+        new ExtraAction(
+            ImmutableSet.copyOf(extraActionInputs.build()),
+            manifests,
+            extraActionOutputs,
+            actionToShadow,
+            createDummyOutput,
+            CommandLine.of(argv, false),
+            env,
+            clientEnvVars,
+            executionInfo,
+            commandMessage,
+            label.getName()));
 
     return ImmutableSet.<Artifact>builder().addAll(extraActionOutputs).addAll(protoOutputs).build();
   }

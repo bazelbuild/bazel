@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
 import javax.annotation.Nullable;
 
 /**
@@ -34,34 +33,29 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   String getProgressMessage();
 
   /**
-   * <p>Returns a string encoding all of the significant behaviour of this
-   * Action that might affect the output.  The general contract of
-   * <code>getKey</code> is this: if the work to be performed by the
-   * execution of this action changes, the key must change. </p>
+   * Returns a string encoding all of the significant behaviour of this Action that might affect the
+   * output. The general contract of <code>getKey</code> is this: if the work to be performed by the
+   * execution of this action changes, the key must change.
    *
-   * <p>As a corollary, the build system is free to omit the execution of an
-   * Action <code>a1</code> if (a) at some time in the past, it has already
-   * executed an Action <code>a0</code> with the same key as
-   * <code>a1</code>, and (b) the names and contents of the input files listed
-   * by <code>a1.getInputs()</code> are identical to the names and contents of
-   * the files listed by <code>a0.getInputs()</code>. </p>
+   * <p>As a corollary, the build system is free to omit the execution of an Action <code>a1</code>
+   * if (a) at some time in the past, it has already executed an Action <code>a0</code> with the
+   * same key as <code>a1</code>, (b) the names and contents of the input files listed by <code>
+   * a1.getInputs()</code> are identical to the names and contents of the files listed by <code>
+   * a0.getInputs()</code>, and (c) the names and values in the client environment of the variables
+   * listed by <code>a1.getClientEnvironmentVariables()</code> are identical to those listed by
+   * <code>a0.getClientEnvironmentVariables()</code>.
    *
    * <p>Examples of changes that should affect the key are:
+   *
    * <ul>
-   *  <li>Changes to the BUILD file that materially affect the rule which gave
-   *  rise to this Action.</li>
-   *
-   *  <li>Changes to the command-line options, environment, or other global
-   *  configuration resources which affect the behaviour of this kind of Action
-   *  (other than changes to the names of the input/output files, which are
-   *  handled externally).</li>
-   *
-   *  <li>An upgrade to the build tools which changes the program logic of this
-   *  kind of Action (typically this is achieved by incorporating a UUID into
-   *  the key, which is changed each time the program logic of this action
-   *  changes).</li>
-   *
-   * </ul></p>
+   * <li>Changes to the BUILD file that materially affect the rule which gave rise to this Action.
+   * <li>Changes to the command-line options, environment, or other global configuration resources
+   *     which affect the behaviour of this kind of Action (other than changes to the names of the
+   *     input/output files, which are handled externally).
+   * <li>An upgrade to the build tools which changes the program logic of this kind of Action
+   *     (typically this is achieved by incorporating a UUID into the key, which is changed each
+   *     time the program logic of this action changes).
+   * </ul>
    */
   String getKey();
 

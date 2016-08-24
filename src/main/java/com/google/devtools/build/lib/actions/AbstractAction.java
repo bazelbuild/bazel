@@ -78,6 +78,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   private Iterable<Artifact> inputs;
+  private final Iterable<String> clientEnvironmentVariables;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> outputs;
 
@@ -117,11 +118,22 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       Iterable<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> outputs) {
+    this(owner, tools, inputs, ImmutableList.<String>of(), runfilesSupplier, outputs);
+  }
+
+  protected AbstractAction(
+      ActionOwner owner,
+      Iterable<Artifact> tools,
+      Iterable<Artifact> inputs,
+      Iterable<String> clientEnvironmentVariables,
+      RunfilesSupplier runfilesSupplier,
+      Iterable<Artifact> outputs) {
     Preconditions.checkNotNull(owner);
     // TODO(bazel-team): Use RuleContext.actionOwner here instead
     this.owner = owner;
     this.tools = CollectionUtils.makeImmutable(tools);
     this.inputs = CollectionUtils.makeImmutable(inputs);
+    this.clientEnvironmentVariables = clientEnvironmentVariables;
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
         "runfilesSupplier may not be null");
@@ -180,6 +192,11 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @Override
   public Iterable<Artifact> getInputs() {
     return inputs;
+  }
+
+  @Override
+  public Iterable<String> getClientEnvironmentVariables() {
+    return clientEnvironmentVariables;
   }
 
   @Override

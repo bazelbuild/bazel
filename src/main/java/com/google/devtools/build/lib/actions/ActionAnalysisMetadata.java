@@ -71,6 +71,12 @@ public interface ActionAnalysisMetadata {
   Iterable<Artifact> getInputs();
 
   /**
+   * Returns the environment variables from the client environment that this action depends on. May
+   * be empty.
+   */
+  Iterable<String> getClientEnvironmentVariables();
+
+  /**
    * Returns the (unordered, immutable) set of output Artifacts that
    * this action generates.  (It would not make sense for this to be empty.)
    */
