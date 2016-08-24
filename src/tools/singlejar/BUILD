@@ -38,6 +38,22 @@ cc_test(
 )
 
 cc_test(
+    name = "input_jar_empty_jar_test",
+    srcs = [
+        "input_jar_empty_jar_test.cc",
+    ],
+    data = [
+        "data/empty.zip",
+    ],
+    deps = [
+        ":input_jar",
+        ":test_util",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "input_jar_preambled_test",
     srcs = [
         "input_jar_preambled_test.cc",
