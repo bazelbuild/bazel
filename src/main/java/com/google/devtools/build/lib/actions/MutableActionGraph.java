@@ -21,7 +21,6 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-
 import java.util.Set;
 
 /**
@@ -145,7 +144,7 @@ public interface MutableActionGraph extends ActionGraph {
     }
 
     // See also Actions.canBeShared()
-    private String suffix(ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
+    private static String suffix(ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
       // Note: the error message reveals to users the names of intermediate files that are not
       // documented in the BUILD language.  This error-reporting logic is rather elaborate but it
       // does help to diagnose some tricky situations.
@@ -171,20 +170,33 @@ public interface MutableActionGraph extends ActionGraph {
             ((ActionExecutionMetadata) b).getProgressMessage());
       }
 
+      Artifact aPrimaryInput = a.getPrimaryInput();
+      Artifact bPrimaryInput = b.getPrimaryInput();
       addStringDetail(
           sb,
           "PrimaryInput",
-          a.getPrimaryInput() == null ? null : a.getPrimaryInput().toString(),
-          b.getPrimaryInput() == null ? null : b.getPrimaryInput().toString());
+          aPrimaryInput == null ? null : aPrimaryInput.toString(),
+          bPrimaryInput == null ? null : bPrimaryInput.toString());
       addStringDetail(
           sb, "PrimaryOutput", a.getPrimaryOutput().toString(), b.getPrimaryOutput().toString());
 
       // Only add list details if the primary input of A matches the input of B. Otherwise
       // the above information is enough and list diff detail is not needed.
-      if ((a.getPrimaryInput() == null && b.getPrimaryInput() == null)
-          || (a.getPrimaryInput() != null
-              && b.getPrimaryInput() != null
-              && a.getPrimaryInput().toString().equals(b.getPrimaryInput().toString()))) {
+      if ((aPrimaryInput == null && bPrimaryInput == null)
+          || (aPrimaryInput != null
+              && bPrimaryInput != null
+              && aPrimaryInput.toString().equals(bPrimaryInput.toString()))) {
+        if (aPrimaryInput != bPrimaryInput) {
+          sb.append("Primary outputs are different objects: ")
+              .append(System.identityHashCode(aPrimaryInput))
+              .append(", ")
+              .append(System.identityHashCode(bPrimaryInput))
+              .append('\n');
+        }
+        ArtifactOwner aArtifactOwner = a.getPrimaryOutput().getArtifactOwner();
+        ArtifactOwner bArtifactOwner = b.getPrimaryOutput().getArtifactOwner();
+        addStringDetail(
+            sb, "Owner information", aArtifactOwner.toString(), bArtifactOwner.toString());
         addListDetail(sb, "MandatoryInputs", a.getMandatoryInputs(), b.getMandatoryInputs());
         addListDetail(sb, "Outputs", a.getOutputs(), b.getOutputs());
       }
