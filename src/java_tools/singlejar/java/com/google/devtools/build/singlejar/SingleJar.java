@@ -411,7 +411,7 @@ public class SingleJar {
     workerClass.getMethod("main", String[].class).invoke(null, (Object) args);
   }
 
-  private static boolean shouldRunInWorker(String[] args) {
+  protected static boolean shouldRunInWorker(String[] args) {
     return Arrays.asList(args).contains("--persistent_worker");
   }
 

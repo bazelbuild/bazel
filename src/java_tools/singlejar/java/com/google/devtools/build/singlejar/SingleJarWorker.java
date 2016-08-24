@@ -34,7 +34,7 @@ public class SingleJarWorker {
   private PrintStream originalSterr;
   private ByteArrayOutputStream stdoutAndStderr;
 
-  private void runWorker() {
+  protected void runWorker() {
     trapOutputs();
 
     try {
@@ -81,7 +81,7 @@ public class SingleJarWorker {
 
   private int runSingleJar(String[] args) {
     try {
-      return SingleJar.singleRun(args);
+      return singleRun(args);
     } catch (IOException e) {
       // Some IO failures are okay no need to quit the worker
       System.err.println("SingleJar threw exception : " + e.getMessage());
@@ -93,5 +93,9 @@ public class SingleJarWorker {
       System.exit(1);
       return 1;
     }
+  }
+
+  protected int singleRun(String[] args) throws Exception {
+    return SingleJar.singleRun(args);
   }
 }
