@@ -14,9 +14,7 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
-import com.google.common.io.Files;
 import com.google.testing.junit.junit4.runner.SuiteTrimmingFilter;
 import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.model.TestSuiteModel;
@@ -34,6 +32,7 @@ import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Set;
@@ -130,7 +129,10 @@ public class JUnit4Runner {
   private static void exitFileActive(@Nullable File file) {
     if (file != null) {
       try {
-        Files.write(new byte[0], file);
+        // Overwrite file content.
+        FileOutputStream outputStream = new FileOutputStream(file, false);
+        outputStream.write(new byte[0]);
+        outputStream.close();
       } catch (IOException e) {
         throw new RuntimeException("Could not write exit file at " + file, e);
       }
@@ -148,7 +150,7 @@ public class JUnit4Runner {
     }
   }
 
-  @VisibleForTesting
+  // VisibleForTesting
   TestSuiteModel getModel() {
     return modelSupplier.get();
   }

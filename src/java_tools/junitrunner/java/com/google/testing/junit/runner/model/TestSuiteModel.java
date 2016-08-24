@@ -14,13 +14,8 @@
 
 package com.google.testing.junit.runner.model;
 
-import static com.google.common.base.Predicates.notNull;
-import static com.google.common.collect.Maps.filterValues;
-import static com.google.common.collect.Maps.transformValues;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Ticker;
 import com.google.testing.junit.junit4.runner.DynamicTestException;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
@@ -30,6 +25,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringWriter;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -269,7 +265,9 @@ public class TestSuiteModel {
     }
 
     public TestSuiteModel build(String suiteName, Description... topLevelSuites) {
-      Preconditions.checkState(!buildWasCalled, "Builder.build() was already called");
+      if (buildWasCalled) {
+        throw new IllegalStateException("Builder.build() was already called");
+      }
       buildWasCalled = true;
       if (shardingEnvironment.isShardingEnabled()) {
         shardingFilter = getShardingFilter(topLevelSuites);
@@ -317,7 +315,9 @@ public class TestSuiteModel {
     }
 
     private void addTestCase(TestSuiteNode parentSuite, Description testCaseDesc) {
-      Preconditions.checkArgument(testCaseDesc.isTest());
+      if (!testCaseDesc.isTest()) {
+        throw new IllegalArgumentException();
+      }
       if (!shardingFilter.shouldRun(testCaseDesc)) {
         return;
       }
@@ -327,16 +327,19 @@ public class TestSuiteModel {
     }
   }
 
+  /**
+   * Converts the values of the Map from {@link TestNode} to {@link TestCaseNode} filtering out null
+   * values.
+   */
   private static Map<Description, TestCaseNode> filterTestCases(Map<Description, TestNode> tests) {
-    return filterValues(transformValues(tests, toTestCaseNode()), notNull());
-  }
-
-  private static Function<TestNode, TestCaseNode> toTestCaseNode() {
-    return new Function<TestNode, TestCaseNode>() {
-      @Override
-      public TestCaseNode apply(TestNode test) {
-        return test instanceof TestCaseNode ? (TestCaseNode) test : null;
+    Map<Description, TestCaseNode> filteredAndConvertedTests =
+        new HashMap<Description, TestCaseNode>();
+    for (Description key : tests.keySet()) {
+      TestNode testNode = tests.get(key);
+      if (testNode != null && testNode instanceof TestCaseNode) {
+        filteredAndConvertedTests.put(key, (TestCaseNode) testNode);
       }
-    };
+    }
+    return filteredAndConvertedTests;
   }
 }
