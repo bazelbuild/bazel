@@ -143,6 +143,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // Add additional files that are referenced from the compile command, like module maps
       // or header modules.
       builder.addSymlinksToArtifacts(cppCompilationContext.getAdditionalInputs());
+      builder.addSymlinksToArtifacts(
+          cppCompilationContext.getTransitiveModules(
+              CppHelper.usePic(context, !isLinkShared(context))));
     }
     return builder.build();
   }
