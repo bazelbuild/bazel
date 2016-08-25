@@ -221,15 +221,15 @@ must otherwise be included with an `external/[repository-name]/` prefix.
 
 ## Including external libraries
 
-Suppose you are using [Google Test](https://code.google.com/p/googletest/). You
+Suppose you are using [Google Test](https://github.com/google/googletest). You
 can use one of the `new_` repository functions in the `WORKSPACE` file to
 download Google Test and make it available in your repository:
 
 ```python
 new_http_archive(
     name = "gtest",
-    url = "https://googletest.googlecode.com/files/gtest-1.7.0.zip",
-    sha256 = "247ca18dd83f53deb1328be17e4b1be31514cedfc1e3424f672bf11fd7e0d60d",
+    url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
+    sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
     build_file = "gtest.BUILD",
 )
 ```
@@ -238,10 +238,10 @@ Then create `gtest.BUILD`, a BUILD file to use to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-* `gtest-1.7.0/src/gtest-all.cc` `#include`s all of the other files in
-  `gtest-1.7.0/src/`, so we need to exclude it from the compile or we'll get
+* `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all of the other files in
+  `googletest-release-1.7.0/src/`, so we need to exclude it from the compile or we'll get
   link errors for duplicate symbols.
-* It uses header files that relative to the `gtest-1.7.0/include/` directory
+* It uses header files that relative to the `googletest-release-1.7.0/include/` directory
   (`"gtest/gtest.h"`), so we must add that directory the include paths.
 * It needs to link in pthread, so we add that as a `linkopt`.
 
@@ -251,32 +251,32 @@ The final rule looks like this:
 cc_library(
     name = "main",
     srcs = glob(
-        ["gtest-1.7.0/src/*.cc"],
-        exclude = ["gtest-1.7.0/src/gtest-all.cc"]
+        ["googletest-release-1.7.0/src/*.cc"],
+        exclude = ["googletest-release-1.7.0/src/gtest-all.cc"]
     ),
     hdrs = glob([
-        "gtest-1.7.0/include/**/*.h",
-        "gtest-1.7.0/src/*.h"
+        "googletest-release-1.7.0/include/**/*.h",
+        "googletest-release-1.7.0/src/*.h"
     ]),
     copts = [
-        "-Iexternal/gtest/gtest-1.7.0/include"
+        "-Iexternal/gtest/googletest-release-1.7.0/include"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
 )
 ```
 
-This is somewhat messy: everything is prefixed with gtest-1.7.0 as a byproduct
+This is somewhat messy: everything is prefixed with googletest-release-1.7.0 as a byproduct
 of the archive's structure. You can make `new_http_archive` strip this prefix by
 adding the `strip_prefix` attribute:
 
 ```python
 new_http_archive(
     name = "gtest",
-    url = "https://googletest.googlecode.com/files/gtest-1.7.0.zip",
-    sha256 = "247ca18dd83f53deb1328be17e4b1be31514cedfc1e3424f672bf11fd7e0d60d",
+    url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
+    sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
     build_file = "gtest.BUILD",
-    strip_prefix = "gtest-1.7.0",
+    strip_prefix = "googletest-release-1.7.0",
 )
 ```
 
