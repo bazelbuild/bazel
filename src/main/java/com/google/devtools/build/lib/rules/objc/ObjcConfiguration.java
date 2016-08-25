@@ -249,6 +249,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * certificate was specified.
    */
   @Nullable
+  @SkylarkCallable(name = "signing_certificate_name", structField = true,
+      doc = "Returns the flag-supplied certificate name to be used in signing, or None if no such "
+      + "certificate was specified.")
   public String getSigningCertName() {
     return this.signingCertName;
   }
@@ -272,11 +275,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns whether device debug entitlements should be included when signing an application.
    *
-   * <p>Note that debug entitlements should not be included in compilation mode {@code opt}
-   * regardless of this setting.
+   * <p>Note that debug entitlements will be included only if the --device_debug_entitlements flag
+   * is set <b>and</b> the compilation mode is not {@code opt}.
    */
+  @SkylarkCallable(name = "uses_device_debug_entitlements", structField = true,
+      doc = "Returns whether device debug entitlements should be included when signing an "
+      + "application.")
   public boolean useDeviceDebugEntitlements() {
-    return deviceDebugEntitlements;
+    return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
   }
   
   /**

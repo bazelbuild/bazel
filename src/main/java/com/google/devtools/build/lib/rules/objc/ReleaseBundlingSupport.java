@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -561,7 +560,6 @@ public final class ReleaseBundlingSupport {
 
   private boolean includeDebugEntitlements() {
     return attributes.deviceDebugEntitlements() != null
-        && ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT
         && ObjcRuleClasses.objcConfiguration(ruleContext).useDeviceDebugEntitlements();
   }
 
