@@ -7,7 +7,7 @@ Building Bazel on Windows
 =========================
 
 Windows support is highly experimental. Known issues are [marked with
-label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3AWindows)
+label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
 on github issues.
 
 We currently support only 64 bit Windows 7 or higher and we compile Bazel as a msys2 binary.
