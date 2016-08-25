@@ -130,6 +130,10 @@ public class MemoizingEvaluatorTest {
     return true;
   }
 
+  protected boolean cyclesDetected() {
+    return true;
+  }
+
   private void initializeReporter() {
     eventCollector = new EventCollector();
     reporter = eventCollector;
@@ -908,16 +912,20 @@ public class MemoizingEvaluatorTest {
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
+    }
 
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, topKey, goodKey);
     assertEquals(null, result.get(topKey));
     errorInfo = result.getError(topKey);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
+    }
   }
 
   @Test
@@ -927,15 +935,19 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, selfEdge);
     assertThatEvaluationResult(result).hasError();
     CycleInfo cycleInfo = Iterables.getOnlyElement(result.getError(selfEdge).getCycleInfo());
-    CycleInfoSubjectFactory.assertThat(cycleInfo).hasCycleThat().containsExactly(selfEdge);
-    CycleInfoSubjectFactory.assertThat(cycleInfo).hasPathToCycleThat().isEmpty();
+    if (cyclesDetected()) {
+      CycleInfoSubjectFactory.assertThat(cycleInfo).hasCycleThat().containsExactly(selfEdge);
+      CycleInfoSubjectFactory.assertThat(cycleInfo).hasPathToCycleThat().isEmpty();
+    }
     SkyKey parent = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parent).addDependency(selfEdge).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, parent);
     assertThatEvaluationResult(result).hasError();
     CycleInfo cycleInfo2 = Iterables.getOnlyElement(result2.getError(parent).getCycleInfo());
-    CycleInfoSubjectFactory.assertThat(cycleInfo2).hasCycleThat().containsExactly(selfEdge);
-    CycleInfoSubjectFactory.assertThat(cycleInfo2).hasPathToCycleThat().containsExactly(parent);
+    if (cyclesDetected()) {
+      CycleInfoSubjectFactory.assertThat(cycleInfo2).hasCycleThat().containsExactly(selfEdge);
+      CycleInfoSubjectFactory.assertThat(cycleInfo2).hasPathToCycleThat().containsExactly(parent);
+    }
   }
 
   private void changeCycle(boolean keepGoing) throws Exception {
@@ -952,8 +964,10 @@ public class MemoizingEvaluatorTest {
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
+    }
 
     tester.getOrCreate(bKey).removeDependency(aKey);
     tester.set(bKey, new StringValue("bValue"));
@@ -1009,14 +1023,23 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, aKey);
     // aKey has an error,
     assertEquals(null, result.get(aKey));
-    // And both cycles were found underneath aKey: the (aKey->bKey->cKey) cycle, and the
-    // aKey->(bKey->cKey) cycle. This is because cKey depended on aKey and then bKey, so it pushed
-    // them down on the stack in that order, so bKey was processed first. It found its cycle, then
-    // popped off the stack, and then aKey was processed and found its cycle.
-    assertThat(result.getError(aKey).getCycleInfo())
-        .containsExactly(
-            new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-            new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+    if (cyclesDetected()) {
+      // And both cycles were found underneath aKey: the (aKey->bKey->cKey) cycle, and the
+      // aKey->(bKey->cKey) cycle. This is because cKey depended on aKey and then bKey, so it pushed
+      // them down on the stack in that order, so bKey was processed first. It found its cycle, then
+      // popped off the stack, and then aKey was processed and found its cycle.
+      assertThatEvaluationResult(result)
+          .hasErrorEntryForKeyThat(aKey)
+          .hasCycleInfoThat()
+          .containsExactly(
+              new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+              new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+    } else {
+      assertThatEvaluationResult(result)
+          .hasErrorEntryForKeyThat(aKey)
+          .hasCycleInfoThat()
+          .hasSize(1);
+    }
     // When leafKey is changed, so that aKey will be marked as NEEDS_REBUILDING,
     tester.set(leafKey, new StringValue("crunchy"));
     // And cKey is invalidated, so that cycle checking will have to explore the full graph,
@@ -1026,10 +1049,19 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, aKey);
     // Things are just as before.
     assertEquals(null, result2.get(aKey));
-    assertThat(result2.getError(aKey).getCycleInfo())
-        .containsExactly(
-            new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
-            new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+    if (cyclesDetected()) {
+      assertThatEvaluationResult(result)
+          .hasErrorEntryForKeyThat(aKey)
+          .hasCycleInfoThat()
+          .containsExactly(
+              new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+              new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+    } else {
+      assertThatEvaluationResult(result)
+          .hasErrorEntryForKeyThat(aKey)
+          .hasCycleInfoThat()
+          .hasSize(1);
+    }
   }
 
   /** Regression test: "crash in cycle checker with dirty values". */
@@ -1048,21 +1080,27 @@ public class MemoizingEvaluatorTest {
     assertEquals(null, result.get(cycleKey1));
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    }
     tester.getOrCreate(cycleKey1, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, cycleKey1, cycleKey2);
     assertEquals(null, result.get(cycleKey1));
     errorInfo = result.getError(cycleKey1);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    }
     cycleInfo =
         Iterables.getOnlyElement(
             tester.driver.getExistingErrorForTesting(cycleKey2).getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).containsExactly(cycleKey2).inOrder();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).containsExactly(cycleKey2).inOrder();
+    }
   }
 
   @Test
@@ -1098,8 +1136,10 @@ public class MemoizingEvaluatorTest {
       assertEquals(null, result.get(cycleKey1));
       ErrorInfo errorInfo = result.getError(cycleKey1);
       CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-      assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
-      assertThat(cycleInfo.getPathToCycle()).isEmpty();
+      if (cyclesDetected()) {
+        assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1).inOrder();
+        assertThat(cycleInfo.getPathToCycle()).isEmpty();
+      }
     }
   }
 
@@ -1115,16 +1155,20 @@ public class MemoizingEvaluatorTest {
     assertEquals(null, result.get(cycleKey1));
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1, cycleKey2).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1, cycleKey2).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    }
     tester.getOrCreate(cycleKey1, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, cycleKey1);
     assertEquals(null, result.get(cycleKey1));
     errorInfo = result.getError(cycleKey1);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
-    assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1, cycleKey2).inOrder();
-    assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    if (cyclesDetected()) {
+      assertThat(cycleInfo.getCycle()).containsExactly(cycleKey1, cycleKey2).inOrder();
+      assertThat(cycleInfo.getPathToCycle()).isEmpty();
+    }
   }
 
   /**
@@ -1161,10 +1205,14 @@ public class MemoizingEvaluatorTest {
       assertThatErrorInfo(errorInfo).isNotTransient();
       assertThatErrorInfo(errorInfo).hasExceptionThat().isNull();
     }
-    assertWithMessage(errorInfo.toString())
-        .that(errorInfo.getCycleInfo())
-        .containsExactly(
-            new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
+    if (cyclesDetected()) {
+      assertThatErrorInfo(errorInfo)
+          .hasCycleInfoThat()
+          .containsExactly(
+              new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
+    } else {
+      assertThatErrorInfo(errorInfo).hasCycleInfoThat().hasSize(1);
+    }
     // But the parent itself shouldn't have a direct dep on the special error transience node.
     assertThatEvaluationResult(evalResult)
         .hasDirectDepsInGraphThat(top)
@@ -1276,12 +1324,14 @@ public class MemoizingEvaluatorTest {
     // they appear here.
     EvaluationResult<StringValue> result =
         tester.eval(/*keepGoing=*/false, otherTop, topKey, exceptionMarker);
-    assertThat(result.errorMap().keySet()).containsExactly(topKey);
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
     assertWithMessage(result.toString()).that(cycleInfos).isNotEmpty();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
-    assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey);
-    assertThat(cycleInfo.getCycle()).containsExactly(cycle1Key, cycle2Key);
+    if (cyclesDetected()) {
+      assertThat(result.errorMap().keySet()).containsExactly(topKey);
+      assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey);
+      assertThat(cycleInfo.getCycle()).containsExactly(cycle1Key, cycle2Key);
+    }
   }
 
   @Test
@@ -1302,15 +1352,19 @@ public class MemoizingEvaluatorTest {
         .hasCycleInfoThat()
         .isNotEmpty();
     CycleInfo aCycleInfo = Iterables.getOnlyElement(result.getError(aKey).getCycleInfo());
-    assertThat(aCycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
-    assertThat(aCycleInfo.getPathToCycle()).isEmpty();
+    if (cyclesDetected()) {
+      assertThat(aCycleInfo.getCycle()).containsExactly(aKey, bKey).inOrder();
+      assertThat(aCycleInfo.getPathToCycle()).isEmpty();
+    }
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(bKey)
         .hasCycleInfoThat()
         .isNotEmpty();
     CycleInfo bCycleInfo = Iterables.getOnlyElement(result.getError(bKey).getCycleInfo());
-    assertThat(bCycleInfo.getCycle()).containsExactly(bKey, aKey).inOrder();
-    assertThat(bCycleInfo.getPathToCycle()).isEmpty();
+    if (cyclesDetected()) {
+      assertThat(bCycleInfo.getCycle()).containsExactly(bKey, aKey).inOrder();
+      assertThat(bCycleInfo.getPathToCycle()).isEmpty();
+    }
 
     // When both dependencies are broken,
     tester.getOrCreate(bKey).removeDependency(aKey);
@@ -1366,15 +1420,26 @@ public class MemoizingEvaluatorTest {
     // Then evaluation is as expected -- topKey has removed its dep on depKey (since depKey was not
     // done when topKey found its cycle), and both topKey and depKey have cycles.
     EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, topKey, depKey);
-    assertThatEvaluationResult(result2)
-        .hasErrorEntryForKeyThat(topKey)
-        .hasCycleInfoThat()
-        .containsExactly(new CycleInfo(ImmutableList.of(topKey)));
-    assertThatEvaluationResult(result2).hasDirectDepsInGraphThat(topKey).containsExactly(topKey);
-    assertThatEvaluationResult(result2)
-        .hasErrorEntryForKeyThat(depKey)
-        .hasCycleInfoThat()
-        .containsExactly(new CycleInfo(ImmutableList.of(depKey)));
+    if (cyclesDetected()) {
+      assertThatEvaluationResult(result2)
+          .hasErrorEntryForKeyThat(topKey)
+          .hasCycleInfoThat()
+          .containsExactly(new CycleInfo(ImmutableList.of(topKey)));
+      assertThatEvaluationResult(result2).hasDirectDepsInGraphThat(topKey).containsExactly(topKey);
+      assertThatEvaluationResult(result2)
+          .hasErrorEntryForKeyThat(depKey)
+          .hasCycleInfoThat()
+          .containsExactly(new CycleInfo(ImmutableList.of(depKey)));
+    } else {
+      assertThatEvaluationResult(result2)
+          .hasErrorEntryForKeyThat(topKey)
+          .hasCycleInfoThat()
+          .hasSize(1);
+      assertThatEvaluationResult(result2)
+          .hasErrorEntryForKeyThat(depKey)
+          .hasCycleInfoThat()
+          .hasSize(1);
+    }
   }
 
   @Test

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -515,7 +516,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * <p>The node entry is informed if the node's value and error are definitive via the flag {@code
    * completeValue}.
    */
-  void commit(NodeEntry primaryEntry, boolean enqueueParents) throws InterruptedException {
+  void commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
+      throws InterruptedException {
     // Construct the definitive error info, if there is one.
     finalizeErrorInfo();
 
@@ -534,7 +536,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       valueWithMetadata = ValueWithMetadata.error(errorInfo, events);
     } else {
       // We must be enqueueing parents if we have a value.
-      Preconditions.checkState(enqueueParents, "%s %s", skyKey, primaryEntry);
+      Preconditions.checkState(
+          enqueueParents == EnqueueParentBehavior.ENQUEUE, "%s %s", skyKey, primaryEntry);
       valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
     }
     if (!oldDeps.isEmpty()) {

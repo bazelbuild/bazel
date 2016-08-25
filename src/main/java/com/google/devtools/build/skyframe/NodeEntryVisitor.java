@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * track of pending nodes.
  */
 class NodeEntryVisitor {
-  private static final ErrorClassifier NODE_ENTRY_VISITOR_ERROR_CLASSIFIER =
+  static final ErrorClassifier NODE_ENTRY_VISITOR_ERROR_CLASSIFIER =
       new ErrorClassifier() {
         @Override
         protected ErrorClassification classifyException(Exception e) {
