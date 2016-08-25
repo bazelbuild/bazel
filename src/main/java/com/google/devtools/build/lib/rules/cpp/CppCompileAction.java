@@ -419,7 +419,7 @@ public class CppCompileAction extends AbstractAction
 
   @Nullable
   @Override
-  public Collection<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Collection<Artifact> initialResult;

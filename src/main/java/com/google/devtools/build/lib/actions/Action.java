@@ -148,7 +148,7 @@ public interface Action extends ActionExecutionMetadata, Describable {
    * during execution proper.
    */
   @Nullable
-  Collection<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
   /**

@@ -511,7 +511,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    * <p>This method is just a wrapper around {@link Action#discoverInputs} that properly processes
    * any ActionExecutionException thrown before rethrowing it to the caller.
    */
-  Collection<Artifact> discoverInputs(Action action, PerActionFileCache graphFileCache,
+  Iterable<Artifact> discoverInputs(Action action, PerActionFileCache graphFileCache,
       MetadataHandler metadataHandler, Environment env)
       throws ActionExecutionException, InterruptedException {
     ActionExecutionContext actionExecutionContext =
