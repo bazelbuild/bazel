@@ -435,6 +435,84 @@ VALID_MANIFEST = """
 </manifest>
 """
 
+MANIFEST_WITHOUT_EXTRA_NAMESPACE = """
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.android.test"
+    android:versionCode="1"
+    android:versionName="1.0.0.0">
+  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
+  <application>
+    <activity android:name=".ui.home.HomeActivity"
+        android:label="@string/app_name" >
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>
+"""
+
+MANIFEST_WITH_EXTRA_NAMESPACE = """
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.google.android.library">
+  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
+  <application>
+    <service android:name=".nfcevent.NfcEventService"
+             android:exported="true"
+             tools:replace="exported" />
+  </application>
+</manifest>
+"""
+
+MERGED_MANIFEST_WITH_EXTRA_NAMESPACE = """
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.google.android.test"
+    android:versionCode="1"
+    android:versionName="1.0.0.0">
+  <!-- *** WARNING *** DO NOT EDIT! THIS IS GENERATED MANIFEST BY MERGE_MANIFEST TOOL.
+  Merger manifest:
+    MANIFEST_WITHOUT_EXTRA_NAMESPACE
+  Mergee manifests:
+    MANIFEST_WITH_EXTRA_NAMESPACE
+   -->
+  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
+  <application>
+    <activity android:name="com.google.android.test.ui.home.HomeActivity"
+        android:label="@string/app_name" >
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+    <!-- Merged from file: MANIFEST_WITH_EXTRA_NAMESPACE -->
+    <service android:exported="true" android:name="com.google.android.library.nfcevent.NfcEventService" tools:replace="exported"/>
+  </application>
+</manifest>
+"""
+
+MANIFEST_WITH_CONFLICTING_NAMESPACE = """
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="not_tools"
+    package="com.google.android.test"
+    android:versionCode="1"
+    android:versionName="1.0.0.0">
+  <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
+  <application>
+    <activity android:name=".ui.home.HomeActivity"
+        android:label="@string/app_name" >
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>
+"""
+
 
 def Reformat(string):
   """Reformat for comparison."""
@@ -519,6 +597,31 @@ class MergeManifestsTest(unittest.TestCase):
         [(INVALID_MERGEE_MANIFEST, 'INVALID_MERGEE_MANIFEST')],
         ['all'])
     merger.Merge()
+
+  def testMergeWithNamespaces(self):
+    self.maxDiff = None
+    merger = merge_manifests.MergeManifests(
+        (MANIFEST_WITHOUT_EXTRA_NAMESPACE, 'MANIFEST_WITHOUT_EXTRA_NAMESPACE'),
+        [(MANIFEST_WITH_EXTRA_NAMESPACE, 'MANIFEST_WITH_EXTRA_NAMESPACE')],
+        ['all'])
+    result = merger.Merge()
+    expected = xml.dom.minidom.parseString(
+        MERGED_MANIFEST_WITH_EXTRA_NAMESPACE).toprettyxml()
+    # Make sure the result is valid xml (not missing xmlns declarations)
+    result_reparsed = xml.dom.minidom.parseString(result).toprettyxml()
+    self.assertEquals(Reformat(expected), Reformat(result_reparsed))
+
+  def testMergeConflictingNamespaces(self):
+    self.maxDiff = None
+    merger = merge_manifests.MergeManifests(
+        (MANIFEST_WITH_CONFLICTING_NAMESPACE,
+         'MANIFEST_WITH_CONFLICTING_NAMESPACE'),
+        [(MANIFEST_WITH_EXTRA_NAMESPACE, 'MANIFEST_WITH_EXTRA_NAMESPACE')],
+        ['all'])
+    with self.assertRaisesRegexp(merge_manifests.MalformedManifestException,
+                                 'different values for namespace xmlns:tools'):
+      merger.Merge()
+
 
 if __name__ == '__main__':
   unittest.main()
