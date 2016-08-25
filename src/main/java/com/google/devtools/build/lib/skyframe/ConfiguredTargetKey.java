@@ -89,8 +89,9 @@ public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
   @Override
   public String toString() {
     return String.format(
-        "%s %s (%s)",
-        label, (configuration == null ? "null" : configuration), System.identityHashCode(this));
+        "%s %s (%s %s)", label, (configuration == null ? "null" : configuration),
+        System.identityHashCode(this),
+        (configuration == null ? "null" : System.identityHashCode(configuration)));
   }
 
 }
