@@ -130,6 +130,11 @@ public final class Root implements Comparable<Root>, Serializable {
     return getExecPath().getPathString();
   }
 
+  @Nullable
+  public Path getExecRoot() {
+    return execRoot;
+  }
+
   public boolean isSourceRoot() {
     return execRoot == null;
   }

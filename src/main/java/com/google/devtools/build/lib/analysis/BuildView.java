@@ -483,7 +483,7 @@ public class BuildView {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
               eventHandler, topLevelCtKeys, aspectKeys, eventBus, viewOptions.keepGoing);
-      setArtifactRoots(skyframeAnalysisResult.getPackageRoots(), configurations);
+      setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
@@ -818,8 +818,7 @@ public class BuildView {
    * paths with unknown roots to artifacts.
    */
   @VisibleForTesting // for BuildViewTestCase
-  public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots,
-      BuildConfigurationCollection configurations) {
+  public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots) {
     Map<Path, Root> rootMap = new HashMap<>();
     Map<PackageIdentifier, Root> realPackageRoots = new HashMap<>();
     for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
@@ -832,19 +831,6 @@ public class BuildView {
     }
     // Source Artifact roots:
     getArtifactFactory().setPackageRoots(realPackageRoots);
-
-    // Derived Artifact roots:
-    ImmutableList.Builder<Root> roots = ImmutableList.builder();
-
-    // build-info.txt and friends; this root is not configuration specific.
-    roots.add(directories.getBuildDataDirectory());
-
-    // The roots for each configuration - duplicates are automatically removed in the call below.
-    for (BuildConfiguration cfg : configurations.getAllConfigurations()) {
-      roots.addAll(cfg.getRoots());
-    }
-
-    getArtifactFactory().setDerivedArtifactRoots(roots.build());
   }
 
   /**

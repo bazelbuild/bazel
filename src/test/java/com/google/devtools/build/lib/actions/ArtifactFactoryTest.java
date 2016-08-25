@@ -92,7 +92,7 @@ public class ArtifactFactoryTest {
     alienPackage = PackageIdentifier.create("@alien", alienPath);
     alienRelative = alienPath.getRelative("alien.txt");
 
-    artifactFactory = new ArtifactFactory(execRoot);
+    artifactFactory = new ArtifactFactory(execRoot, "bazel-out");
     setupRoots();
   }
 
@@ -102,7 +102,6 @@ public class ArtifactFactoryTest {
     packageRootMap.put(barPackage, clientRoRoot);
     packageRootMap.put(alienPackage, alienRoot);
     artifactFactory.setPackageRoots(packageRootMap);
-    artifactFactory.setDerivedArtifactRoots(ImmutableList.of(outRoot));
   }
 
   @Test
@@ -182,10 +181,9 @@ public class ArtifactFactoryTest {
 
   @Test
   public void testFindDerivedRoot() throws Exception {
-    assertSame(outRoot,
-        artifactFactory.findDerivedRoot(outRoot.getPath().getRelative(fooRelative)));
-    assertSame(outRoot,
-        artifactFactory.findDerivedRoot(outRoot.getPath().getRelative(barRelative)));
+    assertThat(artifactFactory.isDerivedArtifact(fooRelative)).isFalse();
+    assertThat(artifactFactory.isDerivedArtifact(
+        new PathFragment("bazel-out/local-fastbuild/bin/foo"))).isTrue();
   }
 
   @Test
@@ -210,7 +208,7 @@ public class ArtifactFactoryTest {
   @Test
   public void testGetDerivedArtifact() throws Exception {
     PathFragment toolPath = new PathFragment("_bin/tool");
-    Artifact artifact = artifactFactory.getDerivedArtifact(toolPath);
+    Artifact artifact = artifactFactory.getDerivedArtifact(toolPath, execRoot);
     assertEquals(toolPath, artifact.getExecPath());
     assertEquals(Root.asDerivedRoot(execRoot), artifact.getRoot());
     assertEquals(execRoot.getRelative(toolPath), artifact.getPath());
@@ -220,7 +218,7 @@ public class ArtifactFactoryTest {
   @Test
   public void testGetDerivedArtifactFailsForAbsolutePath() throws Exception {
     try {
-      artifactFactory.getDerivedArtifact(new PathFragment("/_bin/b"));
+      artifactFactory.getDerivedArtifact(new PathFragment("/_bin/b"), execRoot);
       fail();
     } catch (IllegalArgumentException e) {
       // Expected exception
