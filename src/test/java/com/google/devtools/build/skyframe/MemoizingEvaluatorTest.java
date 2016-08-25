@@ -3977,7 +3977,7 @@ public class MemoizingEvaluatorTest {
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 shutdownAwaiterStarted.countDown();
                 TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    ((ParallelEvaluator.SkyFunctionEnvironment) env).getExceptionLatchForTesting(),
+                    ((SkyFunctionEnvironment) env).getExceptionLatchForTesting(),
                     "exception not thrown");
                 // Threadpool is shutting down. Don't try to synchronize anything in the future
                 // during error bubbling.
