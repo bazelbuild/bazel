@@ -232,7 +232,7 @@ public class GrpcServerImpl extends RPCServer {
     random.nextBytes(bytes);
     StringBuilder result = new StringBuilder();
     for (byte b : bytes) {
-      result.append(Integer.toHexString(((int) b) + 128));
+      result.append(Integer.toHexString(b + 128));
     }
 
     return result.toString();
@@ -276,8 +276,7 @@ public class GrpcServerImpl extends RPCServer {
 
       while (true) {
         if (!wasIdle && idle) {
-          shutdownTime = BlazeClock.nanoTime()
-              + ((long) maxIdleSeconds) * 1000L * NANOSECONDS_IN_MS;
+          shutdownTime = BlazeClock.nanoTime() + maxIdleSeconds * 1000L * NANOSECONDS_IN_MS;
         }
 
         try {
@@ -444,12 +443,12 @@ public class GrpcServerImpl extends RPCServer {
               break;
 
             case CLEAN:
-              server.shutdownNow();
+              server.shutdown();
               break;
 
             case EXPUNGE:
               disableShutdownHooks();
-              server.shutdownNow();
+              server.shutdown();
               break;
           }
         }
