@@ -19,10 +19,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Locale;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /** An enum that can be used to distinguish between various apple platforms. */
@@ -60,9 +58,12 @@ public enum Platform {
     this.platformType = platformType;
   }
 
-  /**
-   * Returns the platform type of this platform.
-   */
+  /** Returns the platform type of this platform. */
+  @SkylarkCallable(
+    name = "platform_type",
+    doc = "Returns the platform type of this platform.",
+    structField = true
+  )
   public PlatformType getType() {
     return platformType;
   }
@@ -142,6 +143,11 @@ public enum Platform {
    * type (for example, watchOS) together with a cpu value (for example, armv7).
    */
   // TODO(cparsons): Use these values in static retrieval methods in this class.
+  @SkylarkModule(
+    name = "platform_type",
+    category = SkylarkModuleCategory.NONE,
+    doc = "Describes Apple platform \"type\", such as iOS, tvOS, macOS etc."
+  )
   public enum PlatformType {
     IOS,
     WATCHOS,

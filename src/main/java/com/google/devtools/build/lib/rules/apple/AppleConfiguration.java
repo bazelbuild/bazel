@@ -229,19 +229,29 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * Gets the single "effective" architecture for this configuration's {@link PlatformType} (for
-   * example, "i386" or "arm64"). Prefer this over {@link #getMultiArchitectures(PlatformType)}
-   * only if in the context of rule logic which is only concerned with a single architecture (such
-   * as in {@code objc_library}, which registers single-architecture compile actions).
+   * example, "i386" or "arm64"). Prefer this over {@link #getMultiArchitectures(PlatformType)} only
+   * if in the context of rule logic which is only concerned with a single architecture (such as in
+   * {@code objc_library}, which registers single-architecture compile actions).
    *
    * <p>Single effective architecture is determined using the following rules:
+   *
    * <ol>
-   * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then
-   *     that is the effective architecture.</li>
+   * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then that is
+   *     the effective architecture.
    * <li>If the multi cpus flag (e.g. {@code --ios_multi_cpus}) is set and non-empty, then the first
-   *     such architecture is returned.</li>
-   * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.</li>
-   * <li>Use the default.</li></ol>
+   *     such architecture is returned.
+   * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.
+   * <li>Use the default.
+   * </ol>
    */
+  @SkylarkCallable(
+    name = "single_arch_cpu",
+    structField = true,
+    doc =
+        "The single \"effective\" architecture for this configuration (e.g. i386 or arm64) "
+            + "in the context of rule logic which is only concerned with a single architecture "
+            + "(such as in objc_library, which registers single-architecture compile actions). "
+  )
   public String getSingleArchitecture() {
     if (!Strings.isNullOrEmpty(appleSplitCpu)) {
       return appleSplitCpu;
@@ -304,14 +314,18 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * Gets the single "effective" platform for this configuration's {@link PlatformType} and
-   * architecture. Prefer this over {@link #getMultiArchPlatform(PlatformType)}
-   * only in cases if in the context of rule logic which is only concerned with a single
-   * architecture (such as in {@code objc_library}, which registers single-architecture compile
-   * actions).
+   * architecture. Prefer this over {@link #getMultiArchPlatform(PlatformType)} only in cases if in
+   * the context of rule logic which is only concerned with a single architecture (such as in {@code
+   * objc_library}, which registers single-architecture compile actions).
    */
-  @SkylarkCallable(name = "single_arch_platform", doc = "The platform of the current"
-      + " configuration. This should only be invoked in a context where only a single architecture"
-      + " may be supported; consider mutli_arch_platform for other cases.")
+  @SkylarkCallable(
+    name = "single_arch_platform",
+    doc =
+        "The platform of the current configuration. This should only be invoked in a context where "
+            + "only a single architecture may be supported; consider mutli_arch_platform for other "
+            + "cases.",
+    structField = true
+  )
   public Platform getSingleArchPlatform() {
     return Platform.forTarget(applePlatformType, getSingleArchitecture());
   }
