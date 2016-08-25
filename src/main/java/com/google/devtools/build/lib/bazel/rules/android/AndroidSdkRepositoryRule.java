@@ -28,9 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceConfiguredTargetFactory;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -55,6 +53,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
           builder.put(
               "android/appcompat_v7", Label.parseAbsoluteUnchecked(prefix + "appcompat_v7"));
           builder.put("android/design", Label.parseAbsoluteUnchecked(prefix + "design"));
+          builder.put("android/customtabs", Label.parseAbsoluteUnchecked(prefix + "customtabs"));
           builder.put(
               "android/mediarouter_v7", Label.parseAbsoluteUnchecked(prefix + "mediarouter_v7"));
           builder.put("android/cardview_v7", Label.parseAbsoluteUnchecked(prefix + "cardview_v7"));

@@ -47,6 +47,18 @@ def create_android_sdk_rules(
   )
 
   native.java_import(
+      name = "customtabs_import",
+      jars = ["extras/android/support/customtabs/libs/android-support-customtabs.jar"],
+  )
+
+  native.android_library(
+      name = "customtabs",
+      custom_package = "android.support.customtabs",
+      manifest = "extras/android/support/customtabs/AndroidManifest.xml",
+      deps = [":customtabs_import"]
+  )
+
+  native.java_import(
       name = "design_import",
       jars = ["extras/android/support/design/libs/android-support-design.jar"],
   )
