@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
@@ -54,7 +54,6 @@ import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -86,6 +85,7 @@ public final class CommandEnvironment {
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
+  private ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = ImmutableList.of();
   private Path workingDirectory;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
@@ -308,6 +308,10 @@ public final class CommandEnvironment {
     return outputService;
   }
 
+  public ImmutableList<ActionInputPrefetcher> getActionInputPrefetchers() {
+    return actionInputPrefetchers;
+  }
+
   public ActionCache getPersistentActionCache() throws IOException {
     return workspace.getPersistentActionCache(reporter);
   }
@@ -441,6 +445,7 @@ public final class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
+    ImmutableList.Builder<ActionInputPrefetcher> prefetchersBuilder = ImmutableList.builder();
     for (BlazeModule module : runtime.getBlazeModules()) {
       OutputService moduleService = module.getOutputService();
       if (moduleService != null) {
@@ -452,7 +457,13 @@ public final class CommandEnvironment {
         outputService = moduleService;
         outputModule = module;
       }
+
+      ActionInputPrefetcher actionInputPrefetcher = module.getPrefetcher();
+      if (actionInputPrefetcher != null) {
+        prefetchersBuilder.add(actionInputPrefetcher);
+      }
     }
+    actionInputPrefetchers = prefetchersBuilder.build();
 
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.setOutputService(outputService);

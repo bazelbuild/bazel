@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -171,13 +172,22 @@ public abstract class BlazeModule {
   }
 
   /**
+   * Returns an implementation of {@link ActionInputPrefetcher}.
+   *
+   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   */
+  @SuppressWarnings("unused")
+  public ActionInputPrefetcher getPrefetcher() throws AbruptExitException {
+    return null;
+  }
+
+  /**
    * Does any handling of options needed by the command.
    *
    * <p>This method will be called at the beginning of each command (after #beforeCommand).
    */
   @SuppressWarnings("unused")
-  public void handleOptions(OptionsProvider optionsProvider) {
-  }
+  public void handleOptions(OptionsProvider optionsProvider) {}
 
   /**
    * Returns extra options this module contributes to a specific command. Note that option
@@ -187,11 +197,13 @@ public abstract class BlazeModule {
    * <p>This method may be called at any time, and the returned value may be cached. Implementations
    * must be thread-safe and never return different lists for the same command object. Typical
    * implementations look like this:
+   *
    * <pre>
    * return "build".equals(command.name())
    *     ? ImmutableList.<Class<? extends OptionsBase>>of(MyOptions.class)
    *     : ImmutableList.<Class<? extends OptionsBase>>of();
    * </pre>
+   *
    * Note that this example adds options to all commands that inherit from the build command.
    *
    * <p>This method is also used to generate command-line documentation; in order to avoid
