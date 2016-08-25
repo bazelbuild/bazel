@@ -59,7 +59,7 @@ public class TypeTest {
   public void testInteger() throws Exception {
     Object x = 3;
     assertEquals(x, Type.INTEGER.convert(x, null));
-    assertThat(Type.INTEGER.flatten(x)).isEmpty();
+    assertThat(Type.INTEGER.extractLabels(x)).isEmpty();
   }
 
   @Test
@@ -91,7 +91,7 @@ public class TypeTest {
   public void testString() throws Exception {
     Object s = "foo";
     assertEquals(s, Type.STRING.convert(s, null));
-    assertThat(Type.STRING.flatten(s)).isEmpty();
+    assertThat(Type.STRING.extractLabels(s)).isEmpty();
   }
 
   @Test
@@ -114,7 +114,7 @@ public class TypeTest {
     assertTrue(Type.BOOLEAN.convert(myTrue, null));
     assertFalse(Type.BOOLEAN.convert(false, null));
     assertFalse(Type.BOOLEAN.convert(myFalse, null));
-    assertThat(Type.BOOLEAN.flatten(myTrue)).isEmpty();
+    assertThat(Type.BOOLEAN.extractLabels(myTrue)).isEmpty();
   }
 
   @Test
@@ -151,7 +151,7 @@ public class TypeTest {
     assertEquals(TriState.YES, BuildType.TRISTATE.convert(TriState.YES, null));
     assertEquals(TriState.NO, BuildType.TRISTATE.convert(TriState.NO, null));
     assertEquals(TriState.AUTO, BuildType.TRISTATE.convert(TriState.AUTO, null));
-    assertThat(BuildType.TRISTATE.flatten(TriState.YES)).isEmpty();
+    assertThat(BuildType.TRISTATE.extractLabels(TriState.YES)).isEmpty();
   }
 
   @Test
@@ -227,7 +227,7 @@ public class TypeTest {
     Label label = Label
         .parseAbsolute("//foo:bar");
     assertEquals(label, BuildType.LABEL.convert("//foo:bar", null, currentRule));
-    assertThat(BuildType.LABEL.flatten(label)).containsExactly(label);
+    assertThat(BuildType.LABEL.extractLabels(label)).containsExactly(label);
   }
 
   @Test
@@ -235,7 +235,7 @@ public class TypeTest {
     Label label = Label
         .parseAbsolute("//foo:bar");
     assertEquals(label, BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule));
-    assertThat(BuildType.NODEP_LABEL.flatten(label)).containsExactly(label);
+    assertThat(BuildType.NODEP_LABEL.extractLabels(label)).containsExactly(label);
   }
 
   @Test
@@ -279,7 +279,7 @@ public class TypeTest {
         Type.STRING_LIST.convert(input, null);
     assertEquals(input, converted);
     assertNotSame(input, converted);
-    assertThat(Type.STRING_LIST.flatten(input)).isEmpty();
+    assertThat(Type.STRING_LIST.extractLabels(input)).isEmpty();
   }
 
   @Test
@@ -289,7 +289,7 @@ public class TypeTest {
     Map<String, String> converted = Type.STRING_DICT.convert(input, null);
     assertEquals(input, converted);
     assertNotSame(input, converted);
-    assertThat(Type.STRING_DICT.flatten(converted)).isEmpty();
+    assertThat(Type.STRING_DICT.extractLabels(converted)).isEmpty();
   }
 
   @Test
@@ -336,7 +336,7 @@ public class TypeTest {
                     Label.parseAbsolute("//quux:wiz"));
     assertEquals(expected, converted);
     assertNotSame(expected, converted);
-    assertThat(BuildType.LABEL_LIST.flatten(converted)).containsExactlyElementsIn(expected);
+    assertThat(BuildType.LABEL_LIST.extractLabels(converted)).containsExactlyElementsIn(expected);
   }
 
   @Test
@@ -385,7 +385,7 @@ public class TypeTest {
             "wiz", Arrays.asList("bang"));
     assertEquals(expected, converted);
     assertNotSame(expected, converted);
-    assertThat(Type.STRING_LIST_DICT.flatten(converted)).isEmpty();
+    assertThat(Type.STRING_LIST_DICT.extractLabels(converted)).isEmpty();
   }
 
   @Test
@@ -438,7 +438,7 @@ public class TypeTest {
             "wiz", "bang");
     assertEquals(expected, converted);
     assertNotSame(expected, converted);
-    assertThat(Type.STRING_DICT_UNARY.flatten(converted)).isEmpty();
+    assertThat(Type.STRING_DICT_UNARY.extractLabels(converted)).isEmpty();
   }
 
   @Test

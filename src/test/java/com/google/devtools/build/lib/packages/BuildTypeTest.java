@@ -66,7 +66,7 @@ public class BuildTypeTest {
             /* symlinkBehavior */ null,
             /* stripPrefix */ null);
     assertEquals(input, BuildType.FILESET_ENTRY.convert(input, null, currentRule));
-    assertThat(BuildType.FILESET_ENTRY.flatten(input)).containsExactly(entryLabel);
+    assertThat(BuildType.FILESET_ENTRY.extractLabels(input)).containsExactly(entryLabel);
   }
 
   @Test
@@ -90,7 +90,8 @@ public class BuildTypeTest {
             /* symlinkBehavior */ null,
             /* stripPrefix */ null));
     assertEquals(input, BuildType.FILESET_ENTRY_LIST.convert(input, null, currentRule));
-    assertThat(BuildType.FILESET_ENTRY_LIST.flatten(input)).containsExactly(entry1Label, entry2Label);
+    assertThat(BuildType.FILESET_ENTRY_LIST.extractLabels(input)).containsExactly(
+        entry1Label, entry2Label);
   }
 
   /**

@@ -97,8 +97,13 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Collection<Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override
@@ -191,7 +196,12 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<? extends Object> flatten(Object value) {
+    protected boolean containsLabels() {
+      return true;
+    }
+
+    @Override
+    public Collection<? extends Object> extractLabels(Object value) {
       return cast(value).getLabels();
     }
   }
@@ -208,7 +218,12 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<Label> flatten(Object value) {
+    protected boolean containsLabels() {
+      return true;
+    }
+
+    @Override
+    public Iterable<Label> extractLabels(Object value) {
       return ImmutableList.of(cast(value));
     }
 
@@ -259,8 +274,13 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Collection<Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override
@@ -299,8 +319,13 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<Object> flatten(Object what) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Collection<Object> extractLabels(Object what) {
+      return NO_LABELS;
     }
 
     @Override
@@ -326,7 +351,12 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<Label> flatten(Object value) {
+    protected boolean containsLabels() {
+      return true;
+    }
+
+    @Override
+    public Collection<Label> extractLabels(Object value) {
       return ImmutableList.of(cast(value));
     }
 
@@ -587,8 +617,13 @@ public final class BuildType {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Collection<Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override

@@ -245,9 +245,9 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     return attribute != null && attribute.getType() == type;
   }
 
-  protected static Iterable<Label> extractLabels(Type type, Object value) {
+  protected static Iterable<Label> extractLabels(Type<?> type, Object value) {
     return value == null
         ? ImmutableList.<Label>of()
-        : Iterables.filter(type.flatten(value), Label.class);
+        : Iterables.filter(type.extractLabels(value), Label.class);
   }
 }

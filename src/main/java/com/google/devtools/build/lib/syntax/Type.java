@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,14 @@ import javax.annotation.Nullable;
  *  </pre>
  */
 public abstract class Type<T> {
+
+  private final Function<Object, Iterable<? extends Object>> flattenFunction =
+      new Function<Object, Iterable<? extends Object>>() {
+        @Override
+        public Iterable<? extends Object> apply(Object value) {
+          return extractLabels(value);
+        }
+      };
 
   protected Type() {}
 
@@ -126,7 +135,13 @@ public abstract class Type<T> {
   public abstract T getDefaultValue();
 
   /**
-   * Flatten the an instance of the type if the type is a composite one.
+   * Returns whether there exists an {@code x} such that {@code extractLabels(x)} will return a
+   * non-{@code NO_LABELS} value.
+   */
+  protected abstract boolean containsLabels();
+
+  /**
+   * Extracts all the labels from the given instance of the type.
    *
    * <p>This is used to support reliable label visitation in
    * {@link com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve
@@ -134,12 +149,12 @@ public abstract class Type<T> {
    * words, be careful about defining default instances in base types that get auto-inherited by
    * their children. Keep all definitions as explicit as possible.
    */
-  public abstract Collection<? extends Object> flatten(Object value);
+  public abstract Iterable<? extends Object> extractLabels(Object value);
 
   /**
-   * {@link #flatten} return value for types that don't contain labels.
+   * {@link #extractLabels} return value for types that don't contain labels.
    */
-  protected static final Collection<Object> NOT_COMPOSITE_TYPE = ImmutableList.of();
+  protected static final ImmutableList<Object> NO_LABELS = ImmutableList.of();
 
   /**
    * Implementation of concatenation for this type (e.g. "val1 + val2"). Returns null to
@@ -265,8 +280,13 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Iterable<? extends Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override
@@ -292,8 +312,13 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Collection<Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override
@@ -332,8 +357,13 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Iterable<Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override
@@ -383,8 +413,13 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      return NOT_COMPOSITE_TYPE;
+    protected boolean containsLabels() {
+      return false;
+    }
+
+    @Override
+    public Collection<Object> extractLabels(Object value) {
+      return NO_LABELS;
     }
 
     @Override
@@ -428,6 +463,24 @@ public abstract class Type<T> {
     private final Type<ValueT> valueType;
 
     private final Map<KeyT, ValueT> empty = ImmutableMap.of();
+
+    private final Function<
+        Map.Entry<KeyT, ValueT>, Iterable<? extends Object>> mapEntryFlattenFunction =
+        new Function<Map.Entry<KeyT, ValueT>, Iterable<? extends Object>>() {
+          @Override
+          public Iterable<? extends Object> apply(Entry<KeyT, ValueT> entry) {
+            Iterable<? extends Object> flattenedKeys = keyType.extractLabels(entry.getKey());
+            Iterable<? extends Object> flattenedValues = valueType.extractLabels(entry.getValue());
+            if (keyType.containsLabels() && valueType.containsLabels()) {
+              return Iterables.concat(flattenedKeys, flattenedValues);
+            } else if (keyType.containsLabels()) {
+              return flattenedKeys;
+            } else if (valueType.containsLabels()) {
+              return flattenedValues;
+            }
+            throw new IllegalStateException(this.toString());
+          }
+        };
 
     public static <KEY, VALUE> DictType<KEY, VALUE> create(
         Type<KEY> keyType, Type<VALUE> valueType) {
@@ -482,13 +535,15 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      ImmutableList.Builder<Object> result = ImmutableList.builder();
-      for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
-        result.addAll(keyType.flatten(entry.getKey()));
-        result.addAll(valueType.flatten(entry.getValue()));
-      }
-      return result.build();
+    protected boolean containsLabels() {
+      return keyType.containsLabels() || valueType.containsLabels();
+    }
+
+    @Override
+    public Iterable<Object> extractLabels(Object value) {
+      return containsLabels()
+          ? Iterables.concat(Iterables.transform(cast(value).entrySet(), mapEntryFlattenFunction))
+          : NO_LABELS;
     }
   }
 
@@ -524,12 +579,15 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Collection<Object> flatten(Object value) {
-      ImmutableList.Builder<Object> labels = ImmutableList.builder();
-      for (ElemT entry : cast(value)) {
-        labels.addAll(elemType.flatten(entry));
-      }
-      return labels.build();
+    protected boolean containsLabels() {
+      return elemType.containsLabels();
+    }
+
+    @Override
+    public Iterable<? extends Object> extractLabels(Object value) {
+      return containsLabels()
+          ? Iterables.concat(Iterables.transform(cast(value), elemType.flattenFunction))
+          : NO_LABELS;
     }
 
     @Override
