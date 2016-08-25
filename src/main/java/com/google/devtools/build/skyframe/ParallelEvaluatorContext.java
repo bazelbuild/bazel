@@ -32,6 +32,8 @@ import javax.annotation.Nullable;
  * Context object holding sufficient information for {@link SkyFunctionEnvironment} to perform its
  * duties. Shared among all {@link SkyFunctionEnvironment} instances, which should regard this
  * object as a read-only collection of data.
+ *
+ * <p>Also used during cycle detection.
  */
 class ParallelEvaluatorContext {
   private final QueryableGraph graph;
