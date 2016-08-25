@@ -193,15 +193,17 @@ public interface MutableActionGraph extends ActionGraph {
           || (aPrimaryInput != null
               && bPrimaryInput != null
               && aPrimaryInput.toString().equals(bPrimaryInput.toString()))) {
-        if (aPrimaryInput != bPrimaryInput) {
-          sb.append("Primary inputs are different objects: ")
-              .append(System.identityHashCode(aPrimaryInput))
+        Artifact aPrimaryOutput = a.getPrimaryOutput();
+        Artifact bPrimaryOutput = b.getPrimaryOutput();
+        if (aPrimaryOutput != bPrimaryOutput) {
+          sb.append("Primary outputs are different objects: ")
+              .append(System.identityHashCode(aPrimaryOutput))
               .append(", ")
-              .append(System.identityHashCode(bPrimaryInput))
+              .append(System.identityHashCode(bPrimaryOutput))
               .append('\n');
         }
-        ArtifactOwner aArtifactOwner = a.getPrimaryOutput().getArtifactOwner();
-        ArtifactOwner bArtifactOwner = b.getPrimaryOutput().getArtifactOwner();
+        ArtifactOwner aArtifactOwner = aPrimaryOutput.getArtifactOwner();
+        ArtifactOwner bArtifactOwner = bPrimaryOutput.getArtifactOwner();
         addStringDetail(
             sb, "Owner information", aArtifactOwner.toString(), bArtifactOwner.toString());
         addListDetail(sb, "MandatoryInputs", a.getMandatoryInputs(), b.getMandatoryInputs());
