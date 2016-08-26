@@ -122,7 +122,7 @@ public class LinuxSandboxRunner {
       Map<PathFragment, Path> inputs,
       Collection<PathFragment> outputs,
       int timeout,
-      boolean blockNetwork)
+      boolean allowNetwork)
       throws IOException, ExecException {
     createFileSystem(inputs, outputs);
 
@@ -159,7 +159,7 @@ public class LinuxSandboxRunner {
       fileArgs.add(inaccessiblePath.getPathString());
     }
 
-    if (blockNetwork) {
+    if (!allowNetwork) {
       // Block network access out of the namespace.
       fileArgs.add("-N");
     }

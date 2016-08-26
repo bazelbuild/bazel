@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -46,11 +45,6 @@ public class SandboxActionContextProvider extends ActionContextProvider {
       CommandEnvironment env, BuildRequest buildRequest, ExecutorService backgroundWorkers)
       throws IOException {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
-    boolean unblockNetwork =
-        buildRequest
-            .getOptions(BuildConfiguration.Options.class)
-            .testArguments
-            .contains("--wrapper_script_flag=--debug");
     ImmutableList.Builder<ActionContext> contexts = ImmutableList.builder();
 
     switch (OS.getCurrent()) {
@@ -58,11 +52,10 @@ public class SandboxActionContextProvider extends ActionContextProvider {
         if (LinuxSandboxedStrategy.isSupported(env)) {
           contexts.add(
               new LinuxSandboxedStrategy(
-                  buildRequest.getOptions(SandboxOptions.class),
+                  buildRequest,
                   env.getDirectories(),
                   backgroundWorkers,
                   verboseFailures,
-                  unblockNetwork,
                   env.getRuntime().getProductName()));
         } else if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing) {
           env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
@@ -72,12 +65,11 @@ public class SandboxActionContextProvider extends ActionContextProvider {
         if (DarwinSandboxRunner.isSupported()) {
           contexts.add(
               DarwinSandboxedStrategy.create(
-                  buildRequest.getOptions(SandboxOptions.class),
+                  buildRequest,
                   env.getClientEnv(),
                   env.getDirectories(),
                   backgroundWorkers,
                   verboseFailures,
-                  unblockNetwork,
                   env.getRuntime().getProductName()));
         }
         break;

@@ -13,29 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
-import static com.google.common.truth.Truth.assertThat;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.BlazeExecutor;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.events.PrintingEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
-import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import org.junit.Before;
 
@@ -43,24 +25,8 @@ import org.junit.Before;
  * Common parts of all {@link LinuxSandboxedStrategy} tests.
  */
 public class LinuxSandboxedStrategyTestCase {
-  private Reporter reporter = new Reporter(PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
-  private Path outputBase;
-
   protected FileSystem fileSystem;
   protected Path workspaceDir;
-
-  protected BlazeExecutor executor;
-  protected BlazeDirectories blazeDirs;
-
-  protected TestFileOutErr outErr = new TestFileOutErr();
-
-  protected String out() {
-    return outErr.outAsLatin1();
-  }
-
-  protected String err() {
-    return outErr.errAsLatin1();
-  }
 
   @Before
   public final void createDirectoriesAndExecutor() throws Exception  {
@@ -68,45 +34,6 @@ public class LinuxSandboxedStrategyTestCase {
 
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();
-
-    outputBase = testRoot.getRelative("outputBase");
-    outputBase.createDirectory();
-
-    blazeDirs = new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
-    BlazeTestUtils.getIntegrationBinTools(blazeDirs);
-
-    OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(ExecutionOptions.class, SandboxOptions.class);
-
-    EventBus bus = new EventBus();
-
-    this.executor =
-        new BlazeExecutor(
-            blazeDirs.getExecRoot(),
-            blazeDirs.getOutputPath(),
-            reporter,
-            bus,
-            BlazeClock.instance(),
-            optionsParser,
-            /* verboseFailures */ true,
-            /* showSubcommands */ false,
-            ImmutableList.<ActionContext>of(),
-            ImmutableMap.<String, SpawnActionContext>of(
-                "",
-                new LinuxSandboxedStrategy(
-                    optionsParser.getOptions(SandboxOptions.class),
-                    blazeDirs,
-                    MoreExecutors.newDirectExecutorService(),
-                    true,
-                    false,
-                    "mock-product-name")),
-            ImmutableList.<ActionContextProvider>of());
-  }
-
-  protected LinuxSandboxedStrategy getLinuxSandboxedStrategy() {
-    SpawnActionContext spawnActionContext = executor.getSpawnActionContext("");
-    assertThat(spawnActionContext).isInstanceOf(LinuxSandboxedStrategy.class);
-    return (LinuxSandboxedStrategy) spawnActionContext;
   }
 
   private Path createTestRoot() throws IOException {

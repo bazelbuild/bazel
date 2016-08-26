@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
@@ -69,28 +70,27 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
   private final ExecutorService backgroundWorkers;
 
+  private final BuildRequest buildRequest;
   private final SandboxOptions sandboxOptions;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean verboseFailures;
-  private final boolean unblockNetwork;
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
   private final String productName;
 
   LinuxSandboxedStrategy(
-      SandboxOptions options,
+      BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
       ExecutorService backgroundWorkers,
       boolean verboseFailures,
-      boolean unblockNetwork,
       String productName) {
-    this.sandboxOptions = options;
+    this.buildRequest = buildRequest;
+    this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
     this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
-    this.unblockNetwork = unblockNetwork;
     this.productName = productName;
   }
 
@@ -170,7 +170,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
             mounts,
             outputFiles.build(),
             timeout,
-            !this.unblockNetwork && !spawn.getExecutionInfo().containsKey("requires-network"));
+            SandboxHelpers.shouldAllowNetwork(buildRequest, spawn));
       } finally {
         // Due to the Linux kernel behavior, if we try to remove the sandbox too quickly after the
         // process has exited, we get "Device busy" errors because some of the mounts have not yet
