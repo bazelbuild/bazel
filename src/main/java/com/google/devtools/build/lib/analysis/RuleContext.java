@@ -1540,7 +1540,7 @@ public final class RuleContext extends TargetContext
         String attributeName = attr.getName();
         Map<Label, ConfiguredTarget> ctMap = new HashMap<>();
         for (ConfiguredTarget prerequisite : prerequisiteMap.get(attr)) {
-          ctMap.put(prerequisite.getLabel(), prerequisite);
+          ctMap.put(AliasProvider.getDependencyLabel(prerequisite), prerequisite);
         }
         List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configConditions)
             .get(attributeName, BuildType.FILESET_ENTRY_LIST);
