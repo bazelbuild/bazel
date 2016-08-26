@@ -70,6 +70,12 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0.
 
 
+## apksigner
+
+* [apksig](https://android.googlesource.com/platform/tools/apksig)
+* License: Apache License 2.0
+
+
 ## [asm](https://asm.ow2.org)
 
 * Version: 5.0.4
