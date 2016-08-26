@@ -429,10 +429,12 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
       int pos = env_str.find("=");
       if (pos != string::npos) {
         string name = env_str.substr(0, pos);
-        if (name == "PATH" || name == "TMP") {
-          string value = env_str.substr(pos + 1);
-          value = ConvertPathList(value);
-          env_str = name + "=" + value;
+        if (name == "PATH") {
+          env_str = "PATH=" + ConvertPathList(env_str.substr(pos + 1));
+        } else if (name == "TMP") {
+          // A valid Windows path "c:/foo" is also a valid Unix path list of
+          // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
+          env_str = "TMP=" + ConvertPath(env_str.substr(pos + 1));
         }
       }
       command_arguments_.push_back("--client_env=" + env_str);
