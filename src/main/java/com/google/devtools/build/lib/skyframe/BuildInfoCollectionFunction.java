@@ -36,12 +36,9 @@ import java.util.Map;
 public class BuildInfoCollectionFunction implements SkyFunction {
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
-  private final Root buildDataDirectory;
 
-  BuildInfoCollectionFunction(Supplier<ArtifactFactory> artifactFactory,
-      Root buildDataDirectory) {
+  BuildInfoCollectionFunction(Supplier<ArtifactFactory> artifactFactory) {
     this.artifactFactory = artifactFactory;
-    this.buildDataDirectory = buildDataDirectory;
   }
 
   @Override
@@ -65,11 +62,6 @@ public class BuildInfoCollectionFunction implements SkyFunction {
         return type == BuildInfoType.NO_REBUILD
             ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
             : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
-      }
-
-      @Override
-      public Root getBuildDataDirectory() {
-        return buildDataDirectory;
       }
     };
 

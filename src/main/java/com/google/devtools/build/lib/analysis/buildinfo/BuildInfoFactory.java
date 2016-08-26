@@ -47,7 +47,6 @@ public interface BuildInfoFactory extends Serializable {
    */
   public interface BuildInfoContext {
     Artifact getBuildInfoArtifact(PathFragment rootRelativePath, Root root, BuildInfoType type);
-    Root getBuildDataDirectory();
   }
 
   /**

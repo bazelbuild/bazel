@@ -220,8 +220,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     @Override
     public WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory factory, ArtifactOwner artifactOwner, Supplier<UUID> buildId) {
-      Root root = env.getDirectories().getBuildDataDirectory();
+        ArtifactFactory factory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
+        String workspaceName) {
+      Root root = env.getDirectories().getBuildDataDirectory(workspaceName);
 
       Artifact stableArtifact = factory.getDerivedArtifact(
           new PathFragment("stable-status.txt"), root, artifactOwner);

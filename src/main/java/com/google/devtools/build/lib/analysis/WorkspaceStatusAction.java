@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -181,7 +180,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
      * will be unconditionally re-executed on every build)
      */
     WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId);
+        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
+        String workspaceName);
 
     /**
      * Creates a dummy workspace status map. Used in cases where the build failed, so that part of

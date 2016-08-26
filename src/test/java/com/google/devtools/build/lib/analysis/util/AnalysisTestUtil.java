@@ -286,13 +286,14 @@ public final class AnalysisTestUtil {
 
     @Override
     public WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId) {
+        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
+        String workspaceName) {
       Artifact stableStatus = artifactFactory.getDerivedArtifact(
           new PathFragment("build-info.txt"),
-          directories.getBuildDataDirectory(), artifactOwner);
+          directories.getBuildDataDirectory(workspaceName), artifactOwner);
       Artifact volatileStatus = artifactFactory.getConstantMetadataArtifact(
           new PathFragment("build-changelist.txt"),
-          directories.getBuildDataDirectory(), artifactOwner);
+          directories.getBuildDataDirectory(workspaceName), artifactOwner);
       return new DummyWorkspaceStatusAction(key, stableStatus, volatileStatus);
     }
 

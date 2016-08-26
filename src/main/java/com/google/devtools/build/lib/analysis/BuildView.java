@@ -477,7 +477,7 @@ public class BuildView {
       }
     }
 
-    skyframeExecutor.injectWorkspaceStatusData();
+    skyframeExecutor.injectWorkspaceStatusData(loadingResult.getWorkspaceName());
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       skyframeAnalysisResult =
