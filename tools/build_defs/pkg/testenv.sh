@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Integration test for docker, test environment.
+# Integration test for pkg, test environment.
 
 [ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
+[ -z "$TEST_WORKSPACE" ] && { echo "TEST_WORKSPACE not set!" >&2; exit 1; }
 
 # Load the unit-testing framework
-source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
+source "${TEST_SRCDIR}/${TEST_WORKSPACE}/src/test/shell/unittest.bash" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
-readonly TEST_DATA_DIR="${TEST_SRCDIR}/tools/build_defs/pkg"
+readonly TEST_DATA_DIR="${TEST_SRCDIR}/${TEST_WORKSPACE}/tools/build_defs/pkg"

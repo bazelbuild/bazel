@@ -46,8 +46,8 @@ py_binary(
     srcs = ["build_tar.py"],
     visibility = ["//visibility:public"],
     deps = [
-        "@bazel_tools//third_party/py/gflags",
         ":archive",
+        "@bazel_tools//third_party/py/gflags",
     ],
 )
 
@@ -56,8 +56,8 @@ py_binary(
     srcs = ["make_deb.py"],
     visibility = ["//visibility:public"],
     deps = [
-        "@bazel_tools//third_party/py/gflags",
         ":archive",
+        "@bazel_tools//third_party/py/gflags",
     ],
 )
 
@@ -75,6 +75,7 @@ genrule(
 
 [pkg_tar(
     name = "test-tar-%s" % ext[1:],
+    build_tar = ":build_tar",
     extension = "tar%s" % ext,
     files = [
         ":etc/nsswitch.conf",
@@ -94,6 +95,7 @@ genrule(
 
 [pkg_tar(
     name = "test-tar-inclusion-%s" % ext,
+    build_tar = ":build_tar",
     deps = [":test-tar-%s" % ext],
 ) for ext in [
     "",
@@ -104,6 +106,7 @@ genrule(
 
 pkg_tar(
     name = "test-tar-strip_prefix-empty",
+    build_tar = ":build_tar",
     files = [
         ":etc/nsswitch.conf",
     ],
@@ -112,6 +115,7 @@ pkg_tar(
 
 pkg_tar(
     name = "test-tar-strip_prefix-none",
+    build_tar = ":build_tar",
     files = [
         ":etc/nsswitch.conf",
     ],
@@ -119,6 +123,7 @@ pkg_tar(
 
 pkg_tar(
     name = "test-tar-strip_prefix-etc",
+    build_tar = ":build_tar",
     files = [
         ":etc/nsswitch.conf",
     ],
@@ -127,6 +132,7 @@ pkg_tar(
 
 pkg_tar(
     name = "test-tar-strip_prefix-dot",
+    build_tar = ":build_tar",
     files = [
         ":etc/nsswitch.conf",
     ],
@@ -135,6 +141,10 @@ pkg_tar(
 
 pkg_deb(
     name = "test-deb",
+    conffiles = [
+        "/etc/nsswitch.conf",
+        "/etc/other",
+    ],
     data = ":test-tar-gz.tar.gz",
     depends = [
         "dep1",
@@ -142,6 +152,7 @@ pkg_deb(
     ],
     description = "toto",
     maintainer = "someone@somewhere.com",
+    make_deb = ":make_deb",
     package = "titi",
     version = "test",
 )

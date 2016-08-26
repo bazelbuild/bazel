@@ -77,6 +77,15 @@ def _pkg_deb_impl(ctx):
     args += ["--postrm=@" + ctx.file.postrm.path]
     files += [ctx.file.postrm]
 
+  # Conffiles can be specified by a file or a string list
+  if ctx.attr.conffiles_file:
+    if ctx.attr.conffiles:
+      fail("Both conffiles and conffiles_file attributes were specified")
+    args += ["--conffile=@" + ctx.file.conffiles_file.path]
+    files += [ctx.file.conffiles_file]
+  elif ctx.attr.conffiles:
+    args += ["--conffile=%s" % cf for cf in ctx.attr.conffiles]
+
   # Version and description can be specified by a file or inlined
   if ctx.attr.version_file:
     if ctx.attr.version:
@@ -170,6 +179,8 @@ pkg_deb = rule(
         "postinst": attr.label(allow_files=True, single_file=True),
         "prerm": attr.label(allow_files=True, single_file=True),
         "postrm": attr.label(allow_files=True, single_file=True),
+        "conffiles_file": attr.label(allow_files=True, single_file=True),
+        "conffiles": attr.string_list(default=[]),
         "version_file": attr.label(allow_files=True, single_file=True),
         "version": attr.string(),
         "description_file": attr.label(allow_files=True, single_file=True),

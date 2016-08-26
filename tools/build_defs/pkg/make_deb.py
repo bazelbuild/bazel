@@ -57,6 +57,13 @@ gflags.DEFINE_string('postrm', None,
                      'The postrm script (prefix with @ to provide a path).')
 
 
+# see
+# https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile
+gflags.DEFINE_multistring(
+    'conffile', None,
+    'List of conffiles (prefix item with @ to provide a path)')
+
+
 def MakeGflags():
   for field in DEBIAN_FIELDS:
     fieldname = field[0].replace('-', '_').lower()
@@ -119,28 +126,36 @@ def CreateDebControl(extrafiles=None, **kwargs):
     tarinfo.size = len(controlfile)
     f.addfile(tarinfo, fileobj=StringIO(controlfile))
     if extrafiles:
-      for name in extrafiles:
+      for name, (data, mode) in extrafiles.iteritems():
         tarinfo = tarfile.TarInfo(name)
-        tarinfo.size = len(extrafiles[name])
-        tarinfo.mode = 0o755
-        f.addfile(tarinfo, fileobj=StringIO(extrafiles[name]))
+        tarinfo.size = len(data)
+        tarinfo.mode = mode
+        f.addfile(tarinfo, fileobj=StringIO(data))
   control = tar.getvalue()
   tar.close()
   return control
 
 
-def CreateDeb(output, data,
-              preinst=None, postinst=None, prerm=None, postrm=None, **kwargs):
+def CreateDeb(output,
+              data,
+              preinst=None,
+              postinst=None,
+              prerm=None,
+              postrm=None,
+              conffiles=None,
+              **kwargs):
   """Create a full debian package."""
   extrafiles = {}
   if preinst:
-    extrafiles['preinst'] = preinst
+    extrafiles['preinst'] = (preinst, 0o755)
   if postinst:
-    extrafiles['postinst'] = postinst
+    extrafiles['postinst'] = (postinst, 0o755)
   if prerm:
-    extrafiles['prerm'] = prerm
+    extrafiles['prerm'] = (prerm, 0o755)
   if postrm:
-    extrafiles['postrm'] = postrm
+    extrafiles['postrm'] = (postrm, 0o755)
+  if conffiles:
+    extrafiles['conffiles'] = ('\n'.join(conffiles), 0o644)
   control = CreateDebControl(extrafiles=extrafiles, **kwargs)
 
   # Write the final AR archive (the deb package)
@@ -247,29 +262,38 @@ def GetFlagValue(flagvalue, strip=True):
   return flagvalue
 
 
+def GetFlagValues(flagvalues):
+  if flagvalues:
+    return [GetFlagValue(f, False) for f in flagvalues]
+  else:
+    return None
+
+
 def main(unused_argv):
-  CreateDeb(FLAGS.output,
-            FLAGS.data,
-            preinst=GetFlagValue(FLAGS.preinst, False),
-            postinst=GetFlagValue(FLAGS.postinst, False),
-            prerm=GetFlagValue(FLAGS.prerm, False),
-            postrm=GetFlagValue(FLAGS.postrm, False),
-            package=FLAGS.package,
-            version=GetFlagValue(FLAGS.version),
-            description=GetFlagValue(FLAGS.description),
-            maintainer=FLAGS.maintainer,
-            section=FLAGS.section,
-            architecture=FLAGS.architecture,
-            depends=FLAGS.depends,
-            suggests=FLAGS.suggests,
-            enhances=FLAGS.enhances,
-            preDepends=FLAGS.pre_depends,
-            recommends=FLAGS.recommends,
-            homepage=FLAGS.homepage,
-            builtUsing=GetFlagValue(FLAGS.built_using),
-            priority=FLAGS.priority,
-            conflicts=FLAGS.conflicts,
-            installedSize=GetFlagValue(FLAGS.installed_size))
+  CreateDeb(
+      FLAGS.output,
+      FLAGS.data,
+      preinst=GetFlagValue(FLAGS.preinst, False),
+      postinst=GetFlagValue(FLAGS.postinst, False),
+      prerm=GetFlagValue(FLAGS.prerm, False),
+      postrm=GetFlagValue(FLAGS.postrm, False),
+      conffiles=GetFlagValues(FLAGS.conffile),
+      package=FLAGS.package,
+      version=GetFlagValue(FLAGS.version),
+      description=GetFlagValue(FLAGS.description),
+      maintainer=FLAGS.maintainer,
+      section=FLAGS.section,
+      architecture=FLAGS.architecture,
+      depends=FLAGS.depends,
+      suggests=FLAGS.suggests,
+      enhances=FLAGS.enhances,
+      preDepends=FLAGS.pre_depends,
+      recommends=FLAGS.recommends,
+      homepage=FLAGS.homepage,
+      builtUsing=GetFlagValue(FLAGS.built_using),
+      priority=FLAGS.priority,
+      conflicts=FLAGS.conflicts,
+      installedSize=GetFlagValue(FLAGS.installed_size))
   CreateChanges(
       FLAGS.changes,
       FLAGS.output,

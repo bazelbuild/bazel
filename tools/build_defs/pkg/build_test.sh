@@ -51,6 +51,32 @@ function get_deb_permission() {
   dpkg-deb -c "${test_data}" | fgrep "00 $file" | cut -d " " -f 1
 }
 
+function get_deb_ctl_file() {
+  local input=$1
+  local file=$2
+  local test_data="${TEST_DATA_DIR}/${input}"
+  dpkg-deb -I "${test_data}" "${file}"
+}
+
+function get_deb_ctl_listing() {
+  local input=$1
+  local test_data="${TEST_DATA_DIR}/${input}"
+  dpkg-deb --ctrl-tarfile "${test_data}" | tar tf - | sort
+}
+
+function get_deb_ctl_permission() {
+  local input=$1
+  local file=$2
+  local test_data="${TEST_DATA_DIR}/${input}"
+  dpkg-deb --ctrl-tarfile "${test_data}" | tar tvf - | egrep " $file\$" | cut -d " " -f 1
+}
+
+function dpkg_deb_supports_ctrl_tarfile() {
+  local input=$1
+  local test_data="${TEST_DATA_DIR}/${input}"
+  dpkg-deb --ctrl-tarfile "${test_data}" > /dev/null 2> /dev/null
+}
+
 
 function test_tar() {
   local listing="./
@@ -100,6 +126,19 @@ function test_deb() {
   expect_log "Description: toto"
   expect_log "Package: titi"
   expect_log "Depends: dep1, dep2"
+
+  if ! dpkg_deb_supports_ctrl_tarfile test-deb.deb ; then
+    echo "Unable to test deb control files, too old dpkg-deb!" >&2
+    return 0
+  fi
+  local ctrl_listing="conffiles
+control"
+  check_eq "$ctrl_listing" "$(get_deb_ctl_listing test-deb.deb)"
+  check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb conffiles)"
+  check_eq "-rw-r--r--" "$(get_deb_ctl_permission test-deb.deb control)"
+  local conffiles="/etc/nsswitch.conf
+/etc/other"
+  check_eq "$conffiles" "$(get_deb_ctl_file test-deb.deb conffiles)"
 }
 
 run_suite "build_test"

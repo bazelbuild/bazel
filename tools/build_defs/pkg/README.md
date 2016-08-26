@@ -296,6 +296,21 @@ for more details on this.
         </p>
         <p>
           See <a href="http://www.debian.org/doc/debian-policy/ch-maintainerscripts.html">http://www.debian.org/doc/debian-policy/ch-maintainerscripts.html</a>.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>conffiles</code>, <code>conffiles_file</code></td>
+      <td>
+        <code>String list or File, optional</code>
+        <p>
+          The list of conffiles or a file containing one conffile per
+          line. Each item is an absolute path on the target system
+          where the deb is installed.
+        </p>
+        <p>
+          See <a href="https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile">https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile</a>.
+        </p>
       </td>
     </tr>
     <tr>
