@@ -558,4 +558,35 @@ TEST_F(OutputJarSimpleTest, DontChangeCompressionOption) {
   input_jar.Close();
 }
 
+const char kBuildDataFile[] = "build-data.properties";
+
+// Test --exclude_build_data option when none of the source archives contain
+// build-data.properties file: no such file in the output archive.
+TEST_F(OutputJarSimpleTest, ExcludeBuildData1) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--exclude_build_data"});
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    string entry_name = lh->file_name_string();
+    EXPECT_NE(kBuildDataFile, lh->file_name_string());
+  }
+  input_jar.Close();
+}
+
+// Test --exclude_build_data option when a source archive contains
+// build-data.properties file, it should be then copied to the output.
+TEST_F(OutputJarSimpleTest, ExcludeBuildData2) {
+  string out_dir = OutputFilePath("");
+  string testzip_path = OutputFilePath("testinput.zip");
+  string buildprop_path = CreateTextFile(kBuildDataFile, "build: foo");
+  unlink(testzip_path.c_str());
+  ASSERT_EQ(0, RunCommand("cd ", out_dir.c_str(), ";", "zip", "-m",
+                          "testinput.zip", kBuildDataFile , nullptr));
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--exclude_build_data", "--sources", testzip_path});
+  EXPECT_EQ("build: foo", GetEntryContents(out_path, kBuildDataFile));
+}
 }  // namespace

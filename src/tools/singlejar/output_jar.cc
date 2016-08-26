@@ -63,8 +63,6 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  known_members_.emplace(build_properties_.filename(),
-                         EntryInfo{&build_properties_});
   manifest_.Append(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n");
@@ -75,6 +73,14 @@ int OutputJar::Doit(Options *options) {
     diag_errx(1, "%s:%d: Doit() can be called only once.", __FILE__, __LINE__);
   }
   options_ = options;
+
+  // Register the handler for the build-data.properties file unless
+  // --exclude_build_data is present. Otherwise we do not generate this file,
+  // and it will be copied from the first source archive containing it.
+  if (!options_->exclude_build_data) {
+    known_members_.emplace(build_properties_.filename(),
+                           EntryInfo{&build_properties_});
+  }
 
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
   if (options_->verbose) {
