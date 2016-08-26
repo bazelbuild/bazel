@@ -185,6 +185,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     androidSemantics.addTransitiveInfoProviders(
         builder, ruleContext, javaCommon, androidCommon, null);
 
+    NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
+    if (androidCommon.getResourceClassJar() != null) {
+      transitiveResourcesJars.add(androidCommon.getResourceClassJar());      
+    }
+
     builder
         .add(AndroidNativeLibraryProvider.class,
             new AndroidNativeLibraryProvider(transitiveNativeLibraries))
@@ -197,7 +202,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             new AndroidCcLinkParamsProvider(androidCommon.getCcLinkParamsStore()))
         .add(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
-        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, transitiveProguardConfigs);
+        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
+        .add(AndroidLibraryResourceClassJarProvider.class,
+            new AndroidLibraryResourceClassJarProvider(transitiveResourcesJars.build()));
 
     if (!JavaCommon.isNeverLink(ruleContext)) {
       builder.add(AndroidLibraryAarProvider.class,
@@ -228,6 +235,17 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     for (AndroidLibraryAarProvider library : AndroidCommon.getTransitivePrerequisites(
         ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class)) {
       builder.addTransitive(library.getTransitiveAars());
+    }
+    return builder;
+  }
+  
+  private NestedSetBuilder<Artifact> collectTransitiveResourceJars(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
+    Iterable<AndroidLibraryResourceClassJarProvider> providers =
+        AndroidCommon.getTransitivePrerequisites(
+            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.class);
+    for (AndroidLibraryResourceClassJarProvider resourceJarProvider : providers) {
+      builder.addTransitive(resourceJarProvider.getResourceClassJars());
     }
     return builder;
   }

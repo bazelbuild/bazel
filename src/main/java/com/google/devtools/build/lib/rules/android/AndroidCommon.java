@@ -823,6 +823,10 @@ public class AndroidCommon {
     return javaCommon.getJavaCompilationArtifacts().getRuntimeJars();
   }
 
+  public Artifact getResourceClassJar() {
+    return resourceClassJar;
+  }
+  
   /**
    * Returns Jars produced by this rule that may go into the runtime classpath.  By contrast
    * {@link #getRuntimeJars()} returns the complete runtime classpath needed by this rule, including
