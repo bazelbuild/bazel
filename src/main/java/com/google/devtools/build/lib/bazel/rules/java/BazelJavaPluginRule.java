@@ -52,10 +52,8 @@ public final class BazelJavaPluginRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("processor_class", STRING))
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(generates_api) -->
-        ${SYNOPSIS}
         This attribute marks annotation processors that generate API code.
-        <i>(Boolean; optional, default is 0)</i><br/>
-        If a rule uses an API-generating annotation processor, other rules
+        <p>If a rule uses an API-generating annotation processor, other rules
         depending on it can refer to the generated code only if their
         compilation actions are scheduled after the generating rule. This
         attribute instructs Blaze to introduce scheduling constraints when
