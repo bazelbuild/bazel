@@ -226,9 +226,10 @@ public class ResourceManager {
 
   /**
    * Acquires the given resources if available immediately. Does not block.
-   * @return true iff the given resources were locked (all or nothing).
+   *
+   * @return a ResourceHandle iff the given resources were locked (all or nothing), null otherwise.
    */
-  public boolean tryAcquire(ActionExecutionMetadata owner, ResourceSet resources) {
+  public ResourceHandle tryAcquire(ActionExecutionMetadata owner, ResourceSet resources) {
     boolean acquired = false;
     synchronized (this) {
       if (areResourcesAvailable(resources)) {
@@ -241,9 +242,10 @@ public class ResourceManager {
       threadLocked.set(resources.getCpuUsage() != 0 || resources.getMemoryMb() != 0
           || resources.getIoUsage() != 0 || resources.getLocalTestCount() != 0);
       acquired(owner);
+      return new ResourceHandle(this, owner, resources);
     }
 
-    return acquired;
+    return null;
   }
 
   private void incrementResources(ResourceSet resources) {

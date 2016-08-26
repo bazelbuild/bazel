@@ -14,13 +14,14 @@
 package com.google.devtools.build.lib.actions;
 
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.testutil.TestThread;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +63,7 @@ public class ResourceManagerTest {
     rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
   }
 
-  private boolean acquireNonblocking(double ram, double cpu, double io, int tests) {
+  private ResourceHandle acquireNonblocking(double ram, double cpu, double io, int tests) {
     return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
   }
 
@@ -121,7 +122,7 @@ public class ResourceManagerTest {
 
     // When a request for CPU is made that would slightly overallocate CPU,
     // Then the request succeeds:
-    assertTrue(acquireNonblocking(0, 0.6, 0, 0));
+    assertThat(acquireNonblocking(0, 0.6, 0, 0)).isNotNull();
   }
 
   @Test
@@ -133,7 +134,7 @@ public class ResourceManagerTest {
 
     // When a request for a large CPU allocation is made,
     // Then the request succeeds:
-    assertTrue(acquireNonblocking(0, 0.99, 0, 0));
+    assertThat(acquireNonblocking(0, 0.99, 0, 0)).isNotNull();
 
     // Cleanup
     release(0, 1.089, 0, 0);
@@ -145,7 +146,7 @@ public class ResourceManagerTest {
 
     // When a request for a small CPU allocation is made,
     // Then the request fails:
-    assertFalse(acquireNonblocking(0, 0.099, 0, 0));
+    assertThat(acquireNonblocking(0, 0.099, 0, 0)).isNull();
 
     // Note that this behavior is surprising and probably not intended.
   }
@@ -159,7 +160,7 @@ public class ResourceManagerTest {
 
     // When a request for RAM is made that would slightly overallocate RAM,
     // Then the request fails:
-    assertFalse(acquireNonblocking(600, 0, 0, 0));
+    assertThat(acquireNonblocking(600, 0, 0, 0)).isNull();
   }
 
   @Test
@@ -171,7 +172,7 @@ public class ResourceManagerTest {
 
     // When a request for IO is made that would slightly overallocate IO,
     // Then the request fails:
-    assertFalse(acquireNonblocking(0, 0, 0.6, 0));
+    assertThat(acquireNonblocking(0, 0, 0.6, 0)).isNull();
   }
 
   @Test
@@ -183,7 +184,7 @@ public class ResourceManagerTest {
 
     // When a request for tests is made that would slightly overallocate tests,
     // Then the request fails:
-    assertFalse(acquireNonblocking(0, 0, 0, 2));
+    assertThat(acquireNonblocking(0, 0, 0, 2)).isNull();
   }
 
   @Test
