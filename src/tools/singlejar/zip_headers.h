@@ -69,6 +69,34 @@ static const uint8_t *byte_ptr(const void *ptr) {
  *    [end of central directory record]              class ECD
  */
 
+class ExtraField {
+ public:
+  static const ExtraField *find(uint16_t tag, const uint8_t *start,
+                                const uint8_t *end) {
+    while (start < end) {
+      auto extra_field = reinterpret_cast<const ExtraField *>(start);
+      if (extra_field->is(tag)) {
+        return extra_field;
+      }
+      start = byte_ptr(start) + extra_field->size();
+    }
+    return nullptr;
+  }
+  bool is(uint16_t tag) const { return htole16(tag_) == tag; }
+  void signature(uint16_t tag) { tag_ = le16toh(tag); }
+
+  uint16_t payload_size() const { return le16toh(payload_size_); }
+  void payload_size(uint16_t v) { payload_size_ = htole16(v); }
+
+  uint16_t size() const { return sizeof(ExtraField) + payload_size(); }
+
+ protected:
+  uint16_t tag_;
+  uint16_t payload_size_;
+} __attribute__((packed));
+static_assert(4 == sizeof(ExtraField),
+              "ExtraField class fields layout is incorrect.");
+
 /* Zip64 Extra Field (section 4.5.3 of the .ZIP format spec)
  *
  * It is present if a value of a uncompressed_size/compressed_size/file_offset
@@ -80,39 +108,62 @@ static const uint8_t *byte_ptr(const void *ptr) {
  * Zip64 Extra Field. Section 4.5.3 of the spec mentions that Zip64 extra field
  * of the Local Header MUST have both uncompressed and compressed sizes present.
  */
-class Zip64ExtraField {
+class Zip64ExtraField : public ExtraField {
  public:
   static const Zip64ExtraField *find(const uint8_t *start, const uint8_t *end) {
-    while (start < end) {
-      const Zip64ExtraField *z64 =
-          reinterpret_cast<const Zip64ExtraField *>(start);
-      if (z64->is()) {
-        return z64;
-      }
-      start = byte_ptr(start) + z64->size();
-    }
-    return nullptr;
+    return reinterpret_cast<const Zip64ExtraField *>(
+        ExtraField::find(1, start, end));
   }
 
-  bool is() const { return 1 == le16toh(tag_); }
-  void signature() { tag_ = htole16(1); }
-
-  uint16_t payload_size() const { return le16toh(payload_size_); }
-  void payload_size(uint16_t v) { payload_size_ = htole16(v); }
-
-  uint16_t size() const { return sizeof(Zip64ExtraField) + payload_size(); }
+  bool is() const { return ExtraField::is(1); }
+  void signature() { ExtraField::signature(1); }
 
   // The value of i-th attribute
   uint64_t attr64(int index) const { return le64toh(attr_[index]); }
   void attr64(int index, uint64_t v) { attr_[index] = htole64(v); }
 
  private:
-  uint16_t tag_;
-  uint16_t payload_size_;
   uint64_t attr_[];
 } __attribute__((packed));
 static_assert(4 == sizeof(Zip64ExtraField),
               "Zip64ExtraField class fields layout is incorrect.");
+
+/* Extended Timestamp Extra Field.
+ * This field in the Central Directory Header contains only the modification
+ * time, whereas in the Local Header up to three timestamps (modification.
+ * access, creation) may be present.
+ * The time values are in standard Unix signed-long format, indicating the
+ * number of seconds since 1 January 1970 00:00:00.  The times are relative to
+ * Coordinated Universal Time (UTC).
+ */
+class UnixTimeExtraField : public ExtraField {
+ public:
+  static const UnixTimeExtraField *find(const uint8_t *start,
+                                        const uint8_t *end) {
+    return reinterpret_cast<const UnixTimeExtraField *>(
+        ExtraField::find(0x5455, start, end));
+  }
+  bool is() const { return ExtraField::is(0x5455); }
+  void signature() { ExtraField::signature(0x5455); }
+
+  void flags(uint8_t v) { flags_ = v; }
+  bool has_modification_time() const { return flags_ & 1; }
+  bool has_access_time() const { return flags_ & 2; }
+  bool has_creation_time() const { return flags_ & 4; }
+
+  uint32_t timestamp(int index) const { return le32toh(timestamp_[index]); }
+  void timestamp(int index, uint32_t v) { timestamp_[index] = htole32(v); }
+
+  int timestamp_count() const {
+    return (payload_size() - sizeof(flags_)) / sizeof(timestamp_[0]);
+  }
+
+ private:
+  uint8_t flags_;
+  uint32_t timestamp_[];
+} __attribute__((packed));
+static_assert(5 == sizeof(UnixTimeExtraField),
+              "UnixTimeExtraField layout is incorrect");
 
 /* Local Header precedes each archive file data (section 4.3.7).  */
 class LH {
@@ -213,6 +264,11 @@ class LH {
   const Zip64ExtraField *zip64_extra_field() const {
     return Zip64ExtraField::find(extra_fields(),
                                  extra_fields() + extra_fields_length());
+  }
+
+  const UnixTimeExtraField *unix_time_extra_field() const {
+    return UnixTimeExtraField::find(extra_fields(),
+                                    extra_fields() + extra_fields_length());
   }
 
  private:
@@ -363,6 +419,11 @@ class CDH {
   const Zip64ExtraField *zip64_extra_field() const {
     return Zip64ExtraField::find(extra_fields(),
                                  extra_fields() + extra_fields_length());
+  }
+
+  const UnixTimeExtraField *unix_time_extra_field() const {
+    return UnixTimeExtraField::find(extra_fields(),
+                                    extra_fields() + extra_fields_length());
   }
 
  private:

@@ -64,7 +64,7 @@ TEST(ZipHeadersTest, LocalHeader) {
   // size 5000000000 (0x12A05F200) and compressed file size 3000000(0x2DC6C0).
   uint8_t extra_data[] = {
     // 'UT' field: 9 bytes of payload.
-    'U', 'T', 9, 0,    // tag 0x7875, length 0x0009
+    'U', 'T', 9, 0,    // tag 0x5455, length 0x0009
         0x03, 0x85, 0x0a, 0x91, 0x57, 0x7d, 0x0a, 0x91, 0x57,
     // Zip64 extension: 16 bytes of payload.
     1, 0, 16, 0,       // tag 0x0001, length 0x0010
@@ -77,8 +77,18 @@ TEST(ZipHeadersTest, LocalHeader) {
   const Zip64ExtraField *zip64_field = lh->zip64_extra_field();
   ASSERT_NE(nullptr, zip64_field);
   EXPECT_EQ(16, zip64_field->payload_size());
+  EXPECT_EQ(20, zip64_field->size());
   EXPECT_EQ(5000000000, zip64_field->attr64(0));
   EXPECT_EQ(3000000, zip64_field->attr64(1));
+
+  const UnixTimeExtraField *ut_extra_field = lh->unix_time_extra_field();
+  ASSERT_NE(nullptr, ut_extra_field);
+  EXPECT_EQ(9, ut_extra_field->payload_size());
+  EXPECT_EQ(13, ut_extra_field->size());
+  EXPECT_EQ(2, ut_extra_field->timestamp_count());
+  EXPECT_TRUE(ut_extra_field->has_modification_time());
+  EXPECT_TRUE(ut_extra_field->has_access_time());
+  EXPECT_FALSE(ut_extra_field->has_creation_time());
 
   // Check that 64-bit sizes are returned correctly.
   lh->compressed_file_size32(0xFFFFFFFF);
@@ -149,8 +159,8 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   // attributes, and a Zip64 extension with two uint64 values: original file
   // size 5000000000 (0x12A05F200) and compressed file size 3000000(0x2DC6C0).
   uint8_t extra_data[] = {
-    // 'UT' field: 9 bytes of payload.
-    'U', 'T', 9, 0, 0x03, 0x85, 0x0a, 0x91, 0x57, 0x7d, 0x0a, 0x91, 0x57,
+    // 'UT' field: 5 bytes of payload (only mod time, reagrdless of flag bits)
+    'U', 'T', 5, 0, 0x03, 0x85, 0x0a, 0x91, 0x57,
     // Zip64 extension: 16 bytes of payload.
     1, 0, 16, 0,    // tag 0x0001, length 0x0010
     0, 0xf2, 0x5, 0x2a, 1, 0, 0, 0,   // 0x12a05f200 = 5000000000
@@ -162,8 +172,16 @@ TEST(ZipHeadersTest, CentralDirectoryHeader) {
   const Zip64ExtraField *zip64_field = cdh->zip64_extra_field();
   ASSERT_NE(nullptr, zip64_field);
   EXPECT_EQ(16, zip64_field->payload_size());
+  EXPECT_EQ(20, zip64_field->size());
   EXPECT_EQ(5000000000, zip64_field->attr64(0));
   EXPECT_EQ(3000000, zip64_field->attr64(1));
+  const UnixTimeExtraField *ut_extra_field = cdh->unix_time_extra_field();
+  ASSERT_NE(nullptr, ut_extra_field);
+  EXPECT_EQ(5, ut_extra_field->payload_size());
+  EXPECT_EQ(9, ut_extra_field->size());
+  EXPECT_EQ(1, ut_extra_field->timestamp_count());
+  EXPECT_TRUE(ut_extra_field->has_modification_time());
+  EXPECT_EQ(0x57910A85, ut_extra_field->timestamp(0));
 
   // Check that 64-bit sizes are returned correctly.
   cdh->compressed_file_size32(0xFFFFFFFF);
