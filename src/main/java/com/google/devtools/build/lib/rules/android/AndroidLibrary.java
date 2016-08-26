@@ -185,22 +185,26 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     androidSemantics.addTransitiveInfoProviders(
         builder, ruleContext, javaCommon, androidCommon, null);
 
-    return builder
-      .add(AndroidNativeLibraryProvider.class,
-          new AndroidNativeLibraryProvider(transitiveNativeLibraries))
-      .add(JavaNeverlinkInfoProvider.class,
-          new JavaNeverlinkInfoProvider(androidCommon.isNeverLink()))
-      .add(JavaSourceInfoProvider.class,
-           JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
-      .add(JavaSourceJarsProvider.class, androidCommon.getJavaSourceJarsProvider())
-      .add(AndroidCcLinkParamsProvider.class,
-          new AndroidCcLinkParamsProvider(androidCommon.getCcLinkParamsStore()))
-      .add(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
-      .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
-      .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
-      .add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(
-          aar, transitiveAars.build()))
-      .build();
+    builder
+        .add(AndroidNativeLibraryProvider.class,
+            new AndroidNativeLibraryProvider(transitiveNativeLibraries))
+        .add(JavaNeverlinkInfoProvider.class,
+            new JavaNeverlinkInfoProvider(androidCommon.isNeverLink()))
+        .add(JavaSourceInfoProvider.class,
+            JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
+        .add(JavaSourceJarsProvider.class, androidCommon.getJavaSourceJarsProvider())
+        .add(AndroidCcLinkParamsProvider.class,
+            new AndroidCcLinkParamsProvider(androidCommon.getCcLinkParamsStore()))
+        .add(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
+        .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
+        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, transitiveProguardConfigs);
+
+    if (!JavaCommon.isNeverLink(ruleContext)) {
+      builder.add(AndroidLibraryAarProvider.class,
+          new AndroidLibraryAarProvider(aar, transitiveAars.build()));
+    }
+
+    return builder.build();
   }
 
   private void checkResourceInlining(RuleContext ruleContext) {
