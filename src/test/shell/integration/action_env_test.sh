@@ -62,4 +62,14 @@ function test_simple_latest_wins() {
   expect_log "BAR=bar"
 }
 
+function test_client_env() {
+  export FOO=startup_foo
+  bazel clean --expunge
+  bazel help build > /dev/null || fail "bazel help failed"
+  export FOO=client_foo
+  bazel build --action_env=FOO pkg:showenv || fail "bazel build showenv failed"
+  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=client_foo"
+}
+
 run_suite "Tests for bazel's handling of environment variables in actions"

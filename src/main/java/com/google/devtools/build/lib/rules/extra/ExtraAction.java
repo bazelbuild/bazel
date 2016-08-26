@@ -218,8 +218,8 @@ public final class ExtraAction extends SpawnAction {
    */
   // TODO(bazel-team): Add more tests that execute this code path!
   @Override
-  public Spawn getSpawn() {
-    final Spawn base = super.getSpawn();
+  public Spawn getSpawn(Map<String, String> clientEnv) {
+    final Spawn base = super.getSpawn(clientEnv);
     return new DelegateSpawn(base) {
       @Override public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
         ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();

@@ -112,6 +112,10 @@ public class ActionExecutionContext {
     return executor;
   }
 
+  public ImmutableMap<String, String> getClientEnv() {
+    return clientEnv;
+  }
+
   public ArtifactExpander getArtifactExpander() {
     return artifactExpander;
   }

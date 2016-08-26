@@ -244,7 +244,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    */
   protected void internalExecute(
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    getContext(actionExecutionContext.getExecutor()).exec(getSpawn(), actionExecutionContext);
+    getContext(actionExecutionContext.getExecutor())
+        .exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
   }
 
   @Override
@@ -287,9 +288,21 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   /**
    * Returns a Spawn that is representative of the command that this Action
    * will execute. This function must not modify any state.
+   *
+   * This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
+   * which also depends on the client environment. Subclasses that which to override the way to get
+   * a spawn should override {@link getSpawn(Map<String, String>)} instead.
    */
-  public Spawn getSpawn() {
-    return new ActionSpawn();
+  public final Spawn getSpawn() {
+    return getSpawn(null);
+  }
+
+  /**
+   * Return a spawn that is representative of the command that this Action will execute in the given
+   * client environment.
+   */
+  public Spawn getSpawn(Map<String, String> clientEnv) {
+    return new ActionSpawn(clientEnv);
   }
 
   @Override
@@ -403,7 +416,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     private final List<Artifact> filesets = new ArrayList<>();
 
-    public ActionSpawn() {
+    private final ImmutableMap<String, String> effectiveEnvironment;
+
+    public ActionSpawn(Map<String, String> clientEnv) {
       super(ImmutableList.copyOf(argv.arguments()),
           ImmutableMap.<String, String>of(),
           executionInfo,
@@ -415,11 +430,27 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           filesets.add(input);
         }
       }
+      LinkedHashMap<String, String> env = new LinkedHashMap<>(SpawnAction.this.getEnvironment());
+      if (clientEnv != null) {
+        for (String var : SpawnAction.this.getClientEnvironmentVariables()) {
+          String value = clientEnv.get(var);
+          if (value == null) {
+            env.remove(var);
+          } else {
+            env.put(var, value);
+          }
+        }
+      }
+      effectiveEnvironment = ImmutableMap.copyOf(env);
+    }
+
+    public ActionSpawn() {
+      this(null);
     }
 
     @Override
     public ImmutableMap<String, String> getEnvironment() {
-      return ImmutableMap.copyOf(SpawnAction.this.getEnvironment());
+      return effectiveEnvironment;
     }
 
     @Override
