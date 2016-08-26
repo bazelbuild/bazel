@@ -664,10 +664,10 @@ public final class BuildConfiguration {
         help = "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
             + "(1) Bazel detects changes in the test or its dependencies "
             + "(2) the test is marked as external "
-            + "(3) multiple test runs were requested with --runs_per_test"
-            + "(4) the test failed"
+            + "(3) multiple test runs were requested with --runs_per_test "
+            + "(4) the test failed "
             + "If 'yes', the caching behavior will be the same as 'auto' except that "
-            + "it may cache test failures and test runs with --runs_per_test."
+            + "it may cache test failures and test runs with --runs_per_test. "
             + "If 'no', all tests will be always executed.")
     public TriState cacheTestResults;
 
