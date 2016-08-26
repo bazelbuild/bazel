@@ -121,11 +121,11 @@ be refined if appropriate.
     <tr><td>P2. Sandboxing of action for OS X</td></tr>
     <tr>
       <td rowspan="4"><b>0.5</b></td>
-      <td rowspan="4"><b>2016&#8209;10</b></td>
+      <td rowspan="4"><b>2016&#8209;11</b></td>
       <td>P0. Support for testing Android apps</td>
     </tr>
     <tr><td>P0. Bazel supports building Java, C++ and Python on Windows</td></tr>
-    <tr><td>P1. Distributed execution of actions</td></tr>
+    <tr><td>P1. Bazel supports distributed execution of actions through a stable API</td></tr>
     <tr><td>P2. Support for Swift language</td></tr>
     <tr>
       <td rowspan="2"><b>0.6</b></td>
