@@ -70,6 +70,10 @@ public interface JavaSemantics {
       fromTemplates("%{name}_proguard.map");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_PROTO_MAP =
       fromTemplates("%{name}_proguard.pbmap");
+  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_SEEDS =
+      fromTemplates("%{name}_proguard.seeds");
+  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_USAGE =
+      fromTemplates("%{name}_proguard.usage");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
 

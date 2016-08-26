@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.syntax.Type;
-
 import javax.annotation.Nullable;
 
 /**
@@ -53,15 +52,21 @@ public abstract class ProguardHelper {
     private final Artifact outputJar;
     @Nullable private final Artifact mapping;
     @Nullable private final Artifact protoMapping;
+    @Nullable private final Artifact seeds;
+    @Nullable private final Artifact usage;
     private final Artifact config;
 
     public ProguardOutput(Artifact outputJar,
                           @Nullable Artifact mapping,
                           @Nullable Artifact protoMapping,
+                          @Nullable Artifact seeds,
+                          @Nullable Artifact usage,
                           Artifact config) {
       this.outputJar = checkNotNull(outputJar);
       this.mapping = mapping;
       this.protoMapping = protoMapping;
+      this.seeds = seeds;
+      this.usage = usage;
       this.config = config;
     }
 
@@ -79,6 +84,16 @@ public abstract class ProguardHelper {
       return protoMapping;
     }
 
+    @Nullable
+    public Artifact getSeeds() {
+      return seeds;
+    }
+
+    @Nullable
+    public Artifact getUsage() {
+      return usage;
+    }
+
     public Artifact getConfig() {
       return config;
     }
@@ -91,6 +106,12 @@ public abstract class ProguardHelper {
       }
       if (protoMapping != null) {
         filesBuilder.add(protoMapping);
+      }
+      if (seeds != null) {
+        filesBuilder.add(seeds);
+      }
+      if (usage != null) {
+        filesBuilder.add(usage);
       }
       if (config != null) {
         filesBuilder.add(config);
@@ -264,11 +285,22 @@ public abstract class ProguardHelper {
       proguardOutputProtoMap = semantics.getProtoMapping(ruleContext);
     }
 
+    Artifact proguardOutputSeeds =
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
+
+    Artifact proguardOutputUsage =
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
+
     Artifact proguardConfigOutput =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
 
     return new ProguardOutput(
-        outputJar, proguardOutputMap, proguardOutputProtoMap, proguardConfigOutput);
+        outputJar,
+        proguardOutputMap,
+        proguardOutputProtoMap,
+        proguardOutputSeeds,
+        proguardOutputUsage,
+        proguardConfigOutput);
   }
 
   /**
@@ -303,7 +335,7 @@ public abstract class ProguardHelper {
     Preconditions.checkArgument(optMode != JavaOptimizationMode.LEGACY || !proguardSpecs.isEmpty());
 
     ProguardOutput output = getProguardOutputs(proguardOutputJar, ruleContext, semantics);
-    
+
     if (optimizationPasses == null) {
       // Run proguard as a single step.
       Builder builder = makeBuilder(
@@ -315,6 +347,8 @@ public abstract class ProguardHelper {
           output.getOutputJar(),
           output.getMapping(),
           output.getProtoMapping(),
+          output.getSeeds(),
+          output.getUsage(),
           output.getConfig())
           .setProgressMessage("Trimming binary with Proguard")
           .addOutput(proguardOutputJar);
@@ -334,6 +368,8 @@ public abstract class ProguardHelper {
               output.getOutputJar(),
               /* proguardOutputMap */ null,
               /* proguardOutputProtoMap */ null,
+              /* proguardOutputSeeds */ null,
+              /* proguardOutputUsage */ null,
               /* proguardConfigOutput */ null)
               .setProgressMessage("Trimming binary with Proguard: Verification/Shrinking Pass")
               .addArgument("-runtype INITIAL")
@@ -354,6 +390,8 @@ public abstract class ProguardHelper {
                 output.getOutputJar(),
                 /* proguardOutputMap */ null,
                 /* proguardOutputProtoMap */ null,
+                /* proguardOutputSeeds */ null,
+                /* proguardOutputUsage */ null,
                 /* proguardConfigOutput */ null)
                 .setProgressMessage("Trimming binary with Proguard: Optimization Pass " + (i + 1))
                 .addArgument("-runtype OPTIMIZATION")
@@ -374,6 +412,8 @@ public abstract class ProguardHelper {
           output.getOutputJar(),
           output.getMapping(),
           output.getProtoMapping(),
+          output.getSeeds(),
+          output.getUsage(),
           output.getConfig())
           .setProgressMessage("Trimming binary with Proguard: Obfuscation and Final Ouput Pass")
           .addArgument("-runtype FINAL")
@@ -396,6 +436,8 @@ public abstract class ProguardHelper {
       Artifact proguardOutputJar,
       @Nullable Artifact proguardOutputMap,
       @Nullable Artifact proguardOutputProtoMap,
+      @Nullable Artifact proguardOutputSeeds,
+      @Nullable Artifact proguardOutputUsage,
       @Nullable Artifact proguardConfigOutput) {
 
     Builder builder = new SpawnAction.Builder()
@@ -440,6 +482,18 @@ public abstract class ProguardHelper {
       builder
           .addArgument("-protomapping")
           .addOutputArgument(proguardOutputProtoMap);
+    }
+
+    if (proguardOutputSeeds != null) {
+      builder
+          .addArgument("-printseeds")
+          .addOutputArgument(proguardOutputSeeds);
+    }
+
+    if (proguardOutputUsage != null) {
+      builder
+          .addArgument("-printusage")
+          .addOutputArgument(proguardOutputUsage);
     }
 
     if (proguardConfigOutput != null) {
