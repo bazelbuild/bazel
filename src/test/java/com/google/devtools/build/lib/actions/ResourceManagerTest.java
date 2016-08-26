@@ -18,11 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -271,6 +273,52 @@ public class ResourceManagerTest {
     thread1.joinAndAssertState(1000);
     thread2.joinAndAssertState(1000);
     assertFalse(rm.inUse());
+  }
+
+  @Test
+  public void testInterruptedAcquisitionClearsResources() throws Exception {
+    assertFalse(rm.inUse());
+    // Acquire a small amount of resources so that future requests can block (the initial request
+    // always succeeds even if it's for too much).
+    TestThread smallThread =
+        new TestThread() {
+          @Override
+          public void runTest() throws InterruptedException {
+            acquire(1, 0, 0, 0);
+          }
+        };
+    smallThread.start();
+    smallThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() {
+            Thread.currentThread().interrupt();
+            try {
+              acquire(1999, 0, 0, 0);
+              fail("Didn't throw interrupted exception");
+            } catch (InterruptedException e) {
+              // Expected.
+            }
+          }
+        };
+    thread1.start();
+    thread1.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    // This should process the queue. If the request from above is still present, it will take all
+    // the available memory. But it shouldn't.
+    rm.setAvailableResources(
+        ResourceSet.create(
+            /*memoryMb=*/ 2000.0, /*cpuUsage=*/ 1.0, /*ioUsage=*/ 1.0, /*testCount=*/ 2));
+    TestThread thread2 =
+        new TestThread() {
+          @Override
+          public void runTest() throws InterruptedException {
+            acquire(1999, 0, 0, 0);
+            release(1999, 0, 0, 0);
+          }
+        };
+    thread2.start();
+    thread2.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 
   @Test

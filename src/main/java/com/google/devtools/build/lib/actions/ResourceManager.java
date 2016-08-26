@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -211,6 +210,19 @@ public class ResourceManager {
       if (latch != null) {
         latch.await();
       }
+    } catch (InterruptedException e) {
+      // Synchronize on this to avoid any racing with #processWaitingThreads
+      synchronized (this) {
+        if (latch.getCount() == 0) {
+          // Resources already acquired by other side. Release them, but not inside this
+          // synchronized block to avoid deadlock.
+          release(resources);
+        } else {
+          // Inform other side that resources shouldn't be acquired.
+          latch.countDown();
+        }
+      }
+      throw e;
     } finally {
       threadLocked.set(resources.getCpuUsage() != 0 || resources.getMemoryMb() != 0
           || resources.getIoUsage() != 0 || resources.getLocalTestCount() != 0);
@@ -359,9 +371,14 @@ public class ResourceManager {
     Iterator<Pair<ResourceSet, CountDownLatch>> iterator = requestList.iterator();
     while (iterator.hasNext()) {
       Pair<ResourceSet, CountDownLatch> request = iterator.next();
-      if (areResourcesAvailable(request.first)) {
-        incrementResources(request.first);
-        request.second.countDown();
+      if (request.second.getCount() != 0) {
+        if (areResourcesAvailable(request.first)) {
+          incrementResources(request.first);
+          request.second.countDown();
+          iterator.remove();
+        }
+      } else {
+        // Cancelled by other side.
         iterator.remove();
       }
     }
@@ -404,7 +421,6 @@ public class ResourceManager {
         || usedLocalTestCount + localTestCount <= availableLocalTestCount;
     return cpuIsAvailable && ramIsAvailable && ioIsAvailable && localTestCountIsAvailable;
   }
-
 
   @VisibleForTesting
   synchronized int getWaitCount() {
