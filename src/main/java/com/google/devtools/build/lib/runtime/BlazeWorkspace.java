@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
-
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -35,11 +34,9 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -188,7 +185,10 @@ public final class BlazeWorkspace {
   }
 
   public CommandEnvironment initCommand() {
-    return new CommandEnvironment(runtime, this, new EventBus(eventBusExceptionHandler));
+    CommandEnvironment env
+        = new CommandEnvironment(runtime, this, new EventBus(eventBusExceptionHandler));
+    skyframeExecutor.setClientEnv(env.getClientEnv());
+    return env;
   }
 
   void clearEventBus() {

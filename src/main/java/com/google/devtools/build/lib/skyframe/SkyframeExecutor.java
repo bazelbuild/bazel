@@ -968,6 +968,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.eventBus.set(eventBus);
   }
 
+  public void setClientEnv(Map<String, String> clientEnv) {
+    this.skyframeActionExecutor.setClientEnv(clientEnv);
+  }
+
   /**
    * Sets the path for action log buffers.
    */

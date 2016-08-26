@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -35,14 +36,12 @@ import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 
 /** Tests for ParamFileWriteAction. */
 @RunWith(JUnit4.class)
@@ -163,6 +162,6 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
 
     Executor executor = new TestExecutorBuilder(directories, binTools).build();
     return new ActionExecutionContext(
-        executor, null, null, new FileOutErr(), artifactExpander);
+        executor, null, null, new FileOutErr(), ImmutableMap.of(), artifactExpander);
   }
 }

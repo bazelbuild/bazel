@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -29,14 +30,12 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /** Tests {@link LTOBackendAction}. */
 @RunWith(JUnit4.class)
@@ -78,7 +77,8 @@ public class LTOBackendActionTest extends BuildViewTestCase {
   @Before
   public final void createExecutorAndContext() throws Exception {
     executor = new TestExecutorBuilder(directories, binTools).build();
-    context = new ActionExecutionContext(executor, null, null, new FileOutErr(), null);
+    context = new ActionExecutionContext(executor, null, null, new FileOutErr(),
+        ImmutableMap.<String, String>of(), null);
   }
 
   @Test

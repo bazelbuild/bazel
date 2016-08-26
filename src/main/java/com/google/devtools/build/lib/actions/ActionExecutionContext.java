@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -32,39 +33,71 @@ public class ActionExecutionContext {
   private final ActionInputFileCache actionInputFileCache;
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
+  private final ImmutableMap<String, String> clientEnv;
   private final ArtifactExpander artifactExpander;
   @Nullable
   private final Environment env;
 
-  private ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
-      MetadataHandler metadataHandler, FileOutErr fileOutErr,
+  private ActionExecutionContext(
+      Executor executor,
+      ActionInputFileCache actionInputFileCache,
+      MetadataHandler metadataHandler,
+      FileOutErr fileOutErr,
+      Map<String, String> clientEnv,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env) {
     this.actionInputFileCache = actionInputFileCache;
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.executor = executor;
     this.artifactExpander = artifactExpander;
     this.env = env;
   }
 
-  public ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
-      MetadataHandler metadataHandler, FileOutErr fileOutErr, ArtifactExpander artifactExpander) {
-    this(executor, actionInputFileCache, metadataHandler, fileOutErr, artifactExpander, null);
+  public ActionExecutionContext(
+      Executor executor,
+      ActionInputFileCache actionInputFileCache,
+      MetadataHandler metadataHandler,
+      FileOutErr fileOutErr,
+      Map<String, String> clientEnv,
+      ArtifactExpander artifactExpander) {
+    this(
+        executor,
+        actionInputFileCache,
+        metadataHandler,
+        fileOutErr,
+        clientEnv,
+        artifactExpander,
+        null);
   }
 
-  public static ActionExecutionContext normal(Executor executor,
-      ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
-      FileOutErr fileOutErr, ArtifactExpander artifactExpander) {
-    return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
-        artifactExpander, null);
+  public static ActionExecutionContext normal(
+      Executor executor,
+      ActionInputFileCache actionInputFileCache,
+      MetadataHandler metadataHandler,
+      FileOutErr fileOutErr,
+      Map<String, String> clientEnv,
+      ArtifactExpander artifactExpander) {
+    return new ActionExecutionContext(
+        executor,
+        actionInputFileCache,
+        metadataHandler,
+        fileOutErr,
+        clientEnv,
+        artifactExpander,
+        null);
   }
 
-  public static ActionExecutionContext forInputDiscovery(Executor executor,
-      ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
-      FileOutErr fileOutErr, Environment env) {
-    return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
-        null, env);
+  public static ActionExecutionContext forInputDiscovery(
+      Executor executor,
+      ActionInputFileCache actionInputFileCache,
+      MetadataHandler metadataHandler,
+      FileOutErr fileOutErr,
+      Map<String, String> clientEnv,
+      Environment env) {
+    return new ActionExecutionContext(
+        executor, actionInputFileCache, metadataHandler, fileOutErr, clientEnv, null, env);
   }
 
   public ActionInputFileCache getActionInputFileCache() {
@@ -103,7 +136,13 @@ public class ActionExecutionContext {
    * useful for muting the output for example.
    */
   public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
-    return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
-        artifactExpander, env);
+    return new ActionExecutionContext(
+        executor,
+        actionInputFileCache,
+        metadataHandler,
+        fileOutErr,
+        clientEnv,
+        artifactExpander,
+        env);
   }
 }

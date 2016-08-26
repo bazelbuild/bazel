@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -315,7 +316,12 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
         .build();
 
     return new ActionExecutionContext(
-        executor, null, new TestMetadataHandler(storingExpandedTreeFileArtifacts), null, null);
+        executor,
+        null,
+        new TestMetadataHandler(storingExpandedTreeFileArtifacts),
+        null,
+        ImmutableMap.of(),
+        null);
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {

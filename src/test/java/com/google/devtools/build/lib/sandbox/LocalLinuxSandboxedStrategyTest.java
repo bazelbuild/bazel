@@ -58,6 +58,7 @@ public class LocalLinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestC
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         null,
         outErr,
+        ImmutableMap.of(),
         null);
   }
 

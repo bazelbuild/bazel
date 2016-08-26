@@ -47,14 +47,12 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsParser;
-
+import java.io.IOException;
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Test StandaloneSpawnStrategy.
@@ -148,6 +146,7 @@ public class StandaloneSpawnStrategyTest {
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         null,
         outErr,
+        ImmutableMap.of(),
         null);
   }
 

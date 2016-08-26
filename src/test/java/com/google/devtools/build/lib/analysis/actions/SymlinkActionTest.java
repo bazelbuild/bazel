@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,7 +76,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
   @Test
   public void testSymlink() throws Exception {
     Executor executor = new TestExecutorBuilder(directories, null).build();
-    action.execute(new ActionExecutionContext(executor, null, null, null, null));
+    action.execute(new ActionExecutionContext(executor, null, null, null,
+        ImmutableMap.<String, String>of(), null));
     assertTrue(output.isSymbolicLink());
     assertEquals(input, output.resolveSymbolicLinks());
     assertEquals(inputArtifact, action.getPrimaryInput());
@@ -91,7 +92,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
     action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, inputArtifact, outputArtifact);
     assertFalse(input.isExecutable());
     ActionExecutionContext actionExecutionContext =
-        new ActionExecutionContext(executor, null, null, null, null);
+      new ActionExecutionContext(executor, null, null, null,
+          ImmutableMap.<String, String>of(), null);
     try {
       action.execute(actionExecutionContext);
       fail("Expected ActionExecutionException");

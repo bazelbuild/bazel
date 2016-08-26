@@ -101,6 +101,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
   private final ResourceManager resourceManager;
+  private Map<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
@@ -326,6 +327,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     this.actionLogBufferPathGenerator = actionLogBufferPathGenerator;
   }
 
+  public void setClientEnv(Map<String, String> clientEnv) {
+    this.clientEnv = clientEnv;
+  }
+
   void executionOver() {
     this.reporter = null;
     // This transitively holds a bunch of heavy objects, so it's important to clear it at the
@@ -444,6 +449,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
         metadataHandler,
         fileOutErr,
+        clientEnv,
         new ArtifactExpanderImpl(expandedInputs));
   }
 
@@ -520,6 +526,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
             metadataHandler,
             actionLogBufferPathGenerator.generate(),
+            clientEnv,
             env);
     try {
       return action.discoverInputs(actionExecutionContext);
