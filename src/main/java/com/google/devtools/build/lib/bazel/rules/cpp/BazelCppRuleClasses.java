@@ -393,13 +393,18 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("nocopts", STRING))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkstatic) -->
-           Link the binary in mostly-static mode.
-           By default this option is on for <code>cc_binary</code> and off for <code>cc_test</code>.
+           For <a href="${link cc_binary}"><code>cc_binary</code></a> and
+           <a href="${link cc_test}"><code>cc_test</code></a>: link the binary in mostly-static
+           mode. For <code>cc_library.link_static</code>: see below.
            <p>
-             If enabled, this tells the build tool to link in <code>.a</code>'s instead of
-             <code>.so</code>'s for user libraries whenever possible. Some system libraries may
-             still be linked dynamically, as are libraries for which there's no static library. So
-             the resulting binary will be dynamically linked, hence only <i>mostly</i> static.
+             By default this option is on for <code>cc_binary</code> and off for the rest.
+           </p>
+           <p>
+             If enabled and this is a binary or test, this option tells the build tool to link in
+             <code>.a</code>'s instead of <code>.so</code>'s for user libraries whenever possible.
+             Some system libraries may still be linked dynamically, as are libraries for which
+             there's no static library. So the resulting binary will be dynamically linked, hence
+             only <i>mostly</i> static.
            </p>
            <p>There are really three different ways to link an executable:</p>
            <ul>
@@ -417,7 +422,7 @@ public class BazelCppRuleClasses {
            </ul>
            <p>
            The <code>linkstatic</code> attribute has a different meaning if used on a
-           <a href="#cc_library"><code>cc_library()</code></a> rule.
+           <a href="${link cc_library}"><code>cc_library()</code></a> rule.
            For a C++ library, <code>linkstatic=1</code> indicates that only
            static linking is allowed, so no <code>.so</code> will be produced.
            </p>
