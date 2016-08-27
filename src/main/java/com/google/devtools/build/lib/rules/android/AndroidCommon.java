@@ -39,7 +39,10 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
@@ -281,17 +284,29 @@ public class AndroidCommon {
   }
 
   public static String getJavaPackage(RuleContext ruleContext) {
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("custom_package")) {
-      return ruleContext.attributes().get("custom_package", Type.STRING);
+    AttributeMap attributes = ruleContext.attributes();
+    if (attributes.isAttributeValueExplicitlySpecified("custom_package")) {
+      return attributes.get("custom_package", Type.STRING);
+    }
+    return getDefaultJavaPackage(ruleContext.getRule());
+  }
+
+  public static Iterable<String> getPossibleJavaPackages(Rule rule) {
+    AggregatingAttributeMapper attributes = AggregatingAttributeMapper.of(rule);
+    if (attributes.isAttributeValueExplicitlySpecified("custom_package")) {
+      return attributes.visitAttribute("custom_package", Type.STRING);
+    }
+    return ImmutableList.of(getDefaultJavaPackage(rule));
+  }
+
+  private static String getDefaultJavaPackage(Rule rule) {
+    PathFragment nameFragment = rule.getPackage().getNameFragment();
+    String packageName = JavaUtil.getJavaFullClassname(nameFragment);
+    if (packageName != null) {
+      return packageName;
     } else {
-      PathFragment nameFragment = ruleContext.getRule().getPackage().getNameFragment();
-      String packageName = JavaUtil.getJavaFullClassname(nameFragment);
-      if (packageName != null) {
-        return packageName;
-      } else {
-        // This is a workaround for libraries that don't follow the standard Bazel package format
-        return nameFragment.getPathString().replace('/', '.');
-      }
+      // This is a workaround for libraries that don't follow the standard Bazel package format
+      return nameFragment.getPathString().replace('/', '.');
     }
   }
 
