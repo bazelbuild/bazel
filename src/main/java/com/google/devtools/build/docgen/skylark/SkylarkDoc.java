@@ -47,7 +47,7 @@ abstract class SkylarkDoc {
     }
 
     // Check if valid punctiation is not present at the end of the documentation.
-    if (!Pattern.matches("[.?!]$", doc)) {
+    if (Pattern.matches(".+[^.?!]$", doc)) {
       // Add a final period.
       doc += ".";
     }
