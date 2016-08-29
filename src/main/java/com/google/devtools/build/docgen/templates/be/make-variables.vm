@@ -107,10 +107,6 @@ in your genrule's cmd attribute.
 <p><strong>Tool option Variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li><code>BINMODE</code>: "-dbg" or "-opt"
-
-    . (<i>When using Bazel's <code>-c fastbuild</code> option,
-      this variable has the value <code>-dbg</code>.</i>) </li>
   <li><code>CC_FLAGS</code>: A minimal set of flags for the C compiler to be
     used by genrules. In particular, it contains flags to select the correct
     architecture if CC supports multiple architectures. </li>
