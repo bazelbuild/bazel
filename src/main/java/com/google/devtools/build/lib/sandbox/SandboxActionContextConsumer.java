@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for sandboxed
@@ -33,7 +34,8 @@ public class SandboxActionContextConsumer implements ActionContextConsumer {
     ImmutableMultimap.Builder<Class<? extends ActionContext>, String> contexts =
         ImmutableMultimap.builder();
 
-    if (LinuxSandboxedStrategy.isSupported(env)) {
+    if ((OS.getCurrent() == OS.LINUX && LinuxSandboxedStrategy.isSupported(env))
+        || (OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported())) {
       contexts.put(SpawnActionContext.class, "sandboxed");
     }
 

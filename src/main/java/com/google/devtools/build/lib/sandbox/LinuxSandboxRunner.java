@@ -47,7 +47,24 @@ import java.util.Set;
  * handles sandbox output, performs cleanup and changes invocation if necessary.
  */
 public class LinuxSandboxRunner {
-  private static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
+  protected static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
+
+  protected Path getExecRoot() {
+    return execRoot;
+  }
+
+  protected Path getSandboxExecRoot() {
+    return sandboxExecRoot;
+  }
+
+  protected Set<Path> getWritablePaths() {
+    return writablePaths;
+  }
+
+  protected boolean isVerboseFailures() {
+    return verboseFailures;
+  }
+
   private final Path execRoot;
   private final Path sandboxExecRoot;
   private final Path argumentsFilePath;
@@ -106,30 +123,10 @@ public class LinuxSandboxRunner {
     return true;
   }
 
-  /**
-   * Runs given
-   *
-   * @param spawnArguments - arguments of spawn to run inside the sandbox
-   * @param env - environment to run sandbox in
-   * @param outErr - error output to capture sandbox's and command's stderr
-   * @param outputs - files to extract from the sandbox, paths are relative to the exec root @throws
-   *     ExecException
-   */
-  public void run(
-      List<String> spawnArguments,
-      Map<String, String> env,
-      FileOutErr outErr,
-      Map<PathFragment, Path> inputs,
-      Collection<PathFragment> outputs,
-      int timeout,
-      boolean allowNetwork)
-      throws IOException, ExecException {
-    createFileSystem(inputs, outputs);
+
+  protected void runPreparation(int timeout, boolean allowNetwork) throws IOException {
 
     List<String> fileArgs = new ArrayList<>();
-    List<String> commandLineArgs = new ArrayList<>();
-
-    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
 
     if (sandboxDebug) {
       fileArgs.add("-D");
@@ -165,11 +162,44 @@ public class LinuxSandboxRunner {
     }
 
     FileSystemUtils.writeLinesAs(argumentsFilePath, StandardCharsets.ISO_8859_1, fileArgs);
+  }
+
+  protected List<String> runCommandLineArgs(List<String> spawnArguments, int timeout) {
+    List<String> commandLineArgs = new ArrayList<>();
+
+    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
+
     commandLineArgs.add("@" + argumentsFilePath.getPathString());
 
     commandLineArgs.add("--");
     commandLineArgs.addAll(spawnArguments);
 
+    return commandLineArgs;
+  }
+
+  /**
+   * Runs given
+   *
+   * @param spawnArguments - arguments of spawn to run inside the sandbox
+   * @param env - environment to run sandbox in
+   * @param outErr - error output to capture sandbox's and command's stderr
+   * @param outputs - files to extract from the sandbox, paths are relative to the exec root @throws
+   *     ExecException
+   */
+  public void run(
+      List<String> spawnArguments,
+      Map<String, String> env,
+      FileOutErr outErr,
+      Map<PathFragment, Path> inputs,
+      Collection<PathFragment> outputs,
+      int timeout,
+      boolean allowNetwork)
+      throws IOException, ExecException {
+    createFileSystem(inputs, outputs);
+
+    runPreparation(timeout, allowNetwork);
+
+    List<String> commandLineArgs = runCommandLineArgs(spawnArguments, timeout);
     Command cmd =
         new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
 
@@ -196,7 +226,7 @@ public class LinuxSandboxRunner {
     }
   }
 
-  private void createFileSystem(Map<PathFragment, Path> inputs, Collection<PathFragment> outputs)
+  protected void createFileSystem(Map<PathFragment, Path> inputs, Collection<PathFragment> outputs)
       throws IOException {
     Set<Path> createdDirs = new HashSet<>();
     FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, sandboxExecRoot);
@@ -245,7 +275,7 @@ public class LinuxSandboxRunner {
     }
   }
 
-  private void copyOutputs(Collection<PathFragment> outputs) throws IOException {
+  protected void copyOutputs(Collection<PathFragment> outputs) throws IOException {
     for (PathFragment output : outputs) {
       Path source = sandboxExecRoot.getRelative(output);
       if (source.isFile() || source.isSymbolicLink()) {

@@ -63,7 +63,9 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
   public static boolean isSupported(CommandEnvironment env) {
     if (sandboxingSupported == null) {
-      sandboxingSupported = LinuxSandboxRunner.isSupported(env);
+      // Currently LinuxSandboxRunner support <= LinuxAlmostSandboxRunner support
+      sandboxingSupported =
+          LinuxAlmostSandboxRunner.isSupported(env) || LinuxSandboxRunner.isSupported(env);
     }
     return sandboxingSupported.booleanValue();
   }
@@ -78,13 +80,15 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
   private final String productName;
+  private final boolean fullySupported;
 
   LinuxSandboxedStrategy(
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
       ExecutorService backgroundWorkers,
       boolean verboseFailures,
-      String productName) {
+      String productName,
+      boolean fullySupported) {
     this.buildRequest = buildRequest;
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.blazeDirs = blazeDirs;
@@ -92,6 +96,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
     this.productName = productName;
+    this.fullySupported = fullySupported;
   }
 
   /**
@@ -154,14 +159,27 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     }
 
     try {
-      final LinuxSandboxRunner runner =
-          new LinuxSandboxRunner(
-              execRoot,
-              sandboxExecRoot,
-              writablePaths,
-              inaccessiblePaths,
-              verboseFailures,
-              sandboxOptions.sandboxDebug);
+      final LinuxSandboxRunner runner;
+      if (fullySupported) {
+        runner =
+            new LinuxSandboxRunner(
+                execRoot,
+                sandboxExecRoot,
+                writablePaths,
+                inaccessiblePaths,
+                verboseFailures,
+                sandboxOptions.sandboxDebug);
+      } else {
+        // Then LinuxAlmostSandboxRunner must be supported
+        runner =
+            new LinuxAlmostSandboxRunner(
+                execRoot,
+                sandboxExecRoot,
+                writablePaths,
+                inaccessiblePaths,
+                verboseFailures,
+                sandboxOptions.sandboxDebug);
+      }
       try {
         runner.run(
             spawn.getArguments(),
