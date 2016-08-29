@@ -49,7 +49,7 @@ function unpack_build_encyclopedia {
   mkdir -p "$OUT_DIR/docs/be"
   for f in $(find "$OUT_DIR/versions/master/docs/be" -name "*.html"); do
     local filename=$(basename "$f")
-    cat > "$TMPDIR/out/docs/be/${filename}" <<EOF
+    cat > "$OUT_DIR/docs/be/${filename}" <<EOF
 ---
 layout: redirect
 redirect: docs/be/${filename}
@@ -69,7 +69,7 @@ function unpack_skylark_library {
   mkdir -p "$OUT_DIR/docs/skylark/lib"
   for f in $(find "$OUT_DIR/versions/master/docs/skylark/lib" -name "*.html"); do
     local filename=$(basename "$f")
-    cat > "$TMPDIR/out/docs/skylark/lib/${filename}" <<EOF
+    cat > "$OUT_DIR/docs/skylark/lib/${filename}" <<EOF
 ---
 layout: redirect
 redirect: docs/skylark/lib/${filename}
