@@ -80,21 +80,7 @@ public class AppleToolchain {
           .put("GCC_WARN_UNUSED_VARIABLE", "-Wunused-variable")
           .build();
 
-  /**
-   * Returns the platform plist name (for example, iPhoneSimulator) for the single-arch-context
-   * apple platform specified in the configuration.
-   */
-  public static String getPlatformPlistName(AppleConfiguration configuration) {
-    return configuration.getSingleArchPlatform().getNameInPlist();
-  }
-
-  /**
-   * Returns the platform directory inside of Xcode for a given configuration.
-   */
-  public static String platformDir(AppleConfiguration configuration) {
-    return platformDir(getPlatformPlistName(configuration));
-  }
-
+  /** Returns the platform directory inside of Xcode for a platform name. */
   public static String platformDir(String platformName) {
     return DEVELOPER_DIR + "/Platforms/" + platformName + ".platform";
   }
@@ -118,7 +104,8 @@ public class AppleToolchain {
     doc = "Returns the platform frameworks directory inside of Xcode for a given configuration."
   )
   public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
-    return platformDir(configuration) + "/Developer/Library/Frameworks";
+    String platformDir = platformDir(configuration.getSingleArchPlatform().getNameInPlist());
+    return platformDir + "/Developer/Library/Frameworks";
   }
 
   /**
@@ -150,19 +137,11 @@ public class AppleToolchain {
     return sdkDir() + relativePath;
   }
 
-  /**
-   * Returns swift libraries path.
-   */
-  public static String swiftLibDir(AppleConfiguration configuration) {
-    return DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/"
-        + swiftPlatform(configuration);
-  }
-
-  /**
-   * Returns a platform name string suitable for use in Swift tools.
-   */
-  public static String swiftPlatform(AppleConfiguration configuration) {
-    return getPlatformPlistName(configuration).toLowerCase();
+  /** Returns swift libraries path. */
+  public static String swiftLibDir(Platform platform) {
+    return DEVELOPER_DIR
+        + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/"
+        + platform.getLowerCaseNameInPlist();
   }
 
   /**
