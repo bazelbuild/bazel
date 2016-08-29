@@ -106,6 +106,16 @@ final class SkylarkPath {
     return path.exists();
   }
 
+  @SkylarkCallable(
+    name = "realpath",
+    structField = true,
+    doc = "Returns the canonical path for this path by repeatedly replacing all symbolic links "
+        + "with their referents."
+  )
+  public SkylarkPath realpath() throws IOException {
+    return new SkylarkPath(path.resolveSymbolicLinks());
+  }
+
   @Override
   public String toString() {
     return path.toString();

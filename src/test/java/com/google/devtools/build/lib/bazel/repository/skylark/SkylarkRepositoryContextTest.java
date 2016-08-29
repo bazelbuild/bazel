@@ -163,6 +163,17 @@ public class SkylarkRepositoryContextTest {
     }
   }
 
+  @Test
+  public void testSymlink() throws Exception {
+    setUpContexForRule("test");
+    context.createFile(context.path("foo"), "foobar");
+
+    context.symlink(context.path("foo"), context.path("bar"));
+    testOutputFile(outputDirectory.getChild("bar"), "foobar");
+
+    assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));
+  }
+
   private void testOutputFile(Path path, String content) throws IOException {
     assertThat(path.exists()).isTrue();
     assertThat(
