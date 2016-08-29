@@ -283,9 +283,6 @@ public class BazelRuleClassProvider {
 
   @VisibleForTesting
   public static void initCpp(ConfiguredRuleClassProvider.Builder builder) {
-    // The tools repository prefix must be set before calling this method.
-    String toolsRepository = checkNotNull(builder.getToolsRepository());
-
     builder.addConfigurationOptions(CppOptions.class);
 
     builder.addBuildInfoFactory(new CppBuildInfo());
@@ -305,12 +302,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelCppRuleClasses.BazelCcIncLibraryRule());
 
     builder.addConfigurationFragment(new CppConfigurationLoader(Functions.<String>identity()));
-
-    // TODO(ulfjack): Remove the xcode_config requirement from the C++ rules.
-    builder.addConfigurationOptions(AppleCommandLineOptions.class);
-    builder.addConfigurationFragment(new AppleConfiguration.Loader());
-    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
-    builder.addRuleDefinition(new XcodeConfigRule());
   }
 
   private static void initJava(ConfiguredRuleClassProvider.Builder builder) {
@@ -428,6 +419,8 @@ public class BazelRuleClassProvider {
     }
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
+    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
+    builder.addRuleDefinition(new XcodeConfigRule());
     builder.addRuleDefinition(new IosTestRule());
     builder.addRuleDefinition(new IosDeviceRule());
     builder.addRuleDefinition(new AppleBinaryRule());
@@ -485,6 +478,8 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelJavaProtoLibraryRule(bazelJavaProtoAspect));
     builder.addRuleDefinition(new BazelJavaLiteProtoLibraryRule(bazelJavaLiteProtoAspect));
 
+    builder.addConfigurationOptions(AppleCommandLineOptions.class);
+    builder.addConfigurationFragment(new AppleConfiguration.Loader());
     builder.addConfigurationFragment(new PythonConfigurationLoader(Functions.<String>identity()));
     builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
     builder.addConfigurationFragment(new ObjcConfigurationLoader());

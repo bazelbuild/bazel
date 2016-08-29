@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -110,6 +111,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         ImmutableList.<IncludeScannable>of(),
         GUID,
         ImmutableSet.<String>of(),
+        ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
         ruleContext);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);

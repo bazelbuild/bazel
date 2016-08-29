@@ -59,7 +59,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           false,
           ImmutableMap.<String, String>of(),
           ImmutableList.<Artifact>of(),
-          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER));
+          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+          ImmutableMap.<String, String>of());
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> crosstool;
@@ -78,9 +79,10 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final CppCompilationContext cppCompilationContext;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final Map<String, String> buildVariables;
+  private final ImmutableMap<String, String> buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
+  private final ImmutableMap<String, String> environment;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -102,7 +104,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       boolean supportsHeaderParsing,
       Map<String, String> buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
-      NestedSet<Pair<String, String>> coverageEnvironment) {
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      ImmutableMap<String, String> environment) {
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
@@ -120,9 +123,10 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.cppCompilationContext = Preconditions.checkNotNull(cppCompilationContext);
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
-    this.buildVariables = buildVariables;
+    this.buildVariables = ImmutableMap.copyOf(buildVariables);
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.coverageEnvironment = coverageEnvironment;
+    this.environment = environment;
   }
 
   /**
@@ -257,7 +261,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   /**
    * Returns build variables to be templated into the crosstool.
    */
-  public Map<String, String> getBuildVariables() {
+  public ImmutableMap<String, String> getBuildVariables() {
     return buildVariables;
   }
 
@@ -274,5 +278,9 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return coverageEnvironment;
+  }
+
+  public ImmutableMap<String, String> getEnvironment() {
+    return environment;
   }
 }

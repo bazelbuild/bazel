@@ -51,8 +51,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -157,7 +155,9 @@ public class CppCompileAction extends AbstractAction
   public static final String ASSEMBLE = "assemble";
   public static final String PREPROCESS_ASSEMBLE = "preprocess-assemble";
 
-
+  // TODO(ulfjack): this is only used to get the local shell environment and to check if coverage is
+  // enabled. Move those two things to local fields and drop this. Accessing anything other than
+  // these fields can impact correctness!
   private final BuildConfiguration configuration;
   protected final Artifact outputFile;
   private final Label sourceLabel;
@@ -170,6 +170,7 @@ public class CppCompileAction extends AbstractAction
   private final ImmutableList<Artifact> builtinIncludeFiles;
   @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
   private final ImmutableSet<String> executionRequirements;
+  private final ImmutableMap<String, String> environment;
 
   @VisibleForTesting final CppConfiguration cppConfiguration;
   private final FeatureConfiguration featureConfiguration;
@@ -255,6 +256,7 @@ public class CppCompileAction extends AbstractAction
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
       ImmutableSet<String> executionRequirements,
+      ImmutableMap<String, String> environment,
       String actionName,
       RuleContext ruleContext) {
     super(
@@ -289,6 +291,7 @@ public class CppCompileAction extends AbstractAction
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
     this.executionRequirements = executionRequirements;
+    this.environment = environment;
 
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
@@ -632,18 +635,7 @@ public class CppCompileAction extends AbstractAction
       environment.put("PWD", "/proc/self/cwd");
     }
 
-    // TODO(bazel-team): Handle at the level of crosstool (feature) templates instead of in this
-    // compile action. This will also prevent the need for apple host system and target platform
-    // evaluation here.
-    AppleConfiguration appleConfiguration = configuration.getFragment(AppleConfiguration.class);
-    if (CppConfiguration.MAC_SYSTEM_NAME.equals(getHostSystemName())) {
-      environment.putAll(appleConfiguration.getAppleHostSystemEnv());
-    }
-    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())) {
-      environment.putAll(appleConfiguration.appleTargetPlatformEnv(
-          Platform.forTargetCpu(cppConfiguration.getTargetCpu())));
-    }
-    
+    environment.putAll(this.environment);
     environment.putAll(cppCompileCommandLine.getEnvironment());
 
     // TODO(bazel-team): Check (crosstool) host system name instead of using OS.getCurrent.

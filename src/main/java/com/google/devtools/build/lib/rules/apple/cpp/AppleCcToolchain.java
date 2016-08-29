@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -79,5 +81,18 @@ public class AppleCcToolchain extends CcToolchain {
         .addTransitive(link)
         .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
         .build();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getEnvironment(RuleContext ruleContext) {
+    Map<String, String> builder = new LinkedHashMap<>();
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    builder.putAll(appleConfiguration.getAppleHostSystemEnv());
+    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())) {
+      builder.putAll(appleConfiguration.appleTargetPlatformEnv(
+          Platform.forTargetCpu(cppConfiguration.getTargetCpu())));
+    }
+    return ImmutableMap.copyOf(builder);
   }
 }

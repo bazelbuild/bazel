@@ -56,8 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -504,7 +502,7 @@ public class BazelCppRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$cc_binary_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CcRule.class, RequiresXcodeConfigRule.class)
+          .ancestors(CcRule.class)
           .build();
     }
   }
@@ -516,7 +514,7 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .requiresConfigurationFragments(CppConfiguration.class, AppleConfiguration.class)
+          .requiresConfigurationFragments(CppConfiguration.class)
           /*<!-- #BLAZE_RULE(cc_binary).IMPLICIT_OUTPUTS -->
           <ul>
           <li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
@@ -559,6 +557,7 @@ public class BazelCppRuleClasses {
           .cfg(LIPO_ON_DEMAND)
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -639,6 +638,7 @@ public class BazelCppRuleClasses {
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
@@ -659,7 +659,7 @@ public class BazelCppRuleClasses {
           // TODO: Google cc_library overrides documentation for:
           // deps, data, linkopts, defines, srcs; override here too?
 
-          .requiresConfigurationFragments(CppConfiguration.class, AppleConfiguration.class)
+          .requiresConfigurationFragments(CppConfiguration.class)
           /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(alwayslink) -->
           If 1, any binary that depends (directly or indirectly) on this C++
           library will link in all the object files for the files listed in
@@ -674,11 +674,12 @@ public class BazelCppRuleClasses {
               .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("cc_library")
-          .ancestors(CcLibraryBaseRule.class, RequiresXcodeConfigRule.class)
+          .ancestors(CcLibraryBaseRule.class)
           .factoryClass(BazelCcLibrary.class)
           .build();
     }

@@ -218,7 +218,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             supportsHeaderParsing,
             getBuildVariables(ruleContext),
             getBuiltinIncludes(ruleContext),
-            coverageEnvironment.build());
+            coverageEnvironment.build(),
+            getEnvironment(ruleContext));
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .add(CcToolchainProvider.class, provider)
@@ -323,10 +324,22 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a map that should be templated into the crosstool as build variables.  Is meant to
+   * Returns a map that should be templated into the crosstool as build variables. Is meant to
    * be overridden by subclasses of CcToolchain.
+   *
+   * @param ruleContext the rule context
    */
   protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
+    return ImmutableMap.<String, String>of();
+  }
+
+  /**
+   * Returns a map of environment variables to be added to the compile actions created for this
+   * toolchain. Ideally, this will get replaced by features, which also allow setting env variables.
+   *
+   * @param ruleContext the rule context
+   */
+  protected ImmutableMap<String, String> getEnvironment(RuleContext ruleContext) {
     return ImmutableMap.<String, String>of();
   }
 }
