@@ -320,7 +320,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
         null,
         new TestMetadataHandler(storingExpandedTreeFileArtifacts),
         null,
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         null);
   }
 

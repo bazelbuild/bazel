@@ -146,7 +146,7 @@ public class StandaloneSpawnStrategyTest {
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         null,
         outErr,
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         null);
   }
 

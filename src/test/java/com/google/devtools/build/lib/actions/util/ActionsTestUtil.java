@@ -93,7 +93,7 @@ public final class ActionsTestUtil {
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         metadataHandler,
         fileOutErr,
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
@@ -107,7 +107,7 @@ public final class ActionsTestUtil {
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         metadataHandler,
         fileOutErr,
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         new BlockingSkyFunctionEnvironment(
             buildDriver, executor == null ? null : executor.getEventHandler()));
   }
