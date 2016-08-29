@@ -69,7 +69,7 @@ There's currently no easy way to create a rule that directly uses the
 action of a native rule. You can work around this using macros:
 
 ```python
-def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps)
+def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps):
    cc_binary_name = "%s.cc_binary" % name
 
    native.cc_binary(
