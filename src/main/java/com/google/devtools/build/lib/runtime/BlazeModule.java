@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
@@ -127,15 +126,6 @@ public abstract class BlazeModule {
    * @param builder the configured rule class provider builder
    */
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-  }
-
-  /**
-   * Returns the list of query output formatters this module provides.
-   *
-   * <p>This method will be called during Blaze startup (after #blazeStartup).
-   */
-  public Iterable<OutputFormatter> getQueryOutputFormatters() {
-    return ImmutableList.of();
   }
 
   /**
