@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
@@ -162,12 +163,14 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         .validateAttributes();
 
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     new ReleaseBundlingSupport(
             ruleContext,
             common.getObjcProvider(),
             LinkedBinary.LOCAL_AND_DEPENDENCIES,
             bundleFormat,
-            objcConfiguration.getMinimumOs())
+            objcConfiguration.getMinimumOs(),
+            appleConfiguration.getMultiArchPlatform(PlatformType.IOS))
         .registerActions(DsymOutputType.TEST)
         .addXcodeSettings(xcodeProviderBuilder)
         .addFilesToBuild(filesToBuild, DsymOutputType.TEST)

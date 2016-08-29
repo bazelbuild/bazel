@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -70,9 +71,11 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
         ruleContext, common.getObjcProvider(), LinkedBinary.DEPENDENCIES_ONLY, bundleDirFormat,
-        bundleName(ruleContext), bundleMinimumOsVersion(ruleContext));
+        bundleName(ruleContext), bundleMinimumOsVersion(ruleContext),
+        appleConfiguration.getMultiArchPlatform(PlatformType.IOS));
     releaseBundlingSupport
         .registerActions(DsymOutputType.APP)
         .addXcodeSettings(xcodeProviderBuilder)

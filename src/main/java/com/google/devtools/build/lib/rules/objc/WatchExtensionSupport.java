@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Builder;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
@@ -132,6 +133,8 @@ public class WatchExtensionSupport {
       releaseBundling.setFallbackBundleId(attributes.bundleId());
     }
 
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    
     ReleaseBundlingSupport releaseBundlingSupport =
         new ReleaseBundlingSupport(
             ruleContext,
@@ -141,7 +144,8 @@ public class WatchExtensionSupport {
             bundleName,
             WatchUtils.determineMinimumOsVersion(
                 ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()),
-            releaseBundling.build());
+            releaseBundling.build(),
+            appleConfiguration.getMultiArchPlatform(PlatformType.IOS));
 
     releaseBundlingSupport.registerActions(DsymOutputType.APP);
 

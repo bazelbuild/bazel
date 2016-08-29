@@ -31,13 +31,13 @@ import javax.annotation.Nullable;
 )
 public enum Platform {
 
-  IOS_DEVICE("iPhoneOS", PlatformType.IOS),
-  IOS_SIMULATOR("iPhoneSimulator", PlatformType.IOS),
-  MACOS_X("MacOSX", PlatformType.MACOSX),
-  TVOS_DEVICE("AppleTVOS", PlatformType.TVOS),
-  TVOS_SIMULATOR("AppleTVSimulator", PlatformType.TVOS),
-  WATCHOS_DEVICE("WatchOS", PlatformType.WATCHOS),
-  WATCHOS_SIMULATOR("WatchSimulator", PlatformType.WATCHOS);
+  IOS_DEVICE("iPhoneOS", PlatformType.IOS, true),
+  IOS_SIMULATOR("iPhoneSimulator", PlatformType.IOS, false),
+  MACOS_X("MacOSX", PlatformType.MACOSX, true),
+  TVOS_DEVICE("AppleTVOS", PlatformType.TVOS, true),
+  TVOS_SIMULATOR("AppleTVSimulator", PlatformType.TVOS, false),
+  WATCHOS_DEVICE("WatchOS", PlatformType.WATCHOS, true),
+  WATCHOS_SIMULATOR("WatchSimulator", PlatformType.WATCHOS, false);
 
   private static final Set<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
@@ -52,10 +52,12 @@ public enum Platform {
 
   private final String nameInPlist;
   private final PlatformType platformType;
+  private final boolean isDevice;
 
-  Platform(String nameInPlist, PlatformType platformType) {
+  Platform(String nameInPlist, PlatformType platformType, boolean isDevice) {
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
     this.platformType = platformType;
+    this.isDevice = isDevice;
   }
 
   /** Returns the platform type of this platform. */
@@ -66,6 +68,13 @@ public enum Platform {
   )
   public PlatformType getType() {
     return platformType;
+  }
+
+  /**
+   * Returns true if this platform is a device platform, or false if this is a simulator platform.
+   */
+  public boolean isDevice() {
+    return isDevice;
   }
 
   /**

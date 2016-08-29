@@ -94,7 +94,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
 
     for (BuildConfiguration childConfig : childConfigurations) {
-      ObjcConfiguration objcConfiguration = childConfig.getFragment(ObjcConfiguration.class);
       ProtobufSupport protoSupport =
           new ProtobufSupport(ruleContext, childConfig)
               .registerGenerationActions()

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -133,7 +132,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 objcProvider,
                 LinkedBinary.LOCAL_AND_DEPENDENCIES,
                 ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
-                objcConfiguration.getMinimumOs());
+                objcConfiguration.getMinimumOs(),
+                appleConfiguration.getSingleArchPlatform());
         releaseBundlingSupport
             .registerActions(DsymOutputType.APP)
             .addXcodeSettings(xcodeProviderBuilder)
