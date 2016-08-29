@@ -65,10 +65,16 @@ def xcrun_action(ctx, **kw):
   This method takes the same keyword arguments as ctx.action, however you don't
   need to specify the executable.
   """
-  platform = ctx.fragments.apple.ios_cpu_platform()
+  if hasattr(ctx.fragments.apple, "single_arch_platform"):
+    platform = ctx.fragments.apple.single_arch_platform
+  else:
+    # TODO(dmishe): Remove this branch when single_arch_platform is available
+    # by default.
+    platform = ctx.fragments.apple.ios_cpu_platform()
+
   action_env = ctx.fragments.apple.target_apple_env(platform) \
       + ctx.fragments.apple.apple_host_system_env()
-  env = kw.get('env', {})
+  env = kw.get("env", {})
   kw['env'] = env + action_env
 
   apple_action(ctx, executable=ctx.executable._xcrunwrapper, **kw)

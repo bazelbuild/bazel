@@ -517,4 +517,34 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_apple_watch_with_swift() {
+  make_app
+
+  cat >ios/watchapp.swift <<EOF
+  import WatchKit
+  class ExtensionDelegate: NSObject, WKExtensionDelegate {
+    func applicationDidFinishLaunching() {}
+  }
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "WatchModule",
+              srcs = ["watchapp.swift"])
+
+apple_binary(name = "bin",
+             deps = [":WatchModule"],
+             platform_type = "watchos")
+
+apple_watch2_extension(
+    name = "WatchExtension",
+    app_bundle_id = "com.google.app.watchkit",
+    app_name = "WatchApp",
+    binary = ":bin",
+    ext_bundle_id = "com.google.app.extension",
+)
+EOF
+}
+
 run_suite "apple_tests"

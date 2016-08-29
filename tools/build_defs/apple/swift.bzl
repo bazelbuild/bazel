@@ -29,9 +29,18 @@ def _intersperse(separator, iterable):
 
   return result
 
-def _swift_target(cpu, sdk_version):
+def _swift_target(cpu, platform, sdk_version):
   """Returns a target triplet for Swift compiler."""
-  return "%s-apple-ios%s" % (cpu, sdk_version)
+  # TODO(dmishe): Use PlatformType object when available.
+  platform_string = None
+  if str(platform).startswith("IOS_"):
+    platform_string = "ios"
+  elif str(platform).startswith("WATCHOS_"):
+    platform_string = "watchos"
+  else:
+    fail("Platform %s is not supported")
+
+  return "%s-apple-%s%s" % (cpu, platform_string, sdk_version)
 
 def _swift_compilation_mode_flags(ctx):
   """Returns additional swiftc flags for the current compilation mode."""
@@ -61,10 +70,20 @@ def _module_name(ctx):
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
   # TODO(b/29772303): Assert xcode version.
-  cpu = ctx.fragments.apple.ios_cpu()
-  platform = ctx.fragments.apple.ios_cpu_platform()
-  sdk_version = ctx.fragments.apple.sdk_version_for_platform(platform)
-  target = _swift_target(cpu, sdk_version)
+  apple_fm = ctx.fragments.apple
+
+  if (hasattr(apple_fm, "single_arch_platform")
+      and hasattr(apple_fm, "single_arch_cpu")):
+    cpu = apple_fm.single_arch_cpu
+    platform = apple_fm.single_arch_platform
+  else:
+    # TODO(dmishe): Remove this branch when single_arch_platform is available
+    # by default.
+    cpu = apple_fm.ios_cpu()
+    platform = apple_fm.ios_cpu_platform()
+
+  sdk_version = apple_fm.sdk_version_for_platform(platform)
+  target = _swift_target(cpu, platform, sdk_version)
   apple_toolchain = apple_common.apple_toolchain()
 
   module_name = ctx.attr.module_name or _module_name(ctx)
