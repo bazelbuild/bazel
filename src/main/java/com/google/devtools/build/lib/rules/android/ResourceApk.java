@@ -31,6 +31,7 @@ public final class ResourceApk {
   // It seems like there should be a better way to do this.
   @Nullable private final Artifact resourceApk;  // The .ap_ file
   @Nullable private final Artifact resourceJavaSrcJar;  // Source jar containing R.java and friends
+  @Nullable private final Artifact resourceJavaClassJar;  // Class jar containing R.class files
   private final ResourceDependencies resourceDeps;
   @Nullable private final ResourceContainer primaryResource;
   @Nullable private final Artifact manifest;  // The non-binary XML version of AndroidManifest.xml
@@ -41,6 +42,7 @@ public final class ResourceApk {
   public ResourceApk(
       @Nullable Artifact resourceApk,
       @Nullable Artifact resourceJavaSrcJar,
+      @Nullable Artifact resourceJavaClassJar,
       ResourceDependencies resourceDeps,
       @Nullable ResourceContainer primaryResource,
       @Nullable Artifact manifest,
@@ -49,6 +51,7 @@ public final class ResourceApk {
       boolean legacy) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
+    this.resourceJavaClassJar = resourceJavaClassJar;
     this.resourceDeps = resourceDeps;
     this.primaryResource = primaryResource;
     this.manifest = manifest;
@@ -73,13 +76,17 @@ public final class ResourceApk {
     return resourceJavaSrcJar;
   }
 
+  public Artifact getResourceJavaClassJar() {
+    return resourceJavaClassJar;
+  }
+
   public boolean isLegacy() {
     return legacy;
   }
 
   public static ResourceApk fromTransitiveResources(
       ResourceDependencies resourceDeps) {
-    return new ResourceApk(null, null, resourceDeps, null, null, null, null, false);
+    return new ResourceApk(null, null, null, resourceDeps, null, null, null, null, false);
   }
 
   public Artifact getResourceProguardConfig() {

@@ -318,6 +318,7 @@ public class AndroidResourcesProcessorBuilder {
         apkOut != null ? apkOut : primary.getApk(),
         manifestOut != null ? manifestOut : primary.getManifest(),
         sourceJarOut,
+        primary.getJavaClassJar(),
         primary.getArtifacts(ResourceType.ASSETS),
         primary.getArtifacts(ResourceType.RESOURCES),
         primary.getRoots(ResourceType.ASSETS),

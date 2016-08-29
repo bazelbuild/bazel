@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -417,22 +418,31 @@ public class AndroidCommon {
         .addSourceJar(resourcesJar);
     JavaCompilationHelper javacHelper = new JavaCompilationHelper(
         ruleContext, javaSemantics, getJavacOpts(), javacAttributes);
-    if (useRClassGenerator) {
-      RClassGeneratorActionBuilder actionBuilder =
-          new RClassGeneratorActionBuilder(ruleContext)
-              .withPrimary(resourceApk.getPrimaryResource())
-              .withDependencies(resourceApk.getResourceDependencies())
-              .setClassJarOut(resourceClassJar);
-      actionBuilder.build();
+    // Only build the class jar if it's not already generated internally by resource processing.
+    if (resourceApk.getResourceJavaClassJar() == null) {
+      if (useRClassGenerator) {
+        RClassGeneratorActionBuilder actionBuilder =
+            new RClassGeneratorActionBuilder(ruleContext)
+                .withPrimary(resourceApk.getPrimaryResource())
+                .withDependencies(resourceApk.getResourceDependencies())
+                .setClassJarOut(resourceClassJar);
+        actionBuilder.build();
+      } else {
+        Artifact outputDepsProto =
+            javacHelper.createOutputDepsProtoArtifact(resourceClassJar, javaArtifactsBuilder);
+        javacHelper.createCompileActionWithInstrumentation(
+            resourceClassJar,
+            null /* manifestProtoOutput */,
+            null /* genSourceJar */,
+            outputDepsProto,
+            javaArtifactsBuilder);
+      }
     } else {
-      Artifact outputDepsProto =
-          javacHelper.createOutputDepsProtoArtifact(resourceClassJar, javaArtifactsBuilder);
-      javacHelper.createCompileActionWithInstrumentation(
-          resourceClassJar,
-          null /* manifestProtoOutput */,
-          null /* genSourceJar */,
-          outputDepsProto,
-          javaArtifactsBuilder);
+      // Otherwise, it should have been the AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR.
+      Preconditions.checkArgument(
+          resourceApk.getResourceJavaClassJar().equals(
+              ruleContext.getImplicitOutputArtifact(
+                  AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR)));
     }
     javacHelper.createSourceJarAction(resourceSourceJar, null);
   }

@@ -1013,6 +1013,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .build();
       return new ResourceApk(apk,
           resourceApk.getResourceJavaSrcJar(),
+          resourceApk.getResourceJavaClassJar(),
           resourceApk.getResourceDependencies(),
           resourceApk.getPrimaryResource(),
           resourceApk.getManifest(),

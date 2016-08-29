@@ -168,7 +168,6 @@ class AndroidResourceMergingActionBuilder {
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    // TODO(jvoung): pass the classJar out -- once that is a field of ResourceContainer.
     return new ResourceContainer(
         primary.getLabel(),
         primary.getJavaPackage(),
@@ -177,6 +176,7 @@ class AndroidResourceMergingActionBuilder {
         primary.getApk(),
         manifestOut != null ? manifestOut : primary.getManifest(),
         primary.getJavaSourceJar(),
+        classJarOut,
         primary.getArtifacts(ResourceType.ASSETS),
         primary.getArtifacts(ResourceType.RESOURCES),
         primary.getRoots(ResourceType.ASSETS),

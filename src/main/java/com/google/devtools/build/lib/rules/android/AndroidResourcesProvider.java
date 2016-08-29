@@ -102,6 +102,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
     private final ImmutableList<PathFragment> resourcesRoots;
     private final boolean manifestExported;
     private final Artifact javaSourceJar;
+    private final Artifact javaClassJar;
     private final Artifact rTxt;
     private final Artifact symbolsTxt;
 
@@ -112,6 +113,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
         @Nullable Artifact apk,
         Artifact manifest,
         Artifact javaSourceJar,
+        @Nullable Artifact javaClassJar,
         ImmutableList<Artifact> assets,
         ImmutableList<Artifact> resources,
         ImmutableList<PathFragment> assetsRoots,
@@ -120,6 +122,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
         Artifact rTxt,
         Artifact symbolsTxt) {
       this.javaSourceJar = javaSourceJar;
+      this.javaClassJar = javaClassJar;
       this.manifestExported = manifestExported;
       this.label = Preconditions.checkNotNull(label);
       this.javaPackage = Preconditions.checkNotNull(javaPackage);
@@ -157,6 +160,10 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
 
     public Artifact getJavaSourceJar() {
       return javaSourceJar;
+    }
+
+    public Artifact getJavaClassJar() {
+      return javaClassJar;
     }
 
     public Artifact getManifest() {
@@ -212,10 +219,11 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
       return String.format(
           "ResourceContainer [label=%s, javaPackage=%s, renameManifestPackage=%s,"
           + " constantsInlined=%s, apk=%s, manifest=%s, assets=%s, resources=%s, assetsRoots=%s,"
-          + " resourcesRoots=%s, manifestExported=%s, javaSourceJar=%s, rTxt=%s, symbolsTxt=%s]",
+          + " resourcesRoots=%s, manifestExported=%s, javaSourceJar=%s, javaClassJar=%s,"
+          + " rTxt=%s, symbolsTxt=%s]",
           label, javaPackage, renameManifestPackage, constantsInlined, apk, manifest, assets,
-          resources, assetsRoots, resourcesRoots, manifestExported, javaSourceJar, rTxt,
-          symbolsTxt);
+          resources, assetsRoots, resourcesRoots, manifestExported, javaSourceJar,
+          javaClassJar, rTxt, symbolsTxt);
     }
   }
 }

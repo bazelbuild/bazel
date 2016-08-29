@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidM
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
@@ -394,37 +395,72 @@ public final class ApplicationManifest {
       return null;
     }
 
-    AndroidResourcesProcessorBuilder builder =
-        new AndroidResourcesProcessorBuilder(ruleContext)
-            .setLibrary(isLibrary)
-            .setApkOut(resourceContainer.getApk())
-            .setConfigurationFilters(configurationFilters)
-            .setUncompressedExtensions(uncompressedExtensions)
-            .setCrunchPng(crunchPng)
-            .setJavaPackage(resourceContainer.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .setManifestOut(manifestOut)
-            .setMergedResourcesOut(mergedResources)
-            .withPrimary(resourceContainer)
-            .withDependencies(resourceDeps)
-            .setDensities(densities)
-            .setProguardOut(proguardCfg)
-            .setMainDexProguardOut(mainDexProguardCfg)
-            .setApplicationId(manifestValues.get("applicationId"))
-            .setVersionCode(manifestValues.get("versionCode"))
-            .setVersionName(manifestValues.get("versionName"));
+    ResourceContainer processed;
+    if (isLibrary && AndroidCommon.getAndroidConfig(ruleContext).useParallelResourceProcessing()) {
+      // android_library should only build the APK one way (!incremental).
+      Preconditions.checkArgument(!incremental);
+      Artifact rJavaClassJar = ruleContext.getImplicitOutputArtifact(
+          AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
-    if (!incremental) {
-      builder
-          .setRTxtOut(resourceContainer.getRTxt())
-          .setSymbolsTxt(resourceContainer.getSymbolsTxt())
-          .setSourceJarOut(resourceContainer.getJavaSourceJar());
+      if (resourceContainer.getSymbolsTxt() != null) {
+        new AndroidResourceParsingActionBuilder(ruleContext)
+            .setParse(data)
+            .setOutput(resourceContainer.getSymbolsTxt())
+            .build(ruleContext);
+      }
+
+      AndroidResourceMergingActionBuilder resourcesMergerBuilder =
+          new AndroidResourceMergingActionBuilder(ruleContext)
+              .setJavaPackage(resourceContainer.getJavaPackage())
+              .withPrimary(resourceContainer)
+              .withDependencies(resourceDeps)
+              .setMergedResourcesOut(mergedResources)
+              .setManifestOut(manifestOut)
+              .setClassJarOut(rJavaClassJar);
+      ResourceContainer merged = resourcesMergerBuilder.build(ruleContext);
+
+      AndroidResourceValidatorActionBuilder validatorBuilder =
+          new AndroidResourceValidatorActionBuilder(ruleContext)
+              .setJavaPackage(merged.getJavaPackage())
+              .setDebug(
+                  ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setMergedResources(mergedResources)
+              .withPrimary(merged)
+              .setSourceJarOut(merged.getJavaSourceJar())
+              .setRTxtOut(merged.getRTxt());
+      processed = validatorBuilder.build(ruleContext);
+    } else {
+      AndroidResourcesProcessorBuilder builder =
+          new AndroidResourcesProcessorBuilder(ruleContext)
+              .setLibrary(isLibrary)
+              .setApkOut(resourceContainer.getApk())
+              .setConfigurationFilters(configurationFilters)
+              .setUncompressedExtensions(uncompressedExtensions)
+              .setCrunchPng(crunchPng)
+              .setJavaPackage(resourceContainer.getJavaPackage())
+              .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setManifestOut(manifestOut)
+              .setMergedResourcesOut(mergedResources)
+              .withPrimary(resourceContainer)
+              .withDependencies(resourceDeps)
+              .setDensities(densities)
+              .setProguardOut(proguardCfg)
+              .setMainDexProguardOut(mainDexProguardCfg)
+              .setApplicationId(manifestValues.get("applicationId"))
+              .setVersionCode(manifestValues.get("versionCode"))
+              .setVersionName(manifestValues.get("versionName"));
+      if (!incremental) {
+        builder
+            .setRTxtOut(resourceContainer.getRTxt())
+            .setSymbolsTxt(resourceContainer.getSymbolsTxt())
+            .setSourceJarOut(resourceContainer.getJavaSourceJar());
+      }
+      processed = builder.build(ruleContext);
     }
 
-    ResourceContainer processed = builder.build(ruleContext);
-
     return new ResourceApk(
-        resourceApk, processed.getJavaSourceJar(), resourceDeps, processed, processed.getManifest(),
+        resourceApk, processed.getJavaSourceJar(), processed.getJavaClassJar(),
+        resourceDeps, processed, processed.getManifest(),
         proguardCfg, mainDexProguardCfg, false);
   }
 
@@ -459,6 +495,7 @@ public final class ApplicationManifest {
     return new ResourceApk(
         resourceContainer.getApk(),
         null /* javaSrcJar */,
+        null /* javaClassJar */,
         ResourceDependencies.empty(),
         resourceContainer,
         manifest,
@@ -545,6 +582,7 @@ public final class ApplicationManifest {
         resourceApk,
         getManifest(),
         javaSourcesJar,
+        null, /* javaClassJar */
         resourceContainer.getArtifacts(ResourceType.ASSETS),
         resourceContainer.getArtifacts(ResourceType.RESOURCES),
         resourceContainer.getRoots(ResourceType.ASSETS),
@@ -554,7 +592,9 @@ public final class ApplicationManifest {
 
     aaptActionHelper.createGenerateProguardAction(proguardCfg, mainDexProguardCfg);
 
-    return new ResourceApk(resourceApk, updatedResources.getJavaSourceJar(),
+    return new ResourceApk(resourceApk,
+        updatedResources.getJavaSourceJar(),
+        updatedResources.getJavaClassJar(),
         resourceDeps, updatedResources, manifest, proguardCfg, mainDexProguardCfg, true);
   }
 

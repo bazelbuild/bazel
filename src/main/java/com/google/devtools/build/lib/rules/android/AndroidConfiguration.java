@@ -333,6 +333,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Use the specialized R class generator to build the final app and lib R classes.")
     public boolean useRClassGenerator;
 
+    // Do not use on the command line.
+    // The idea is that once this option works, we'll flip the default value in a config file, then
+    // once it is proven that it works, remove it from Bazel and said config file.
+    @Option(name = "experimental_use_parallel_android_resource_processing",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Process android_library resources with higher parallelism. Generates library "
+              + "R classes from a merge action, separately from aapt.")
+    public boolean useParallelResourceProcessing;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -401,6 +411,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
   private final boolean useRClassGenerator;
+  private final boolean useParallelResourceProcessing;
   private final AndroidManifestMerger manifestMerger;
 
   AndroidConfiguration(Options options, Label androidSdk) {
@@ -423,6 +434,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
     this.useRClassGenerator = options.useRClassGenerator;
+    this.useParallelResourceProcessing = options.useParallelResourceProcessing;
     this.manifestMerger = options.manifestMerger;
   }
 
@@ -490,6 +502,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useRClassGenerator() {
     return useRClassGenerator;
+  }
+
+  public boolean useParallelResourceProcessing() {
+    return useParallelResourceProcessing;
   }
 
   public AndroidManifestMerger getManifestMerger() {
