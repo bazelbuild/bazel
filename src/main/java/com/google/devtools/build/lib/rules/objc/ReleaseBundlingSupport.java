@@ -27,6 +27,7 @@ import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -615,20 +616,23 @@ public final class ReleaseBundlingSupport {
    *
    * @param filesToBuild a collection of files to be built, where new artifacts to be built are
    *     going to be placed
-   * @param dsymOutputType the file type of the dSYM bundle to be built
+   * @param dsymOutputType the file type of the dSYM bundle to be built, or absent if no
+   *     dSYM should be built for this bundle. A dSYM bundle will only be created if both this
+   *     is present and the configuration values dictate dSYM is enabled
    *
    * @return this application support
    */
   ReleaseBundlingSupport addFilesToBuild(
-      NestedSetBuilder<Artifact> filesToBuild, DsymOutputType dsymOutputType) {
+      NestedSetBuilder<Artifact> filesToBuild, Optional<DsymOutputType> dsymOutputType) {
     NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
     for (Artifact linkmapFile : getLinkmapFiles().values()) {
       filesToBuild.add(linkmapFile);
     }
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
-      filesToBuild.addAll(getDsymFiles(dsymOutputType).values());
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()
+        && dsymOutputType.isPresent()) {
+      filesToBuild.addAll(getDsymFiles(dsymOutputType.get()).values());
 
       // TODO(bazel-team): Remove the 'if' when the objc_binary rule does not generate a bundle any
       // more. The reason this 'if' is here is because the plist is obtained from the ObjcProvider.
@@ -639,13 +643,13 @@ public final class ReleaseBundlingSupport {
       // only get called by *_application rules, with the plist configured in the provider.
       Artifact cpuPlist = getAnyCpuSpecificDsymPlist();
       if (cpuPlist != null) {
-        filesToBuild.add(intermediateArtifacts.dsymPlist(dsymOutputType));
+        filesToBuild.add(intermediateArtifacts.dsymPlist(dsymOutputType.get()));
       }
 
       if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
         debugSymbolBuilder
-            .add(intermediateArtifacts.dsymPlist(dsymOutputType))
-            .add(intermediateArtifacts.dsymSymbol(dsymOutputType));
+            .add(intermediateArtifacts.dsymPlist(dsymOutputType.get()))
+            .add(intermediateArtifacts.dsymSymbol(dsymOutputType.get()));
       }
     }
 

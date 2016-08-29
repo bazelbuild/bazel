@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExte
 
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -154,9 +155,10 @@ public class WatchExtensionSupport {
     }
 
     releaseBundlingSupport
-        .addFilesToBuild(filesToBuild, DsymOutputType.APP)
+        .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
         .validateResources()
-        .validateAttributes();
+        .validateAttributes()
+        .addExportedDebugArtifacts(objcProviderBuilder, DsymOutputType.APP);
 
     if (WatchUtils.isBuildingForWatchOS1Version(watchOSVersion)) {
       XcodeSupport xcodeSupport =

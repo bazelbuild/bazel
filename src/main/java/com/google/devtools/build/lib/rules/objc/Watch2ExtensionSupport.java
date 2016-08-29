@@ -31,6 +31,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExte
 
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
@@ -80,7 +82,9 @@ public class Watch2ExtensionSupport {
    * @param ipaArtifact an .ipa artifact containing to extension bundle; this is the output artifact
    *     of the bundling
    */
-  void createBundle(Artifact ipaArtifact) throws InterruptedException {
+  void createBundle(Artifact ipaArtifact,
+      NestedSetBuilder<Artifact> extensionFilesToBuild,
+      ObjcProvider.Builder exposedObjcProviderBuilder) throws InterruptedException {
     ObjcProvider.Builder releaseBundlingObjcProviderBuilder = new ObjcProvider.Builder();
     releaseBundlingObjcProviderBuilder.addTransitiveAndPropagate(attributes.binaryDependencies());
     releaseBundlingObjcProviderBuilder
@@ -138,8 +142,10 @@ public class Watch2ExtensionSupport {
 
     releaseBundlingSupport
         .registerActions(DsymOutputType.APP)
+        .addFilesToBuild(extensionFilesToBuild, Optional.of(DsymOutputType.APP))
         .validateResources()
-        .validateAttributes();
+        .validateAttributes()
+        .addExportedDebugArtifacts(exposedObjcProviderBuilder, DsymOutputType.APP);
   }
 
   /**

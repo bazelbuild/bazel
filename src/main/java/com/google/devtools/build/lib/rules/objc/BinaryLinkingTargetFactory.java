@@ -137,7 +137,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         releaseBundlingSupport
             .registerActions(DsymOutputType.APP)
             .addXcodeSettings(xcodeProviderBuilder)
-            .addFilesToBuild(filesToBuild, DsymOutputType.APP)
+            .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
             .validateResources()
             .validateAttributes();
 

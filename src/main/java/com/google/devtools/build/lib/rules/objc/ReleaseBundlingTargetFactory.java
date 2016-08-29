@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-
 import javax.annotation.Nullable;
 
 /**
@@ -79,7 +79,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     releaseBundlingSupport
         .registerActions(DsymOutputType.APP)
         .addXcodeSettings(xcodeProviderBuilder)
-        .addFilesToBuild(filesToBuild, DsymOutputType.APP)
+        .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
         .validateResources()
         .validateAttributes();
 
