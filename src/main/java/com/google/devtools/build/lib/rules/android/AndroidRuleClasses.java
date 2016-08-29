@@ -172,6 +172,7 @@ public final class AndroidRuleClasses {
   public static final String DEFAULT_RESOURCE_MERGER = "//tools/android:resource_merger";
   public static final String DEFAULT_RESOURCE_PARSER = "//tools/android:resource_parser";
   public static final String DEFAULT_RESOURCE_SHRINKER = "//tools/android:resource_shrinker";
+  public static final String DEFAULT_RESOURCE_VALIDATOR = "//tools/android:resource_validator";
   public static final String DEFAULT_SDK = "//tools/android:sdk";
 
   /**
@@ -413,6 +414,8 @@ public final class AndroidRuleClasses {
               env.getToolsLabel(DEFAULT_RESOURCE_MERGER)))
           .add(attr("$android_resource_parser", LABEL).cfg(HOST).exec().value(
               env.getToolsLabel(DEFAULT_RESOURCE_PARSER)))
+          .add(attr("$android_resource_validator", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCE_VALIDATOR)))
           .add(attr("$android_resource_shrinker", LABEL).cfg(HOST).exec().value(
               env.getToolsLabel(DEFAULT_RESOURCE_SHRINKER)))
           .build();

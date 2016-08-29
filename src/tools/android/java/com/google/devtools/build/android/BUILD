@@ -50,6 +50,14 @@ java_binary(
 )
 
 java_binary(
+    name = "AndroidResourceValidatorAction",
+    main_class = "com.google.devtools.build.android.AndroidResourceValidatorAction",
+    runtime_deps = [
+        ":android_builder_lib",
+    ],
+)
+
+java_binary(
     name = "ManifestMergerAction",
     main_class = "com.google.devtools.build.android.ManifestMergerAction",
     runtime_deps = [

@@ -51,6 +51,11 @@ alias(
 )
 
 alias(
+    name = "resource_validator",
+    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceValidatorAction",
+)
+
+alias(
     name = "merge_dexzips",
     actual = "//src/tools/android/java/com/google/devtools/build/android/ziputils:reducer",
 )

@@ -418,12 +418,12 @@ public class AndroidResourceProcessor {
       Collection<String> splits,
       MergedAndroidData primaryData,
       List<DependencyAndroidData> dependencyData,
-      Path sourceOut,
-      Path packageOut,
-      Path proguardOut,
-      Path mainDexProguardOut,
-      Path publicResourcesOut,
-      Path dataBindingInfoOut)
+      @Nullable Path sourceOut,
+      @Nullable Path packageOut,
+      @Nullable Path proguardOut,
+      @Nullable Path mainDexProguardOut,
+      @Nullable Path publicResourcesOut,
+      @Nullable Path dataBindingInfoOut)
       throws IOException, InterruptedException, LoggedErrorException, UnrecognizedSplitsException {
     Path androidManifest = primaryData.getManifest();
     final Path resourceDir = processDataBindings(primaryData.getResourceDir(), dataBindingInfoOut,
@@ -433,7 +433,69 @@ public class AndroidResourceProcessor {
     if (publicResourcesOut != null) {
       prepareOutputPath(publicResourcesOut.getParent());
     }
+    runAapt(aapt,
+        androidJar,
+        buildToolsVersion,
+        variantType,
+        debug,
+        customPackageForR,
+        aaptOptions,
+        resourceConfigs,
+        splits,
+        androidManifest,
+        resourceDir,
+        assetsDir,
+        sourceOut,
+        packageOut,
+        proguardOut,
+        mainDexProguardOut,
+        publicResourcesOut);
+    // The R needs to be created for each library in the dependencies,
+    // but only if the current project is not a library.
+    if (sourceOut != null && variantType != VariantConfiguration.Type.LIBRARY) {
+      writeDependencyPackageRJavaFiles(
+          dependencyData, customPackageForR, androidManifest, sourceOut);
+    }
+    // Reset the output date stamps.
+    if (proguardOut != null) {
+      Files.setLastModifiedTime(proguardOut, FileTime.fromMillis(0L));
+    }
+    if (mainDexProguardOut != null) {
+      Files.setLastModifiedTime(mainDexProguardOut, FileTime.fromMillis(0L));
+    }
+    if (packageOut != null) {
+      Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
+      if (!splits.isEmpty()) {
+        Iterable<Path> splitFilenames = findAndRenameSplitPackages(packageOut, splits);
+        for (Path splitFilename : splitFilenames) {
+          Files.setLastModifiedTime(splitFilename, FileTime.fromMillis(0L));
+        }
+      }
+    }
+    if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
+      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
+    }
+  }
 
+  public void runAapt(
+      Path aapt,
+      Path androidJar,
+      @Nullable FullRevision buildToolsVersion,
+      VariantConfiguration.Type variantType,
+      boolean debug,
+      String customPackageForR,
+      AaptOptions aaptOptions,
+      Collection<String> resourceConfigs,
+      Collection<String> splits,
+      Path androidManifest,
+      Path resourceDir,
+      Path assetsDir,
+      Path sourceOut,
+      @Nullable Path packageOut,
+      @Nullable Path proguardOut,
+      @Nullable Path mainDexProguardOut,
+      @Nullable Path publicResourcesOut)
+      throws InterruptedException, LoggedErrorException, IOException {
     AaptCommandBuilder commandBuilder =
         new AaptCommandBuilder(aapt)
         .forBuildToolsVersion(buildToolsVersion)
@@ -484,32 +546,6 @@ public class AndroidResourceProcessor {
       // Add context and throw the error to resume processing.
       throw new LoggedErrorException(
           e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
-    }
-
-    // The R needs to be created for each library in the dependencies,
-    // but only if the current project is not a library.
-    if (sourceOut != null && variantType != VariantConfiguration.Type.LIBRARY) {
-      writeDependencyPackageRJavaFiles(
-          dependencyData, customPackageForR, androidManifest, sourceOut);
-    }
-    // Reset the output date stamps.
-    if (proguardOut != null) {
-      Files.setLastModifiedTime(proguardOut, FileTime.fromMillis(0L));
-    }
-    if (mainDexProguardOut != null) {
-      Files.setLastModifiedTime(mainDexProguardOut, FileTime.fromMillis(0L));
-    }
-    if (packageOut != null) {
-      Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
-      if (!splits.isEmpty()) {
-        Iterable<Path> splitFilenames = findAndRenameSplitPackages(packageOut, splits);
-        for (Path splitFilename : splitFilenames) {
-          Files.setLastModifiedTime(splitFilename, FileTime.fromMillis(0L));
-        }
-      }
-    }
-    if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
-      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
   }
 
@@ -954,6 +990,15 @@ public class AndroidResourceProcessor {
     String annotatedDocument = mergingReport.getActions().blame(xmlDocument);
     stdLogger.verbose(annotatedDocument);
     Files.write(manifestOut, xmlDocument.prettyPrint().getBytes(UTF_8));
+  }
+
+  public void writeDummyManifestForAapt(Path dummyManifest, String packageForR) throws IOException {
+    Files.createDirectories(dummyManifest.getParent());
+    Files.write(dummyManifest, String.format(
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
+            + " package=\"%s\">"
+            + "</manifest>", packageForR).getBytes(UTF_8));
   }
 
   /**

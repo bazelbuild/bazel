@@ -20,6 +20,7 @@ sh_test(
         "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceMergingAction_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction_deploy.jar",
+        "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceValidatorAction_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:RClassGeneratorAction_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:ResourceShrinkerAction_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",

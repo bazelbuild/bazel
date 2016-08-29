@@ -289,7 +289,7 @@ public class AndroidResourcesProcessorBuilder {
 
     if (!Strings.isNullOrEmpty(customJavaPackage)) {
       // Sets an alternative java package for the generated R.java
-      // this is allows android rules to generate resources outside of the java{,tests} tree.
+      // this allows android rules to generate resources outside of the java{,tests} tree.
       builder.add("--packageForR").add(customJavaPackage);
     }
 

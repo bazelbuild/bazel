@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantConfiguration.Type;
 import com.android.ide.common.internal.AaptCruncher;
@@ -38,7 +36,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -283,12 +280,7 @@ public class AndroidResourceProcessingAction {
       }
 
       if (options.packageType == Type.LIBRARY) {
-        Files.createDirectories(dummyManifest.getParent());
-        Files.write(dummyManifest, String.format(
-            "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-            + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
-            + " package=\"%s\">"
-            + "</manifest>", options.packageForR).getBytes(UTF_8));
+        resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
         processedData = new MergedAndroidData(
             processedData.getResourceDir(),
             processedData.getAssetDir(),
