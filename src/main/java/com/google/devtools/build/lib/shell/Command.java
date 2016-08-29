@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.shell;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -645,6 +644,7 @@ public final class Command {
    *  E.g., you could pass {@link System#out} as <code>stdOut</code>.
    * @param stdErr the process will write its standard error into this stream.
    *  E.g., you could pass {@link System#err} as <code>stdErr</code>.
+   * @param killSubprocessOnInterrupt whether or not to kill the created process on interrupt
    * @param closeOutput whether to close stdout / stderr when the process closes its output streams.
    * @return An object that can be used to check if the process terminated and
    *  obtain the process results.
@@ -656,6 +656,7 @@ public final class Command {
                                     final KillableObserver observer,
                                     final OutputStream stdOut,
                                     final OutputStream stdErr,
+                                    final boolean killSubprocessOnInterrupt,
                                     final boolean closeOutput)
       throws CommandException {
     // supporting "null" here for backwards compatibility
@@ -665,14 +666,22 @@ public final class Command {
     return doExecute(new InputStreamInputSource(stdinInput),
         theObserver,
         Consumers.createStreamingConsumers(stdOut, stdErr),
-        /*killSubprocess=*/false, closeOutput);
+        killSubprocessOnInterrupt,
+        closeOutput);
   }
+
   public FutureCommandResult executeAsynchronously(final InputStream stdinInput,
       final KillableObserver observer,
       final OutputStream stdOut,
       final OutputStream stdErr)
       throws CommandException {
-    return executeAsynchronously(stdinInput, observer, stdOut, stdErr, /*closeOutput=*/false);
+    return executeAsynchronously(
+        stdinInput,
+        observer,
+        stdOut,
+        stdErr,
+        /*killSubprocess=*/ false,
+        /*closeOutput=*/ false);
   }
 
   // End of public API -------------------------------------------------------
