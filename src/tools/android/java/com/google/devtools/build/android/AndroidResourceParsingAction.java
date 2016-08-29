@@ -45,7 +45,7 @@ public class AndroidResourceParsingAction {
         converter = UnvalidatedAndroidDirectoriesConverter.class,
         category = "input",
         help = "The resource and asset directories to parse and summarize in a symbols file."
-            + " The expected format is resources[#resources]:assets[#assets]")
+            + " The expected format is " + UnvalidatedAndroidDirectories.EXPECTED_FORMAT)
     public UnvalidatedAndroidDirectories primaryData;
 
     @Option(name = "output",

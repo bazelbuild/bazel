@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
+import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,6 +51,7 @@ public class AndroidResourcesProcessorBuilder {
       ResourceContainerConverter.builder()
           .includeResourceRoots()
           .includeManifest()
+          .withSeparator(SeparatorType.COLON_COMMA)
           .toArgConverter();
 
   private static final ResourceContainerConverter.ToArg RESOURCE_DEP_TO_ARG =
@@ -58,6 +60,7 @@ public class AndroidResourcesProcessorBuilder {
           .includeManifest()
           .includeRTxt()
           .includeSymbolsBin()
+          .withSeparator(SeparatorType.COLON_COMMA)
           .toArgConverter();
 
   private ResourceContainer primary;

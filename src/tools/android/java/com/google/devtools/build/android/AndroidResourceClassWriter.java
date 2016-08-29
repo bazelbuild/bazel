@@ -62,6 +62,8 @@ public class AndroidResourceClassWriter implements Flushable {
   private final AndroidFrameworkAttrIdProvider androidIdProvider;
   private final Path outputBasePath;
   private final String packageName;
+  private boolean includeClassFile = true;
+  private boolean includeJavaFile = true;
 
   private final Map<ResourceType, Set<String>> innerClasses = new EnumMap<>(ResourceType.class);
   private final Map<String, Map<String, Boolean>> styleableAttrs = new HashMap<>();
@@ -77,6 +79,14 @@ public class AndroidResourceClassWriter implements Flushable {
     this.androidIdProvider = androidIdProvider;
     this.outputBasePath = outputBasePath;
     this.packageName = packageName;
+  }
+
+  public void setIncludeClassFile(boolean include) {
+    this.includeClassFile = include;
+  }
+
+  public void setIncludeJavaFile(boolean include) {
+    this.includeJavaFile = include;
   }
 
   public void writeSimpleResource(ResourceType type, String name) {
@@ -140,8 +150,12 @@ public class AndroidResourceClassWriter implements Flushable {
       throw new IOException(e);
     }
 
-    writeAsJava(initializers);
-    writeAsClass(initializers);
+    if (includeClassFile) {
+      writeAsClass(initializers);
+    }
+    if (includeJavaFile) {
+      writeAsJava(initializers);
+    }
   }
 
   /**

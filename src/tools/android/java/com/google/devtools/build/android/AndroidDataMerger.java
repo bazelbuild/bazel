@@ -52,12 +52,12 @@ public class AndroidDataMerger {
 
     private final AndroidDataSerializer serializer;
 
-    private final DependencyAndroidData dependency;
+    private final SerializedAndroidData dependency;
 
     private final Builder targetBuilder;
 
     private ParseDependencyDataTask(
-        AndroidDataSerializer serializer, DependencyAndroidData dependency, Builder targetBuilder) {
+        AndroidDataSerializer serializer, SerializedAndroidData dependency, Builder targetBuilder) {
       this.serializer = serializer;
       this.dependency = dependency;
       this.targetBuilder = targetBuilder;
@@ -72,11 +72,10 @@ public class AndroidDataMerger {
         if (!e.isLegacy()) {
           throw new MergingException(e);
         }
-        //TODO(corysmith): List the offending target here.
         logger.fine(
             String.format(
                 "\u001B[31mDEPRECATION:\u001B[0m Legacy resources used for %s",
-                dependency.getManifest()));
+                dependency.getLabel()));
         // Legacy android resources -- treat them as direct dependencies.
         dependency.walk(ParsedAndroidDataBuildingPathWalker.create(parsedDataBuilder));
       }
@@ -187,15 +186,17 @@ public class AndroidDataMerger {
   }
 
   /**
-   * Merges a list of {@link DependencyAndroidData} with a {@link UnvalidatedAndroidData}.
+   * Loads a list of dependency {@link SerializedAndroidData} and merge with the primary {@link
+   * ParsedAndroidData}.
    *
    * @see AndroidDataMerger#merge(ParsedAndroidData, ParsedAndroidData, UnvalidatedAndroidData,
-   *    boolean) for details.
+   *     boolean) for details.
    */
-  UnwrittenMergedAndroidData merge(
-      List<DependencyAndroidData> transitive,
-      List<DependencyAndroidData> direct,
-      UnvalidatedAndroidData primary,
+  UnwrittenMergedAndroidData loadAndMerge(
+      List<? extends SerializedAndroidData> transitive,
+      List<? extends SerializedAndroidData> direct,
+      ParsedAndroidData primary,
+      Path primaryManifest,
       boolean allowPrimaryOverrideAll)
       throws MergingException {
     Stopwatch timer = Stopwatch.createStarted();
@@ -204,12 +205,12 @@ public class AndroidDataMerger {
       final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
       final AndroidDataSerializer serializer = AndroidDataSerializer.create();
       final List<ListenableFuture<Boolean>> tasks = new ArrayList<>();
-      for (final DependencyAndroidData dependency : direct) {
+      for (final SerializedAndroidData dependency : direct) {
         tasks.add(
             executorService.submit(
                 new ParseDependencyDataTask(serializer, dependency, directBuilder)));
       }
-      for (final DependencyAndroidData dependency : transitive) {
+      for (final SerializedAndroidData dependency : transitive) {
         tasks.add(
             executorService.submit(
                 new ParseDependencyDataTask(serializer, dependency, transitiveBuilder)));
@@ -222,8 +223,12 @@ public class AndroidDataMerger {
       logger.fine(
           String.format("Merged dependencies read in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
-      return merge(
-          transitiveBuilder.build(), directBuilder.build(), primary, allowPrimaryOverrideAll);
+      return doMerge(
+          transitiveBuilder.build(),
+          directBuilder.build(),
+          primary,
+          primaryManifest,
+          allowPrimaryOverrideAll);
     } finally {
       logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     }
@@ -288,7 +293,7 @@ public class AndroidDataMerger {
    * @return An UnwrittenMergedAndroidData, containing DataResource objects that can be written to
    *    disk for aapt processing or serialized for future merge passes.
    * @throws MergingException if there are merge conflicts or issues with parsing resources from
-   *    Primary.
+   *    primaryData.
    */
   UnwrittenMergedAndroidData merge(
       ParsedAndroidData transitive,
@@ -296,18 +301,30 @@ public class AndroidDataMerger {
       UnvalidatedAndroidData primaryData,
       boolean allowPrimaryOverrideAll)
       throws MergingException {
-
     try {
       // Extract the primary resources.
       ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primaryData);
+      return doMerge(
+          transitive, direct, parsedPrimary, primaryData.getManifest(), allowPrimaryOverrideAll);
+    } catch (IOException e) {
+      throw new MergingException(e);
+    }
+  }
 
+  private UnwrittenMergedAndroidData doMerge(
+      ParsedAndroidData transitive,
+      ParsedAndroidData direct,
+      ParsedAndroidData parsedPrimary,
+      Path primaryManifest,
+      boolean allowPrimaryOverrideAll)
+      throws MergingException {
+    try {
       // Create the builders for the final parsed data.
       final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
       final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
       final KeyValueConsumers transitiveConsumers = transitiveBuilder.consumers();
       final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
 
-      
       final Set<MergeConflict> conflicts = new HashSet<>();
       conflicts.addAll(parsedPrimary.conflicts());
       for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
@@ -420,7 +437,7 @@ public class AndroidDataMerger {
       }
 
       return UnwrittenMergedAndroidData.of(
-          primaryData.getManifest(),
+          primaryManifest,
           primaryBuilder.build(),
           transitiveBuilder.build());
     } catch (IOException e) {

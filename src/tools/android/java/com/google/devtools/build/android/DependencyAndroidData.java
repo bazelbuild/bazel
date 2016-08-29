@@ -15,13 +15,10 @@ package com.google.devtools.build.android;
 
 import com.android.builder.dependency.SymbolFileProvider;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -37,8 +34,11 @@ import java.util.regex.Pattern;
  * invocation) AndroidData can have multiple roots for resources and assets.
  * </p>
  */
-class DependencyAndroidData {
-  static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+:.+(:.*)?");
+class DependencyAndroidData extends SerializedAndroidData {
+  private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+:.+(:.*)?");
+
+  public static final String EXPECTED_FORMAT =
+      "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin";
 
   public static DependencyAndroidData valueOf(String text) {
     return valueOf(text, FileSystems.getDefault());
@@ -48,13 +48,11 @@ class DependencyAndroidData {
   static DependencyAndroidData valueOf(String text, FileSystem fileSystem) {
     if (!VALID_REGEX.matcher(text).find()) {
       throw new IllegalArgumentException(
-          text
-              + " is not in the format 'resources[#resources]:assets[#assets]:manifest:"
-              + "r.txt:symbols.txt'");
+          text + " is not in the format '" + EXPECTED_FORMAT + "'");
     }
-    String[] parts = text.split("\\:");
-    // TODO(bazel-team): Handle the local-r.txt file.
-    // The local R is optional -- if it is missing, we'll use the full R.txt
+    String[] parts = text.split(":");
+    // TODO(bazel-team): Handle the symbols.bin file.
+    // The local symbols.bin is optional -- if it is missing, we'll use the full R.txt
     return new DependencyAndroidData(
         splitPaths(parts[0], fileSystem),
         parts[1].length() == 0 ? ImmutableList.<Path>of() : splitPaths(parts[1], fileSystem),
@@ -63,42 +61,19 @@ class DependencyAndroidData {
         parts.length == 5 ? fileSystem.getPath(parts[4]) : null);
   }
 
-  private static ImmutableList<Path> splitPaths(String pathsString, FileSystem fileSystem) {
-    if (pathsString.trim().isEmpty()) {
-      return ImmutableList.<Path>of();
-    }
-    ImmutableList.Builder<Path> paths = new ImmutableList.Builder<>();
-    for (String pathString : pathsString.split("#")) {
-      Preconditions.checkArgument(!pathString.trim().isEmpty());
-      paths.add(exists(fileSystem.getPath(pathString)));
-    }
-    return paths.build();
-  }
-
-  private static Path exists(Path path) {
-    if (!Files.exists(path)) {
-      throw new IllegalArgumentException(path + " does not exist");
-    }
-    return path;
-  }
-
-  private final Path rTxt;
   private final Path manifest;
-  private final ImmutableList<Path> assetDirs;
-  private final ImmutableList<Path> resourceDirs;
-  private final Path symbolsTxt;
+  private final Path rTxt;
 
   public DependencyAndroidData(
       ImmutableList<Path> resourceDirs,
       ImmutableList<Path> assetDirs,
       Path manifest,
       Path rTxt,
-      Path symbolsTxt) {
-    this.resourceDirs = resourceDirs;
-    this.assetDirs = assetDirs;
+      Path symbols) {
+    // Use the manifest as a label for now.
+    super(resourceDirs, assetDirs, manifest.toString(), symbols);
     this.manifest = manifest;
     this.rTxt = rTxt;
-    this.symbolsTxt = symbolsTxt;
   }
 
   public SymbolFileProvider asSymbolFileProvider() {
@@ -115,19 +90,15 @@ class DependencyAndroidData {
     };
   }
 
-  public Path getManifest() {
-    return manifest;
-  }
-
   @Override
   public String toString() {
     return String.format(
-        "AndroidData(%s, %s, %s, %s, %s)", resourceDirs, assetDirs, manifest, rTxt, symbolsTxt);
+        "AndroidData(%s, %s, %s, %s, %s)", resourceDirs, assetDirs, manifest, rTxt, symbols);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(resourceDirs, assetDirs, manifest, rTxt, symbolsTxt);
+    return Objects.hash(resourceDirs, assetDirs, manifest, rTxt, symbols);
   }
 
   @Override
@@ -145,27 +116,8 @@ class DependencyAndroidData {
     return Objects.equals(other.resourceDirs, resourceDirs)
         && Objects.equals(other.assetDirs, assetDirs)
         && Objects.equals(other.rTxt, rTxt)
-        && Objects.equals(other.symbolsTxt, symbolsTxt)
+        && Objects.equals(other.symbols, symbols)
         && Objects.equals(other.manifest, manifest);
   }
 
-  public void walk(final AndroidDataPathWalker pathWalker) throws IOException {
-    for (Path path : resourceDirs) {
-      pathWalker.walkResources(path);
-    }
-    for (Path path : assetDirs) {
-      pathWalker.walkAssets(path);
-    }
-  }
-
-  public void deserialize(
-      AndroidDataSerializer serializer,
-      KeyValueConsumers consumers)
-      throws DeserializationException {
-    // Missing symbolsTxt means the resources where provided via android_resources rules.
-    if (symbolsTxt == null) {
-      throw new DeserializationException(true);
-    }
-    serializer.read(symbolsTxt, consumers);
-  }
 }

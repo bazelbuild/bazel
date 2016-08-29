@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -42,21 +43,41 @@ public class ResourceContainerConverter {
     return new Builder();
   }
 
-  interface ToArg extends Function<ResourceContainer, String> {}
+  interface ToArg extends Function<ResourceContainer, String> {
 
-  interface ToArtifacts extends Function<ResourceContainer, NestedSet<Artifact>> {}
+    String listSeparator();
+  }
+
+  interface ToArtifacts extends Function<ResourceContainer, NestedSet<Artifact>> {
+
+  }
 
   static class Builder {
 
     private boolean includeResourceRoots;
+    private boolean includeLabel;
     private boolean includeManifest;
     private boolean includeRTxt;
     private boolean includeSymbolsBin;
+    private SeparatorType separatorType;
+    private Joiner argJoiner;
+    private Function<String, String> escaper = Functions.identity();
 
-    Builder() {}
+    enum SeparatorType {
+      COLON_COMMA,
+      SEMICOLON_AMPERSAND
+    }
+
+    Builder() {
+    }
 
     Builder includeResourceRoots() {
       includeResourceRoots = true;
+      return this;
+    }
+
+    Builder includeLabel() {
+      includeLabel = true;
       return this;
     }
 
@@ -75,9 +96,35 @@ public class ResourceContainerConverter {
       return this;
     }
 
-    private static final Joiner ARG_JOINER = Joiner.on(":");
+    Builder withSeparator(SeparatorType type) {
+      separatorType = type;
+      return this;
+    }
 
     ToArg toArgConverter() {
+      switch (separatorType) {
+        case COLON_COMMA:
+          argJoiner = Joiner.on(":");
+          // We currently use ":" to separate components of an argument and "," to separate
+          // arguments in a list of arguments. Those characters require escaping if used in a label
+          // (part of the set of allowed characters in a label).
+          if (includeLabel) {
+            escaper = new Function<String, String>() {
+              @Override
+              public String apply(String input) {
+                return input.replace(":", "\\:").replace(",", "\\,");
+              }
+            };
+          }
+          break;
+        case SEMICOLON_AMPERSAND:
+          argJoiner = Joiner.on(";");
+          break;
+        default:
+          Preconditions.checkState(false, "Unknown separator type " + separatorType);
+          break;
+      }
+
       return new ToArg() {
         @Override
         public String apply(ResourceContainer container) {
@@ -85,6 +132,9 @@ public class ResourceContainerConverter {
           if (includeResourceRoots) {
             cmdPieces.add(convertRoots(container, ResourceType.RESOURCES));
             cmdPieces.add(convertRoots(container, ResourceType.ASSETS));
+          }
+          if (includeLabel) {
+            cmdPieces.add(escaper.apply(container.getLabel().toString()));
           }
           if (includeManifest) {
             cmdPieces.add(container.getManifest().getExecPathString());
@@ -99,7 +149,20 @@ public class ResourceContainerConverter {
                     ? ""
                     : container.getSymbolsTxt().getExecPathString());
           }
-          return ARG_JOINER.join(cmdPieces.build());
+          return argJoiner.join(cmdPieces.build());
+        }
+
+        @Override
+        public String listSeparator() {
+          switch (separatorType) {
+            case COLON_COMMA:
+              return ",";
+            case SEMICOLON_AMPERSAND:
+              return "&";
+            default:
+              Preconditions.checkState(false, "Unknown separator type " + separatorType);
+              return null;
+          }
         }
       };
     }
@@ -161,7 +224,7 @@ public class ResourceContainerConverter {
       if (!dependencies.getTransitiveResources().isEmpty()) {
         cmdBuilder.addJoinStrings(
             "--data",
-            ",",
+            toArg.listSeparator(),
             Iterables.unmodifiableIterable(
                 Iterables.transform(dependencies.getTransitiveResources(), toArg)));
       }
@@ -170,7 +233,7 @@ public class ResourceContainerConverter {
       if (!dependencies.getDirectResources().isEmpty()) {
         cmdBuilder.addJoinStrings(
             "--directData",
-            ",",
+            toArg.listSeparator(),
             Iterables.unmodifiableIterable(
                 Iterables.transform(dependencies.getDirectResources(), toArg)));
       }

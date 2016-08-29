@@ -14,6 +14,14 @@ java_binary(
 )
 
 java_binary(
+    name = "AndroidResourceMergingAction",
+    main_class = "com.google.devtools.build.android.AndroidResourceMergingAction",
+    runtime_deps = [
+        ":classes",
+    ],
+)
+
+java_binary(
     name = "AndroidResourceParsingAction",
     main_class = "com.google.devtools.build.android.AndroidResourceParsingAction",
     runtime_deps = [

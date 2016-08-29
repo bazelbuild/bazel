@@ -384,17 +384,22 @@ public class AndroidResourceProcessor {
    * @param resourcesRoot The root containing android resources to be written.
    * @param assetsRoot The root containing android assets to be written.
    * @param output The path to write the zip file
+   * @param compress Whether or not to compress the content
    * @throws IOException
    */
-  public void createResourcesZip(Path resourcesRoot, Path assetsRoot, Path output)
+  public void createResourcesZip(Path resourcesRoot, Path assetsRoot, Path output, boolean compress)
       throws IOException {
     try (ZipOutputStream zout = new ZipOutputStream(
         new BufferedOutputStream(Files.newOutputStream(output)))) {
       if (Files.exists(resourcesRoot)) {
-        Files.walkFileTree(resourcesRoot, new ZipBuilderVisitor(zout, resourcesRoot, "res"));
+        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zout, resourcesRoot, "res");
+        visitor.setCompress(compress);
+        Files.walkFileTree(resourcesRoot, visitor);
       }
       if (Files.exists(assetsRoot)) {
-        Files.walkFileTree(assetsRoot, new ZipBuilderVisitor(zout, assetsRoot, "assets"));
+        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zout, assetsRoot, "assets");
+        visitor.setCompress(compress);
+        Files.walkFileTree(assetsRoot, visitor);
       }
     }
   }
@@ -1005,19 +1010,67 @@ public class AndroidResourceProcessor {
 
     return output;
   }
-  
+
   /**
-   * Merges all secondary resources with the primary resources.
+   * Merges all secondary resources with the primary resources, given that the primary resources
+   * have not yet been parsed and serialized.
    */
   public MergedAndroidData mergeData(
       final UnvalidatedAndroidData primary,
-      final List<DependencyAndroidData> direct,
-      final List<DependencyAndroidData> transitive,
+      final List<? extends SerializedAndroidData> direct,
+      final List<? extends SerializedAndroidData> transitive,
       final Path resourcesOut,
       final Path assetsOut,
       @Nullable final PngCruncher cruncher,
       final VariantConfiguration.Type type,
       @Nullable final Path symbolsOut)
+      throws MergingException {
+    try {
+      final ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primary);
+      return mergeData(parsedPrimary, primary.getManifest(), direct, transitive,
+          resourcesOut, assetsOut, cruncher, type, symbolsOut, null /* rclassWriter */);
+    } catch (IOException e) {
+      throw new MergingException(e);
+    }
+  }
+
+  /**
+   * Merges all secondary resources with the primary resources, given that the primary resources
+   * have been separately parsed and serialized.
+   */
+  public MergedAndroidData mergeData(
+      final SerializedAndroidData primary,
+      final Path primaryManifest,
+      final List<? extends SerializedAndroidData> direct,
+      final List<? extends SerializedAndroidData> transitive,
+      final Path resourcesOut,
+      final Path assetsOut,
+      @Nullable final PngCruncher cruncher,
+      final VariantConfiguration.Type type,
+      @Nullable AndroidResourceClassWriter rclassWriter)
+      throws MergingException {
+    final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
+    final AndroidDataSerializer serializer = AndroidDataSerializer.create();
+    primary.deserialize(serializer, primaryBuilder.consumers());
+    ParsedAndroidData primaryData = primaryBuilder.build();
+    return mergeData(primaryData, primaryManifest, direct, transitive,
+        resourcesOut, assetsOut, cruncher, type, null /* symbolsOut */, rclassWriter);
+  }
+
+  /**
+   * Merges all secondary resources with the primary resources.
+   */
+  private MergedAndroidData mergeData(
+      final ParsedAndroidData primary,
+      final Path primaryManifest,
+      final List<? extends SerializedAndroidData> direct,
+      final List<? extends SerializedAndroidData> transitive,
+      final Path resourcesOut,
+      final Path assetsOut,
+      @Nullable final PngCruncher cruncher,
+      final VariantConfiguration.Type type,
+      @Nullable final Path symbolsOut,
+      @Nullable AndroidResourceClassWriter rclassWriter)
       throws MergingException {
     Stopwatch timer = Stopwatch.createStarted();
     final ListeningExecutorService executorService =
@@ -1025,7 +1078,12 @@ public class AndroidResourceProcessor {
     try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
       AndroidDataMerger merger = AndroidDataMerger.createWithPathDeduplictor(executorService);
       UnwrittenMergedAndroidData merged =
-          merger.merge(transitive, direct, primary, type != VariantConfiguration.Type.LIBRARY);
+          merger.loadAndMerge(
+              transitive,
+              direct,
+              primary,
+              primaryManifest,
+              type != VariantConfiguration.Type.LIBRARY);
       logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
       if (symbolsOut != null) {
@@ -1035,6 +1093,12 @@ public class AndroidResourceProcessor {
         logger.fine(
             String.format(
                 "serialize merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        timer.reset().start();
+      }
+      if (rclassWriter != null) {
+        merged.writeResourceClass(rclassWriter);
+        logger.fine(
+            String.format("write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         timer.reset().start();
       }
       AndroidDataWriter writer =

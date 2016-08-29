@@ -36,6 +36,11 @@ alias(
 )
 
 alias(
+    name = "resource_merger",
+    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceMergingAction",
+)
+
+alias(
     name = "resource_parser",
     actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction",
 )

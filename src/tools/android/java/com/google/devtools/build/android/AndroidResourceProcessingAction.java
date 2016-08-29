@@ -56,11 +56,11 @@ import java.util.logging.Logger;
  *      --adb path/to/sdk/adb\
  *      --zipAlign path/to/sdk/zipAlign\
  *      --androidJar path/to/sdk/androidJar\
- *      --manifest path/to/manifest\
- *      --primaryData path/to/resources:path/to/assets:path/to/manifest:path/to/R.txt
- *      --data p/t/res1:p/t/assets1:p/t/1/AndroidManifest.xml:p/t/1/R.txt,\
- *             p/t/res2:p/t/assets2:p/t/2/AndroidManifest.xml:p/t/2/R.txt
- *      --packagePath path/to/write/archive.ap_
+ *      --manifestOutput path/to/manifest\
+ *      --primaryData path/to/resources:path/to/assets:path/to/manifest\
+ *      --data p/t/res1:p/t/assets1:p/t/1/AndroidManifest.xml:p/t/1/R.txt:symbols,\
+ *             p/t/res2:p/t/assets2:p/t/2/AndroidManifest.xml:p/t/2/R.txt:symbols\
+ *      --packagePath path/to/write/archive.ap_\
  *      --srcJarOutput path/to/write/archive.srcjar
  * </pre>
  */
@@ -80,7 +80,7 @@ public class AndroidResourceProcessingAction {
         category = "input",
         help = "The directory containing the primary resource directory. The contents will override"
             + " the contents of any other resource directories during merging. The expected format"
-            + " is resources[|resources]:assets[|assets]:manifest")
+            + " is " + UnvalidatedAndroidData.EXPECTED_FORMAT)
     public UnvalidatedAndroidData primaryData;
 
     @Option(name = "data",
@@ -89,8 +89,8 @@ public class AndroidResourceProcessingAction {
         category = "input",
         help = "Transitive Data dependencies. These values will be used if not defined in the "
             + "primary resources. The expected format is "
-            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin"
-            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin]")
+            + DependencyAndroidData.EXPECTED_FORMAT
+            + "[,...]")
     public List<DependencyAndroidData> transitiveData;
 
     @Option(name = "directData",
@@ -99,8 +99,8 @@ public class AndroidResourceProcessingAction {
         category = "input",
         help = "Direct Data dependencies. These values will be used if not defined in the "
             + "primary resources. The expected format is "
-            + "resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin"
-            + "[,resources[#resources]:assets[#assets]:manifest:r.txt:symbols.bin]")
+            + DependencyAndroidData.EXPECTED_FORMAT
+            + "[,...]")
     public List<DependencyAndroidData> directData;
 
     @Option(name = "rOutput",
@@ -333,7 +333,8 @@ public class AndroidResourceProcessingAction {
         resourceProcessor.createResourcesZip(
             processedData.getResourceDir(),
             processedData.getAssetDir(),
-            options.resourcesOutput);
+            options.resourcesOutput,
+            false /* compress */);
       }
       logger.fine(
           String.format("Packaging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

@@ -82,8 +82,8 @@ public class AarGeneratorAction {
         category = "input",
         help = "Additional Data dependencies. These values will be used if not defined in "
             + "the primary resources. The expected format is "
-            + "resources[#resources]:assets[#assets]:manifest:r.txt"
-            + "[,resources[#resources]:assets[#assets]:manifest:r.txt]")
+            + DependencyAndroidData.EXPECTED_FORMAT
+            + "[,...]")
     public List<DependencyAndroidData> dependencyData;
 
     @Option(name = "manifest",

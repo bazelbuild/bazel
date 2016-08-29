@@ -31,9 +31,7 @@ import java.util.regex.Pattern;
 class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
   private static final Pattern VALID_REGEX = Pattern.compile(".*:.*:.+");
 
-  static String expectedFormat() {
-    return "resources[#resources]:assets[#assets]:manifest";
-  }
+  public static final String EXPECTED_FORMAT = "resources[#resources]:assets[#assets]:manifest";
 
   public static UnvalidatedAndroidData valueOf(String text) {
     return valueOf(text, FileSystems.getDefault());
@@ -43,7 +41,7 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
   static UnvalidatedAndroidData valueOf(String text, FileSystem fileSystem) {
     if (!VALID_REGEX.matcher(text).find()) {
       throw new IllegalArgumentException(
-          text + " is not in the format '" + expectedFormat() + "'");
+          text + " is not in the format '" + EXPECTED_FORMAT + "'");
     }
     String[] parts = text.split(":");
     return new UnvalidatedAndroidData(

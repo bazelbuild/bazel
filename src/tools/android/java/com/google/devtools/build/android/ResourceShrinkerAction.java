@@ -238,7 +238,7 @@ public class ResourceShrinkerAction {
          null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
         resourceProcessor.createResourcesZip(shrunkResources, resourceFiles.resolve("assets"),
-            options.shrunkResources);
+            options.shrunkResources, false /* compress */);
       }
       logger.fine(String.format("Packing resources finished at %sms",
           timer.elapsed(TimeUnit.MILLISECONDS)));

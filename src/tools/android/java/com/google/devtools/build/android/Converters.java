@@ -67,7 +67,7 @@ public final class Converters {
 
     @Override
     public String getTypeDescription() {
-      return "unvalidated android data in the format " + UnvalidatedAndroidData.expectedFormat();
+      return "unvalidated android data in the format " + UnvalidatedAndroidData.EXPECTED_FORMAT;
     }
   }
 
@@ -90,7 +90,7 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "unvalidated android directories in the format "
-          + UnvalidatedAndroidDirectories.expectedFormat();
+          + UnvalidatedAndroidDirectories.EXPECTED_FORMAT;
     }
   }
 
@@ -104,7 +104,7 @@ public final class Converters {
     @Override
     public List<DependencyAndroidData> convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
-        return ImmutableList.<DependencyAndroidData>of();
+        return ImmutableList.of();
       }
       try {
         ImmutableList.Builder<DependencyAndroidData> builder = ImmutableList.builder();
@@ -121,8 +121,58 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a list of dependency android data in the format "
-          + "resources[#resources]:assets[#assets]:manifest:r.txt"
-          + "[,resources[#resources]:assets[#assets]:manifest:r.txt]";
+          + DependencyAndroidData.EXPECTED_FORMAT + "[,...]";
+    }
+  }
+
+  /**
+   * Converter for a {@link SerializedAndroidData}.
+   */
+  public static class SerializedAndroidDataConverter implements Converter<SerializedAndroidData> {
+
+    @Override
+    public SerializedAndroidData convert(String input) throws OptionsParsingException {
+      try {
+        return SerializedAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            String.format("invalid SerializedAndroidData: %s", e.getMessage()), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "preparsed android data in the format " + SerializedAndroidData.EXPECTED_FORMAT;
+    }
+  }
+
+  /**
+   * Converter for a list of {@link SerializedAndroidData}.
+   */
+  public static class SerializedAndroidDataListConverter
+      implements Converter<List<SerializedAndroidData>> {
+
+    @Override
+    public List<SerializedAndroidData> convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return ImmutableList.of();
+      }
+      try {
+        ImmutableList.Builder<SerializedAndroidData> builder = ImmutableList.builder();
+        for (String entry : input.split("&")) {
+          builder.add(SerializedAndroidData.valueOf(entry));
+        }
+        return builder.build();
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException(
+            String.format("invalid SerializedAndroidData: %s", e.getMessage()), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a list of preparsed android data in the format "
+          + SerializedAndroidData.EXPECTED_FORMAT + "[&...]";
     }
   }
 
@@ -281,6 +331,15 @@ public final class Converters {
     }
   }
 
+  // Commas that are not escaped by a backslash.
+  private static final String UNESCAPED_COMMA_REGEX = "(?<!\\\\)\\,";
+  // Colons that are not escaped by a backslash.
+  private static final String UNESCAPED_COLON_REGEX = "(?<!\\\\)\\:";
+
+  private static String unescapeInput(String input) {
+    return input.replace("\\:", ":").replace("\\,", ",");
+  }
+
   /**
    * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
    * may contain colons and commas as long as they are escaped with a backslash.
@@ -301,8 +360,8 @@ public final class Converters {
       }
       Map<K, V> map = new LinkedHashMap<>();
       // Only split on comma and colon that are not escaped with a backslash
-      for (String entry : input.split("(?<!\\\\)\\,")) {
-        String[] entryFields = entry.split("(?<!\\\\)\\:", -1);
+      for (String entry : input.split(UNESCAPED_COMMA_REGEX)) {
+        String[] entryFields = entry.split(UNESCAPED_COLON_REGEX, -1);
         if (entryFields.length < 2) {
           throw new OptionsParsingException(String.format(
               "Dictionary entry [%s] does not contain both a key and a value.",
@@ -313,7 +372,7 @@ public final class Converters {
               entry));
         }
         // Unescape any comma or colon that is not a key or value separator.
-        String keyString = entryFields[0].replace("\\:", ":").replace("\\,", ",");
+        String keyString = unescapeInput(entryFields[0]);
         K key = keyConverter.convert(keyString);
         if (map.containsKey(key)) {
           throw new OptionsParsingException(String.format(
@@ -321,7 +380,7 @@ public final class Converters {
               keyString));
         }
         // Unescape any comma or colon that is not a key or value separator.
-        String valueString = entryFields[1].replace("\\:", ":").replace("\\,", ",");
+        String valueString = unescapeInput(entryFields[1]);
         V value = valueConverter.convert(valueString);
         map.put(key, value);
       }
