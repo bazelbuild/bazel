@@ -201,7 +201,11 @@ public class ResourceManager {
    */
   public ResourceHandle acquireResources(ActionExecutionMetadata owner, ResourceSet resources)
       throws InterruptedException {
-    Preconditions.checkNotNull(resources);
+    Preconditions.checkNotNull(
+        resources, "acquireResources called with resources == NULL during %s", owner);
+    Preconditions.checkState(
+        !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
+
     AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
     CountDownLatch latch = null;
     try {
@@ -224,8 +228,7 @@ public class ResourceManager {
       }
       throw e;
     } finally {
-      threadLocked.set(resources.getCpuUsage() != 0 || resources.getMemoryMb() != 0
-          || resources.getIoUsage() != 0 || resources.getLocalTestCount() != 0);
+      threadLocked.set(resources != ResourceSet.ZERO);
       acquired(owner);
 
       // Profile acquisition only if it waited for resource to become available.
@@ -233,6 +236,7 @@ public class ResourceManager {
         p.complete();
       }
     }
+
     return new ResourceHandle(this, owner, resources);
   }
 
@@ -242,7 +246,13 @@ public class ResourceManager {
    * @return a ResourceHandle iff the given resources were locked (all or nothing), null otherwise.
    */
   public ResourceHandle tryAcquire(ActionExecutionMetadata owner, ResourceSet resources) {
+    Preconditions.checkNotNull(
+        resources, "tryAcquire called with resources == NULL during %s", owner);
+    Preconditions.checkState(
+        !threadHasResources(), "tryAcquire with existing resource lock during %s", owner);
+
     boolean acquired = false;
+
     synchronized (this) {
       if (areResourcesAvailable(resources)) {
         incrementResources(resources);
@@ -251,8 +261,7 @@ public class ResourceManager {
     }
 
     if (acquired) {
-      threadLocked.set(resources.getCpuUsage() != 0 || resources.getMemoryMb() != 0
-          || resources.getIoUsage() != 0 || resources.getLocalTestCount() != 0);
+      threadLocked.set(resources != ResourceSet.ZERO);
       acquired(owner);
       return new ResourceHandle(this, owner, resources);
     }
@@ -313,6 +322,11 @@ public class ResourceManager {
    * <p>NB! This method must be thread-safe!
    */
   public void releaseResources(ActionExecutionMetadata owner, ResourceSet resources) {
+    Preconditions.checkNotNull(
+        resources, "releaseResources called with resources == NULL during %s", owner);
+    Preconditions.checkState(
+        threadHasResources(), "releaseResources without resource lock during %s", owner);
+
     boolean isConflict = false;
     AutoProfiler p = profiled(owner, ProfilerTask.ACTION_RELEASE);
     try {

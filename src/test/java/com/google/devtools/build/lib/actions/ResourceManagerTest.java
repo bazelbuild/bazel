@@ -73,7 +73,7 @@ public class ResourceManagerTest {
     rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
   }
 
-  private void validate (int count) {
+  private void validate(int count) {
     assertEquals(count, counter.incrementAndGet());
   }
 
@@ -124,7 +124,15 @@ public class ResourceManagerTest {
 
     // When a request for CPU is made that would slightly overallocate CPU,
     // Then the request succeeds:
-    assertThat(acquireNonblocking(0, 0.6, 0, 0)).isNotNull();
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThat(acquireNonblocking(0, 0.6, 0, 0)).isNotNull();
+          }
+        };
+    thread1.start();
+    thread1.joinAndAssertState(10000);
   }
 
   @Test
@@ -136,20 +144,36 @@ public class ResourceManagerTest {
 
     // When a request for a large CPU allocation is made,
     // Then the request succeeds:
-    assertThat(acquireNonblocking(0, 0.99, 0, 0)).isNotNull();
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThat(acquireNonblocking(0, 0.99, 0, 0)).isNotNull();
+            // Cleanup
+            release(0, 0.99, 0, 0);
+          }
+        };
+    thread1.start();
+    thread1.joinAndAssertState(10000);
 
     // Cleanup
-    release(0, 1.089, 0, 0);
+    release(0, 0.099, 0, 0);
     assertFalse(rm.inUse());
-
 
     // Given that CPU has a large initial allocation:
     acquire(0, 0.99, 0, 0);
 
     // When a request for a small CPU allocation is made,
     // Then the request fails:
-    assertThat(acquireNonblocking(0, 0.099, 0, 0)).isNull();
-
+    TestThread thread2 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThat(acquireNonblocking(0, 0.099, 0, 0)).isNull();
+          }
+        };
+    thread2.start();
+    thread2.joinAndAssertState(10000);
     // Note that this behavior is surprising and probably not intended.
   }
 
@@ -162,7 +186,15 @@ public class ResourceManagerTest {
 
     // When a request for RAM is made that would slightly overallocate RAM,
     // Then the request fails:
-    assertThat(acquireNonblocking(600, 0, 0, 0)).isNull();
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThat(acquireNonblocking(600, 0, 0, 0)).isNull();
+          }
+        };
+    thread1.start();
+    thread1.joinAndAssertState(10000);
   }
 
   @Test
@@ -174,7 +206,15 @@ public class ResourceManagerTest {
 
     // When a request for IO is made that would slightly overallocate IO,
     // Then the request fails:
-    assertThat(acquireNonblocking(0, 0, 0.6, 0)).isNull();
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThat(acquireNonblocking(0, 0, 0.6, 0)).isNull();
+          }
+        };
+    thread1.start();
+    thread1.joinAndAssertState(10000);
   }
 
   @Test
@@ -186,7 +226,15 @@ public class ResourceManagerTest {
 
     // When a request for tests is made that would slightly overallocate tests,
     // Then the request fails:
-    assertThat(acquireNonblocking(0, 0, 0, 2)).isNull();
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            assertThat(acquireNonblocking(0, 0, 0, 2)).isNull();
+          }
+        };
+    thread1.start();
+    thread1.joinAndAssertState(10000);
   }
 
   @Test
@@ -323,7 +371,11 @@ public class ResourceManagerTest {
 
   @Test
   public void testOutOfOrderAllocation() throws Exception {
+    final CyclicBarrier sync3 = new CyclicBarrier(2);
+    final CyclicBarrier sync4 = new CyclicBarrier(2);
+
     assertFalse(rm.inUse());
+
     TestThread thread1 = new TestThread () {
       @Override public void runTest() throws Exception {
         sync.await();
@@ -333,6 +385,7 @@ public class ResourceManagerTest {
         sync.await();
       }
     };
+
     TestThread thread2 = new TestThread() {
       @Override public void runTest() throws Exception {
         // Wait till other thread will be locked
@@ -349,24 +402,69 @@ public class ResourceManagerTest {
         release(200, 0.5, 0, 0);
       }
     };
-    acquire(900, 0.9, 0, 0);
+
+    TestThread thread3 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            acquire(100, 0.4, 0, 0);
+            sync3.await();
+            sync3.await();
+            release(100, 0.4, 0, 0);
+          }
+        };
+
+    TestThread thread4 =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            acquire(750, 0.3, 0, 0);
+            sync4.await();
+            sync4.await();
+            release(750, 0.3, 0, 0);
+          }
+        };
+
+    // Lock 900 MB, 0.9 CPU in total (spread over three threads so that we can individually release
+    // parts of it).
+    acquire(50, 0.2, 0, 0);
+    thread3.start();
+    thread4.start();
+    sync3.await(1, TimeUnit.SECONDS);
+    sync4.await(1, TimeUnit.SECONDS);
     validate(1);
+
+    // Start thread1, which will try to acquire 900 MB, 0.5 CPU, but can't, so it has to wait.
     thread1.start();
     sync.await(1, TimeUnit.SECONDS);
+
+    // Start thread2, which will successfully acquire and release 100 MB, 0.1 CPU.
     thread2.start();
+    // Signal thread2 to acquire 200 MB and 0.5 CPU, which will block.
     sync2.await(1, TimeUnit.SECONDS);
-    //Waiting till both threads are locked.
+
+    // Waiting till both threads are locked.
     while (rm.getWaitCount() < 2) {
       Thread.yield();
     }
+
     validate(3); // Thread1 is now first in the queue and Thread2 is second.
-    release(100, 0.4, 0, 0); // This allows Thread2 to continue out of order.
+
+    // Release 100 MB, 0.4 CPU. This allows Thread2 to continue out of order.
+    sync3.await(1, TimeUnit.SECONDS);
     sync2.await(1, TimeUnit.SECONDS);
-    release(750, 0.3, 0, 0); // At this point thread1 will finally acquire resources.
+
+    // Release 750 MB, 0.3 CPU. At this point thread1 will finally acquire resources.
+    sync4.await(1, TimeUnit.SECONDS);
     sync.await(1, TimeUnit.SECONDS);
+
+    // Release all remaining resources.
     release(50, 0.2, 0, 0);
     thread1.join();
     thread2.join();
+    thread3.join();
+    thread4.join();
+
     assertFalse(rm.inUse());
   }
 

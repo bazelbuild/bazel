@@ -18,7 +18,6 @@ import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -63,6 +62,9 @@ public class ResourceSet {
    * local tests.
    */
   public static ResourceSet createWithRamCpuIo(double memoryMb, double cpuUsage, double ioUsage) {
+    if (memoryMb == 0 && cpuUsage == 0 && ioUsage == 0) {
+      return ZERO;
+    }
     return new ResourceSet(memoryMb, cpuUsage, ioUsage, 0);
   }
 
@@ -83,6 +85,9 @@ public class ResourceSet {
    */
   public static ResourceSet create(double memoryMb, double cpuUsage, double ioUsage,
       int localTestCount) {
+    if (memoryMb == 0 && cpuUsage == 0 && ioUsage == 0 && localTestCount == 0) {
+      return ZERO;
+    }
     return new ResourceSet(memoryMb, cpuUsage, ioUsage, localTestCount);
   }
 
