@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -149,18 +148,17 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
    * Adds to the given environment all variables that are dependent on system state of the host
    * machine.
    *
-   * <p> Admittedly, hermeticity is "best effort" in such cases; these environment values
-   * should be as tied to configuration parameters as possible.
+   * <p>Admittedly, hermeticity is "best effort" in such cases; these environment values should be
+   * as tied to configuration parameters as possible.
    *
-   * <p>For example, underlying iOS toolchains require that SDKROOT resolve to an absolute
-   * system path, but, when selecting which SDK to resolve, the version number comes from
-   * build configuration.
+   * <p>For example, underlying iOS toolchains require that SDKROOT resolve to an absolute system
+   * path, but, when selecting which SDK to resolve, the version number comes from build
+   * configuration.
    *
    * @return the new environment, comprised of the old environment plus any new variables
-   * @throws UserExecException if any variables dependent on system state could not be
-   *     resolved
+   * @throws UserExecException if any variables dependent on system state could not be resolved
    */
-  private ImmutableMap<String, String> locallyDeterminedEnv(ImmutableMap<String, String> env)
+  public ImmutableMap<String, String> locallyDeterminedEnv(ImmutableMap<String, String> env)
       throws UserExecException {
     // TODO(bazel-team): Remove apple-specific logic from this class.
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();

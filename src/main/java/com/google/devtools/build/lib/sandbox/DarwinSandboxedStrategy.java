@@ -168,9 +168,9 @@ public class DarwinSandboxedStrategy implements SpawnActionContext {
     Executor executor = actionExecutionContext.getExecutor();
 
     // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
+    StandaloneSpawnStrategy standaloneStrategy =
+        Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
     if (!spawn.isRemotable()) {
-      StandaloneSpawnStrategy standaloneStrategy =
-          Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
@@ -198,7 +198,8 @@ public class DarwinSandboxedStrategy implements SpawnActionContext {
         blazeDirs.getOutputBase().getRelative(productName + "-sandbox").getRelative(execId);
 
     ImmutableSet<PathFragment> createDirs =
-        createImportantDirs(spawn.getEnvironment(), sandboxPath);
+        createImportantDirs(
+            standaloneStrategy.locallyDeterminedEnv(spawn.getEnvironment()), sandboxPath);
 
     int timeout = getTimeout(spawn);
 
@@ -208,7 +209,11 @@ public class DarwinSandboxedStrategy implements SpawnActionContext {
 
     try {
       runner.run(
-          spawn.getArguments(), spawn.getEnvironment(), outErr, outputFiles.build(), timeout);
+          spawn.getArguments(),
+          standaloneStrategy.locallyDeterminedEnv(spawn.getEnvironment()),
+          outErr,
+          outputFiles.build(),
+          timeout);
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     } finally {
@@ -300,28 +305,23 @@ public class DarwinSandboxedStrategy implements SpawnActionContext {
     try (PrintWriter out = new PrintWriter(sandboxConfigPath.getOutputStream())) {
       out.println("(version 1)");
       out.println("(debug deny)");
-      out.println("(deny default)");
-      out.println("(allow signal)");
-      out.println("(allow system*)");
-      out.println("(allow process*)");
-      out.println("(allow sysctl*)");
-      out.println("(allow mach-lookup)");
-      out.println("(allow ipc*)");
+      out.println("(allow default)");
+
+      // check network
+      if (!allowNetwork) {
+        out.println("(deny network*)");
+      }
       out.println("(allow network* (local ip \"localhost:*\"))");
       out.println("(allow network* (remote ip \"localhost:*\"))");
       out.println("(allow network* (remote unix-socket (subpath \"/\")))");
       out.println("(allow network* (local unix-socket (subpath \"/\")))");
-      // check network
-      if (allowNetwork) {
-        out.println("(allow network*)");
-      }
 
-      // except workspace
-      out.println("(deny file-read-data (subpath \"" + blazeDirs.getWorkspace() + "\"))");
-      // except exec_root
-      out.println("(deny file-read-data (subpath \"" + execRoot + "\"))");
-      // almost everything is readable
-      out.println("(allow file-read* (subpath \"/\"))");
+      // Non-readable path: workspace && exec_root
+      out.println("(deny file-read* (subpath \"" + blazeDirs.getWorkspace() + "\"))");
+      out.println("(deny file-read* (subpath \"" + execRoot + "\"))");
+
+      // Almost everything is non-writable
+      out.println("(deny file-write* (subpath \"/\"))");
 
       allowWriteSubpath(out, blazeDirs.getFileSystem().getPath("/dev"));
 
@@ -345,10 +345,10 @@ public class DarwinSandboxedStrategy implements SpawnActionContext {
   }
 
   private void allowWriteSubpath(PrintWriter out, Path path) throws IOException {
-    out.println("(allow file* (subpath \"" + path.getPathString() + "\"))");
+    out.println("(allow file-write* (subpath \"" + path.getPathString() + "\"))");
     Path resolvedPath = path.resolveSymbolicLinks();
     if (!resolvedPath.equals(path)) {
-      out.println("(allow file* (subpath \"" + resolvedPath.getPathString() + "\"))");
+      out.println("(allow file-write* (subpath \"" + resolvedPath.getPathString() + "\"))");
     }
   }
 
