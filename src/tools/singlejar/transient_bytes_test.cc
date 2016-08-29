@@ -311,6 +311,20 @@ TEST_F(TransientBytesTest, CompressOutStore) {
   ASSERT_EQ(0xE8B7BE43, crc32);
 }
 
+// Verify CompressOut: if there are zero bytes in the buffer, just store.
+TEST_F(TransientBytesTest, CompressZero) {
+  transient_bytes_->Append("");
+  uint8_t buffer[400] = {0xfe, 0xfb};
+  uint32_t crc32 = 0;
+  uint64_t bytes_written;
+  uint16_t rc = transient_bytes_->CompressOut(buffer, &crc32, &bytes_written);
+  ASSERT_EQ(Z_NO_COMPRESSION, rc);
+  ASSERT_EQ(0, bytes_written);
+  ASSERT_EQ(0xfe, buffer[0]);
+  ASSERT_EQ(0xfb, buffer[1]);
+  ASSERT_EQ(0, crc32);
+}
+
 // Verify CopyOut.
 TEST_F(TransientBytesTest, CopyOut) {
   transient_bytes_->Append("a");

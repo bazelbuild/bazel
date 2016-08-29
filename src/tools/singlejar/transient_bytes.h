@@ -145,11 +145,16 @@ class TransientBytes {
   // Z_NO_COMPRESSION otherwise.
   uint16_t CompressOut(uint8_t *buffer, uint32_t *checksum,
                        uint64_t *bytes_written) {
+    *checksum = 0;
+    uint64_t to_compress = data_size();
+    if (to_compress == 0) {
+      *bytes_written = 0;
+      return Z_NO_COMPRESSION;
+    }
+
     Deflater deflater;
     deflater.next_out = buffer;
-    *checksum = 0;
     uint16_t compression_method = Z_DEFLATED;
-    uint64_t to_compress = data_size();
 
     // Feed data blocks to the deflater one by one, but break if the compressed
     // size exceeds the original size.
