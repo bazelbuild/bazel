@@ -1,4 +1,4 @@
-#set ($path = "/docs/be")
+#set ($path = "{{ page.version_prefix }}/docs/be")
 #set ($bazelbuildGithub = "https://github.com/bazelbuild")
 
 <h3>Build Encyclopedia</h3>

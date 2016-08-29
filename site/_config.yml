@@ -4,3 +4,4 @@ paginate: 10
 highlighter: pygments
 sass:
   sass_dir: _sass
+default_version: "master"
