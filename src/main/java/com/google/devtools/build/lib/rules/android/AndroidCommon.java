@@ -136,7 +136,6 @@ public class AndroidCommon {
   private Artifact genClassJar;
   private Artifact genSourceJar;
   private Artifact resourceClassJar;
-  private Artifact resourceIJar;
   private Artifact resourceSourceJar;
   private Artifact outputDepsProto;
 
@@ -436,7 +435,6 @@ public class AndroidCommon {
           javaArtifactsBuilder);
     }
     javacHelper.createSourceJarAction(resourceSourceJar, null);
-    resourceIJar = javacHelper.createCompileTimeJarAction(resourceClassJar, javaArtifactsBuilder);
   }
 
   private void createJarJarActions(
@@ -701,8 +699,8 @@ public class AndroidCommon {
         .addOutputJar(classJar, iJar, srcJar)
         .setJdeps(outputDepsProto);
     OutputJar resourceJar = null;
-    if (resourceClassJar != null && resourceIJar != null && resourceSourceJar != null) {
-      resourceJar = new OutputJar(resourceClassJar, resourceIJar, resourceSourceJar);
+    if (resourceClassJar != null && resourceSourceJar != null) {
+      resourceJar = new OutputJar(resourceClassJar, null, resourceSourceJar);
       outputJarsBuilder.addOutputJar(resourceJar);
     }
 
