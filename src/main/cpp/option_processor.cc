@@ -27,6 +27,7 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/workspace_layout.h"
 
 using std::list;
 using std::map;
@@ -38,7 +39,7 @@ extern char **environ;
 
 namespace blaze {
 
-constexpr char BlazeStartupOptions::WorkspacePrefix[];
+constexpr char WorkspaceLayout::WorkspacePrefix[];
 
 OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option)
     : rcfile_index_(rcfile_index), option_(option) {
@@ -109,9 +110,9 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
 
     if (command == "import") {
       if (words.size() != 2
-          || (words[1].compare(0, BlazeStartupOptions::WorkspacePrefixLength,
-                               BlazeStartupOptions::WorkspacePrefix) == 0
-              && !BlazeStartupOptions::WorkspaceRelativizeRcFilePath(
+          || (words[1].compare(0, WorkspaceLayout::WorkspacePrefixLength,
+                               WorkspaceLayout::WorkspacePrefix) == 0
+              && !WorkspaceLayout::WorkspaceRelativizeRcFilePath(
                   workspace, &words[1]))) {
         blaze_util::StringPrintf(error,
             "Invalid import declaration in .blazerc file '%s': '%s'",
@@ -248,13 +249,13 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   // small one and this way I don't have to care about memory management.
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
-    BlazeStartupOptions::FindCandidateBlazercPaths(workspace, cwd, args,
-                                                   &candidate_blazerc_paths);
+    WorkspaceLayout::FindCandidateBlazercPaths(workspace, cwd, args,
+                                               &candidate_blazerc_paths);
   }
 
   string user_blazerc_path;
   blaze_exit_code::ExitCode find_blazerc_exit_code = FindUserBlazerc(
-      blazerc, BlazeStartupOptions::RcBasename(), workspace, &user_blazerc_path,
+      blazerc, WorkspaceLayout::RcBasename(), workspace, &user_blazerc_path,
       error);
   if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
     return find_blazerc_exit_code;

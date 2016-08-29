@@ -75,6 +75,8 @@ cc_binary(
         "blaze_startup_options_common.cc",
         "option_processor.cc",
         "option_processor.h",
+        "workspace_layout.cc",
+        "workspace_layout.h",
     ],
     copts = [
         "-Wno-sign-compare",

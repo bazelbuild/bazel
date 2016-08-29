@@ -185,47 +185,9 @@ class BlazeStartupOptions {
   // out.
   std::unique_ptr<StartupOptions> extra_options;
 
-  // Given the working directory, returns the nearest enclosing directory with a
-  // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
-  //
-  // E.g., if there was a WORKSPACE file in foo/bar/build_root:
-  // GetWorkspace('foo/bar') --> ''
-  // GetWorkspace('foo/bar/build_root') --> 'foo/bar/build_root'
-  // GetWorkspace('foo/bar/build_root/biz') --> 'foo/bar/build_root'
-  //
-  // The returned path is relative or absolute depending on whether cwd was
-  // relative or absolute.
-  static string GetWorkspace(const string &cwd);
-
-  // Returns if workspace is a valid build workspace.
-  static bool InWorkspace(const string &workspace);
-
-  // Returns the basename for the rc file.
-  static string RcBasename();
-
-  // Returns the candidate pathnames for the RC files.
-  static void FindCandidateBlazercPaths(const string& workspace,
-                                        const string& cwd,
-                                        const std::vector<string>& args,
-                                        std::vector<string>* result);
-
   // Sanity check for the startup options
   static blaze_exit_code::ExitCode ValidateStartupOptions(
       const std::vector<string>& args, string* error);
-
-  // Returns the candidate pathnames for the RC file in the workspace,
-  // the first readable one of which will be chosen.
-  // It is ok if no usable candidate exists.
-  static void WorkspaceRcFileSearchPath(std::vector<string>* candidates);
-
-  // Turn a %workspace%-relative import into its true name in the filesystem.
-  // path_fragment is modified in place.
-  // Unlike WorkspaceRcFileSearchPath, it is an error if no import file exists.
-  static bool WorkspaceRelativizeRcFilePath(const string &workspace,
-                                            string *path_fragment);
-
-  static constexpr char WorkspacePrefix[] = "%workspace%/";
-  static const int WorkspacePrefixLength = sizeof WorkspacePrefix - 1;
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.

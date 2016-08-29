@@ -78,6 +78,7 @@
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/workspace_layout.h"
 #include "third_party/ijar/zip.h"
 
 #include "src/main/protobuf/command_server.grpc.pb.h"
@@ -596,7 +597,7 @@ static string GetArgumentString(const vector<string>& argument_array) {
 
 // Do a chdir into the workspace, and die if it fails.
 static void GoToWorkspace() {
-  if (BlazeStartupOptions::InWorkspace(globals->workspace) &&
+  if (WorkspaceLayout::InWorkspace(globals->workspace) &&
       chdir(globals->workspace.c_str()) != 0) {
     pdie(blaze_exit_code::INTERNAL_ERROR,
          "chdir() into %s failed", globals->workspace.c_str());
@@ -1621,7 +1622,7 @@ static void ComputeWorkspace() {
     pdie(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed");
   }
   globals->cwd = MakeCanonical(cwdbuf);
-  globals->workspace = BlazeStartupOptions::GetWorkspace(globals->cwd);
+  globals->workspace = WorkspaceLayout::GetWorkspace(globals->cwd);
 }
 
 // Figure out the base directories based on embedded data, username, cwd, etc.
@@ -1630,7 +1631,7 @@ static void ComputeWorkspace() {
 static void ComputeBaseDirectories(const string &self_path) {
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
-  if (!BlazeStartupOptions::InWorkspace(globals->workspace)) {
+  if (!WorkspaceLayout::InWorkspace(globals->workspace)) {
     globals->options.batch = true;
   }
 
