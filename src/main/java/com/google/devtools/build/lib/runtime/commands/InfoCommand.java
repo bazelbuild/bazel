@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Supplier;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -234,15 +232,9 @@ public class InfoCommand implements BlazeCommand {
   }
 
   static Map<String, InfoItem> getInfoItemMap(
-      CommandEnvironment env, OptionsProvider commandOptions) {
-    Map<String, InfoItem> result = new TreeMap<>();  // order by key
-    for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-      for (InfoItem item : module.getInfoItems()) {
-        Verify.verify(!result.containsKey(item.getName()));
-        result.put(item.getName(), item);
-      }
-    }
-    result.putAll(getHardwiredInfoItemMap(commandOptions, env.getRuntime().getProductName()));
-    return result;
+      CommandEnvironment env, OptionsProvider optionsProvider) {
+    Map<String, InfoItem> items = new TreeMap<>(env.getRuntime().getInfoItems());
+    items.putAll(getHardwiredInfoItemMap(optionsProvider, env.getRuntime().getProductName()));
+    return items;
   }
 }

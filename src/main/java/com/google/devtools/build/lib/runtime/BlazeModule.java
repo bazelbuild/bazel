@@ -28,12 +28,8 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -227,26 +223,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the additional information this module provides to "blaze info".
-   *
-   * <p>This method will be called at the beginning of each "blaze info" command (after
-   * #beforeCommand).
-   */
-  public Iterable<InfoItem> getInfoItems() {
-    return ImmutableList.of();
-  }
-
-  /**
-   * Returns the list of query functions this module provides to "blaze query".
-   *
-   * <p>This method will be called at the beginning of each "blaze query" command (after
-   * #beforeCommand).
-   */
-  public Iterable<QueryFunction> getQueryFunctions() {
-    return ImmutableList.of();
-  }
-
-  /**
    * Returns the action context providers the module contributes to Blaze, if any.
    *
    * <p>This method will be called at the beginning of the execution phase, e.g. of the
@@ -307,15 +283,6 @@ public abstract class BlazeModule {
    */
   public Package.Builder.Helper getPackageBuilderHelper(RuleClassProvider ruleClassProvider,
       FileSystem fs) {
-    return null;
-  }
-
-  /**
-   * Returns a factory for creating {@link AbstractBlazeQueryEnvironment} objects.
-   * If the module does not provide any {@link QueryEnvironmentFactory}, it should return null. Note
-   * that only one factory per Bazel/Blaze runtime is allowed.
-   */
-  public QueryEnvironmentFactory getQueryEnvironmentFactory() {
     return null;
   }
 

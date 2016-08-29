@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedForma
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -272,25 +270,23 @@ public final class QueryCommand implements BlazeCommand {
   public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(CommandEnvironment env,
       boolean keepGoing, boolean orderedResults, List<String> universeScope,
       int loadingPhaseThreads, Set<Setting> settings) {
-    ImmutableList.Builder<QueryFunction> functions = ImmutableList.builder();
-    for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-      functions.addAll(module.getQueryFunctions());
-    }
-    return env.getRuntime().getQueryEnvironmentFactory().create(
-        env.getPackageManager().newTransitiveLoader(),
-        env.getSkyframeExecutor(),
-        env.getPackageManager(),
-        env.newTargetPatternEvaluator(),
-        keepGoing,
-        /*strictScope=*/ true,
-        orderedResults,
-        universeScope,
-        loadingPhaseThreads,
-        /*labelFilter=*/ ALL_LABELS,
-        env.getReporter(),
-        settings,
-        functions.build(),
-        env.getPackageManager().getPackagePath());
+    return env.getRuntime()
+        .getQueryEnvironmentFactory()
+        .create(
+            env.getPackageManager().newTransitiveLoader(),
+            env.getSkyframeExecutor(),
+            env.getPackageManager(),
+            env.newTargetPatternEvaluator(),
+            keepGoing,
+            /*strictScope=*/ true,
+            orderedResults,
+            universeScope,
+            loadingPhaseThreads,
+            /*labelFilter=*/ ALL_LABELS,
+            env.getReporter(),
+            settings,
+            env.getRuntime().getQueryFunctions(),
+            env.getPackageManager().getPackagePath());
   }
 
   private static class AggregateAllOutputFormatterCallback<T> extends OutputFormatterCallback<T> {

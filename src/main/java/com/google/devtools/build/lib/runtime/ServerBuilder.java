@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -32,6 +35,8 @@ public final class ServerBuilder {
   private final InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
   private Function<RuleClass, AttributeContainer> attributeContainerFactory;
   private final ImmutableList.Builder<BlazeCommand> commands = ImmutableList.builder();
+  private final ImmutableMap.Builder<String, InfoItem> infoItems = ImmutableMap.builder();
+  private final ImmutableList.Builder<QueryFunction> queryFunctions = ImmutableList.builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -50,6 +55,14 @@ public final class ServerBuilder {
     return attributeContainerFactory == null
         ? AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY
         : attributeContainerFactory;
+  }
+
+  ImmutableMap<String, InfoItem> getInfoItems() {
+    return infoItems.build();
+  }
+
+  ImmutableList<QueryFunction> getQueryFunctions() {
+    return queryFunctions.build();
   }
 
   @VisibleForTesting
@@ -109,6 +122,23 @@ public final class ServerBuilder {
   /** Adds the given commands to the server. */
   public ServerBuilder addCommands(BlazeCommand... commands) {
     this.commands.add(commands);
+    return this;
+  }
+
+  /**
+   * Adds the given items as info items to the info command. It is an error to add info items with
+   * the same name to the same builder, regardless of whether that happens within the same module or
+   * across modules.
+   */
+  public ServerBuilder addInfoItems(InfoItem... infoItems) {
+    for (InfoItem item : infoItems) {
+      this.infoItems.put(item.getName(), item);
+    }
+    return this;
+  }
+
+  public ServerBuilder addQueryFunctions(QueryFunction... functions) {
+    this.queryFunctions.add(functions);
     return this;
   }
 }
