@@ -387,17 +387,40 @@ bool OutputJar::AddJar(int jar_path_index) {
                       jar_entry->last_mod_file_time() != normalized_time;
     }
     if (fix_timestamp) {
-      LH lh_new;
-      memcpy(&lh_new, lh, sizeof(lh_new));
-      lh_new.last_mod_file_date(33);
-      lh_new.last_mod_file_time(normalized_time);
+      uint8_t lh_buffer[512];
+      size_t lh_size = lh->size();
+      LH *lh_new = lh_size > sizeof(lh_buffer)
+                       ? reinterpret_cast<LH *>(malloc(lh_size))
+                       : reinterpret_cast<LH *>(lh_buffer);
+      // Remove Unix timestamp field.
+      auto field_to_remove = lh->unix_time_extra_field();
+      if (field_to_remove != nullptr) {
+        auto from_end = byte_ptr(lh) + lh->size();
+        size_t removed_size = field_to_remove->size();
+        size_t chunk1_size = byte_ptr(field_to_remove) - byte_ptr(lh);
+        size_t chunk2_size = lh->size() - (chunk1_size + removed_size);
+        memcpy(lh_new, lh, chunk1_size);
+        if (chunk2_size) {
+          memcpy(reinterpret_cast<uint8_t *>(lh_new) + chunk1_size,
+                 from_end - chunk2_size, chunk2_size);
+        }
+        lh_new->extra_fields(lh_new->extra_fields(),
+                             lh->extra_fields_length() - removed_size);
+      } else {
+        memcpy(lh_new, lh, lh_size);
+      }
+      lh_new->last_mod_file_date(33);
+      lh_new->last_mod_file_time(normalized_time);
       // Now write these few bytes and adjust read/write positions accordingly.
-      if (!WriteBytes(reinterpret_cast<uint8_t *>(&lh_new), sizeof(lh_new))) {
+      if (!WriteBytes(reinterpret_cast<uint8_t *>(lh_new), lh_new->size())) {
         diag_err(1, "%s:%d: Cannot copy modified local header for %.*s",
                  __FILE__, __LINE__, file_name_length, file_name);
       }
-      copy_from += sizeof(lh_new);
-      num_bytes -= sizeof(lh_new);
+      copy_from += lh_size;
+      num_bytes -= lh_size;
+      if (reinterpret_cast<uint8_t *>(lh_new) != lh_buffer) {
+        free(lh_buffer);
+      }
     }
 
     // Do the actual copy. Use sendfile, avoiding copying the data to user
@@ -415,7 +438,29 @@ bool OutputJar::AddJar(int jar_path_index) {
     // Append central directory header for this file to the output central
     // directory we are building.
     TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
-    CDH *out_cdh = AppendToDirectoryBuffer(jar_entry);
+
+    CDH *out_cdh;
+    auto field_to_remove =
+        fix_timestamp ? jar_entry->unix_time_extra_field() : nullptr;
+    if (field_to_remove != nullptr) {
+      // Remove extra fields.
+      auto from_start = byte_ptr(jar_entry);
+      auto from_end = from_start + jar_entry->size();
+      size_t removed_size = field_to_remove->size();
+      size_t chunk1_size = byte_ptr(field_to_remove) - from_start;
+      size_t chunk2_size = jar_entry->size() - (chunk1_size + removed_size);
+      out_cdh =
+          reinterpret_cast<CDH *>(ReserveCdr(jar_entry->size() - removed_size));
+      memcpy(out_cdh, jar_entry, chunk1_size);
+      if (chunk2_size) {
+        memcpy(reinterpret_cast<uint8_t *>(out_cdh) + chunk1_size,
+               from_end - chunk2_size, chunk2_size);
+      }
+      out_cdh->extra_fields(out_cdh->extra_fields(),
+                            jar_entry->extra_fields_length() - removed_size);
+    } else {
+      out_cdh = AppendToDirectoryBuffer(jar_entry);
+    }
     out_cdh->local_header_offset32(output_position);
     if (fix_timestamp) {
       out_cdh->last_mod_file_time(normalized_time);

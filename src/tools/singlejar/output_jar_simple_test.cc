@@ -424,6 +424,11 @@ TEST_F(OutputJarSimpleTest, Normalize) {
           << entry_name
           << " modification time for non .class entry should be 00:00:00";
     }
+    // Zip creates Unix timestamps, too. Check that normalization removes them.
+    ASSERT_EQ(nullptr, cdh->unix_time_extra_field())
+        << entry_name << ": CDH should not have Unix Time extra field";
+    ASSERT_EQ(nullptr, lh->unix_time_extra_field())
+        << entry_name << ": LH should not have Unix Time extra field";
   }
   input_jar.Close();
 }

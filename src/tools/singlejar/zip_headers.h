@@ -374,7 +374,7 @@ class CDH {
   }
   void extra_fields(const uint8_t *data, uint16_t data_length) {
     extra_fields_length_ = htole16(data_length);
-    if (data_length) {
+    if (data_length && data != extra_fields()) {
       memcpy(extra_fields(), data, data_length);
     }
   }
