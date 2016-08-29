@@ -1,8 +1,12 @@
+#if (!$singlePage)
 ---
 layout: documentation
 title: ${ruleFamily.name} Rules
 ---
+#end
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
 
 <h1>${ruleFamily.name} Rules</h1>
 
@@ -70,4 +74,6 @@ title: ${ruleFamily.name} Rules
   #end
 #end
 
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

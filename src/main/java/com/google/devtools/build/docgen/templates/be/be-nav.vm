@@ -2,6 +2,7 @@
 #set ($bazelbuildGithub = "https://github.com/bazelbuild")
 
 <h3>Build Encyclopedia</h3>
+
 <ul class="sidebar-nav">
   <li><a href="${path}/overview.html">Overview</a></li>
   <li>

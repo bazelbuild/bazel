@@ -1,15 +1,20 @@
+#if (!$singlePage)
 ---
 layout: documentation
 title: Make Variables
 ---
+#end
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
 
 <!-- ============================================
                       variables
      ============================================
 -->
-<h1>"Make" Variables</h1>
+<h1 id="make-variables">"Make" Variables</h1>
 
+#if (!$singlePage)
 <div class="toc">
   <ul>
     <li><a href="#make-var-substitution">"Make" variable subsitution</a></li>
@@ -17,6 +22,7 @@ title: Make Variables
     <li><a href="#location">"$(location)" substitution</a></li>
   </ul>
 </div>
+#end
 <p>
   This section describes how to use a special class of built-in string variables
   that are called the "Make" environment.
@@ -33,7 +39,7 @@ title: Make Variables
 </p>
 
 <p>Build rules can introduce additional rule specific variables. One example is
-  the <a href="general.html#genrule.cmd"><code>cmd</code> attribute of a genrule</a>.
+  the <a href="$expander.expandRef("genrule.cmd")"><code>cmd</code> attribute of a genrule</a>.
 </p>
 
 <h2 id='make-var-substitution'>"Make" variable substitution</h2>
@@ -142,7 +148,7 @@ in your genrule's cmd attribute.
 
 <p id="predefined_variables.genrule.cmd">
   <strong>
-    Other Variables available to <a href="general.html#genrule.cmd">the cmd
+    Other Variables available to <a href="$expander.expandRef("genrule.cmd")">the cmd
     attribute of a genrule</a>
   </strong>
 </p>
@@ -197,4 +203,6 @@ in your genrule's cmd attribute.
   <code>*_test</code> or <code>*_binary</code> rule.
 </p>
 
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

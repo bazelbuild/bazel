@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -28,7 +27,7 @@ public class BuildEncyclopediaGenerator {
   private static void printUsage(OptionsParser parser) {
     System.err.println(
         "Usage: docgen_bin -p rule_class_provider (-i input_dir)+\n"
-        + "    [-o outputdir] [-b blacklist] [-h]\n\n"
+        + "    [-o outputdir] [-b blacklist] [-1] [-h]\n\n"
         + "Generates the Build Encyclopedia from embedded native rule documentation.\n"
         + "The rule class provider (-p) and at least one input_dir (-i) must be specified.\n");
     System.err.println(
@@ -69,8 +68,14 @@ public class BuildEncyclopediaGenerator {
     }
 
     try {
-      BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
-          createRuleClassProvider(options.provider));
+      BuildEncyclopediaProcessor processor = null;
+      if (options.singlePage) {
+        processor = new SinglePageBuildEncyclopediaProcessor(
+            createRuleClassProvider(options.provider));
+      } else {
+        processor = new MultiPageBuildEncyclopediaProcessor(
+            createRuleClassProvider(options.provider));
+      }
       processor.generateDocumentation(
           options.inputDirs, options.outputDir, options.blacklist);
     } catch (BuildEncyclopediaDocException e) {

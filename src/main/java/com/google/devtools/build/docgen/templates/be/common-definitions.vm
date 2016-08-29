@@ -1,15 +1,20 @@
+#if (!$singlePage)
 ---
 layout: documentation
 title: Common Definitions
 ---
+#end
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
 
-<h1>Common definitions</h1>
+<h1 id="common-definitions">Common definitions</h1>
 
 <p>This section defines various terms and concepts that are common to
 many functions or build rules below.
 </p>
 
+#if (!$singlePage)
 <div class="toc">
   <h1>Contents</h1>
   <ul>
@@ -22,6 +27,7 @@ many functions or build rules below.
     <li><a href="#implicit-outputs">Implicit output targets</a></li>
   </ul>
 </div>
+#end
 <h2 id='sh-tokenization'>Bourne shell tokenization</h2>
 <p>
   Certain string attributes of some rules are split into multiple
@@ -147,8 +153,8 @@ config_setting(
 
 <p>
   See the definitions of
-  <a href="functions.html#select">select</a> and
-  <a href="general.html#config_setting">config_setting</a> for more details.
+  <a href="$expander.expandRef("select")">select</a> and
+  <a href="$expander.expandRef("config_setting")">config_setting</a> for more details.
   Attributes marked <code>nonconfigurable</code> in their documentation cannot
   use this feature (usually because Bazel has to know their values before flags
   have been parsed).
@@ -204,4 +210,6 @@ config_setting(
   the <a href="../build-ref.html">BUILD Concept Reference</a>.
 </p>
 
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

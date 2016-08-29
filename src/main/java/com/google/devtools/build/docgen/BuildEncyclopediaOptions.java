@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.List;
 
 /**
@@ -54,6 +53,14 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     help = "A path to a file listing rules not to document."
   )
   public String blacklist;
+
+  @Option(
+    name = "single_page",
+    abbrev = '1',
+    defaultValue = "false",
+    help = "Whether to generate the BE as a single HTML page or one page per rule family."
+  )
+  public boolean singlePage;
 
   @Option(
     name = "help",

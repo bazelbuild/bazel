@@ -1,8 +1,12 @@
+#if (!$singlePage)
 ---
 layout: documentation
 title: Build Encyclopedia
 ---
+#end
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
 
 <h1>Bazel BUILD Encyclopedia of Functions</h1>
 <h2>Contents</h2>
@@ -11,46 +15,50 @@ title: Build Encyclopedia
 
 <ul>
   <li>
-    <a href="common-definitions.html">Common definitions</a>
+    <a href="$expander.expandRef("common-definitions")">Common definitions</a>
     <ul>
-      <li><a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a></li>
-      <li><a href="common-definitions.html#label-expansion">Label expansion</a></li>
-      <li><a href="common-definitions.html#common-attributes">Common attributes</a></li>
-      <li><a href="common-definitions.html#common-attributes-tests">Common attributes for tests</a></li>
-      <li><a href="common-definitions.html#common-attributes-binaries">Common attributes for binaries</a></li>
-      <li><a href="common-definitions.html#configurable-attributes">Configurable attributes</a></li>
-      <li><a href="common-definitions.html#implicit-outputs">Implicit output targets</a></li>
+      <li><a href="$expander.expandRef("common-definitions#sh-tokenization")">Bourne shell tokenization</a></li>
+      <li><a href="$expander.expandRef("common-definitions#label-expansion")">Label expansion</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes-tests")">Common attributes for tests</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes-binaries")">Common attributes for binaries</a></li>
+      <li><a href="$expander.expandRef("common-definitions#configurable-attributes")">Configurable attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#implicit-outputs")">Implicit output targets</a></li>
     </ul>
   </li>
   <li>
-    <a href="make-variables.html">"Make" variables</a>
+    <a href="$expander.expandRef("make-variables")">"Make" variables</a>
     <ul class="be-toc">
-      <li><a href="make-variables.html#make-var-substitution">"Make" variable substitution</a></li>
-      <li><a href="make-variables.html#predefined_variables">Predefined variables</a></li>
+      <li><a href="$expander.expandRef("make-variables#make-var-substitution")">"Make" variable substitution</a></li>
+      <li><a href="$expander.expandRef("make-variables#predefined_variables")">Predefined variables</a></li>
 
     </ul>
   </li>
-  <li><a href="predefined-python-variables.html">Predefined Python Variables</a></li>
+  <li><a href="$expander.expandRef("predefined-python-variables")">Predefined Python Variables</a></li>
 </ul>
 
 <h3>Functions</h3>
 
 <ul class="be-toc">
-  <li><a href="functions.html#load">load</a></li>
+  <li><a href="$expander.expandRef("load")">load</a></li>
 
-  <li><a href="functions.html#package">package</a></li>
-  <li><a href="functions.html#package_group">package_group</a></li>
+  <li><a href="$expander.expandRef("package")">package</a></li>
+  <li><a href="$expander.expandRef("package_group")">package_group</a></li>
 
-  <li><a href="functions.html#licenses">licenses</a></li>
-  <li><a href="functions.html#exports_files">exports_files</a></li>
-  <li><a href="functions.html#glob">glob</a></li>
-  <li><a href="functions.html#select">select</a></li>
-  <li><a href="functions.html#workspace">workspace</a></li>
+  <li><a href="$expander.expandRef("licenses")">licenses</a></li>
+  <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
+  <li><a href="$expander.expandRef("glob")">glob</a></li>
+  <li><a href="$expander.expandRef("select")">select</a></li>
+  <li><a href="$expander.expandRef("workspace")">workspace</a></li>
 </ul>
 
 <h3>Rules</h3>
 
 <h4>Language-specific Rules</h4>
+
+#macro(summaryLink $page $heading)
+  #if ($singlePage)#${heading}#else${page}.html#${heading}#end
+#end
 
 #macro(summaryTable $ruleFamilies)
   <tbody>
@@ -60,7 +68,7 @@ title: Build Encyclopedia
         <td class="lang">${ruleFamily.name}</td>
         <td>
       #foreach($ruleDoc in $ruleFamily.binaryRules)
-        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
             ${ruleDoc.ruleName}
           </a>
           <br />
@@ -68,7 +76,7 @@ title: Build Encyclopedia
         </td>
         <td>
       #foreach($ruleDoc in $ruleFamily.libraryRules)
-        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
             ${ruleDoc.ruleName}
           </a>
           <br />
@@ -76,7 +84,7 @@ title: Build Encyclopedia
         </td>
         <td>
       #foreach($ruleDoc in $ruleFamily.testRules)
-        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
             ${ruleDoc.ruleName}
           </a>
           <br />
@@ -84,7 +92,7 @@ title: Build Encyclopedia
         </td>
         <td>
       #foreach($ruleDoc in $ruleFamily.otherRules1)
-        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
             ${ruleDoc.ruleName}
           </a>
           <br />
@@ -92,7 +100,7 @@ title: Build Encyclopedia
         </td>
         <td>
       #foreach($ruleDoc in $ruleFamily.otherRules2)
-        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
             ${ruleDoc.ruleName}
           </a>
           <br />
@@ -126,4 +134,6 @@ title: Build Encyclopedia
 #summaryTable($genericRuleFamilies)
 
 </table>
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

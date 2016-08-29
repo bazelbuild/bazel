@@ -1,11 +1,16 @@
+#if (!$singlePage)
 ---
 layout: documentation
 title: Functions
 ---
+#end
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
 
 <h1>Functions</h1>
 
+#if (!$singlePage)
 <div class="toc">
   <h1>Contents</h1>
   <ul>
@@ -19,6 +24,7 @@ title: Functions
     <li><a href="#workspace">workspace</a></li>
   </ul>
 </div>
+#end
 <!-- =================================================================
                               load()
      =================================================================
@@ -692,4 +698,6 @@ sh_binary(
   <code>workspace(name = "foo.bar")</code>.
 </p>
 
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

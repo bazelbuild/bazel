@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -27,7 +26,7 @@ import java.util.regex.Matcher;
  * <p>See {@link com.google.devtools.build.docgen.DocgenConsts.BLAZE_RULE_LINK} for the regex used
  * to match link references.
  */
-class RuleLinkExpander {
+public class RuleLinkExpander {
   private static final String EXAMPLES_SUFFIX = "_examples";
   private static final String ARGS_SUFFIX = "_args";
   private static final String IMPLICIT_OUTPUTS_SUFFIX = "_implicit_outputs";
@@ -53,15 +52,28 @@ class RuleLinkExpander {
       .build();
 
   private final Map<String, String> ruleIndex = new HashMap<>();
+  private final boolean singlePage;
 
-  RuleLinkExpander(Map<String, String> ruleIndex) {
+  RuleLinkExpander(Map<String, String> ruleIndex, boolean singlePage) {
     this.ruleIndex.putAll(ruleIndex);
     this.ruleIndex.putAll(FUNCTIONS);
+    this.singlePage = singlePage;
+  }
+
+  RuleLinkExpander(boolean singlePage) {
+    this.ruleIndex.putAll(FUNCTIONS);
+    this.singlePage = singlePage;
+  }
+
+  public void addIndex(Map<String, String> ruleIndex) {
+    this.ruleIndex.putAll(ruleIndex);
   }
 
   private void appendRuleLink(Matcher matcher, StringBuffer sb, String ruleName, String ref) {
     String ruleFamily = ruleIndex.get(ruleName);
-    String link = ruleFamily + ".html#" + ref;
+    String link = singlePage
+        ?  "#" + ref
+        : ruleFamily + ".html#" + ref;
     matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
   }
 
@@ -109,7 +121,9 @@ class RuleLinkExpander {
       // The name is not the name of a rule but is the name of a static page, such as
       // common-definitions. Generate a link to that page.
       if (STATIC_PAGES.contains(name)) {
-        String link = name + ".html";
+        String link = singlePage
+            ? "#" + name
+            : name + ".html";
         // For referencing headings on a static page, use the following syntax:
         // ${link static_page_name#heading_name}, example: ${link make-variables#gendir}
         String pageHeading = matcher.group(4);
@@ -150,7 +164,9 @@ class RuleLinkExpander {
       // this include custom <a name="heading"> tags in the description or examples for the rule.
       if (ruleIndex.containsKey(name)) {
         String ruleFamily = ruleIndex.get(name);
-        String link = ruleFamily + ".html#" + heading;
+        String link = singlePage
+            ? "#" + heading
+            : ruleFamily + ".html#" + heading;
         matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
         continue;
       }
@@ -159,7 +175,9 @@ class RuleLinkExpander {
       // append the page heading. For example, ${link common-definitions#label-expansion} expands to
       // common-definitions.html#label-expansion.
       if (STATIC_PAGES.contains(name)) {
-        String link = name + ".html#" + heading;
+        String link = singlePage
+            ? "#" + heading
+            : name + ".html#" + heading;
         matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
         continue;
       }
@@ -182,5 +200,17 @@ class RuleLinkExpander {
   public String expand(String htmlDoc) throws IllegalArgumentException {
     String expanded = expandRuleLinks(htmlDoc);
     return expandRuleHeadingLinks(expanded);
+  }
+
+  /**
+   * Expands the rule reference.
+   *
+   * <p>This method is used to expand references in the BE velocity templates.
+   *
+   * @param ref The rule reference to expand.
+   * @return The expanded rule reference.
+   */
+  public String expandRef(String ref) throws IllegalArgumentException {
+    return expand("${link " + ref + "}");
   }
 }

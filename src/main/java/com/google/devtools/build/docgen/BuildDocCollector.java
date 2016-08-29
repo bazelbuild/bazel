@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -48,18 +47,17 @@ public class BuildDocCollector {
   private ConfiguredRuleClassProvider ruleClassProvider;
   private boolean printMessages;
 
-  public BuildDocCollector(ConfiguredRuleClassProvider ruleClassProvider,
-      boolean printMessages) {
+  public BuildDocCollector(ConfiguredRuleClassProvider ruleClassProvider, boolean printMessages) {
     this.ruleClassProvider = ruleClassProvider;
     this.printMessages = printMessages;
   }
 
   /**
-   * Parse the file containing black-listed rules for documentation. The list is simply a list of
+   * Parse the file containing blacklisted rules for documentation. The list is simply a list of
    * rules separated by new lines. Line comments can be added to the file by starting them with #.
    *
-   * @param blackList The name of the file containing the black list.
-   * @return The set of black listed rules.
+   * @param blackList The name of the file containing the blacklist.
+   * @return The set of blacklisted rules.
    * @throws IOException
    */
   @VisibleForTesting
@@ -80,14 +78,27 @@ public class BuildDocCollector {
   }
 
   /**
-   * Collects all the rule and attribute documentation present in inputDirs, integrates the
-   * attribute documentation in the rule documentation and returns the rule documentation.
+   * Creates a map of rule names (keys) to rule documentation (values).
+   *
+   * <p>This method crawls the specified input directories for rule class definitions (as Java
+   * source files) which contain the rules' and attributes' definitions as comments in a
+   * specific format. The keys in the returned Map correspond to these rule classes.
+   *
+   * <p>In the Map's values, all references pointing to other rules, rule attributes, and general
+   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks.
+   * The links generated follow either the multi-page or single-page Build Encyclopedia model
+   * depending on the mode set for the provided {@link RuleLinkExpander}.
    *
    * @param inputDirs list of directories to scan for documentation
-   * @param blackList specify an optional black list file that list some rules that should
+   * @param blackList specify an optional blacklist file that list some rules that should
    *                  not be listed in the output.
+   * @param expander The RuleLinkExpander, which is used for expanding links in the rule doc.
+   * @throws BuildEncyclopediaDocException
+   * @throws IOException
+   * @return Map of rule class to rule documentation.
    */
-  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String blackList)
+  public Map<String, RuleDocumentation> collect(
+      List<String> inputDirs, String blackList, RuleLinkExpander expander)
       throws BuildEncyclopediaDocException, IOException {
     // Read the blackList file
     Set<String> blacklistedRules = readBlackList(blackList);
@@ -122,7 +133,7 @@ public class BuildDocCollector {
     }
 
     processAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
-    RuleLinkExpander expander = buildRuleLinkExpander(ruleDocEntries.values());
+    expander.addIndex(buildRuleIndex(ruleDocEntries.values()));
     for (RuleDocumentation rule : ruleDocEntries.values()) {
       rule.setRuleLinkExpander(expander);
     }
@@ -130,14 +141,38 @@ public class BuildDocCollector {
   }
 
   /**
+   * Creates a map of rule names (keys) to rule documentation (values).
+   *
+   * <p>This method crawls the specified input directories for rule class definitions (as Java
+   * source files) which contain the rules' and attributes' definitions as comments in a
+   * specific format. The keys in the returned Map correspond to these rule classes.
+   *
+   * <p>In the Map's values, all references pointing to other rules, rule attributes, and general
+   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks.
+   * The links generated follow the multi-page Build Encyclopedia model (one page per rule clas.).
+   *
+   * @param inputDirs list of directories to scan for documentation
+   * @param blackList specify an optional blacklist file that list some rules that should
+   *                  not be listed in the output.
+   * @throws BuildEncyclopediaDocException
+   * @throws IOException
+   * @return Map of rule class to rule documentation.
+   */
+  public Map<String, RuleDocumentation> collect(List<String> inputDirs, String blackList)
+      throws BuildEncyclopediaDocException, IOException {
+    RuleLinkExpander expander = new RuleLinkExpander(/* singlePage */ false);
+    return collect(inputDirs, blackList, expander);
+  }
+
+  /**
    * Generates an index mapping rule name to its normalized rule family name.
    */
-  private RuleLinkExpander buildRuleLinkExpander(Iterable<RuleDocumentation> rules) {
+  private Map<String, String> buildRuleIndex(Iterable<RuleDocumentation> rules) {
     Map<String, String> index = new HashMap<>();
     for (RuleDocumentation rule : rules) {
       index.put(rule.getRuleName(), RuleFamily.normalize(rule.getRuleFamily()));
     }
-    return new RuleLinkExpander(index);
+    return index;
   }
 
   /**
@@ -200,8 +235,28 @@ public class BuildDocCollector {
   }
 
   /**
-   * Goes through all the html files and subdirs under inputPath and collects the rule
-   * and attribute documentations using the ruleDocEntries and attributeDocEntries variable.
+   * Crawls the specified inputPath and collects the raw rule and rule attribute documentation.
+   *
+   * <p>This method crawls the specified input directory (recursively calling itself for all
+   * subdirectories) and reads each Java source file using {@link SourceFileReader} to extract the
+   * raw rule and attribute documentation embedded in comments in a specific format. The extracted
+   * documentation is then further processed, such as by
+   * {@link BuildDocCollector#collect(List<String>, String, RuleLinkExpander), collect}, in order
+   * to associate each rule's documentation with its attribute documentation.
+   *
+   * <p>This method returns the following through its parameters: the set of Java source files
+   * processed, a map of rule name to the source file it was extracted from, a map of rule name
+   * to the documentation to the rule, and a multimap of attribute name to attribute documentation.
+   *
+   * @param processedFiles The set of Java source files files that have already been processed
+   *        in order to avoid reprocessing the same file.
+   * @param ruleClassFiles Map of rule name to the source file it was extracted from.
+   * @param ruleDocEntries Map of rule name to rule documentation.
+   * @param blackList The set of blacklisted rules whose documentation should not be extracted.
+   * @param attributeDocEntries Multimap of rule attribute name to attribute documentation.
+   * @param inputPath The File representing the file or directory to read.
+   * @throws BuildEncyclopediaDocException
+   * @throws IOException
    */
   public void collectDocs(
       Set<File> processedFiles,
@@ -216,8 +271,7 @@ public class BuildDocCollector {
 
     if (inputPath.isFile()) {
       if (DocgenConsts.JAVA_SOURCE_FILE_SUFFIX.apply(inputPath.getName())) {
-        SourceFileReader sfr = new SourceFileReader(
-            ruleClassProvider, inputPath.getAbsolutePath());
+        SourceFileReader sfr = new SourceFileReader(ruleClassProvider, inputPath.getAbsolutePath());
         sfr.readDocsFromComments();
         for (RuleDocumentation d : sfr.getRuleDocEntries()) {
           String ruleName = d.getRuleName();

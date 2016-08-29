@@ -1,17 +1,23 @@
+#if (!$singlePage)
 ---
 layout: documentation
 title: Predefined Python Variables
 ---
+#end
+#if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
 
 <h2 id="predefined-python-variables">Predefined Python Variables</h2>
 
+#if (!$singlePage)
 <div class="toc">
   <h1>Contents</h1>
   <ul>
     <li><a href="#packagename">packagename</a></li>
   </ul>
 </div>
+#end
 <h3 id="packagename">PACKAGE_NAME</h3>
 <p>
   This is a string variable with the name

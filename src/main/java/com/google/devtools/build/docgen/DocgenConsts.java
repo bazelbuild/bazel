@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -29,14 +28,14 @@ public class DocgenConsts {
 
   public static final String LS = "\n";
 
+  public static final String BE_TEMPLATE_DIR =
+      "com/google/devtools/build/docgen/templates/be";
+  public static final String SINGLE_BE_TEMPLATE = BE_TEMPLATE_DIR + "/single-page.vm";
   public static final String COMMON_DEFINITIONS_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/be/common-definitions.vm";
-  public static final String OVERVIEW_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/be/overview.vm";
-  public static final String RULES_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/be/rules.vm";
-  public static final String BE_NAV_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/be/be-nav.vm";
+      BE_TEMPLATE_DIR + "/common-definitions.vm";
+  public static final String OVERVIEW_TEMPLATE = BE_TEMPLATE_DIR + "/overview.vm";
+  public static final String RULES_TEMPLATE = BE_TEMPLATE_DIR + "/rules.vm";
+  public static final String BE_NAV_TEMPLATE = BE_TEMPLATE_DIR + "/be-nav.vm";
 
   public static final String SKYLARK_LIBRARY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/skylark-library.vm";
