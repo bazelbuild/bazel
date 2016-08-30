@@ -530,7 +530,9 @@ void OutputJar::WriteEntry(void *buffer) {
   CDH *cdh = reinterpret_cast<CDH *>(
       ReserveCdh(sizeof(CDH) + entry->file_name_length()));
   cdh->signature();
-  cdh->version(0x031E);         // Created on Unix (03), conforms to 3.0
+  // Note: do not set the version to Unix 3.0 spec, otherwise
+  // unzip will think that 'external_attributes' field contains access mode
+  cdh->version(20);
   cdh->version_to_extract(20);  // 2.0
   cdh->bit_flag(0x0);
   cdh->compression_method(entry->compression_method());
