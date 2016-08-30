@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 import org.junit.runner.Description;
 
@@ -37,7 +38,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
   private final Map<String, String> properties = new ConcurrentHashMap<>();
   private final Map<String, Integer> repeatedPropertyNamesToRepetitions = new HashMap<>();
   private final Queue<Throwable> globalFailures = new ConcurrentLinkedQueue<>();
-  private final ConcurrentHashMap<Description, List<Throwable>> dynamicTestToFailures =
+  private final ConcurrentMap<Description, List<Throwable>> dynamicTestToFailures =
       new ConcurrentHashMap<>();
 
   @Nullable private volatile TestInterval runTimeInterval = null;
