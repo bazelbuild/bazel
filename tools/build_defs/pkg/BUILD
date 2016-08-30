@@ -151,9 +151,11 @@ pkg_deb(
         "dep2",
     ],
     description = "toto",
+    distribution = "trusty",
     maintainer = "someone@somewhere.com",
     make_deb = ":make_deb",
     package = "titi",
+    urgency = "low",
     version = "test",
 )
 
@@ -178,6 +180,7 @@ sh_test(
         ":test-tar-strip_prefix-etc.tar",
         ":test-tar-strip_prefix-none.tar",
         ":test-tar-xz.tar.xz",
+        ":titi_test_all.changes",
     ],
     deps = [
         "//src/test/shell:bashunit",

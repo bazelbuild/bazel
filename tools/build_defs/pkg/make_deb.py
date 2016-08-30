@@ -26,15 +26,24 @@ from third_party.py import gflags
 # list of debian fields : (name, mandatory, wrap[, default])
 # see http://www.debian.org/doc/debian-policy/ch-controlfields.html
 DEBIAN_FIELDS = [
-    ('Package', True, False), ('Version', True, False),
+    ('Package', True, False),
+    ('Version', True, False),
     ('Section', False, False, 'contrib/devel'),
     ('Priority', False, False, 'optional'),
-    ('Architecture', True, False, 'all'), ('Depends', False, True, []),
-    ('Recommends', False, True, []), ('Suggests', False, True, []),
-    ('Enhances', False, True, []), ('Conflicts', False, True, []),
-    ('Pre-Depends', False, True, []), ('Installed-Size', False, False),
-    ('Maintainer', True, False), ('Description', True, True),
-    ('Homepage', False, False), ('Built-Using', False, False, 'Bazel')
+    ('Architecture', True, False, 'all'),
+    ('Depends', False, True, []),
+    ('Recommends', False, True, []),
+    ('Suggests', False, True, []),
+    ('Enhances', False, True, []),
+    ('Conflicts', False, True, []),
+    ('Pre-Depends', False, True, []),
+    ('Installed-Size', False, False),
+    ('Maintainer', True, False),
+    ('Description', True, True),
+    ('Homepage', False, False),
+    ('Built-Using', False, False, 'Bazel'),
+    ('Distribution', False, False, 'unstable'),
+    ('Urgency', False, False, 'medium'),
 ]
 
 gflags.DEFINE_string('output', None, 'The output file, mandatory')
@@ -215,9 +224,9 @@ def CreateChanges(output,
                   version,
                   section,
                   priority,
-                  timestamp=0,
-                  distro='unstable',
-                  urgency='medium'):
+                  distribution,
+                  urgency,
+                  timestamp=0):
   """Create the changes file."""
   checksums = GetChecksumsFromFile(deb_file, {'md5': hashlib.md5,
                                               'sha1': hashlib.sha1,
@@ -225,28 +234,26 @@ def CreateChanges(output,
   debsize = str(os.path.getsize(deb_file))
   deb_basename = os.path.basename(deb_file)
 
-  changesdata = ''.join(MakeDebianControlField(*x) for x in [
-      ('Format', '1.8'),
-      ('Date', time.ctime(timestamp)),
-      ('Source', package),
-      ('Binary', package),
-      ('Architecture', architecture),
-      ('Version', version),
-      ('Distribution', distro),
-      ('Urgency', urgency),
-      ('Maintainer', maintainer),
-      ('Changed-By', maintainer),
-      ('Description', '\n%s - %s' % (package, short_description)),
-      ('Changes',
-       ('\n%s (%s) %s; urgency=%s'
-        '\nChanges are tracked in revision control.') % (
-            package, version, distro, urgency)),
-      ('Files', '\n' + ' '.join(
-          [checksums['md5'], debsize, section, priority, deb_basename])),
-      ('Checksums-Sha1', '\n' + ' '.join(
-          [checksums['sha1'], debsize, deb_basename])),
-      ('Checksums-Sha256', '\n' + ' '.join(
-          [checksums['sha256'], debsize, deb_basename]))
+  changesdata = ''.join(
+      MakeDebianControlField(*x)
+      for x in [
+          ('Format', '1.8'), ('Date', time.ctime(timestamp)
+                             ), ('Source', package), ('Binary', package),
+          ('Architecture', architecture
+          ), ('Version', version), ('Distribution', distribution
+                                   ), ('Urgency', urgency
+                                      ), ('Maintainer', maintainer
+                                         ), ('Changed-By', maintainer),
+          ('Description', '\n%s - %s' % (package, short_description)
+          ), ('Changes', ('\n%s (%s) %s; urgency=%s'
+                          '\nChanges are tracked in revision control.'
+                         ) % (package, version, distribution, urgency)
+             ), ('Files', '\n' + ' '.join([checksums['md5'], debsize, section,
+                                           priority, deb_basename])
+                ), ('Checksums-Sha1', '\n' + ' '.join([checksums['sha1'],
+                                                       debsize, deb_basename])
+                   ), ('Checksums-Sha256', '\n' + ' '.join([checksums[
+                       'sha256'], debsize, deb_basename]))
       ])
   with open(output, 'w') as changes_fh:
     changes_fh.write(changesdata)
@@ -295,15 +302,14 @@ def main(unused_argv):
       conflicts=FLAGS.conflicts,
       installedSize=GetFlagValue(FLAGS.installed_size))
   CreateChanges(
-      FLAGS.changes,
-      FLAGS.output,
+      output=FLAGS.changes,
+      deb_file=FLAGS.output,
       architecture=FLAGS.architecture,
       short_description=GetFlagValue(FLAGS.description).split('\n')[0],
-      maintainer=FLAGS.maintainer,
-      package=FLAGS.package,
-      version=GetFlagValue(FLAGS.version),
-      section=FLAGS.section,
-      priority=FLAGS.priority)
+      maintainer=FLAGS.maintainer, package=FLAGS.package,
+      version=GetFlagValue(FLAGS.version), section=FLAGS.section,
+      priority=FLAGS.priority, distribution=FLAGS.distribution,
+      urgency=FLAGS.urgency)
 
 if __name__ == '__main__':
   MakeGflags()

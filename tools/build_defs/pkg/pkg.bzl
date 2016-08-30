@@ -123,6 +123,8 @@ def _pkg_deb_impl(ctx):
   if ctx.attr.homepage:
     args += ["--homepage=" + ctx.attr.homepage]
 
+  args += ["--distribution=" + ctx.attr.distribution]
+  args += ["--urgency=" + ctx.attr.urgency]
   args += ["--depends=" + d for d in ctx.attr.depends]
   args += ["--suggests=" + d for d in ctx.attr.suggests]
   args += ["--enhances=" + d for d in ctx.attr.enhances]
@@ -174,6 +176,8 @@ pkg_deb = rule(
         "data": attr.label(mandatory=True, allow_files=tar_filetype, single_file=True),
         "package": attr.string(mandatory=True),
         "architecture": attr.string(default="all"),
+        "distribution": attr.string(default="unstable"),
+        "urgency": attr.string(default="medium"),
         "maintainer": attr.string(mandatory=True),
         "preinst": attr.label(allow_files=True, single_file=True),
         "postinst": attr.label(allow_files=True, single_file=True),

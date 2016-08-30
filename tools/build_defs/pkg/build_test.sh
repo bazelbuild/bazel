@@ -77,6 +77,10 @@ function dpkg_deb_supports_ctrl_tarfile() {
   dpkg-deb --ctrl-tarfile "${test_data}" > /dev/null 2> /dev/null
 }
 
+function get_changes() {
+  local input=$1
+  cat "${TEST_DATA_DIR}/${input}"
+}
 
 function test_tar() {
   local listing="./
@@ -126,6 +130,10 @@ function test_deb() {
   expect_log "Description: toto"
   expect_log "Package: titi"
   expect_log "Depends: dep1, dep2"
+
+  get_changes titi_test_all.changes >$TEST_log
+  expect_log "Urgency: low"
+  expect_log "Distribution: trusty"
 
   if ! dpkg_deb_supports_ctrl_tarfile test-deb.deb ; then
     echo "Unable to test deb control files, too old dpkg-deb!" >&2
