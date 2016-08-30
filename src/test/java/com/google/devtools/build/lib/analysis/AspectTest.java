@@ -60,6 +60,46 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testAspectAppliedToAliasWithSelect() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new AspectRequiringRule());
+    pkg("a",
+        "aspect(name='a', foo=[':b'])",
+        "alias(name='b', actual=select({'//conditions:default': ':c'}))",
+        "base(name='c')");
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("aspect //a:c", "rule //a:a");
+  }
+
+  @Test
+  public void testAspectAppliedToChainedAliases() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new AspectRequiringRule());
+    pkg("a",
+        "aspect(name='a', foo=[':b'])",
+        "alias(name='b', actual=':c')",
+        "alias(name='c', actual=':d')",
+        "alias(name='d', actual=':e')",
+        "base(name='e')");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("aspect //a:e", "rule //a:a");
+  }
+
+  @Test
+  public void testAspectAppliedToChainedAliasesAndSelect() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new AspectRequiringRule());
+    pkg("a",
+        "aspect(name='a', foo=[':b'])",
+        "alias(name='b', actual=select({'//conditions:default': ':c'}))",
+        "alias(name='c', actual=select({'//conditions:default': ':d'}))",
+        "base(name='d')");
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("aspect //a:d", "rule //a:a");
+  }
+
+  @Test
   public void providersOfAspectAreMergedIntoDependency() throws Exception {
     setRulesAvailableInTests(new TestAspects.BaseRule(), new AspectRequiringRule());
     pkg("a",

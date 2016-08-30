@@ -254,18 +254,4 @@ public final class TargetUtils {
       return e.getMessage();
     }
   }
-
-  public static Label getAliasTarget(Target target) {
-    if (!(target instanceof Rule)) {
-      return null;
-    }
-
-    Rule rule = (Rule) target;
-    String ruleClass = rule.getRuleClass();
-    if (!(ruleClass.equals("alias") || ruleClass.equals("bind"))) {
-      return null;
-    }
-
-    return AggregatingAttributeMapper.of(rule).get("actual", BuildType.LABEL);
-  }
 }
