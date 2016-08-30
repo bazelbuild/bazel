@@ -8,7 +8,7 @@ DEFAULT_VISIBILITY = [
 package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
-    name = "runner",
+    name = "test_runner",
     srcs = ["BazelTestRunner.java"],
     data = ["//tools:test_sharding_compliant"],
     # Disable sunapi warnings about sun.misc.Signal.
@@ -27,7 +27,7 @@ java_library(
 java_binary(
     name = "Runner",
     main_class = "com.google.testing.junit.runner.BazelTestRunner",
-    runtime_deps = [":runner"],
+    runtime_deps = [":test_runner"],
 )
 
 filegroup(
