@@ -227,14 +227,14 @@ public class ResourceManager {
         }
       }
       throw e;
-    } finally {
-      threadLocked.set(resources != ResourceSet.ZERO);
-      acquired(owner);
+    }
 
-      // Profile acquisition only if it waited for resource to become available.
-      if (latch != null) {
-        p.complete();
-      }
+    threadLocked.set(resources != ResourceSet.ZERO);
+    acquired(owner);
+
+    // Profile acquisition only if it waited for resource to become available.
+    if (latch != null) {
+      p.complete();
     }
 
     return new ResourceHandle(this, owner, resources);
