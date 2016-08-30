@@ -21,10 +21,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
 function set_up_jobcount() {
-  tmp=${TEST_TMPDIR}/testjobs
-  # Cleanup the tempory directory
-  rm -fr ${tmp}
-  mkdir -p ${tmp}
+  tmp=$(mktemp -d ${TEST_TMPDIR}/testjobs.XXXXXXXX)
 
   # We use hardlinks to this file as a communication mechanism between
   # test runs.
@@ -80,13 +77,6 @@ function test_3_local_jobs() {
   bazel test --spawn_strategy=standalone --test_output=errors \
     --local_test_jobs=3 --local_resources=10000,10,100 \
     --runs_per_test=10 //dir:test
-}
-
-function test_unlimited_local_jobs() {
-  set_up_jobcount
-  # unlimited local test jobs, so local resources enforces 3 tests in parallel.
-  bazel test --spawn_strategy=standalone --test_output=errors \
-    --local_resources=10000,3,100 --runs_per_test=10 //dir:test
 }
 
 function test_tmpdir() {
