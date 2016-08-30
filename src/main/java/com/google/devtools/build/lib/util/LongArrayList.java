@@ -278,7 +278,7 @@ public class LongArrayList {
    * Uses a growth factor of 1.5.
    */
   private int growCapacity(int newSize) {
-    return newSize + newSize >> 1;
+    return newSize + (newSize >> 1);
   }
 }
 
