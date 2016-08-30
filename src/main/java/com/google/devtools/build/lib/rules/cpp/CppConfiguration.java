@@ -2002,6 +2002,17 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
+  public Iterable<Label> getSanityCheckRoots() {
+    ImmutableList.Builder<Label> result = ImmutableList.builder();
+    result.add(cppOptions.crosstoolTop);
+    if (cppOptions.libcTop != null) {
+      result.add(cppOptions.libcTop.getLabel());
+    }
+
+    return result.build();
+  }
+
+  @Override
   public String getOutputDirectoryName() {
     String lipoSuffix;
     if (getLipoMode() != LipoMode.OFF && !isAutoFdoLipo()) {

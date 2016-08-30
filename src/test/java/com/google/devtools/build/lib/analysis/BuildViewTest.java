@@ -1034,27 +1034,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testMissingLabelInConfiguration() throws Exception {
-    scratch.file("nobuild/BUILD",
-        "cc_library(name= 'lib')");
-    useConfiguration("--experimental_action_listener=//nobuild:bar");
-    reporter.removeHandler(failFastHandler);
-    String begin = String.format(
-        "Failed to load required %s target: '%s'", "action_listener", "//nobuild:bar");
-    try {
-      update(defaultFlags().with(Flag.KEEP_GOING), "//nobuild:lib");
-      fail();
-    } catch (InvalidConfigurationException e) {
-      // Interleaved loading and analysis - loading errors are found during configuration creation.
-      assertThat(e.getMessage()).startsWith(begin);
-    } catch (LoadingFailedException e) {
-      assertThat(e.getMessage()).startsWith(begin);
-    }
-    assertContainsEventWithFrequency(
-        "no such target '//nobuild:bar': target 'bar' not declared in package 'nobuild'", 1);
-  }
-
-  @Test
   public void testBadLabelInConfiguration() throws Exception {
     useConfiguration("--crosstool_top=//third_party/crosstool/v2");
     reporter.removeHandler(failFastHandler);

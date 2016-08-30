@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArt
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -821,36 +819,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'foo',",
         "    srcs = [],",
         "    hdrs = ['foo.a'])");
-  }
-
-  @Test
-  public void testExplicitBadStl() throws Exception {
-    scratch.file("x/BUILD");
-
-    reporter.removeHandler(failFastHandler);
-    try {
-      createConfigurations("--experimental_stl=//x:blah");
-      fail("found non-existing target");
-    } catch (InvalidConfigurationException expected) {
-      assertThat(expected.getMessage()).contains("Failed to load required STL target: '//x:blah'");
-    }
-
-    try {
-      createConfigurations("--experimental_stl=//blah");
-      fail("found non-existing target");
-    } catch (InvalidConfigurationException expected) {
-      assertThat(expected.getMessage())
-          .contains("Failed to load required STL target: '//blah:blah'");
-    }
-
-    // Without -k.
-    try {
-      createConfigurations("--experimental_stl=//blah");
-      fail("found non-existing target");
-    } catch (InvalidConfigurationException expected) {
-      assertThat(expected.getMessage())
-          .contains("Failed to load required STL target: '//blah:blah'");
-    }
   }
 
   @Test

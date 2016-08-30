@@ -79,7 +79,7 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      sanityCheck(fragment, buildOptions, packageProvider);
+      sanityCheck(fragment, packageProvider);
       if (env.valuesMissing()) {
         return null;
       }
@@ -101,7 +101,6 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
    */
   private static void sanityCheck(
       Fragment fragment,
-      BuildOptions buildOptions,
       PackageProviderForConfigurations packageProvider)
       throws InvalidConfigurationException, InterruptedException {
     if (fragment == null) {
@@ -114,14 +113,13 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     // Sanity check that the implicit labels are all in the transitive closure of explicit ones.
     // This also registers all targets in the cache entry and validates them on subsequent requests.
     Set<Label> reachableLabels = new HashSet<>();
-    for (Map.Entry<String, Label> entry : buildOptions.getAllLabels().entries()) {
-      Label label = entry.getValue();
+    for (Label root : fragment.getSanityCheckRoots()) {
       try {
-        collectAllTransitiveLabels(packageProvider, reachableLabels, label);
+        collectAllTransitiveLabels(packageProvider, reachableLabels, root);
       } catch (NoSuchThingException e) {
         packageProvider.getEventHandler().handle(Event.error(e.getMessage()));
         throw new InvalidConfigurationException(
-            String.format("Failed to load required %s target: '%s'", entry.getKey(), label));
+            String.format("Failed to load transitive closure of '%s': %s", root, e.getMessage()));
       }
     }
     if (packageProvider.valuesMissing()) {

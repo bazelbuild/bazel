@@ -154,6 +154,14 @@ public final class BuildConfiguration {
     }
 
     /**
+     * Returns the roots used for the "all labels in the configuration must be reachable from the
+     * labels provided on the command line" sanity check.
+     */
+    public Iterable<Label> getSanityCheckRoots() {
+      return ImmutableList.of();
+    }
+
+    /**
      * Returns a multimap of all labels that should be implicitly loaded from labels that were
      * specified as options, keyed by the name to be displayed to the user if something goes wrong.
      * The returned set only contains labels that were derived from command-line options; the
