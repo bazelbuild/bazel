@@ -53,7 +53,7 @@ OutputJar::OutputJar()
       cen_capacity_(0),
       spring_handlers_("META-INF/spring.handlers"),
       spring_schemas_("META-INF/spring.schemas"),
-      protobuf_meta_handler_("protobuf.meta"),
+      protobuf_meta_handler_("protobuf.meta", false),
       manifest_("META-INF/MANIFEST.MF"),
       build_properties_("build-data.properties") {
   known_members_.emplace(spring_handlers_.filename(),

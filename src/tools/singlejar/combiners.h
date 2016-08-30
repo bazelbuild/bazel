@@ -39,7 +39,8 @@ class Combiner {
 // entries. Byte sequences can be appended to it, too.
 class Concatenator : public Combiner {
  public:
-  Concatenator(const std::string &filename) : filename_(filename) {}
+  Concatenator(const std::string &filename, bool insert_newlines = true)
+      : filename_(filename), insert_newlines_(insert_newlines) {}
 
   ~Concatenator() override;
 
@@ -67,6 +68,7 @@ class Concatenator : public Combiner {
   const std::string filename_;
   std::unique_ptr<TransientBytes> buffer_;
   std::unique_ptr<Inflater> inflater_;
+  bool insert_newlines_;
 };
 
 // The combiner that does nothing. Useful to represent for instance directory

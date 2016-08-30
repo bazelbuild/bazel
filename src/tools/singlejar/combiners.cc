@@ -20,6 +20,10 @@ Combiner::~Combiner() {}
 Concatenator::~Concatenator() {}
 
 bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
+  if (insert_newlines_ && buffer_.get() && buffer_->data_size() &&
+      '\n' != buffer_->last_byte()) {
+    Append("\n", 1);
+  }
   CreateBuffer();
   if (Z_NO_COMPRESSION == lh->compression_method()) {
     buffer_->ReadEntryContents(lh);
@@ -116,7 +120,7 @@ XmlCombiner::~XmlCombiner() {}
 
 bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
   if (!concatenator_.get()) {
-    concatenator_.reset(new Concatenator(filename_));
+    concatenator_.reset(new Concatenator(filename_, false));
     concatenator_->Append("<");
     concatenator_->Append(xml_tag_);
     concatenator_->Append(">\n");

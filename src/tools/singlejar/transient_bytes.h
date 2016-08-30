@@ -242,6 +242,18 @@ class TransientBytes {
     }
   }
 
+  uint8_t last_byte() const {
+    if (!data_size()) {
+      diag_errx(1, "%s:%d: last_char() cannot be called if buffer is empty",
+                __FILE__, __LINE__);
+    }
+    if (free_size() >= sizeof(last_block_->data_)) {
+      diag_errx(1, "%s:%d: internal error: the last data block is empty",
+                __FILE__, __LINE__);
+    }
+    return *(last_block_->End() - free_size() - 1);
+  }
+
  private:
   // Ensures there is some space to write to, returns the amount available.
   uint64_t ensure_space() {

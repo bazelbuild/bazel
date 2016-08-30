@@ -27,7 +27,7 @@ static const char kTag2Contents[] = "<tag2>Contents2</tag2>";
 static const char kCombinedXmlContents[] =
     "<toplevel>\n<tag1>Contents1</tag1><tag2>Contents2</tag2></toplevel>\n";
 static const char kConcatenatedContents[] =
-    "<tag1>Contents1</tag1><tag2>Contents2</tag2>";
+    "<tag1>Contents1</tag1>\n<tag2>Contents2</tag2>";
 const uint8_t kPoison = 0xFA;
 
 // A test fixture is used because test case setup is needed.
