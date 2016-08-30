@@ -1704,10 +1704,11 @@ the compilation of binaries during the build.
 
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
 <p>
-  This options set the label or the path of the base Java installation to use
-  for running JavaBuilder, SingleJar, and is also used for bazel run and inside
-  Java binaries built by <code>java_binary</code> rules. The various
-  <a href='be/make-variables.html'>"Make" variables</a> for
+  This option sets the <i>label</i> or the <i>path</i> of the base Java installation to
+  use for running JavaBuilder, SingleJar, for <i>bazel run</i> and <i>bazel
+  test</i>, and for Java binaries built by <code>java_binary</code> and <code>java_test</code>
+  rules. A path must be to a JDK or JRE directory that contains <code>bin/java</code>.
+  The various  <a href='be/make-variables.html'>"Make" variables</a> for
   Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
   <code>JAR</code>) are derived from this option.
 </p>
