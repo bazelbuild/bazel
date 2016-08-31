@@ -2045,10 +2045,14 @@ void GrpcBlazeServer::SendCancelMessage() {
   request.set_command_id(command_id_);
   grpc::ClientContext context;
   context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::milliseconds(100));
+                       std::chrono::seconds(10));
   command_server::CancelResponse response;
   // There isn't a lot we can do if this request fails
-  client_->Cancel(&context, request, &response);
+  grpc::Status status = client_->Cancel(&context, request, &response);
+  if (!status.ok()) {
+    fprintf(stderr, "\nCould not interrupt server (%s)\n\n",
+            status.error_message().c_str());
+  }
 }
 
 // This will wait indefinitely until the server shuts down
@@ -2140,7 +2144,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   cancel_thread.join();
 
   if (!response.finished()) {
-    fprintf(stderr, "\nServer finished RPC without an explicit exit code\n");
+    fprintf(stderr, "\nServer finished RPC without an explicit exit code\n\n");
     return GetExitCodeForAbruptExit(*globals);
   }
 
@@ -2159,7 +2163,7 @@ void GrpcBlazeServer::Disconnect() {
 void GrpcBlazeServer::SendAction(CancelThreadAction action) {
   char msg = action;
   if (write(send_socket_, &msg, 1) <= 0) {
-    // We assume this always works, just placate the compiler.
+    sigprintf("\nCould not interrupt server (cannot write to client pipe)\n\n");
   }
 }
 

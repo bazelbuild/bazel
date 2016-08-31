@@ -470,6 +470,7 @@ public class GrpcServerImpl extends RPCServer {
 
         @Override
         public void cancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
+          LOG.info("Got cancel message for " + request.getCommandId());
           if (!request.getCookie().equals(requestCookie)) {
             streamObserver.onCompleted();
             return;
@@ -482,11 +483,10 @@ public class GrpcServerImpl extends RPCServer {
                 LOG.info(String.format("Interrupting command %s on thread %s",
                         request.getCommandId(), pendingCommand.thread.getName()));
                 pendingCommand.thread.interrupt();
+                startSlowInterruptWatcher(ImmutableSet.of(request.getCommandId()));
               } else {
                 LOG.info("Cannot find command " + request.getCommandId() + " to interrupt");
               }
-
-              startSlowInterruptWatcher(ImmutableSet.of(request.getCommandId()));
             }
 
             streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
