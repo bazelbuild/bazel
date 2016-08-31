@@ -22,7 +22,6 @@ import java.util.List;
 public class WindowsProcesses {
   public static final long INVALID = -1;
 
-  private static boolean jniLoaded = false;
   private WindowsProcesses() {
     // Prevent construction
   }
@@ -132,17 +131,8 @@ public class WindowsProcesses {
   static native String nativeStreamGetLastError(long process);
 
   public static int getpid() {
-    ensureJni();
+    WindowsJniLoader.loadJni();
     return nativeGetpid();
-  }
-
-  private static synchronized void ensureJni() {
-    if (jniLoaded) {
-      return;
-    }
-
-    System.loadLibrary("windows_jni");
-    jniLoaded = true;
   }
 
   static String quoteCommandLine(List<String> argv) {
