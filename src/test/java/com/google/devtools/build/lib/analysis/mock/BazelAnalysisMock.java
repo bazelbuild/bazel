@@ -64,6 +64,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new ArrayList<>(
             ImmutableList.of(
                 "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
+                "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
                 "bind(",
                 "  name = 'objc_proto_lib',",
                 "  actual = '//objcproto:ProtocolBuffers_lib',",
@@ -79,6 +80,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
                 "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
                 "bind(name = 'tools/python', actual='//tools/python')"));
 
+    config.create(
+        "/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     config.create(

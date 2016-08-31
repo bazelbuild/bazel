@@ -547,4 +547,36 @@ apple_watch2_extension(
 EOF
 }
 
+function test_host_xcodes() {
+  XCODE_VERSION=$(xcodebuild -version | grep "Xcode" \
+      | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
+  IOS_SDK=$(xcodebuild -version -sdk | grep iphoneos \
+      | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
+  MACOSX_SDK=$(xcodebuild -version -sdk | grep macosx \
+      | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
+
+  # Unfortunately xcodebuild -version doesn't always pad with trailing .0, so,
+  # for example, may produce "6.4", which is bad for this test.
+  if [[ ! $XCODE_VERSION =~ [0-9].[0-9].[0-9] ]]
+  then
+    XCODE_VERSION="${XCODE_VERSION}.0"
+  fi
+
+  bazel build @local_config_xcode//:host_xcodes >"${TEST_log}" 2>&1 \
+     || fail "Expected host_xcodes to build"
+
+  bazel query "attr(version, $XCODE_VERSION, \
+      attr(default_ios_sdk_version, $IOS_SDK, \
+      attr(default_macosx_sdk_version, $MACOSX_SDK, \
+      labels('versions', '@local_config_xcode//:host_xcodes'))))" \
+      > xcode_version_target
+
+  assert_contains "local_config_xcode" xcode_version_target
+
+  DEFAULT_LABEL=$(bazel query \
+      "labels('default', '@local_config_xcode//:host_xcodes')")
+
+  assert_equals $DEFAULT_LABEL $(cat xcode_version_target)
+}
+
 run_suite "apple_tests"

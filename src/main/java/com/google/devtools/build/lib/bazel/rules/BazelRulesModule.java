@@ -188,6 +188,8 @@ public class BazelRulesModule extends BlazeModule {
       // will not be loaded for our Java tests.
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
