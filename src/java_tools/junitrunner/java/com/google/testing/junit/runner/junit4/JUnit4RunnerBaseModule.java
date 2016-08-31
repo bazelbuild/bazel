@@ -16,14 +16,13 @@ package com.google.testing.junit.runner.junit4;
 
 import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_SHARDING_STRATEGY;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
-
+import com.google.testing.junit.runner.util.MemoizingSupplier;
+import com.google.testing.junit.runner.util.Supplier;
 import dagger.Module;
 import dagger.Multibindings;
 import dagger.Provides;
@@ -70,7 +69,7 @@ public final class JUnit4RunnerBaseModule {
   @Provides
   @Singleton
   static Supplier<TestSuiteModel> provideTestSuiteModelSupplier(JUnit4TestModelBuilder builder) {
-    return Suppliers.memoize(builder);
+    return new MemoizingSupplier<>(builder);
   }
 
   @Provides

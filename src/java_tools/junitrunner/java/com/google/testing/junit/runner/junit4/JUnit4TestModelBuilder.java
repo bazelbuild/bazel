@@ -14,9 +14,9 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Supplier;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.model.TestSuiteModel.Builder;
+import com.google.testing.junit.runner.util.Supplier;
 
 import org.junit.runner.Description;
 import org.junit.runner.Request;

@@ -14,12 +14,11 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Supplier;
 import com.google.testing.junit.junit4.runner.SuiteTrimmingFilter;
 import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
-
+import com.google.testing.junit.runner.util.Supplier;
 import org.junit.internal.runners.ErrorReportingRunner;
 import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
