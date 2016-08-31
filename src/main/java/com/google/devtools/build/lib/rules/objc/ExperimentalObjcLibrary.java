@@ -125,6 +125,11 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     compilationSupport.addXcodeSettings(xcodeProviderBuilder, common);
+    
+    new ResourceSupport(ruleContext)
+        .validateAttributes()
+        .addXcodeSettings(xcodeProviderBuilder);
+    
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
