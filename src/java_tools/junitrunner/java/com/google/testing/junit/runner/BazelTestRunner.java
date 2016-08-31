@@ -14,7 +14,6 @@
 
 package com.google.testing.junit.runner;
 
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.internal.Stderr;
 import com.google.testing.junit.runner.internal.Stdout;
@@ -188,8 +187,6 @@ public class BazelTestRunner {
 
   /**
    * Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly.
-   *
-   * Mimics implementation of {@link Uninterruptibles#sleepUninterruptibly(long, TimeUnit)}.
    */
   private static void sleepUninterruptibly(long sleepForSeconds) {
     boolean interrupted = false;

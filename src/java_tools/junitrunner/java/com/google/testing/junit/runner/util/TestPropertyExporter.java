@@ -16,9 +16,7 @@ package com.google.testing.junit.runner.util;
 
 import static com.google.testing.junit.runner.util.TestPropertyRunnerIntegration.getCallbackForThread;
 
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
-
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -52,7 +50,7 @@ public class TestPropertyExporter {
   public static TestPropertyExporter createFake(final Map<String, String> backingMap) {
     return createFake(new Callback() {
 
-      private final Multiset<String> repeatedPropertyNames = HashMultiset.create();
+      private final Map<String, Integer> repeatedPropertyNamesToRepetitions = new HashMap<>();
 
       @Override public void exportProperty(String name, String value) {
         backingMap.put(name, value);
@@ -66,8 +64,18 @@ public class TestPropertyExporter {
       }
 
       private String getRepeatedPropertyName(String name) {
-        int index = repeatedPropertyNames.add(name, 1) + INITIAL_INDEX_FOR_REPEATED_PROPERTY;
+        int index = addNameToRepeatedPropertyNamesAndGetRepetitionsNr(name)
+            + INITIAL_INDEX_FOR_REPEATED_PROPERTY;
         return name + index;
+      }
+
+      private synchronized int addNameToRepeatedPropertyNamesAndGetRepetitionsNr(String name) {
+        Integer previousRepetitionsNr = repeatedPropertyNamesToRepetitions.get(name);
+        if (previousRepetitionsNr == null) {
+          previousRepetitionsNr = 0;
+        }
+        repeatedPropertyNamesToRepetitions.put(name, previousRepetitionsNr + 1);
+        return previousRepetitionsNr;
       }
     });
   }
