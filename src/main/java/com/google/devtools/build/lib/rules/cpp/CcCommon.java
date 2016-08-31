@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -417,18 +416,6 @@ public final class CcCommon {
                 + includesPath
                 + "' not below the relative path of its package '"
                 + packageFragment
-                + "'. This will be an error in the future");
-        // TODO(janakr): Add a link to a page explaining the problem and fixes?
-      } else if (packageIdentifier.getRepository().isMain()
-          && !includesPath.startsWith(RuleClass.THIRD_PARTY_PREFIX)) {
-        ruleContext.attributeWarning(
-            "includes",
-            "'"
-                + includesAttr
-                + "' resolves to '"
-                + includesPath
-                + "' not in '"
-                + RuleClass.THIRD_PARTY_PREFIX
                 + "'. This will be an error in the future");
       }
       result.add(includesPath);

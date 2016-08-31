@@ -526,6 +526,10 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryNonThirdPartyIncludesWarned() throws Exception {
+    if (getAnalysisMock().isThisBazel()) {
+      return;
+    }
+
     checkWarning(
         "topdir",
         "lib",

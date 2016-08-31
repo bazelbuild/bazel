@@ -170,6 +170,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     List<String> linkopts = common.getLinkopts();
     LinkStaticness linkStaticness = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
 
+    semantics.validateAttributes(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
             .fromCommon(common)

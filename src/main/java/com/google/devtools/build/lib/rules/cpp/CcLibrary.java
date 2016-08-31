@@ -119,6 +119,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     final CcCommon common = new CcCommon(ruleContext);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
+    semantics.validateAttributes(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return;
+    }
+
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
             .fromCommon(common)
