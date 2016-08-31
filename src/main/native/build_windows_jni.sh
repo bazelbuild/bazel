@@ -45,10 +45,12 @@ if [[ "$JAVA" == "" ]]; then
 fi
 JAVAINCLUDES="C:/Program Files/java/$JAVA/include"
 
-# Convert all input files to Windows paths.
+# Convert all compilation units to Windows paths.
 WINDOWS_SOURCES=()
 for i in $*; do
-  WINDOWS_SOURCES+=("$(cygpath -a -w $i)")
+  if [[ "$i" =~ ^.*\.cc$ ]]; then
+    WINDOWS_SOURCES+=("$(cygpath -a -w $i)")
+  fi
 done
 
 # CL.EXE needs a bunch of environment variables whose official location is a
@@ -57,7 +59,7 @@ done
 cat > "${VSTEMP}/windows_jni.bat" <<EOF
 call "${VSVARS}" amd64
 set TMP=$(cygpath -a -w "${VSTEMP}")
-CL /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" ${WINDOWS_SOURCES[*]}
+CL /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
 EOF
 
 # Invoke the file and hopefully generate the .DLL .

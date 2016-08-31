@@ -13,42 +13,12 @@
 // limitations under the License.
 
 #include <jni.h>
-#include <stdio.h>
 #include <string.h>
 #include <windows.h>
 
 #include <string>
 
-std::string GetLastErrorString(const std::string& cause) {
-  DWORD last_error = GetLastError();
-  if (last_error == 0) {
-    return "";
-  }
-
-  LPSTR message;
-  DWORD size = FormatMessageA(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER
-          | FORMAT_MESSAGE_FROM_SYSTEM
-          | FORMAT_MESSAGE_IGNORE_INSERTS,
-      NULL,
-      last_error,
-      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      (LPSTR) &message,
-      0,
-      NULL);
-
-  if (size == 0) {
-    char buf[256];
-    snprintf(buf, sizeof(buf),
-        "%s: Error %d (cannot format message due to error %d)",
-        cause.c_str(), last_error, GetLastError());
-    buf[sizeof(buf) - 1] = 0;
-  }
-
-  std::string result = std::string(message);
-  LocalFree(message);
-  return cause + ": " + result;
-}
+#include "src/main/native/windows_error_handling.h"
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
