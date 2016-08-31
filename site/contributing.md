@@ -134,7 +134,7 @@ Bazel is organized in several parts:
 * Client code in `src/main/cpp` provides the command-line interface.
 * Protocol buffers in `src/main/protobuf`.
 * Server code in `src/main/java` and `src/test/java`.
-  * Core code which is mostly composed of [SkyFrame](docs/skyframe.html) and some
+  * Core code which is mostly composed of [SkyFrame](designs/skyframe.html) and some
     utilities.
   * Rules written in Bazel's extension language
     [Skylark](docs/skylark/index.html) are defined in `tools/build_rules`. If
