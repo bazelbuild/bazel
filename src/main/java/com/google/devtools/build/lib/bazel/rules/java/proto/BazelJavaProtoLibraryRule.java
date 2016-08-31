@@ -97,16 +97,16 @@ Example:
 <pre class="code">
 java_library(
     name = "lib",
-    deps = [":foo"],
+    deps = [":foo_java_proto"],
 )
 
 java_proto_library(
-    name = "foo",
-    deps = [":bar"],
+    name = "foo_java_proto",
+    deps = [":foo_proto"],
 )
 
 proto_library(
-    name = "bar",
+    name = "foo_proto",
 )
 </pre>
 
