@@ -55,6 +55,7 @@ import com.android.ide.common.xml.XmlPrettyPrinter;
 import com.android.resources.FolderTypeRelationship;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
+import com.android.utils.Pair;
 import com.android.utils.XmlUtils;
 
 import org.objectweb.asm.ClassReader;
@@ -157,11 +158,12 @@ public class ResourceShrinker {
   private Map<ResourceType, Map<String, Resource>> typeToName =
       Maps.newEnumMap(ResourceType.class);
   /**
-   * Map from resource class owners (VM format class) to corresponding resource types. This will
-   * typically be the fully qualified names of the R classes, as well as any renamed versions of
-   * those discovered in the mapping.txt file from ProGuard
+   * Map from resource class owners (VM format class) to corresponding resource entries.
+   * This lets us map back from code references (obfuscated class and possibly obfuscated field
+   * reference) back to the corresponding resource type and name.
    */
-  private Map<String, ResourceType> resourceClassOwners = Maps.newHashMapWithExpectedSize(20);
+  private final Map<String, Pair<ResourceType, Map<String, String>>> resourceObfuscation =
+      Maps.newHashMapWithExpectedSize(30);
 
   public ResourceShrinker(
       Set<String> resourcePackages,
@@ -680,9 +682,36 @@ public class ResourceShrinker {
     }
     final String arrowIndicator = " -> ";
     final String resourceIndicator = ".R$";
+    Map<String, String> nameMap = null;
     for (String line : Files.readLines(mapping.toFile(), UTF_8)) {
       if (line.startsWith(" ") || line.startsWith("\t")) {
+        if (nameMap != null) {
+          // We're processing the members of a resource class: record names into the map
+          int n = line.length();
+          int i = 0;
+          for (; i < n; i++) {
+            if (!Character.isWhitespace(line.charAt(i))) {
+              break;
+            }
+          }
+          if (i < n && line.startsWith("int", i)) { // int or int[]
+            int start = line.indexOf(' ', i + 3) + 1;
+            int arrow = line.indexOf(arrowIndicator);
+            if (start > 0 && arrow != -1) {
+              int end = line.indexOf(' ', start + 1);
+              if (end != -1) {
+                String oldName = line.substring(start, end);
+                String newName = line.substring(arrow + arrowIndicator.length()).trim();
+                if (!newName.equals(oldName)) {
+                  nameMap.put(newName, oldName);
+                }
+              }
+            }
+          }
+        }
         continue;
+      } else {
+        nameMap = null;
       }
       int index = line.indexOf(resourceIndicator);
       if (index == -1) {
@@ -703,7 +732,10 @@ public class ResourceShrinker {
       }
       String target = line.substring(arrow + arrowIndicator.length(), end).trim();
       String ownerName = target.replace('.', '/');
-      resourceClassOwners.put(ownerName, type);
+
+      nameMap = Maps.newHashMap();
+      Pair<ResourceType, Map<String, String>> pair = Pair.of(type, nameMap);
+      resourceObfuscation.put(ownerName, pair);
     }
   }
 
@@ -736,6 +768,22 @@ public class ResourceShrinker {
     ResourceUrl url = ResourceUrl.parse(possibleUrlReference);
     if (url != null && !url.framework) {
       return getResource(url.type, url.name);
+    }
+    return null;
+  }
+
+  @VisibleForTesting
+  @Nullable
+  Resource getResourceFromCode(@NonNull String owner, @NonNull String name) {
+    Pair<ResourceType, Map<String, String>> pair = resourceObfuscation.get(owner);
+    if (pair != null) {
+      ResourceType type = pair.getFirst();
+      Map<String, String> nameMap = pair.getSecond();
+      String renamedField = nameMap.get(name);
+      if (renamedField != null) {
+        name = renamedField;
+      }
+      return getResource(type, name);
     }
     return null;
   }
@@ -945,7 +993,8 @@ public class ResourceShrinker {
       String[] tokens = line.split(" ");
       ResourceType type = ResourceType.getEnum(tokens[1]);
       for (String resourcePackage : resourcePackages) {
-        resourceClassOwners.put(resourcePackage.replace('.', '/') + "/R$" + type.getName(), type);
+        resourceObfuscation.put(resourcePackage.replace('.', '/') + "/R$" + type.getName(),
+            Pair.<ResourceType, Map<String, String>>of(type, Maps.<String, String>newHashMap()));
       }
       if (type == ResourceType.STYLEABLE) {
         if (tokens[0].equals("int[]")) {
@@ -1113,12 +1162,9 @@ public class ResourceShrinker {
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String desc) {
           if (opcode == Opcodes.GETSTATIC) {
-            ResourceType type = resourceClassOwners.get(owner);
-            if (type != null) {
-              Resource resource = getResource(type, name);
-              if (resource != null) {
-                markReachable(resource);
-              }
+            Resource resource = getResourceFromCode(owner, name);
+            if (resource != null) {
+              markReachable(resource);
             }
           }
         }
