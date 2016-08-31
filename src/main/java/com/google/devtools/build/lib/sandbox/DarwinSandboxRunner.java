@@ -15,70 +15,48 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.TerminationStatus;
+import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class for running the namespace sandbox. This runner prepares environment inside the
  * sandbox, handles sandbox output, performs cleanup and changes invocation if necessary.
  */
-public class DarwinSandboxRunner {
+final class DarwinSandboxRunner extends SandboxRunner {
+  private static final String SANDBOX_EXEC = "/usr/bin/sandbox-exec";
 
-  private final Path execRoot;
-  private final Path sandboxPath;
   private final Path sandboxExecRoot;
   private final Path argumentsFilePath;
-  private final ImmutableSet<PathFragment> createDirs;
-  private final boolean verboseFailures;
-  private final boolean sandboxDebug;
+  private final Set<Path> writableDirs;
+  private final Set<Path> inaccessiblePaths;
 
-  private final Path sandboxConfigPath;
-  private final ImmutableMap<PathFragment, Path> linkPaths;
-
-  public DarwinSandboxRunner(
-      Path execRoot,
+  DarwinSandboxRunner(
       Path sandboxPath,
       Path sandboxExecRoot,
-      Path sandboxConfigPath,
-      ImmutableMap<PathFragment, Path> linkPaths,
-      ImmutableSet<PathFragment> createDirs,
-      boolean verboseFailures,
-      boolean sandboxDebug) {
-    this.execRoot = execRoot;
-    this.sandboxPath = sandboxPath;
+      Set<Path> writableDirs,
+      Set<Path> inaccessiblePaths,
+      boolean verboseFailures) {
+    super(sandboxPath, sandboxExecRoot, verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
-    this.argumentsFilePath =
-        sandboxPath.getParentDirectory().getRelative(sandboxPath.getBaseName() + ".params");
-    this.createDirs = createDirs;
-    this.verboseFailures = verboseFailures;
-    this.sandboxDebug = sandboxDebug;
-    this.sandboxConfigPath = sandboxConfigPath;
-    this.linkPaths = linkPaths;
+    this.argumentsFilePath = sandboxPath.getRelative("sandbox.sb");
+    this.writableDirs = writableDirs;
+    this.inaccessiblePaths = inaccessiblePaths;
   }
 
   static boolean isSupported() {
     List<String> args = new ArrayList<>();
-    args.add("sandbox-exec");
+    args.add(SANDBOX_EXEC);
     args.add("-p");
     args.add("(version 1) (allow default)");
     args.add("/usr/bin/true");
@@ -101,193 +79,66 @@ public class DarwinSandboxRunner {
     return true;
   }
 
-  /**
-   * Runs given command inside the sandbox.
-   *
-   * @param spawnArguments - arguments of spawn to run inside the sandbox
-   * @param env - environment to run sandbox in
-   * @param outErr - error output to capture sandbox's and command's stderr
-   * @param outputs - files to extract from the sandbox, paths are relative to the exec root
-   * @throws ExecException
-   */
-  public void run(
-      List<String> spawnArguments,
-      ImmutableMap<String, String> env,
-      FileOutErr outErr,
-      Collection<PathFragment> outputs,
-      int timeout)
-      throws IOException, ExecException {
-    createFileSystem(outputs);
-
-    List<String> commandLineArgs = sandboxPreperationAndGetArgs(spawnArguments, outErr);
-
-    Command cmd =
-        new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
-
-    try {
-      cmd.execute(
-          /* stdin */ new byte[] {},
-          (timeout >= 0) ? new TimeoutKillableObserver(timeout * 1000) : Command.NO_OBSERVER,
-          outErr.getOutputStream(),
-          outErr.getErrorStream(),
-          /* killSubprocessOnInterrupt */ true);
-    } catch (CommandException e) {
-      boolean timedOut = false;
-      if (e instanceof AbnormalTerminationException) {
-        TerminationStatus status =
-            ((AbnormalTerminationException) e).getResult().getTerminationStatus();
-        timedOut = !status.exited() && (status.getTerminatingSignal() == 15 /* SIGTERM */);
-      }
-      String message =
-          CommandFailureUtils.describeCommandFailure(
-              verboseFailures, commandLineArgs, env, sandboxExecRoot.getPathString());
-      throw new UserExecException(message, e, timedOut);
-    } finally {
-      copyOutputs(outputs);
-    }
-  }
-
-  private void createFileSystem(Collection<PathFragment> outputs) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(sandboxPath);
-
-    // Prepare the output directories in the sandbox.
-    for (PathFragment output : outputs) {
-      FileSystemUtils.createDirectoryAndParents(
-          sandboxExecRoot.getRelative(output.getParentDirectory()));
-    }
-  }
-
-  private void copyOutputs(Collection<PathFragment> outputs) throws IOException {
-    for (PathFragment output : outputs) {
-      Path source = sandboxExecRoot.getRelative(output);
-      Path target = execRoot.getRelative(output);
-      FileSystemUtils.createDirectoryAndParents(target.getParentDirectory());
-      if (source.isFile() || source.isSymbolicLink()) {
-        com.google.common.io.Files.move(source.getPathFile(), target.getPathFile());
-      }
-    }
-  }
-
-  public void cleanup() throws IOException {
-    if (sandboxPath.exists()) {
-      FileSystemUtils.deleteTree(sandboxPath);
-    }
-    if (!sandboxDebug && argumentsFilePath.exists()) {
-      argumentsFilePath.delete();
-    }
-  }
-
-  private List<String> sandboxPreperationAndGetArgs(List<String> spawnArguments, FileOutErr outErr)
+  @Override
+  protected Command getCommand(
+      List<String> arguments, Map<String, String> environment, int timeout, boolean allowNetwork)
       throws IOException {
-    FileSystem fs = sandboxPath.getFileSystem();
-    PrintWriter errWriter = new PrintWriter(outErr.getErrorStream());
+    writeConfig(allowNetwork);
+
     List<String> commandLineArgs = new ArrayList<>();
-
-    if (sandboxDebug) {
-      errWriter.printf("sandbox root is %s\n", sandboxPath.toString());
-      errWriter.printf("working dir is %s\n", sandboxExecRoot.toString());
-    }
-
-    // Create all needed directories.
-    for (PathFragment createDir : createDirs) {
-      Path dir;
-      if (createDir.isAbsolute()) {
-        dir = fs.getPath(createDir);
-      } else {
-        dir = sandboxPath.getRelative(createDir);
-      }
-      if (sandboxDebug) {
-        errWriter.printf("createdir: %s\n", dir);
-      }
-      FileSystemUtils.createDirectoryAndParents(dir);
-    }
-
-    // Link all the inputs.
-    linkInputs(linkPaths, errWriter);
-
-    errWriter.flush();
-
-    commandLineArgs.add("/usr/bin/sandbox-exec");
+    commandLineArgs.add(SANDBOX_EXEC);
     commandLineArgs.add("-f");
-    commandLineArgs.add(sandboxConfigPath.getPathString());
-    commandLineArgs.addAll(spawnArguments);
-
-    return commandLineArgs;
+    commandLineArgs.add(argumentsFilePath.getPathString());
+    commandLineArgs.addAll(arguments);
+    return new Command(
+        commandLineArgs.toArray(new String[0]), environment, sandboxExecRoot.getPathFile());
   }
 
-  /**
-   * Make all specified inputs available in the sandbox.
-   *
-   * We want the sandboxed process to have access only to these input files and not anything else
-   * from the workspace. Furthermore, the process should not be able to modify these input files.
-   * We achieve this by hardlinking all input files into a temporary "inputs" directory, then
-   * symlinking them into their correct place inside the sandbox.
-   *
-   * The hardlinks / symlinks combination (as opposed to simply directly hardlinking to the final
-   * destination) is necessary, because we build a solib symlink tree for shared libraries where the
-   * original file and the created symlink have two different file names (libblaze_util.so vs.
-   * src_Stest_Scpp_Sblaze_Uutil_Utest.so) and our cc_wrapper.sh needs to be able to figure out both
-   * names (by following solib symlinks back) to modify the paths to the shared libraries in
-   * cc_binaries.
-   */
-  private void linkInputs(ImmutableMap<PathFragment, Path> inputs, PrintWriter errWriter)
-      throws IOException {
-    // create directory for input files
-    Path inputsDir = sandboxPath.getRelative("inputs");
-    if (!inputsDir.exists()) {
-      inputsDir.createDirectory();
-    }
+  private void writeConfig(boolean allowNetwork) throws IOException {
+    try (PrintWriter out = new PrintWriter(argumentsFilePath.getOutputStream())) {
+      // Note: In Apple's sandbox configuration language, the *last* matching rule wins.
+      out.println("(version 1)");
+      out.println("(debug deny)");
+      out.println("(allow default)");
 
-    for (ImmutableMap.Entry<PathFragment, Path> entry : inputs.entrySet()) {
-      // hardlink, resolve symlink here instead in finalizeLinks
-      Path hardlinkOldPath = entry.getValue().resolveSymbolicLinks();
-      Path hardlinkNewPath =
-          hardlinkOldPath.startsWith(execRoot)
-              ? inputsDir.getRelative(hardlinkOldPath.relativeTo(execRoot))
-              : inputsDir.getRelative(entry.getKey());
-      if (sandboxDebug) {
-        errWriter.printf("hardlink: %s -> %s\n", hardlinkNewPath, hardlinkOldPath);
-      }
-      try {
-        createHardLink(hardlinkNewPath, hardlinkOldPath);
-      } catch (IOException e) {
-        // Creating a hardlink might fail when the input file and the sandbox directory are not on
-        // the same filesystem / device. Then we use symlink instead.
-        hardlinkNewPath.createSymbolicLink(hardlinkOldPath);
+      if (!allowNetwork) {
+        out.println("(deny network*)");
       }
 
-      // symlink
-      Path symlinkNewPath = sandboxExecRoot.getRelative(entry.getKey());
-      if (sandboxDebug) {
-        errWriter.printf("symlink: %s -> %s\n", hardlinkNewPath, symlinkNewPath);
+      out.println("(allow network* (local ip \"localhost:*\"))");
+      out.println("(allow network* (remote ip \"localhost:*\"))");
+      out.println("(allow network* (remote unix-socket (subpath \"/\")))");
+      out.println("(allow network* (local unix-socket (subpath \"/\")))");
+
+      for (Path inaccessiblePath : inaccessiblePaths) {
+        out.println("(deny file-read* (subpath \"" + inaccessiblePath + "\"))");
       }
-      FileSystemUtils.createDirectoryAndParents(symlinkNewPath.getParentDirectory());
-      symlinkNewPath.createSymbolicLink(hardlinkNewPath);
+
+      // Almost everything else is read-only.
+      out.println("(deny file-write* (subpath \"/\"))");
+
+      allowWriteSubpath(out, sandboxExecRoot);
+      for (Path path : writableDirs) {
+        allowWriteSubpath(out, path);
+      }
     }
   }
 
-  // TODO(yueg): import unix.FilesystemUtils and use FilesystemUtils.createHardLink() instead
-  private void createHardLink(Path target, Path source) throws IOException {
-    java.nio.file.Path targetNio = java.nio.file.Paths.get(target.toString());
-    java.nio.file.Path sourceNio = java.nio.file.Paths.get(source.toString());
+  private void allowWriteSubpath(PrintWriter out, Path path) throws IOException {
+    out.println("(allow file-write* (subpath \"" + path.getPathString() + "\"))");
+    Path resolvedPath = path.resolveSymbolicLinks();
+    if (!resolvedPath.equals(path)) {
+      out.println("(allow file-write* (subpath \"" + resolvedPath.getPathString() + "\"))");
+    }
+  }
 
-    if (!source.exists() || target.exists()) {
-      return;
-    }
-    // Regular file
-    if (source.isFile()) {
-      Path parentDir = target.getParentDirectory();
-      if (!parentDir.exists()) {
-        FileSystemUtils.createDirectoryAndParents(parentDir);
-      }
-      Files.createLink(targetNio, sourceNio);
-      // Directory
-    } else if (source.isDirectory()) {
-      Collection<Path> subpaths = source.getDirectoryEntries();
-      for (Path sourceSubpath : subpaths) {
-        Path targetSubpath = target.getRelative(sourceSubpath.relativeTo(source));
-        createHardLink(targetSubpath, sourceSubpath);
-      }
-    }
+  @Override
+  protected KillableObserver getCommandObserver(int timeout) {
+    return (timeout >= 0) ? new TimeoutKillableObserver(timeout * 1000) : Command.NO_OBSERVER;
+  }
+
+  @Override
+  protected int getSignalOnTimeout() {
+    return 15; /* SIGTERM */
   }
 }

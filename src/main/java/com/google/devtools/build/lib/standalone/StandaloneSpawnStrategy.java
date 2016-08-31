@@ -107,9 +107,12 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     args.addAll(spawn.getArguments());
 
     String cwd = executor.getExecRoot().getPathString();
-    Command cmd = new Command(args.toArray(new String[]{}),
-        locallyDeterminedEnv(spawn.getEnvironment()), new File(cwd),
-        OS.getCurrent() == OS.WINDOWS && timeoutSeconds >= 0 ? timeoutSeconds * 1000 : -1);
+    Command cmd =
+        new Command(
+            args.toArray(new String[] {}),
+            locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment()),
+            new File(cwd),
+            OS.getCurrent() == OS.WINDOWS && timeoutSeconds >= 0 ? timeoutSeconds * 1000 : -1);
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
     try {
@@ -158,7 +161,8 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
    * @return the new environment, comprised of the old environment plus any new variables
    * @throws UserExecException if any variables dependent on system state could not be resolved
    */
-  public ImmutableMap<String, String> locallyDeterminedEnv(ImmutableMap<String, String> env)
+  public static ImmutableMap<String, String> locallyDeterminedEnv(
+      Path execRoot, String productName, ImmutableMap<String, String> env)
       throws UserExecException {
     // TODO(bazel-team): Remove apple-specific logic from this class.
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
@@ -168,7 +172,9 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     // should be explicitly set for build hermiticity.
     String developerDir = "";
     if (env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME)) {
-      developerDir = getDeveloperDir(env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME));
+      developerDir =
+          getDeveloperDir(
+              execRoot, productName, env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME));
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);
     }
     if (env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME)) {
@@ -178,12 +184,15 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       }
       String iosSdkVersion = env.get(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
       String appleSdkPlatform = env.get(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
-      newEnvBuilder.put("SDKROOT", getSdkRootEnv(developerDir, iosSdkVersion, appleSdkPlatform));
+      newEnvBuilder.put(
+          "SDKROOT",
+          getSdkRootEnv(execRoot, productName, developerDir, iosSdkVersion, appleSdkPlatform));
     }
     return newEnvBuilder.build();
   }
 
-  private String getDeveloperDir(String xcodeVersion) throws UserExecException {
+  private static String getDeveloperDir(Path execRoot, String productName, String xcodeVersion)
+      throws UserExecException {
     if (OS.getCurrent() != OS.DARWIN) {
       throw new UserExecException(
           "Cannot locate xcode developer directory on non-darwin operating system");
@@ -192,8 +201,13 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
         productName);
   }
 
-  private String getSdkRootEnv(String developerDir,
-      String iosSdkVersion, String appleSdkPlatform) throws UserExecException {
+  private static String getSdkRootEnv(
+      Path execRoot,
+      String productName,
+      String developerDir,
+      String iosSdkVersion,
+      String appleSdkPlatform)
+      throws UserExecException {
     if (OS.getCurrent() != OS.DARWIN) {
       throw new UserExecException("Cannot locate iOS SDK on non-darwin operating system");
     }

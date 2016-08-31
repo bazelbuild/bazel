@@ -15,30 +15,27 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
- * Helper class for running the Linux sandbox. This runner is a subclass of LinuxSandboxRunner which
- * uses process-wrapper instead of linux-sandbox in the same sandbox execution environment.
+ * This runner runs process-wrapper inside a sandboxed execution root, which should work on most
+ * platforms and gives at least some isolation between running actions.
  */
-public class LinuxAlmostSandboxRunner extends LinuxSandboxRunner {
+final class ProcessWrapperRunner extends SandboxRunner {
+  private final Path execRoot;
+  private final Path sandboxExecRoot;
 
-  LinuxAlmostSandboxRunner(
-      Path execRoot,
-      Path sandboxExecRoot,
-      Set<Path> writablePaths,
-      List<Path> inaccessiblePaths,
-      boolean verboseFailures,
-      boolean sandboxDebug) {
-    super(
-        execRoot, sandboxExecRoot, writablePaths, inaccessiblePaths, verboseFailures, sandboxDebug);
+  ProcessWrapperRunner(
+      Path execRoot, Path sandboxPath, Path sandboxExecRoot, boolean verboseFailures) {
+    super(sandboxPath, sandboxExecRoot, verboseFailures);
+    this.execRoot = execRoot;
+    this.sandboxExecRoot = sandboxExecRoot;
   }
 
   static boolean isSupported(CommandEnvironment commandEnv) {
@@ -56,27 +53,16 @@ public class LinuxAlmostSandboxRunner extends LinuxSandboxRunner {
   }
 
   @Override
-  protected void runPreparation(int timeout, boolean allowNetwork) throws IOException {
-    // Create all needed directories.
-    for (Path writablePath : super.getWritablePaths()) {
-      if (writablePath.startsWith(super.getSandboxExecRoot())) {
-        FileSystemUtils.createDirectoryAndParents(writablePath);
-      }
-    }
-  }
-
-  @Override
-  protected List<String> runCommandLineArgs(List<String> spawnArguments, int timeout) {
-    List<String> commandLineArgs = new ArrayList<>();
-
-    commandLineArgs.add(super.getExecRoot().getRelative("_bin/process-wrapper").getPathString());
+  protected Command getCommand(
+      List<String> spawnArguments, Map<String, String> env, int timeout, boolean allowNetwork) {
+    List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
+    commandLineArgs.add(execRoot.getRelative("_bin/process-wrapper").getPathString());
     commandLineArgs.add(Integer.toString(timeout));
     commandLineArgs.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
     commandLineArgs.add("-"); /* stdout. */
     commandLineArgs.add("-"); /* stderr. */
-
     commandLineArgs.addAll(spawnArguments);
 
-    return commandLineArgs;
+    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
   }
 }

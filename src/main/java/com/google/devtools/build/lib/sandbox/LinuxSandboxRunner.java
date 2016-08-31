@@ -16,18 +16,10 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.TerminationStatus;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,58 +27,38 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 /**
  * Helper class for running the Linux sandbox. This runner prepares environment inside the sandbox,
  * handles sandbox output, performs cleanup and changes invocation if necessary.
  */
-public class LinuxSandboxRunner {
+final class LinuxSandboxRunner extends SandboxRunner {
   protected static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
-
-  protected Path getExecRoot() {
-    return execRoot;
-  }
-
-  protected Path getSandboxExecRoot() {
-    return sandboxExecRoot;
-  }
-
-  protected Set<Path> getWritablePaths() {
-    return writablePaths;
-  }
-
-  protected boolean isVerboseFailures() {
-    return verboseFailures;
-  }
 
   private final Path execRoot;
   private final Path sandboxExecRoot;
   private final Path argumentsFilePath;
-  private final Set<Path> writablePaths;
-  private final List<Path> inaccessiblePaths;
-  private final boolean verboseFailures;
+  private final Set<Path> writableDirs;
+  private final Set<Path> inaccessiblePaths;
   private final boolean sandboxDebug;
 
   LinuxSandboxRunner(
       Path execRoot,
+      Path sandboxPath,
       Path sandboxExecRoot,
-      Set<Path> writablePaths,
-      List<Path> inaccessiblePaths,
+      Set<Path> writableDirs,
+      Set<Path> inaccessiblePaths,
       boolean verboseFailures,
       boolean sandboxDebug) {
+    super(sandboxPath, sandboxExecRoot, verboseFailures);
     this.execRoot = execRoot;
     this.sandboxExecRoot = sandboxExecRoot;
-    this.argumentsFilePath =
-        sandboxExecRoot.getParentDirectory().getRelative(sandboxExecRoot.getBaseName() + ".params");
-    this.writablePaths = writablePaths;
+    this.argumentsFilePath = sandboxPath.getRelative("linux-sandbox.params");
+    this.writableDirs = writableDirs;
     this.inaccessiblePaths = inaccessiblePaths;
-    this.verboseFailures = verboseFailures;
     this.sandboxDebug = sandboxDebug;
   }
 
@@ -123,9 +95,21 @@ public class LinuxSandboxRunner {
     return true;
   }
 
+  @Override
+  protected Command getCommand(
+      List<String> spawnArguments, Map<String, String> env, int timeout, boolean allowNetwork)
+      throws IOException {
+    writeConfig(timeout, allowNetwork);
 
-  protected void runPreparation(int timeout, boolean allowNetwork) throws IOException {
+    List<String> commandLineArgs = new ArrayList<>(3 + spawnArguments.size());
+    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
+    commandLineArgs.add("@" + argumentsFilePath.getPathString());
+    commandLineArgs.add("--");
+    commandLineArgs.addAll(spawnArguments);
+    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+  }
 
+  private void writeConfig(int timeout, boolean allowNetwork) throws IOException {
     List<String> fileArgs = new ArrayList<>();
 
     if (sandboxDebug) {
@@ -143,12 +127,9 @@ public class LinuxSandboxRunner {
     }
 
     // Create all needed directories.
-    for (Path writablePath : writablePaths) {
+    for (Path writablePath : writableDirs) {
       fileArgs.add("-w");
       fileArgs.add(writablePath.getPathString());
-      if (writablePath.startsWith(sandboxExecRoot)) {
-        FileSystemUtils.createDirectoryAndParents(writablePath);
-      }
     }
 
     for (Path inaccessiblePath : inaccessiblePaths) {
@@ -162,135 +143,5 @@ public class LinuxSandboxRunner {
     }
 
     FileSystemUtils.writeLinesAs(argumentsFilePath, StandardCharsets.ISO_8859_1, fileArgs);
-  }
-
-  protected List<String> runCommandLineArgs(List<String> spawnArguments, int timeout) {
-    List<String> commandLineArgs = new ArrayList<>();
-
-    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
-
-    commandLineArgs.add("@" + argumentsFilePath.getPathString());
-
-    commandLineArgs.add("--");
-    commandLineArgs.addAll(spawnArguments);
-
-    return commandLineArgs;
-  }
-
-  /**
-   * Runs given
-   *
-   * @param spawnArguments - arguments of spawn to run inside the sandbox
-   * @param env - environment to run sandbox in
-   * @param outErr - error output to capture sandbox's and command's stderr
-   * @param outputs - files to extract from the sandbox, paths are relative to the exec root @throws
-   *     ExecException
-   */
-  public void run(
-      List<String> spawnArguments,
-      Map<String, String> env,
-      FileOutErr outErr,
-      Map<PathFragment, Path> inputs,
-      Collection<PathFragment> outputs,
-      int timeout,
-      boolean allowNetwork)
-      throws IOException, ExecException {
-    createFileSystem(inputs, outputs);
-
-    runPreparation(timeout, allowNetwork);
-
-    List<String> commandLineArgs = runCommandLineArgs(spawnArguments, timeout);
-    Command cmd =
-        new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
-
-    try {
-      cmd.execute(
-          /* stdin */ new byte[] {},
-          Command.NO_OBSERVER,
-          outErr.getOutputStream(),
-          outErr.getErrorStream(),
-          /* killSubprocessOnInterrupt */ true);
-    } catch (CommandException e) {
-      boolean timedOut = false;
-      if (e instanceof AbnormalTerminationException) {
-        TerminationStatus status =
-            ((AbnormalTerminationException) e).getResult().getTerminationStatus();
-        timedOut = !status.exited() && (status.getTerminatingSignal() == 14 /* SIGALRM */);
-      }
-      String message =
-          CommandFailureUtils.describeCommandFailure(
-              verboseFailures, commandLineArgs, env, sandboxExecRoot.getPathString());
-      throw new UserExecException(message, e, timedOut);
-    } finally {
-      copyOutputs(outputs);
-    }
-  }
-
-  protected void createFileSystem(Map<PathFragment, Path> inputs, Collection<PathFragment> outputs)
-      throws IOException {
-    Set<Path> createdDirs = new HashSet<>();
-    FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, sandboxExecRoot);
-    createParentDirectoriesForInputs(createdDirs, inputs.keySet());
-    createSymlinksForInputs(inputs);
-    createDirectoriesForOutputs(createdDirs, outputs);
-  }
-
-  /**
-   * No input can be a child of another input, because otherwise we might try to create a symlink
-   * below another symlink we created earlier - which means we'd actually end up writing somewhere
-   * in the workspace.
-   *
-   * <p>If all inputs were regular files, this situation could naturally not happen - but
-   * unfortunately, we might get the occasional action that has directories in its inputs.
-   *
-   * <p>Creating all parent directories first ensures that we can safely create symlinks to
-   * directories, too, because we'll get an IOException with EEXIST if inputs happen to be nested
-   * once we start creating the symlinks for all inputs.
-   */
-  private void createParentDirectoriesForInputs(Set<Path> createdDirs, Set<PathFragment> inputs)
-      throws IOException {
-    for (PathFragment inputPath : inputs) {
-      Path dir = sandboxExecRoot.getRelative(inputPath).getParentDirectory();
-      Preconditions.checkArgument(dir.startsWith(sandboxExecRoot));
-      FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, dir);
-    }
-  }
-
-  private void createSymlinksForInputs(Map<PathFragment, Path> inputs) throws IOException {
-    // All input files are relative to the execroot.
-    for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
-      Path key = sandboxExecRoot.getRelative(entry.getKey());
-      key.createSymbolicLink(entry.getValue());
-    }
-  }
-
-  /** Prepare the output directories in the sandbox. */
-  private void createDirectoriesForOutputs(Set<Path> createdDirs, Collection<PathFragment> outputs)
-      throws IOException {
-    for (PathFragment output : outputs) {
-      FileSystemUtils.createDirectoryAndParentsWithCache(
-          createdDirs, sandboxExecRoot.getRelative(output.getParentDirectory()));
-      FileSystemUtils.createDirectoryAndParentsWithCache(
-          createdDirs, execRoot.getRelative(output.getParentDirectory()));
-    }
-  }
-
-  protected void copyOutputs(Collection<PathFragment> outputs) throws IOException {
-    for (PathFragment output : outputs) {
-      Path source = sandboxExecRoot.getRelative(output);
-      if (source.isFile() || source.isSymbolicLink()) {
-        Path target = execRoot.getRelative(output);
-        Files.move(source.getPathFile(), target.getPathFile());
-      }
-    }
-  }
-
-  public void cleanup() throws IOException {
-    if (sandboxExecRoot.exists()) {
-      FileSystemUtils.deleteTree(sandboxExecRoot);
-    }
-    if (argumentsFilePath.exists()) {
-      argumentsFilePath.delete();
-    }
   }
 }

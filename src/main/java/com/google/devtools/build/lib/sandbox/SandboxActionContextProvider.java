@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
@@ -27,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 /**
  * Provides the sandboxed spawn strategy.
  */
-public class SandboxActionContextProvider extends ActionContextProvider {
+final class SandboxActionContextProvider extends ActionContextProvider {
 
   public static final String SANDBOX_NOT_SUPPORTED_MESSAGE =
       "Sandboxed execution is not supported on your system and thus hermeticity of actions cannot "

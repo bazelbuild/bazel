@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
@@ -33,7 +34,7 @@ import java.util.concurrent.Executors;
 /**
  * This module provides the Sandbox spawn strategy.
  */
-public class SandboxModule extends BlazeModule {
+public final class SandboxModule extends BlazeModule {
   // Per-server state
   private ExecutorService backgroundWorkers;
 
@@ -69,9 +70,9 @@ public class SandboxModule extends BlazeModule {
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
-    backgroundWorkers = Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-        .setNameFormat("linux-sandbox-background-worker-%d")
-        .build());
+    backgroundWorkers =
+        Executors.newCachedThreadPool(
+            new ThreadFactoryBuilder().setNameFormat("sandbox-background-worker-%d").build());
     this.env = env;
     env.getEventBus().register(this);
   }
