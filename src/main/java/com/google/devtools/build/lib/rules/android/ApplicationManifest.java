@@ -574,7 +574,7 @@ public final class ApplicationManifest {
     aaptActionHelper.createGenerateApkAction(resourceApk,
         resourceContainer.getRenameManifestPackage(), additionalAaptOpts.build(), densities);
 
-    ResourceContainer updatedResources = new ResourceContainer(
+    ResourceContainer updatedResources = ResourceContainer.create(
         ruleContext.getLabel(),
         resourceContainer.getJavaPackage(),
         resourceContainer.getRenameManifestPackage(),

@@ -152,7 +152,7 @@ class AndroidResourceValidatorActionBuilder {
             .build(context));
 
     // Return the full set of validated transitive dependencies.
-    return new ResourceContainer(
+    return ResourceContainer.create(
         primary.getLabel(),
         primary.getJavaPackage(),
         primary.getRenameManifestPackage(),

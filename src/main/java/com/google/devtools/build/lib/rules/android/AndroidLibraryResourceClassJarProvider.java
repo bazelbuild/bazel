@@ -14,31 +14,26 @@
 
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-
 import javax.annotation.Nonnull;
 
 /**
- * A provider which contains the resource class jars from android_library rules. See
- * {@link AndroidRuleClasses#ANDROID_RESOURCES_CLASS_JAR}.
+ * A provider which contains the resource class jars from android_library rules. See {@link
+ * AndroidRuleClasses#ANDROID_RESOURCES_CLASS_JAR}.
  */
-public class AndroidLibraryResourceClassJarProvider implements TransitiveInfoProvider {
+@AutoValue
+public abstract class AndroidLibraryResourceClassJarProvider implements TransitiveInfoProvider {
 
-  @Nonnull
-  private final NestedSet<Artifact> resourceClassJars;
-
-  public AndroidLibraryResourceClassJarProvider(NestedSet<Artifact> resourceClassJars) {
-    checkNotNull(resourceClassJars);
-    this.resourceClassJars = resourceClassJars;
+  public static AndroidLibraryResourceClassJarProvider create(
+      NestedSet<Artifact> resourceClassJars) {
+    return new AutoValue_AndroidLibraryResourceClassJarProvider(resourceClassJars);
   }
 
   @Nonnull
-  public NestedSet<Artifact> getResourceClassJars() {
-    return resourceClassJars;
-  }
+  public abstract NestedSet<Artifact> getResourceClassJars();
+
+  AndroidLibraryResourceClassJarProvider() {}
 }
-

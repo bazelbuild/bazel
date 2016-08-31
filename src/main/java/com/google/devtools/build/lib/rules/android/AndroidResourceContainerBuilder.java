@@ -53,7 +53,7 @@ public final class AndroidResourceContainerBuilder {
     return this;
   }
 
-  /** Creates a {@link ResourceContainer} from a {@link RuleContext}. 
+  /** Creates a {@link ResourceContainer} from a {@link RuleContext}.
    * @throws InterruptedException */
   public ResourceContainer buildFromRule(RuleContext ruleContext, @Nullable Artifact apk)
       throws InterruptedException {
@@ -61,7 +61,7 @@ public final class AndroidResourceContainerBuilder {
     Preconditions.checkNotNull(this.data);
     Artifact rJavaSrcJar = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR);
-    return new AndroidResourcesProvider.ResourceContainer(
+    return AndroidResourcesProvider.ResourceContainer.create(
             ruleContext.getLabel(),
             getJavaPackage(ruleContext, rJavaSrcJar),
             getRenameManifestPackage(ruleContext),

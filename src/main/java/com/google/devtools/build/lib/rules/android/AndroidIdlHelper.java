@@ -385,8 +385,8 @@ public class AndroidIdlHelper {
     }
     importsBuilder.addAll(idlImports);
 
-    return new AndroidIdlProvider(rootsBuilder.build(),
-        importsBuilder.build(), jarsBuilder.build());
+    return AndroidIdlProvider.create(
+        rootsBuilder.build(), importsBuilder.build(), jarsBuilder.build());
   }
 
   /**

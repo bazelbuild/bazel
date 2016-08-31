@@ -168,7 +168,7 @@ class AndroidResourceMergingActionBuilder {
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    return new ResourceContainer(
+    return ResourceContainer.create(
         primary.getLabel(),
         primary.getJavaPackage(),
         primary.getRenameManifestPackage(),

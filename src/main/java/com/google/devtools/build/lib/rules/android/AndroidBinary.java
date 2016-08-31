@@ -71,14 +71,12 @@ import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -689,8 +687,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getMapping() != null) {
       builder.add(ProguardMappingProvider.class,
-          new ProguardMappingProvider(proguardOutput.getMapping(),
-                                      proguardOutput.getProtoMapping()));
+          ProguardMappingProvider.create(
+              proguardOutput.getMapping(), proguardOutput.getProtoMapping()));
     }
 
     return builder
@@ -709,11 +707,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             JavaSourceInfoProvider.fromJavaTargetAttributes(resourceClasses, javaSemantics))
         .add(
             ApkProvider.class,
-            new ApkProvider(
+            ApkProvider.create(
                 NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk),
                 coverageMetadata,
                 NestedSetBuilder.create(Order.STABLE_ORDER, applicationManifest.getManifest())))
-        .add(AndroidPreDexJarProvider.class, new AndroidPreDexJarProvider(jarToDex))
+        .add(AndroidPreDexJarProvider.class, AndroidPreDexJarProvider.create(jarToDex))
         .addOutputGroup("mobile_install_full" + INTERNAL_SUFFIX, fullInstallOutputGroup)
         .addOutputGroup(
             "mobile_install_incremental" + INTERNAL_SUFFIX, incrementalInstallOutputGroup)

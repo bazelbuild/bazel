@@ -13,27 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-/**
- * A provider of the final Jar to be dexed for targets that build APKs.
- */
+/** A provider of the final Jar to be dexed for targets that build APKs. */
+@AutoValue
 @Immutable
-public final class AndroidPreDexJarProvider implements TransitiveInfoProvider {
+public abstract class AndroidPreDexJarProvider implements TransitiveInfoProvider {
 
-  private final Artifact preDexJar;
-
-
-  public AndroidPreDexJarProvider(Artifact preDexJar) {
-    this.preDexJar = preDexJar;
+  public static AndroidPreDexJarProvider create(Artifact preDexJar) {
+    return new AutoValue_AndroidPreDexJarProvider(preDexJar);
   }
 
-  /**
-   * Returns the jar to be dexed.
-   */
-  public Artifact getPreDexJar() {
-    return preDexJar;
-  }
+  /** Returns the jar to be dexed. */
+  public abstract Artifact getPreDexJar();
+
+  AndroidPreDexJarProvider() {}
 }

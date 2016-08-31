@@ -13,73 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.Preconditions;
-
-import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * A target that can provide the aar artifact of Android libraries and all the manifests that are
  * merged into the main aar manifest.
  */
+@AutoValue
 @Immutable
-public final class AndroidLibraryAarProvider implements TransitiveInfoProvider {
+public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvider {
 
-  private final Aar aar;
-  private final NestedSet<Aar> transitiveAars;
-
-  public AndroidLibraryAarProvider(Aar aar, NestedSet<Aar> transitiveAars) {
-    this.aar = aar;
-    this.transitiveAars = transitiveAars;
+  public static AndroidLibraryAarProvider create(@Nullable Aar aar, NestedSet<Aar> transitiveAars) {
+    return new AutoValue_AndroidLibraryAarProvider(aar, transitiveAars);
   }
 
-  public Aar getAar() {
-    return aar;
-  }
+  @Nullable public abstract Aar getAar();
 
-  public NestedSet<Aar> getTransitiveAars() {
-    return transitiveAars;
-  }
+  public abstract NestedSet<Aar> getTransitiveAars();
 
-  /**
-   * The .aar file and associated AndroidManifest.xml contributed by a single target.
-   */
+  /** The .aar file and associated AndroidManifest.xml contributed by a single target. */
+  @AutoValue
   @Immutable
-  public static final class Aar {
-    private final Artifact aar;
-    private final Artifact manifest;
-
-    public Aar(Artifact aar, Artifact manifest) {
-      this.aar = Preconditions.checkNotNull(aar);
-      this.manifest = Preconditions.checkNotNull(manifest);
+  public abstract static class Aar {
+    public static Aar create(Artifact aar, Artifact manifest) {
+      return new AutoValue_AndroidLibraryAarProvider_Aar(aar, manifest);
     }
 
-    public Artifact getAar() {
-      return aar;
-    }
+    public abstract Artifact getAar();
 
-    public Artifact getManifest() {
-      return manifest;
-    }
+    public abstract Artifact getManifest();
 
-    @Override
-    public int hashCode() {
-      return Objects.hash(aar, manifest);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof Aar)) {
-        return false;
-      }
-      Aar other = (Aar) obj;
-      return aar.equals(other.aar) && manifest.equals(other.manifest);
-    }
+    Aar() {}
   }
+
+  AndroidLibraryAarProvider() {}
 }

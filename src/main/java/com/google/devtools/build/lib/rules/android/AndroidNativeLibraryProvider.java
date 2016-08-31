@@ -13,25 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 
 /**
- * A target that can provide native libraries (they are always dynamic ones) to
- * Android binaries.
+ * A target that can provide native libraries (they are always dynamic ones) to Android binaries.
  */
+@AutoValue
 @Immutable
-public final class AndroidNativeLibraryProvider implements TransitiveInfoProvider {
+public abstract class AndroidNativeLibraryProvider implements TransitiveInfoProvider {
 
-  private final NestedSet<LinkerInput> transitiveAndroidNativeLibraries;
-
-  public AndroidNativeLibraryProvider(NestedSet<LinkerInput> transitiveAndroidNativeLibraries) {
-    this.transitiveAndroidNativeLibraries = transitiveAndroidNativeLibraries;
+  public static AndroidNativeLibraryProvider create(
+      NestedSet<LinkerInput> transitiveAndroidNativeLibraries) {
+    return new AutoValue_AndroidNativeLibraryProvider(transitiveAndroidNativeLibraries);
   }
 
-  public NestedSet<LinkerInput> getTransitiveAndroidNativeLibraries() {
-    return transitiveAndroidNativeLibraries;
-  }
+  public abstract NestedSet<LinkerInput> getTransitiveAndroidNativeLibraries();
+
+  AndroidNativeLibraryProvider() {}
 }

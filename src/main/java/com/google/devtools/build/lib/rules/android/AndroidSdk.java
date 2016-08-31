@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.android.sdklib.repository.FullRevision;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,9 +33,6 @@ import com.google.devtools.build.lib.rules.java.BaseJavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
-
-import com.android.sdklib.repository.FullRevision;
-
 import java.util.Collection;
 
 /**
@@ -106,7 +104,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(
             AndroidSdkProvider.class,
-            new AndroidSdkProvider(
+            AndroidSdkProvider.create(
                 buildToolsVersion,
                 aaptSupportsMainDexGeneration,
                 frameworkAidl,

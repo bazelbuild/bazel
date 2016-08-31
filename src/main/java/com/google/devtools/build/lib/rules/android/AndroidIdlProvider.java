@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -24,45 +25,32 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  * Configured targets implementing this provider can contribute Android IDL information to the
  * compilation.
  */
+@AutoValue
 @Immutable
-public final class AndroidIdlProvider implements TransitiveInfoProvider {
+public abstract class AndroidIdlProvider implements TransitiveInfoProvider {
 
-  public static final AndroidIdlProvider EMPTY = new AndroidIdlProvider(
-      NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+  public static final AndroidIdlProvider EMPTY =
+      AndroidIdlProvider.create(
+          NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
-  private final NestedSet<String> transitiveIdlImportRoots;
-  private final NestedSet<Artifact> transitiveIdlImports;
-  private final NestedSet<Artifact> transitiveIdlJars;
-
-  public AndroidIdlProvider(
+  public static AndroidIdlProvider create(
       NestedSet<String> transitiveIdlImportRoots,
       NestedSet<Artifact> transitiveIdlImports,
       NestedSet<Artifact> transitiveIdlJars) {
-    this.transitiveIdlImportRoots = transitiveIdlImportRoots;
-    this.transitiveIdlImports = transitiveIdlImports;
-    this.transitiveIdlJars = transitiveIdlJars;
+    return new AutoValue_AndroidIdlProvider(
+        transitiveIdlImportRoots, transitiveIdlImports, transitiveIdlJars);
   }
 
-  /**
-   * The set of IDL import roots need for compiling the IDL sources in the transitive closure.
-   */
-  public NestedSet<String> getTransitiveIdlImportRoots() {
-    return transitiveIdlImportRoots;
-  }
+  /** The set of IDL import roots need for compiling the IDL sources in the transitive closure. */
+  public abstract NestedSet<String> getTransitiveIdlImportRoots();
 
-  /**
-   * The IDL files in the transitive closure.
-   */
-  public NestedSet<Artifact> getTransitiveIdlImports() {
-    return transitiveIdlImports;
-  }
+  /** The IDL files in the transitive closure. */
+  public abstract NestedSet<Artifact> getTransitiveIdlImports();
 
-  /**
-   * The IDL jars in the transitive closure, both class and source jars.
-   */
-  public NestedSet<Artifact> getTransitiveIdlJars() {
-    return transitiveIdlJars;
-  }
+  /** The IDL jars in the transitive closure, both class and source jars. */
+  public abstract NestedSet<Artifact> getTransitiveIdlJars();
+
+  AndroidIdlProvider() {}
 }

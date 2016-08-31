@@ -307,7 +307,7 @@ public class AndroidResourcesProcessorBuilder {
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    return new ResourceContainer(primary.getLabel(),
+    return ResourceContainer.create(primary.getLabel(),
         primary.getJavaPackage(),
         primary.getRenameManifestPackage(),
         primary.getConstantsInlined(),

@@ -167,7 +167,7 @@ public final class ResourceDependencies {
     if (neverlink) {
       return ResourceDependencies.empty().toProvider(label);
     }
-    return new AndroidResourcesProvider(
+    return AndroidResourcesProvider.create(
         label,
         NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
             .addTransitive(transitiveResources)
@@ -190,7 +190,7 @@ public final class ResourceDependencies {
     if (neverlink) {
       return ResourceDependencies.empty().toProvider(label);
     }
-    return new AndroidResourcesProvider(label, transitiveResources, directResources);
+    return AndroidResourcesProvider.create(label, transitiveResources, directResources);
   }
 
   /**
