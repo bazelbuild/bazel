@@ -14,28 +14,23 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-/**
- * Marks configured targets that are able to supply message bundles to their
- * dependents.
- */
+/** Marks configured targets that are able to supply message bundles to their dependents. */
+@AutoValue
 @Immutable
-public final class MessageBundleProvider implements TransitiveInfoProvider {
+public abstract class MessageBundleProvider implements TransitiveInfoProvider {
 
-  private final ImmutableList<Artifact> messages;
-
-  public MessageBundleProvider(ImmutableList<Artifact> messages) {
-    this.messages = messages;
+  public static MessageBundleProvider create(ImmutableList<Artifact> messages) {
+    return new AutoValue_MessageBundleProvider(messages);
   }
 
-  /**
-   * The set of XML source files containing the message definitions.
-   */
-  public ImmutableList<Artifact> getMessages() {
-    return messages;
-  }
+  /** The set of XML source files containing the message definitions. */
+  public abstract ImmutableList<Artifact> getMessages();
+
+  MessageBundleProvider() {}
 }
