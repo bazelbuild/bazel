@@ -43,9 +43,32 @@ using std::string;
 #define DATA_DIR_TOP
 #endif
 
+const char kPathLibData1[] = DATA_DIR_TOP "src/tools/singlejar/libdata1.jar";
+const char kPathLibData2[] = DATA_DIR_TOP "src/tools/singlejar/libdata2.jar";
+
 static bool HasSubstr(const string &s, const string &what) {
   return string::npos != s.find(what);
 }
+
+// A subclass of the OutputJar which concatenates the contents of each
+// entry in the data/ directory from the input archives.
+class CustomOutputJar : public OutputJar {
+ public:
+  ~CustomOutputJar() override {}
+  void ExtraHandler(const CDH *cdh) override {
+    auto file_name = cdh->file_name();
+    auto file_name_length = cdh->file_name_length();
+    if (file_name_length > 0 && file_name[file_name_length - 1] != '/' &&
+        begins_with(file_name, file_name_length, "tools/singlejar/data/")) {
+      // The contents of the data/<FILE> on the output is the
+      // concatenation of the data/<FILE> files from all inputs.
+      std::string metadata_file_path(file_name, file_name_length);
+      if (NewEntry(metadata_file_path)) {
+        ExtraCombiner(metadata_file_path, new Concatenator(metadata_file_path));
+      }
+    }
+  }
+};
 
 class OutputJarSimpleTest : public ::testing::Test {
  protected:
@@ -319,16 +342,26 @@ TEST_F(OutputJarSimpleTest, ExtraCombiners) {
   string out_path = OutputFilePath("out.jar");
   const char kEntry[] = "tools/singlejar/data/extra_file1";
   output_jar_.ExtraCombiner(kEntry, new Concatenator(kEntry));
-  CreateOutput(out_path,
-               {"--sources", DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
-                DATA_DIR_TOP "src/tools/singlejar/libdata2.jar"});
-  string extra_file_contents = GetEntryContents(out_path, kEntry);
-  EXPECT_EQ(
-      "extra_file_1 line1\n"
-      "extra_file_1 line2\n"
-      "extra_file_1 line1\n"
-      "extra_file_1 line2\n",
-      extra_file_contents);
+  CreateOutput(out_path, {"--sources", kPathLibData1, kPathLibData2});
+  string contents1 = GetEntryContents(kPathLibData1, kEntry);
+  string contents2 = GetEntryContents(kPathLibData2, kEntry);
+  EXPECT_EQ(contents1 + contents2, GetEntryContents(out_path, kEntry));
+}
+
+// Test ExtraHandler override.
+TEST_F(OutputJarSimpleTest, ExtraHandler) {
+  string out_path = OutputFilePath("out.jar");
+  const char kEntry[] = "tools/singlejar/data/extra_file1";
+  const char *option_list[] = {"--output", out_path.c_str(), "--sources",
+                               kPathLibData1, kPathLibData2};
+  CustomOutputJar custom_output_jar;
+  options_.ParseCommandLine(arraysize(option_list), option_list);
+  ASSERT_EQ(0, custom_output_jar.Doit(&options_));
+  EXPECT_EQ(0, VerifyZip(out_path));
+
+  string contents1 = GetEntryContents(kPathLibData1, kEntry);
+  string contents2 = GetEntryContents(kPathLibData2, kEntry);
+  EXPECT_EQ(contents1 + contents2, GetEntryContents(out_path, kEntry));
 }
 
 // --include_headers
@@ -336,8 +369,7 @@ TEST_F(OutputJarSimpleTest, IncludeHeaders) {
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path,
                {"--sources", DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-                DATA_DIR_TOP "src/tools/singlejar/libdata1.jar",
-                "--include_prefixes", "tools/singlejar/data"});
+                kPathLibData1, "--include_prefixes", "tools/singlejar/data"});
   std::vector<string> expected_entries(
       {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
        "tools/singlejar/data/", "tools/singlejar/data/extra_file1",
@@ -594,4 +626,5 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData2) {
   CreateOutput(out_path, {"--exclude_build_data", "--sources", testzip_path});
   EXPECT_EQ("build: foo", GetEntryContents(out_path, kBuildDataFile));
 }
+
 }  // namespace

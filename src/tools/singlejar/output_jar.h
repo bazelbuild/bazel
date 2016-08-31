@@ -34,12 +34,32 @@ class OutputJar {
   // Do all that needs to be done. Can be called only once.
   int Doit(Options *options);
   // Destructor.
-  ~OutputJar();
+  virtual ~OutputJar();
   // Add a combiner to handle the entries with given name. OutputJar will
   // own the instance of the combiner and will delete it on self destruction.
   void ExtraCombiner(const std::string& entry_name, Combiner *combiner);
+  // Additional file handler to be redefined by a subclass.
+  virtual void ExtraHandler(const CDH *entry);
   // Return jar path.
   const char *path() const { return options_->output_jar.c_str(); }
+
+ protected:
+  // The purpose  of these two tiny utility methods is to avoid creating a
+  // std::string instance (which always involves allocating an object on the
+  // heap) when we just need to check that a sequence of bytes in memory has
+  // given prefix or suffix.
+  static bool begins_with(const char *str, size_t n, const char *head) {
+    const size_t n_head = strlen(head);
+    return n >= n_head && !strncmp(str, head, n_head);
+  }
+  static bool ends_with(const char *str, size_t n, const char *tail) {
+    const size_t n_tail = strlen(tail);
+    return n >= n_tail && !strncmp(str + n - n_tail, tail, n_tail);
+  }
+  // True if an entry with given name have not been added to this archive.
+  bool NewEntry(const std::string& entry_name) {
+    return known_members_.count(entry_name) == 0;
+  }
 
  private:
   // Open output jar.
@@ -68,18 +88,6 @@ class OutputJar {
   // Write bytes to the output file, return true on success.
   bool WriteBytes(uint8_t *buffer, size_t count);
 
-  // The purpose  of these two tiny utility methods is to avoid creating a
-  // std::string instance (which always involves allocating an object on the
-  // heap) when we just need to check that a sequence of bytes in memory has
-  // given prefix or suffix.
-  static bool begins_with(const char *str, size_t n, const char *head) {
-    const size_t n_head = strlen(head);
-    return n >= n_head && !strncmp(str, head, n_head);
-  }
-  static bool ends_with(const char *str, size_t n, const char *tail) {
-    const size_t n_tail = strlen(tail);
-    return n >= n_tail && !strncmp(str + n - n_tail, tail, n_tail);
-  }
 
   Options *options_;
   struct EntryInfo {

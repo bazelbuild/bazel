@@ -285,13 +285,15 @@ bool OutputJar::AddJar(int jar_path_index) {
       // The contents of the META-INF/services/<SERVICE> on the output is the
       // concatenation of the META-INF/services/<SERVICE> files from all inputs.
       std::string service_path(file_name, file_name_length);
-      if (!known_members_.count(service_path)) {
+      if (NewEntry(service_path)) {
         // Create a concatenator and add it to the known_members_ map.
         // The call to Merge() below will then take care of the rest.
         Concatenator *service_handler = new Concatenator(service_path);
         service_handlers_.emplace_back(service_handler);
         known_members_.emplace(service_path, EntryInfo{service_handler});
       }
+    } else {
+      ExtraHandler(jar_entry);
     }
 
     // Install a new entry unless it is already present. All the plain (non-dir)
@@ -786,3 +788,5 @@ bool OutputJar::WriteBytes(uint8_t *buffer, size_t count) {
   }
   return true;
 }
+
+void OutputJar::ExtraHandler(const CDH *) {}
