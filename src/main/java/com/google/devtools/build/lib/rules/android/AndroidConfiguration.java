@@ -67,6 +67,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Converter for {@link ApkSigningMethod}.
+   */
+  public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
+    public ApkSigningMethodConverter() {
+      super(ApkSigningMethod.class, "apk signing method");
+    }
+  }
+
+  /**
    * Converter for a set of {@link AndroidBinaryType}s.
    */
   public static final class AndroidBinaryTypesConverter
@@ -131,6 +140,49 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   /** Types of android binaries as {@link AndroidBinary#dex} distinguishes them. */
   public enum AndroidBinaryType {
     MONODEX, MULTIDEX_UNSHARDED, MULTIDEX_SHARDED
+  }
+
+  /**
+   * Which APK signing method to use with the debug key for rules that build APKs.
+   *
+   * <ul>
+   * <li>LEGACY_V1 uses the signer inside the deprecated apkbuilder tool.
+   * <li>V1 uses the apksigner attribute from the android_sdk and signs the APK as a JAR.
+   * <li>V2 uses the apksigner attribute from the android_sdk and signs the APK according to the APK
+   * Signing Schema V2 that is only supported on Android N and later.
+   * </ul>
+   */
+  public enum ApkSigningMethod {
+    LEGACY_V1(true, false, false),
+    V1(false, true, false),
+    V2(false, false, true),
+    V1_V2(false, true, true);
+
+    private final boolean signLegacy;
+    private final boolean signV1;
+    private final boolean signV2;
+
+    ApkSigningMethod(boolean signLegacy, boolean signV1, boolean signV2) {
+      // If signLegacy is true, the other two values will be ignored.
+      this.signLegacy = signLegacy;
+      this.signV1 = signV1;
+      this.signV2 = signV2;
+    }
+
+    /** Whether to sign with the signer inside the deprecated apkbuilder tool. */
+    public boolean signLegacy() {
+      return signLegacy;
+    }
+
+    /** Whether to JAR sign the APK with the apksigner tool. */
+    public boolean signV1() {
+      return signV1;
+    }
+
+    /** Wheter to sign the APK with the apksigner tool with APK Signature Schema V2. */
+    public boolean signV2() {
+      return signV2;
+    }
   }
 
   /** When to use incremental dexing (using {@link DexArchiveProvider}). */
@@ -343,6 +395,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
               + "R classes from a merge action, separately from aapt.")
     public boolean useParallelResourceProcessing;
 
+    @Option(name = "apk_signing_method",
+        converter = ApkSigningMethodConverter.class,
+        defaultValue = "legacy_v1",
+        category = "undocumented",
+        help = "Implementation to use to sign APKs")
+    public ApkSigningMethod apkSigningMethod;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -413,6 +472,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useRClassGenerator;
   private final boolean useParallelResourceProcessing;
   private final AndroidManifestMerger manifestMerger;
+  private final ApkSigningMethod apkSigningMethod;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -436,6 +496,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useRClassGenerator = options.useRClassGenerator;
     this.useParallelResourceProcessing = options.useParallelResourceProcessing;
     this.manifestMerger = options.manifestMerger;
+    this.apkSigningMethod = options.apkSigningMethod;
   }
 
   public String getCpu() {
@@ -510,6 +571,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public AndroidManifestMerger getManifestMerger() {
     return manifestMerger;
+  }
+
+  public ApkSigningMethod getApkSigningMethod() {
+    return apkSigningMethod;
   }
 
   @Override

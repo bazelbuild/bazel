@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -55,7 +54,10 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidBinaryType;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
+import com.google.devtools.build.lib.rules.android.ApkActionsBuilder.LegacySignerApkActionsBuilder;
+import com.google.devtools.build.lib.rules.android.ApkActionsBuilder.SignerToolApkActionsBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -76,6 +78,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -430,30 +433,23 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 resourceApk.getMainDexProguardConfig(),
                 resourceClasses);
 
+    ApkSigningMethod signingMethod =
+        ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
+
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
-    Artifact signedApk =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_SIGNED_APK);
+    Artifact zipAlignedApk =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK);
 
-    ApkActionBuilder apkBuilder = new ApkActionBuilder(ruleContext, androidSemantics)
-        .classesDex(dexingOutput.classesDexZip)
-        .resourceApk(resourceApk.getArtifact())
-        .javaResourceZip(dexingOutput.javaResourceJar)
-        .nativeLibs(nativeLibs);
-
-    ruleContext.registerAction(apkBuilder
-        .message("Generating unsigned apk")
-        .build(unsignedApk));
-
-    ruleContext.registerAction(apkBuilder
-        .message("Generating signed apk")
-        .sign(true)
-        .build(signedApk));
-
-    Artifact zipAlignedApk = zipalignApk(
-        ruleContext,
-        signedApk,
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK));
+    createApkActionsBuilder(signingMethod)
+        .setClassesDex(dexingOutput.classesDexZip)
+        .setResourceApk(resourceApk.getArtifact())
+        .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setNativeLibs(nativeLibs)
+        .setUnsignedApk(unsignedApk)
+        .setSignedAndZipalignedApk(zipAlignedApk)
+        .setApkName("apk")
+        .registerActions(ruleContext, androidSemantics);
 
     // Don't add blacklistedApk, so it's only built if explicitly requested.
     filesBuilder.add(binaryJar);
@@ -509,19 +505,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact stubDex = getStubDex(ruleContext, javaSemantics, false);
     ruleContext.assertNoErrors();
 
-    ApkActionBuilder incrementalActionBuilder = new ApkActionBuilder(ruleContext, androidSemantics)
-        .classesDex(stubDex)
-        .resourceApk(incrementalResourceApk.getArtifact())
-        .javaResourceZip(dexingOutput.javaResourceJar)
-        .sign(true)
-        .javaResourceFile(stubData)
-        .message("Generating incremental apk");
+    ApkActionsBuilder incrementalActionsBuilder = createApkActionsBuilder(signingMethod)
+        .setClassesDex(stubDex)
+        .setResourceApk(incrementalResourceApk.getArtifact())
+        .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setJavaResourceFile(stubData)
+        .setApkName("incremental apk")
+        .setSignedApk(incrementalApk);
 
     if (!ruleContext.getFragment(AndroidConfiguration.class).useIncrementalNativeLibs()) {
-      incrementalActionBuilder.nativeLibs(nativeLibs);
+      incrementalActionsBuilder.setNativeLibs(nativeLibs);
     }
 
-    ruleContext.registerAction(incrementalActionBuilder.build(incrementalApk));
+    incrementalActionsBuilder.registerActions(ruleContext, androidSemantics);
 
     Artifact argsArtifact =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.MOBILE_INSTALL_ARGS);
@@ -569,11 +565,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // installation of each split (said references would eventually get installed, but it cannot
     // know that in advance)
     Artifact resourceSplitApk = getDxArtifact(ruleContext, "android_resources.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
-        .resourceApk(splitResourceApk.getArtifact())
-        .sign(true)
-        .message("Generating split Android resource apk")
-        .build(resourceSplitApk));
+    createApkActionsBuilder(signingMethod)
+        .setResourceApk(splitResourceApk.getArtifact())
+        .setApkName("split Android resource apk")
+        .setSignedApk(resourceSplitApk)
+        .registerActions(ruleContext, androidSemantics);
     splitApkSetBuilder.add(resourceSplitApk);
 
     for (int i = 0; i < dexingOutput.shardDexZips.size(); i++) {
@@ -581,35 +577,35 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact splitApkResources = createSplitApkResources(
           ruleContext, applicationManifest, splitName, true);
       Artifact splitApk = getDxArtifact(ruleContext, splitName + ".apk");
-      ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
-          .classesDex(dexingOutput.shardDexZips.get(i))
-          .resourceApk(splitApkResources)
-          .sign(true)
-          .message("Generating split dex apk " + (i + 1))
-          .build(splitApk));
+      createApkActionsBuilder(signingMethod)
+          .setClassesDex(dexingOutput.shardDexZips.get(i))
+          .setResourceApk(splitApkResources)
+          .setApkName("split dex apk " + (i + 1))
+          .setSignedApk(splitApk)
+          .registerActions(ruleContext, androidSemantics);
       splitApkSetBuilder.add(splitApk);
     }
 
     Artifact nativeSplitApkResources = createSplitApkResources(
         ruleContext, applicationManifest, "native", false);
     Artifact nativeSplitApk = getDxArtifact(ruleContext, "native.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
-        .resourceApk(nativeSplitApkResources)
-        .sign(true)
-        .message("Generating split native apk")
-        .nativeLibs(nativeLibs)
-        .build(nativeSplitApk));
+    createApkActionsBuilder(signingMethod)
+        .setResourceApk(nativeSplitApkResources)
+        .setNativeLibs(nativeLibs)
+        .setApkName("split native apk")
+        .setSignedApk(nativeSplitApk)
+        .registerActions(ruleContext, androidSemantics);
     splitApkSetBuilder.add(nativeSplitApk);
 
     Artifact javaSplitApkResources = createSplitApkResources(
         ruleContext, applicationManifest, "java_resources", false);
     Artifact javaSplitApk = getDxArtifact(ruleContext, "java_resources.apk");
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
-        .resourceApk(javaSplitApkResources)
-        .javaResourceZip(dexingOutput.javaResourceJar)
-        .sign(true)
-        .message("Generating split Java resource apk")
-        .build(javaSplitApk));
+    createApkActionsBuilder(signingMethod)
+        .setResourceApk(javaSplitApkResources)
+        .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setApkName("split Java resource apk")
+        .setSignedApk(javaSplitApk)
+        .registerActions(ruleContext, androidSemantics);
     splitApkSetBuilder.add(javaSplitApk);
 
     Artifact splitMainApkResources = getDxArtifact(ruleContext, "split_main.ap_");
@@ -627,12 +623,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact splitMainApk = getDxArtifact(ruleContext, "split_main.apk");
     Artifact splitStubDex = getStubDex(ruleContext, javaSemantics, true);
     ruleContext.assertNoErrors();
-    ruleContext.registerAction(new ApkActionBuilder(ruleContext, androidSemantics)
-        .resourceApk(splitMainApkResources)
-        .classesDex(splitStubDex)
-        .sign(true)
-        .message("Generating split main apk")
-        .build(splitMainApk));
+    createApkActionsBuilder(signingMethod)
+        .setClassesDex(splitStubDex)
+        .setResourceApk(splitMainApkResources)
+        .setApkName("split main apk")
+        .setSignedApk(splitMainApk)
+        .registerActions(ruleContext, androidSemantics);
     splitApkSetBuilder.add(splitMainApk);
     NestedSet<Artifact> allSplitApks = splitApkSetBuilder.build();
 
@@ -1091,9 +1087,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     // Always OFF if finalJarIsDerived
     ImmutableSet<AndroidBinaryType> incrementalDexing =
-        getEffectiveIncrementalDexing(ruleContext, dexopts, binaryJar != proguardedJar);
+        getEffectiveIncrementalDexing(
+            ruleContext, dexopts, !Objects.equals(binaryJar, proguardedJar));
     Artifact inclusionFilterJar =
-        isBinaryJarFiltered && binaryJar == proguardedJar ? binaryJar : null;
+        isBinaryJarFiltered && Objects.equals(binaryJar, proguardedJar) ? binaryJar : null;
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
       if (incrementalDexing.contains(AndroidBinaryType.MONODEX)) {
@@ -1131,7 +1128,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             createShuffleJarAction(
                 ruleContext,
                 incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED),
-                /*proguardedJar*/ binaryJar != proguardedJar ? proguardedJar : null,
+                /*proguardedJar*/ !Objects.equals(binaryJar, proguardedJar) ? proguardedJar : null,
                 shards,
                 common,
                 inclusionFilterJar,
@@ -1490,182 +1487,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         : null;
   }
 
-  /**
-   * Builder class for {@link com.google.devtools.build.lib.analysis.actions.SpawnAction}s that
-   * generate APKs.
-   *
-   * <p>Instances of this class can be reused after calling {@code build()}.
-   */
-  private static final class ApkActionBuilder {
-    private final RuleContext ruleContext;
-    private final AndroidSemantics semantics;
-
-    private boolean sign;
-    private String message;
-    private Artifact classesDex;
-    private Artifact resourceApk;
-    private Artifact javaResourceZip;
-    // javaResourceFile adds Java resources just like javaResourceZip. We should make the stub
-    // manifest writer output a zip file, then we could do away with this input to APK building.
-    private Artifact javaResourceFile;
-    private NativeLibs nativeLibs = NativeLibs.EMPTY;
-
-    private ApkActionBuilder(
-        RuleContext ruleContext, AndroidSemantics semantics) {
-      this.ruleContext = ruleContext;
-      this.semantics = semantics;
+  private static ApkActionsBuilder createApkActionsBuilder(ApkSigningMethod signingMethod) {
+    if (signingMethod.signLegacy()) {
+      return new LegacySignerApkActionsBuilder();
+    } else {
+      return new SignerToolApkActionsBuilder(signingMethod);
     }
-
-    /**
-     * Sets the user-visible message that is displayed when the action is running.
-     */
-    public ApkActionBuilder message(String message) {
-      this.message = message;
-      return this;
-    }
-
-    /**
-     * Sets the native libraries to be included in the APK.
-     */
-    public ApkActionBuilder nativeLibs(NativeLibs nativeLibs) {
-      this.nativeLibs = nativeLibs;
-      return this;
-    }
-
-    /**
-     * Sets the dex file to be included in the APK.
-     *
-     * <p>Can be either a plain .dex or a .zip file containing dexes.
-     */
-    public ApkActionBuilder classesDex(Artifact classesDex) {
-      this.classesDex = classesDex;
-      return this;
-    }
-
-    /**
-     * Sets the resource APK that contains the Android resources to be bundled into the output.
-     */
-    public ApkActionBuilder resourceApk(Artifact resourceApk) {
-      this.resourceApk = resourceApk;
-      return this;
-    }
-
-    /**
-     * Sets the file where Java resources are taken.
-     *
-     * <p>Everything in this will will be put directly into the APK except files with the extension
-     * {@code .class}.
-     */
-    public ApkActionBuilder javaResourceZip(Artifact javaResourcezip) {
-      this.javaResourceZip = javaResourcezip;
-      return this;
-    }
-
-    /**
-     * Adds an individual resource file to the root directory of the APK.
-     *
-     * <p>This provides the same functionality as {@code javaResourceZip}, except much more hacky.
-     * Will most probably won't work if there is an input artifact in the same directory as this
-     * file.
-     */
-    public ApkActionBuilder javaResourceFile(Artifact javaResourceFile) {
-      this.javaResourceFile = javaResourceFile;
-      return this;
-    }
-
-    /**
-     * Sets if the APK will be signed. By default, it won't be.
-     */
-    public ApkActionBuilder sign(boolean sign) {
-      this.sign = sign;
-      return this;
-    }
-
-    /**
-     * Creates a generating action for {@code outApk} that builds the APK specified.
-     */
-    public Action[] build(Artifact outApk) {
-      Builder actionBuilder = new SpawnAction.Builder()
-          .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkBuilder())
-          .setProgressMessage(message)
-          .setMnemonic("AndroidApkBuilder")
-          .addOutputArgument(outApk);
-
-      if (javaResourceZip != null) {
-        actionBuilder
-            .addArgument("-rj")
-            .addInputArgument(javaResourceZip);
-      }
-
-      Artifact nativeSymlinks = nativeLibs.createApkBuilderSymlinks(ruleContext);
-      if (nativeSymlinks != null) {
-        PathFragment nativeSymlinksDir = nativeSymlinks.getExecPath().getParentDirectory();
-        actionBuilder
-            .addInputManifest(nativeSymlinks, nativeSymlinksDir)
-            .addInput(nativeSymlinks)
-            .addInputs(nativeLibs.getAllNativeLibs())
-            .addArgument("-nf")
-            // If the native libs are "foo/bar/x86/foo.so", we need to pass "foo/bar" here
-            .addArgument(nativeSymlinksDir.getPathString());
-      }
-
-      if (nativeLibs.getName() != null) {
-        actionBuilder
-            .addArgument("-rf")
-            .addArgument(nativeLibs.getName().getExecPath().getParentDirectory().getPathString())
-            .addInput(nativeLibs.getName());
-      }
-
-      if (javaResourceFile != null) {
-        actionBuilder
-            .addArgument("-rf")
-            .addArgument((javaResourceFile.getExecPath().getParentDirectory().getPathString()))
-            .addInput(javaResourceFile);
-      }
-
-      if (sign) {
-        Artifact signingKey = semantics.getApkDebugSigningKey(ruleContext);
-        actionBuilder.addArgument("-ks").addArgument(signingKey.getExecPathString());
-        actionBuilder.addInput(signingKey);
-      } else {
-        actionBuilder.addArgument("-u");
-      }
-
-      actionBuilder
-          .addArgument("-z")
-          .addInputArgument(resourceApk);
-
-      if (classesDex != null) {
-        actionBuilder
-            .addArgument(classesDex.getFilename().endsWith(".dex") ? "-f" : "-z")
-            .addInputArgument(classesDex);
-      }
-
-      return actionBuilder.build(ruleContext);
-    }
-  }
-
-  /** Last step in buildings an apk: align the zip boundaries by 4 bytes. */
-  static Artifact zipalignApk(RuleContext ruleContext,
-      Artifact signedApk, Artifact zipAlignedApk) {
-    List<String> args = new ArrayList<>();
-    // "4" is the only valid value for zipalign, according to:
-    // http://developer.android.com/guide/developing/tools/zipalign.html
-    args.add("4");
-    args.add(signedApk.getExecPathString());
-    args.add(zipAlignedApk.getExecPathString());
-
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(signedApk)
-        .addOutput(zipAlignedApk)
-        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
-        .addArguments(args)
-        .setProgressMessage("Zipaligning apk")
-        .setMnemonic("AndroidZipAlign")
-        .build(ruleContext));
-    args.add(signedApk.getExecPathString());
-    args.add(zipAlignedApk.getExecPathString());
-    return zipAlignedApk;
   }
 
   /**

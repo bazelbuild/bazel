@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 
 /** Description of the tools Blaze needs from an Android SDK. */
 @AutoValue
@@ -44,6 +45,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       FilesToRunProvider aidl,
       FilesToRunProvider aapt,
       FilesToRunProvider apkBuilder,
+      @Nullable FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
       FilesToRunProvider jack,
@@ -66,6 +68,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
         aidl,
         aapt,
         apkBuilder,
+        apkSigner,
         proguard,
         zipalign,
         jack,
@@ -137,6 +140,9 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
   public abstract FilesToRunProvider getAapt();
 
   public abstract FilesToRunProvider getApkBuilder();
+
+  @Nullable
+  public abstract FilesToRunProvider getApkSigner();
 
   public abstract FilesToRunProvider getProguard();
 
