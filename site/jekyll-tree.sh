@@ -111,10 +111,13 @@ function process_doc {
 }
 
 function process_docs {
-  for f in $(find "$OUT_DIR/docs" -name "*.html"); do
+  for f in $(find "$OUT_DIR/versions/master/docs" -name "*.html"); do
     process_doc $f
   done
-  for f in $(find "$OUT_DIR/docs" -name "*.md"); do
+  for f in $(find "$OUT_DIR/versions/master/docs" -name "*.md"); do
+    process_doc $f
+  done
+  for f in $(find "$OUT_DIR/designs" -name "*.md"); do
     process_doc $f
   done
 }
@@ -129,7 +132,7 @@ function main {
   unpack_build_encyclopedia
   unpack_skylark_library
   unpack_skylark_rule_docs
-  cp ${CLR_HTML} ${OUT_DIR}/docs
+  cp ${CLR_HTML} ${OUT_DIR}/versions/master/docs
   process_docs
   package_output
 }
