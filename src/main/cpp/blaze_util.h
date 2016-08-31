@@ -64,6 +64,9 @@ bool WriteFile(const string &content, const string &filename);
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const string &file_path);
 
+// Returns true iff the current terminal is running inside an Emacs.
+bool IsEmacsTerminal();
+
 // Returns true iff the current terminal can support color and cursor movement.
 bool IsStandardTerminal();
 

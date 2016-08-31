@@ -443,8 +443,7 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
   }
   command_arguments_.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
 
-  const char *emacs = getenv("EMACS");
-  if (emacs != NULL && strcmp(emacs, "t") == 0) {
+  if (IsEmacsTerminal()) {
     command_arguments_.push_back("--emacs");
   }
 }

@@ -224,15 +224,25 @@ bool UnlinkPath(const string &file_path) {
   return unlink(file_path.c_str()) == 0;
 }
 
+bool IsEmacsTerminal() {
+  string emacs = getenv("EMACS") == nullptr ? "" : getenv("EMACS");
+  string inside_emacs =
+      getenv("INSIDE_EMACS") == nullptr ? "" : getenv("INSIDE_EMACS");
+  // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
+  // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
+  // e.g. "25.1.1,comint").  So we check both variables for maximum
+  // compatibility.
+  return emacs == "t" || inside_emacs != "";
+}
+
 // Returns true iff both stdout and stderr are connected to a
 // terminal, and it can support color and cursor movement
 // (this is computed heuristically based on the values of
 // environment variables).
 bool IsStandardTerminal() {
   string term = getenv("TERM") == nullptr ? "" : getenv("TERM");
-  string emacs = getenv("EMACS") == nullptr ? "" : getenv("EMACS");
   if (term == "" || term == "dumb" || term == "emacs" || term == "xterm-mono" ||
-      term == "symbolics" || term == "9term" || emacs == "t") {
+      term == "symbolics" || term == "9term" || IsEmacsTerminal()) {
     return false;
   }
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);

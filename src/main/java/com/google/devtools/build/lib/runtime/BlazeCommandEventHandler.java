@@ -112,8 +112,9 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(name = "emacs",
             defaultValue = "false",
             category = "undocumented",
-            help = "A system-generated parameter which is true iff EMACS=t in the environment of "
-               + "the client.  This option controls certain display features.")
+            help = "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
+               + "in the environment of the client.  This option controls certain display "
+               + "features.")
     public boolean runningInEmacs;
 
     @Option(name = "show_timestamps",
