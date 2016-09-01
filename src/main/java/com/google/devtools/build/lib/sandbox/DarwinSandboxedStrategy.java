@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SearchPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,9 +154,19 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     SandboxHelpers.reportSubcommand(executor, spawn);
     SandboxHelpers.postActionStatusMessage(executor, spawn);
 
+    PrintWriter errWriter =
+        sandboxDebug
+            ? new PrintWriter(actionExecutionContext.getFileOutErr().getErrorStream())
+            : null;
+
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
     Path sandboxExecRoot = sandboxPath.getRelative("execroot");
+
+    if (errWriter != null) {
+      errWriter.printf("sandbox root is %s\n", sandboxPath.toString());
+      errWriter.printf("working dir is %s\n", sandboxExecRoot.toString());
+    }
 
     ImmutableMap<String, String> spawnEnvironment =
         StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
@@ -166,7 +177,11 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
 
     try {
       HardlinkedExecRoot hardlinkedExecRoot =
-          new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot);
+          new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
+      if (errWriter != null) {
+        errWriter.flush();
+      }
+
       ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
       hardlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);

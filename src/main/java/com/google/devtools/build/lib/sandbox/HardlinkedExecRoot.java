@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -34,11 +35,14 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
   private final Path execRoot;
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
+  private final PrintWriter errWriter;
 
-  public HardlinkedExecRoot(Path execRoot, Path sandboxPath, Path sandboxExecRoot) {
+  public HardlinkedExecRoot(
+      Path execRoot, Path sandboxPath, Path sandboxExecRoot, PrintWriter errWriter) {
     this.execRoot = execRoot;
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
+    this.errWriter = errWriter;
   }
 
   @Override
@@ -51,6 +55,9 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
 
     // Create all needed directories.
     for (Path createDir : writableDirs) {
+      if (errWriter != null) {
+        errWriter.printf("createdir: %s\n", createDir.getPathString());
+      }
       FileSystemUtils.createDirectoryAndParents(createDir);
     }
 
@@ -91,23 +98,29 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
 
     for (ImmutableMap.Entry<PathFragment, Path> entry : inputs.entrySet()) {
       // Hardlink, resolve symlink here instead in finalizeLinks.
-      Path source = entry.getValue().resolveSymbolicLinks();
-      Path target =
-          source.startsWith(execRoot)
-              ? inputsDir.getRelative(source.relativeTo(execRoot))
+      Path target = entry.getValue().resolveSymbolicLinks();
+      Path hardlinkName =
+          target.startsWith(execRoot)
+              ? inputsDir.getRelative(target.relativeTo(execRoot))
               : inputsDir.getRelative(entry.getKey());
+      if (errWriter != null) {
+        errWriter.printf("hardlink: %s -> %s\n", hardlinkName, target);
+      }
       try {
-        createHardLink(target, source);
+        createHardLink(hardlinkName, target);
       } catch (IOException e) {
         // Creating a hardlink might fail when the input file and the sandbox directory are not on
         // the same filesystem / device. Then we use symlink instead.
-        target.createSymbolicLink(source);
+        hardlinkName.createSymbolicLink(target);
       }
 
       // symlink
-      Path symlinkNewPath = sandboxExecRoot.getRelative(entry.getKey());
-      FileSystemUtils.createDirectoryAndParents(symlinkNewPath.getParentDirectory());
-      symlinkNewPath.createSymbolicLink(target);
+      Path symlinkName = sandboxExecRoot.getRelative(entry.getKey());
+      if (errWriter != null) {
+        errWriter.printf("symlink: %s -> %s\n", symlinkName, hardlinkName);
+      }
+      FileSystemUtils.createDirectoryAndParents(symlinkName.getParentDirectory());
+      symlinkName.createSymbolicLink(hardlinkName);
     }
   }
 
