@@ -1440,6 +1440,19 @@ public class MemoizingEvaluatorTest {
           .hasCycleInfoThat()
           .hasSize(1);
     }
+    // When the nodes return to their original, error-free state,
+    tester
+        .getOrCreate(topKey, /*markAsModified=*/ true)
+        .setBuilder(null)
+        .addDependency(depKey)
+        .setConstantValue(new StringValue("a"));
+    tester.getOrCreate(depKey, /*markAsModified=*/ true).removeDependency(depKey);
+    tester.invalidate();
+    // Then evaluation is as expected.
+    EvaluationResult<StringValue> result3 = tester.eval(/*keepGoing=*/ true, topKey, depKey);
+    assertThatEvaluationResult(result3).hasEntryThat(topKey).isEqualTo(new StringValue("a"));
+    assertThatEvaluationResult(result3).hasEntryThat(depKey).isEqualTo(new StringValue("b"));
+    assertThatEvaluationResult(result3).hasNoError();
   }
 
   @Test
