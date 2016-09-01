@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define WINVER 0x0601
+#define _WIN32_WINNT 0x0601
+
 #include <jni.h>
 #include <string.h>
 #include <windows.h>
 
+#include <atomic>
 #include <string>
 
 #include "src/main/native/windows_error_handling.h"
@@ -29,14 +33,21 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
 struct NativeOutputStream {
   HANDLE handle_;
   std::string error_;
-
-  NativeOutputStream() : handle_(INVALID_HANDLE_VALUE), error_("") {}
+  std::atomic<bool> closed_;
+  NativeOutputStream()
+      : handle_(INVALID_HANDLE_VALUE),
+        error_(""),
+        closed_(false) {}
 
   void close() {
-    if (handle_ != INVALID_HANDLE_VALUE) {
-      CloseHandle(handle_);
-      handle_ = INVALID_HANDLE_VALUE;
+    closed_.store(true);
+    if (handle_ == INVALID_HANDLE_VALUE) {
+      return;
     }
+
+    CancelIoEx(handle_, NULL);
+    CloseHandle(handle_);
+    handle_ = INVALID_HANDLE_VALUE;
   }
 };
 
@@ -46,6 +57,7 @@ struct NativeProcess {
   NativeOutputStream stderr_;
   HANDLE process_;
   HANDLE job_;
+  DWORD pid_;
   std::string error_;
 
   NativeProcess()
@@ -222,6 +234,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     goto cleanup;
   }
 
+  result->pid_ = process_info.dwProcessId;
   result->process_ = process_info.hProcess;
   thread = process_info.hThread;
 
@@ -339,7 +352,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
 
-  if (stream->handle_ == INVALID_HANDLE_VALUE) {
+  if (stream->handle_ == INVALID_HANDLE_VALUE || stream->closed_.load()) {
     stream->error_ = "File handle closed";
     return -1;
   }
@@ -353,7 +366,10 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
   jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
   DWORD bytes_read;
   if (!ReadFile(stream->handle_, bytes + offset, length, &bytes_read, NULL)) {
-    if (GetLastError() == ERROR_BROKEN_PIPE) {
+    // Check if either the other end closed the pipe or we did it with
+    // NativeOutputStream.close() . In the latter case, we'll get a "system
+    // call interrupted" error.
+    if (GetLastError() == ERROR_BROKEN_PIPE || stream->closed_.load()) {
       // End of file.
       stream->error_ = "";
       bytes_read = 0;
@@ -392,20 +408,47 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWaitFor(
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   HANDLE handles[1] = { process->process_ };
   DWORD win32_timeout = java_timeout < 0 ? INFINITE : java_timeout;
+  jint result;
   switch (WaitForMultipleObjects(1, handles, FALSE, win32_timeout)) {
     case 0:
-      return 0;
+      result = 0;
+      break;
 
     case WAIT_TIMEOUT:
-      return 1;
+      result = 1;
+      break;
 
     case WAIT_FAILED:
-      return 2;
+      result = 2;
+      break;
 
     default:
       process->error_ = "WaitForMultipleObjects() returned unknown result";
-      return 2;
+      result = 2;
+      break;
   }
+
+  // Close the pipe handles so that any pending nativeReadStream() calls
+  // return. This will call CancelIoEx() on the file handles in order to make
+  // ReadFile() in nativeReadStream() return; otherwise, CloseHandle() would
+  // hang.
+  //
+  // This protects against a subprocess being created, it passing the write
+  // side of the stdout/stderr pipes to a subprocess, then dying. In that case,
+  // if we didn't do this, the Java side of the code would hang waiting for the
+  // streams to finish.
+  //
+  // An alternative implementation would be to rely on job control terminating
+  // the subprocesses, but we don't want to assume that it's always available.
+  process->stdout_.close();
+  process->stderr_.close();
+
+  if (process->stdin_ != INVALID_HANDLE_VALUE) {
+    CloseHandle(process->stdin_);
+    process->stdin_ = INVALID_HANDLE_VALUE;
+  }
+
+  return result;
 }
 
 extern "C" JNIEXPORT jint JNICALL
