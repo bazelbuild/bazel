@@ -86,4 +86,9 @@ public class ObjcCppSemantics implements CppSemantics {
   @Override
   public void validateAttributes(RuleContext ruleContext) {
   }
+
+  @Override
+  public boolean needsIncludeValidation() {
+    return false;
+  }
 }

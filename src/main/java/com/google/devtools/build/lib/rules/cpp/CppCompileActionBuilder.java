@@ -79,6 +79,7 @@ public class CppCompileActionBuilder {
   private RuleContext ruleContext = null;
   private Boolean shouldScanIncludes;
   private Map<String, String> environment = new LinkedHashMap<>();
+  private CppSemantics cppSemantics;
   // New fields need to be added to the copy constructor.
 
   /**
@@ -147,6 +148,7 @@ public class CppCompileActionBuilder {
     this.ruleContext = other.ruleContext;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.environment = new LinkedHashMap<>(other.environment);
+    this.cppSemantics = other.cppSemantics;
   }
 
   public PathFragment getTempOutputFile() {
@@ -289,7 +291,8 @@ public class CppCompileActionBuilder {
           actionContext,
           ImmutableList.copyOf(copts),
           getNocoptPredicate(nocopts),
-          ruleContext);
+          ruleContext,
+          cppSemantics);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 
@@ -320,7 +323,8 @@ public class CppCompileActionBuilder {
           executionRequirements,
           ImmutableMap.copyOf(environment),
           getActionName(),
-          ruleContext);
+          ruleContext,
+          cppSemantics);
     }
   }
   
@@ -481,6 +485,12 @@ public class CppCompileActionBuilder {
     return this;
   }
 
+  /** Sets the CppSemantics for this compile. */
+  public CppCompileActionBuilder setSemantics(CppSemantics semantics) {
+    this.cppSemantics = semantics;
+    return this;
+  }
+  
   public void setShouldScanIncludes(boolean shouldScanIncludes) {
     this.shouldScanIncludes = shouldScanIncludes;
   }

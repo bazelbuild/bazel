@@ -520,6 +520,8 @@ public final class CppModel {
       CppCompileActionBuilder builder =
           initializeCompileAction(sourceArtifact, sourceLabel, /*forInterface=*/ false);
 
+      builder.setSemantics(semantics);
+      
       if (CppFileTypes.CPP_HEADER.matches(source.getSource().getExecPath())) {
         createHeaderAction(outputName, result, env, builder,
             CppFileTypes.mustProduceDotdFile(sourceArtifact.getFilename()));

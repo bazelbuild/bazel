@@ -67,4 +67,9 @@ public class BazelCppSemantics implements CppSemantics {
   @Override
   public void validateAttributes(RuleContext ruleContext) {
   }
+
+  @Override
+  public boolean needsIncludeValidation() {
+    return true;
+  }
 }

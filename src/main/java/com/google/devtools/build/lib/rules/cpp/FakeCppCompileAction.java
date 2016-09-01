@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -78,7 +77,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       Predicate<String> nocopts,
-      RuleContext ruleContext) {
+      RuleContext ruleContext,
+      CppSemantics semantics) {
     super(
         owner,
         features,
@@ -113,7 +113,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         ImmutableSet.<String>of(),
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
-        ruleContext);
+        ruleContext,
+        semantics);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
