@@ -21,9 +21,7 @@ import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -51,8 +49,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
   RuleConfiguredTarget(RuleContext ruleContext,
-      ImmutableMap<String, Object> skylarkProviders,
-      Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers) {
+      Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers,
+      SkylarkProviders skylarkProviders1) {
     super(ruleContext);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
@@ -63,13 +61,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     Preconditions.checkState(providerBuilder.containsKey(FilesToRunProvider.class));
 
     // Initialize every SkylarkApiProvider
-    for (Object provider : skylarkProviders.values()) {
-      if (provider instanceof SkylarkApiProvider) {
-        ((SkylarkApiProvider) provider).init(this);
-      }
-    }
-
-    providerBuilder.put(SkylarkProviders.class, new SkylarkProviders(skylarkProviders));
+    skylarkProviders1.init(this);
+    providerBuilder.put(SkylarkProviders.class, skylarkProviders1);
 
     this.providers = ImmutableMap.copyOf(providerBuilder);
     this.configConditions = ruleContext.getConfigConditions();

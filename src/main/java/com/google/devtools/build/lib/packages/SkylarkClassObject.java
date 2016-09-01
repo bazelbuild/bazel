@@ -123,7 +123,7 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   public Concatter getConcatter() {
     return StructConcatter.INSTANCE;
   }
-
+  
   public SkylarkClassObjectConstructor getConstructor() {
     return constructor;
   }

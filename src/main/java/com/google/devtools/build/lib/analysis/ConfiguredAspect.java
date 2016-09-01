@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -174,7 +174,8 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
 
       ImmutableMap<String, Object> skylarkProvidersMap = skylarkProviderBuilder.build();
       if (!skylarkProvidersMap.isEmpty()) {
-        providers.put(SkylarkProviders.class, new SkylarkProviders(skylarkProvidersMap));
+        providers.put(SkylarkProviders.class, new SkylarkProviders(skylarkProvidersMap,
+            ImmutableMap.<Key, SkylarkClassObject>of()));
       }
 
       addProvider(

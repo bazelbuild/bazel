@@ -88,8 +88,13 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (!(target instanceof SkylarkClassObject) && target != Runtime.NONE) {
-        ruleContext.ruleError("Rule implementation doesn't return a struct");
+      } else if (
+          !(target instanceof SkylarkClassObject) && target != Runtime.NONE
+          && !(target instanceof Iterable)) {
+        ruleContext.ruleError(
+            String.format(
+                "Rule should return a return a struct or a list, but got %s",
+                SkylarkType.typeOf(target)));
         return null;
       } else if (!expectFailure.isEmpty()) {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);
@@ -248,6 +253,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           Location insLoc = insStruct.getCreationLoc();
           FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
           if (insStruct.getKeys().contains("extensions")) {
+            @SuppressWarnings("unchecked")
             List<String> exts = cast(
                 "extensions", insStruct, SkylarkList.class, String.class, insLoc);
             if (exts.isEmpty()) {
@@ -285,10 +291,25 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           Class<? extends TransitiveInfoProvider> providerType = registeredProviderTypes.get(key);
           TransitiveInfoProvider provider = cast(key, struct, providerType, loc);
           builder.addProvider(providerType, provider);
+        } else if (key.equals("providers")) {
+          Iterable iterable = cast(key, struct, Iterable.class, loc);
+          for (Object o : iterable) {
+            SkylarkClassObject declaredProvider = SkylarkType.cast(o, SkylarkClassObject.class, loc,
+                "The value of 'providers' should be a sequence of declared providers");
+            builder.addSkylarkDeclaredProvider(declaredProvider, loc);
+          }
         } else if (!key.equals("executable")) {
           // We handled executable already.
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
         }
+      }
+    } else if (target instanceof Iterable) {
+      loc = ruleContext.getRule().getRuleClassObject().getConfiguredTargetFunction().getLocation();
+      for (Object o : (Iterable) target) {
+        SkylarkClassObject declaredProvider = SkylarkType.cast(o, SkylarkClassObject.class, loc,
+            "A return value of rule implementation function should be "
+                + "a sequence of declared providers");
+        builder.addSkylarkDeclaredProvider(declaredProvider, declaredProvider.getCreationLoc());
       }
     }
 

@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
@@ -40,7 +42,6 @@ import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -61,6 +62,8 @@ public final class RuleConfiguredTargetBuilder {
   private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
       new LinkedHashMap<>();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
+  private final ImmutableMap.Builder<SkylarkClassObjectConstructor.Key, SkylarkClassObject>
+      skylarkDeclaredProviders = ImmutableMap.builder();
   private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
 
   /** These are supported by all configured targets and need to be specially handled. */
@@ -131,7 +134,10 @@ public final class RuleConfiguredTargetBuilder {
 
     addRegisteredProvidersToSkylarkProviders();
       
-    return new RuleConfiguredTarget(ruleContext, skylarkProviders.build(), providers);
+    return new RuleConfiguredTarget(
+        ruleContext,
+        providers,
+        new SkylarkProviders(skylarkProviders.build(), skylarkDeclaredProviders.build()));
   }
   
   /**
@@ -268,6 +274,19 @@ public final class RuleConfiguredTargetBuilder {
 
     SkylarkProviderValidationUtil.validateAndThrowEvalException(name, value, loc);
     skylarkProviders.put(name, value);
+    return this;
+  }
+
+  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(
+      SkylarkClassObject provider, Location loc) throws EvalException {
+    SkylarkClassObjectConstructor constructor = provider.getConstructor();
+    SkylarkProviderValidationUtil.validateAndThrowEvalException(
+        constructor.getPrintableName(), provider, loc);
+    if (!constructor.isExported()) {
+      throw new EvalException(constructor.getLocation(),
+          "All providers must be top level values");
+    }
+    skylarkDeclaredProviders.put(constructor.getKey(), provider);
     return this;
   }
 

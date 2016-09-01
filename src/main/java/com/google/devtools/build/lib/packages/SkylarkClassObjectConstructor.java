@@ -79,8 +79,8 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
     return key != null;
   }
 
-  @Nullable
   public Key getKey() {
+    Preconditions.checkState(isExported());
     return key;
   }
 
