@@ -72,15 +72,9 @@ def _swift_library_impl(ctx):
   # TODO(b/29772303): Assert xcode version.
   apple_fm = ctx.fragments.apple
 
-  if (hasattr(apple_fm, "single_arch_platform")
-      and hasattr(apple_fm, "single_arch_cpu")):
-    cpu = apple_fm.single_arch_cpu
-    platform = apple_fm.single_arch_platform
-  else:
-    # TODO(dmishe): Remove this branch when single_arch_platform is available
-    # by default.
-    cpu = apple_fm.ios_cpu()
-    platform = apple_fm.ios_cpu_platform()
+  # TODO(dmishe): Use single_arch_cpu and single_arch_platform when available.
+  cpu = apple_fm.ios_cpu()
+  platform = apple_fm.ios_cpu_platform()
 
   sdk_version = apple_fm.sdk_version_for_platform(platform)
   target = _swift_target(cpu, platform, sdk_version)
