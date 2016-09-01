@@ -40,18 +40,21 @@ final class DarwinSandboxRunner extends SandboxRunner {
   private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
   private final Set<Path> inaccessiblePaths;
+  private final Path runUnderPath;
 
   DarwinSandboxRunner(
       Path sandboxPath,
       Path sandboxExecRoot,
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
+      Path runUnderPath,
       boolean verboseFailures) {
     super(sandboxPath, sandboxExecRoot, verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
     this.argumentsFilePath = sandboxPath.getRelative("sandbox.sb");
     this.writableDirs = writableDirs;
     this.inaccessiblePaths = inaccessiblePaths;
+    this.runUnderPath = runUnderPath;
   }
 
   static boolean isSupported() {
@@ -112,6 +115,9 @@ final class DarwinSandboxRunner extends SandboxRunner {
 
       for (Path inaccessiblePath : inaccessiblePaths) {
         out.println("(deny file-read* (subpath \"" + inaccessiblePath + "\"))");
+      }
+      if (runUnderPath != null) {
+        out.println("(allow file-read* (subpath \"" + runUnderPath + "\"))");
       }
 
       // Almost everything else is read-only.

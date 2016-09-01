@@ -162,6 +162,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
 
+    Path runUnderPath = getRunUnderPath(spawn);
+
     try {
       HardlinkedExecRoot hardlinkedExecRoot =
           new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot);
@@ -176,6 +178,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
               sandboxExecRoot,
               getWritableDirs(sandboxExecRoot, spawnEnvironment),
               getInaccessiblePaths(),
+              runUnderPath,
               verboseFailures);
 
       try {
@@ -240,7 +243,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       mountRunfilesFromManifests(unfinalized, spawn);
       mountRunfilesFromSuppliers(unfinalized, spawn);
       mountFilesFromFilesetManifests(unfinalized, spawn, executionContext);
-      mountRunUnderCommand(unfinalized, spawn);
       mounts.putAll(finalizeLinks(unfinalized));
 
       return mounts;
@@ -290,7 +292,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
    * <p>If --run_under= refers to a label, it is automatically provided in the spawn's input files,
    * so mountInputs() will catch that case.
    */
-  private void mountRunUnderCommand(Map<PathFragment, Path> mounts, Spawn spawn) {
+  private Path getRunUnderPath(Spawn spawn) {
     if (spawn.getResourceOwner() instanceof TestRunnerAction) {
       TestRunnerAction testRunnerAction = ((TestRunnerAction) spawn.getResourceOwner());
       RunUnder runUnder = testRunnerAction.getExecutionSettings().getRunUnder();
@@ -309,9 +311,10 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         // only need to hardlink when under workspace
         Path workspace = blazeDirs.getWorkspace();
         if (mount != null && mount.startsWith(workspace)) {
-          mounts.put(mount.relativeTo(workspace), mount);
+          return mount;
         }
       }
     }
+    return null;
   }
 }
