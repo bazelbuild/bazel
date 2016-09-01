@@ -93,6 +93,7 @@ public class BazelCppRuleClasses {
         "cc_inc_library",
         "cc_library",
         "objc_library",
+        "experimental_objc_library",
       };
 
   private static final RuleClass.Configurator<BuildConfiguration, Rule> LIPO_ON_DEMAND =
