@@ -277,7 +277,12 @@ final class ProtobufSupport {
       XcodeProvider bundleProvider =
           getBundleXcodeProvider(
               common, bundleIntermediateArtifacts, getUniqueBundledProtosSuffix(actionId));
-      xcodeProviderBuilder.addPropagatedDependencies(ImmutableSet.of(bundleProvider));
+      if (isLinkingTarget()) {
+        xcodeProviderBuilder.addPropagatedDependencies(ImmutableSet.of(bundleProvider));
+      } else {
+        xcodeProviderBuilder.addPropagatedDependenciesWithStrictDependencyHeaders(
+            ImmutableSet.of(bundleProvider));
+      }
       actionId++;
     }
 

@@ -76,21 +76,32 @@ public final class XcodeProvider implements TransitiveInfoProvider {
    */
   public static final class Builder {
     private Label label;
+    // Propagated dependencies and search paths are seen by all transitive dependents of this
+    // target. Non propagated dependencies are only seen by this target; none of the direct and
+    // transitive dependents of this target will see this provider. Strictly propagated dependencies
+    // are only seen by this target and only direct dependents; transitive dependents won't see this
+    // provider.
     private final NestedSetBuilder<String> propagatedUserHeaderSearchPaths =
         NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<String> nonPropagatedUserHeaderSearchPaths =
+        NestedSetBuilder.linkOrder();
+    private final NestedSetBuilder<String> strictlyPropagatedUserHeaderSearchPaths =
         NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<String> propagatedHeaderSearchPaths =
         NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<String> nonPropagatedHeaderSearchPaths =
         NestedSetBuilder.linkOrder();
-    private Optional<Artifact> bundleInfoplist = Optional.absent();
+    private final NestedSetBuilder<String> strictlyPropagatedHeaderSearchPaths =
+        NestedSetBuilder.linkOrder();
     // Dependencies must be in link order because XCode observes the dependency ordering for
     // binary linking.
     private final NestedSetBuilder<XcodeProvider> propagatedDependencies =
         NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<XcodeProvider> nonPropagatedDependencies =
         NestedSetBuilder.linkOrder();
+    private final NestedSetBuilder<XcodeProvider> strictlyPropagatedDependencies =
+        NestedSetBuilder.linkOrder();
+    private Optional<Artifact> bundleInfoplist = Optional.absent();
     private final NestedSetBuilder<XcodeProvider> jreDependencies = NestedSetBuilder.linkOrder();
     private final ImmutableList.Builder<XcodeprojBuildSetting> xcodeprojBuildSettings =
         new ImmutableList.Builder<>();
@@ -174,6 +185,27 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return addDependencies(dependencies, /*doPropagate=*/true);
     }
 
+    /**
+     * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
+     * be added in the {@code .xcodeproj} file and only propagate the header search paths to direct
+     * dependents of this target. Propagated dependencies of this target are still propagated as the
+     * code still needs to be linked, and only limits the propagation of this target's header search
+     * paths.
+     */
+    public Builder addPropagatedDependenciesWithStrictDependencyHeaders(
+        Iterable<XcodeProvider> dependencies) {
+      for (XcodeProvider dependency : dependencies) {
+        this.strictlyPropagatedDependencies.add(dependency);
+        this.propagatedDependencies.addTransitive(dependency.propagatedDependencies);
+        this.nonPropagatedDependencies.addTransitive(dependency.strictlyPropagatedDependencies);
+        this.strictlyPropagatedUserHeaderSearchPaths.addTransitive(
+            dependency.propagatedUserHeaderSearchPaths);
+        this.strictlyPropagatedHeaderSearchPaths.addTransitive(
+            dependency.propagatedHeaderSearchPaths);
+      }
+      return this;
+    }
+
    /**
      * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
      * be added in the {@code .xcodeproj} file and not propagated up the dependency chain.
@@ -219,6 +251,10 @@ public final class XcodeProvider implements TransitiveInfoProvider {
                 .addTransitive(dependency.propagatedHeaderSearchPaths);
             this.inputsToXcodegen.addTransitive(dependency.inputsToXcodegen);
           }
+          this.nonPropagatedUserHeaderSearchPaths.addTransitive(
+              dependency.strictlyPropagatedUserHeaderSearchPaths);
+          this.nonPropagatedHeaderSearchPaths.addTransitive(
+              dependency.strictlyPropagatedHeaderSearchPaths);
         }
       }
       return this;
@@ -440,11 +476,14 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final Label label;
   private final NestedSet<String> propagatedUserHeaderSearchPaths;
   private final NestedSet<String> nonPropagatedUserHeaderSearchPaths;
+  private final NestedSet<String> strictlyPropagatedUserHeaderSearchPaths;
   private final NestedSet<String> propagatedHeaderSearchPaths;
   private final NestedSet<String> nonPropagatedHeaderSearchPaths;
+  private final NestedSet<String> strictlyPropagatedHeaderSearchPaths;
   private final Optional<Artifact> bundleInfoplist;
   private final NestedSet<XcodeProvider> propagatedDependencies;
   private final NestedSet<XcodeProvider> nonPropagatedDependencies;
+  private final NestedSet<XcodeProvider> strictlyPropagatedDependencies;
   private final NestedSet<XcodeProvider> jreDependencies;
   private final ImmutableList<XcodeprojBuildSetting> xcodeprojBuildSettings;
   private final ImmutableList<XcodeprojBuildSetting> companionTargetXcodeprojBuildSettings;
@@ -466,11 +505,15 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.label = Preconditions.checkNotNull(builder.label);
     this.propagatedUserHeaderSearchPaths = builder.propagatedUserHeaderSearchPaths.build();
     this.nonPropagatedUserHeaderSearchPaths = builder.nonPropagatedUserHeaderSearchPaths.build();
+    this.strictlyPropagatedUserHeaderSearchPaths =
+        builder.strictlyPropagatedUserHeaderSearchPaths.build();
     this.propagatedHeaderSearchPaths = builder.propagatedHeaderSearchPaths.build();
     this.nonPropagatedHeaderSearchPaths = builder.nonPropagatedHeaderSearchPaths.build();
+    this.strictlyPropagatedHeaderSearchPaths = builder.strictlyPropagatedHeaderSearchPaths.build();
     this.bundleInfoplist = builder.bundleInfoplist;
     this.propagatedDependencies = builder.propagatedDependencies.build();
     this.nonPropagatedDependencies = builder.nonPropagatedDependencies.build();
+    this.strictlyPropagatedDependencies = builder.strictlyPropagatedDependencies.build();
     this.jreDependencies = builder.jreDependencies.build();
     this.xcodeprojBuildSettings = builder.xcodeprojBuildSettings.build();
     this.companionTargetXcodeprojBuildSettings =
@@ -493,8 +536,10 @@ public final class XcodeProvider implements TransitiveInfoProvider {
 
   private void collectProviders(Set<XcodeProvider> allProviders) {
     if (allProviders.add(this)) {
-      for (XcodeProvider dependency : Iterables.concat(propagatedDependencies,
-          nonPropagatedDependencies)) {
+      Iterable<XcodeProvider> allDependencies =
+          Iterables.concat(
+              propagatedDependencies, nonPropagatedDependencies, strictlyPropagatedDependencies);
+      for (XcodeProvider dependency : allDependencies) {
         dependency.collectProviders(allProviders);
       }
       for (XcodeProvider justTestHost : testHost.asSet()) {
@@ -568,14 +613,18 @@ public final class XcodeProvider implements TransitiveInfoProvider {
 
   private TargetControl targetControl() {
     String buildFilePath = label.getPackageFragment().getSafePathString() + "/BUILD";
-    NestedSet<String> userHeaderSearchPaths = NestedSetBuilder.<String>linkOrder()
-        .addTransitive(propagatedUserHeaderSearchPaths)
-        .addTransitive(nonPropagatedUserHeaderSearchPaths)
-        .build();
-    NestedSet<String> headerSearchPaths = NestedSetBuilder.<String>linkOrder()
-        .addTransitive(propagatedHeaderSearchPaths)
-        .addTransitive(nonPropagatedHeaderSearchPaths)
-        .build();
+    NestedSet<String> userHeaderSearchPaths =
+        NestedSetBuilder.<String>linkOrder()
+            .addTransitive(propagatedUserHeaderSearchPaths)
+            .addTransitive(nonPropagatedUserHeaderSearchPaths)
+            .addTransitive(strictlyPropagatedUserHeaderSearchPaths)
+            .build();
+    NestedSet<String> headerSearchPaths =
+        NestedSetBuilder.<String>linkOrder()
+            .addTransitive(propagatedHeaderSearchPaths)
+            .addTransitive(nonPropagatedHeaderSearchPaths)
+            .addTransitive(strictlyPropagatedHeaderSearchPaths)
+            .build();
 
     // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
     TargetControl.Builder targetControl =
