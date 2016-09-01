@@ -172,6 +172,7 @@ def create_android_sdk_rules(
       annotations_jar = "tools/support/annotations.jar",
       main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
       apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
+      apksigner = "@bazel_tools//third_party/java/apksig:embedded_apksigner",
       zipalign = ":zipalign_binary",
       jack = ":fail",
       jill = ":fail",

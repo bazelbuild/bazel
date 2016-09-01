@@ -149,6 +149,7 @@ genrule(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//third_party/ijar",
         "//third_party/java/apkbuilder:embedded_tools",
+        "//third_party/java/apksig:embedded_tools",
     ] + select({
         ":darwin": [
             ":darwin_tools",
