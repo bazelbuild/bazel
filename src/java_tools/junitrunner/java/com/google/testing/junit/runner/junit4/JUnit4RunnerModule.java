@@ -14,9 +14,9 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.common.base.Ticker;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.util.TestNameProvider;
+import com.google.testing.junit.runner.util.Ticker;
 
 import dagger.Module;
 import dagger.Provides;

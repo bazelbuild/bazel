@@ -16,11 +16,11 @@ package com.google.testing.junit.runner.model;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-import com.google.common.base.Ticker;
 import com.google.testing.junit.junit4.runner.DynamicTestException;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.TestPropertyRunnerIntegration;
+import com.google.testing.junit.runner.util.Ticker;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringWriter;
