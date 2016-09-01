@@ -30,10 +30,10 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class Event implements Serializable {
-
   private final EventKind kind;
   private final Location location;
   private final String message;
+
   /**
    * An alternative representation for message.
    * Exactly one of message or messageBytes will be non-null.
@@ -47,12 +47,15 @@ public final class Event implements Serializable {
   @Nullable
   private final String tag;
 
+  private final int hashCode;
+
   private Event(EventKind kind, @Nullable Location location, String message, @Nullable String tag) {
     this.kind = Preconditions.checkNotNull(kind);
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
     this.messageBytes = null;
     this.tag = tag;
+    this.hashCode = Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes));
   }
 
   private Event(
@@ -62,6 +65,7 @@ public final class Event implements Serializable {
     this.message = null;
     this.messageBytes = Preconditions.checkNotNull(messageBytes);
     this.tag = tag;
+    this.hashCode = Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes));
   }
 
   public Event withTag(String tag) {
@@ -113,11 +117,14 @@ public final class Event implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes));
+    return hashCode;
   }
 
   @Override
   public boolean equals(Object other) {
+    if (other == this) {
+      return true;
+    }
     if (other == null || !other.getClass().equals(getClass())) {
       return false;
     }
