@@ -99,7 +99,7 @@ assert_expansion() {
 # in STDERR receiving a string containing regex unexpected-error.
 assert_expansion_error_not_contains() {
   local prefix=$1 not_expected=$2 flags=${3:-}
-  local temp_file=$(mktemp -t tmp.stderr.XXXXXX)
+  local temp_file="$(mktemp "${TEST_TMPDIR}/tmp.stderr.XXXXXX")"
   for i in ${COMMAND_ALIASES[@]}; do
     local nprefix="$i "
     expand "$nprefix\t" "$flags" "$temp_file" > /dev/null

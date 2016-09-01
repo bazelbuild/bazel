@@ -231,8 +231,7 @@ genrule(
 EOF
   local old_path="${PATH}"
   local old_tmpdir="${TMPDIR-}"
-  local effective_tmpdir="${TMPDIR:-/tmp}"
-  local new_tmpdir=$(mktemp -d "${effective_tmpdir}/newfancytmpdirXXXXXX")
+  local new_tmpdir="$(mktemp -d "${TEST_TMPDIR}/newfancytmpdirXXXXXX")"
   [ -d "${new_tmpdir}" ] || \
     fail "Could not create new temporary directory ${new_tmpdir}"
   export PATH="/bin:/usr/bin:/random/path"
