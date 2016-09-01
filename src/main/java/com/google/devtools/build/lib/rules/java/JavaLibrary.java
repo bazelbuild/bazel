@@ -158,8 +158,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext);
 
     semantics.addProviders(
-        ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, 
-        genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(), 
+        ruleContext, common, ImmutableList.<String>of(), classJar, srcJar,
+        genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(),
         filesBuilder, builder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
@@ -169,27 +169,37 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
     builder
-        .add(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, iJar, srcJar)
-            .setJdeps(outputDepsProto)
-            .build())
-        .add(JavaRuntimeJarProvider.class,
+        .add(
+            JavaRuleOutputJarsProvider.class,
+            JavaRuleOutputJarsProvider.builder()
+                .addOutputJar(classJar, iJar, srcJar)
+                .setJdeps(outputDepsProto)
+                .build())
+        .add(
+            JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
-        .add(RunfilesProvider.class, RunfilesProvider.simple(JavaCommon.getRunfiles(
-            ruleContext, semantics, javaArtifacts, neverLink)))
+        .add(
+            RunfilesProvider.class,
+            RunfilesProvider.simple(
+                JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(CppCompilationContext.class, transitiveCppDeps)
-        .add(JavaCompilationArgsProvider.class, new JavaCompilationArgsProvider(
-            javaCompilationArgs, recursiveJavaCompilationArgs,
-            compileTimeJavaDepArtifacts, runTimeJavaDepArtifacts))
+        .add(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider.create(
+                javaCompilationArgs, recursiveJavaCompilationArgs,
+                compileTimeJavaDepArtifacts, runTimeJavaDepArtifacts))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
-        .add(JavaNativeLibraryProvider.class, new JavaNativeLibraryProvider(
-            transitiveJavaNativeLibraries))
-        .add(JavaSourceInfoProvider.class,
+        .add(
+            JavaNativeLibraryProvider.class,
+            new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
+        .add(
+            JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
-            transitiveSourceJars, ImmutableList.of(srcJar)))
+        .add(
+            JavaSourceJarsProvider.class,
+            JavaSourceJarsProvider.create(transitiveSourceJars, ImmutableList.of(srcJar)))
         // TODO(bazel-team): this should only happen for java_plugin
         .add(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))

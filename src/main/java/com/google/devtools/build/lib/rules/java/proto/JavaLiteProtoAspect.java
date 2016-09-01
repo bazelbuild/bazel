@@ -186,7 +186,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .put(
                 JavaSourceJarsAspectProvider.class,
                 new JavaSourceJarsAspectProvider(
-                    new JavaSourceJarsProvider(
+                    JavaSourceJarsProvider.create(
                         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars)));
       } else {
         // No sources - this proto_library is an alias library, which exports its dependencies.

@@ -59,7 +59,7 @@ public class StrictDepsUtils {
     directCompilationArgs
         .addTransitiveArgs(provider.getJavaCompilationArgs(), BOTH)
         .addTransitiveArgs(provider.getRecursiveJavaCompilationArgs(), BOTH);
-    return new JavaCompilationArgsProvider(
+    return JavaCompilationArgsProvider.create(
         directCompilationArgs.build(),
         provider.getRecursiveJavaCompilationArgs(),
         provider.getCompileTimeJavaDependencyArtifacts(),

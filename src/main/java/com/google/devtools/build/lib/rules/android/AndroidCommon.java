@@ -734,7 +734,7 @@ public class AndroidCommon {
                 apksUnderTest))
         .add(
             JavaCompilationArgsProvider.class,
-            new JavaCompilationArgsProvider(
+            JavaCompilationArgsProvider.create(
                 javaCompilationArgs,
                 recursiveJavaCompilationArgs,
                 compileTimeDependencyArtifacts,
@@ -849,7 +849,7 @@ public class AndroidCommon {
   public Artifact getResourceClassJar() {
     return resourceClassJar;
   }
-  
+
   /**
    * Returns Jars produced by this rule that may go into the runtime classpath.  By contrast
    * {@link #getRuntimeJars()} returns the complete runtime classpath needed by this rule, including
@@ -876,7 +876,7 @@ public class AndroidCommon {
   }
 
   public JavaSourceJarsProvider getJavaSourceJarsProvider() {
-    return new JavaSourceJarsProvider(getTransitiveSourceJars(), getTopLevelSourceJars());
+    return JavaSourceJarsProvider.create(getTransitiveSourceJars(), getTopLevelSourceJars());
   }
 
   public boolean isNeverLink() {

@@ -156,19 +156,23 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider.build())
-        .add(JavaRuntimeJarProvider.class,
+        .add(
+            JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
-        .add(JavaCompilationArgsProvider.class, new JavaCompilationArgsProvider(
-            javaCompilationArgs, recursiveJavaCompilationArgs))
-        .add(JavaNativeLibraryProvider.class, new JavaNativeLibraryProvider(
-            transitiveJavaNativeLibraries))
+        .add(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
+        .add(
+            JavaNativeLibraryProvider.class,
+            new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-        .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
-            transitiveJavaSourceJars, srcJars))
+        .add(
+            JavaSourceJarsProvider.class,
+            JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars))
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs)

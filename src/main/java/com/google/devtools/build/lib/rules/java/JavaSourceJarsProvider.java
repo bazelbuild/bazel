@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -21,35 +22,27 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-/**
- * The collection of source jars from the transitive closure.
- */
+/** The collection of source jars from the transitive closure. */
+@AutoValue
 @Immutable
-public final class JavaSourceJarsProvider implements TransitiveInfoProvider {
+public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
 
-  private final NestedSet<Artifact> transitiveSourceJars;
-  private final ImmutableList<Artifact> sourceJars;
-
-  public JavaSourceJarsProvider(NestedSet<Artifact> transitiveSourceJars,
-      Iterable<Artifact> sourceJars) {
-    this.transitiveSourceJars = transitiveSourceJars;
-    this.sourceJars = ImmutableList.copyOf(sourceJars);
+  public static JavaSourceJarsProvider create(
+      NestedSet<Artifact> transitiveSourceJars, Iterable<Artifact> sourceJars) {
+    return new AutoValue_JavaSourceJarsProvider(
+        transitiveSourceJars, ImmutableList.copyOf(sourceJars));
   }
+
+  JavaSourceJarsProvider() {}
 
   /**
    * Returns all the source jars in the transitive closure, that can be reached by a chain of
    * JavaSourceJarsProvider instances.
    */
-  public NestedSet<Artifact> getTransitiveSourceJars() {
-    return transitiveSourceJars;
-  }
+  public abstract NestedSet<Artifact> getTransitiveSourceJars();
 
-  /**
-   * Return the source jars that are to be built when the target is on the command line.
-   */
-  public ImmutableList<Artifact> getSourceJars() {
-    return sourceJars;
-  }
+  /** Return the source jars that are to be built when the target is on the command line. */
+  public abstract ImmutableList<Artifact> getSourceJars();
 
   public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
     NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
@@ -59,7 +52,6 @@ public final class JavaSourceJarsProvider implements TransitiveInfoProvider {
       transitiveSourceJars.addTransitive(provider.getTransitiveSourceJars());
       sourceJars.addAll(provider.getSourceJars());
     }
-    return new JavaSourceJarsProvider(transitiveSourceJars.build(), sourceJars.build());
+    return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars.build());
   }
-
 }
