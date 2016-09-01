@@ -858,12 +858,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       getTarget(target);
       fail(
           String.format(
-              "checkLoadingPhaseError(): expected an error with '%s' when loading target '%s'.",
-              expectedErrorMessage,
-              target));
-    } catch (Exception e) {
-      assertContainsEvent(expectedErrorMessage);
+              "checkLoadingPhaseError(): expected an exception with '%s' when loading target '%s'.",
+              expectedErrorMessage, target));
+    } catch (Exception expected) {
     }
+    assertContainsEvent(expectedErrorMessage);
   }
 
   /**

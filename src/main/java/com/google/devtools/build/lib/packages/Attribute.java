@@ -22,14 +22,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -37,6 +41,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -45,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -627,20 +633,40 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets the attribute default value to a computed default value - use
-     * this when the default value is a function of other attributes of the
-     * Rule. The type of the computed default value for a mandatory attribute
-     * must match the type parameter: (e.g. list=[], integer=0, string="",
+     * Sets the attribute default value to a computed default value - use this when the default
+     * value is a function of other attributes of the Rule. The type of the computed default value
+     * for a mandatory attribute must match the type parameter: (e.g. list=[], integer=0, string="",
      * label=null). The {@code defaultValue} implementation must be immutable.
      *
-     * <p>If computedDefault returns a Label that is a target, that target will
-     * become an implicit dependency of this Rule; we will load the target
-     * (and its dependencies) if it encounters the Rule and build the target if
-     * needs to apply the Rule.
+     * <p>If the computed default returns a Label that is a target, that target will become an
+     * implicit dependency of this Rule; we will load the target (and its dependencies) if it
+     * encounters the Rule and build the target if needs to apply the Rule.
      */
     public Builder<TYPE> value(ComputedDefault defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
+      valueSource = AttributeValueSource.COMPUTED_DEFAULT;
+      valueSet = true;
+      return this;
+    }
+
+    /**
+     * Sets the attribute default value to a Skylark computed default template. Like a native
+     * Computed Default, this allows a Skylark-defined Rule Class to specify that the default value
+     * of an attribute is a function of other attributes of the Rule.
+     *
+     * <p>During the loading phase, the computed default template will be specialized for each rule
+     * it applies to. Those rules' attribute values will not be references to {@link
+     * SkylarkComputedDefaultTemplate}s, but instead will be references to {@link
+     * SkylarkComputedDefault}s.
+     *
+     * <p>If the computed default returns a Label that is a target, that target will become an
+     * implicit dependency of this Rule; we will load the target (and its dependencies) if it
+     * encounters the Rule and build the target if needs to apply the Rule.
+     */
+    public Builder<TYPE> value(SkylarkComputedDefaultTemplate skylarkComputedDefaultTemplate) {
+      Preconditions.checkState(!valueSet, "the default value is already set");
+      value = skylarkComputedDefaultTemplate;
       valueSource = AttributeValueSource.COMPUTED_DEFAULT;
       valueSet = true;
       return this;
@@ -1021,28 +1047,154 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * A computed default is a default value for a Rule attribute that is a
-   * function of other attributes of the rule.
+   * A strategy for dealing with too many computations, used when creating lookup tables for {@link
+   * ComputedDefault}s.
    *
-   * <p>Attributes whose defaults are computed are first initialized to the default
-   * for their type, and then the computed defaults are evaluated after all
-   * non-computed defaults have been initialized. There is no defined order
-   * among computed defaults, so they must not depend on each other.
+   * @param <TException> The type of exception this strategy throws if too many computations are
+   *     attempted.
+   */
+  interface ComputationLimiter<TException extends Exception> {
+    void onComputationCount(int count) throws TException;
+  }
+
+  /**
+   * An implementation of {@link ComputationLimiter} that never throws. For use with
+   * natively-defined {@link ComputedDefault}s, which are limited in the number of configurable
+   * attributes they depend on, not on the number of different combinations of possible inputs.
+   */
+  private static final ComputationLimiter<RuntimeException> NULL_COMPUTATION_LIMITER =
+      new ComputationLimiter<RuntimeException>() {
+        @Override
+        public void onComputationCount(int count) throws RuntimeException {}
+      };
+
+  /** Exception for computed default attributes that depend on too many configurable attributes. */
+  private static class TooManyConfigurableAttributesException extends Exception {
+    TooManyConfigurableAttributesException(int max) {
+      super(
+          String.format(
+              "Too many configurable attributes to compute all possible values: "
+                  + "Found more than %d possible values.",
+              max));
+    }
+  }
+
+  private static class FixedComputationLimiter
+      implements ComputationLimiter<TooManyConfigurableAttributesException> {
+
+    /** Upper bound of the number of combinations of values for a computed default attribute. */
+    private static final int COMPUTED_DEFAULT_MAX_COMBINATIONS = 64;
+
+    private static final FixedComputationLimiter INSTANCE = new FixedComputationLimiter();
+
+    @Override
+    public void onComputationCount(int count) throws TooManyConfigurableAttributesException {
+      if (count > COMPUTED_DEFAULT_MAX_COMBINATIONS) {
+        throw new TooManyConfigurableAttributesException(COMPUTED_DEFAULT_MAX_COMBINATIONS);
+      }
+    }
+  }
+
+  /**
+   * Specifies how values of {@link ComputedDefault} attributes are computed based on the values of
+   * other attributes.
    *
-   * <p>If a computed default reads the value of another attribute, at least one of
-   * the following must be true:
+   * <p>The {@code TComputeException} type parameter allows the two specializations of this class to
+   * describe whether and how their computations throw. For natively defined computed defaults,
+   * computation does not throw, but for Skylark-defined computed defaults, computation may throw
+   * {@link InterruptedException}.
+   */
+  private abstract static class ComputationStrategy<TComputeException extends Exception> {
+    abstract Object compute(AttributeMap map) throws TComputeException;
+
+    /**
+     * Returns a lookup table mapping from:
+     *
+     * <ul>
+     * <li>tuples of values that may be assigned by {@code rule} to attributes with names in {@code
+     *     dependencies} (note that there may be more than one such tuple for any given rule, if any
+     *     of the dependencies are configurable)
+     * </ul>
+     *
+     * <p>to:
+     *
+     * <ul>
+     * <li>the value {@link #compute(AttributeMap)} evaluates to when the provided {@link
+     *     AttributeMap} contains the values specified by that assignment, or {@code null} if the
+     *     {@link ComputationStrategy} failed to evaluate.
+     * </ul>
+     *
+     * <p>The lookup table contains a tuple for each possible assignment to the {@code dependencies}
+     * attributes. The meaning of each tuple is well-defined because {@code dependencies} is
+     * ordered.
+     *
+     * <p>This is useful because configurable attributes may have many possible values. During the
+     * loading phase a configurable attribute can't be resolved to a single value. Configuration
+     * information, needed to resolve such an attribute, is only available during analysis. However,
+     * any labels that a ComputedDefault attribute may evaluate to must be loaded during the loading
+     * phase.
+     */
+    <T, TLimitException extends Exception> Map<List<Object>, T> computeValuesForAllCombinations(
+        List<String> dependencies,
+        Type<T> type,
+        Rule rule,
+        ComputationLimiter<TLimitException> limiter)
+        throws TComputeException, TLimitException {
+      // This will hold every (value1, value2, ..) combination of the declared dependencies.
+      // Collect those combinations.
+      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+      List<Map<String, Object>> depMaps = mapper.visitAttributes(dependencies, limiter);
+      // For each combination, call compute() on a specialized AttributeMap providing those
+      // values.
+      Map<List<Object>, T> valueMap = new HashMap<>();
+      for (Map<String, Object> depMap : depMaps) {
+        AttributeMap attrMap = mapper.createMapBackedAttributeMap(depMap);
+        Object value = compute(attrMap);
+        List<Object> key = createDependencyAssignmentTuple(dependencies, attrMap);
+        valueMap.put(key, type.cast(value));
+      }
+      return valueMap;
+    }
+
+    /**
+     * Given an {@link AttributeMap}, containing an assignment to each attribute in {@code
+     * dependencies}, this returns a list of the assigned values, ordered as {@code dependencies} is
+     * ordered.
+     */
+    static List<Object> createDependencyAssignmentTuple(
+        List<String> dependencies, AttributeMap attrMap) {
+      ArrayList<Object> tuple = new ArrayList<>(dependencies.size());
+      for (String attrName : dependencies) {
+        Type<?> attrType = attrMap.getAttributeType(attrName);
+        tuple.add(attrMap.get(attrName, attrType));
+      }
+      return tuple;
+    }
+  }
+
+  /**
+   * A computed default is a default value for a Rule attribute that is a function of other
+   * attributes of the rule.
+   *
+   * <p>Attributes whose defaults are computed are first initialized to the default for their type,
+   * and then the computed defaults are evaluated after all non-computed defaults have been
+   * initialized. There is no defined order among computed defaults, so they must not depend on each
+   * other.
+   *
+   * <p>If a computed default reads the value of another attribute, at least one of the following
+   * must be true:
    *
    * <ol>
-   *   <li>The other attribute must be declared in the computed default's constructor</li>
-   *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}</li>
+   * <li>The other attribute must be declared in the computed default's constructor
+   * <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}
    * </ol>
    *
-   * <p>The reason for enforced declarations is that, since attribute values might be
-   * configurable, a computed default that depends on them may itself take multiple
-   * values. Since we have no access to a target's configuration at the time these values
-   * are computed, we need the ability to probe the default's *complete* dependency space.
-   * Declared dependencies allow us to do so sanely. Non-configurable attributes don't have
-   * this problem because their value is fixed and known even without configuration information.
+   * <p>The reason for enforced declarations is that, since attribute values might be configurable,
+   * a computed default that depends on them may itself take multiple values. Since we have no
+   * access to a target's configuration at the time these values are computed, we need the ability
+   * to probe the default's *complete* dependency space. Declared dependencies allow us to do so
+   * sanely. Non-configurable attributes don't have this problem because their value is fixed and
+   * known even without configuration information.
    *
    * <p>Implementations of this interface must be immutable.
    */
@@ -1054,7 +1206,7 @@ public final class Attribute implements Comparable<Attribute> {
      * configurable attribute values.
      */
     public ComputedDefault() {
-      dependencies = ImmutableList.of();
+      this(ImmutableList.<String>of());
     }
 
     /**
@@ -1062,7 +1214,7 @@ public final class Attribute implements Comparable<Attribute> {
      * explicitly specified configurable attribute value
      */
     public ComputedDefault(String depAttribute) {
-      dependencies = ImmutableList.of(depAttribute);
+      this(ImmutableList.of(depAttribute));
     }
 
     /**
@@ -1070,7 +1222,38 @@ public final class Attribute implements Comparable<Attribute> {
      * explicitly specified configurable attribute values.
      */
     public ComputedDefault(String depAttribute1, String depAttribute2) {
-      dependencies = ImmutableList.of(depAttribute1, depAttribute2);
+      this(ImmutableList.of(depAttribute1, depAttribute2));
+    }
+
+    /**
+     * Creates a computed default that can read all non-configurable attributes and some explicitly
+     * specified configurable attribute values.
+     *
+     * <p>This constructor should not be used by native {@link ComputedDefault} functions. The limit
+     * of at-most-two depended-on configurable attributes is intended, to limit the exponential
+     * growth of possible values. {@link SkylarkComputedDefault} uses this, but is limited by {@link
+     * FixedComputationLimiter#COMPUTED_DEFAULT_MAX_COMBINATIONS}.
+     */
+    protected ComputedDefault(ImmutableList<String> dependencies) {
+      // Order is important for #createDependencyAssignmentTuple.
+      this.dependencies = Ordering.natural().immutableSortedCopy(dependencies);
+    }
+
+    <T> Iterable<T> getPossibleValues(Type<T> type, Rule rule) {
+      final ComputedDefault owner = ComputedDefault.this;
+      ComputationStrategy<RuntimeException> strategy =
+          new ComputationStrategy<RuntimeException>() {
+            @Override
+            public Object compute(AttributeMap map) {
+              return owner.getDefault(map);
+            }
+          };
+      // Note that this uses ArrayList instead of something like ImmutableList because some
+      // values may be null.
+      return new ArrayList<>(
+          strategy
+              .computeValuesForAllCombinations(dependencies, type, rule, NULL_COMPUTATION_LIMITER)
+              .values());
     }
 
     /** The list of configurable attributes this ComputedDefault declares it may read. */
@@ -1078,7 +1261,208 @@ public final class Attribute implements Comparable<Attribute> {
       return dependencies;
     }
 
+    /**
+     * Returns the value this {@link ComputedDefault} evaluates to, given the inputs contained in
+     * {@code rule}.
+     */
     public abstract Object getDefault(AttributeMap rule);
+  }
+
+  /**
+   * A Skylark-defined computed default, which can be precomputed for a specific {@link Rule} by
+   * calling {@link #computePossibleValues}, which returns a {@link SkylarkComputedDefault} that
+   * contains a lookup table.
+   */
+  public static final class SkylarkComputedDefaultTemplate {
+    private final Type<?> type;
+    private final SkylarkCallbackFunction callback;
+    private final Location location;
+    private final ImmutableList<String> dependencies;
+
+    /**
+     * Creates a new SkylarkComputedDefaultTemplate that allows the computation of attribute values
+     * via a callback function during loading phase.
+     *
+     * @param type The type of the value of this attribute.
+     * @param dependencies A list of all names of other attributes that are accessed by this
+     *     attribute.
+     * @param callback A function to compute the actual attribute value.
+     * @param location The location of the Skylark function.
+     */
+    public SkylarkComputedDefaultTemplate(
+        Type<?> type,
+        ImmutableList<String> dependencies,
+        SkylarkCallbackFunction callback,
+        Location location) {
+      this.type = Preconditions.checkNotNull(type);
+      this.dependencies = Preconditions.checkNotNull(dependencies);
+      this.callback = Preconditions.checkNotNull(callback);
+      this.location = Preconditions.checkNotNull(location);
+    }
+
+    /**
+     * Returns a {@link SkylarkComputedDefault} containing a lookup table specifying the output of
+     * this {@link SkylarkComputedDefaultTemplate}'s callback given each possible assignment {@code
+     * rule} might make to the attributes specified by {@link #dependencies}.
+     *
+     * <p>If the rule is missing an attribute specified by {@link #dependencies}, or if there are
+     * too many possible assignments, or if any evaluation fails, this throws {@link
+     * CannotPrecomputeDefaultsException}.
+     *
+     * <p>May only be called after all non-{@link ComputedDefault} attributes have been set on the
+     * {@code rule}.
+     */
+    SkylarkComputedDefault computePossibleValues(
+        Attribute attr, final Rule rule, final EventHandler eventHandler)
+        throws InterruptedException, CannotPrecomputeDefaultsException {
+
+      final SkylarkComputedDefaultTemplate owner = SkylarkComputedDefaultTemplate.this;
+      final String msg =
+          String.format(
+              "Cannot compute default value of attribute '%s' in rule '%s': ",
+              attr.getName().replace('$', '_'), rule.getLabel());
+      final AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
+      ComputationStrategy<InterruptedException> strategy =
+          new ComputationStrategy<InterruptedException>() {
+            @Override
+            public Object compute(AttributeMap map) throws InterruptedException {
+              try {
+                return owner.computeValue(map);
+              } catch (EvalException ex) {
+                caughtEvalExceptionIfAny.compareAndSet(null, ex);
+                return null;
+              }
+            }
+          };
+
+      ImmutableList.Builder<Type<?>> dependencyTypesBuilder = ImmutableList.builder();
+      Map<List<Object>, Object> lookupTable = new HashMap<>();
+      try {
+        for (String dependency : dependencies) {
+          Attribute attribute = rule.getRuleClassObject().getAttributeByNameMaybe(dependency);
+          if (attribute == null) {
+            throw new AttributeNotFoundException(
+                String.format("No such attribute %s in rule %s", dependency, rule.getLabel()));
+          }
+          dependencyTypesBuilder.add(attribute.getType());
+        }
+        lookupTable.putAll(
+            strategy.computeValuesForAllCombinations(
+                dependencies, attr.getType(), rule, FixedComputationLimiter.INSTANCE));
+        if (caughtEvalExceptionIfAny.get() != null) {
+          throw caughtEvalExceptionIfAny.get();
+        }
+      } catch (AttributeNotFoundException
+          | TooManyConfigurableAttributesException
+          | EvalException ex) {
+        String error = msg + ex.getMessage();
+        rule.reportError(error, eventHandler);
+        throw new CannotPrecomputeDefaultsException(error);
+      }
+      return new SkylarkComputedDefault(dependencies, dependencyTypesBuilder.build(), lookupTable);
+    }
+
+    private Object computeValue(AttributeMap rule) throws EvalException, InterruptedException {
+      Map<String, Object> attrValues = new HashMap<>();
+      for (String attrName : rule.getAttributeNames()) {
+        Attribute attr = rule.getAttributeDefinition(attrName);
+        if (!attr.hasComputedDefault()) {
+          Object value = rule.get(attrName, attr.getType());
+          if (!EvalUtils.isNullOrNone(value)) {
+            attrValues.put(attr.getName(), value);
+          }
+        }
+      }
+      return invokeCallback(attrValues);
+    }
+
+    private Object invokeCallback(Map<String, Object> attrValues)
+        throws EvalException, InterruptedException {
+      ClassObject attrs =
+          SkylarkClassObjectConstructor.STRUCT.create(
+              attrValues, "No such regular (non computed) attribute '%s'.");
+      Object result = callback.call(attrs);
+      try {
+        return type.cast((result == Runtime.NONE) ? type.getDefaultValue() : result);
+      } catch (ClassCastException ex) {
+        throw new EvalException(
+            location,
+            String.format(
+                "Expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true)));
+      }
+    }
+
+    private static class AttributeNotFoundException extends Exception {
+      private AttributeNotFoundException(String message) {
+        super(message);
+      }
+    }
+
+    static class CannotPrecomputeDefaultsException extends Exception {
+      private CannotPrecomputeDefaultsException(String message) {
+        super(message);
+      }
+    }
+  }
+
+  /**
+   * A class for computed attributes defined in Skylark.
+   *
+   * <p>Unlike {@link ComputedDefault}, instances of this class contain a pre-computed table of all
+   * possible assignments of depended-on attributes and what the Skylark function evaluates to, and
+   * {@link #getPossibleValues(Type, Rule)} and {@link #getDefault(AttributeMap)} do lookups in that
+   * table.
+   */
+  static final class SkylarkComputedDefault extends ComputedDefault {
+
+    private final List<Type<?>> dependencyTypes;
+    private final Map<List<Object>, Object> lookupTable;
+
+    /**
+     * Creates a new SkylarkComputedDefault containing a lookup table.
+     *
+     * @param requiredAttributes A list of all names of other attributes that are accessed by this
+     *     attribute.
+     * @param dependencyTypes A list of requiredAttributes' types.
+     * @param lookupTable An exhaustive mapping from requiredAttributes assignments to values this
+     *     computed default evaluates to.
+     */
+    SkylarkComputedDefault(
+        ImmutableList<String> requiredAttributes,
+        ImmutableList<Type<?>> dependencyTypes,
+        Map<List<Object>, Object> lookupTable) {
+      super(Preconditions.checkNotNull(requiredAttributes));
+      this.dependencyTypes = Preconditions.checkNotNull(dependencyTypes);
+      this.lookupTable = Preconditions.checkNotNull(lookupTable);
+    }
+
+    List<Type<?>> getDependencyTypes() {
+      return dependencyTypes;
+    }
+
+    Map<List<Object>, Object> getLookupTable() {
+      return lookupTable;
+    }
+
+    @Override
+    public Object getDefault(AttributeMap rule) {
+      List<Object> key = ComputationStrategy.createDependencyAssignmentTuple(dependencies(), rule);
+      Preconditions.checkState(
+          lookupTable.containsKey(key),
+          "Error in rule '%s': precomputed value missing for dependencies: %s",
+          rule.getLabel(),
+          Iterables.toString(key));
+      return lookupTable.get(key);
+    }
+
+    @Override
+    <T> Iterable<T> getPossibleValues(Type<T> type, Rule rule) {
+      List<T> result = new ArrayList<>(lookupTable.size());
+      for (Object obj : lookupTable.values()) {
+        result.add(type.cast(obj));
+      }
+      return result;
+    }
   }
 
   /**
@@ -1212,51 +1596,6 @@ public final class Attribute implements Comparable<Attribute> {
     public abstract List<Label> resolve(Rule rule, AttributeMap attributes, T configuration);
   }
 
-  /**
-   * A class for late bound attributes defined in Skylark.
-   */
-  public static final class SkylarkLateBound implements LateBoundDefault<Object> {
-
-    private final SkylarkCallbackFunction callback;
-
-    public SkylarkLateBound(SkylarkCallbackFunction callback) {
-      this.callback = callback;
-    }
-
-    @Override
-    public boolean useHostConfiguration() {
-      return false;
-    }
-
-    @Override
-    public ImmutableSet<Class<?>> getRequiredConfigurationFragments() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public Object getDefault() {
-      return null;
-    }
-
-    @Override
-    public Object resolve(Rule rule, AttributeMap attributes, Object o)
-        throws EvalException, InterruptedException {
-      Map<String, Object> attrValues = new HashMap<>();
-      for (Attribute attr : rule.getAttributes()) {
-        if (!attr.isLateBound()) {
-          Object value = attributes.get(attr.getName(), attr.getType());
-          if (value != null) {
-            attrValues.put(attr.getName(), value);
-          }
-        }
-      }
-      ClassObject attrs = SkylarkClassObjectConstructor.STRUCT.create(
-          attrValues,
-          "No such regular (non late-bound) attribute '%s'.");
-      return callback.call(attrs, o);
-    }
-  }
-
   private final String name;
 
   private final Type<?> type;
@@ -1267,8 +1606,10 @@ public final class Attribute implements Comparable<Attribute> {
   // 1. defaultValue == null.
   // 2. defaultValue instanceof ComputedDefault &&
   //    type.isValid(defaultValue.getDefault())
-  // 3. type.isValid(defaultValue).
-  // 4. defaultValue instanceof LateBoundDefault &&
+  // 3. defaultValue instanceof SkylarkComputedDefaultTemplate &&
+  //    type.isValid(defaultValue.computePossibleValues().getDefault())
+  // 4. type.isValid(defaultValue).
+  // 5. defaultValue instanceof LateBoundDefault &&
   //    type.isValid(defaultValue.getDefault(configuration))
   // (We assume a hypothetical Type.isValid(Object) predicate.)
   private final Object defaultValue;
@@ -1656,7 +1997,9 @@ public final class Attribute implements Comparable<Attribute> {
    * @see #getDefaultValue(Rule)
    */
   boolean hasComputedDefault() {
-    return (defaultValue instanceof ComputedDefault) || (condition != null);
+    return (defaultValue instanceof ComputedDefault)
+        || (defaultValue instanceof SkylarkComputedDefaultTemplate)
+        || (condition != null);
   }
 
   /**

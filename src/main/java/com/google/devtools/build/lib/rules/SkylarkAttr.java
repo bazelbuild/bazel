@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
+import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -46,11 +46,9 @@ import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -163,10 +161,20 @@ public final class SkylarkAttr {
     Object defaultValue = arguments.get(DEFAULT_ARG);
     if (!EvalUtils.isNullOrNone(defaultValue)) {
       if (defaultValue instanceof UserDefinedFunction) {
-        // Late bound attribute. Non label type attributes already caused a type check error.
+        // Computed attribute. Non label type attributes already caused a type check error.
+        UserDefinedFunction callback = (UserDefinedFunction) defaultValue;
+
+        // SkylarkComputedDefaultTemplate needs to know the names of all attributes that it depends
+        // on. However, this method does not know anything about other attributes.
+        // We solve this problem by asking the UserDefinedFunction for the parameter names used in
+        // the function definition, which must be the names of attributes used by the callback.
+        ImmutableList<String> dependencies = callback.getSignature().getSignature().getNames();
         builder.value(
-            new SkylarkLateBound(
-                new SkylarkCallbackFunction((UserDefinedFunction) defaultValue, ast, env)));
+            new SkylarkComputedDefaultTemplate(
+                type,
+                dependencies,
+                new SkylarkCallbackFunction(callback, ast, env),
+                ast.getLocation()));
       } else {
         builder.defaultValue(defaultValue);
       }
