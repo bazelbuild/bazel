@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.collect.ImmutableList;
@@ -107,6 +109,8 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addPrecompiledFiles(precompiledFiles)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
             .addCopts(compilationSupport.getCompileRuleCopts())
+            .addIncludeDirs(common.getObjcProvider().get(INCLUDE))
+            .addSystemIncludeDirs(common.getObjcProvider().get(INCLUDE_SYSTEM))
             .addVariableExtension(variablesExtension);
 
     if (compilationArtifacts.getArchive().isPresent()) {
@@ -172,6 +176,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     activatedCrosstoolSelectables.add(CppRuleClasses.MODULE_MAPS);
     activatedCrosstoolSelectables.add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET);
     activatedCrosstoolSelectables.add(CppRuleClasses.DEPENDENCY_FILE);
+    activatedCrosstoolSelectables.add(CppRuleClasses.INCLUDE_PATHS);
 
     return toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
   }
