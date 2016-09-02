@@ -118,6 +118,59 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
+  public void testFilteredGenJarNotCreatedForSourceOnlyRule() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "    name = 'simple',",
+        "    srcs = ['Test.java']",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:simple", ruleIdeInfos);
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().hasFilteredGenJar()).isFalse();
+  }
+
+  @Test
+  public void testFilteredGenJarNotCreatedForOnlyGenRule() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "genrule(",
+        "   name = 'gen_sources',",
+        "   outs = ['Gen.java'],",
+        "   cmd = '',",
+        ")",
+        "java_library(",
+        "    name = 'simple',",
+        "    srcs = [':gen_sources']",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:simple", ruleIdeInfos);
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().hasFilteredGenJar()).isFalse();
+  }
+
+  @Test
+  public void testFilteredGenJarIsCreatedForMixedGenAndSourcesRule() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "genrule(",
+        "   name = 'gen_sources',",
+        "   outs = ['Gen.java'],",
+        "   cmd = '',",
+        ")",
+        "java_library(",
+        "    name = 'simple',",
+        "    srcs = [':gen_sources', 'Test.java']",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:simple", ruleIdeInfos);
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getFilteredGenJar().getJar().getRelativePath())
+        .isEqualTo("com/google/example/simple-filtered-gen.jar");
+  }
+
+  @Test
   public void testJavaLibraryWithDependencies() throws Exception {
     scratch.file(
         "com/google/example/BUILD",

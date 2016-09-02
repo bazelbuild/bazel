@@ -43,6 +43,7 @@ message JavaRuleIdeInfo {
   ArtifactLocation package_manifest = 3;
   repeated ArtifactLocation sources = 4;
   ArtifactLocation jdeps = 5;
+  LibraryArtifact filtered_gen_jar = 6;
 }
 
 message CRuleIdeInfo {

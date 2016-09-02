@@ -165,7 +165,10 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         .attributeAspect("resources", this)
         .add(attr("$packageParser", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/android:PackageParser")));
+                toolsRepository + "//tools/android:PackageParser")))
+        .add(attr("$jarFilter", LABEL).cfg(HOST).exec()
+            .value(Label.parseAbsoluteUnchecked(
+                toolsRepository + "//tools/android:JarFilter")));
 
     for (PrerequisiteAttr prerequisiteAttr : prerequisiteAttrs) {
       builder.attributeAspect(prerequisiteAttr.name, this);
@@ -339,17 +342,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     JavaRuleOutputJarsProvider outputJarsProvider =
         base.getProvider(JavaRuleOutputJarsProvider.class);
     if (outputJarsProvider != null && !androidStudioInfoSemantics.suppressJavaRuleInfo(base)) {
-      Artifact packageManifest = createPackageManifest(base, ruleContext);
-      if (packageManifest != null) {
-        providerBuilder.ideInfoFilesBuilder().add(packageManifest);
-        ruleContext.registerAction(
-            makePackageManifestAction(ruleContext,
-                packageManifest,
-                getJavaSourceForPackageManifest(ruleContext)));
-      }
-
       JavaRuleIdeInfo javaRuleIdeInfo = makeJavaRuleIdeInfo(base, ruleContext,
-          outputJarsProvider, ideResolveArtifacts, packageManifest);
+          outputJarsProvider, providerBuilder);
       outputBuilder.setJavaRuleIdeInfo(javaRuleIdeInfo);
     }
 
@@ -434,15 +428,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     return androidStudioInfoSemantics.checkForAdditionalCppRules(ruleClass);
   }
 
-  @Nullable private static Artifact createPackageManifest(ConfiguredTarget base,
-      RuleContext ruleContext) {
-    Collection<Artifact> sourceFiles = getJavaSourceForPackageManifest(ruleContext);
-    if (sourceFiles.isEmpty()) {
-      return null;
-    }
-    return derivedArtifact(base, ruleContext, ".manifest");
-  }
-
   private static Action[] makePackageManifestAction(
       RuleContext ruleContext,
       Artifact packageManifest,
@@ -481,18 +466,40 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         }
       };
 
+  private static Action[] makeFilteredJarAction(
+      RuleContext ruleContext,
+      List<Artifact> jars,
+      Artifact generatedPackageManifest,
+      Artifact output) {
+
+    return new SpawnAction.Builder()
+        .addInputs(jars)
+        .addInput(generatedPackageManifest)
+        .addOutput(output)
+        .setExecutable(ruleContext.getExecutablePrerequisite("$jarFilter", Mode.HOST))
+        .setCommandLine(CustomCommandLine.builder()
+            .addExecPaths("--jars", jars)
+            .addExecPath("--manifest", generatedPackageManifest)
+            .addExecPath("--output", output)
+            .build())
+        .useParameterFile(ParameterFileType.SHELL_QUOTED)
+        .setProgressMessage("Filtering generated code for " + ruleContext.getRule())
+        .setMnemonic("JarFilter")
+        .build(ruleContext);
+  }
+
   private static Artifact derivedArtifact(ConfiguredTarget base, RuleContext ruleContext,
       String suffix) {
     BuildConfiguration configuration = ruleContext.getConfiguration();
     assert configuration != null;
-    Root genfilesDirectory = configuration.getGenfilesDirectory(
+    Root binDirectory = configuration.getBinDirectory(
         ruleContext.getRule().getRepository());
 
     PathFragment derivedFilePath =
         getOutputFilePath(base, ruleContext, suffix);
 
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        derivedFilePath, genfilesDirectory);
+        derivedFilePath, binDirectory);
   }
 
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
@@ -610,9 +617,46 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       ConfiguredTarget base,
       RuleContext ruleContext,
       JavaRuleOutputJarsProvider outputJarsProvider,
-      NestedSetBuilder<Artifact> ideResolveArtifacts,
-      @Nullable Artifact packageManifest) {
+      AndroidStudioInfoFilesProvider.Builder providerBuilder) {
+    NestedSetBuilder<Artifact> ideResolveArtifacts = providerBuilder.ideResolveFilesBuilder();
     JavaRuleIdeInfo.Builder builder = JavaRuleIdeInfo.newBuilder();
+
+    List<Artifact> javaSources = Lists.newArrayList();
+    List<Artifact> generatedJavaSources = Lists.newArrayList();
+    getJavaSourcesForPackageManifest(ruleContext, javaSources, generatedJavaSources);
+
+    if (!javaSources.isEmpty()) {
+      Artifact packageManifest = derivedArtifact(base, ruleContext, ".manifest");
+      providerBuilder.ideInfoFilesBuilder().add(packageManifest);
+      ruleContext.registerAction(makePackageManifestAction(
+          ruleContext, packageManifest, javaSources));
+      builder.setPackageManifest(makeArtifactLocation(packageManifest));
+    }
+
+    if (!javaSources.isEmpty() && !generatedJavaSources.isEmpty()) {
+      Artifact generatedPackageManifest = derivedArtifact(
+          base, ruleContext, "-filtered-gen.manifest");
+      ruleContext.registerAction(makePackageManifestAction(ruleContext,
+          generatedPackageManifest, generatedJavaSources));
+      Artifact filteredGenJar = derivedArtifact(base, ruleContext, "-filtered-gen.jar");
+      List<Artifact> jars = Lists.newArrayList();
+      for (OutputJar outputJar : outputJarsProvider.getOutputJars()) {
+        Artifact jar = outputJar.getIJar();
+        if (jar == null) {
+          jar = outputJar.getClassJar();
+        }
+        if (jar == null) {
+          continue;
+        }
+        jars.add(jar);
+      }
+      ruleContext.registerAction(makeFilteredJarAction(ruleContext,
+          jars, generatedPackageManifest, filteredGenJar));
+      ideResolveArtifacts.add(filteredGenJar);
+      builder.setFilteredGenJar(makeLibraryArtifact(
+          ideResolveArtifacts, filteredGenJar, null, null));
+    }
+
     collectJarsFromOutputJarsProvider(builder, ideResolveArtifacts, outputJarsProvider);
 
     Artifact jdeps = outputJarsProvider.getJdeps();
@@ -630,10 +674,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
     for (Artifact sourceFile : sourceFiles) {
       builder.addSources(makeArtifactLocation(sourceFile));
-    }
-
-    if (packageManifest != null) {
-      builder.setPackageManifest(makeArtifactLocation(packageManifest));
     }
 
     return builder.build();
@@ -784,15 +824,18 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     }
   }
 
-  private static Collection<Artifact> getJavaSourceForPackageManifest(RuleContext ruleContext) {
+  private static void getJavaSourcesForPackageManifest(RuleContext ruleContext,
+      List<Artifact> javaSources, List<Artifact> generatedSources) {
     Collection<Artifact> srcs = getSources(ruleContext);
-    List<Artifact> javaSrcs = Lists.newArrayList();
     for (Artifact src : srcs) {
-      if (src.isSourceArtifact() && src.getRootRelativePathString().endsWith(".java")) {
-        javaSrcs.add(src);
+      if (src.getRootRelativePathString().endsWith(".java")) {
+        if (src.isSourceArtifact()) {
+          javaSources.add(src);
+        } else {
+          generatedSources.add(src);
+        }
       }
     }
-    return javaSrcs;
   }
 
   private static Collection<Artifact> getSources(RuleContext ruleContext) {
