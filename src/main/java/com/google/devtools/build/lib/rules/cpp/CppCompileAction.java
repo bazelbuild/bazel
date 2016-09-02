@@ -164,6 +164,7 @@ public class CppCompileAction extends AbstractAction
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final boolean shouldScanIncludes;
+  private final boolean shouldPruneModules;
   private final boolean usePic;
   private final CppCompilationContext context;
   private final Iterable<IncludeScannable> lipoScannables;
@@ -236,6 +237,7 @@ public class CppCompileAction extends AbstractAction
       CcToolchainFeatures.Variables variables,
       Artifact sourceFile,
       boolean shouldScanIncludes,
+      boolean shouldPruneModules,
       boolean usePic,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
@@ -281,6 +283,7 @@ public class CppCompileAction extends AbstractAction
     // known after inclusion scanning. When *not* scanning includes,
     // the inputs are as declared, hence known, and remain so.
     this.shouldScanIncludes = shouldScanIncludes;
+    this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;
     this.inputsKnown = !shouldScanIncludes;
     this.cppCompileCommandLine =
@@ -440,7 +443,7 @@ public class CppCompileAction extends AbstractAction
       return null;
     }
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES)) {
+    if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
       List<String> usedModulePaths = Lists.newArrayList();
       for (Artifact usedModule : context.getUsedModules(usePic, initialResultSet)) {

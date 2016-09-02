@@ -251,9 +251,18 @@ public class CppCompileActionBuilder {
     if (tempOutputFile == null && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
-    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
-        && (!shouldScanIncludes
-            || !featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES))) {
+    // We disable pruning header modules in CPP_MODULE_COMPILEs as that would lead to
+    // module-out-of-date errors. The problem surfaces if a module A depends on a module B, but the
+    // headers of module A don't actually use any of B's headers.  Then we would not need to rebuild
+    // A when B changes although we are storing a dependency in it. If B changes and we then build
+    // something that uses A (a header of it), we mark A and all of its transitive deps as inputs.
+    // We still don't need to rebuild A, as none of its inputs have changed, but we do rebuild B
+    // now and then the two modules are out of sync.
+    boolean shouldPruneModules =
+        shouldScanIncludes
+            && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE)
+            && featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES);
+    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES) && !shouldPruneModules) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
@@ -279,6 +288,7 @@ public class CppCompileActionBuilder {
           variables,
           sourceFile,
           shouldScanIncludes,
+          shouldPruneModules,
           usePic,
           sourceLabel,
           realMandatoryInputsBuilder.build(),
@@ -303,6 +313,7 @@ public class CppCompileActionBuilder {
           variables,
           sourceFile,
           shouldScanIncludes,
+          shouldPruneModules,
           usePic,
           sourceLabel,
           realMandatoryInputs,
