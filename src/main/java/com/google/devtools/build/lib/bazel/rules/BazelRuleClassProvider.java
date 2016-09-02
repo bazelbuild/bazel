@@ -439,6 +439,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcRuleClasses.SimulatorRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
+    builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ResourcesRule());
     builder.addRuleDefinition(new ObjcRuleClasses.XcodegenRule());
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());

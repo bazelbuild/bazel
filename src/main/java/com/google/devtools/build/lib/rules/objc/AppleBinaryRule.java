@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -28,7 +26,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 
 /**
  * Rule definition for apple_binary.
@@ -49,37 +46,15 @@ public class AppleBinaryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    MultiArchSplitTransitionProvider splitTransitionProvider =
+        new MultiArchSplitTransitionProvider();
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class)
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-        .override(builder.copy("deps").cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER))
-        .override(builder.copy("non_propagated_deps").cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER))
-        // This is currently a hack to obtain all child configurations regardless of the attribute
-        // values of this rule -- this rule does not currently use the actual info provided by
-        // this attribute.
-        .add(attr(":cc_toolchain", LABEL)
-            .cfg(AppleBinary.SPLIT_TRANSITION_PROVIDER)
-            .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
-        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(platform_type) -->
-        The type of platform for which to create multi-architecture "fat" binaries in this rule.
-        For example, if <code>ios</code> is selected, then fat binaries will be created 
-        combining all architectures specified in <code>--ios_multi_cpus</code>.
-
-        Options are:
-        <ul>
-          <li>
-            <code>ios</code> (default): architectures gathered from <code>--ios_multi_cpus</code>.
-          </li>
-          <li>
-            <code>watchos</code>: architectures gathered from <code>--watchos_multi_cpus</code>
-          </li>
-        </ul>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
-            .value(PlatformType.IOS.toString())
-            .nonconfigurable("Determines the configuration transition on deps"))
+        .override(builder.copy("deps").cfg(splitTransitionProvider))
+        .override(builder.copy("non_propagated_deps").cfg(splitTransitionProvider))
         /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture
@@ -97,7 +72,7 @@ public class AppleBinaryRule implements RuleDefinition {
         .name("apple_binary")
         .factoryClass(AppleBinary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.SimulatorRule.class)
+            ObjcRuleClasses.MultiArchPlatformRule.class, ObjcRuleClasses.SimulatorRule.class)
         .build();
   }
 }

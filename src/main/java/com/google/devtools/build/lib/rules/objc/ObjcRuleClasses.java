@@ -909,6 +909,58 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Attribute name for apple platform type (e.g. ios or watchos).
+   */
+  static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
+
+  /**
+   * Common attributes for apple rules that build multi-architecture outputs for a given platform
+   * type (such as ios or watchos).
+   */
+  public static class MultiArchPlatformRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      MultiArchSplitTransitionProvider splitTransitionProvider =
+          new MultiArchSplitTransitionProvider();
+      return builder
+          // This is currently a hack to obtain all child configurations regardless of the attribute
+          // values of this rule -- this rule does not currently use the actual info provided by
+          // this attribute.
+          .add(attr(":cc_toolchain", LABEL)
+              .cfg(splitTransitionProvider)
+              .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(platform_type) -->
+          The type of platform for which to create artifacts in this rule.
+          For example, if <code>ios</code> is selected, then the output binaries/libraries will
+          be created combining all architectures specified in <code>--ios_multi_cpus</code>.
+
+          Options are:
+          <ul>
+            <li>
+              <code>ios</code> (default): architectures gathered from <code>--ios_multi_cpus</code>.
+            </li>
+            <li>
+              <code>watchos</code>: architectures gathered from <code>--watchos_multi_cpus</code>
+            </li>
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
+              .value(PlatformType.IOS.toString())
+              .nonconfigurable("Determines the configuration transition on deps"))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$apple_multiarch_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
    * Common attributes for {@code objc_*} rules that create a bundle. Specifically, for rules
    * which use the {@link Bundling} helper class.
    */
