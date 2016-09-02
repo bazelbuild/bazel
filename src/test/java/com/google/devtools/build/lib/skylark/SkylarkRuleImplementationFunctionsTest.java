@@ -49,7 +49,9 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 
 import com.google.devtools.build.lib.util.OsUtils;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -64,6 +66,7 @@ import java.util.regex.Pattern;
  */
 @RunWith(JUnit4.class)
 public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
+  @Rule public ExpectedException thrown = ExpectedException.none();
 
   @SkylarkSignature(
     name = "mock",
@@ -1026,6 +1029,28 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(ct).isNotNull();
     assertThat(getGeneratingAction(getBinArtifact("a.bar.out", ct))).isNotNull();
     assertThat(getGeneratingAction(getBinArtifact("b.bar.out", ct))).isNotNull();
+  }
+
+  @Test
+  public void testBuiltInFunctionAsRuleImplementation() throws Exception {
+    // Using built-in functions as rule implementations shouldn't cause runtime errors
+    scratch.file(
+        "test/rule.bzl",
+        "silly_rule = rule(",
+        "    implementation = int,",
+        "    attrs = {",
+        "       \"srcs\": attr.label_list(allow_files=True),",
+        "    }",
+        ")"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load('/test/rule', 'silly_rule')",
+        "silly_rule(name = 'silly')");
+    thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
+    thrown.expect(AssertionError.class);
+    thrown.expectMessage("//test:silly is not of type string or int or bool");
+    getConfiguredTarget("//test:silly");
   }
 
   private void setupThrowFunction(BuiltinFunction func) throws Exception {
