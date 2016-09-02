@@ -27,8 +27,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExte
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_STRINGS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_STRUCTURED_RESOURCES_ATTR;
 
-import com.dd.plist.NSDictionary;
-import com.dd.plist.NSObject;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -37,12 +35,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.syntax.Type;
+
 import javax.annotation.Nullable;
 
 /**
@@ -95,8 +94,6 @@ public class Watch2ExtensionSupport {
         .addAll(STRINGS, attributes.strings());
     ObjcProvider releaseBundlingObjcProvider = releaseBundlingObjcProviderBuilder.build();
 
-    registerWatchExtensionAutomaticPlistAction();
-
     ReleaseBundling.Builder releaseBundling =
         new ReleaseBundling.Builder()
             .setIpaArtifact(ipaArtifact)
@@ -106,7 +103,6 @@ public class Watch2ExtensionSupport {
             .setTargetDeviceFamilies(ImmutableSet.of(TargetDeviceFamily.WATCH))
             .setIntermediateArtifacts(intermediateArtifacts)
             .setInfoPlistsFromRule(attributes.infoPlists())
-            .addInfoplistInput(intermediateArtifacts.watchExtensionAutomaticPlist())
             .setEntitlements(attributes.entitlements());
 
     if (attributes.isBundleIdExplicitySpecified()) {
@@ -116,6 +112,7 @@ public class Watch2ExtensionSupport {
     }
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    Platform appPlatform = appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS);
 
     ReleaseBundlingSupport releaseBundlingSupport =
         new ReleaseBundlingSupport(
@@ -124,8 +121,7 @@ public class Watch2ExtensionSupport {
             LinkedBinary.DEPENDENCIES_ONLY,
             ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT,
             bundleName,
-            WatchUtils.determineMinimumOsVersion(
-                ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()),
+            appleConfiguration.getSdkVersionForPlatform(appPlatform),
             releaseBundling.build(),
             appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS));
 
@@ -135,23 +131,6 @@ public class Watch2ExtensionSupport {
         .validateResources()
         .validateAttributes()
         .addExportedDebugArtifacts(exposedObjcProviderBuilder, DsymOutputType.APP);
-  }
-
-  /**
-   * Registers an action to generate a plist containing entries required for watch extension that
-   * should be added to the merged plist.
-   */
-  private void registerWatchExtensionAutomaticPlistAction() {
-    NSDictionary watchExtensionAutomaticEntries = new NSDictionary();
-    watchExtensionAutomaticEntries.put(
-        "UIRequiredDeviceCapabilities", NSObject.wrap(new String[] {"watch-companion"}));
-
-    ruleContext.registerAction(
-        new FileWriteAction(
-            ruleContext.getActionOwner(),
-            intermediateArtifacts.watchExtensionAutomaticPlist(),
-            watchExtensionAutomaticEntries.toGnuStepASCIIPropertyList(),
-            /*makeExecutable=*/ false));
   }
 
   /** Rule attributes used for creating watch application bundle. */

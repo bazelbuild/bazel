@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
@@ -190,6 +191,12 @@ final class WatchApplicationSupport {
 
     PlatformType appPlatformType = watchOSVersion == WatchOSVersion.OS1
          ? PlatformType.IOS : PlatformType.WATCHOS;
+    Platform appPlatform = appleConfiguration.getMultiArchPlatform(appPlatformType);
+    DottedVersion minimumOsVersion = appPlatformType == PlatformType.IOS
+        ? WatchUtils.determineMinimumIosVersion(
+            ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs())
+        : appleConfiguration.getSdkVersionForPlatform(appPlatform);
+
     ReleaseBundlingSupport releaseBundlingSupport =
         new ReleaseBundlingSupport(
                 ruleContext,
@@ -197,8 +204,7 @@ final class WatchApplicationSupport {
                 LinkedBinary.DEPENDENCIES_ONLY,
                 watchOSVersion.getApplicationBundleDirFormat(),
                 bundleName,
-                WatchUtils.determineMinimumOsVersion(
-                    ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()),
+                minimumOsVersion,
                 releaseBundling.build(),
                 appleConfiguration.getMultiArchPlatform(appPlatformType))
             .registerActions(DsymOutputType.APP);

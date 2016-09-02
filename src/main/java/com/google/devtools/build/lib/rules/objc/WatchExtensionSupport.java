@@ -142,7 +142,7 @@ public class WatchExtensionSupport {
             LinkedBinary.DEPENDENCIES_ONLY,
             ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT,
             bundleName,
-            WatchUtils.determineMinimumOsVersion(
+            WatchUtils.determineMinimumIosVersion(
                 ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()),
             releaseBundling.build(),
             appleConfiguration.getMultiArchPlatform(PlatformType.IOS));

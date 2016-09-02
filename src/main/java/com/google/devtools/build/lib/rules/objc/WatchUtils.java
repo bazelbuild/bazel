@@ -116,13 +116,13 @@ final class WatchUtils {
   }
 
   /**
-   * Watch Extension are not accepted by Apple below version 8.2. While applications built with a
-   * minimum iOS version of less than 8.2 may contain watch extension in their bundle, the
+   * Watch Extension are not accepted by Apple below iOS version 8.2. While applications built with
+   * a minimum iOS version of less than 8.2 may contain watch extension in their bundle, the
    * extension itself needs to be built with 8.2 or higher. This logic overrides (if necessary)
    * any flag-set minimum iOS version for extensions only so that this requirement is not
    * violated.
    */
-  static DottedVersion determineMinimumOsVersion(DottedVersion fromFlag) {
+  static DottedVersion determineMinimumIosVersion(DottedVersion fromFlag) {
     return Ordering.natural().max(fromFlag, MINIMUM_OS_VERSION);
   }
 
@@ -192,7 +192,7 @@ final class WatchUtils {
     xcodeSettings.add(
         XcodeprojBuildSetting.newBuilder()
             .setName("IPHONEOS_DEPLOYMENT_TARGET")
-            .setValue(determineMinimumOsVersion(
+            .setValue(determineMinimumIosVersion(
                 ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()).toString())
             .build());
     return xcodeSettings.build();
