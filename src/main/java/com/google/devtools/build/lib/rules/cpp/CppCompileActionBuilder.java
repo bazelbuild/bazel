@@ -314,7 +314,6 @@ public class CppCompileActionBuilder {
           sourceFile,
           shouldScanIncludes,
           shouldPruneModules,
-          usePic,
           sourceLabel,
           realMandatoryInputs,
           outputFile,
