@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingR
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_BUNDLE_ID_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_DEFAULT_PROVISIONING_PROFILE_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_INFOPLISTS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_PROVISIONING_PROFILE_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_RESOURCES_ATTR;
@@ -253,8 +252,8 @@ public class WatchExtensionSupport {
      * an empty list.
      */
     ImmutableSet<TargetDeviceFamily> families() {
-      List<String> rawFamilies = ruleContext.attributes().get(WATCH_EXT_FAMILIES_ATTR,
-          Type.STRING_LIST);
+      List<String> rawFamilies = ruleContext.attributes().get(
+          AppleWatch1ExtensionRule.WATCH_EXT_FAMILIES_ATTR, Type.STRING_LIST);
       try {
         return ImmutableSet.copyOf(TargetDeviceFamily.fromNamesInRule(rawFamilies));
       } catch (InvalidFamilyNameException | RepeatedFamilyNameException e) {

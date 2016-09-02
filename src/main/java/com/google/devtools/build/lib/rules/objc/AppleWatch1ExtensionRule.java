@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -35,6 +37,7 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
   private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
       ImmutableSet.of("objc_library", "objc_import");
   static final String WATCH_APP_DEPS_ATTR  = "app_deps";
+  static final String WATCH_EXT_FAMILIES_ATTR = "ext_families";
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -69,6 +72,21 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
            .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
            .allowedFileTypes()
            .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+       /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(ext_families) -->
+       The device families to which the watch extension is targeted.
+
+       This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+       in Xcode project files. It is a list of one or more of the strings
+       <code>"iphone"</code> and <code>"ipad"</code>.
+
+       <p>By default this is set to <code>"iphone"</code>. If it is explicitly specified it may not
+       be empty.</p>
+       <p>The watch application is always built for <code>"watch"</code> for device builds and
+       <code>"iphone, watch"</code> for simulator builds.
+       <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+       .add(
+           attr(WATCH_EXT_FAMILIES_ATTR, STRING_LIST)
+               .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
         .build();
   }
 

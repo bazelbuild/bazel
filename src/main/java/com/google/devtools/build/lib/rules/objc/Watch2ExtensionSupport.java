@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_BUNDLE_ID_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_DEFAULT_PROVISIONING_PROFILE_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_INFOPLISTS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_PROVISIONING_PROFILE_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchExtensionBundleRule.WATCH_EXT_RESOURCES_ATTR;
@@ -44,10 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
-import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
-import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.syntax.Type;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -102,19 +97,13 @@ public class Watch2ExtensionSupport {
 
     registerWatchExtensionAutomaticPlistAction();
 
-    ImmutableSet<TargetDeviceFamily> families = attributes.families();
-
-    if (families.isEmpty()) {
-      ruleContext.attributeError(FAMILIES_ATTR, ReleaseBundling.INVALID_FAMILIES_ERROR);
-    }
-
     ReleaseBundling.Builder releaseBundling =
         new ReleaseBundling.Builder()
             .setIpaArtifact(ipaArtifact)
             .setBundleId(attributes.bundleId())
             .setProvisioningProfile(attributes.provisioningProfile())
             .setProvisioningProfileAttributeName(WATCH_EXT_PROVISIONING_PROFILE_ATTR)
-            .setTargetDeviceFamilies(families)
+            .setTargetDeviceFamilies(ImmutableSet.of(TargetDeviceFamily.WATCH))
             .setIntermediateArtifacts(intermediateArtifacts)
             .setInfoPlistsFromRule(attributes.infoPlists())
             .addInfoplistInput(intermediateArtifacts.watchExtensionAutomaticPlist())
@@ -171,21 +160,6 @@ public class Watch2ExtensionSupport {
 
     private Attributes(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
-    }
-
-    /**
-     * Returns the value of the {@code families} attribute in a form that is more useful than a list
-     * of strings. Returns an empty set for any invalid {@code families} attribute value, including
-     * an empty list.
-     */
-    ImmutableSet<TargetDeviceFamily> families() {
-      List<String> rawFamilies =
-          ruleContext.attributes().get(WATCH_EXT_FAMILIES_ATTR, Type.STRING_LIST);
-      try {
-        return ImmutableSet.copyOf(TargetDeviceFamily.fromNamesInRule(rawFamilies));
-      } catch (InvalidFamilyNameException | RepeatedFamilyNameException e) {
-        return ImmutableSet.of();
-      }
     }
 
     @Nullable

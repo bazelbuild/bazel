@@ -1364,7 +1364,6 @@ public class ObjcRuleClasses {
     static final String WATCH_EXT_RESOURCES_ATTR = "ext_resources";
     static final String WATCH_EXT_STRUCTURED_RESOURCES_ATTR = "ext_structured_resources";
     static final String WATCH_EXT_STRINGS_ATTR = "ext_strings";
-    static final String WATCH_EXT_FAMILIES_ATTR = "ext_families";
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -1401,21 +1400,6 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(WATCH_EXT_ENTITLEMENTS_ATTR, LABEL)
               .allowedFileTypes(ENTITLEMENTS_TYPE))
-          /* <!-- #BLAZE_RULE($watch_extension_bundle_rule).ATTRIBUTE(ext_families) -->
-          The device families to which the watch extension is targeted.
-
-          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-          in Xcode project files. It is a list of one or more of the strings
-          <code>"iphone"</code> and <code>"ipad"</code>.
-
-          <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
-          empty.</p>
-          <p>The watch application is always built for <code>"watch"</code> for device builds and
-          <code>"iphone, watch"</code> for simulator builds.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(WATCH_EXT_FAMILIES_ATTR, STRING_LIST)
-                  .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
           /* <!-- #BLAZE_RULE($watch_extension_bundle_rule).ATTRIBUTE(ext_infoplists) -->
            Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
