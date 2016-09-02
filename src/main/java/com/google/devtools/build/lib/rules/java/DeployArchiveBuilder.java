@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -251,6 +252,7 @@ public class DeployArchiveBuilder {
           .useParameterFile(ParameterFileType.SHELL_QUOTED)
           .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
           .setMnemonic("JavaDeployJar")
+          .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
           .build(ruleContext));
     } else {
       ruleContext.registerAction(new SpawnAction.Builder()
