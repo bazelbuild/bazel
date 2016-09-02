@@ -19,6 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -110,6 +113,33 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 false)
             .build();
     assertThat(linkAction.getArgv()).contains("some_flag");
+  }
+
+  @Test
+  public void testLibOptsAndLibSrcsAreInCorrectOrder() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
+        "  linkopts = [",
+        "    '-ldl',",
+        "    '-lutil',",
+        "  ],",
+        ")");
+    scratch.file("x/some-dir/bar.so");
+    scratch.file("x/some-other-dir/qux.so");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
+
+    List<String> arguments = linkAction.getLinkCommandLine().arguments();
+
+    assertThat(Joiner.on(" ").join(arguments))
+        .matches(
+            ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir -lbar -lqux(?= ).* -ldl -lutil .*");
+    assertThat(Joiner.on(" ").join(arguments))
+        .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
   }
 
   @Test
