@@ -292,7 +292,7 @@ public abstract class ApkActionsBuilder {
         Artifact signedAndZipalignedApk) {
       return new SpawnAction.Builder()
           .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
-          .setProgressMessage("Signing and zipaligning " + apkName)
+          .setProgressMessage("Signing " + apkName)
           .setMnemonic("ApkSignerTool")
           .addArgument("sign")
           .addArgument("--ks")
