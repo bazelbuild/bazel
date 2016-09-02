@@ -178,13 +178,14 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     try {
       HardlinkedExecRoot hardlinkedExecRoot =
           new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
-      if (errWriter != null) {
-        errWriter.flush();
-      }
 
       ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
       hardlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
+
+      if (errWriter != null) {
+        errWriter.flush();
+      }
 
       DarwinSandboxRunner runner;
       runner =
