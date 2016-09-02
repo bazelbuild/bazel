@@ -16,7 +16,7 @@ package com.google.testing.junit.runner.model;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.xml.XmlEscapers;
+import com.google.testing.junit.runner.util.XmlEscapers;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
