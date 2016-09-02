@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
@@ -1312,15 +1310,13 @@ public final class RuleClass {
    * attributeValues} or the default attribute values associated with this {@link RuleClass} and
    * {@code pkgBuilder}.
    *
-   * <p>The created {@link Rule} will also be populated with output files. These output files will
-   * have been collected from the explicitly provided values of type {@link BuildType#OUTPUT} and
-   * {@link BuildType#OUTPUT_LIST} as well as from the implicit outputs determined by this {@link
-   * RuleClass} and the values in {@code attributeValues}.
+   * <p>The created {@link Rule} will also be populated with output files. These output files
+   * will have been collected from the explicitly provided values of type {@link BuildType#OUTPUT}
+   * and {@link BuildType#OUTPUT_LIST} as well as from the implicit outputs determined by this
+   * {@link RuleClass} and the values in {@code attributeValues}.
    *
    * <p>This performs several validity checks. Invalid output file labels result in a thrown {@link
-   * LabelSyntaxException}. Computed default attributes that fail during precomputation result in a
-   * {@link CannotPrecomputeDefaultsException}. All other errors are reported on {@code
-   * eventHandler}.
+   * LabelSyntaxException}. All other errors are reported on {@code eventHandler}.
    */
   Rule createRule(
       Package.Builder pkgBuilder,
@@ -1330,7 +1326,7 @@ public final class RuleClass {
       @Nullable FuncallExpression ast,
       Location location,
       AttributeContainer attributeContainer)
-      throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
+      throws LabelSyntaxException, InterruptedException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
@@ -1358,7 +1354,7 @@ public final class RuleClass {
       Location location,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction)
-      throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
+      throws LabelSyntaxException, InterruptedException {
     Rule rule = pkgBuilder.createRule(
         ruleLabel,
         this,
@@ -1381,8 +1377,7 @@ public final class RuleClass {
       Rule rule,
       Package.Builder pkgBuilder,
       AttributeValuesMap attributeValues,
-      EventHandler eventHandler)
-      throws InterruptedException, CannotPrecomputeDefaultsException {
+      EventHandler eventHandler) {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(rule, attributeValues, eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
@@ -1462,15 +1457,14 @@ public final class RuleClass {
 
   /**
    * Populates the attributes table of the new {@link Rule} with default values provided by this
-   * {@link RuleClass} and the {@code pkgBuilder}. This will only provide values for attributes that
-   * haven't already been populated, using {@code definedAttrIndices} to determine whether an
+   * {@link RuleClass} and the {@code pkgBuilder}. This will only provide values for attributes
+   * that haven't already been populated, using {@code definedAttrIndices} to determine whether an
    * attribute was populated.
    *
    * <p>Errors are reported on {@code eventHandler}.
    */
   private void populateDefaultRuleAttributeValues(
-      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices, EventHandler eventHandler)
-      throws InterruptedException, CannotPrecomputeDefaultsException {
+      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices, EventHandler eventHandler) {
     // Set defaults; ensure that every mandatory attribute has a value. Use the default if none
     // is specified.
     List<Attribute> attrsWithComputedDefaults = new ArrayList<>();
@@ -1507,29 +1501,13 @@ public final class RuleClass {
     // Set computed default attribute values now that all other (i.e. non-computed) default values
     // have been set.
     for (Attribute attr : attrsWithComputedDefaults) {
-      // If Attribute#hasComputedDefault was true above, Attribute#getDefaultValue returns the
-      // computed default function object or a Skylark computed default template. Note that we
-      // cannot determine the exact value of the computed default function here because it may
-      // depend on other attribute values that are configurable (i.e. they came from select({..})
-      // expressions in the build language, and they require configuration data from the analysis
-      // phase to be resolved). Instead, we're setting the attribute value to a reference to the
-      // computed default function, or if #getDefaultValue is a Skylark computed default
-      // template, setting the attribute value to a reference to the SkylarkComputedDefault
-      // returned from SkylarkComputedDefaultTemplate#computePossibleValues.
-      //
-      // SkylarkComputedDefaultTemplate#computePossibleValues pre-computes all possible values the
-      // function may evaluate to, and records them in a lookup table. By calling it here, with an
-      // EventHandler, any errors that might occur during the function's evaluation can
-      // be discovered and propagated here.
-      Object valueToSet;
-      Object defaultValue = attr.getDefaultValue(rule);
-      if (defaultValue instanceof SkylarkComputedDefaultTemplate) {
-        SkylarkComputedDefaultTemplate template = (SkylarkComputedDefaultTemplate) defaultValue;
-        valueToSet = template.computePossibleValues(attr, rule, eventHandler);
-      } else {
-        valueToSet = defaultValue;
-      }
-      rule.setAttributeValue(attr, valueToSet, /*explicit=*/ false);
+      // If Attribute#hasComputedDefault is true, Attribute#getDefaultValue returns the computed
+      // default function object. Note that we don't evaluate the computed default function here
+      // because it may depend on other attribute values that are configurable (i.e. they came
+      // from select({..}) expressions in the build language, and they require configuration data
+      // from the analysis phase to be resolved). We're setting the attribute value to a
+      // reference to the computed default function.
+      rule.setAttributeValue(attr, attr.getDefaultValue(rule), /*explicit=*/ false);
     }
   }
 

@@ -34,8 +34,7 @@ public enum AttributeValueSource {
    * Creates a new instance and defines the prefixes for both Skylark and native.
    *
    * @param nativePrefix The prefix when converted to a native attribute name.
-   * @param mustHaveSkylarkPrefix Whether the Skylark name must start with {@link
-   *     AttributeValueSource#SKYLARK_PREFIX}.
+   * @param mustHaveSkylarkPrefix Whether the Skylark name must start with {@link SKYLARK_PREFIX}.
    */
   AttributeValueSource(String nativePrefix, boolean mustHaveSkylarkPrefix) {
     this.nativePrefix = nativePrefix;
