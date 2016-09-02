@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -88,7 +88,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected boolean fileIsSymbolicLink(File file) {
     try {
-      if (file.isDirectory() && isJunction(file.toPath())) {
+      if (file.isDirectory() && WindowsFileOperations.isJunction(file.getPath())) {
         return true;
       }
     } catch (IOException e) {
@@ -164,7 +164,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   protected boolean isDirectory(Path path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
-        if (isJunction(getIoFile(path).toPath())) {
+        if (WindowsFileOperations.isJunction(getIoFile(path).getPath())) {
           return false;
         }
       } catch (IOException e) {
@@ -172,10 +172,5 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     }
     return super.isDirectory(path, followSymlinks);
-  }
-
-  private static boolean isJunction(java.nio.file.Path p) throws IOException {
-    // Jury-rigged
-    return p.compareTo(p.toRealPath()) != 0;
   }
 }

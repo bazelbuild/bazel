@@ -135,6 +135,7 @@ java_library(
         ":os_util",
         ":preconditions",
         ":unix",
+        ":windows",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
