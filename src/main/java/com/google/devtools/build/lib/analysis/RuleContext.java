@@ -1846,7 +1846,7 @@ public final class RuleContext extends TargetContext
         Predicate<RuleClass> warningPredicate = attribute.getAllowedRuleClassesWarningPredicate();
         if (warningPredicate.apply(ruleClass)) {
           reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisite,
-              "expected " + warningPredicate, true);
+              "expected " + attribute.getAllowedRuleClassesPredicate(), true);
           return;
         }
       }
