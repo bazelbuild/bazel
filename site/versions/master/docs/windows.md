@@ -38,7 +38,7 @@ export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
 Using Bazel on Windows
 ======================
 
-Bazel currently supports building C++ targets and Java targets on Windows.
+Bazel now supports building C++, Java and Python targets on Windows.
 
 ### Build C++
 
@@ -79,5 +79,17 @@ Just try:
 $ bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
 $ ./bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 $ bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
+```
+
+### Build Python
+
+On Windows, we build a self-extracting zip file for executable python targets, you can even use
+`python ./bazel-bin/path/to/target` to run it in native Windows command line (cmd.exe).
+
+```bash
+$ bazel build examples/py_native:bin
+$ ./bazel-bin/examples/py_native/bin
+$ python ./bazel-bin/examples/py_native/bin    # This works in both msys and cmd.exe
+$ bazel run examples/py_native:bin
 ```
 
