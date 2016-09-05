@@ -16,7 +16,6 @@ java_library(
     testonly = 0,  # TODO(bazel-team): make it testonly
     srcs = glob(["runner/*.java"]),
     deps = [
-        "//third_party:guava",
         "//third_party:junit4",
     ],
 )

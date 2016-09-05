@@ -22,7 +22,6 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//third_party:dagger",
-        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
         "//third_party:junit4",
@@ -33,7 +32,6 @@ java_library(
     name = "filter",
     srcs = ["RegExTestCaseFilter.java"],
     deps = [
-        "//third_party:guava",
         "//third_party:junit4",
     ],
 )
