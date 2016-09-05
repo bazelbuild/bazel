@@ -42,6 +42,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -67,22 +69,24 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   private static final ImmutableSet<Type<?>> scalarTypes =
       ImmutableSet.of(INTEGER, STRING, LABEL, NODEP_LABEL, OUTPUT, BOOLEAN, TRISTATE, LICENSE);
 
-  /**
-   * Store for all of this rule's attributes that are non-configurable. These are
-   * unconditionally  available to computed defaults no matter what dependencies
-   * they've declared.
-   */
-  private final List<String> nonConfigurableAttributes;
+  private final Rule rule;
 
   private AggregatingAttributeMapper(Rule rule) {
     super(rule.getPackage(), rule.getRuleClassObject(), rule.getLabel(),
         rule.getAttributeContainer());
-
-    nonConfigurableAttributes = rule.getRuleClassObject().getNonConfigurableAttributes();
+    this.rule = rule;
   }
 
   public static AggregatingAttributeMapper of(Rule rule) {
     return new AggregatingAttributeMapper(rule);
+  }
+
+  /**
+   * Returns all of this rule's attributes that are non-configurable. These are unconditionally
+   * available to computed defaults no matter what dependencies they've declared.
+   */
+  private List<String> getNonConfigurableAttributes() {
+    return rule.getRuleClassObject().getNonConfigurableAttributes();
   }
 
   /**
@@ -325,16 +329,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // or y1, then compute default values for the (x1,y1), (x1,y2), (x2,y1), and (x2,y2) cases.
     Attribute.ComputedDefault computedDefault = getComputedDefault(attributeName, type);
     if (computedDefault != null) {
-      // The depMaps list holds every assignment of possible values to the computed default's
-      // declared possibly-configurable dependencies.
-      List<Map<String, Object>> depMaps = visitAttributes(computedDefault.dependencies());
-
-      List<T> possibleValues = new ArrayList<>(); // Not ImmutableList.Builder: values may be null.
-      // For each combination, call getDefault on a specialized AttributeMap providing those values.
-      for (Map<String, Object> depMap : depMaps) {
-        possibleValues.add(type.cast(computedDefault.getDefault(mapBackedAttributeMap(depMap))));
-      }
-      return possibleValues;
+      return computedDefault.getPossibleValues(type, rule);
     }
 
     // For any other attribute, just return its direct value.
@@ -461,18 +456,20 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *   ]
    * </pre>
    *
-   * <p>This uses time and space exponential on the number of inputs. To guard against misuse,
-   * {@code attributes.size()} must be two or less.
+   * <p>The work done by this method may be limited by providing a {@link ComputationLimiter} that
+   * throws if too much work is attempted.
    */
-  private List<Map<String, Object>> visitAttributes(List<String> attributes) {
-    Preconditions.checkState(attributes.size() <= 2);
+  <TException extends Exception> List<Map<String, Object>> visitAttributes(
+      List<String> attributes, ComputationLimiter<TException> limiter) throws TException {
     List<Map<String, Object>> depMaps = new LinkedList<>();
-    visitAttributesInner(attributes, depMaps, ImmutableMap.<String, Object>of());
+    AtomicInteger combinationsSoFar = new AtomicInteger(0);
+    visitAttributesInner(
+        attributes, depMaps, ImmutableMap.<String, Object>of(), combinationsSoFar, limiter);
     return depMaps;
   }
 
   /**
-   * A recursive function used in the implementation of {@link #visitAttributes(List)}.
+   * A recursive function used in the implementation of {@link #visitAttributes}.
    *
    * @param attributes a list of attributes that are not yet assigned values in the {@code
    *     currentMap} parameter.
@@ -480,10 +477,21 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *     will add newly discovered maps to the list.
    * @param currentMap a (possibly non-empty) map holding {attrName --> attrValue} assignments for
    *     attributes not in the {@code attributes} list.
+   * @param combinationsSoFar a counter for all previously processed combinations of possible
+   *     values.
+   * @param limiter a strategy to limit the work done by invocations of this method.
    */
-  private void visitAttributesInner(
-      List<String> attributes, List<Map<String, Object>> mappings, Map<String, Object> currentMap) {
+  private <TException extends Exception> void visitAttributesInner(
+      List<String> attributes,
+      List<Map<String, Object>> mappings,
+      Map<String, Object> currentMap,
+      AtomicInteger combinationsSoFar,
+      ComputationLimiter<TException> limiter)
+      throws TException {
     if (attributes.isEmpty()) {
+      // Because this method uses exponential time/space on the number of inputs, we may limit
+      // the total number of method calls.
+      limiter.onComputationCount(combinationsSoFar.incrementAndGet());
       // Recursive base case: store whatever's already been populated in currentMap.
       mappings.add(currentMap);
       return;
@@ -500,7 +508,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       Map<String, Object> newMap = new HashMap<>();
       newMap.putAll(currentMap);
       newMap.put(firstAttribute, value);
-      visitAttributesInner(attributes.subList(1, attributes.size()), mappings, newMap);
+      visitAttributesInner(
+          attributes.subList(1, attributes.size()), mappings, newMap, combinationsSoFar, limiter);
     }
   }
 
@@ -511,14 +520,14 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * configurable attribute that's not in {@code directMap} causes an {@link
    * IllegalArgumentException} to be thrown.
    */
-  private AttributeMap mapBackedAttributeMap(final Map<String, Object> directMap) {
+  AttributeMap createMapBackedAttributeMap(final Map<String, Object> directMap) {
     final AggregatingAttributeMapper owner = AggregatingAttributeMapper.this;
     return new AttributeMap() {
 
       @Override
       public <T> T get(String attributeName, Type<T> type) {
         owner.checkType(attributeName, type);
-        if (nonConfigurableAttributes.contains(attributeName)) {
+        if (getNonConfigurableAttributes().contains(attributeName)) {
           return owner.get(attributeName, type);
         }
         if (!directMap.containsKey(attributeName)) {
@@ -549,7 +558,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       public Iterable<String> getAttributeNames() {
         return ImmutableList.<String>builder()
             .addAll(directMap.keySet())
-            .addAll(nonConfigurableAttributes)
+            .addAll(getNonConfigurableAttributes())
             .build();
       }
 

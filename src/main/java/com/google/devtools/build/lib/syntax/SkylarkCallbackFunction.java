@@ -33,7 +33,15 @@ public class SkylarkCallbackFunction {
   }
 
   public ImmutableList<String> getParameterNames() {
-    return callback.signature.getSignature().getNames();
+    ImmutableList<String> names = callback.signature.getSignature().getNames();
+    // TODO(fwe): remove this hack once the depot is cleaned up and we no longer have to support
+    // the cfg parameter (also update GoogleSkylarkIntegrationTest).
+    int lastIndex = names.size() - 1;
+    if (lastIndex >= 0 && names.get(lastIndex).equals("cfg")) {
+      names = names.subList(0, lastIndex);
+    }
+
+    return names;
   }
 
   public Object call(ClassObject ctx, Object... arguments)
