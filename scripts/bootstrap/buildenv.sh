@@ -59,7 +59,8 @@ esac
 # Fix TMPDIR on msys
 case "${PLATFORM}" in
 msys*|mingw*)
-  TMPDIR=${TMPDIR:-$(cygpath -m $TMP)}
+  default_tmp=${TMP:-$(cygpath -W)/Temp}
+  TMPDIR=$(cygpath -ml "${TMPDIR:-$default_tmp}")
 esac
 
 
