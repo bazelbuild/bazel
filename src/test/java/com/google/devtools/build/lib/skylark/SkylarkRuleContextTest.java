@@ -38,13 +38,11 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.List;
 
 /**
  * Tests for SkylarkRuleContext.
@@ -527,23 +525,23 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
     Object result = evalRuleContextCode(allContext, "ruleContext.attr.s");
     assertEquals(
-        new SkylarkList.MutableList(ImmutableList.<String>of("genrule", "a", "nop_rule", "c")),
+        SkylarkList.createImmutable(ImmutableList.<String>of("genrule", "a", "nop_rule", "c")),
         result);
 
     result = evalRuleContextCode(createRuleContext("//test/getrule:a_str"), "ruleContext.attr.s");
     assertEquals(
-        new SkylarkList.MutableList(
+        SkylarkList.createImmutable(
             ImmutableList.<String>of("genrule", "a", ":a.txt", "//test:bla")),
         result);
 
     result = evalRuleContextCode(createRuleContext("//test/getrule:c_str"), "ruleContext.attr.s");
     assertEquals(
-        new SkylarkList.MutableList(ImmutableList.<String>of("nop_rule", "c", ":a")), result);
+        SkylarkList.createImmutable(ImmutableList.<String>of("nop_rule", "c", ":a")), result);
 
     result =
         evalRuleContextCode(createRuleContext("//test/getrule:genrule_attr"), "ruleContext.attr.s");
     assertEquals(
-        new SkylarkList.MutableList(
+        SkylarkList.createImmutable(
             ImmutableList.<String>of(
                 "cmd",
                 "compatible_with",

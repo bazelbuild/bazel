@@ -210,6 +210,13 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     return castList(getContentsUnsafe(), type, description);
   }
 
+  /**
+   * Creates immutable SkylarkList with given elements.
+   */
+  public static <E> SkylarkList<E> createImmutable(Iterable<? extends E> contents) {
+    return new MutableList<E>(contents, Mutability.IMMUTABLE);
+  }
+
   /** A class for mutable lists. */
   @SkylarkModule(
     name = "list",
@@ -277,15 +284,6 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
      */
     public MutableList(Iterable<? extends E> contents, @Nullable Environment env) {
       this(contents, env == null ? Mutability.IMMUTABLE : env.mutability());
-    }
-
-    /**
-     * Creates a MutableList from contents.
-     * @param contents the contents of the list
-     * @return an actually immutable MutableList containing the elements
-     */
-    public MutableList(Iterable<? extends E> contents) {
-      this(contents, Mutability.IMMUTABLE);
     }
 
     /**
@@ -427,7 +425,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     /**
      * An empty IMMUTABLE MutableList.
      */
-    public static final MutableList EMPTY = new MutableList(Tuple.EMPTY);
+    public static final MutableList EMPTY = new MutableList(Tuple.EMPTY, Mutability.IMMUTABLE);
   }
 
   /** An immutable tuple, e.g. in (1, 2, 3) */

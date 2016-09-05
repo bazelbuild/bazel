@@ -19,7 +19,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -67,7 +66,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertEquals(new MutableList(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")),
+    assertEquals(SkylarkList.createImmutable(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")),
         env.lookup("x"));
   }
 

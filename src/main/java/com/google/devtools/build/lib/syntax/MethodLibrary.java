@@ -623,7 +623,7 @@ public class MethodLibrary {
   };
 
   @SkylarkSignature(name = "splitlines", objectType = StringModule.class,
-      returnType = MutableList.class,
+      returnType = SkylarkList.class,
       doc =
       "Splits the string at line boundaries ('\\n', '\\r\\n', '\\r') "
       + "and returns the result as a list.",
@@ -633,7 +633,7 @@ public class MethodLibrary {
               doc = "Whether the line breaks should be included in the resulting list.")})
   private static final BuiltinFunction splitLines = new BuiltinFunction("splitlines") {
     @SuppressWarnings("unused")
-    public MutableList<String> invoke(String self, Boolean keepEnds) throws EvalException {
+    public SkylarkList<String> invoke(String self, Boolean keepEnds) throws EvalException {
       List<String> result = new ArrayList<>();
       Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
       while (matcher.find()) {
@@ -649,7 +649,7 @@ public class MethodLibrary {
           result.add(line);
         }
       }
-      return new MutableList(result);
+      return SkylarkList.createImmutable(result);
     }
   };
 

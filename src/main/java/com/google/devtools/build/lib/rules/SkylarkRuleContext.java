@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -210,7 +209,7 @@ public final class SkylarkRuleContext {
             addOutput(outputsBuilder, attrName, Runtime.NONE);
           }
         } else if (type == BuildType.OUTPUT_LIST) {
-          addOutput(outputsBuilder, attrName, new MutableList(artifacts));
+          addOutput(outputsBuilder, attrName, SkylarkList.createImmutable(artifacts));
         } else {
           throw new IllegalArgumentException(
               "Type of " + attrName + "(" + type + ") is not output type ");
@@ -317,7 +316,7 @@ public final class SkylarkRuleContext {
         attrBuilder.put(skyname, prereq);
       } else {
         // Type.LABEL_LIST
-        attrBuilder.put(skyname, new MutableList(allPrereq));
+        attrBuilder.put(skyname, SkylarkList.createImmutable(allPrereq));
       }
     }
 
@@ -522,14 +521,14 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc = "Splits a shell command to a list of tokens.", documented = false)
-  public MutableList<String> tokenize(String optionString) throws FuncallException {
+  public SkylarkList<String> tokenize(String optionString) throws FuncallException {
     List<String> options = new ArrayList<>();
     try {
       ShellUtils.tokenize(options, optionString);
     } catch (TokenizationException e) {
       throw new FuncallException(e.getMessage() + " while tokenizing '" + optionString + "'");
     }
-    return new MutableList(options); // no env is provided, so it's effectively immutable
+    return SkylarkList.createImmutable(options);
   }
 
   @SkylarkCallable(
