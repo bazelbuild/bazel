@@ -20,19 +20,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,6 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for Skylark documentation.
@@ -132,6 +132,22 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  @SkylarkModule(name = "MockClassD", doc = "MockClassD")
+  public static class MockClassD {
+    @SkylarkCallable(
+      doc = "MockClassD#test",
+      mandatoryPositionals = 1,
+      parameters = {
+        @Param(name = "b"),
+        @Param(name = "c", named = true, positional = false),
+        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+      }
+    )
+    public Integer test(int a, int b, int c, int d) {
+      return 0;
+    }
+  }
+
   @Test
   public void testSkylarkJavaInterfaceExplorerOnSimpleClass() throws Exception {
     Map<String, SkylarkModuleDoc> objects = collect(MockClassA.class);
@@ -153,6 +169,20 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(extractMethods(Iterables.getOnlyElement(objects.values())
         .getJavaMethods())).containsExactly(
         MockClassA.class.getMethod("get"), MockClassC.class.getMethod("get2"));
+  }
+
+  @Test
+  public void testSkylarkCallableParameters() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(MockClassD.class);
+    assertThat(objects).hasSize(1);
+    assertThat(objects).containsKey("MockClassD");
+    SkylarkModuleDoc moduleDoc = objects.get("MockClassD");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD.");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test.");
+    assertThat(methodDoc.getSignature()).isEqualTo("int MockClassD.test(arg0:int, b, *, c, d=1)");
+    assertThat(methodDoc.getParams()).hasSize(3);
   }
 
   private Iterable<Method> extractMethods(Collection<SkylarkJavaMethodDoc> methods) {

@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.skylark;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,10 +25,8 @@ import java.util.List;
 /**
  * An abstract class containing documentation for a Skylark method.
  */
-abstract class SkylarkMethodDoc extends SkylarkDoc {
-  /**
-   * Returns whether the Skylark method is documented.
-   */
+public abstract class SkylarkMethodDoc extends SkylarkDoc {
+  /** Returns whether the Skylark method is documented. */
   public abstract boolean documented();
 
   /**
@@ -57,13 +52,26 @@ abstract class SkylarkMethodDoc extends SkylarkDoc {
   }
 
   private String getParameterString(Method method) {
-    return Joiner.on(", ").join(Iterables.transform(
-        ImmutableList.copyOf(method.getParameterTypes()), new Function<Class<?>, String>() {
-          @Override
-          public String apply(Class<?> input) {
-            return getTypeAnchor(input);
-          }
-        }));
+    SkylarkCallable annotation = method.getAnnotation(SkylarkCallable.class);
+    int nbPositional = annotation.mandatoryPositionals();
+    if (annotation.parameters().length > 0 && nbPositional < 0) {
+      nbPositional = 0;
+    }
+    List<String> argList = new ArrayList<>();
+    for (int i = 0; i < nbPositional; i++) {
+      argList.add("arg" + i + ":" + getTypeAnchor(method.getParameterTypes()[i]));
+    }
+    boolean named = false;
+    for (Param param : annotation.parameters()) {
+      if (param.named() && !param.positional() && !named) {
+        named = true;
+        if (!argList.isEmpty()) {
+          argList.add("*");
+        }
+      }
+      argList.add(formatParameter(param));
+    }
+    return Joiner.on(", ").join(argList);
   }
 
   protected String getSignature(String objectName, String methodName, Method method) {
