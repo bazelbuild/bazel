@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static org.junit.Assert.assertFalse;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,17 +39,5 @@ public class DuplicateActionTest extends AnalysisTestCase {
     update("//a:a", "//a:b");
     assertFalse(hasErrors(getConfiguredTarget("//a:a")));
     assertFalse(hasErrors(getConfiguredTarget("//a:b")));
-  }
-
-  /**
-   *  Same test with loading phase disabled.
-   */
-  @RunWith(JUnit4.class)
-  public static class DuplicateActionTestWithoutLoading extends DuplicateActionTest {
-
-    @Override
-    protected boolean isLoadingEnabled() {
-      return false;
-    }
   }
 }

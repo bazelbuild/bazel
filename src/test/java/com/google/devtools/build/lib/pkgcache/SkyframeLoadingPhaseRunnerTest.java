@@ -20,7 +20,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class SkyframeLoadingPhaseRunnerTest extends LoadingPhaseRunnerTest {
   @Override
-  protected boolean runsLoadingPhase() {
-    return false;
+  protected boolean useSkyframeTargetPatternEval() {
+    return true;
   }
 }

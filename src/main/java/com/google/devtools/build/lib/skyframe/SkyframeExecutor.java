@@ -1626,15 +1626,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return memoizingEvaluator;
   }
 
-  /**
-   * Stores the set of loaded packages and, if needed, evicts ConfiguredTarget values.
-   *
-   * <p>The set represents all packages from the transitive closure of the top-level targets from
-   * the latest build.
-   */
-  @ThreadCompatible
-  public abstract void updateLoadedPackageSet(Set<PackageIdentifier> loadedPackages);
-
   public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
       Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId,
       TimestampGranularityMonitor tsgm)
@@ -1762,10 +1753,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     @Override
-    public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-        List<String> targetPatterns, PathFragment relativeWorkingDirectory, LoadingOptions options,
-        ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-        boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
+    public LoadingResult execute(
+        EventHandler eventHandler,
+        EventBus eventBus,
+        List<String> targetPatterns,
+        PathFragment relativeWorkingDirectory,
+        LoadingOptions options,
+        ListMultimap<String, Label> labelsToLoadUnconditionally,
+        boolean keepGoing,
+        boolean determineTests,
+        @Nullable LoadingCallback callback)
         throws TargetParsingException, LoadingFailedException, InterruptedException {
       Stopwatch timer = Stopwatch.createStarted();
       SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),

@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
@@ -400,20 +399,22 @@ public final class BuildTool {
           validator.validateTargets(targets, keepGoing);
         }
       }
-
-      @Override
-      public void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages) {
-        env.getSkyframeExecutor().updateLoadedPackageSet(visitedPackages);
-      }
     };
 
     LoadingPhaseRunner loadingPhaseRunner = env.getSkyframeExecutor().getLoadingPhaseRunner(
         runtime.getPackageFactory().getRuleClassNames(),
         request.getLoadingOptions().useSkyframeTargetPatternEvaluator);
-    LoadingResult result = loadingPhaseRunner.execute(getReporter(),
-        env.getEventBus(), request.getTargets(), env.getRelativeWorkingDirectory(),
-        request.getLoadingOptions(), runtime.createBuildOptions(request).getAllLabels(),
-        keepGoing, isLoadingEnabled(request), request.shouldRunTests(), callback);
+    LoadingResult result =
+        loadingPhaseRunner.execute(
+            getReporter(),
+            env.getEventBus(),
+            request.getTargets(),
+            env.getRelativeWorkingDirectory(),
+            request.getLoadingOptions(),
+            runtime.createBuildOptions(request).getAllLabels(),
+            keepGoing,
+            request.shouldRunTests(),
+            callback);
     env.throwPendingException();
     return result;
   }
@@ -594,12 +595,5 @@ public final class BuildTool {
 
   private Reporter getReporter() {
     return env.getReporter();
-  }
-
-  private static boolean isLoadingEnabled(BuildRequest request) {
-    boolean enableLoadingFlag = !request.getViewOptions().interleaveLoadingAndAnalysis;
-    // TODO(bazel-team): should return false when fdo optimization is enabled, because in that case,
-    // we would require packages to be set before analysis phase. See FdoSupport#prepareToBuild.
-    return enableLoadingFlag;
   }
 }

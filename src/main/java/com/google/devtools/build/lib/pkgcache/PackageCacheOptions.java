@@ -27,7 +27,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.List;
 
 /**
@@ -110,26 +109,6 @@ public class PackageCacheOptions extends OptionsBase {
       category = "undocumented",
       help = "Number of threads to use for glob evaluation.")
   public int globbingThreads;
-
-  @Option(name = "min_pkg_count_for_ct_node_eviction",
-      defaultValue = "3700",
-      // Why is the default value 3700? As of December 2013, a medium target loads about this many
-      // packages, uses ~310MB RAM to only load [1] or ~990MB to load and analyze [2,3]. So we
-      // can likely load and analyze this many packages without worrying about Blaze OOM'ing.
-      //
-      // If the total number of unique packages so far [4] is higher than the value of this flag,
-      // then we evict CT nodes [5] from the Skyframe graph.
-      //
-      // [1] blaze -x build --nobuild --noanalyze //medium:target
-      // [2] blaze -x build --nobuild //medium:target
-      // [3] according to "blaze info used-heap-size"
-      // [4] this means the number of unique packages loaded by builds, including the current one,
-      //     since the last CT node eviction [5]
-      // [5] "CT node eviction" means clearing those nodes from the Skyframe graph that correspond
-      //     to ConfiguredTargets; this is done using SkyframeExecutor.resetConfiguredTargets
-      category = "undocumented",
-      help = "Threshold for number of loaded packages before skyframe-m1 cache eviction kicks in")
-  public int minLoadedPkgCountForCtNodeEviction;
 
   @Option(name = "fetch",
       defaultValue = "true",

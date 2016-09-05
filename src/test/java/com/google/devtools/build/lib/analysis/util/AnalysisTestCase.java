@@ -194,11 +194,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return AnalysisMock.get();
   }
 
-  /** To be overriden by sub classes if they want to disable loading. */
-  protected boolean isLoadingEnabled() {
-    return true;
-  }
-
   protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
     return ImmutableList.of();
   }
@@ -294,10 +289,17 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
 
-    LoadingResult loadingResult = loadingPhaseRunner
-        .execute(reporter, eventBus, ImmutableList.copyOf(labels), PathFragment.EMPTY_FRAGMENT,
-            loadingOptions, buildOptions.getAllLabels(), viewOptions.keepGoing, isLoadingEnabled(),
-            /*determineTests=*/false, /*callback=*/null);
+    LoadingResult loadingResult =
+        loadingPhaseRunner.execute(
+            reporter,
+            eventBus,
+            ImmutableList.copyOf(labels),
+            PathFragment.EMPTY_FRAGMENT,
+            loadingOptions,
+            buildOptions.getAllLabels(),
+            viewOptions.keepGoing,
+            /*determineTests=*/false,
+            /*callback=*/null);
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);

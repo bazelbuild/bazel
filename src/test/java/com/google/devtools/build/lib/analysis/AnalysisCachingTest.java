@@ -28,14 +28,12 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Analysis caching tests.
@@ -518,21 +516,5 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(newAnalyzedTargets).hasSize(2);
     assertEquals(1, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"));
     assertEquals(1, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y"));
-  }
-
-  /**
-   * {link AnalysisCachingTest} without loading phase.
-   */
-  @RunWith(JUnit4.class)
-  public static class AnalysisCachingTestWithoutLoading extends AnalysisCachingTest {
-    @Override
-    protected boolean isLoadingEnabled() {
-      return false;
-    }
-
-    // Error processing without loading phase is not working properly yet.
-    @Override
-    @Test
-    public void testBuildFileInCycleChanged() {}
   }
 }

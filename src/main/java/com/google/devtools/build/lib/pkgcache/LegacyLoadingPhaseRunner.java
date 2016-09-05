@@ -15,31 +15,22 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -99,15 +90,21 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
 
   /**
    * Performs target pattern evaluation, test suite expansion (if requested), and loads the
-   * transitive closure of the resulting targets as well as of the targets needed to use the
-   * given build configuration provider.
+   * transitive closure of the resulting targets as well as of the targets needed to use the given
+   * build configuration provider.
    */
   @Override
-  public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-      List<String> targetPatterns, PathFragment relativeWorkingDirectory, LoadingOptions options,
-      ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
-          throws TargetParsingException, LoadingFailedException, InterruptedException {
+  public LoadingResult execute(
+      EventHandler eventHandler,
+      EventBus eventBus,
+      List<String> targetPatterns,
+      PathFragment relativeWorkingDirectory,
+      LoadingOptions options,
+      ListMultimap<String, Label> labelsToLoadUnconditionally,
+      boolean keepGoing,
+      boolean determineTests,
+      @Nullable LoadingCallback callback)
+      throws TargetParsingException, LoadingFailedException, InterruptedException {
     LOG.info("Starting pattern evaluation");
     Stopwatch timer = Stopwatch.createStarted();
     if (options.buildTestsOnly && options.compileOneDependency) {
@@ -189,30 +186,20 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     }
     LoadingPhaseRunner.maybeReportDeprecation(eventHandler, targets.getTargets());
 
-    if (enableLoading) {
-      return doLoadingPhase(eventHandler, eventBus, targets, testsToRun,
-          labelsToLoadUnconditionally, keepGoing, options.loadingPhaseThreads, callback);
-    } else {
-      return doSimpleLoadingPhase(eventHandler, eventBus, targets, testsToRun, keepGoing);
-    }
+    return doSimpleLoadingPhase(eventHandler, eventBus, targets, testsToRun, keepGoing);
   }
 
-  private void freeMemoryAfterLoading(LoadingCallback callback, Set<PackageIdentifier> visitedPackages) {
-    if (callback != null) {
-      callback.notifyVisitedPackages(visitedPackages);
-    }
-    // Clear some targets from the cache to free memory.
-    packageManager.partiallyClear();
-  }
-
-  /** 
-   * Simplified version of {@code doLoadingPhase} method. This method does not load targets.
-   * It only does test_suite expansion and emits necessary events and logging messages for legacy
+  /**
+   * Perform test_suite expansion and emits necessary events and logging messages for legacy
    * support.
    */
-  private LoadingResult doSimpleLoadingPhase(EventHandler eventHandler, EventBus eventBus,
-      ResolvedTargets<Target> targets, ImmutableSet<Target> testsToRun, boolean keepGoing)
-          throws InterruptedException, LoadingFailedException {
+  private LoadingResult doSimpleLoadingPhase(
+      EventHandler eventHandler,
+      EventBus eventBus,
+      ResolvedTargets<Target> targets,
+      ImmutableSet<Target> testsToRun,
+      boolean keepGoing)
+      throws InterruptedException, LoadingFailedException {
     Stopwatch timer = preLoadingLogging(eventHandler);
 
     ImmutableSet<Target> targetsToLoad = targets.getTargets();
@@ -225,36 +212,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
 
     postLoadingLogging(eventBus, targetsToLoad, expandedResult.getTargets(), timer);
     return new LoadingResult(targets.hasError(), expandedResult.hasError(),
-        expandedResult.getTargets(), testsToRun, getWorkspaceName(eventHandler));
-  }
-
-  /**
-   * Visit the transitive closure of the targets, populating the package cache
-   * and ensuring that all labels can be resolved and all rules were free from
-   * errors.
-   */
-  private LoadingResult doLoadingPhase(EventHandler eventHandler, EventBus eventBus,
-      ResolvedTargets<Target> targets, ImmutableSet<Target> testsToRun,
-      ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      int loadingPhaseThreads, @Nullable LoadingCallback callback)
-          throws InterruptedException, LoadingFailedException {
-    Stopwatch timer = preLoadingLogging(eventHandler);
-
-    TransitivePackageLoader pkgLoader = packageManager.newTransitiveLoader();
-    BaseLoadingResult baseResult = performLoadingOfTargets(eventHandler, eventBus, pkgLoader,
-        targets.getTargets(), labelsToLoadUnconditionally, keepGoing, loadingPhaseThreads);
-    ResolvedTargets<Target> expandedResult;
-    try {
-      expandedResult = expandTestSuites(eventHandler, baseResult.getTargets(), keepGoing);
-    } catch (TargetParsingException e) {
-      // This shouldn't happen, because we've already loaded the targets successfully.
-      throw (AssertionError) (new AssertionError("Unexpected target failure").initCause(e));
-    }
-    freeMemoryAfterLoading(callback, pkgLoader.getVisitedPackageNames());
-
-    postLoadingLogging(eventBus, baseResult.getTargets(), expandedResult.getTargets(), timer);
-    return new LoadingResult(targets.hasError(),
-        !baseResult.isSuccesful() || expandedResult.hasError(),
         expandedResult.getTargets(), testsToRun, getWorkspaceName(eventHandler));
   }
 
@@ -273,50 +230,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     LOG.info("Loading phase finished"); 
   }
 
-  private BaseLoadingResult performLoadingOfTargets(EventHandler eventHandler, EventBus eventBus,
-      TransitivePackageLoader pkgLoader, ImmutableSet<Target> targetsToLoad,
-      ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      int loadingPhaseThreads) throws InterruptedException, LoadingFailedException {
-    Set<Label> labelsToLoad = ImmutableSet.copyOf(labelsToLoadUnconditionally.values());
-
-    // For each label in {@code targetsToLoad}, ensure that the target to which
-    // it refers exists, and also every target in its transitive closure of label
-    // dependencies. Success guarantees that a call to
-    // {@code getConfiguredTarget} for the same targets will not fail; the
-    // configuration process is intolerant of missing packages/targets. Before
-    // calling getConfiguredTarget(), clients must ensure that all necessary
-    // packages/targets have been visited since the last sync/clear.
-    boolean loadingSuccessful = pkgLoader.sync(eventHandler, targetsToLoad, labelsToLoad,
-          keepGoing, loadingPhaseThreads, Integer.MAX_VALUE);
-
-    ImmutableSet<Target> targetsToAnalyze;
-    if (loadingSuccessful) {
-      // Success: all loaded targets will be analyzed.
-      targetsToAnalyze = targetsToLoad;
-    } else if (keepGoing) {
-      // Keep going: filter out the error-free targets and only continue with those.
-      targetsToAnalyze = filterErrorFreeTargets(eventHandler, eventBus, pkgLoader, targetsToLoad,
-          labelsToLoadUnconditionally);
-      reportAboutPartiallySuccesfulLoading(targetsToLoad, targetsToAnalyze, eventHandler);
-    } else {
-      throw new LoadingFailedException("Loading failed; build aborted");
-    }
-    return new BaseLoadingResult(targetsToAnalyze, loadingSuccessful);
-  }
-
-  private void reportAboutPartiallySuccesfulLoading(ImmutableSet<Target> requestedTargets,
-      ImmutableSet<Target> loadedTargets, EventHandler eventHandler) {
-    // Tell the user about the subset of successful targets.
-    int requested = requestedTargets.size();
-    int loaded = loadedTargets.size();
-    if (0 < loaded) {
-      String message = String.format("Loading succeeded for only %d of %d targets", loaded,
-          requested);
-      eventHandler.handle(Event.info(message));
-      LOG.info(message);
-    }
-  }
-
   private ResolvedTargets<Target> expandTestSuites(EventHandler eventHandler,
       ImmutableSet<Target> targets, boolean keepGoing)
       throws LoadingFailedException, TargetParsingException {
@@ -327,65 +240,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
       throw new LoadingFailedException("Could not expand test suite target");
     }
     return expandedResult;
-  }
-
-  private static class BaseLoadingResult {
-    private final ImmutableSet<Target> targets;
-    private final boolean succesful;
-
-    BaseLoadingResult(ImmutableSet<Target> targets, boolean succesful) {
-      this.targets = targets;
-      this.succesful = succesful;
-    }
-
-    ImmutableSet<Target> getTargets() {
-      return targets;
-    }
-
-    boolean isSuccesful() {
-      return succesful;
-    }
-  }
-
-  private static Set<Target> getTargetsForLabels(
-      LoadedPackageProvider loadedPackageProvider, Collection<Label> labels)
-      throws InterruptedException {
-    Set<Target> result = new HashSet<>();
-    for (Label label : labels) {
-      try {
-        result.add(loadedPackageProvider.getLoadedTarget(label));
-      } catch (NoSuchThingException e) {
-        throw new IllegalStateException(e);  // The target should have been loaded
-      }
-    }
-    return result;
-  }
-
-  private ImmutableSet<Target> filterErrorFreeTargets(
-      EventHandler eventHandler,
-      EventBus eventBus,
-      TransitivePackageLoader pkgLoader,
-      Collection<Target> targetsToLoad,
-      ListMultimap<String, Label> labelsToLoadUnconditionally)
-      throws LoadingFailedException, InterruptedException {
-    // Error out if any of the labels needed for the configuration could not be loaded.
-    Multimap<Label, Label> rootCauses = pkgLoader.getRootCauses();
-    for (Map.Entry<String, Label> entry : labelsToLoadUnconditionally.entries()) {
-      Label label = entry.getValue();
-      if (rootCauses.containsKey(label)) {
-        throw new LoadingFailedException(
-            String.format("Failed to load required %s target: '%s'", entry.getKey(), label));
-      }
-    }
-
-    // Post root causes for command-line targets that could not be loaded.
-    for (Map.Entry<Label, Label> entry : rootCauses.entries()) {
-      eventBus.post(new LoadingFailureEvent(entry.getKey(), entry.getValue()));
-    }
-
-    LoadedPackageProvider packageProvider = new LoadedPackageProvider(packageManager, eventHandler);
-    return ImmutableSet.copyOf(Sets.difference(ImmutableSet.copyOf(targetsToLoad),
-        getTargetsForLabels(packageProvider, rootCauses.keySet())));
   }
 
   /**
@@ -429,24 +283,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     finalBuilder.merge(testTargetsBuilder);
     finalBuilder.filter(TestFilter.forOptions(options, eventHandler, ruleNames));
     return finalBuilder.build();
-  }
-
-  /**
-   * Emit a warning when a deprecated target is mentioned on the command line.
-   *
-   * <p>Note that this does not stop us from emitting "target X depends on deprecated target Y"
-   * style warnings for the same target and it is a good thing; <i>depending</i> on a target and
-   * <i>wanting</i> to build it are different things.
-   */
-  // Public for use by skyframe.TargetPatternPhaseFunction until this class goes away.
-  public static void maybeReportDeprecation(EventHandler eventHandler, Collection<Target> targets) {
-    for (Rule rule : Iterables.filter(targets, Rule.class)) {
-      if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
-        eventHandler.handle(Event.warn(rule.getLocation(), String.format(
-            "target '%s' is deprecated: %s", rule.getLabel(),
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))));
-      }
-    }
   }
 
   private String getWorkspaceName(EventHandler eventHandler)

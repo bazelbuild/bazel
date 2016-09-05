@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -384,14 +383,5 @@ public class AspectTest extends AnalysisTestCase {
             .getTransitiveExtraActionArtifacts();
     assertThat(getOnlyElement(extraActionArtifacts).getLabel()).isEqualTo(Label.create("@//a", "b"));
 
-  }
-
-  @RunWith(JUnit4.class)
-  public static class AspectTestWithoutLoading extends AspectTest {
-
-    @Override
-    protected boolean isLoadingEnabled() {
-      return false;
-    }
   }
 }

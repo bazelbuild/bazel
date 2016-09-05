@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetMarkerValue;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -166,9 +165,9 @@ public class SkyframeExecutorTestUtils {
    * <p>This helper is provided so legacy tests don't need to know about details of skyframe keys.
    */
   @Nullable
-  public static ErrorInfo getExistingFailedTarget(SkyframeExecutor skyframeExecutor, Label label)
+  public static ErrorInfo getExistingFailedPackage(SkyframeExecutor skyframeExecutor, Label label)
       throws InterruptedException {
-    SkyKey key = TargetMarkerValue.key(label);
+    SkyKey key = PackageValue.key(label.getPackageIdentifier());
     return getExistingError(skyframeExecutor, key);
   }
 }

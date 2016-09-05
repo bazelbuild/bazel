@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -63,20 +62,17 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link LoadingPhaseRunner}. */
 @RunWith(JUnit4.class)
@@ -95,15 +91,15 @@ public class LoadingPhaseRunnerTest {
 
   @Before
   public final void createLoadingPhaseTester() throws Exception  {
-    tester = new LoadingPhaseTester(!runsLoadingPhase());
+    tester = new LoadingPhaseTester(useSkyframeTargetPatternEval());
   }
 
   protected List<Target> getTargets(String... targetNames) throws Exception {
     return tester.getTargets(targetNames);
   }
 
-  protected boolean runsLoadingPhase() {
-    return true;
+  protected boolean useSkyframeTargetPatternEval() {
+    return false;
   }
 
   @Test
@@ -124,10 +120,6 @@ public class LoadingPhaseRunnerTest {
       @Override
       public void notifyTargets(Collection<Target> targets) throws LoadingFailedException {
         targetsNotified.addAll(targets);
-      }
-
-      @Override
-      public void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages) {
       }
     });
     assertNoErrors(tester.load("//base:hello"));
@@ -167,22 +159,6 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(ImmutableList.<Target>of());
     tester.assertContainsError("Skipping '//base:missing': no such target '//base:missing'");
     tester.assertContainsWarning("Target pattern parsing failed.");
-  }
-
-  @Test
-  public void testBadTransitiveClosure() throws Exception {
-    if (!runsLoadingPhase()) {
-      // TODO(ulfjack): Requires loading phase.
-      return;
-    }
-    tester.addFile("base/BUILD",
-        "filegroup(name = 'hello', srcs = ['//nonexistent:missing'])");
-    LoadingResult loadingResult = tester.loadKeepGoing("//base:hello");
-    assertFalse(loadingResult.hasTargetPatternError());
-    assertTrue(loadingResult.hasLoadingError());
-    assertThat(loadingResult.getTargets()).containsExactlyElementsIn(ImmutableList.<Target>of());
-    assertNull(loadingResult.getTestsToRun());
-    tester.assertContainsError("no such package 'nonexistent': BUILD file not found");
   }
 
   @Test
@@ -420,9 +396,6 @@ public class LoadingPhaseRunnerTest {
         "test_suite(name = 'tests', tests = [':my_test'])");
     LoadingResult loadingResult = tester.loadTests("//cc:tests", "-//cc:my_test");
     tester.assertContainsWarning("All specified test targets were excluded by filters");
-    if (runsLoadingPhase()) {
-      assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//cc:my_test"));
-    }
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(getTargets());
   }
 
@@ -527,14 +500,10 @@ public class LoadingPhaseRunnerTest {
         "sh_binary(name = 'bad', srcs = ['bad.sh'])",
         "undefined_symbol");
     LoadingResult loadingResult = tester.loadKeepGoing("//bad");
-    if (runsLoadingPhase()) {
-      // The legacy loading phase runner reports a loading error, but no target pattern error in
-      // keep_going mode, even though it's clearly an error in the referenced target itself, rather
-      // than in its transitive closure. This happens because the target pattern eval swallows such
-      // errors in keep_going mode. We could fix that, but it's a fairly invasive change, and we're
-      // planning to migrate to the Skyframe-based implementation anyway.
+    if (!useSkyframeTargetPatternEval()) {
+      // The LegacyLoadingPhaseRunner drops the error on the floor. The target can be resolved
+      // after all, even if the package is in error.
       assertThat(loadingResult.hasTargetPatternError()).isFalse();
-      assertThat(loadingResult.hasLoadingError()).isTrue();
     } else {
       assertThat(loadingResult.hasTargetPatternError()).isTrue();
     }
@@ -557,9 +526,6 @@ public class LoadingPhaseRunnerTest {
     tester.useLoadingOptions("--compile_one_dependency");
     try {
       LoadingResult loadingResult = tester.load("base/hello.cc");
-      if (runsLoadingPhase()) {
-        fail();
-      }
       assertThat(loadingResult.hasLoadingError()).isFalse();
     } catch (LoadingFailedException expected) {
       tester.assertContainsError("no such package 'bad'");
@@ -572,7 +538,7 @@ public class LoadingPhaseRunnerTest {
         "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
-    assertEquals(loadingResult.hasLoadingError(), runsLoadingPhase());
+    assertFalse(loadingResult.hasLoadingError());
   }
 
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
@@ -695,10 +661,17 @@ public class LoadingPhaseRunnerTest {
         EventBus eventBus = new EventBus();
         FilteredTargetListener listener = new FilteredTargetListener();
         eventBus.register(listener);
-        result = loadingPhaseRunner.execute(storedErrors, eventBus,
-            ImmutableList.copyOf(patterns), PathFragment.EMPTY_FRAGMENT, options,
-            ImmutableListMultimap.<String, Label>of(), keepGoing, /*enableLoading=*/true,
-            determineTests, loadingCallback);
+        result =
+            loadingPhaseRunner.execute(
+                storedErrors,
+                eventBus,
+                ImmutableList.copyOf(patterns),
+                PathFragment.EMPTY_FRAGMENT,
+                options,
+                ImmutableListMultimap.<String, Label>of(),
+                keepGoing,
+                determineTests,
+                loadingCallback);
         this.targetParsingCompleteEvent = listener.targetParsingCompleteEvent;
         this.loadingPhaseCompleteEvent = listener.loadingPhaseCompleteEvent;
       } catch (LoadingFailedException e) {

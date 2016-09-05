@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.util.Collection;
-import java.util.Set;
 
 /**
  * A callback interface to notify the caller about specific events.
@@ -29,12 +26,4 @@ public interface LoadingCallback {
    * the list before proceeding.
    */
   void notifyTargets(Collection<Target> targets) throws LoadingFailedException;
-
-  /**
-   * Called after loading has finished, to notify the caller about the visited packages.
-   *
-   * <p>The set of visited packages is the set of packages in the transitive closure of the
-   * union of the top level targets.
-   */
-  void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages);
 }

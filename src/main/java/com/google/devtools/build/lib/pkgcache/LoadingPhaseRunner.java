@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -56,14 +54,20 @@ import javax.annotation.Nullable;
 public abstract class LoadingPhaseRunner {
   /**
    * Performs target pattern evaluation, test suite expansion (if requested), and loads the
-   * transitive closure of the resulting targets as well as of the targets needed to use the
-   * given build configuration provider.
+   * transitive closure of the resulting targets as well as of the targets needed to use the given
+   * build configuration provider.
    */
-  public abstract LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-      List<String> targetPatterns, PathFragment relativeWorkingDirectory, LoadingOptions options,
-      ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
-          throws TargetParsingException, LoadingFailedException, InterruptedException;
+  public abstract LoadingResult execute(
+      EventHandler eventHandler,
+      EventBus eventBus,
+      List<String> targetPatterns,
+      PathFragment relativeWorkingDirectory,
+      LoadingOptions options,
+      ListMultimap<String, Label> labelsToLoadUnconditionally,
+      boolean keepGoing,
+      boolean determineTests,
+      @Nullable LoadingCallback callback)
+      throws TargetParsingException, LoadingFailedException, InterruptedException;
 
   /**
    * Returns a map of collected package names to root paths.
