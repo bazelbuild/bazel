@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  // strerror
+#include <sys/fcntl.h>
 #include <sys/socket.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
@@ -184,34 +185,71 @@ string GetDefaultHostJavabase() {
   return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
 }
 
-// Called from a signal handler!
-static bool GetStartTime(const string& pid, string* start_time) {
-  string statfile = "/proc/" + pid + "/stat";
-  string statline;
-
-  if (!ReadFile(statfile, &statline)) {
+// Called from a signal handler. Therefore, we can't use our usual set of
+// helper functions for reading files, splitting strings and so on.
+static bool GetStartTime(int pid, char* output, int output_len) {
+  char statfile[128];
+  snprintf(statfile, sizeof(statfile), "/proc/%d/stat", pid);
+  int fd = open(statfile, O_RDONLY);
+  if (fd < 0) {
     return false;
   }
 
-  vector<string> stat_entries = blaze_util::Split(statline, ' ');
-  if (stat_entries.size() < 22) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Format of stat file at %s is unknown", statfile.c_str());
+  // Note that this allocates 1K on any random stack the signal handler is
+  // called on
+  char statline[1024];
+  int statline_len = read(fd, statline, 1024);
+  close(fd);
+  if (statline_len < 0) {
+    return false;
   }
 
-  // Start time since startup in jiffies. This combined with the PID should be
-  // unique.
-  *start_time = stat_entries[21];
+  // Field 22 is that start time of the process since system startup in jiffies.
+  int space_count = 0;
+  int space_21 = -1;
+  int space_22 = -1;
+
+  for (int i = 0; i < statline_len; i++) {
+    if (statline[i] == ' ') {
+      switch (++space_count) {
+        case 21:
+          space_21 = i;
+          break;
+
+        case 22:
+          space_22 = i;
+          break;
+
+        default:
+          // We don't care
+          break;
+      }
+    }
+  }
+
+  if (space_21 == -1 || space_22 == -1) {
+    // Invalid statline format
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "Format of stat file at %s is unknown", statfile);
+  }
+
+  int jiffies_len = space_22 - space_21 - 1;
+  if (jiffies_len >= output_len) {
+    // Not enough space in output buffer (Note that we need one extra byte
+    // for the terminating NUL!)
+    return false;
+  }
+
+  strncpy(output, statline + space_21 + 1, jiffies_len);
+  output[jiffies_len] = 0;
   return true;
 }
 
 void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
-  string pid = ToString(getpid());
-
-  string start_time;
-  if (!GetStartTime(pid, &start_time)) {
+  char start_time[256];
+  if (!GetStartTime(getpid(), start_time, 256)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Cannot get start time of process %s", pid.c_str());
+         "Cannot get start time of process %d", getpid());
   }
 
   string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
@@ -229,10 +267,10 @@ void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
 // close(), all of which are safe to call from signal handlers.
 bool KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
-  string start_time;
-  if (!GetStartTime(ToString(pid), &start_time)) {
+  char start_time[256];
+  if (!GetStartTime(pid, start_time, sizeof(start_time))) {
     // Cannot read PID file from /proc . Process died in the meantime?
-    fprintf(stderr, "Found stale PID file (pid=%d). "
+    sigprintf("Found stale PID file (pid=%d). "
             "Server probably died abruptly, continuing...\n", pid);
     return false;
   }
