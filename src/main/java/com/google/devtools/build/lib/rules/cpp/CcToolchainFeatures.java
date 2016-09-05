@@ -1354,7 +1354,7 @@ public class CcToolchainFeatures implements Serializable {
     for (CrosstoolSelectable selectable : selectables) {
       if (!names.add(selectable.getName())) {
         throw new InvalidConfigurationException(
-            "Invalid toolcahin configuration: feature or "
+            "Invalid toolchain configuration: feature or "
                 + "action config '"
                 + selectable.getName()
                 + "' was specified multiple times.");
