@@ -75,6 +75,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     public List<String> multiCpus;
   }
 
+  protected MockToolsConfig mockToolsConfig;
   protected Path workspace;
   protected AnalysisMock analysisMock;
   protected SequencedSkyframeExecutor skyframeExecutor;
@@ -123,7 +124,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         UUID.randomUUID(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
 
-    analysisMock.setupMockClient(new MockToolsConfig(rootDirectory));
+    mockToolsConfig = new MockToolsConfig(rootDirectory);
+    analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     configurationFactory = analysisMock.createConfigurationFactory();
     buildOptionClasses = ruleClassProvider.getConfigurationOptions();

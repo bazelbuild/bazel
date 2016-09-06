@@ -367,6 +367,11 @@ public abstract class MockCcSupport {
     setupCrosstool(config, toolchainBuilder.buildPartial());
   }
 
+  public void setupCrosstoolWithRelease(MockToolsConfig config, String crosstool)
+      throws IOException {
+    createCrosstoolPackage(config, false, true, null, null, crosstool);
+  }
+
   /**
    * Creates a crosstool package by merging {@code toolchain} with the default mock CROSSTOOL file.
    */
@@ -389,8 +394,7 @@ public abstract class MockCcSupport {
       boolean addModuleMap,
       String staticRuntimesLabel,
       String dynamicRuntimesLabel,
-      CToolchain toolchain)
-      throws IOException {
+      CToolchain toolchain) throws IOException {
     createCrosstoolPackage(
         config,
         addEmbeddedRuntimes,
@@ -398,6 +402,23 @@ public abstract class MockCcSupport {
         staticRuntimesLabel,
         dynamicRuntimesLabel,
         toolchain);
+  }
+
+  public void setupCrosstool(
+      MockToolsConfig config,
+      boolean addEmbeddedRuntimes,
+      boolean addModuleMap,
+      String staticRuntimesLabel,
+      String dynamicRuntimesLabel,
+      String crosstool)
+      throws IOException {
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        addModuleMap,
+        staticRuntimesLabel,
+        dynamicRuntimesLabel,
+        crosstool);
   }
 
   protected static void createToolsCppPackage(MockToolsConfig config) throws IOException {
@@ -409,7 +430,7 @@ public abstract class MockCcSupport {
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)
       throws IOException {
-    createCrosstoolPackage(config, addEmbeddedRuntimes, /*addModuleMap=*/ true, null, null, null);
+    createCrosstoolPackage(config, addEmbeddedRuntimes, /*addModuleMap=*/ true, null, null);
   }
 
   protected String getCrosstoolTopPathForConfig(MockToolsConfig config) {
@@ -433,7 +454,18 @@ public abstract class MockCcSupport {
     }
   }
 
-  protected void createCrosstoolPackage(
+  private void createCrosstoolPackage(
+      MockToolsConfig config,
+      boolean addEmbeddedRuntimes,
+      boolean addModuleMap,
+      String staticRuntimesLabel,
+      String dynamicRuntimesLabel)
+      throws IOException {
+    createCrosstoolPackage(config, addEmbeddedRuntimes, addModuleMap, staticRuntimesLabel,
+        dynamicRuntimesLabel, readCrosstoolFile());
+  }
+
+  private void createCrosstoolPackage(
       MockToolsConfig config,
       boolean addEmbeddedRuntimes,
       boolean addModuleMap,
@@ -441,14 +473,23 @@ public abstract class MockCcSupport {
       String dynamicRuntimesLabel,
       CToolchain toolchain)
       throws IOException {
+    String crosstoolFile = mergeCrosstoolConfig(readCrosstoolFile(), toolchain);
+    createCrosstoolPackage(config, addEmbeddedRuntimes, addModuleMap, staticRuntimesLabel,
+        dynamicRuntimesLabel, crosstoolFile);
+  }
+
+  protected void createCrosstoolPackage(
+      MockToolsConfig config,
+      boolean addEmbeddedRuntimes,
+      boolean addModuleMap,
+      String staticRuntimesLabel,
+      String dynamicRuntimesLabel,
+      String crosstoolFile)
+      throws IOException {
     String crosstoolTop = getCrosstoolTopPathForConfig(config);
     if (config.isRealFileSystem()) {
       config.linkTools(getRealFilesystemTools(crosstoolTop));
     } else {
-      String crosstoolFile = readCrosstoolFile();
-      if (toolchain != null) {
-        crosstoolFile = mergeCrosstoolConfig(crosstoolFile, toolchain);
-      }
       new Crosstool(config, crosstoolTop)
           .setEmbeddedRuntimes(addEmbeddedRuntimes, staticRuntimesLabel, dynamicRuntimesLabel)
           .setCrosstoolFile(getMockCrosstoolVersion(), crosstoolFile)
@@ -461,7 +502,7 @@ public abstract class MockCcSupport {
 
   protected abstract String getMockCrosstoolVersion();
 
-  protected abstract String readCrosstoolFile() throws IOException;
+  public abstract String readCrosstoolFile() throws IOException;
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 

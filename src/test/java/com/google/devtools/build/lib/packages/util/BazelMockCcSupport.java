@@ -81,10 +81,16 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "/bazel_tools_workspace/tools/cpp/BUILD",
         "cc_library(name = 'stl')",
         "cc_library(name = 'malloc')",
-        "filegroup(name = 'toolchain', ",
-        "    srcs = [':cc-compiler-local', ':cc-compiler-darwin', ':cc-compiler-piii',",
-        "            ':cc-compiler-armeabi-v7a', ':empty'],",
-        ")",
+        "cc_toolchain_suite(",
+        "    name = 'toolchain',",
+        "    toolchains = {",
+        "      'local|compiler': ':cc-compiler-local',",
+        "      'k8|compiler': ':cc-compiler-k8',",
+        "      'piii|compiler': ':cc-compiler-piii',",
+        "      'darwin|compiler': ':cc-compiler-darwin',",
+        "      'armeabi-v7a|compiler': ':cc-compiler-armeabi-v7a',",
+        "      'x64_windows|compiler': ':cc-compiler-x64_windows',",
+        "    })",
         "cc_toolchain(name = 'cc-compiler-k8', all_files = ':empty', compiler_files = ':empty',",
         "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
         "    linker_files = ':empty',",
@@ -132,7 +138,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   }
 
   @Override
-  protected String readCrosstoolFile() throws IOException {
+  public String readCrosstoolFile() throws IOException {
     return readFromResources(MOCK_CROSSTOOL_PATH);
   }
 

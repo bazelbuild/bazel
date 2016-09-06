@@ -242,8 +242,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testStartEndLib() throws Exception {
-    CrosstoolConfigurationHelper.overwriteCrosstoolWithToolchain(
-        directories.getWorkspace(),
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
         CrosstoolConfig.CToolchain.newBuilder().setSupportsStartEndLib(true).buildPartial());
     useConfiguration(
         // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
@@ -356,13 +355,12 @@ public class CcCommonTest extends BuildViewTestCase {
 
   /**
    * Tests that nocopts= "-fPIC" takes '-fPIC' out of a compile invocation even if the crosstool
-   * requires fPIC compilation (i.e. nocoopts overrides crosstool settings on a rule-specific
+   * requires fPIC compilation (i.e. nocopts overrides crosstool settings on a rule-specific
    * basis).
    */
   @Test
   public void testNoCoptfPicOverride() throws Exception {
-    CrosstoolConfigurationHelper.overwriteCrosstoolWithToolchain(
-        directories.getWorkspace(),
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
         CrosstoolConfig.CToolchain.newBuilder().setNeedsPic(true).buildPartial());
     useConfiguration(
         // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.

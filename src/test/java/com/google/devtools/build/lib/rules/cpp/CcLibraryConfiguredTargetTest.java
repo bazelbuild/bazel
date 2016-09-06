@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -116,8 +118,36 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuildWithoutDSO() throws Exception {
+    CrosstoolConfig.CrosstoolRelease.Builder release = CrosstoolConfig.CrosstoolRelease.newBuilder()
+        .mergeFrom(CrosstoolConfigurationHelper.simpleCompleteToolchainProto());
+    release.getToolchainBuilder(0)
+        .setTargetCpu("k8")
+        .setCompiler("compiler")
+        .clearLinkingModeFlags();
+
+    scratch.file("crosstool/BUILD",
+        "cc_toolchain_suite(",
+        "    name = 'crosstool',",
+        "    toolchains = {'k8|compiler': ':cc-compiler-k8'})",
+        "filegroup(name = 'empty')",
+        "cc_toolchain(",
+        "    name = 'cc-compiler-k8',",
+        "    output_licenses = ['unencumbered'],",
+        "    cpu = 'k8',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    static_runtime_libs = [':empty'],",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    all_files = ':empty',",
+        "    licenses = ['unencumbered'])");
+    scratch.file("crosstool/CROSSTOOL", TextFormat.printToString(release));
+
     // This is like the preceding test, but with a toolchain that can't build '.so' files
-    useConfiguration("--compiler=compiler_no_dyn_linker");
+    useConfiguration("--crosstool_top=//crosstool:crosstool", "--compiler=compiler",
+        "--cpu=k8", "--host_cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive);

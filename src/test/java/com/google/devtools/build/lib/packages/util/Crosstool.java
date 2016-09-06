@@ -15,12 +15,11 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 /**
  * A helper class to create a crosstool package containing a CROSSTOOL file, and the various
@@ -108,7 +107,14 @@ final class Crosstool {
       }
     }
 
-    List<String> compilerRules = Lists.newArrayList();
+    CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
+        CrosstoolConfig.CrosstoolRelease.newBuilder();
+    TextFormat.merge(crosstoolFileContents, configBuilder);
+    StringBuilder compilerMap = new StringBuilder();
+    for (CrosstoolConfig.CToolchain toolchain : configBuilder.build().getToolchainList()) {
+      compilerMap.append(String.format("'%s|%s': ':cc-compiler-%s',\n",
+          toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
+    }
 
     for (String arch : archs) {
       String compilerRule;
@@ -145,7 +151,6 @@ final class Crosstool {
                       + "])");
 
       compilationTools.append(compilerRule + "\n");
-      compilerRules.add(":cc-compiler-" + arch);
     }
 
     String build =
@@ -154,14 +159,14 @@ final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
+                "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
                 "          srcs = glob(['" + version + "/**/*'],",
                 "              exclude_directories = 1),",
                 "          output_licenses = ['unencumbered'])",
                 "",
                 String.format(
-                    "filegroup(name = 'everything', srcs = ['%s', ':every-file'])",
-                    Joiner.on("', '").join(compilerRules)),
+                    "cc_toolchain_suite(name = 'everything', toolchains = {%s})", compilerMap),
                 "",
                 String.format(
                     "filegroup(name = 'every-file', srcs = ['%s'%s%s])",

@@ -29,17 +29,16 @@ filegroup(
 )
 
 # Hardcoded toolchain, legacy behaviour.
-filegroup(
+cc_toolchain_suite(
     name = "default-toolchain",
-    srcs = [
-        ":cc-compiler-armeabi-v7a",
-        ":cc-compiler-darwin",
-        ":cc-compiler-freebsd",
-        ":cc-compiler-local",
-        ":cc-compiler-x64_windows",
-        ":cc-compiler-x64_windows_msvc",
-        ":empty",
-    ],
+    toolchains = {
+        "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
+        "darwin|compiler": ":cc-compiler-darwin",
+        "freebsd|compiler": ":cc-compiler-freebsd",
+        "local|compiler": ":cc-compiler-local",
+        "x64_windows|compiler": ":cc-compiler-x64_windows",
+        "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
+    },
 )
 
 cc_toolchain(

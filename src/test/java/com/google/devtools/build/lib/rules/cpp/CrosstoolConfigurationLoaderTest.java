@@ -43,15 +43,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link CppConfigurationLoader}.
@@ -82,8 +80,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   }
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {
-    CrosstoolConfigurationHelper.overwriteCrosstoolFile(
-        directories.getWorkspace(), crosstoolFileContents);
+    getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolFileContents);
     return new CppConfigurationLoader(Functions.<String>identity());
   }
 
