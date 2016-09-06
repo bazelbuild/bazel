@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -161,20 +160,5 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
           "', javabase must be an absolute path or label");
     }
     return new Jvm(new PathFragment(javaHome), null);
-  }
-
-  /**
-   * Converts the cpu name to a GNU system name. If the cpu is not a known value, it returns
-   * <code>"unknown-unknown-linux-gnu"</code>.
-   */
-  @VisibleForTesting
-  static String convertCpuToGnuSystemName(String cpu) {
-    if ("piii".equals(cpu)) {
-      return "i686-unknown-linux-gnu";
-    } else if ("k8".equals(cpu)) {
-      return "x86_64-unknown-linux-gnu";
-    } else {
-      return "unknown-unknown-linux-gnu";
-    }
   }
 }
