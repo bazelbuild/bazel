@@ -485,6 +485,9 @@ public class BlazeCommandDispatcher {
         reporter.handle(Event.error(e.getMessage()));
         return e.getExitCode().getNumericExitCode();
       }
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        module.handleOptions(optionsParser);
+      }
 
       // Print warnings for odd options usage
       for (String warning : optionsParser.getWarnings()) {
