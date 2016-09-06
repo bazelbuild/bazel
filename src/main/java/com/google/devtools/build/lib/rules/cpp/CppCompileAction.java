@@ -300,7 +300,9 @@ public class CppCompileAction extends AbstractAction
     this.mandatoryInputs = mandatoryInputs;
     this.builtinIncludeFiles = CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles();
     this.semantics = semantics;
-    verifyIncludePaths(ruleContext);
+    if (semantics.needsIncludeValidation()) {
+      verifyIncludePaths(ruleContext);
+    }
   }
 
   /**
