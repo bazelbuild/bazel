@@ -545,6 +545,10 @@ apple_watch2_extension(
     ext_bundle_id = "com.google.app.extension",
 )
 EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION \
+      //ios:WatchExtension >$TEST_log 2>&1 || fail "should build"
 }
 
 function test_host_xcodes() {
