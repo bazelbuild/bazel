@@ -24,8 +24,8 @@ DOCKER="${DOCKER:-docker}"
 
 FULL_DOCKER_VERSION=$(docker version -f {{.Server.Version}} 2> /dev/null \
     || echo "1.5.0")
-DOCKER_MAJOR_VERSION=$(echo "$FULL_DOCKER_VERSION" | sed -r 's#^([0-9]+)\..*#\1#')
-DOCKER_MINOR_VERSION=$(echo "$FULL_DOCKER_VERSION" | sed -r 's#^[0-9]+\.([0-9]+).*#\1#')
+DOCKER_MAJOR_VERSION=$(echo "$FULL_DOCKER_VERSION" | awk -F\. '{ print $1 }')
+DOCKER_MINOR_VERSION=$(echo "$FULL_DOCKER_VERSION" | awk -F\. '{ print $2 }')
 if [ "$DOCKER_MAJOR_VERSION" -eq "1" ] && [ "$DOCKER_MINOR_VERSION" -lt "10" ]; then
   LEGACY_DOCKER=true
 else
