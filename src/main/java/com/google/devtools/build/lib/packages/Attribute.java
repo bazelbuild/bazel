@@ -620,12 +620,22 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * See value(TYPE) above. This method is only meant for Skylark usage.
+     *
+     * <p>The parameter {@code context} is relevant iff the default value is a Label string.
+     * In this case, {@code context} must point to the parent Label in order to be able to convert
+     * the default value string to a proper Label.
      */
-    public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
+    public Builder<TYPE> defaultValue(Object defaultValue, Object context)
+        throws ConversionException {
       Preconditions.checkState(!valueSet, "the default value is already set");
-      value = type.convert(defaultValue, "attribute " + name);
+      value = type.convert(defaultValue, "attribute " + name, context);
       valueSet = true;
       return this;
+    }
+
+    /** See value(TYPE) above. This method is only meant for Skylark usage. */
+    public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
+      return defaultValue(defaultValue, null);
     }
 
     public boolean isValueSet() {

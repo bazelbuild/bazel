@@ -172,7 +172,7 @@ public final class SkylarkAttr {
             new SkylarkComputedDefaultTemplate(
                 type, callback.getParameterNames(), callback, ast.getLocation()));
       } else {
-        builder.defaultValue(defaultValue);
+        builder.defaultValue(defaultValue, env.getGlobals().label());
       }
     }
 

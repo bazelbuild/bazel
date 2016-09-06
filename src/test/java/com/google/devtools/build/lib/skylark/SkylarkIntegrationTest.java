@@ -64,6 +64,28 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRemoteLabelAsDefaultAttributeValue() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(implementation = _impl,",
+        "    attrs = { 'dep' : attr.label_list(default=[\"@r//:t\"]) })");
+
+    // We are only interested in whether the label string in the default value can be converted
+    // to a proper Label without an exception (see GitHub issue #1442).
+    // Consequently, we expect getTarget() to fail later since the repository does not exist.
+    checkError(
+        "test/skylark",
+        "the_rule",
+        "no such package '@r//': error loading package 'external': "
+            + "The repository named 'r' could not be resolved",
+        "load('/test/skylark/extension', 'my_rule')",
+        "",
+        "my_rule(name='the_rule')");
+  }
+
+  @Test
   public void testSameMethodNames() throws Exception {
     // The alias feature of load() may hide the fact that two methods in the stack trace have the
     // same name. This is perfectly legal as long as these two methods are actually distinct.
