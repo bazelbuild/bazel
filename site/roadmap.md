@@ -115,7 +115,7 @@ be refined if appropriate.
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/commit/79adf59e2973754c8c0415fcab45cd58c7c34697">Prototype for distributed caching of build artifact</a></td></tr>
     <tr>
       <td rowspan="2"><b>0.4</b></td>
-      <td rowspan="2"><b>2016&#8209;08</b></td>
+      <td rowspan="2"><b>2016&#8209;10</b></td>
       <td>P0. Persistent Java compiler is enabled</td>
     </tr>
     <tr><td>P2. Sandboxing of action for OS X</td></tr>
@@ -129,13 +129,13 @@ be refined if appropriate.
     <tr><td>P2. Support for Swift language</td></tr>
     <tr>
       <td rowspan="2"><b>0.6</b></td>
-      <td rowspan="2"><b>2016&#8209;11</b></td>
+      <td rowspan="2"><b>2017 Q1</b></td>
       <td>P0. Searchable "hub" of Skylark rules</td>
     </tr>
     <tr><td>P2. Reference ("pull") remote docker images as an input to the build process</td></tr>
     <tr>
       <td rowspan="3"><b>0.7</b></td>
-      <td rowspan="3"><b>2017 Q1</b></td>
+      <td rowspan="3"><b>2017 Q2</b></td>
       <td>P0. Full Windows support for Android: Android feature set is identical for Windows and Linux/OS X</tr>
     </tr>
     <tr><td>P1. Android Studio interoperability</td></tr>
