@@ -50,7 +50,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of("objc-compile", "objc++-compile", "objc-archive", "objc-fully-link",
-          "assemble", "preprocess-assemble");
+          "assemble", "preprocess-assemble", "c-compile", "c++-compile");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) 
