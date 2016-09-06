@@ -1926,8 +1926,8 @@ public final class BuildConfiguration {
   /**
    * Returns the bin directory for this build configuration.
    */
-  @SkylarkCallable(name = "bin_dir", structField = true,
-      doc = "The root corresponding to bin directory.")
+  @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
+  @Deprecated
   public Root getBinDirectory() {
     return outputRoots.binDirectory;
   }
@@ -1963,8 +1963,8 @@ public final class BuildConfiguration {
   /**
    * Returns the genfiles directory for this build configuration.
    */
-  @SkylarkCallable(name = "genfiles_dir", structField = true,
-      doc = "The root corresponding to genfiles directory.")
+  @SkylarkCallable(name = "genfiles_dir", structField = true, documented = false)
+  @Deprecated
   public Root getGenfilesDirectory() {
     return outputRoots.genfilesDirectory;
   }
