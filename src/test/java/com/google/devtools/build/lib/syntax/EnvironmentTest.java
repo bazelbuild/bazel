@@ -113,13 +113,13 @@ public class EnvironmentTest extends EvaluationTestCase {
 
     assertEquals(Sets.newHashSet("foo", "wiz",
             "False", "None", "True",
-            "-", "all", "any", "bool", "dict", "enumerate", "int", "len", "list",
-            "max", "min", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
+            "-", "all", "any", "bool", "dict", "enumerate", "fail", "int", "len", "list", "max",
+            "min", "print", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
         outerEnv.getVariableNames());
     assertEquals(Sets.newHashSet("foo", "wiz", "quux",
             "False", "None", "True",
-            "-", "all", "any", "bool", "dict", "enumerate", "int", "len", "list",
-            "max", "min", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
+            "-", "all", "any", "bool", "dict", "enumerate", "fail", "int", "len", "list", "max",
+            "min", "print", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
         innerEnv.getVariableNames());
   }
 
