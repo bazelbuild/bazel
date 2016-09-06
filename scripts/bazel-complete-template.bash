@@ -75,8 +75,6 @@
 : ${BAZEL_BUILD_MATCH_PATTERN__:='.*'}
 : ${BAZEL_QUERY_MATCH_PATTERN__:=''}
 
-BAZEL_GREP="$(which grep)"
-
 # Usage: _bazel__get_rule_match_pattern <command>
 # Determine what kind of rules to match, based on command.
 _bazel__get_rule_match_pattern() {
@@ -189,7 +187,7 @@ _bazel__matching_targets() {
       | sed 's/\([a-zA-Z0-9_]*\) *(\([^)]* \)\{0,1\}name *= *['\''"]\([a-zA-Z0-9_/.+=,@~-]*\)['\''"][^)]*)/\
 type:\1 name:\3\
 /g' \
-      | "${BAZEL_GREP}" -E "^type:$kind_pattern name:$target_prefix" \
+      | "grep" -E "^type:$kind_pattern name:$target_prefix" \
       | cut -d ':' -f 3
 }
 
@@ -228,7 +226,7 @@ _bazel__expand_rules_in_package() {
     result=$(${BAZEL} --output_base=/tmp/${BAZEL}-completion-$USER query \
                    --keep_going --noshow_progress \
       "kind('$pattern rule', '$package_name:*')" 2>/dev/null |
-      cut -f2 -d: | "${BAZEL_GREP}" "^$rule_prefix")
+      cut -f2 -d: | "grep" "^$rule_prefix")
   else
     for root in $(_bazel__package_path "$workspace" "$displacement"); do
       buildfile="$root/$package_name/BUILD"
@@ -319,7 +317,7 @@ _bazel__expand_target_pattern() {
 
 _bazel__get_command() {
   for word in "${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
-    if echo "$BAZEL_COMMAND_LIST" | "${BAZEL_GREP}" -wsq -e "$word"; then
+    if echo "$BAZEL_COMMAND_LIST" | "grep" -wsq -e "$word"; then
       echo $word
       break
     fi
@@ -359,7 +357,7 @@ _bazel__complete_pattern() {
         ;;
       "command")
         local commands=$(echo "${BAZEL_COMMAND_LIST}" \
-          | tr " " "\n" | "${BAZEL_GREP}" -v "^${BAZEL_IGNORED_COMMAND_REGEX}$")
+          | tr " " "\n" | "grep" -v "^${BAZEL_IGNORED_COMMAND_REGEX}$")
     compgen -S " " -W "${commands}" -- "$current"
         ;;
       path)
@@ -404,7 +402,7 @@ _bazel__complete_stdout() {
   case "$command" in
     "") # Expand startup-options or commands
       local commands=$(echo "${BAZEL_COMMAND_LIST}" \
-        | tr " " "\n" | "${BAZEL_GREP}" -v "^${BAZEL_IGNORED_COMMAND_REGEX}$")
+        | tr " " "\n" | "grep" -v "^${BAZEL_IGNORED_COMMAND_REGEX}$")
       _bazel__expand_options  "$workspace" "$displacement" "$cur" \
           "${commands}\
           ${BAZEL_STARTUP_OPTIONS}"
