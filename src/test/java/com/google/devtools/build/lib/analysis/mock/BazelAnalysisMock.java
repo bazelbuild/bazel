@@ -223,7 +223,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     return new ConfigurationFactory(new BazelConfigurationCollection(),
         new BazelConfiguration.Loader(),
         new CppConfigurationLoader(Functions.<String>identity()),
-        new PythonConfigurationLoader(Functions.<String>identity()),
+        new PythonConfigurationLoader(),
         new BazelPythonConfiguration.Loader(),
         new JvmConfigurationLoader(BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
         new JavaConfigurationLoader(),

@@ -481,7 +481,7 @@ public class BazelRuleClassProvider {
 
     builder.addConfigurationOptions(AppleCommandLineOptions.class);
     builder.addConfigurationFragment(new AppleConfiguration.Loader());
-    builder.addConfigurationFragment(new PythonConfigurationLoader(Functions.<String>identity()));
+    builder.addConfigurationFragment(new PythonConfigurationLoader());
     builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
     builder.addConfigurationFragment(new ObjcConfigurationLoader());
     builder.addConfigurationFragment(new J2ObjcConfiguration.Loader());
