@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -586,6 +587,10 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    */
   String[] segments() {
     return segments;
+  }
+
+  public ImmutableList<String> getSegments() {
+    return ImmutableList.copyOf(segments);
   }
 
   public String windowsVolume() {
