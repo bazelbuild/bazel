@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -81,18 +80,6 @@ final class SandboxHelpers {
               + "]",
           spawn.asShellCommand(executor.getExecRoot()));
     }
-  }
-
-  static int getTimeout(Spawn spawn) throws ExecException {
-    String timeoutStr = spawn.getExecutionInfo().get("timeout");
-    if (timeoutStr != null) {
-      try {
-        return Integer.parseInt(timeoutStr);
-      } catch (NumberFormatException e) {
-        throw new UserExecException("Could not parse timeout", e);
-      }
-    }
-    return -1;
   }
 
   static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {

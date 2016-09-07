@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -76,15 +77,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
         .getEventBus()
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "standalone"));
 
-    int timeoutSeconds = -1;
-    String timeoutStr = spawn.getExecutionInfo().get("timeout");
-    if (timeoutStr != null) {
-      try {
-        timeoutSeconds = Integer.parseInt(timeoutStr);
-      } catch (NumberFormatException e) {
-        throw new UserExecException("could not parse timeout: ", e);
-      }
-    }
+    int timeoutSeconds = Spawns.getTimeoutSeconds(spawn);
 
     // We must wrap the subprocess with process-wrapper to kill the process tree.
     // All actions therefore depend on the process-wrapper file. Since it's embedded,
