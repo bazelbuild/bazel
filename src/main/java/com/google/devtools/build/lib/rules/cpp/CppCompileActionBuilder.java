@@ -245,10 +245,12 @@ public class CppCompileActionBuilder {
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
 
+    boolean fake = tempOutputFile != null;
+
     // Configuration can be null in tests.
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
-    if (tempOutputFile == null && !shouldScanIncludes) {
+    if (!fake && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
     // We disable pruning header modules in CPP_MODULE_COMPILEs as that would lead to
@@ -258,8 +260,11 @@ public class CppCompileActionBuilder {
     // something that uses A (a header of it), we mark A and all of its transitive deps as inputs.
     // We still don't need to rebuild A, as none of its inputs have changed, but we do rebuild B
     // now and then the two modules are out of sync.
+    // We also have to disable this for fake C++ compile actions as those currently do a build first
+    // before discovering inputs and thus would not declare their inputs properly.
     boolean shouldPruneModules =
         shouldScanIncludes
+            && !fake
             && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE)
             && featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES);
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES) && !shouldPruneModules) {
@@ -268,7 +273,6 @@ public class CppCompileActionBuilder {
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
 
     realMandatoryInputsBuilder.add(sourceFile);
-    boolean fake = tempOutputFile != null;
 
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
