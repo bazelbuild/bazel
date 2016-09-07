@@ -998,6 +998,7 @@ public final class ApkBuilder implements IArchiveBuilder {
                 !"class".equalsIgnoreCase(extension) &&           // Java class files
                 !"scc".equalsIgnoreCase(extension) &&             // VisualSourceSafe
                 !"swp".equalsIgnoreCase(extension) &&             // vi swap file
+                !fileName.endsWith(".gwt.xml") &&                 // Google Web Toolkit modules
                 !"thumbs.db".equalsIgnoreCase(fileName) &&        // image index file
                 !"picasa.ini".equalsIgnoreCase(fileName) &&       // image index file
                 !"package.html".equalsIgnoreCase(fileName) &&     // Javadoc
