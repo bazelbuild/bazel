@@ -24,6 +24,8 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
 
 create_and_cd_client
 put_bazel_on_path
+# Our tests use the static crosstool, so make it the default.
+EXTRA_BAZELRC="build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
 write_default_bazelrc
 
 output_base=$TEST_TMPDIR/out

@@ -20,6 +20,7 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
+    tags = ["local"],
 )
 
 sh_test(
