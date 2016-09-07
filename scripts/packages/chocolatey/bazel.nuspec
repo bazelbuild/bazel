@@ -26,37 +26,38 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <!-- version should MATCH as closely as possible with the underlying software -->
     <!-- Is the version a prerelease of a version? https://docs.nuget.org/create/versioning#creating-prerelease-packages -->
     <!-- Note that unstable versions like 0.0.1 can be considered a released version, but it's possible that one can release a 0.0.1-beta before you release a 0.0.1 version. If the version number is final, that is considered a released version and not a prerelease. -->
-    <version>0.4.0</version>
+    <version>0.3.1</version>
     <!-- <packageSourceUrl>Where is this Chocolatey package located (think GitHub)? packageSourceUrl is highly recommended for the community feed</packageSourceUrl>-->
+    <packageSourceUrl>https://github.com/bazelbuild/bazel/tree/master/scripts/packages/chocolatey</packageSourceUrl>
     <!-- owners is a poor name for maintainers of the package. It sticks around by this name for compatibility reasons. It basically means you. -->
-    <!--<owners>Peter Mounce</owners>-->
+    <owners>Peter Mounce, TODO</owners>
+
     <!-- ============================== -->
 
     <!-- == SOFTWARE SPECIFIC SECTION == -->
     <!-- This section is about the software itself -->
     <title>bazel (Install)</title>
-    <authors>__REPLACE_AUTHORS_OF_SOFTWARE_COMMA_SEPARATED__</authors>
+    <authors>TODO</authors>
     <!-- projectUrl is required for the community feed -->
-    <projectUrl>https://_Software_Location_REMOVE_OR_FILL_OUT_</projectUrl>
-    <!--<iconUrl>http://cdn.rawgit.com/https://github.com/bazelbuild/bazel/master/icons/bazel.png</iconUrl>-->
-    <!-- <copyright>Year Software Vendor</copyright> -->
+    <projectUrl>https://bazel.io</projectUrl>
+    <iconUrl>http://cdn.rawgit.com/https://github.com/bazelbuild/bazel/master/site/docs/images/bazel-logo.png</iconUrl>
+    <copyright>2016</copyright>
     <!-- If there is a license Url available, it is is required for the community feed -->
-    <!-- <licenseUrl>Software License Location __REMOVE_OR_FILL_OUT__</licenseUrl>
-    <requireLicenseAcceptance>true</requireLicenseAcceptance>-->
-    <!--<projectSourceUrl>Software Source Location - is the software FOSS somewhere? Link to it with this</projectSourceUrl>-->
-    <!--<docsUrl>At what url are the software docs located?</docsUrl>-->
-    <!--<mailingListUrl></mailingListUrl>-->
-    <!--<bugTrackerUrl></bugTrackerUrl>-->
-    <tags>bazel admin SPACE_SEPARATED</tags>
-    <summary>__REPLACE__</summary>
-    <description>__REPLACE__MarkDown_Okay 
+    <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE.txt</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/bazelbuild/bazel.git</projectSourceUrl>
+    <docsUrl>https://bazel.io/docs/getting-started.html</docsUrl>
+    <mailingListUrl>https://groups.google.com/forum/#!forum/bazel-discuss</mailingListUrl>
+    <bugTrackerUrl>https://github.com/bazelbuild/bazel/issues</bugTrackerUrl>
+    <tags>bazel build automation</tags>
+    <summary>Correct, reproducible, fast builds for everyone</summary>
+    <description>Build software of any size, quickly and reliably, just as engineers do at Google.
 
+Bazel is Google's own build tool, now publicly available in Beta.
 
-**Please Note**: This is an automatically updated package. If you find it is 
-out of date by more than a day or two, please contact the maintainer(s) and
-let them know the package is no longer updating correctly.
+Bazel has built-in support for building both client and server software, including client applications for both Android and iOS platforms. It also provides an extensible framework that you can use to develop your own build rules.
 </description>
-    <!-- <releaseNotes>__REPLACE_OR_REMOVE__MarkDown_Okay</releaseNotes> -->
+    <releaseNotes>https://github.com/bazelbuild/bazel/releases</releaseNotes>
     <!-- =============================== -->      
 
     <!-- Specifying dependencies and version ranges? https://docs.nuget.org/create/versioning#specifying-version-ranges-in-.nuspec-files -->
@@ -68,6 +69,11 @@ let them know the package is no longer updating correctly.
       <dependency id="" />
       <dependency id="chocolatey-uninstall.extension" />
     </dependencies>-->
+    <dependencies>
+      <dependency id="jdk8"/>
+      <dependency id="msys2"/>
+      <dependency id="python2"/>
+    </dependencies>
     <!-- chocolatey-uninstall.extension - If supporting 0.9.9.x (or below) and including a chocolateyUninstall.ps1 file to uninstall an EXE/MSI, you probably want to include chocolatey-uninstall.extension as a dependency. Please verify whether you are using a helper function from that package. -->
 
     <!--<provides>NOT YET IMPLEMENTED</provides>-->

@@ -3,42 +3,27 @@ layout: documentation
 title: Windows
 ---
 
-Building Bazel on Windows
-=========================
-
 Windows support is highly experimental. Known issues are [marked with
-label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3AWindows)
 on github issues.
 
-We currently support only 64 bit Windows 7 or higher and we compile Bazel as a msys2 binary.
 
-To bootstrap Bazel on Windows, you will need:
+Installing Bazel on Windows
+===========================
 
-*    Java JDK 8 or later
-*    [Visual Studio](https://www.visualstudio.com/) (Community Edition is okay)
-*    [msys2](https://msys2.github.io/) (need to be installed at
-     ``C:\tools\msys64\``).
-*    Several msys2 packages. Use the ``pacman`` command to install them:
-     ``pacman -Syuu gcc git curl zip unzip zlib-devel``
+You can install using the [chocolatey](https://chocolatey.org) package manager:
 
-To build Bazel:
-
-*    Open the msys2 shell.
-*    Clone the Bazel git repository as normal.
-*    Set the environment variables:
-
-```bash
-export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
-export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
+```shell
+choco install bazel
 ```
 
-*     Run ``compile.sh`` in Bazel directory.
-*     If all works fine, bazel will be built at ``output\bazel.exe``.
+This will install the latest available version of bazel, and dependencies.
+
 
 Using Bazel on Windows
 ======================
 
-Bazel now supports building C++, Java and Python targets on Windows.
+Bazel currently supports building C++ targets and Java targets on Windows.
 
 ### Build C++
 
@@ -81,16 +66,83 @@ $ ./bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-wor
 $ bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
 ```
 
-### Build Python
 
-On Windows, we build a self-extracting zip file for executable python targets, you can even use
-`python ./bazel-bin/path/to/target` to run it in native Windows command line (cmd.exe).
-See more details in this [design doc](/designs/2016/09/05/build-python-on-windows.html).
+Building Bazel on Windows
+=========================
+
+We currently support only 64 bit Windows 7 or higher and we compile Bazel as a msys2 binary.
+
+To bootstrap Bazel on Windows, you will need:
+
+*    Java JDK 8 or later
+*    [Visual Studio](https://www.visualstudio.com/) (Community Edition is okay)
+*    [msys2](https://msys2.github.io/) (need to be installed at
+     ``C:\tools\msys64\``).
+*    Several msys2 packages. Use the ``pacman`` command to install them:
+     ``pacman -Syuu gcc git curl zip unzip zlib-devel``
+
+To build Bazel:
+
+*    Open the msys2 shell.
+*    Clone the Bazel git repository as normal.
+*    Set the environment variables:
 
 ```bash
-$ bazel build examples/py_native:bin
-$ ./bazel-bin/examples/py_native/bin
-$ python ./bazel-bin/examples/py_native/bin    # This works in both msys and cmd.exe
-$ bazel run examples/py_native:bin
+export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
+export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
 ```
 
+*     Run ``compile.sh`` in Bazel directory.
+*     If all works fine, bazel will be built at ``output\bazel.exe``.
+
+
+Maintaining Bazel Chocolatey package on Windows
+===============================================
+
+### Prerequisites
+
+You need:
+* [chocolatey package manager](https://chocolatey.org) installed
+* (to publish) a chocolatey API key granting you permission to publish the `bazel` package
+* (to publish) to have set up that API key for the chocolatey source locally via `choco apikey -k <your key here> -s https://chocolatey.org/`
+
+### Build
+
+```shell
+pushd scripts/packages/chocolatey
+  choco pack bazel.nuspec
+popd
+```
+
+Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being created.
+
+#### Test
+
+0. remove nupkg files that are not the version you're testing.
+0. Build the package
+0. Test the install
+
+    ```shell
+    choco install ./bazel*.nupkg
+    # should install that version of bazel to c:\tools\bazel\bazel.exe
+    ```
+    In a new (msys2) shell
+    ```shell
+    bazel version
+    ```
+    should result in that version, with executable from PATH.
+
+0. Test the uninstall
+
+    ```shell
+    choco uninstall bazel
+    # should remove bazel from the system
+    ```
+
+Chocolatey's moderation process automates checks here.
+
+### Publish
+
+```shell
+choco push --source https://chocolatey.org/
+```
