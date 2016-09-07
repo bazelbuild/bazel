@@ -1,0 +1,11 @@
+﻿
+Note: Include this file if including binaries you have the right to distribute. 
+Otherwise delete. this file.
+
+===DELETE ABOVE THIS LINE AND THIS LINE===
+
+From: <insert applicable license url here>
+
+LICENSE
+
+<Insert License Here>
