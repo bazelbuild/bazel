@@ -38,17 +38,15 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * This class tests the file system utilities.
@@ -64,6 +62,7 @@ public class FileSystemUtilsTest {
     clock = new ManualClock();
     fileSystem = new InMemoryFileSystem(clock);
     workingDir = fileSystem.getPath("/workingDir");
+    workingDir.createDirectory();
   }
 
   Path topDir;
@@ -768,5 +767,68 @@ public class FileSystemUtilsTest {
     FileSystemUtils.ensureSymbolicLink(file, target);
     long timestamp = file.getLastModifiedTime(Symlinks.NOFOLLOW);
     assertEquals(prevTimeMillis, timestamp);
+  }
+
+  @Test
+  public void testCreateHardLinkForFile_Success() throws Exception {
+
+    /* Original file exists and link file does not exist */
+    Path originalPath = workingDir.getRelative("original");
+    Path linkPath = workingDir.getRelative("link");
+    FileSystemUtils.createEmptyFile(originalPath);
+    FileSystemUtils.createHardLink(linkPath, originalPath);
+    assertTrue(originalPath.exists());
+    assertTrue(linkPath.exists());
+    assertEquals(
+        fileSystem.stat(originalPath, false).getNodeId(),
+        fileSystem.stat(linkPath, false).getNodeId());
+  }
+
+  @Test
+  public void testCreateHardLinkForEmptyDirectory_Success() throws Exception {
+
+    Path originalDir = workingDir.getRelative("originalDir");
+    Path linkPath = workingDir.getRelative("link");
+
+    FileSystemUtils.createDirectoryAndParents(originalDir);
+
+    /* Original directory is empty, no link to be created. */
+    FileSystemUtils.createHardLink(linkPath, originalDir);
+    assertFalse(linkPath.exists());
+  }
+
+  @Test
+  public void testCreateHardLinkForNonEmptyDirectory_Success() throws Exception {
+
+    /* Test when original path is a directory */
+    Path originalDir = workingDir.getRelative("originalDir");
+    Path linkPath = workingDir.getRelative("link");
+    Path originalPath1 = originalDir.getRelative("original1");
+    Path originalPath2 = originalDir.getRelative("original2");
+    Path originalPath3 = originalDir.getRelative("original3");
+    Path linkPath1 = linkPath.getRelative("original1");
+    Path linkPath2 = linkPath.getRelative("original2");
+    Path linkPath3 = linkPath.getRelative("original3");
+
+    FileSystemUtils.createDirectoryAndParents(originalDir);
+    FileSystemUtils.createEmptyFile(originalPath1);
+    FileSystemUtils.createEmptyFile(originalPath2);
+    FileSystemUtils.createEmptyFile(originalPath3);
+
+    /* Three link files created under linkPath */
+    FileSystemUtils.createHardLink(linkPath, originalDir);
+    assertTrue(linkPath.exists());
+    assertTrue(linkPath1.exists());
+    assertTrue(linkPath2.exists());
+    assertTrue(linkPath3.exists());
+    assertEquals(
+        fileSystem.stat(originalPath1, false).getNodeId(),
+        fileSystem.stat(linkPath1, false).getNodeId());
+    assertEquals(
+        fileSystem.stat(originalPath2, false).getNodeId(),
+        fileSystem.stat(linkPath2, false).getNodeId());
+    assertEquals(
+        fileSystem.stat(originalPath3, false).getNodeId(),
+        fileSystem.stat(linkPath3, false).getNodeId());
   }
 }

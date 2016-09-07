@@ -173,6 +173,11 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
+  public boolean supportsHardLinksNatively() {
+    return true;
+  }
+
+  @Override
   public boolean isFilePathCaseSensitive() {
     return this.isCaseSensitive;
   }
@@ -434,5 +439,21 @@ public class UnionFileSystem extends FileSystem {
       FileSystemUtils.copyFile(sourcePath, targetPath);
       sourceDelegate.delete(sourcePath);
     }
+  }
+
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
+    checkModifiable();
+
+    FileSystem originalDelegate = getDelegate(originalPath);
+    FileSystem linkDelegate = getDelegate(linkPath);
+
+    if (!originalDelegate.equals(linkDelegate) || !linkDelegate.supportsHardLinksNatively()) {
+      throw new UnsupportedOperationException(
+          "Attempted to create a hard link, but hard link support is disabled.");
+    }
+    linkDelegate.createFSDependentHardLink(
+        adjustPath(linkPath, linkDelegate), adjustPath(originalPath, originalDelegate));
   }
 }

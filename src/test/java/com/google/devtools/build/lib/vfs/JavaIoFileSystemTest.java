@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.vfs;
 import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.testutil.ManualClock;
-
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,5 +61,20 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
     clock.advanceMillis(42000L);
     file.setLastModifiedTime(-1L);
     assertEquals(42000L, file.getLastModifiedTime());
+  }
+
+  @Override
+  protected boolean isHardLinked(Path a, Path b) throws IOException {
+    return Files.readAttributes(
+            java.nio.file.Paths.get(a.toString()),
+            BasicFileAttributes.class,
+            LinkOption.NOFOLLOW_LINKS)
+        .fileKey()
+        .equals(
+            Files.readAttributes(
+                    java.nio.file.Paths.get(b.toString()),
+                    BasicFileAttributes.class,
+                    LinkOption.NOFOLLOW_LINKS)
+                .fileKey());
   }
 }

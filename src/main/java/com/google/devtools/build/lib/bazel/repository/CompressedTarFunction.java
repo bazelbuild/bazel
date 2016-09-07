@@ -57,13 +57,18 @@ public abstract class CompressedTarFunction implements Decompressor {
         if (entry.isDirectory()) {
           FileSystemUtils.createDirectoryAndParents(filename);
         } else {
-          if (entry.isSymbolicLink()) {
+          if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment linkName = new PathFragment(entry.getLinkName());
             if (linkName.isAbsolute()) {
               linkName = linkName.relativeTo(PathFragment.ROOT_DIR);
               linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
             }
-            FileSystemUtils.ensureSymbolicLink(filename, linkName);
+            if (entry.isSymbolicLink()) {
+              FileSystemUtils.ensureSymbolicLink(filename, linkName);
+            } else {
+              FileSystemUtils.createHardLink(
+                  filename, descriptor.repositoryPath().getRelative(linkName));
+            }
           } else {
             Files.copy(
                 tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);

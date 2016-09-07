@@ -826,6 +826,16 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
+   * Create a hard link for the current path.
+   *
+   * @param link the path of the new link
+   * @throws IOException if there was an error executing {@link FileSystem#createHardLink}
+   */
+  public void createHardLink(Path link) throws IOException {
+    fileSystem.createHardLink(link, this);
+  }
+
+  /**
    * Returns the canonical path for this path, by repeatedly replacing symbolic
    * links with their referents. Analogous to realpath(3).
    *
@@ -1135,7 +1145,8 @@ public class Path implements Comparable<Path>, Serializable {
     // requires us to always go up to the top-level directory and copy all segments into a new
     // string array.
     // This was previously showing up as a hotspot in a profile of globbing a large directory.
-    Path a = this, b = o;
+    Path a = this;
+    Path b = o;
     int maxDepth = Math.min(a.depth, b.depth);
     while (a.depth > maxDepth) {
       a = a.getParentDirectory();
@@ -1148,7 +1159,8 @@ public class Path implements Comparable<Path>, Serializable {
       // If a is the same as this, this.depth must be less than o.depth.
       return equals(a) ? -1 : 1;
     }
-    Path previousa, previousb;
+    Path previousa;
+    Path previousb;
     do {
       previousa = a;
       previousb = b;

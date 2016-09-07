@@ -7,6 +7,7 @@ filegroup(
 java_test(
     name = "RepositoryTests",
     srcs = glob(["*.java"]),
+    data = ["test_decompress_archive.tar.gz"],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [

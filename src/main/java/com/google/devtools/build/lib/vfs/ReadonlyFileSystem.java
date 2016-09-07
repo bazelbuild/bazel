@@ -76,6 +76,11 @@ public abstract class ReadonlyFileSystem extends AbstractFileSystem {
   }
 
   @Override
+  public boolean supportsHardLinksNatively() {
+    return false;
+  }
+
+  @Override
   public boolean isFilePathCaseSensitive() {
     return true;
   }
@@ -105,4 +110,9 @@ public abstract class ReadonlyFileSystem extends AbstractFileSystem {
     throw modificationException();
   }
 
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
+    throw modificationException();
+  }
 }

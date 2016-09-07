@@ -289,6 +289,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  public boolean supportsHardLinksNatively() {
+    return true;
+  }
+
+  @Override
   public boolean isFilePathCaseSensitive() {
     return true;
   }
@@ -402,5 +407,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }
+  }
+
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
+    NativePosixFiles.link(originalPath.toString(), linkPath.toString());
   }
 }

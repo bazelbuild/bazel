@@ -932,4 +932,31 @@ public class FileSystemUtils {
     }
     return false;
   }
+
+
+  /**
+   * Create a new hard link file at "linkPath" for file at "originalPath". If "originalPath" is a
+   * directory, then for each entry, create link under "linkPath" recursively.
+   *
+   * @param linkPath The path of the new link file to be created
+   * @param originalPath The path of the original file
+   * @throws IOException if there was an error executing {@link Path#createHardLink}
+   */
+  public static void createHardLink(Path linkPath, Path originalPath) throws IOException {
+
+    // Regular file
+    if (originalPath.isFile()) {
+      Path parentDir = linkPath.getParentDirectory();
+      if (!parentDir.exists()) {
+        FileSystemUtils.createDirectoryAndParents(parentDir);
+      }
+      originalPath.createHardLink(linkPath);
+      // Directory
+    } else if (originalPath.isDirectory()) {
+      for (Path originalSubpath : originalPath.getDirectoryEntries()) {
+        Path linkSubpath = linkPath.getRelative(originalSubpath.relativeTo(originalPath));
+        createHardLink(linkSubpath, originalSubpath);
+      }
+    }
+  }
 }

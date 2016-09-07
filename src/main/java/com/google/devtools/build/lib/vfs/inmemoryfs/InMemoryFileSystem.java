@@ -655,6 +655,11 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   @Override
+  public boolean supportsHardLinksNatively() {
+    return true;
+  }
+
+  @Override
   public boolean isFilePathCaseSensitive() {
     return true;
   }
@@ -930,5 +935,34 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
       // We don't support cross-file system renaming.
       throw Error.EACCES.exception(targetPath);
     }
+  }
+
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
+
+    // Same check used when creating a symbolic link
+    if (originalPath.equals(rootPath)) {
+      throw Error.EACCES.exception(originalPath);
+    }
+
+    InMemoryDirectoryInfo linkParent;
+    synchronized (this) {
+      linkParent = getDirectory(linkPath.getParentDirectory());
+      // Same check used when creating a symbolic link
+      if (!linkParent.outOfScope()) {
+        if (linkParent.getChild(linkPath.getBaseName()) != null) {
+          throw Error.EEXIST.exception(linkPath);
+        }
+        insert(
+            linkParent,
+            linkPath.getBaseName(),
+            getDirectory(originalPath.getParentDirectory()).getChild(originalPath.getBaseName()),
+            linkPath);
+        return;
+      }
+    }
+    // If we get here, we're out of scope.
+    getDelegatedPath(linkParent.getEscapingPath(), originalPath).createHardLink(linkPath);
   }
 }

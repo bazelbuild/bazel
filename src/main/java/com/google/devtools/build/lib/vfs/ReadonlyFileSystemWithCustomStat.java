@@ -61,6 +61,11 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
+  public boolean supportsHardLinksNatively() {
+    return false;
+  }
+
+  @Override
   public boolean isFilePathCaseSensitive() {
     return true;
   }
@@ -72,6 +77,12 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
 
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
+    throw modificationException();
+  }
+
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
     throw modificationException();
   }
 

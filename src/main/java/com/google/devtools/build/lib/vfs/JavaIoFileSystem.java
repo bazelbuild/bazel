@@ -191,6 +191,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  public boolean supportsHardLinksNatively() {
+    return true;
+  }
+
+  @Override
   public boolean isFilePathCaseSensitive() {
     return true;
   }
@@ -467,5 +472,13 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       // between not-found exceptions and others.
       throw new IllegalStateException(e);
     }
+  }
+
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
+    Files.createLink(
+        java.nio.file.Paths.get(linkPath.toString()),
+        java.nio.file.Paths.get(originalPath.toString()));
   }
 }

@@ -22,12 +22,12 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
 import java.util.List;
 
@@ -127,6 +127,21 @@ public abstract class FileSystem {
    * these calls at its own discretion.
    */
   public abstract boolean supportsSymbolicLinksNatively();
+
+  /**
+   * Returns whether or not the FileSystem supports hard links.
+   *
+   * <p>Returns true if FileSystem supports the following:
+   *
+   * <ul>
+   * <li>{@link #createFSDependentHardLink(Path, Path)}
+   * </ul>
+   *
+   * The above calls may result in an {@link UnsupportedOperationException} on a FileSystem where
+   * this method returns {@code false}. The implementation can try to emulate these calls at its own
+   * discretion.
+   */
+  protected abstract boolean supportsHardLinksNatively();
 
   /***
    * Returns true if file path is case-sensitive on this file system. Default is true.
@@ -665,4 +680,41 @@ public abstract class FileSystem {
    * See {@link Path#renameTo} for specification.
    */
   protected abstract void renameTo(Path sourcePath, Path targetPath) throws IOException;
+
+
+  /**
+   * Create a new hard link file at "linkPath" for file at "originalPath".
+   *
+   * @param linkPath The path of the new link file to be created
+   * @param originalPath The path of the original file
+   * @throws IOException if the original file does not exist or the link file already exists
+   */
+  protected void createHardLink(Path linkPath, Path originalPath) throws IOException {
+
+    if (!originalPath.exists()) {
+      throw new FileNotFoundException(
+          "File \""
+              + originalPath.getBaseName()
+              + "\" linked from \""
+              + linkPath.getBaseName()
+              + "\" does not exist");
+    }
+
+    if (linkPath.exists()) {
+      throw new FileAlreadyExistsException(
+          "New link file \"" + linkPath.getBaseName() + "\" already exists");
+    }
+
+    createFSDependentHardLink(linkPath, originalPath);
+  }
+
+  /**
+   * Create a new hard link file at "linkPath" for file at "originalPath".
+   *
+   * @param linkPath The path of the new link file to be created
+   * @param originalPath The path of the original file
+   * @throws IOException if there was an I/O error
+   */
+  protected abstract void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException;
 }
