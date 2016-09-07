@@ -40,7 +40,6 @@ public class AarGeneratorBuilder {
   private Artifact manifest;
   private Artifact rTxt;
   private Artifact classes;
-  private boolean strictMerge;
 
   private Artifact aarOut;
 
@@ -82,11 +81,6 @@ public class AarGeneratorBuilder {
     return this;
   }
 
-  public AarGeneratorBuilder strictResourceMerging() {
-    this.strictMerge = true;
-    return this;
-  }
-
   public void build(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     List<Artifact> ins = new ArrayList<>();
@@ -111,10 +105,6 @@ public class AarGeneratorBuilder {
       args.add("--classes");
       args.add(classes.getExecPathString());
       ins.add(classes);
-    }
-
-    if (!strictMerge) {
-      args.add("--nostrictMerge");
     }
 
     args.add("--aarOutput");
