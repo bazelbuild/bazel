@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -797,15 +796,18 @@ public class Path implements Comparable<Path>, Serializable {
   public void createSymbolicLink(PathFragment target) throws IOException {
     fileSystem.createSymbolicLink(this, target);
   }
-  
+
   /**
-   * Returns the target of the current path, which must be a symbolic link. The
-   * link contents are returned exactly, and may contain an absolute or relative
-   * path. Analogous to readlink(2).
+   * Returns the target of the current path, which must be a symbolic link. The link contents are
+   * returned exactly, and may contain an absolute or relative path. Analogous to readlink(2).
+   *
+   * <p>Note: for {@link FileSystem}s where {@link FileSystem#supportsSymbolicLinksNatively()}
+   * returns false, this method will throw an {@link UnsupportedOperationException} if the link
+   * points to a non-existent file.
    *
    * @return the content (i.e. target) of the symbolic link
-   * @throws IOException if the current path is not a symbolic link, or the
-   *         contents of the link could not be read for any reason
+   * @throws IOException if the current path is not a symbolic link, or the contents of the link
+   *     could not be read for any reason
    */
   public PathFragment readSymbolicLink() throws IOException {
     return fileSystem.readSymbolicLink(this);

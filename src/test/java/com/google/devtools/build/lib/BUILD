@@ -2,6 +2,12 @@ package(
     default_visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
+WINDOWS_TEST_FILES = [
+    "util/DependencySetWindowsTest.java",
+    "vfs/PathFragmentWindowsTest.java",
+    "vfs/PathWindowsTest.java",
+]
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -111,11 +117,8 @@ java_test(
         # java_rules_skylark doesn't support resource loading with
         # qualified paths.
         exclude = [
-            "util/DependencySetWindowsTest.java",
             "util/ResourceFileLoaderTest.java",
-            "vfs/PathFragmentWindowsTest.java",
-            "vfs/PathWindowsTest.java",
-        ],
+        ] + WINDOWS_TEST_FILES,
     ),
     data = glob(["vfs/*.zip"]),
     tags = [
@@ -152,11 +155,7 @@ java_test(
 # systems
 java_test(
     name = "windows_test",
-    srcs = [
-        "util/DependencySetWindowsTest.java",
-        "vfs/PathFragmentWindowsTest.java",
-        "vfs/PathWindowsTest.java",
-    ],
+    srcs = WINDOWS_TEST_FILES,
     jvm_flags = ["-Dblaze.os=Windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -181,6 +180,13 @@ java_library(
     name = "windows_testutil",
     srcs = [
         "windows/util/WindowsTestUtil.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:windows",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

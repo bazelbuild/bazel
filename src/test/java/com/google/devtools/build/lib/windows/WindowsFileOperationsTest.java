@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
@@ -28,12 +26,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,60 +44,14 @@ public class WindowsFileOperationsTest {
 
   @Before
   public void loadJni() throws Exception {
-    String jniDllPath = WindowsTestUtil.getRunfile("io_bazel/src/main/native/windows_jni.dll");
-    WindowsJniLoader.loadJniForTesting(jniDllPath);
+    WindowsTestUtil.loadJni();
     scratchRoot = new File(System.getenv("TEST_TMPDIR")).getAbsolutePath() + "/x";
-    deleteAllUnder(scratchRoot);
+    cleanupScratchDir();
   }
 
   @After
   public void cleanupScratchDir() throws Exception {
-    deleteAllUnder(scratchRoot);
-  }
-
-  private void deleteAllUnder(String path) throws IOException {
-    if (new File(scratchRoot).exists()) {
-      runCommand("cmd.exe /c rd /s /q \"" + scratchRoot + "\"");
-    }
-  }
-
-  // Do not use WindowsFileSystem.createDirectoryJunction but reimplement junction creation here.
-  // If that method were buggy, using it here would compromise the test.
-  private void createJunctions(Map<String, String> links) throws Exception {
-    List<String> args = new ArrayList<>();
-    boolean first = true;
-
-    // Shell out to cmd.exe to create all junctions in one go.
-    // Running "cmd.exe /c command1 arg1 arg2 && command2 arg1 ... argN && ..." will run all
-    // commands within one cmd.exe invocation.
-    for (Map.Entry<String, String> e : links.entrySet()) {
-      if (first) {
-        args.add("cmd.exe /c");
-        first = false;
-      } else {
-        args.add("&&");
-      }
-
-      args.add(
-          String.format(
-              "mklink /j \"%s/%s\" \"%s/%s\"", scratchRoot, e.getKey(), scratchRoot, e.getValue()));
-    }
-    runCommand(args);
-  }
-
-  private void runCommand(List<String> args) throws IOException {
-    runCommand(Joiner.on(' ').join(args));
-  }
-
-  private void runCommand(String cmd) throws IOException {
-    Process p = Runtime.getRuntime().exec(cmd);
-    try {
-      // Wait no more than 5 seconds to create all junctions.
-      p.waitFor(5, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      fail("Failed to execute command; cmd: " + cmd);
-    }
-    assertWithMessage("Command failed: " + cmd).that(p.exitValue()).isEqualTo(0);
+    WindowsTestUtil.deleteAllUnder(scratchRoot);
   }
 
   private Path scratchDir(String path) throws IOException {
@@ -124,7 +73,7 @@ public class WindowsFileOperationsTest {
   public void testMockJunctionCreation() throws Exception {
     String root = scratchDir("dir").getParent().toString();
     scratchFile("dir/file.txt", "hello");
-    createJunctions(ImmutableMap.of("junc", "dir"));
+    WindowsTestUtil.createJunctions(scratchRoot, ImmutableMap.of("junc", "dir"));
     String[] children = new File(root + "/junc").list();
     assertThat(children).isNotNull();
     assertThat(children).hasLength(1);
@@ -154,7 +103,7 @@ public class WindowsFileOperationsTest {
     scratchFile("shrttrgt/file1.txt", "hello");
     scratchFile("longtargetpath/file2.txt", "hello");
 
-    createJunctions(junctions);
+    WindowsTestUtil.createJunctions(scratchRoot, junctions);
 
     assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/a")).isTrue();
     assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/b")).isTrue();

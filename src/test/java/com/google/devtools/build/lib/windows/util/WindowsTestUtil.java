@@ -14,18 +14,80 @@
 
 package com.google.devtools.build.lib.windows.util;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.fail;
+
+import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.windows.WindowsJniLoader;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /** Utilities for running Java tests on Windows. */
-public class WindowsTestUtil {
+public final class WindowsTestUtil {
+  private WindowsTestUtil() {}
+
   private static Map<String, String> runfiles;
+
+  public static void loadJni() throws Exception {
+    String jniDllPath = WindowsTestUtil.getRunfile("io_bazel/src/main/native/windows_jni.dll");
+    WindowsJniLoader.loadJniForTesting(jniDllPath);
+  }
+
+  // Do not use WindowsFileSystem.createDirectoryJunction but reimplement junction creation here.
+  // If that method were buggy, using it here would compromise the test.
+  public static void createJunctions(String scratchRoot, Map<String, String> links)
+      throws Exception {
+    List<String> args = new ArrayList<>();
+    boolean first = true;
+
+    // Shell out to cmd.exe to create all junctions in one go.
+    // Running "cmd.exe /c command1 arg1 arg2 && command2 arg1 ... argN && ..." will run all
+    // commands within one cmd.exe invocation.
+    for (Map.Entry<String, String> e : links.entrySet()) {
+      if (first) {
+        args.add("cmd.exe /c");
+        first = false;
+      } else {
+        args.add("&&");
+      }
+
+      args.add(
+          String.format(
+              "mklink /j \"%s/%s\" \"%s/%s\"", scratchRoot, e.getKey(), scratchRoot, e.getValue()));
+    }
+    runCommand(args);
+  }
+
+  public static void deleteAllUnder(String path) throws IOException {
+    if (new File(path).exists()) {
+      runCommand("cmd.exe /c rd /s /q \"" + path + "\"");
+    }
+  }
+
+  private static void runCommand(List<String> args) throws IOException {
+    runCommand(Joiner.on(' ').join(args));
+  }
+
+  private static void runCommand(String cmd) throws IOException {
+    Process p = Runtime.getRuntime().exec(cmd);
+    try {
+      // Wait no more than 5 seconds to create all junctions.
+      p.waitFor(5, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      fail("Failed to execute command; cmd: " + cmd);
+    }
+    assertWithMessage("Command failed: " + cmd).that(p.exitValue()).isEqualTo(0);
+  }
 
   public static String getRunfile(String runfilesPath) throws IOException {
     ensureRunfilesParsed();
@@ -40,15 +102,16 @@ public class WindowsTestUtil {
     runfiles = new HashMap<>();
     InputStream fis = new FileInputStream(System.getenv("RUNFILES_MANIFEST_FILE"));
     InputStreamReader isr = new InputStreamReader(fis, Charset.forName("UTF-8"));
-    BufferedReader br = new BufferedReader(isr);
-    String line;
-    while ((line = br.readLine()) != null) {
-      String[] splitLine = line.split(" "); // This is buggy when the path contains spaces
-      if (splitLine.length != 2) {
-        continue;
-      }
+    try (BufferedReader br = new BufferedReader(isr)) {
+      String line;
+      while ((line = br.readLine()) != null) {
+        String[] splitLine = line.split(" "); // This is buggy when the path contains spaces
+        if (splitLine.length != 2) {
+          continue;
+        }
 
-      runfiles.put(splitLine[0], splitLine[1]);
+        runfiles.put(splitLine[0], splitLine[1]);
+      }
     }
   }
 }
