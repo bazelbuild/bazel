@@ -40,6 +40,10 @@ See :func:`apple_action`."""
 XCRUNWRAPPER_LABEL = "//external:xcrunwrapper"
 """The label for xcrunwrapper tool."""
 
+def label_scoped_path(ctx, path):
+  """Return the path scoped to target's label."""
+  return ctx.label.name + "/" + path.lstrip("/")
+
 def module_cache_path(ctx):
   """Returns the Clang module cache path to use for this rule."""
   return ctx.configuration.genfiles_dir.path + "/_objc_module_cache"

@@ -33,7 +33,9 @@ def apple_rule_test():
 
   rule_test(
       name = "simple_swift_library_test",
-      generates = ["test_lib.a", "test_lib.swiftmodule", "test_lib-Swift.h"],
+      generates = ["test_lib/_objs/test_lib.a",
+                   "test_lib/_objs/test_lib.swiftmodule",
+                   "test_lib-Swift.h"],
       provides = {
           "swift": "",
           "objc": ""

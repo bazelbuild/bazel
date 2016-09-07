@@ -14,7 +14,11 @@
 
 """Skylark rules for Swift."""
 
-load("shared", "xcrun_action", "XCRUNWRAPPER_LABEL", "module_cache_path")
+load("shared",
+     "xcrun_action",
+     "XCRUNWRAPPER_LABEL",
+     "module_cache_path",
+     "label_scoped_path")
 
 def _parent_dirs(dirs):
   """Returns a set of parent directories for each directory in dirs."""
@@ -125,15 +129,20 @@ def _swift_library_impl(ctx):
     # their module cannot be compiled by clang), but did not occur in practice.
     objc_defines += objc.define
 
-  output_lib = ctx.new_file(module_name + ".a")
-  output_module = ctx.new_file(module_name + ".swiftmodule")
+  # A unique path for rule's outputs.
+  objs_outputs_path = label_scoped_path(ctx, "_objs/")
+
+  output_lib = ctx.new_file(objs_outputs_path + module_name + ".a")
+  output_module = ctx.new_file(objs_outputs_path + module_name + ".swiftmodule")
+
+  # These filenames are guaranteed unique, no need to scope.
   output_header = ctx.new_file(ctx.label.name + "-Swift.h")
   output_file_map = ctx.new_file(ctx.label.name + ".output_file_map.json")
 
   output_map = struct()
   output_objs = []
   for source in ctx.files.srcs:
-    obj = ctx.new_file(source.basename + ".o")
+    obj = ctx.new_file(objs_outputs_path + source.basename + ".o")
     output_objs.append(obj)
 
     output_map += struct(**{source.path: struct(object=obj.path)})
