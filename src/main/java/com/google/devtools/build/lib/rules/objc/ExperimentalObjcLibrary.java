@@ -250,6 +250,8 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .setCompilationArtifacts(compilationArtifacts)
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+        .addNonPropagatedDepObjcProviders(
+            ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
