@@ -159,7 +159,7 @@ pkg_tar = rule(
         # Implicit dependencies.
         "build_tar": attr.label(
             default=Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
-            cfg=HOST_CFG,
+            cfg="host",
             executable=True,
             allow_files=True)
     },
@@ -203,7 +203,7 @@ pkg_deb = rule(
         # Implicit dependencies.
         "make_deb": attr.label(
             default=Label("@bazel_tools//tools/build_defs/pkg:make_deb"),
-            cfg=HOST_CFG,
+            cfg="host",
             executable=True,
             allow_files=True)
     },
