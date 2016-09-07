@@ -738,7 +738,7 @@ public class ObjcRuleClasses {
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-                  .mandatoryNativeProviders(ObjcProvider.class)
+                  .mandatoryNativeProviders(ImmutableList.of(ObjcProvider.class))
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the
@@ -761,7 +761,7 @@ public class ObjcRuleClasses {
               attr("non_propagated_deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-                  .mandatoryNativeProviders(ObjcProvider.class)
+                  .mandatoryNativeProviders(ImmutableList.of(ObjcProvider.class))
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
            Extra <code>-D</code> flags to pass to the compiler. They should be in

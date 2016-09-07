@@ -78,7 +78,7 @@ public class BazelJavaRuleClasses {
       return builder
           .add(
               attr(":java_toolchain", LABEL)
-                  .mandatoryNativeProviders(JavaToolchainProvider.class)
+                  .mandatoryNativeProviders(ImmutableList.of(JavaToolchainProvider.class))
                   .value(JavaSemantics.JAVA_TOOLCHAIN))
           .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
           .build();

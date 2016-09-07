@@ -1816,28 +1816,37 @@ public final class RuleContext extends TargetContext
 
     private String getMissingMandatoryNativeProviders(
         ConfiguredTarget prerequisite, Attribute attribute) {
-      List<Class<? extends TransitiveInfoProvider>> mandatoryProvidersList =
-          attribute.getMandatoryNativeProviders();
+      List<ImmutableList<Class<? extends TransitiveInfoProvider>>> mandatoryProvidersList =
+          attribute.getMandatoryNativeProvidersList();
       if (mandatoryProvidersList.isEmpty()) {
         return null;
       }
-      List<Class<? extends TransitiveInfoProvider>> missing = new ArrayList<>();
-      for (Class<? extends TransitiveInfoProvider> provider : mandatoryProvidersList) {
-        if (prerequisite.getProvider(provider) == null) {
-          missing.add(provider);
+      List<List<String>> missingProvidersList = new ArrayList<>();
+      for (ImmutableList<Class<? extends TransitiveInfoProvider>> providers
+          : mandatoryProvidersList) {
+        List<String> missing = new ArrayList<>();
+        for (Class<? extends TransitiveInfoProvider> provider : providers) {
+          if (prerequisite.getProvider(provider) == null) {
+            missing.add(provider.getSimpleName());
+          }
+        }
+        if (missing.isEmpty()) {
+          return null;
+        } else {
+          missingProvidersList.add(missing);
         }
       }
-      if (missing.isEmpty()) {
-        return null;
-      }
-      StringBuilder sb = new StringBuilder();
-      for (Class<? extends TransitiveInfoProvider> provider : missing) {
-        if (sb.length() > 0) {
-          sb.append(", ");
+      StringBuilder missingProviders = new StringBuilder();
+      Joiner joinProvider = Joiner.on(", ");
+      for (List<String> providers : missingProvidersList) {
+        if (missingProviders.length() > 0) {
+          missingProviders.append(" or ");
         }
-        sb.append(provider.getSimpleName());
+        missingProviders.append((providers.size() > 1) ? "[" : "");
+        joinProvider.appendTo(missingProviders, providers);
+        missingProviders.append((providers.size() > 1) ? "]" : "");
       }
-      return sb.toString();
+      return missingProviders.toString();
     }
 
     /**
@@ -1872,7 +1881,7 @@ public final class RuleContext extends TargetContext
       // if no providers were mandatory (thus, none are missing), which would cause an early return
       // below without emitting the error message about the not-allowed rule class if that
       // requirement was unfulfilled.
-      if (!attribute.getMandatoryNativeProviders().isEmpty()
+      if (!attribute.getMandatoryNativeProvidersList().isEmpty()
           || !attribute.getMandatoryProvidersList().isEmpty()) {
         boolean hadAllMandatoryProviders = true;
 
