@@ -180,15 +180,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public Label extraEntitlements;
 
-  // TODO(b/28451644): Make this option the default behavior.
-  @Option(
-    name = "experimental_auto_top_level_union_objc_protos",
-    defaultValue = "true",
-    category = "flags",
-    help = "This flag is a noop and scheduled for removal."
-  )
-  public boolean experimentalAutoTopLevelUnionObjCProtos;
-
   @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
