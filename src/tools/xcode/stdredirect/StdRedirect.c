@@ -62,16 +62,16 @@ static void SetUpStdFileDescriptor(const char *env_name, int file_no) {
       __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
     } else {
       if (fchmod(fd, 0666) == -1) {
-      char *crash_log_message;
-      asprintf(&crash_log_message, "Could not chmod %s for %s - %s",
-               env_name, path, strerror(errno));
-      __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
+        char *crash_log_message;
+        asprintf(&crash_log_message, "Could not chmod %s for %s - %s",
+                 env_name, path, strerror(errno));
+        __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
       }
       if (dup2(fd, file_no) == -1) {
-      char *crash_log_message;
-      asprintf(&crash_log_message, "Could not dup %s for %s - %s",
-               env_name, path, strerror(errno));
-      __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
+        char *crash_log_message;
+        asprintf(&crash_log_message, "Could not dup %s for %s - %s",
+                 env_name, path, strerror(errno));
+        __assert_rtn(__func__, __FILE__, __LINE__, crash_log_message);
       }
     }
   }
