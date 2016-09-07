@@ -484,7 +484,7 @@ def _impl(repository_ctx):
     "download_with_sha256.txt", "${file_sha256}")
   repository_ctx.download(
     "http://localhost:${fileserver_port}/download_executable_file.sh",
-    "download_executable_file.sh", True)
+    "download_executable_file.sh", executable=True)
   repository_ctx.file("BUILD")  # necessary directories should already created by download function
 repo = repository_rule(implementation=_impl, local=False)
 EOF
