@@ -115,6 +115,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
             .addCopts(compilationSupport.getCompileRuleCopts())
             .addIncludeDirs(common.getObjcProvider().get(INCLUDE))
+            .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
             .addSystemIncludeDirs(common.getObjcProvider().get(INCLUDE_SYSTEM))
             .addVariableExtension(variablesExtension);
 
