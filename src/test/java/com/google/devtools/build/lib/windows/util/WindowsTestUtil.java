@@ -18,14 +18,18 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.windows.WindowsJniLoader;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,19 +38,36 @@ import java.util.concurrent.TimeUnit;
 
 /** Utilities for running Java tests on Windows. */
 public final class WindowsTestUtil {
-  private WindowsTestUtil() {}
 
   private static Map<String, String> runfiles;
 
+  /** A path where temp files can be created. It is NOT owned by this class. */
+  private final String scratchRoot;
+
+  public WindowsTestUtil(String scratchRoot) {
+    this.scratchRoot = scratchRoot;
+  }
+
+  /** Ensure the actual JNI DLL is loaded. */
   public static void loadJni() throws Exception {
     String jniDllPath = WindowsTestUtil.getRunfile("io_bazel/src/main/native/windows_jni.dll");
     WindowsJniLoader.loadJniForTesting(jniDllPath);
   }
 
+  /**
+   * Create directory junctions.
+   *
+   * <p>Each key in the map is a junction path, relative to {@link #scratchRoot}. These are the link
+   * names.
+   *
+   * <p>Each value in the map is a directory or junction path, also relative to
+   * {@link #scratchRoot}. These are the link targets.
+   *
+   * <p>This method creates all junctions in one invocation to "cmd.exe".
+   */
   // Do not use WindowsFileSystem.createDirectoryJunction but reimplement junction creation here.
   // If that method were buggy, using it here would compromise the test.
-  public static void createJunctions(String scratchRoot, Map<String, String> links)
-      throws Exception {
+  public void createJunctions(Map<String, String> links) throws Exception {
     List<String> args = new ArrayList<>();
     boolean first = true;
 
@@ -68,17 +89,42 @@ public final class WindowsTestUtil {
     runCommand(args);
   }
 
-  public static void deleteAllUnder(String path) throws IOException {
+  /** Delete everything under {@link #scratchRoot}/path. */
+  public void deleteAllUnder(String path) throws IOException {
+    if (Strings.isNullOrEmpty(path)) {
+      path = scratchRoot;
+    } else {
+      path = scratchRoot + "\\" + path;
+    }
     if (new File(path).exists()) {
       runCommand("cmd.exe /c rd /s /q \"" + path + "\"");
     }
   }
 
-  private static void runCommand(List<String> args) throws IOException {
+  /** Create a directory under `path`, relative to {@link #scratchRoot}. */
+  public Path scratchDir(String path) throws IOException {
+    return Files.createDirectories(new File(scratchRoot, path).toPath());
+  }
+
+  /** Create a file with the given contents under `path`, relative to {@link #scratchRoot}. */
+  public void scratchFile(String path, String... contents) throws IOException {
+    File fd = new File(scratchRoot, path);
+    Files.createDirectories(fd.toPath().getParent());
+    try (FileWriter w = new FileWriter(fd)) {
+      for (String line : contents) {
+        w.write(line);
+        w.write('\n');
+      }
+    }
+  }
+
+  /** Run a Command Prompt command. */
+  public static void runCommand(List<String> args) throws IOException {
     runCommand(Joiner.on(' ').join(args));
   }
 
-  private static void runCommand(String cmd) throws IOException {
+  /** Run a Command Prompt command. */
+  public static void runCommand(String cmd) throws IOException {
     Process p = Runtime.getRuntime().exec(cmd);
     try {
       // Wait no more than 5 seconds to create all junctions.

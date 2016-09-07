@@ -2,11 +2,21 @@ package(
     default_visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
-WINDOWS_TEST_FILES = [
+# Tests for Windows-specific functionality that can run cross-platform.
+CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
     "vfs/PathWindowsTest.java",
 ]
+
+# Tests for Windows-specific functionality that run on Windows.
+WINDOWS_ON_WINDOWS_TESTS = glob(
+    ["windows/*.java"],
+    exclude = ["windows/MockSubprocess.java"],
+)
+
+# All Windows-specific tests. Use this to exclude Windows tests from globs.
+ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
 
 filegroup(
     name = "srcs",
@@ -118,7 +128,7 @@ java_test(
         # qualified paths.
         exclude = [
             "util/ResourceFileLoaderTest.java",
-        ] + WINDOWS_TEST_FILES,
+        ] + ALL_WINDOWS_TESTS,
     ),
     data = glob(["vfs/*.zip"]),
     tags = [
@@ -155,7 +165,7 @@ java_test(
 # systems
 java_test(
     name = "windows_test",
-    srcs = WINDOWS_TEST_FILES,
+    srcs = CROSS_PLATFORM_WINDOWS_TESTS,
     jvm_flags = ["-Dblaze.os=Windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -193,10 +203,7 @@ java_library(
 # Tests that need to run on Windows
 java_test(
     name = "windows-tests",
-    srcs = glob(
-        ["windows/*.java"],
-        exclude = ["windows/MockSubprocess.java"],
-    ),
+    srcs = WINDOWS_ON_WINDOWS_TESTS,
     data = [
         ":MockSubprocess_deploy.jar",
     ] + select({

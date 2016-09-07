@@ -22,10 +22,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,39 +38,26 @@ import org.junit.runners.JUnit4;
 public class WindowsFileOperationsTest {
 
   private String scratchRoot;
+  private WindowsTestUtil testUtil;
 
   @Before
   public void loadJni() throws Exception {
     WindowsTestUtil.loadJni();
     scratchRoot = new File(System.getenv("TEST_TMPDIR")).getAbsolutePath() + "/x";
+    testUtil = new WindowsTestUtil(scratchRoot);
     cleanupScratchDir();
   }
 
   @After
   public void cleanupScratchDir() throws Exception {
-    WindowsTestUtil.deleteAllUnder(scratchRoot);
-  }
-
-  private Path scratchDir(String path) throws IOException {
-    return Files.createDirectories(new File(scratchRoot + "/" + path).toPath());
-  }
-
-  private void scratchFile(String path, String... contents) throws IOException {
-    File fd = new File(scratchRoot + "/" + path);
-    Files.createDirectories(fd.toPath().getParent());
-    try (FileWriter w = new FileWriter(fd)) {
-      for (String line : contents) {
-        w.write(line);
-        w.write('\n');
-      }
-    }
+    testUtil.deleteAllUnder("");
   }
 
   @Test
   public void testMockJunctionCreation() throws Exception {
-    String root = scratchDir("dir").getParent().toString();
-    scratchFile("dir/file.txt", "hello");
-    WindowsTestUtil.createJunctions(scratchRoot, ImmutableMap.of("junc", "dir"));
+    String root = testUtil.scratchDir("dir").getParent().toString();
+    testUtil.scratchFile("dir/file.txt", "hello");
+    testUtil.createJunctions(ImmutableMap.of("junc", "dir"));
     String[] children = new File(root + "/junc").list();
     assertThat(children).isNotNull();
     assertThat(children).hasLength(1);
@@ -93,17 +77,17 @@ public class WindowsFileOperationsTest {
     junctions.put("abbrev~1/b", "longtargetpath");
     junctions.put("abbrev~1/c", "longta~1");
 
-    String root = scratchDir("shrtpath").getParent().toAbsolutePath().toString();
-    scratchDir("longlinkpath");
-    scratchDir("abbreviated");
-    scratchDir("control/a");
-    scratchDir("control/b");
-    scratchDir("control/c");
+    String root = testUtil.scratchDir("shrtpath").getParent().toAbsolutePath().toString();
+    testUtil.scratchDir("longlinkpath");
+    testUtil.scratchDir("abbreviated");
+    testUtil.scratchDir("control/a");
+    testUtil.scratchDir("control/b");
+    testUtil.scratchDir("control/c");
 
-    scratchFile("shrttrgt/file1.txt", "hello");
-    scratchFile("longtargetpath/file2.txt", "hello");
+    testUtil.scratchFile("shrttrgt/file1.txt", "hello");
+    testUtil.scratchFile("longtargetpath/file2.txt", "hello");
 
-    WindowsTestUtil.createJunctions(scratchRoot, junctions);
+    testUtil.createJunctions(junctions);
 
     assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/a")).isTrue();
     assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/b")).isTrue();
