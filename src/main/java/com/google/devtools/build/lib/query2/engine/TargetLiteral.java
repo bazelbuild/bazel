@@ -45,8 +45,9 @@ public final class TargetLiteral extends QueryExpression {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-      throws QueryException, InterruptedException {
+  protected <T> void evalImpl(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
+          throws QueryException, InterruptedException {
     if (isVariableReference()) {
       String varName = LetExpression.getNameFromReference(pattern);
       Set<T> value = context.get(varName);

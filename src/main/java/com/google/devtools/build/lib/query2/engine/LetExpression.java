@@ -64,8 +64,9 @@ class LetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-      throws QueryException, InterruptedException {
+  protected <T> void evalImpl(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
+          throws QueryException, InterruptedException {
     if (!NAME_PATTERN.matcher(varName).matches()) {
       throw new QueryException(this, "invalid variable name '" + varName + "' in let expression");
     }

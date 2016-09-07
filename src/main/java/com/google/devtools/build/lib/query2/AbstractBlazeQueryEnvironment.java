@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -55,6 +56,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   private final Set<Setting> settings;
   private final List<QueryFunction> extraFunctions;
+  private final QueryExpressionEvalListener<T> evalListener;
 
   private static final Logger LOG = Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
 
@@ -63,7 +65,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       Predicate<Label> labelFilter,
       EventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      QueryExpressionEvalListener<T> evalListener) {
     this.eventHandler = new ErrorSensingEventHandler(eventHandler);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
@@ -71,6 +74,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
+    this.evalListener = evalListener;
   }
 
   private static DependencyFilter constructDependencyFilter(
@@ -212,5 +216,10 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     builder.addAll(DEFAULT_QUERY_FUNCTIONS);
     builder.addAll(extraFunctions);
     return builder.build();
+  }
+
+  @Override
+  public QueryExpressionEvalListener<T> getEvalListener() {
+    return evalListener;
   }
 }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 import java.util.Collection;
 
@@ -45,6 +45,7 @@ import java.util.Collection;
  * different ways of printing out the result of a query.  Each accepts a {@code
  * Digraph} of {@code Target}s, and an output stream.
  */
+@ThreadSafe
 public abstract class QueryExpression {
 
   /**
@@ -70,34 +71,44 @@ public abstract class QueryExpression {
    * thrown.  If disabled, evaluation will stumble on to produce a (possibly
    * inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> void eval(
+  public final <T> void eval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      Callback<T> callback) throws QueryException, InterruptedException {
+    env.getEvalListener().onEval(this, env, context, callback);
+    evalImpl(env, context, callback);
+  }
+
+  protected abstract <T> void evalImpl(
       QueryEnvironment<T> env,
       VariableContext<T> context,
       Callback<T> callback) throws QueryException, InterruptedException;
 
   /**
-   * If {@code canEvalConcurrently()}, evaluates this query in the specified environment, as in
-   * {@link #eval(QueryEnvironment, VariableContext, Callback)}, employing {@code executorService}.
+   * Evaluates this query in the specified environment, as in
+   * {@link #eval(QueryEnvironment, VariableContext, Callback)}, using {@code executorService} to
+   * achieve parallelism.
    *
-   * <p>The caller must ensure that both {@code env}, {@code context}, and {@code callback} are
-   * effectively threadsafe. The query expression may call their methods from multiple threads.
+   * <p>The caller must ensure that {@code env} is thread safe.
    */
-  public <T> void evalConcurrently(
+  @ThreadSafe
+  public final <T> void parEval(
       QueryEnvironment<T> env,
       VariableContext<T> context,
-      Callback<T> callback,
+      ThreadSafeCallback<T> callback,
       ListeningExecutorService executorService)
       throws QueryException, InterruptedException {
-    Preconditions.checkState(canEvalConcurrently());
-    eval(env, context, callback);
+    env.getEvalListener().onParEval(this, env, context, callback, executorService);
+    parEvalImpl(env, context, callback, executorService);
   }
 
-  /**
-   * Whether the query expression can be evaluated concurrently. If so, {@link #evalConcurrently}
-   * should be preferred over {@link #eval}.
-   */
-  public boolean canEvalConcurrently() {
-    return false;
+  protected <T> void parEvalImpl(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ListeningExecutorService executorService)
+      throws QueryException, InterruptedException {
+    evalImpl(env, context, callback);
   }
 
   /**

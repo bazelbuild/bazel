@@ -346,6 +346,9 @@ public interface QueryEnvironment<T> {
     Set<QueryVisibility<T>> getVisibility(T from) throws QueryException, InterruptedException;
   }
 
+  /** Returns the {@link QueryExpressionEvalListener} that this {@link QueryEnvironment} uses. */
+  QueryExpressionEvalListener<T> getEvalListener();
+
   /** List of the default query functions. */
   List<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
       ImmutableList.of(

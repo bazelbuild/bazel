@@ -52,8 +52,9 @@ public class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public <T> void eval(QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-      throws QueryException, InterruptedException {
+  protected <T> void evalImpl(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
+          throws QueryException, InterruptedException {
 
     if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
       for (QueryExpression operand : operands) {

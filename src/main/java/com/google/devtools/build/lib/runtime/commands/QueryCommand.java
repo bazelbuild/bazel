@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
@@ -286,6 +287,7 @@ public final class QueryCommand implements BlazeCommand {
             env.getReporter(),
             settings,
             env.getRuntime().getQueryFunctions(),
+            QueryExpressionEvalListener.NullListener.<Target>instance(),
             env.getPackageManager().getPackagePath());
   }
 
