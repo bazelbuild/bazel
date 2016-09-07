@@ -134,7 +134,6 @@ def _swift_library_impl(ctx):
   output_objs = []
   for source in ctx.files.srcs:
     obj = ctx.new_file(source.basename + ".o")
-    print(obj)
     output_objs.append(obj)
 
     output_map += struct(**{source.path: struct(object=obj.path)})
