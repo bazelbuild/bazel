@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -699,85 +700,87 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
-           The list of C, C++, Objective-C, and Objective-C++ source and header
-           files that are processed to create the library target.
-           These are your checked-in files, plus any generated files.
-           Source files are compiled into .o files with Clang. Header files
-           may be included/imported by any source or header in the srcs attribute
-           of this target, but not by headers in hdrs or any targets that depend
-           on this rule.
-           Additionally, precompiled .o files may be given as srcs.  Be careful to
-           ensure consistency in the architecture of provided .o files and that of the
-           build to avoid missing symbol linker errors.
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          The list of C, C++, Objective-C, and Objective-C++ source and header
+          files that are processed to create the library target.
+          These are your checked-in files, plus any generated files.
+          Source files are compiled into .o files with Clang. Header files
+          may be included/imported by any source or header in the srcs attribute
+          of this target, but not by headers in hdrs or any targets that depend
+          on this rule.
+          Additionally, precompiled .o files may be given as srcs.  Be careful to
+          ensure consistency in the architecture of provided .o files and that of the
+          build to avoid missing symbol linker errors.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("srcs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_arc_srcs) -->
-           The list of Objective-C files that are processed to create the
-           library target that DO NOT use ARC.
-           The files in this attribute are treated very similar to those in the
-           srcs attribute, but are compiled without ARC enabled.
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          The list of Objective-C files that are processed to create the
+          library target that DO NOT use ARC.
+          The files in this attribute are treated very similar to those in the
+          srcs attribute, but are compiled without ARC enabled.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
               attr("non_arc_srcs", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedFileTypes(NON_ARC_SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(pch) -->
-           Header file to prepend to every source file being compiled (both arc
-           and non-arc).
-           Use of pch files is actively discouraged in BUILD files, and this should be
-           considered deprecated. Since pch files are not actually precompiled this is not
-           a build-speed enhancement, and instead is just a global dependency. From a build
-           efficiency point of view you are actually better including what you need directly
-           in your sources where you need it.
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          Header file to prepend to every source file being compiled (both arc
+          and non-arc).
+          Use of pch files is actively discouraged in BUILD files, and this should be
+          considered deprecated. Since pch files are not actually precompiled this is not
+          a build-speed enhancement, and instead is just a global dependency. From a build
+          efficiency point of view you are actually better including what you need directly
+          in your sources where you need it.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("pch", LABEL).direct_compile_time_input().allowedFileTypes(FileType.of(".pch")))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(deps) -->
-           The list of targets that are linked together to form the final bundle.
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          The list of targets that are linked together to form the final bundle.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .override(
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-                  .mandatoryNativeProviders(ImmutableList.of(ObjcProvider.class))
+                  .mandatoryNativeProviders(
+                      ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the
           app bundle but not linked against at build time.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-         .add(
-             attr("runtime_deps", LABEL_LIST)
-                 .direct_compile_time_input()
-                 .allowedRuleClasses("objc_framework")
-                 // TODO(b/28637288): ios_framework is experimental and not fully implemented.
-                 .allowedRuleClassesWithWarning("ios_framework")
-                 .allowedFileTypes())
+          .add(
+              attr("runtime_deps", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedRuleClasses("objc_framework")
+                  // TODO(b/28637288): ios_framework is experimental and not fully implemented.
+                  .allowedRuleClassesWithWarning("ios_framework")
+                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_propagated_deps) -->
-           The list of targets that are required in order to build this target,
-           but which are not included in the final bundle.
-           This attribute should only rarely be used, and probably only for proto
-           dependencies.
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          The list of targets that are required in order to build this target,
+          but which are not included in the final bundle.
+          This attribute should only rarely be used, and probably only for proto
+          dependencies.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
               attr("non_propagated_deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-                  .mandatoryNativeProviders(ImmutableList.of(ObjcProvider.class))
+                  .mandatoryNativeProviders(
+                      ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
-           Extra <code>-D</code> flags to pass to the compiler. They should be in
-           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-           passed not only to the compiler for this target (as <code>copts</code>
-           are) but also to all <code>objc_</code> dependers of this target.
-           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
-           <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          Extra <code>-D</code> flags to pass to the compiler. They should be in
+          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+          passed not only to the compiler for this target (as <code>copts</code>
+          are) but also to all <code>objc_</code> dependers of this target.
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(enable_modules) -->
-           Enables clang module support (via -fmodules).
-           Setting this to 1 will allow you to @import system headers and other targets:
-           @import UIKit;
-           @import path_to_package_target;
-           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          Enables clang module support (via -fmodules).
+          Setting this to 1 will allow you to @import system headers and other targets:
+          @import UIKit;
+          @import path_to_package_target;
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("enable_modules", BOOLEAN))
           .build();
     }
@@ -1697,4 +1700,3 @@ public class ObjcRuleClasses {
     }
   }
 }
-

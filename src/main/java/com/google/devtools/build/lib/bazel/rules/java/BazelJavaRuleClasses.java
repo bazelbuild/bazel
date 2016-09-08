@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -78,7 +79,9 @@ public class BazelJavaRuleClasses {
       return builder
           .add(
               attr(":java_toolchain", LABEL)
-                  .mandatoryNativeProviders(ImmutableList.of(JavaToolchainProvider.class))
+                  .mandatoryNativeProviders(
+                      ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
+                          JavaToolchainProvider.class))
                   .value(JavaSemantics.JAVA_TOOLCHAIN))
           .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
           .build();
