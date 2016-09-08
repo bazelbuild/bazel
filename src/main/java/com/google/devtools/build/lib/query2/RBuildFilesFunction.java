@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -79,5 +81,16 @@ public class RBuildFilesFunction implements QueryFunction {
     ((SkyQueryEnvironment) env)
         .getRBuildFiles(
             Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT), (Callback<Target>) callback);
+  }
+
+  @Override
+  public <T> void parEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      ThreadSafeCallback<T> callback,
+      ListeningExecutorService executorService) throws QueryException, InterruptedException {
+    eval(env, context, expression, args, callback);
   }
 }

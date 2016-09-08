@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -85,6 +86,17 @@ class TestsFunction implements QueryFunction {
     });
   }
 
+  @Override
+  public <T> void parEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      ThreadSafeCallback<T> callback,
+      ListeningExecutorService executorService) throws QueryException, InterruptedException {
+    eval(env, context, expression, args, callback);
+  }
+
   /**
    * Decides whether to include a test in a test_suite or not.
    * @param testTags Collection of all tags exhibited by a given test.
@@ -143,7 +155,7 @@ class TestsFunction implements QueryFunction {
    * A closure over the temporary state needed to compute the expression. This makes the evaluation
    * thread-safe, as long as instances of this class are used only within a single thread.
    */
-  private final class Closure<T> {
+  private static final class Closure<T> {
     private final QueryExpression expression;
     /** A dynamically-populated mapping from test_suite rules to their tests. */
     private final Map<T, Set<T>> testsInSuite = new HashMap<>();

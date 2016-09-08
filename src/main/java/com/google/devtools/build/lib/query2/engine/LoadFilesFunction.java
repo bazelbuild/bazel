@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.collect.CompactHashSet;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import java.util.List;
 import java.util.Set;
 
@@ -62,6 +63,17 @@ class LoadFilesFunction implements QueryEnvironment.QueryFunction {
                     /* load */ true));
           }
         });
+  }
+
+  @Override
+  public <T> void parEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      ThreadSafeCallback<T> callback,
+      ListeningExecutorService executorService) throws QueryException, InterruptedException {
+    eval(env, context, expression, args, callback);
   }
 
   @Override
