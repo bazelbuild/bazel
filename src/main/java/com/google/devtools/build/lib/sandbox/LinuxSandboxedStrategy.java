@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -31,8 +30,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -146,17 +143,4 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     }
   }
 
-  private Map<PathFragment, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
-      throws ExecException {
-    try {
-      Map<PathFragment, Path> mounts = new HashMap<>();
-      mountRunfilesFromManifests(mounts, spawn);
-      mountRunfilesFromSuppliers(mounts, spawn);
-      mountFilesFromFilesetManifests(mounts, spawn, executionContext);
-      mountInputs(mounts, spawn, executionContext);
-      return mounts;
-    } catch (IllegalArgumentException | IOException e) {
-      throw new EnvironmentalExecException("Could not prepare mounts for sandbox execution", e);
-    }
-  }
 }

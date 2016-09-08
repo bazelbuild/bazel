@@ -46,7 +46,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
         String.format("x/testfile %s\nx/emptyfile \n", testFile.getPathString()));
 
     Map<PathFragment, Path> mounts = new TreeMap<>();
-    LinuxSandboxedStrategy.parseManifestFile(
+    SpawnHelpers.parseManifestFile(
         fileSystem, mounts, targetDir, manifestFile.getPathFile(), false, "");
 
     assertThat(mounts)
@@ -72,7 +72,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
         String.format("workspace/x/testfile %s\n0\n", testFile.getPathString()));
 
     Map<PathFragment, Path> mounts = new HashMap<>();
-    LinuxSandboxedStrategy.parseManifestFile(
+    SpawnHelpers.parseManifestFile(
         fileSystem, mounts, targetDir, manifestFile.getPathFile(), true, "workspace");
 
     assertThat(mounts).isEqualTo(ImmutableMap.of(new PathFragment("fileset/x/testfile"), testFile));
