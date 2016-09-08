@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -131,7 +132,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo"
+        + OsUtils.executableExtension());
 
     List<String> arguments = linkAction.getLinkCommandLine().arguments();
 
