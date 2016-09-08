@@ -85,7 +85,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "      'piii|compiler': ':cc-compiler-piii',",
         "      'darwin|compiler': ':cc-compiler-darwin',",
         "      'armeabi-v7a|compiler': ':cc-compiler-armeabi-v7a',",
-        "      'x64_windows|compiler': ':cc-compiler-x64_windows',",
+        "      'x64_windows|windows_msys64': ':cc-compiler-x64_windows',",
         "    })",
         "cc_toolchain(name = 'cc-compiler-k8', all_files = ':empty', compiler_files = ':empty',",
         "    cpu = 'local', dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
