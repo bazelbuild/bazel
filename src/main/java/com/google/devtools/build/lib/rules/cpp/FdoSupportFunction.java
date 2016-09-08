@@ -35,7 +35,7 @@ public class FdoSupportFunction implements SkyFunction {
   /**
    * Wrapper for FDO exceptions.
    */
-  public class FdoSkyException extends SkyFunctionException {
+  public static class FdoSkyException extends SkyFunctionException {
     public FdoSkyException(Exception cause, Transience transience) {
       super(cause, transience);
     }
