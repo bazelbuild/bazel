@@ -979,17 +979,20 @@ public final class BuildConfiguration {
       Path execRoot = directories.getExecRoot();
       // configuration-specific output tree
       Path outputDir = directories.getOutputPath().getRelative(outputDirName);
-      this.outputDirectory = Root.asDerivedRoot(execRoot, outputDir);
+      this.outputDirectory = Root.asDerivedRoot(execRoot, outputDir, true);
 
       // specific subdirs under outputDirectory
-      this.binDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("bin"));
-      this.genfilesDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("genfiles"));
+      this.binDirectory = Root
+          .asDerivedRoot(execRoot, outputDir.getRelative("bin"), true);
+      this.genfilesDirectory = Root.asDerivedRoot(
+          execRoot, outputDir.getRelative("genfiles"), true);
       this.coverageMetadataDirectory = Root.asDerivedRoot(execRoot,
-          outputDir.getRelative("coverage-metadata"));
-      this.testLogsDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("testlogs"));
-      this.includeDirectory = Root.asDerivedRoot(execRoot,
-          outputDir.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR));
-      this.middlemanDirectory = Root.middlemanRoot(execRoot, outputDir);
+          outputDir.getRelative("coverage-metadata"), true);
+      this.testLogsDirectory = Root.asDerivedRoot(
+          execRoot, outputDir.getRelative("testlogs"), true);
+      this.includeDirectory = Root.asDerivedRoot(
+          execRoot, outputDir.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR), true);
+      this.middlemanDirectory = Root.middlemanRoot(execRoot, outputDir, true);
     }
 
     @Override

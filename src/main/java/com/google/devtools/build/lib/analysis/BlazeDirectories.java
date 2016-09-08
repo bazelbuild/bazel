@@ -199,7 +199,8 @@ public final class BlazeDirectories {
    * {@link BlazeDirectories} of this server instance. Nothing else should be placed here.
    */
   public Root getBuildDataDirectory(String workspaceName) {
-    return Root.asDerivedRoot(getExecRoot(workspaceName), getOutputPath(workspaceName));
+    return Root
+        .asDerivedRoot(getExecRoot(workspaceName), getOutputPath(workspaceName), true);
   }
 
  /**

@@ -590,7 +590,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
   }
 
   private static ArtifactLocation makeArtifactLocation(Package pkg) {
-    Root root = Root.asSourceRoot(pkg.getSourceRoot());
+    Root root = Root.asSourceRoot(pkg.getSourceRoot(),
+        pkg.getPackageIdentifier().getRepository().isMain());
     PathFragment relativePath = pkg.getBuildFile().getPath().relativeTo(root.getPath());
     return makeArtifactLocation(root, relativePath);
   }

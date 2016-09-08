@@ -747,7 +747,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ContainingPackageLookupValue value = result.get(ContainingPackageLookupValue.key(
           PackageIdentifier.createInMainRepo(forFiles ? execPath.getParentDirectory() : execPath)));
       if (value.hasContainingPackage()) {
-        roots.put(execPath, Root.asSourceRoot(value.getContainingPackageRoot()));
+        roots.put(execPath, Root.asSourceRoot(value.getContainingPackageRoot(),
+            value.getContainingPackageName().getRepository().isMain()));
       } else {
         roots.put(execPath, null);
       }

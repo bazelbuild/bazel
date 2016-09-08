@@ -174,7 +174,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     Preconditions.checkArgument(execPath.isNormalized(), execPath);
     // TODO(bazel-team): Check that either BinTools do not change over the life of the Blaze server,
     // or require that a legitimate ArtifactOwner be passed in here to allow for ownership.
-    return getArtifact(execRoot.getRelative(execPath), Root.execRootAsDerivedRoot(execRoot),
+    return getArtifact(execRoot.getRelative(execPath), Root.execRootAsDerivedRoot(execRoot, true),
         execPath, ArtifactOwner.NULL_OWNER, null);
   }
 

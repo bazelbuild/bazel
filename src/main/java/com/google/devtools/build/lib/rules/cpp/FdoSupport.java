@@ -259,7 +259,7 @@ public class FdoSupport {
         (fdoProfile == null)
             ? null
             : Root.asDerivedRoot(execRoot, execRoot.getRelative(
-                PrecomputedValue.PRODUCT_NAME.get(env) + "-fdo"));
+                PrecomputedValue.PRODUCT_NAME.get(env) + "-fdo"), true);
 
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null

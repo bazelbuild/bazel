@@ -826,7 +826,7 @@ public class BuildView {
     for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
       Root root = rootMap.get(entry.getValue());
       if (root == null) {
-        root = Root.asSourceRoot(entry.getValue());
+        root = Root.asSourceRoot(entry.getValue(), entry.getKey().getRepository().isMain());
         rootMap.put(entry.getValue(), root);
       }
       realPackageRoots.put(entry.getKey(), root);
