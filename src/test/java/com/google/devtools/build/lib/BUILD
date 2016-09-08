@@ -13,7 +13,9 @@ CROSS_PLATFORM_WINDOWS_TESTS = [
 WINDOWS_ON_WINDOWS_TESTS = glob(
     ["windows/*.java"],
     exclude = ["windows/MockSubprocess.java"],
-)
+) + [
+    "vfs/WindowsFileSystemTest.java",
+]
 
 # All Windows-specific tests. Use this to exclude Windows tests from globs.
 ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
@@ -192,6 +194,7 @@ java_library(
         "windows/util/WindowsTestUtil.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:guava",
         "//third_party:guava-testlib",
@@ -219,6 +222,7 @@ java_test(
         ":testutil",
         ":windows_testutil",
         "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:guava",
         "//third_party:truth",

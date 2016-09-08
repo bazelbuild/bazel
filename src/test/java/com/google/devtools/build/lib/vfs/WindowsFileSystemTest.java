@@ -12,18 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -34,25 +31,70 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link WindowsFileOperations}. */
+/** Unit tests for {@link WindowsFileSystem}. */
 @RunWith(JUnit4.class)
 @TestSpec(localOnly = true, supportedOs = OS.WINDOWS)
-public class WindowsFileOperationsTest {
+public class WindowsFileSystemTest {
 
   private String scratchRoot;
   private WindowsTestUtil testUtil;
+  private WindowsFileSystem fs;
 
   @Before
   public void loadJni() throws Exception {
     WindowsTestUtil.loadJni();
     scratchRoot = new File(System.getenv("TEST_TMPDIR")).getAbsolutePath() + "/x";
     testUtil = new WindowsTestUtil(scratchRoot);
+    fs = new WindowsFileSystem();
     cleanupScratchDir();
   }
 
   @After
   public void cleanupScratchDir() throws Exception {
     testUtil.deleteAllUnder("");
+  }
+
+  @Test
+  public void testCanWorkWithJunctionSymlinks() throws Exception {
+    testUtil.scratchFile("dir\\hello.txt", "hello");
+    testUtil.scratchDir("non_existent");
+    testUtil.createJunctions(ImmutableMap.of("junc", "dir", "junc_bad", "non_existent"));
+
+    Path juncPath = testUtil.createVfsPath(fs, "junc");
+    Path dirPath = testUtil.createVfsPath(fs, "dir");
+    Path juncBadPath = testUtil.createVfsPath(fs, "junc_bad");
+    Path nonExistentPath = testUtil.createVfsPath(fs, "non_existent");
+
+    // Test junction creation.
+    assertThat(fs.exists(juncPath, /* followSymlinks */ false)).isTrue();
+    assertThat(fs.exists(dirPath, /* followSymlinks */ false)).isTrue();
+    assertThat(fs.exists(juncBadPath, /* followSymlinks */ false)).isTrue();
+    assertThat(fs.exists(nonExistentPath, /* followSymlinks */ false)).isTrue();
+
+    // Test recognizing and dereferencing a directory junction.
+    assertThat(fs.isSymbolicLink(juncPath)).isTrue();
+    assertThat(fs.isDirectory(juncPath, /* followSymlinks */ true)).isTrue();
+    assertThat(fs.isDirectory(juncPath, /* followSymlinks */ false)).isFalse();
+    assertThat(fs.getDirectoryEntries(juncPath))
+        .containsExactly(testUtil.createVfsPath(fs, "junc\\hello.txt"));
+
+    // Test deleting a directory junction.
+    assertThat(fs.delete(juncPath)).isTrue();
+    assertThat(fs.exists(juncPath, /* followSymlinks */ false)).isFalse();
+
+    // Test recognizing a dangling directory junction.
+    assertThat(fs.delete(nonExistentPath)).isTrue();
+    assertThat(fs.exists(nonExistentPath, /* followSymlinks */ false)).isFalse();
+    assertThat(fs.exists(juncBadPath, /* followSymlinks */ false)).isTrue();
+    // TODO(bazel-team): fix https://github.com/bazelbuild/bazel/issues/1690 and uncomment the
+    // assertion below.
+    //assertThat(fs.isSymbolicLink(juncBadPath)).isTrue();
+    assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ true)).isFalse();
+    assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ false)).isFalse();
+
+    // Test deleting a dangling junction.
+    assertThat(fs.delete(juncBadPath)).isTrue();
+    assertThat(fs.exists(juncBadPath, /* followSymlinks */ false)).isFalse();
   }
 
   @Test
@@ -91,33 +133,32 @@ public class WindowsFileOperationsTest {
 
     testUtil.createJunctions(junctions);
 
-    assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/shrtpath/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longlinkpath/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longlinkpath/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longlinkpath/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longli~1/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longli~1/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/longli~1/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbreviated/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbreviated/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbreviated/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbrev~1/a")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbrev~1/b")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/abbrev~1/c")).isTrue();
-    assertThat(WindowsFileOperations.isJunction(root + "/control/a")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/control/b")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/control/c")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/shrttrgt/file1.txt")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/longtargetpath/file2.txt")).isFalse();
-    assertThat(WindowsFileOperations.isJunction(root + "/longta~1/file2.txt")).isFalse();
-    try {
-      WindowsFileOperations.isJunction(root + "/non-existent");
-      fail("expected to throw");
-    } catch (IOException e) {
-      assertThat(e.getMessage()).contains("GetFileAttributesA");
-    }
+    assertThat(WindowsFileSystem.isJunction(new File(root, "shrtpath/a").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "shrtpath/b").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "shrtpath/c").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longlinkpath/a").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longlinkpath/b").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longlinkpath/c").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longli~1/a").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longli~1/b").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longli~1/c").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "abbreviated/a").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "abbreviated/b").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "abbreviated/c").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "abbrev~1/a").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "abbrev~1/b").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "abbrev~1/c").toPath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "control/a").toPath())).isFalse();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "control/b").toPath())).isFalse();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "control/c").toPath())).isFalse();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "shrttrgt/file1.txt").toPath()))
+        .isFalse();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longtargetpath/file2.txt").toPath()))
+        .isFalse();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "longta~1/file2.txt").toPath()))
+        .isFalse();
+    assertThat(WindowsFileSystem.isJunction(new File(root, "non-existent").toPath())).isFalse();
+
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/c").list())).containsExactly("file2.txt");
@@ -142,14 +183,14 @@ public class WindowsFileOperationsTest {
 
     File linkPath = new File(helloPath.getParent().getParent().toFile(), "link");
     assertThat(Arrays.asList(linkPath.list())).containsExactly("hello.txt");
-    assertThat(WindowsFileOperations.isJunction(linkPath.getAbsolutePath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(linkPath.toPath())).isTrue();
 
     assertThat(helloPath.toFile().delete()).isTrue();
     assertThat(helloPath.getParent().toFile().delete()).isTrue();
     assertThat(helloPath.getParent().toFile().exists()).isFalse();
     assertThat(Arrays.asList(linkPath.getParentFile().list())).containsExactly("link");
 
-    assertThat(WindowsFileOperations.isJunction(linkPath.getAbsolutePath())).isTrue();
+    assertThat(WindowsFileSystem.isJunction(linkPath.toPath())).isTrue();
     assertThat(
             Files.exists(
                 linkPath.toPath(), WindowsFileSystem.symlinkOpts(/* followSymlinks */ false)))

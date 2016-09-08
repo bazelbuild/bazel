@@ -19,6 +19,8 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.windows.WindowsJniLoader;
 import java.io.BufferedReader;
 import java.io.File;
@@ -29,7 +31,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,13 +56,13 @@ public final class WindowsTestUtil {
   }
 
   /**
-   * Create directory junctions.
+   * Create directory junctions then assert their existence.
    *
    * <p>Each key in the map is a junction path, relative to {@link #scratchRoot}. These are the link
    * names.
    *
-   * <p>Each value in the map is a directory or junction path, also relative to
-   * {@link #scratchRoot}. These are the link targets.
+   * <p>Each value in the map is a directory or junction path, also relative to {@link
+   * #scratchRoot}. These are the link targets.
    *
    * <p>This method creates all junctions in one invocation to "cmd.exe".
    */
@@ -87,6 +88,13 @@ public final class WindowsTestUtil {
               "mklink /j \"%s/%s\" \"%s/%s\"", scratchRoot, e.getKey(), scratchRoot, e.getValue()));
     }
     runCommand(args);
+
+    for (Map.Entry<String, String> e : links.entrySet()) {
+      assertWithMessage(
+              String.format("Could not create junction '%s' -> '%s'", e.getKey(), e.getValue()))
+          .that(new File(scratchRoot, e.getKey()).exists())
+          .isTrue();
+    }
   }
 
   /** Delete everything under {@link #scratchRoot}/path. */
@@ -102,12 +110,12 @@ public final class WindowsTestUtil {
   }
 
   /** Create a directory under `path`, relative to {@link #scratchRoot}. */
-  public Path scratchDir(String path) throws IOException {
+  public java.nio.file.Path scratchDir(String path) throws IOException {
     return Files.createDirectories(new File(scratchRoot, path).toPath());
   }
 
   /** Create a file with the given contents under `path`, relative to {@link #scratchRoot}. */
-  public void scratchFile(String path, String... contents) throws IOException {
+  public java.nio.file.Path scratchFile(String path, String... contents) throws IOException {
     File fd = new File(scratchRoot, path);
     Files.createDirectories(fd.toPath().getParent());
     try (FileWriter w = new FileWriter(fd)) {
@@ -116,6 +124,7 @@ public final class WindowsTestUtil {
         w.write('\n');
       }
     }
+    return fd.toPath();
   }
 
   /** Run a Command Prompt command. */
@@ -159,5 +168,9 @@ public final class WindowsTestUtil {
         runfiles.put(splitLine[0], splitLine[1]);
       }
     }
+  }
+
+  public Path createVfsPath(FileSystem fs, String path) throws IOException {
+    return fs.getPath(scratchRoot + "/" + path);
   }
 }
