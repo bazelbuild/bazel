@@ -18,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
-
+import com.google.devtools.build.lib.cmdline.Label;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -133,8 +133,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
   }
 
   @Override
-  protected String getMockCrosstoolVersion() {
+  public String getMockCrosstoolVersion() {
     return "gcc-4.4.0-glibc-2.3.6";
+  }
+
+  @Override
+  public Label getMockCrosstoolLabel() {
+    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain");
   }
 
   @Override

@@ -500,7 +500,9 @@ public abstract class MockCcSupport {
     }
   }
 
-  protected abstract String getMockCrosstoolVersion();
+  public abstract String getMockCrosstoolVersion();
+
+  public abstract Label getMockCrosstoolLabel();
 
   public abstract String readCrosstoolFile() throws IOException;
 
