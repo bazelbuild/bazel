@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.AndroidFrameworkAttrIdProvider.AttrLookupException;
 import com.google.devtools.build.android.resources.FieldInitializer;
@@ -293,17 +294,17 @@ public class AndroidResourceClassWriter implements Flushable {
   private Map<String, Integer> assignAttrIds(int attrTypeId) {
     // Attrs are special, since they can be defined within a declare-styleable. Those are sorted
     // after top-level definitions.
-    ImmutableMap.Builder<String, Integer> attrToIdBuilder = ImmutableMap.builder();
     if (!innerClasses.containsKey(ResourceType.ATTR)) {
-      return attrToIdBuilder.build();
+      return ImmutableMap.of();
     }
+    Map<String, Integer> attrToId = Maps.newHashMapWithExpectedSize(
+        innerClasses.get(ResourceType.ATTR).size());
     // After assigning public IDs, we count up monotonically, so we don't need to track additional
     // assignedIds to avoid collisions (use an ImmutableSet to ensure we don't add more).
     Set<Integer> assignedIds = ImmutableSet.of();
     if (publicIds.containsKey(ResourceType.ATTR)) {
-      assignedIds = assignPublicIds(attrToIdBuilder, publicIds.get(ResourceType.ATTR), attrTypeId);
+      assignedIds = assignPublicIds(attrToId, publicIds.get(ResourceType.ATTR), attrTypeId);
     }
-    ImmutableMap<String, Integer> publicAttrs = attrToIdBuilder.build();
     Set<String> inlineAttrs = new HashSet<>();
     Set<String> styleablesWithInlineAttrs = new TreeSet<>();
     for (Map.Entry<String, Map<String, Boolean>> styleableAttrEntry
@@ -322,21 +323,21 @@ public class AndroidResourceClassWriter implements Flushable {
     ImmutableList<String> sortedAttrs = Ordering.natural()
         .immutableSortedCopy(innerClasses.get(ResourceType.ATTR));
     for (String attr : sortedAttrs) {
-      if (!inlineAttrs.contains(attr) && !publicAttrs.containsKey(attr)) {
-        attrToIdBuilder.put(attr, nextId);
+      if (!inlineAttrs.contains(attr) && !attrToId.containsKey(attr)) {
+        attrToId.put(attr, nextId);
         nextId = nextFreeId(nextId + 1, assignedIds);
       }
     }
     for (String styleable : styleablesWithInlineAttrs) {
       Map<String, Boolean> attrs = styleableAttrs.get(styleable);
       for (Map.Entry<String, Boolean> attrEntry : attrs.entrySet()) {
-        if (attrEntry.getValue() && !publicAttrs.containsKey(attrEntry.getKey())) {
-          attrToIdBuilder.put(attrEntry.getKey(), nextId);
+        if (attrEntry.getValue() && !attrToId.containsKey(attrEntry.getKey())) {
+          attrToId.put(attrEntry.getKey(), nextId);
           nextId = nextFreeId(nextId + 1, assignedIds);
         }
       }
     }
-    return attrToIdBuilder.build();
+    return attrToId;
   }
 
   private void fillInitializers(Map<ResourceType, List<FieldInitializer>> initializers)
@@ -412,15 +413,14 @@ public class AndroidResourceClassWriter implements Flushable {
   private List<FieldInitializer> getResourceInitializers(
       ResourceType type, int typeId, Collection<String> sortedFields) {
     ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
-    ImmutableMap.Builder<String, Integer> publicBuilder = ImmutableMap.builder();
+    Map<String, Integer> publicNameToId = new HashMap<>();
     Set<Integer> assignedIds = ImmutableSet.of();
     if (publicIds.containsKey(type)) {
-      assignedIds = assignPublicIds(publicBuilder, publicIds.get(type), typeId);
+      assignedIds = assignPublicIds(publicNameToId, publicIds.get(type), typeId);
     }
-    Map<String, Integer> publicAssignments = publicBuilder.build();
     int resourceIds = nextFreeId(getInitialIdForTypeId(typeId), assignedIds);
     for (String field : sortedFields) {
-      Integer fieldValue = publicAssignments.get(field);
+      Integer fieldValue = publicNameToId.get(field);
       if (fieldValue == null) {
         fieldValue = resourceIds;
         resourceIds = nextFreeId(resourceIds + 1, assignedIds);
@@ -476,13 +476,13 @@ public class AndroidResourceClassWriter implements Flushable {
   /**
    * Assign any public ids to the given idBuilder.
    *
-   * @param idBuilder where to store the final name -> id mappings
+   * @param nameToId where to store the final name -> id mappings
    * @param publicIds known public resources (can contain null values, if ID isn't reserved)
    * @param typeId the type slot for the current resource type.
    * @return the final set of assigned resource ids (includes those without apriori assignments).
    */
   private static Set<Integer> assignPublicIds(
-      ImmutableMap.Builder<String, Integer> idBuilder,
+      Map<String, Integer> nameToId,
       SortedMap<String, Optional<Integer>> publicIds,
       int typeId) {
     HashMap<Integer, String> assignedIds = new HashMap<>();
@@ -501,7 +501,7 @@ public class AndroidResourceClassWriter implements Flushable {
                 "Multiple entry names declared for public entry identifier 0x%x (%s and %s)",
                 prevId, previousMapping, entry.getKey()));
       }
-      idBuilder.put(entry.getKey(), prevId);
+      nameToId.put(entry.getKey(), prevId);
     }
     return assignedIds.keySet();
   }
