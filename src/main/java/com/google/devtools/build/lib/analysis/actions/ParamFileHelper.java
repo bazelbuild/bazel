@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -88,15 +87,17 @@ public final class ParamFileHelper {
    * @param isShellCommand true if this is a shell command
    * @param paramFileInfo parameter file information
    * @param parameterFile the output parameter file artifact
+   * @param paramFileWriteAction the action that generates the parameter file
    */
   public static CommandLine createWithParamsFile(
       List<String> executableArgs,
       boolean isShellCommand,
       ParamFileInfo paramFileInfo,
-      Artifact parameterFile) {
+      Artifact parameterFile,
+      ParameterFileWriteAction paramFileWriteAction) {
     String pathWithFlag = paramFileInfo.getFlag() + parameterFile.getExecPathString();
     Iterable<String> commandArgv = Iterables.concat(executableArgs, ImmutableList.of(pathWithFlag));
-    return CommandLine.ofInternal(commandArgv, isShellCommand);
+    return CommandLine.ofInternal(commandArgv, isShellCommand, paramFileWriteAction);
   }
 
   /**
@@ -104,19 +105,19 @@ public final class ParamFileHelper {
    *
    * @param arguments arguments to the command (in addition to executableArgs), OR
    * @param commandLine a {@link CommandLine} that provides the arguments (in addition to
-   *        executableArgs)
+   *     executableArgs)
    * @param owner owner of the action
    * @param parameterFile the output parameter file artifact
    * @param paramFileInfo parameter file information
    */
-  public static Action createParameterFileWriteAction(
+  public static ParameterFileWriteAction createParameterFileWriteAction(
       @Nullable Iterable<String> arguments,
       @Nullable CommandLine commandLine,
       ActionOwner owner,
       Artifact parameterFile,
       ParamFileInfo paramFileInfo) {
     CommandLine paramFileContents =
-        (commandLine != null) ? commandLine : CommandLine.ofInternal(arguments, false);
+        (commandLine != null) ? commandLine : CommandLine.ofInternal(arguments, false, null);
 
     return new ParameterFileWriteAction(owner, parameterFile, paramFileContents,
         paramFileInfo.getFileType(), paramFileInfo.getCharset());
@@ -137,7 +138,7 @@ public final class ParamFileHelper {
       Iterable<String> arguments, CommandLine commandLine, boolean isShellCommand) {
     if (commandLine == null) {
       Iterable<String> commandArgv = Iterables.concat(executableArgs, arguments);
-      return CommandLine.ofInternal(commandArgv, isShellCommand);
+      return CommandLine.ofInternal(commandArgv, isShellCommand, null);
     }
 
     if (executableArgs.isEmpty()) {

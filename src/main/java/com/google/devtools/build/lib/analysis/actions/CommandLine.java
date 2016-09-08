@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -53,9 +54,19 @@ public abstract class CommandLine {
   }
 
   /**
-   * A default implementation of a command line backed by a copy of the given list of arguments.
+   * Returns the {@link ParameterFileWriteAction} that generates the parameter file used in this
+   * command line, or null if no parameter file is used.
    */
-  static CommandLine ofInternal(Iterable<String> arguments, final boolean isShellCommand) {
+  @VisibleForTesting
+  public ParameterFileWriteAction parameterFileWriteAction() {
+    return null;
+  }
+
+  /** A default implementation of a command line backed by a copy of the given list of arguments. */
+  static CommandLine ofInternal(
+      Iterable<String> arguments,
+      final boolean isShellCommand,
+      final ParameterFileWriteAction paramFileWriteAction) {
     final Iterable<String> immutableArguments = CollectionUtils.makeImmutable(arguments);
     return new CommandLine() {
       @Override
@@ -66,6 +77,11 @@ public abstract class CommandLine {
       @Override
       public boolean isShellCommand() {
         return isShellCommand;
+      }
+
+      @Override
+      public ParameterFileWriteAction parameterFileWriteAction() {
+        return paramFileWriteAction;
       }
     };
   }

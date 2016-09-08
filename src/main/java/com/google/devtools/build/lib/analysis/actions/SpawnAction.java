@@ -208,8 +208,18 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   /**
-   * Returns command argument, argv[0].
+   * Returns the list of options written to the parameter file. Don't use this method outside tests.
+   * The list is often huge, resulting in significant garbage collection overhead.
    */
+  @VisibleForTesting
+  public List<String> getArgumentsFromParamFile() {
+    if (argv.parameterFileWriteAction() != null) {
+      return ImmutableList.copyOf(argv.parameterFileWriteAction().getContents());
+    }
+    return ImmutableList.of();
+  }
+
+  /** Returns command argument, argv[0]. */
   @VisibleForTesting
   public String getCommandFilename() {
     return Iterables.getFirst(argv.arguments(), null);
@@ -567,20 +577,24 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           analysisEnvironment,
           outputs);
 
-      List<Action> actions = new ArrayList<>(2);
-
-      // Set up the SpawnAction itself.
-      actions.add(buildSpawnAction(owner, configuration.getLocalShellEnvironment(),
-          configuration.getShExecutable(), paramsFile));
-
       // If param file is to be used, set up the param file write action as well.
+      ParameterFileWriteAction paramFileWriteAction = null;
       if (paramsFile != null) {
-        actions.add(ParamFileHelper.createParameterFileWriteAction(
-            arguments,
-            commandLine,
-            owner,
-            paramsFile,
-            paramFileInfo));
+        paramFileWriteAction =
+            ParamFileHelper.createParameterFileWriteAction(
+                arguments, commandLine, owner, paramsFile, paramFileInfo);
+      }
+
+      List<Action> actions = new ArrayList<>(2);
+      actions.add(
+          buildSpawnAction(
+              owner,
+              configuration.getLocalShellEnvironment(),
+              configuration.getShExecutable(),
+              paramsFile,
+              paramFileWriteAction));
+      if (paramFileWriteAction != null) {
+        actions.add(paramFileWriteAction);
       }
 
       return actions.toArray(new Action[actions.size()]);
@@ -600,21 +614,25 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * @param defaultShellEnvironment the default shell environment to use. May be null if not used.
      * @param defaultShellExecutable the default shell executable path. May be null if not used.
      * @param paramsFile the parameter file for the SpawnAction. May be null if not used.
+     * @param paramFileWriteAction the action generating the parameter file. May be null if not
+     *     used.
      * @return the SpawnAction and any actions required by it, with the first item always being the
-     *      SpawnAction itself.
+     *     SpawnAction itself.
      */
     SpawnAction buildSpawnAction(
         ActionOwner owner,
         @Nullable Map<String, String> defaultShellEnvironment,
         @Nullable PathFragment defaultShellExecutable,
-        @Nullable Artifact paramsFile) {
+        @Nullable Artifact paramsFile,
+        @Nullable ParameterFileWriteAction paramFileWriteAction) {
       List<String> argv = buildExecutableArgs(defaultShellExecutable);
       Iterable<String> arguments = argumentsBuilder.build();
       CommandLine actualCommandLine;
       if (paramsFile != null) {
         inputsBuilder.add(paramsFile);
-        actualCommandLine = ParamFileHelper.createWithParamsFile(argv, isShellCommand,
-            paramFileInfo, paramsFile);
+        actualCommandLine =
+            ParamFileHelper.createWithParamsFile(
+                argv, isShellCommand, paramFileInfo, paramsFile, paramFileWriteAction);
       } else {
         actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine,
             isShellCommand);

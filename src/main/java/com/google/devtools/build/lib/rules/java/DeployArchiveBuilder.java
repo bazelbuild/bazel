@@ -239,33 +239,35 @@ public class DeployArchiveBuilder {
     // eliminate this check, allowing only native singlejar.
     Artifact singlejar = getSingleJar(ruleContext);
     if (singlejar.getFilename().endsWith(".jar")) {
-      ruleContext.registerAction(new SpawnAction.Builder()
-          .addInputs(inputs.build())
-          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
-          .addOutput(outputJar)
-          .setResources(resourceSet)
-          .setJarExecutable(
-              ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
-              singlejar,
-              jvmArgs)
-          .setCommandLine(commandLine)
-          .useParameterFile(ParameterFileType.SHELL_QUOTED)
-          .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
-          .setMnemonic("JavaDeployJar")
-          .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
-          .build(ruleContext));
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addInputs(inputs.build())
+              .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
+              .addOutput(outputJar)
+              .setResources(resourceSet)
+              .setJarExecutable(
+                  ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+                  singlejar,
+                  jvmArgs)
+              .setCommandLine(commandLine)
+              .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+              .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
+              .setMnemonic("JavaDeployJar")
+              .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
+              .build(ruleContext));
     } else {
-      ruleContext.registerAction(new SpawnAction.Builder()
-          .addInputs(inputs.build())
-          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
-          .addOutput(outputJar)
-          .setResources(resourceSet)
-          .setExecutable(singlejar)
-          .setCommandLine(commandLine)
-          .useParameterFile(ParameterFileType.SHELL_QUOTED)
-          .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
-          .setMnemonic("JavaDeployJar")
-          .build(ruleContext));
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addInputs(inputs.build())
+              .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
+              .addOutput(outputJar)
+              .setResources(resourceSet)
+              .setExecutable(singlejar)
+              .setCommandLine(commandLine)
+              .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+              .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
+              .setMnemonic("JavaDeployJar")
+              .build(ruleContext));
     }
   }
 
