@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -88,7 +87,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected boolean fileIsSymbolicLink(File file) {
     try {
-      if (file.isDirectory() && WindowsFileOperations.isJunction(file.getPath())) {
+      if (file.isDirectory() && isJunction(file.toPath())) {
         return true;
       }
     } catch (IOException e) {
@@ -164,7 +163,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   protected boolean isDirectory(Path path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
-        if (WindowsFileOperations.isJunction(getIoFile(path).getPath())) {
+        if (isJunction(getIoFile(path).toPath())) {
           return false;
         }
       } catch (IOException e) {
@@ -172,5 +171,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     }
     return super.isDirectory(path, followSymlinks);
+  }
+
+  // TODO(laszlocsomor): fix https://github.com/bazelbuild/bazel/issues/1735 and use the JNI method
+  // in WindowsFileOperations.
+  private static boolean isJunction(java.nio.file.Path p) throws IOException {
+    // Jury-rigged
+    return p.compareTo(p.toRealPath()) != 0;
   }
 }
