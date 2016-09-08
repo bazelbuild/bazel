@@ -246,6 +246,7 @@ public class AndroidCommon {
       AndroidSemantics semantics,
       AndroidIdlHelper idlHelper,
       OutputJar resourceJar,
+      Artifact aar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest) {
@@ -254,6 +255,7 @@ public class AndroidCommon {
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
             .setResourceJar(resourceJar)
+            .setAar(aar)
             .addIdlParcelables(idlHelper.getIdlParcelables())
             .addIdlSrcs(idlHelper.getIdlSources())
             .addIdlGeneratedJavaFiles(idlHelper.getIdlGeneratedJavaSources())
@@ -697,6 +699,7 @@ public class AndroidCommon {
   public RuleConfiguredTargetBuilder addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
       AndroidSemantics androidSemantics,
+      Artifact aar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
       Iterable<Artifact> apksUnderTest) {
@@ -729,6 +732,7 @@ public class AndroidCommon {
                 androidSemantics,
                 idlHelper,
                 resourceJar,
+                aar,
                 resourceApk,
                 zipAlignedApk,
                 apksUnderTest))

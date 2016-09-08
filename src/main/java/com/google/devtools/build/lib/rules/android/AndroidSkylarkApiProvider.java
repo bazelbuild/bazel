@@ -132,6 +132,16 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     return getIdeInfoProvider().getResourceJar();
   }
 
+  @SkylarkCallable(
+      name = "aar",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns the aar output of this target."
+  )
+  public Artifact getAar() {
+    return getIdeInfoProvider().getAar();
+  }
+
   private NestedSet<Artifact> collectDirectArtifacts(final ResourceType resources) {
     AndroidResourcesProvider provider = getInfo().getProvider(AndroidResourcesProvider.class);
     if (provider == null) {

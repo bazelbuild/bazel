@@ -186,8 +186,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .build(ruleContext);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    androidCommon.addTransitiveInfoProviders(builder, androidSemantics, resourceApk, null,
-        ImmutableList.<Artifact>of());
+    androidCommon.addTransitiveInfoProviders(builder, androidSemantics, aarOut,
+        resourceApk, null, ImmutableList.<Artifact>of());
     androidSemantics.addTransitiveInfoProviders(
         builder, ruleContext, javaCommon, androidCommon, null);
 

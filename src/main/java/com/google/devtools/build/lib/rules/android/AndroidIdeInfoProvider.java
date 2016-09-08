@@ -138,6 +138,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private final Set<Artifact> idlGeneratedJavaFiles = new LinkedHashSet<>();
     private final Set<Artifact> apksUnderTest = new LinkedHashSet<>();
     private boolean definesAndroidResources;
+    private Artifact aar = null;
 
     public AndroidIdeInfoProvider build() {
       return new AndroidIdeInfoProvider(
@@ -149,6 +150,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
           idlSourceJar,
           resourceJar,
           definesAndroidResources,
+          aar,
           ImmutableList.copyOf(assetDirs),
           ImmutableList.copyOf(resourceDirs),
           ImmutableList.copyOf(idlDirs),
@@ -199,6 +201,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     public Builder setResourceJar(OutputJar resourceJar) {
       this.resourceJar = resourceJar;
+      return this;
+    }
+
+    public Builder setAar(Artifact aar) {
+      this.aar = aar;
       return this;
     }
 
@@ -291,6 +298,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Nullable private final OutputJar resourceJar;
   private final ImmutableCollection<SourceDirectory> resourceDirs;
   private final boolean definesAndroidResources;
+  private final Artifact aar;
   private final ImmutableCollection<SourceDirectory> assetDirs;
   private final ImmutableCollection<SourceDirectory> idlImports;
   private final ImmutableCollection<Artifact> idlSrcs;
@@ -306,6 +314,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       @Nullable Artifact idlSourceJar,
       @Nullable OutputJar resourceJar,
       boolean definesAndroidResources,
+      @Nullable Artifact aar,
       ImmutableCollection<SourceDirectory> assetDirs,
       ImmutableCollection<SourceDirectory> resourceDirs,
       ImmutableCollection<SourceDirectory> idlImports,
@@ -320,6 +329,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     this.idlSourceJar = idlSourceJar;
     this.resourceJar = resourceJar;
     this.definesAndroidResources = definesAndroidResources;
+    this.aar = aar;
     this.assetDirs = assetDirs;
     this.resourceDirs = resourceDirs;
     this.idlImports = idlImports;
@@ -372,6 +382,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Nullable
   public OutputJar getResourceJar() {
     return resourceJar;
+  }
+
+  @Nullable
+  public Artifact getAar() {
+    return aar;
   }
 
   /** A list of the direct Resource directories. */
