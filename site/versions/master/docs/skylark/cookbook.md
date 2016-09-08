@@ -124,12 +124,16 @@ def system_test(name, test_file, flavor):
   n = "system_test_%s_%s_test" % (test_file, flavor)
   if native.existing_rule(n) == None:
     native.py_test(
-      name = n,
-      srcs = [ "test_driver.py", test_file ],
-      args = [ "--flavor=" + flavor])
+        name = n,
+        srcs = [
+            "test_driver.py",
+            test_file,
+        ],
+        args = ["--flavor=" + flavor],
+    )
   return n
 
-def system_test_suite(name, flavors=["default"], test_files):
+def system_test_suite(name, flavors=["default"], test_files=[]):
   ts = []
   for flavor in flavors:
     for test in test_files:
@@ -140,14 +144,28 @@ def system_test_suite(name, flavors=["default"], test_files):
 In the following BUILD file, note how `(basic_test.py, fast)` is emitted for
 both the `smoke` test suite and the `thorough` test suite.
 
+`BUILD`:
+
 ```python
 load("//pkg:extension.bzl", "system_test_suite")
 
 # Run all files through the 'fast' flavor.
-system_test_suite("smoke", flavors=["fast"], glob(["*_test.py"]))
+system_test_suite(
+    name = "smoke",
+    flavors = ["fast"],
+    test_files = glob(["*_test.py"]),
+)
 
 # Run the basic test through all flavors.
-system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"])
+system_test_suite(
+    name = "thorough",
+    flavors = [
+        "fast",
+        "debug",
+        "opt",
+    ],
+    test_files = ["basic_test.py"],
+)
 ```
 
 
@@ -577,7 +595,7 @@ def _impl(ctx):
       inputs = [processed],
       command = "md5sum < %s > %s" % (processed.path, out.path))
 
-hash = rule(
+md5_sum = rule(
   implementation=_impl,
   attrs={
       "filter": attr.string(values=_filters.keys(), default="none"),
@@ -590,9 +608,9 @@ hash = rule(
 `BUILD`:
 
 ```python
-load("//pkg:hash.bzl", "hash")
+load("//pkg:hash.bzl", "md5_sum")
 
-hash(
+md5_sum(
     name = "hash",
     src = "hello.txt",
     filter = "spaces",
