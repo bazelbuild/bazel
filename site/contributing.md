@@ -55,12 +55,8 @@ for Java. We don't have IDE support for other languages in Bazel right now.
 
 ### Creating an IntelliJ project
 
-To work with IntelliJ:
-
-* Install the [IntelliJ-with-Bazel](https://github.com/bazelbuild/intellij)
-  plugin.
-* Follow the instructions at [ij.bazel.io](https://ij.bazel.io) to setup your
-  project.
+To work with IntelliJ, follow the instructions at
+[ij.bazel.io](https://ij.bazel.io).
 
 ### Creating an Eclipse project
 
