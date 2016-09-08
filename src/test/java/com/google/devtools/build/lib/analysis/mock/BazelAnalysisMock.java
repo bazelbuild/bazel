@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.mock;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -46,8 +45,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -207,15 +204,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     Path jdkWorkspacePath = embeddedBinariesRoot.getRelative("jdk.WORKSPACE");
     FileSystemUtils.createDirectoryAndParents(jdkWorkspacePath.getParentDirectory());
     FileSystemUtils.writeContentAsLatin1(jdkWorkspacePath, "");
-  }
-
-  public static String readFromResources(String filename) {
-    try (InputStream in = BazelAnalysisMock.class.getClassLoader().getResourceAsStream(filename)) {
-      return new String(ByteStreams.toByteArray(in), StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      // This should never happen.
-      throw new AssertionError(e);
-    }
   }
 
   @Override

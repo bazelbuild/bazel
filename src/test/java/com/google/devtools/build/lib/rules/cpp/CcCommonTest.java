@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
@@ -21,7 +20,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNam
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
@@ -264,7 +262,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testTempsWithDifferentExtensions() throws Exception {
-    useConfiguration("--save_temps");
+    useConfiguration("--cpu=k8", "--save_temps");
     scratch.file(
         "ananas/BUILD",
         "cc_library(name='ananas',",
@@ -282,63 +280,34 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testTempsForCc() throws Exception {
-    useConfiguration("--save_temps");
-    ConfiguredTarget fooTarget = getConfiguredTarget("//foo:foo");
-    List<Artifact> temps =
-        ImmutableList.copyOf(getOutputGroup(fooTarget, OutputGroupProvider.TEMP_FILES));
-    assertThat(temps).hasSize(2);
-
-    // Assert that the two temps are the .i and .s files we expect.
-    assertThat(filter(temps, fileTypePredicate(CppFileTypes.PIC_PREPROCESSED_CPP))).hasSize(1);
-    assertThat(filter(temps, fileTypePredicate(CppFileTypes.PIC_ASSEMBLER))).hasSize(1);
-  }
-
-  @Test
-  public void testTempsForCcNoPIC() throws Exception {
-    useConfiguration("--save_temps", "--cpu=piii");
-    ConfiguredTarget fooTarget = getConfiguredTarget("//foo:foo");
-    List<Artifact> temps =
-        ImmutableList.copyOf(getOutputGroup(fooTarget, OutputGroupProvider.TEMP_FILES));
-    assertThat(temps).hasSize(2);
-
-    // Assert that the two temps are the .i and .s files we expect.
-    assertThat(filter(temps, fileTypePredicate(CppFileTypes.PREPROCESSED_CPP))).hasSize(1);
-    assertThat(filter(temps, fileTypePredicate(CppFileTypes.ASSEMBLER))).hasSize(1);
+    for (String cpu : new String[] {"k8", "piii"}) {
+      useConfiguration("--cpu=" + cpu, "--save_temps");
+      ConfiguredTarget foo = getConfiguredTarget("//foo:foo");
+      List<String> temps =
+          ActionsTestUtil.baseArtifactNames(getOutputGroup(foo, OutputGroupProvider.TEMP_FILES));
+      if (getTargetConfiguration().getFragment(CppConfiguration.class).usePicForBinaries()) {
+        assertThat(temps).named(cpu).containsExactly("foo.pic.ii", "foo.pic.s");
+      } else {
+        assertThat(temps).named(cpu).containsExactly("foo.ii", "foo.s");
+      }
+    }
   }
 
   @Test
   public void testTempsForC() throws Exception {
-    useConfiguration("--save_temps");
-    // Now try with a .c source file.
-    scratch.file("csrc/BUILD", "cc_library(name='csrc',", "           srcs=['foo.c'])");
-    ConfiguredTarget csrcTarget = getConfiguredTarget("//csrc:csrc");
-    List<Artifact> cTemps =
-        ImmutableList.copyOf(getOutputGroup(csrcTarget, OutputGroupProvider.TEMP_FILES));
-    assertThat(cTemps).hasSize(2);
-
-    // Assert that the two temps are the .ii and .s files we expect.
-    assertThat(filter(cTemps, fileTypePredicate(CppFileTypes.PIC_PREPROCESSED_C))).hasSize(1);
-    assertThat(filter(cTemps, fileTypePredicate(CppFileTypes.PIC_ASSEMBLER))).hasSize(1);
-  }
-
-  @Test
-  public void testTempsForTwoCc() throws Exception {
-    useConfiguration("--save_temps");
-
-    // For two source files we're expecting 4 temps.
-    scratch.file(
-        "twosrc/BUILD", "cc_library(name='twosrc',", "           srcs=['foo1.cc', 'foo2.cc'])");
-    ConfiguredTarget twoSrcTarget = getConfiguredTarget("//twosrc:twosrc");
-    assertThat(getOutputGroup(twoSrcTarget, OutputGroupProvider.TEMP_FILES)).hasSize(4);
-  }
-
-  private static Predicate<Artifact> fileTypePredicate(final FileType type) {
-    return new Predicate<Artifact>() {
-      @Override
-      public boolean apply(Artifact artifact) {
-        return type.matches(artifact.getFilename());
+    scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
+    for (String cpu : new String[] {"k8", "piii"}) {
+      useConfiguration("--cpu=" + cpu, "--save_temps");
+      // Now try with a .c source file.
+      ConfiguredTarget csrc = getConfiguredTarget("//csrc:csrc");
+      List<String> temps =
+          ActionsTestUtil.baseArtifactNames(getOutputGroup(csrc, OutputGroupProvider.TEMP_FILES));
+      if (getTargetConfiguration().getFragment(CppConfiguration.class).usePicForBinaries()) {
+        assertThat(temps).named(cpu).containsExactly("foo.pic.i", "foo.pic.s");
+      } else {
+        assertThat(temps).named(cpu).containsExactly("foo.i", "foo.s");
       }
-    };
+    }
   }
 
   @Test
@@ -483,7 +452,7 @@ public class CcCommonTest extends BuildViewTestCase {
     // Tests that cc_tests built statically and with Fission will have the .dwp file
     // in their runfiles.
 
-    useConfiguration("--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
+    useConfiguration("--cpu=k8", "--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "mypackage", "mytest", "cc_test(name = 'mytest', ", "         srcs = ['mytest.cc'])");

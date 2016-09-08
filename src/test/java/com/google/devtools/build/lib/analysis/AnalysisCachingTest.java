@@ -133,6 +133,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   // "action conflict detection is incorrect if conflict is in non-top-level configured targets".
   @Test
   public void testActionConflictInDependencyImpliesTopLevelTargetFailure() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])",
@@ -154,9 +155,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/conflict/foo.o', srcs=['bar.cc'])");
     update("//conflict:x");
     ConfiguredTarget conflict = getConfiguredTarget("//conflict:x");
     Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/conflict/foo.pic.o", conflict));
@@ -177,6 +179,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testActionConflictCausesError() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
@@ -188,6 +191,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testNoActionConflictErrorAfterClearedAnalysis() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file("conflict/BUILD",
                 "cc_library(name='x', srcs=['foo.cc'])",
                 "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
@@ -213,6 +217,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testConflictingArtifactsErrorWithNoListDetail() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -234,6 +239,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testConflictingArtifactsWithListDetail() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo1.cc', 'foo2.cc', 'foo3.cc', 'foo4.cc', 'foo5.cc'"
@@ -265,9 +271,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testActionConflictMarksTargetInvalid() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/conflict/foo.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING),
         "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
