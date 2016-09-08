@@ -35,12 +35,13 @@ macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
 
 ## Debugging
 
-* `bazel query --output=build //my/path:all` will show you how the BUILD
-file looks like after evaluation. All macros, globs, loops are expanded.
+*   `bazel query --output=build //my/path:all` will show you how the BUILD file
+    looks like after evaluation. All macros, globs, loops are expanded.
 
-* You can also use [print](lib/globals.html#print) for debugging. It displays
-the message as a warning during the loading phase. Except in rare cases, remove
-your `print` calls before submitting the code to the depot.
+*   You can also use [print](lib/globals.html#print) for debugging. It displays
+    the message as a warning during the loading phase. Except in rare cases,
+    either remove `print` calls, or make them conditional under a `debugging`
+    parameter that defaults to `False` before submitting the code to the depot.
 
 ## Errors
 
