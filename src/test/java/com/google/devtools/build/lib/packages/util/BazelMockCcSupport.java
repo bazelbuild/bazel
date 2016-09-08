@@ -13,14 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * Bazel implementation of {@link MockCcSupport}
@@ -126,7 +122,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
         ")");
 
     config.create(
-        "/bazel_tools_workspace/tools/cpp/CROSSTOOL", readFromResources(MOCK_CROSSTOOL_PATH));
+        "/bazel_tools_workspace/tools/cpp/CROSSTOOL",
+        readCrosstoolFile());
     config.create(
         "/bazel_tools_workspace/tools/objc/BUILD",
         "xcode_config(name = 'host_xcodes')");
@@ -144,12 +141,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public String readCrosstoolFile() throws IOException {
-    return readFromResources(MOCK_CROSSTOOL_PATH);
+    return ResourceLoader.readFromResources(MOCK_CROSSTOOL_PATH);
   }
 
-  public static String readFromResources(String filename) throws IOException {
-    InputStream in = BazelMockCcSupport.class.getClassLoader().getResourceAsStream(filename);
-    return new String(ByteStreams.toByteArray(in), UTF_8);
+  @Override
+  public String getMockLibcPath() {
+    return "tools/cpp/libc";
   }
 
   @Override

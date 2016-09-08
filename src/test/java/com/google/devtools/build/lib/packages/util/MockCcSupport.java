@@ -343,6 +343,49 @@ public abstract class MockCcSupport {
     return TextFormat.printToString(builder.build());
   }
 
+  public static String addOptionalDefaultCoptsToCrosstool(String original)
+      throws TextFormat.ParseException {
+    CrosstoolConfig.CrosstoolRelease.Builder builder =
+        CrosstoolConfig.CrosstoolRelease.newBuilder();
+    TextFormat.merge(original, builder);
+    for (CrosstoolConfig.CToolchain.Builder toolchain : builder.getToolchainBuilderList()) {
+      CrosstoolConfig.CToolchain.OptionalFlag.Builder defaultTrue =
+          CrosstoolConfig.CToolchain.OptionalFlag.newBuilder();
+      defaultTrue.setDefaultSettingName("crosstool_default_true");
+      defaultTrue.addFlag("-DDEFAULT_TRUE");
+      toolchain.addOptionalCompilerFlag(defaultTrue.build());
+      CrosstoolConfig.CToolchain.OptionalFlag.Builder defaultFalse =
+          CrosstoolConfig.CToolchain.OptionalFlag.newBuilder();
+      defaultFalse.setDefaultSettingName("crosstool_default_false");
+      defaultFalse.addFlag("-DDEFAULT_FALSE");
+      toolchain.addOptionalCompilerFlag(defaultFalse.build());
+    }
+
+    CrosstoolConfig.CrosstoolRelease.DefaultSetting.Builder defaultTrue =
+        CrosstoolConfig.CrosstoolRelease.DefaultSetting.newBuilder();
+    defaultTrue.setName("crosstool_default_true");
+    defaultTrue.setDefaultValue(true);
+    builder.addDefaultSetting(defaultTrue.build());
+    CrosstoolConfig.CrosstoolRelease.DefaultSetting.Builder defaultFalse =
+        CrosstoolConfig.CrosstoolRelease.DefaultSetting.newBuilder();
+    defaultFalse.setName("crosstool_default_false");
+    defaultFalse.setDefaultValue(false);
+    builder.addDefaultSetting(defaultFalse.build());
+
+    return TextFormat.printToString(builder.build());
+  }
+
+  public static String addLibcLabelToCrosstool(String original, String label)
+      throws TextFormat.ParseException {
+    CrosstoolConfig.CrosstoolRelease.Builder builder =
+        CrosstoolConfig.CrosstoolRelease.newBuilder();
+    TextFormat.merge(original, builder);
+    for (CrosstoolConfig.CToolchain.Builder toolchain : builder.getToolchainBuilderList()) {
+      toolchain.setDefaultGrteTop(label);
+    }
+    return TextFormat.printToString(builder.build());
+  }
+
   public abstract Predicate<String> labelNameFilter();
 
   /**
@@ -382,8 +425,7 @@ public abstract class MockCcSupport {
 
   /**
    * Create a crosstool package. For integration tests, it actually links in a working crosstool,
-   * for all other tests, it only creates a dummy package, with a working CROSSTOOL file. The code
-   * here matches the declarations in {@link CrosstoolTestHelper}.
+   * for all other tests, it only creates a dummy package, with a working CROSSTOOL file.
    *
    * <p>If <code>addEmbeddedRuntimes</code> is true, it also adds filegroups for the embedded
    * runtimes.
@@ -505,6 +547,8 @@ public abstract class MockCcSupport {
   public abstract Label getMockCrosstoolLabel();
 
   public abstract String readCrosstoolFile() throws IOException;
+
+  public abstract String getMockLibcPath();
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 
