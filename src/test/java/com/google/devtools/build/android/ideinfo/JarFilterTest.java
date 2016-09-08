@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.JavaSourcePackage;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.PackageManifest;
+
+import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
 import org.junit.Test;
@@ -36,7 +38,7 @@ public class JarFilterTest {
   public void testParseCommandLineArguments() throws Exception {
     String[] args = new String[]{
         "--jars",
-        "/tmp/1.jar:/tmp/2.jar",
+        "/tmp/1.jar" + File.pathSeparator + "/tmp/2.jar",
         "--output",
         "/tmp/out.jar",
         "--manifest",
