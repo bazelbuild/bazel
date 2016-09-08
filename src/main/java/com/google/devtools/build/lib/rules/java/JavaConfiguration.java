@@ -140,15 +140,17 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
-  private final String javaCpu;
   private final JavaOptimizationMode javaOptimizationMode;
   private final Label javaToolchain;
 
   // TODO(dmarting): remove when we have rolled out the new behavior
   private final boolean legacyBazelJavaTest;
 
-  JavaConfiguration(boolean generateJavaDeps,
-      List<String> defaultJvmFlags, JavaOptions javaOptions, Label javaToolchain, String javaCpu)
+  JavaConfiguration(
+      boolean generateJavaDeps,
+      List<String> defaultJvmFlags,
+      JavaOptions javaOptions,
+      Label javaToolchain)
           throws InvalidConfigurationException {
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
@@ -167,7 +169,6 @@ public final class JavaConfiguration extends Fragment {
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.javaCpu = javaCpu;
     this.javaToolchain = javaToolchain;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
@@ -205,7 +206,6 @@ public final class JavaConfiguration extends Fragment {
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
     globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
-    globalMakeEnvBuilder.put("JAVA_CPU", javaCpu);
   }
 
   /**

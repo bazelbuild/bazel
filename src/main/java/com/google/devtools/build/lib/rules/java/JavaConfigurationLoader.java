@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 
 /**
@@ -33,25 +31,17 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    // TODO(bazel-team): either require CppOptions only for dependency trees that use the JAVA_CPU
-    // make variable or break out CppConfiguration.getTargetCpu() into its own distinct fragment.
-    return ImmutableSet.of(JavaOptions.class, CppOptions.class);
+    return ImmutableSet.<Class<? extends FragmentOptions>>of(JavaOptions.class);
   }
 
 
   @Override
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException, InterruptedException {
-    CppConfiguration cppConfiguration = env.getFragment(buildOptions, CppConfiguration.class);
-    if (cppConfiguration == null) {
-      return null;
-    }
-
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-
     Label javaToolchain = RedirectChaser.followRedirects(env, javaOptions.javaToolchain,
         "java_toolchain");
-    return create(javaOptions, javaToolchain, cppConfiguration.getTargetCpu());
+    return create(javaOptions, javaToolchain);
   }
 
   @Override
@@ -59,13 +49,10 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
     return JavaConfiguration.class;
   }
   
-  public JavaConfiguration create(JavaOptions javaOptions, Label javaToolchain, String javaCpu)
-          throws InvalidConfigurationException {
-
+  private JavaConfiguration create(JavaOptions javaOptions, Label javaToolchain)
+      throws InvalidConfigurationException {
     boolean generateJavaDeps =
         javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
-
-    return new JavaConfiguration(
-        generateJavaDeps, javaOptions.jvmOpts, javaOptions, javaToolchain, javaCpu);
+    return new JavaConfiguration(generateJavaDeps, javaOptions.jvmOpts, javaOptions, javaToolchain);
   }
 }
