@@ -9,7 +9,7 @@ package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
     name = "test_runner",
-    srcs = ["BazelTestRunner.java"],
+    srcs = glob(["*.java"]),
     data = ["//tools:test_sharding_compliant"],
     # Disable sunapi warnings about sun.misc.Signal.
     # There are no non-Sun APIs for doing this.
@@ -18,7 +18,8 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
-        "//third_party:dagger",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//third_party:junit4",
     ],
 )
