@@ -684,8 +684,8 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Adds the given directories to the quote include directories (they are passed with {@code
-   * "-iquote"} to the compiler); these are also passed to dependent rules.
+   * Adds the given directories to the include directories (they are passed with {@code "-I"} to
+   * the compiler); these are also passed to dependent rules.
    */
   public CcLibraryHelper addIncludeDirs(Iterable<PathFragment> includeDirs) {
     Iterables.addAll(this.includeDirs, includeDirs);
