@@ -13,27 +13,15 @@ filegroup(
     srcs = [],
 )
 
-# This is the entry point for --crosstool_top.  Toolchains are found
-# by lopping off the name of --crosstool_top and searching for
-# "cc-compiler-${CPU}" in this BUILD file, where CPU is the target CPU
-# specified in --cpu.
-#
-# This file group should include
-#   * all cc_toolchain targets supported
-#   * all file groups that said cc_toolchain might refer to,
-# including the default_grte_top setting in the CROSSTOOL
-# protobuf.
-
 # Hardcoded toolchain, legacy behaviour.
-filegroup(
+cc_toolchain_suite(
     name = "toolchain",
-    srcs = [
-        ":cc-compiler-armeabi-v7a",
-        ":cc-compiler-freebsd",
-        ":cc-compiler-x64_windows",
-        ":cc-compiler-x64_windows_msvc",
-        ":empty",
-    ],
+    toolchains = {
+        "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
+        "freebsd|compiler": ":cc-compiler-freebsd",
+        "x64_windows|windows_msys64": ":cc-compiler-x64_windows",
+        "x64_windows_msvc|cl": ":cc-compiler-x64_windows_msvc",
+    },
 )
 
 cc_toolchain(
