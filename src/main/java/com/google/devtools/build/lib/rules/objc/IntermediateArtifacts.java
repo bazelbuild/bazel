@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -397,11 +398,9 @@ public final class IntermediateArtifacts {
     return appendExtension("_runner.sh");
   }
 
-  /**
-   * Dependency file that is generated when compiling the {@code source} artifact.
-   */
-  public Artifact dotdFile(Artifact source) {
-     return inUniqueObjsDir(source, ".d");
+  /** Dependency file that is generated when compiling the {@code source} artifact. */
+  public DotdFile dotdFile(Artifact source) {
+    return new DotdFile(inUniqueObjsDir(source, ".d"));
   }
 
   /**

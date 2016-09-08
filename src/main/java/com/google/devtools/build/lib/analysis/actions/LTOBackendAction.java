@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -228,11 +229,12 @@ public final class LTOBackendAction extends SpawnAction {
     }
 
     @Override
-    SpawnAction createSpawnAction(
+    protected SpawnAction createSpawnAction(
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
+        ResourceSet resourceSet,
         CommandLine actualCommandLine,
         ImmutableMap<String, String> env,
         ImmutableSet<String> clientEnvironmentVariables,

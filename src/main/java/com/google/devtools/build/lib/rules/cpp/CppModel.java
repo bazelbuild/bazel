@@ -495,7 +495,7 @@ public final class CppModel {
           initializeCompileAction(moduleMapArtifact, moduleMapLabel, /*forInterface=*/ true);
 
       builder.setSemantics(semantics);
-
+      
       // A header module compile action is just like a normal compile action, but:
       // - the compiled source file is the module map
       // - it creates a header module (.pcm file).
