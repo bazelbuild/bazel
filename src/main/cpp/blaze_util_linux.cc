@@ -269,9 +269,8 @@ bool KillServerProcess(
     int pid, const string& output_base, const string& install_base) {
   char start_time[256];
   if (!GetStartTime(pid, start_time, sizeof(start_time))) {
-    // Cannot read PID file from /proc . Process died in the meantime?
-    sigprintf("Found stale PID file (pid=%d). "
-            "Server probably died abruptly, continuing...\n", pid);
+    // Cannot read PID file from /proc . Process died meantime, all is good. No
+    // stale server is present.
     return false;
   }
 
