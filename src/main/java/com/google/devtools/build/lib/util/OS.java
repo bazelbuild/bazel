@@ -42,6 +42,10 @@ public enum OS {
     return canonicalName;
   }
 
+  public static String getVersion() {
+    return System.getProperty("os.version");
+  }
+
   @Override
   public String toString() {
     return getCanonicalName();
@@ -55,7 +59,7 @@ public enum OS {
       osName = System.getProperty("os.name");
     }
 
-    if (osName == null) { 
+    if (osName == null) {
       return OS.UNKNOWN;
     }
 
