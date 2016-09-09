@@ -98,7 +98,7 @@ be refined if appropriate.
       <td>P0. <a href="https://github.com/bazelbuild/bazel/tree/master/src/test/java/com/google/devtools">Significantly increase test coverage</a></td>
     </tr>
     <tr><td>P0. Support for fetching <a href="http://bazel.io/docs/external.html">remote</a> <a href="http://bazel.io/docs/be/functions.html#load">Skylark rules</a></td></tr>
-    <tr><td>P2. <a href="http://bazel.io/docs/be/go.html">Go language support (build and tests)</a></td></tr>
+    <tr><td>P2. <a href="https://github.com/bazelbuild/rules_go">Go language support (build and tests)</a></td></tr>
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/releases/latest">Debian packages for Bazel</a></td></tr>
     <tr><td>P2. <a href="http://braumeister.org/formula/bazel">OS X homebrew recipe for distributing Bazel</a></td></tr>
     <tr>
