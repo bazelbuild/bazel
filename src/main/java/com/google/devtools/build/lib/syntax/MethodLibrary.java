@@ -159,7 +159,7 @@ public class MethodLibrary {
             + "are removed."
             + "<pre class=\"language-python\">"
             + "\"abcba\".lstrip(\"ba\") == \"cba\""
-            + "</pre",
+            + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string"),
       @Param(
@@ -186,7 +186,7 @@ public class MethodLibrary {
             + "are removed."
             + "<pre class=\"language-python\">"
             + "\"abcba\".rstrip(\"ba\") == \"abc\""
-            + "</pre",
+            + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string"),
       @Param(
@@ -213,7 +213,7 @@ public class MethodLibrary {
             + "are removed."
             + "<pre class=\"language-python\">"
             + "\"abcba\".strip(\"ba\") == \"abc\""
-            + "</pre",
+            + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string"),
       @Param(
