@@ -166,7 +166,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
 
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot");
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
     if (errWriter != null) {
       errWriter.printf("sandbox root is %s\n", sandboxPath.toString());

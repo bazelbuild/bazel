@@ -128,6 +128,7 @@ final class SandboxHelpers {
     return blazeDirs
         .getOutputBase()
         .getRelative(productName + "-sandbox")
-        .getRelative(uuid + "-" + execCounter.getAndIncrement());
+        .getRelative(uuid + "-" + execCounter.getAndIncrement())
+        .getRelative(blazeDirs.getExecRoot().getBaseName());
   }
 }

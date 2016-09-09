@@ -100,7 +100,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
 
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot");
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
 
