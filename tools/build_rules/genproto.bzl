@@ -46,12 +46,13 @@ gensrcjar = rule(
             single_file = True,
         ),
         "grpc_java_plugin": attr.label(
-            cfg = HOST_CFG,
+            cfg = "host",
             executable = True,
             single_file = True,
         ),
         "_gensrcjar": attr.label(
             default = Label(str(Label("//tools/build_rules:gensrcjar"))),
+            cfg = "host",
             executable = True,
         ),
         # TODO(bazel-team): this should be a hidden attribute with a default
@@ -59,12 +60,14 @@ gensrcjar = rule(
         "_proto_compiler": attr.label(
             default = Label("//third_party/protobuf:protoc"),
             allow_files = True,
+            cfg = "host",
             executable = True,
             single_file = True,
         ),
         "_jar": attr.label(
             default = Label("@bazel_tools//tools/jdk:jar"),
             allow_files = True,
+            cfg = "host",
             executable = True,
             single_file = True,
         ),

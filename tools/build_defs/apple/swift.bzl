@@ -256,6 +256,7 @@ swift_library = rule(
         "defines": attr.string_list(mandatory=False, allow_empty=True),
         "_xcrunwrapper": attr.label(
             executable=True,
+            cfg="host",
             default=Label(XCRUNWRAPPER_LABEL))},
     fragments = ["apple", "objc"],
     output_to_genfiles=True,

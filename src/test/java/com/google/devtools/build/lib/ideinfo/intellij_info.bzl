@@ -563,12 +563,12 @@ def _aspect_def(impl):
       attrs = {
           "_package_parser": attr.label(
               default = tool_label("//tools/android:PackageParser"),
-              cfg = HOST_CFG,
+              cfg = "host",
               executable = True,
               allow_files = True),
           "_jar_filter": attr.label(
               default = tool_label("//tools/android:JarFilter"),
-              cfg = HOST_CFG,
+              cfg = "host",
               executable = True,
               allow_files = True),
       },
