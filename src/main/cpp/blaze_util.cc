@@ -421,9 +421,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   }
 
   // Identify ourselves in the lockfile.
-  if (ftruncate(lockfd, 0)) {
-    // Placate the compiler.
-  }
+  (void) ftruncate(lockfd, 0);
   const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
   string msg = "owner=launcher\npid="
       + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";

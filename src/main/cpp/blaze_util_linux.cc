@@ -14,6 +14,7 @@
 
 #include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
+#include <linux/magic.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -72,7 +73,7 @@ void WarnFilesystemType(const string& output_base) {
     return;
   }
 
-  if (buf.f_type == 0x00006969) {  // NFS_SUPER_MAGIC
+  if (buf.f_type == NFS_SUPER_MAGIC) {
     fprintf(stderr, "WARNING: Output base '%s' is on NFS. This may lead "
             "to surprising failures and undetermined behavior.\n",
             output_base.c_str());
@@ -117,14 +118,6 @@ uint64_t ProcessClock() {
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
-  // Move ourself into a low priority CPU scheduling group if the
-  // machine is configured appropriately.  Fail silently, because this
-  // isn't available on all kernels.
-  if (FILE *f = fopen("/dev/cgroup/cpu/batch/tasks", "w")) {
-    fprintf(f, "%d", getpid());
-    fclose(f);
-  }
-
   if (batch_cpu_scheduling) {
     sched_param param = {};
     param.sched_priority = 0;
@@ -280,7 +273,7 @@ bool KillServerProcess(
       &recorded_start_time);
 
   // start time file got deleted, but PID file didn't. This is strange.
-  // Assume that this is an old Blaze process that doesn't know how to  write
+  // Assume that this is an old Blaze process that doesn't know how to write
   // start time files yet.
   if (file_present && recorded_start_time != start_time) {
     // This is a different process.

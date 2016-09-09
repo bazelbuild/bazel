@@ -1510,14 +1510,10 @@ static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
       StartServerAndConnect(server);
     }
 
-    // Check for deleted server cwd:
+    // Check for the case when the workspace directory deleted and then gets
+    // recreated while the server is running
+
     string server_cwd = GetProcessCWD(globals->server_pid);
-    // TODO(bazel-team): Is this check even necessary? If someone deletes or
-    // moves the server directory, the client cannot connect to the server
-    // anymore. IOW, the client finds the server based on the output base,
-    // so if a server is found, it should be by definition at the correct output
-    // base.
-    //
     // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
     // running under Docker because then readlink(/proc/[pid]/cwd) returns
     // EPERM.
@@ -1722,26 +1718,6 @@ static void SetupStreams() {
   if (fcntl(2, F_GETFL) == -1) open("/dev/null", O_WRONLY);
 }
 
-// Set an 8MB stack for Blaze. When the stack max is unbounded, it changes the
-// layout in the JVM's address space, and we are unable to instantiate the
-// default 3000MB heap.
-static void EnsureFiniteStackLimit() {
-  struct rlimit limit;
-  const int default_stack = 8 * 1024 * 1024;  // 8MB.
-  if (getrlimit(RLIMIT_STACK, &limit)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getrlimit() failed");
-  }
-
-  if (default_stack < limit.rlim_cur) {
-    limit.rlim_cur = default_stack;
-    if (setrlimit(RLIMIT_STACK, &limit)) {
-      perror("setrlimit() failed: If the stack limit is too high, "
-             "this can cause the JVM to be unable to allocate enough "
-             "contiguous address space for its heap");
-    }
-  }
-}
-
 static void CheckBinaryPath(const string& argv0) {
   if (argv0[0] == '/') {
     globals->binary_path = argv0;
@@ -1842,7 +1818,6 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
   globals->command_wait_time = blaze_server->AcquireLock();
 
   WarnFilesystemType(globals->options->output_base);
-  EnsureFiniteStackLimit();
 
   ExtractData(self_path);
   VerifyJavaVersionAndSetJvm();
