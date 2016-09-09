@@ -995,6 +995,20 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
+   * Returns the SHA1 digest of the file denoted by the current path, following
+   * symbolic links.
+   *
+   * <p>This method runs in O(n) time where n is the length of the file, but
+   * certain implementations may be much faster than the worst case.
+   *
+   * @return a new 20-byte array containing the file's SHA1 digest
+   * @throws IOException if the SHA1 digest could not be computed for any reason
+   */
+  public byte[] getSHA1Digest() throws IOException {
+    return fileSystem.getSHA1Digest(this);
+  }
+
+  /**
    * Opens the file denoted by this path, following symbolic links, for reading,
    * and returns an input stream to it.
    *

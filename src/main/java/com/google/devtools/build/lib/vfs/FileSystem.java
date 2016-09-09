@@ -279,6 +279,20 @@ public abstract class FileSystem {
   }
 
   /**
+   * Returns the MD5 digest of the file denoted by {@code path}. See
+   * {@link Path#getMD5Digest} for specification.
+   */
+  protected byte[] getSHA1Digest(final Path path) throws IOException {
+    // Naive I/O implementation.  TODO(olaola): optimize!
+    return new ByteSource() {
+      @Override
+      public InputStream openStream() throws IOException {
+        return getInputStream(path);
+      }
+    }.hash(Hashing.sha1()).asBytes();
+  }
+
+  /**
    * Returns true if "path" denotes an existing symbolic link. See
    * {@link Path#isSymbolicLink} for specification.
    */
