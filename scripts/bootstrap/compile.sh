@@ -49,8 +49,13 @@ linux)
     if [ "${MACHINE_IS_ARM}" = 'yes' ]; then
       PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-arm32.exe}
     else
-      PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
-      GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-x86_32.exe}
+      if [ "${MACHINE_IS_Z}" = 'yes' ]; then
+        PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-s390x.exe}
+        GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe}
+      else
+        PROTOC=${PROTOC:-third_party/protobuf/protoc-linux-x86_32.exe}
+        GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-x86_32.exe}
+      fi
     fi
   fi
   ;;
