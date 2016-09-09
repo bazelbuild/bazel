@@ -220,7 +220,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   public void testStackTraceErrorInFunction() throws Exception {
     runStackTraceTest(
         "str",
-        "\t\tstr.index(1)\n"
+        "\t\tstr.index(1)"
+            + System.lineSeparator()
             + "Method string.index(sub: string, start: int, end: int or NoneType) is not "
             + "applicable for arguments (int, int, NoneType): 'sub' is int, "
             + "but should be string");
@@ -228,13 +229,15 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testStackTraceMissingMethod() throws Exception {
-    runStackTraceTest("None", "\t\tNone.index(1)\n" + "Type NoneType has no function index(int)");
+    runStackTraceTest(
+        "None",
+        "\t\tNone.index(1)" + System.lineSeparator() + "Type NoneType has no function index(int)");
   }
 
   protected void runStackTraceTest(String object, String errorMessage) throws Exception {
     reporter.removeHandler(failFastHandler);
     String expectedTrace =
-        Joiner.on("\n")
+        Joiner.on(System.lineSeparator())
             .join(
                 "Traceback (most recent call last):",
                 "\tFile \"/workspace/test/skylark/BUILD\", line 3",

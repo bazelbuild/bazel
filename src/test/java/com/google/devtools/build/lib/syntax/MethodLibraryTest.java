@@ -351,14 +351,17 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testStackTraceLocation() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "Traceback (most recent call last):\n\t"
-                + "File \"<unknown>\", line 8"
+            "Traceback (most recent call last):"
                 + LINE_SEPARATOR
-                + "\t\tfoo()\n\t"
-                + "File \"<unknown>\", line 2, in foo"
+                + "\tFile \"<unknown>\", line 8"
                 + LINE_SEPARATOR
-                + "\t\tbar(1)\n\t"
-                + "File \"<unknown>\", line 7, in bar"
+                + "\t\tfoo()"
+                + LINE_SEPARATOR
+                + "\tFile \"<unknown>\", line 2, in foo"
+                + LINE_SEPARATOR
+                + "\t\tbar(1)"
+                + LINE_SEPARATOR
+                + "\tFile \"<unknown>\", line 7, in bar"
                 + LINE_SEPARATOR
                 + "\t\t'test'.index(x)",
             "def foo():",
@@ -377,8 +380,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains(
             "File \"<unknown>\", line 5"
                 + LINE_SEPARATOR
-                + "\t\tfoo()\n\t"
-                + "File \"<unknown>\", line 3, in foo"
+                + "\t\tfoo()"
+                + LINE_SEPARATOR
+                + "\tFile \"<unknown>\", line 3, in foo"
                 + LINE_SEPARATOR
                 + "\t\ts[0]",
             "def foo():",
@@ -405,16 +409,20 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // has neither a BUILD nor a bzl file.
     new SkylarkTest()
         .testIfExactError(
-            "Traceback (most recent call last):\n"
+            "Traceback (most recent call last):"
+                + LINE_SEPARATOR
                 + "\tFile \"<unknown>\", line 6"
                 + LINE_SEPARATOR
-                + "\t\tfoo()\n"
+                + "\t\tfoo()"
+                + LINE_SEPARATOR
                 + "\tFile \"<unknown>\", line 2, in foo"
                 + LINE_SEPARATOR
-                + "\t\tbar(1)\n"
+                + "\t\tbar(1)"
+                + LINE_SEPARATOR
                 + "\tFile \"<unknown>\", line 5, in bar"
                 + LINE_SEPARATOR
-                + "\t\t'test'.index(x)\n"
+                + "\t\t'test'.index(x)"
+                + LINE_SEPARATOR
                 + "Method string.index(sub: string, start: int, end: int or NoneType) "
                 + "is not applicable "
                 + "for arguments (int, int, NoneType): 'sub' is int, but should be string",

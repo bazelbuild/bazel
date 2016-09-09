@@ -417,13 +417,16 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:1:1: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
-            + "Traceback (most recent call last):\n"
+            + "Traceback (most recent call last):"
+            + LINE_SEPARATOR
             + "\tFile \"/workspace/test/BUILD\", line 1"
             + LINE_SEPARATOR
-            + "\t\t//test:aspect.bzl%MyAspect(...)\n"
+            + "\t\t//test:aspect.bzl%MyAspect(...)"
+            + LINE_SEPARATOR
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl"
             + LINE_SEPARATOR
-            + "\t\t1 / 0\n"
+            + "\t\t1 / 0"
+            + LINE_SEPARATOR
             + "integer division by zero");
   }
 
