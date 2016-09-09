@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
@@ -77,7 +78,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
-    ObjcCommon common = common(ruleContext, compilationAttributes, compilationArtifacts);
+    ObjcCommon common = common(ruleContext);
     ObjcVariablesExtension variablesExtension =
         new ObjcVariablesExtension(
             ruleContext,
@@ -241,23 +242,24 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
   /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
    */
-  private static ObjcCommon common(
-      RuleContext ruleContext,
-      CompilationAttributes compilationAttributes,
-      CompilationArtifacts compilationArtifacts) {
+  private static ObjcCommon common(RuleContext ruleContext) {
     return new ObjcCommon.Builder(ruleContext)
-        .setCompilationAttributes(compilationAttributes)
+        .setCompilationAttributes(
+            CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-        .setCompilationArtifacts(compilationArtifacts)
+        .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
+        .addDepObjcProviders(
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .addNonPropagatedDepObjcProviders(
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
-        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .build();
   }
- 
+  
   private static ImmutableList<Artifact> getObjFiles(
       CompilationArtifacts compilationArtifacts, IntermediateArtifacts intermediateArtifacts) {
     ImmutableList.Builder<Artifact> result = new ImmutableList.Builder<>();
