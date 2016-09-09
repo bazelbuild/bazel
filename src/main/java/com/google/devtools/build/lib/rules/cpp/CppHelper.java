@@ -88,7 +88,7 @@ public class CppHelper {
       if (stl != null) {
         // TODO(bazel-team): Clean this up.
         contextBuilder.addSystemIncludeDir(
-            stl.getLabel().getPackageIdentifier().getSourceRoot().getRelative("gcc3"));
+            stl.getLabel().getPackageIdentifier().getPathUnderExecRoot().getRelative("gcc3"));
         contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
       }
     }

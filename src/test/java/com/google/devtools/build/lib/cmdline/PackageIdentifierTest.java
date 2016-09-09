@@ -102,9 +102,9 @@ public class PackageIdentifierTest {
 
   @Test
   public void testRunfilesDir() throws Exception {
-    assertThat(PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getPathUnderExecRoot())
+    assertThat(PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getRunfilesPath())
         .isEqualTo(new PathFragment("../foo/bar/baz"));
-    assertThat(PackageIdentifier.create("@", new PathFragment("bar/baz")).getPathUnderExecRoot())
+    assertThat(PackageIdentifier.create("@", new PathFragment("bar/baz")).getRunfilesPath())
         .isEqualTo(new PathFragment("bar/baz"));
   }
 }

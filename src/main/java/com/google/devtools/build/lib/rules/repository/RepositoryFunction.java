@@ -347,10 +347,8 @@ public abstract class RepositoryFunction {
     return value;
   }
 
-  public static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories
-        .getOutputBase()
-        .getRelative(Label.EXTERNAL_PATH_PREFIX);
+  protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
+    return directories.getOutputBase().getRelative(Label.EXTERNAL_PACKAGE_NAME);
   }
 
   /**

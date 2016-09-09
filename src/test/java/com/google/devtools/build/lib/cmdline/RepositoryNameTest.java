@@ -59,11 +59,11 @@ public class RepositoryNameTest {
 
   @Test
   public void testRunfilesDir() throws Exception {
-    assertThat(RepositoryName.create("@foo").getPathUnderExecRoot())
+    assertThat(RepositoryName.create("@foo").getRunfilesPath())
         .isEqualTo(new PathFragment("../foo"));
-    assertThat(RepositoryName.create("@").getPathUnderExecRoot())
+    assertThat(RepositoryName.create("@").getRunfilesPath())
         .isEqualTo(PathFragment.EMPTY_FRAGMENT);
-    assertThat(RepositoryName.create("").getPathUnderExecRoot())
+    assertThat(RepositoryName.create("").getRunfilesPath())
         .isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 

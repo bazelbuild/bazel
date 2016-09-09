@@ -1098,7 +1098,7 @@ public final class CcLibraryHelper {
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
     PathFragment repositoryPath =
-        ruleContext.getLabel().getPackageIdentifier().getRepository().getSourceRoot();
+        ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
     contextBuilder.addQuoteIncludeDir(repositoryPath);
     contextBuilder.addQuoteIncludeDir(
         ruleContext.getConfiguration().getGenfilesFragment().getRelative(repositoryPath));
