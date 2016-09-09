@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -51,10 +52,11 @@ public interface ArtifactResolver {
    * post-compile .d or manifest scanning methods.
    *
    * @param execPath the exec path of the artifact to resolve
+   * @param repositoryName the name of repository this artifact belongs to
    * @return an existing or new source Artifact for the given execPath. Returns null if
    *         the root can not be determined and the artifact did not exist before.
    */
-  Artifact resolveSourceArtifact(PathFragment execPath);
+  Artifact resolveSourceArtifact(PathFragment execPath, RepositoryName repositoryName);
 
   /**
    * Resolves source Artifacts given execRoot-relative paths.

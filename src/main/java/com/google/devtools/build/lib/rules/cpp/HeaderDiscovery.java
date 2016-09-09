@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -119,7 +120,7 @@ public class HeaderDiscovery {
       }
       Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
       if (artifact == null) {
-        artifact = artifactResolver.resolveSourceArtifact(execPathFragment);
+        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, RepositoryName.MAIN);
       }
       if (artifact != null) {
         inputs.add(artifact);
