@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,6 +25,33 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CcToolchainTest extends BuildViewTestCase {
+  @Test
+  public void testBadDynamicRuntimeLib() throws Exception {
+    scratch.file("a/BUILD",
+        "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
+        "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
+        "cc_toolchain(",
+        "    name = 'a',",
+        "    module_map = 'map',",
+        "    cpu = 'cherry',",
+        "    compiler_files = 'compile-a',",
+        "    dwp_files = 'dwp-a',",
+        "    linker_files = 'link-a',",
+        "    strip_files = 'strip-a',",
+        "    objcopy_files = 'objcopy-a',",
+        "    all_files = 'all-a',",
+        "    dynamic_runtime_libs = [':dynamic'],",
+        "    static_runtime_libs = [':static'])");
+
+    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
+        CrosstoolConfig.CToolchain.newBuilder()
+            .setSupportsEmbeddedRuntimes(true)
+            .buildPartial());
+
+    useConfiguration();
+
+    getConfiguredTarget("//a:a");
+  }
 
   @Test
   public void testModuleMapAttribute() throws Exception {

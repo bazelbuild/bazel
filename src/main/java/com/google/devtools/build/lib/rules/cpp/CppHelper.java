@@ -457,18 +457,18 @@ public class CppHelper {
    * before populating the set of files necessary to execute an action.
    */
   static List<Artifact> getAggregatingMiddlemanForCppRuntimes(RuleContext ruleContext,
-      String purpose, TransitiveInfoCollection dep, String solibDirOverride,
+      String purpose, Iterable<Artifact> artifacts, String solibDirOverride,
       BuildConfiguration configuration) {
     return getMiddlemanInternal(ruleContext, ruleContext.getActionOwner(), purpose,
-        dep, true, true, solibDirOverride, configuration);
+        artifacts, true, true, solibDirOverride, configuration);
   }
 
   @VisibleForTesting
   public static List<Artifact> getAggregatingMiddlemanForTesting(
-      RuleContext ruleContext, ActionOwner owner, String purpose, TransitiveInfoCollection dep,
+      RuleContext ruleContext, ActionOwner owner, String purpose, Iterable<Artifact> artifacts,
       boolean useSolibSymlinks, BuildConfiguration configuration) {
     return getMiddlemanInternal(
-        ruleContext, owner, purpose, dep, useSolibSymlinks, false, null, configuration);
+        ruleContext, owner, purpose, artifacts, useSolibSymlinks, false, null, configuration);
   }
 
   /**
@@ -476,13 +476,9 @@ public class CppHelper {
    */
   private static List<Artifact> getMiddlemanInternal(
       RuleContext ruleContext, ActionOwner actionOwner, String purpose,
-      TransitiveInfoCollection dep, boolean useSolibSymlinks, boolean isCppRuntime,
+      Iterable<Artifact> artifacts, boolean useSolibSymlinks, boolean isCppRuntime,
       String solibDirOverride, BuildConfiguration configuration) {
-    if (dep == null) {
-      return ImmutableList.of();
-    }
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
-    Iterable<Artifact> artifacts = dep.getProvider(FileProvider.class).getFilesToBuild();
     if (useSolibSymlinks) {
       List<Artifact> symlinkedArtifacts = new ArrayList<>();
       for (Artifact artifact : artifacts) {
