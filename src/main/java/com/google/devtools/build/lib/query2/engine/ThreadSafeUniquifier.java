@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
-/** A helper for deduping values. */
-public interface Uniquifier<T> {
-  /** Returns whether {@code newElement} has been seen before. */
-  boolean unique(T newElement);
-
-  /** Returns the subset of {@code newElements} that haven't been seen before. */
-  ImmutableList<T> unique(Iterable<T> newElements);
+/** Marker interface for a {@link ThreadSafe} {@link Uniquifier}. */
+@ThreadSafe
+public interface ThreadSafeUniquifier<T> extends Uniquifier<T> {
 }
+
