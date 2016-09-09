@@ -19,7 +19,8 @@
 #include "src/main/cpp/startup_options.h"
 
 int main(int argc, const char *argv[]) {
+  std::unique_ptr<blaze::StartupOptions> startup_options(
+      new blaze::StartupOptions(blaze::BAZEL_PRODUCT_NAME));
   return blaze::Main(argc, argv,
-      new blaze::OptionProcessor(
-          std::unique_ptr<blaze::StartupOptions>(new blaze::StartupOptions())));
+                     new blaze::OptionProcessor(std::move(startup_options)));
 }

@@ -28,15 +28,12 @@
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 
-#ifndef PRODUCT_NAME
-#define PRODUCT_NAME "Bazel"
-#endif
-
 namespace blaze {
 
 using std::vector;
 
-StartupOptions::StartupOptions() {
+StartupOptions::StartupOptions(const string& product_name) :
+  product_name(product_name) {
   Init();
 }
 
@@ -52,11 +49,7 @@ void StartupOptions::Init() {
     output_root = GetOutputRoot();
   }
 
-  // TODO(jmmv): Now that we have per-product main.cc files, inject the
-  // product_name at construction time instead of using preprocessor
-  // definitions.
-  product_name = PRODUCT_NAME;
-  string product_name_lower = PRODUCT_NAME;
+  string product_name_lower = product_name;
   blaze_util::ToLower(&product_name_lower);
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
