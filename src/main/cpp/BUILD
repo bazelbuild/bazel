@@ -81,7 +81,6 @@ cc_binary(
     ],
     copts = [
         "-Wno-sign-compare",
-        "-DBLAZE_JAVA_CPU=\"k8\"",
     ],
     linkopts = select({
         "//src:darwin": [
