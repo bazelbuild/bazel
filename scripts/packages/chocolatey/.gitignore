@@ -1,2 +1,5 @@
 *.nupkg
+*.zip
+bazel.nuspec
+chocolateyinstall.ps1
 tools/*.exe

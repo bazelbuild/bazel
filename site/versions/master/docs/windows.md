@@ -108,9 +108,11 @@ You need:
 
 ### Build
 
-```shell
+Compile bazel with msys2 shell and `compile.sh`.
+
+```powershell
 pushd scripts/packages/chocolatey
-  choco pack bazel.nuspec
+  ./buildAndInstall.ps1 -version 0.3.1 -isRelease
 popd
 ```
 
@@ -119,13 +121,15 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 #### Test
 
 0. remove nupkg files that are not the version you're testing.
-0. Build the package
+0. Build the package (without `isRelease`)
+  * run a webserver (`python -m SimpleHTTPServer` in `scripts/packages/chocolatey` is convenient and starts one on `http://localhost:8000`)
+  * adjust `chocolateyinstall.ps1` so that the `$url` and `$url64` parameters point to `http://localhost:8000/bazel_0.3.1_windows_x86_64.zip`
 0. Test the install
 
-    ```shell
-    choco install ./bazel*.nupkg
-    # should install that version of bazel to c:\tools\bazel\bazel.exe
-    ```
+    The `buildAndInstall.ps1` should build and install the package.
+
+    `$LASTEXITCODE` after running the script should be `0`.
+    
     In a new (msys2) shell
     ```shell
     bazel version
@@ -144,5 +148,7 @@ Chocolatey's moderation process automates checks here.
 ### Publish
 
 ```shell
-choco push --source https://chocolatey.org/
+choco push bazel.x.y.z.nupkg --source https://chocolatey.org/
 ```
+
+Chocolatey.org will then run automated checks and respond to the 
