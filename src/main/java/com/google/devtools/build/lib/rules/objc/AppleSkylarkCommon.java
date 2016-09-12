@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
 /**
  * A class that exposes apple rule implementation internals to skylark.
@@ -58,12 +61,31 @@ public class AppleSkylarkCommon {
   @VisibleForTesting
   public static final String MISSING_KEY_ERROR = "No value for required key %s was present.";
 
+  @Nullable
+  private SkylarkClassObject platformType;
+
   @SkylarkCallable(
       name = "apple_toolchain",
       doc = "Utilities for resolving items from the apple toolchain."
   )
   public AppleToolchain getAppleToolchain() {
     return new AppleToolchain();
+  }
+
+  @SkylarkCallable(
+    name = "platform_type",
+    doc = "Returns a struct containing fields corresponding to Apple platform types: 'ios', "
+        + "'watchos', 'tvos', and 'macosx'. These values can be passed to methods that expect a "
+        + "platform type, like the 'apple' configuration fragment's 'multi_arch_platform' "
+        + "method. For example, ctx.fragments.apple.multi_arch_platform(apple_common."
+        + "platform_type.ios).",
+    structField = true
+  )
+  public SkylarkClassObject getPlatformTypeStruct() {
+    if (platformType == null) {
+      platformType = PlatformType.getSkylarkStruct();
+    }
+    return platformType;
   }
 
   @SkylarkSignature(

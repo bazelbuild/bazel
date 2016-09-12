@@ -15,10 +15,14 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
+
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -73,6 +77,12 @@ public enum Platform {
   /**
    * Returns true if this platform is a device platform, or false if this is a simulator platform.
    */
+  @SkylarkCallable(
+    name = "is_device",
+    doc = "Returns true if this platform is a device platform, or false if it is a simulator "
+        + "platform.",
+    structField = true
+  )
   public boolean isDevice() {
     return isDevice;
   }
@@ -158,11 +168,21 @@ public enum Platform {
     doc = "Describes Apple platform \"type\", such as iOS, tvOS, macOS etc."
   )
   public enum PlatformType {
-    IOS,
-    WATCHOS,
-    TVOS,
-    MACOSX;
-    
+    IOS("ios"),
+    WATCHOS("watchos"),
+    TVOS("tvos"),
+    MACOSX("macosx");
+
+    /**
+     * The key used to access the enum value as a field in the Skylark apple_common.platform_type
+     * struct.
+     */
+    private final String skylarkKey;
+
+    PlatformType(String skylarkKey) {
+      this.skylarkKey = skylarkKey;
+    }
+
     @Override
     public String toString() {
       return name().toLowerCase();
@@ -180,6 +200,17 @@ public enum Platform {
         }
       }
       throw new IllegalArgumentException(String.format("Unsupported platform type \"%s\"", name));
+    }
+
+    /** Returns a Skylark struct that contains the instances of this enum. */
+    public static SkylarkClassObject getSkylarkStruct() {
+      SkylarkClassObjectConstructor constructor =
+          new SkylarkClassObjectConstructor("platform_types");
+      HashMap<String, Object> fields = new HashMap<>();
+      for (PlatformType type : values()) {
+        fields.put(type.skylarkKey, type);
+      }
+      return new SkylarkClassObject(constructor, fields);
     }
   }
 }
