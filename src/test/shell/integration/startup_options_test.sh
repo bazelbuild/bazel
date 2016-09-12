@@ -27,7 +27,7 @@ write_default_bazelrc
 function test_different_startup_options() {
   pid=$(bazel info server_pid 2> $TEST_log)
   [[ -n $pid ]] || fail "Couldn't run bazel"
-  newpid=$(blaze --batch info server_pid 2> $TEST_log)
+  newpid=$(bazel --batch info server_pid 2> $TEST_log)
   expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the startup options are different."
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
   kill -0 $pid 2> /dev/null && fail "$pid not dead"
