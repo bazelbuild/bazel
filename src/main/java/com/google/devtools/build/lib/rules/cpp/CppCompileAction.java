@@ -434,6 +434,9 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Collection<Artifact> initialResult;
+    if (!shouldScanIncludes) {
+      return null;
+    }
     try {
       initialResult = executor.getContext(actionContext)
           .findAdditionalInputs(this, actionExecutionContext);
