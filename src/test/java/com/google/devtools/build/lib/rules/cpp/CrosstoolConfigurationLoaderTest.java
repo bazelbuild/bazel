@@ -795,10 +795,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Uses the default toolchain for k8.
     assertEquals("toolchain-identifier-BB", create(loader, "--cpu=k8").getToolchainIdentifier());
-    // Defaults to --cpu=k8.
+    // Does not default to --cpu=k8; if no --cpu flag is present, Bazel defaults to the host cpu!
     assertEquals(
         "toolchain-identifier-BA",
-        create(loader, "--compiler=compiler-A", "--glibc=target-libc-B").getToolchainIdentifier());
+        create(loader, "--cpu=k8", "--compiler=compiler-A", "--glibc=target-libc-B")
+            .getToolchainIdentifier());
     // Uses the default toolchain for piii.
     assertEquals(
         "toolchain-identifier-AA-piii", create(loader, "--cpu=piii").getToolchainIdentifier());
@@ -814,10 +815,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // compiler-C uniquely identifies a toolchain, so we can use it.
     assertEquals(
         "toolchain-identifier-BC",
-        create(loader, "--compiler=compiler-C").getToolchainIdentifier());
+        create(loader, "--cpu=k8", "--compiler=compiler-C").getToolchainIdentifier());
 
     try {
-      create(loader, "--compiler=nonexistent-compiler");
+      create(loader, "--cpu=k8", "--compiler=nonexistent-compiler");
       fail("Expected an error that no toolchain matched.");
     } catch (InvalidConfigurationException e) {
       assertThat(e)
@@ -834,7 +835,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     }
 
     try {
-      create(loader, "--glibc=target-libc-A");
+      create(loader, "--cpu=k8", "--glibc=target-libc-A");
       fail("Expected an error that multiple toolchains matched.");
     } catch (InvalidConfigurationException e) {
       assertThat(e)

@@ -31,6 +31,7 @@ public class CcCompileOnlyTest extends CompileOnlyTestCase {
 
   @Test
   public void testCcCompileOnly() throws Exception {
+    useConfiguration("--cpu=k8");
     scratch.file("package/BUILD",
         "cc_binary(name='foo', srcs=['foo.cc', ':bar'], deps = [':foolib'])",
         "cc_library(name='foolib', srcs=['foolib.cc'])",

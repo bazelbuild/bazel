@@ -48,6 +48,7 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
 
   @Test
   public void testGeneratedLib() throws Exception {
+    useConfiguration("--cpu=k8");
     ConfiguredTarget genlib =
         scratchConfiguredTarget(
             "genrule",

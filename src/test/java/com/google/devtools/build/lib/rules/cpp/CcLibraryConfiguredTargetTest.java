@@ -101,12 +101,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFilesToBuild() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    String cpu = getTargetConfiguration().getCpu();
     Artifact archive = getBinArtifact("libhello.a", hello);
     Artifact implSharedObject = getBinArtifact("libhello.so", hello);
     Artifact implInterfaceSharedObject = getBinArtifact("libhello.ifso", hello);
-    Artifact implSharedObjectLink = getSharedArtifact("_solib_k8/libhello_Slibhello.so", hello);
+    Artifact implSharedObjectLink =
+        getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.so", hello);
     Artifact implInterfaceSharedObjectLink =
-        getSharedArtifact("_solib_k8/libhello_Slibhello.ifso", hello);
+        getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.ifso", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, implSharedObject,
         implInterfaceSharedObject);
     assertThat(LinkerInputs.toLibraryArtifacts(
@@ -157,11 +159,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testFilesToBuildWithInterfaceSharedObjects() throws Exception {
     useConfiguration("--interface_shared_objects");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    String cpu = getTargetConfiguration().getCpu();
     Artifact archive = getBinArtifact("libhello.a", hello);
     Artifact sharedObject = getBinArtifact("libhello.ifso", hello);
     Artifact implSharedObject = getBinArtifact("libhello.so", hello);
-    Artifact sharedObjectLink = getSharedArtifact("_solib_k8/libhello_Slibhello.ifso", hello);
-    Artifact implSharedObjectLink = getSharedArtifact("_solib_k8/libhello_Slibhello.so", hello);
+    Artifact sharedObjectLink =
+        getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.ifso", hello);
+    Artifact implSharedObjectLink =
+        getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.so", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, sharedObject, implSharedObject);
     assertThat(LinkerInputs.toLibraryArtifacts(
         hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
@@ -367,6 +372,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testArtifactsToAlwaysBuild() throws Exception {
+    useConfiguration("--cpu=k8");
     // ArtifactsToAlwaysBuild should apply both for static libraries.
     ConfiguredTarget helloStatic = getConfiguredTarget("//hello:hello_static");
     assertEquals(ImmutableSet.of("bin hello/_objs/hello_static/hello/hello.pic.o"),
@@ -384,6 +390,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveArtifactsToAlwaysBuildStatic() throws Exception {
+    useConfiguration("--cpu=k8");
     ConfiguredTarget x = scratchConfiguredTarget(
         "foo", "x",
         "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'], linkstatic = 1)",
@@ -402,7 +409,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     ConfiguredTarget x =
         scratchConfiguredTarget(
             "foo",
@@ -421,7 +428,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
-    useConfiguration("--collect_code_coverage");
+    useConfiguration("--cpu=k8", "--collect_code_coverage");
     ConfiguredTarget x =
         scratchConfiguredTarget(
             "foo",
@@ -509,7 +516,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 + "feature { name: 'header_modules' implies: 'use_header_modules' }"
                 + "feature { name: 'module_maps' }"
                 + "feature { name: 'use_header_modules' }");
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     scratch.file("module/BUILD",
         "package(features = ['header_modules'])",
         "cc_library(",
@@ -614,7 +621,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     setupPackagesForModuleTests(/*useHeaderModules=*/false);
 
     // The //nomodule:f target only depends on non-module targets, thus it should be module-free.
@@ -691,7 +698,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION
                 + "feature { name: 'transitive_module_maps' }");
-    useConfiguration("--features=transitive_module_maps");
+    useConfiguration("--cpu=k8", "--features=transitive_module_maps");
     setupPackagesForModuleTests(/*useHeaderModules=*/true);
 
     getConfiguredTarget("//nomodule:f");
@@ -740,7 +747,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     setupPackagesForModuleTests( /*useHeaderModules=*/true);
 
     getConfiguredTarget("//nomodule:f");
@@ -781,7 +788,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig,
             MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION
                 + "feature { name: 'header_module_includes_dependencies' }");
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     setupPackagesForModuleTests(/*useHeaderModules=*/false);
     getConfiguredTarget("//module:j");
     Artifact jObjectArtifact = getBinArtifact("_objs/j/module/j.pic.o", "//module:j");
@@ -804,7 +811,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(mockToolsConfig,
             "feature { name: 'no_legacy_features' }");
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     writeSimpleCcLibrary();
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//module:map");
@@ -1041,19 +1048,19 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testCompilationModeFeatures() throws Exception {
     List<String> flags;
-    flags = getCompilationModeFlags();
+    flags = getCompilationModeFlags("--cpu=k8");
     assertThat(flags).contains("-fastbuild");
     assertThat(flags).containsNoneOf("-opt", "-dbg");
 
-    flags = getCompilationModeFlags("-c", "fastbuild");
+    flags = getCompilationModeFlags("--cpu=k8", "--compilation_mode=fastbuild");
     assertThat(flags).contains("-fastbuild");
     assertThat(flags).containsNoneOf("-opt", "-dbg");
 
-    flags = getCompilationModeFlags("-c", "opt");
+    flags = getCompilationModeFlags("--cpu=k8", "--compilation_mode=opt");
     assertThat(flags).contains("-opt");
     assertThat(flags).containsNoneOf("-fastbuild", "-dbg");
 
-    flags = getCompilationModeFlags("-c", "dbg");
+    flags = getCompilationModeFlags("--cpu=k8", "--compilation_mode=dbg");
     assertThat(flags).contains("-dbg");
     assertThat(flags).containsNoneOf("-fastbuild", "-opt");
   }
@@ -1063,7 +1070,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HOST_AND_NONHOST_CONFIGURATION);
     scratch.overwriteFile("mode/BUILD", "cc_library(name = 'a', srcs = ['a.cc'])");
-    useConfiguration();
+    useConfiguration("--cpu=k8");
     ConfiguredTarget target;
     String objectPath;
     if (useHost) {

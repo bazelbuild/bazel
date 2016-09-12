@@ -382,13 +382,12 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Converter for default --host_cpu to the auto-detected host cpu.
+   * Converter to auto-detect the cpu of the machine on which Bazel runs.
    *
-   * <p>This detects the host cpu of the Blaze's server but if the compilation happens in a
-   * compilation cluster then the host cpu of the compilation cluster might be different than
-   * the auto-detected one and the --host_cpu option must then be set explicitly.
+   * <p>If the compilation happens remotely then the cpu of the remote machine might be different
+   * from the auto-detected one and the --cpu and --host_cpu options must be set explicitly.
    */
-  public static class HostCpuConverter implements Converter<String> {
+  public static class AutoCpuConverter implements Converter<String> {
     @Override
     public String convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
@@ -449,10 +448,6 @@ public final class BuildConfiguration {
    * simplest way to ensure that is to return the input string.
    */
   public static class Options extends FragmentOptions implements Cloneable {
-    public String getCpu() {
-      return cpu;
-    }
-
     @Option(
         name = "define",
         converter = Converters.AssignmentConverter.class,
@@ -464,8 +459,9 @@ public final class BuildConfiguration {
     public List<Map.Entry<String, String>> commandLineBuildVariables;
 
     @Option(name = "cpu",
-        defaultValue = "null",
+        defaultValue = "",
         category = "semantics",
+        converter = AutoCpuConverter.class,
         help = "The target CPU.")
     public String cpu;
 
@@ -557,7 +553,7 @@ public final class BuildConfiguration {
     @Option(name = "host_cpu",
         defaultValue = "",
         category = "semantics",
-        converter = HostCpuConverter.class,
+        converter = AutoCpuConverter.class,
         help = "The host CPU.")
     public String hostCpu;
 

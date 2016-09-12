@@ -298,7 +298,7 @@ public class CrosstoolConfigurationLoader {
       Function<String, String> cpuTransformer)
           throws InvalidConfigurationException {
     CrosstoolConfigurationIdentifier config =
-        CrosstoolConfigurationIdentifier.fromReleaseAndCrosstoolConfiguration(release, options);
+        CrosstoolConfigurationIdentifier.fromOptions(options);
     if ((config.getCompiler() != null) || (config.getLibc() != null)) {
       ArrayList<CrosstoolConfig.CToolchain> candidateToolchains = new ArrayList<>();
       for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
