@@ -69,9 +69,9 @@ Bazel has built-in support for building both client and server software, includi
       <dependency id="chocolatey-uninstall.extension" />
     </dependencies>-->
     <dependencies>
-      <dependency id="jdk8"/>
-      <dependency id="msys2"/>
-      <dependency id="python2"/>
+      <dependency id="jdk8" version="[8.0.102,)"/>
+      <dependency id="msys2" version="[20150916.0.1,)"/>
+      <dependency id="python2" version="[2.7.11,3.0)"/>
     </dependencies>
     <!-- chocolatey-uninstall.extension - If supporting 0.9.9.x (or below) and including a chocolateyUninstall.ps1 file to uninstall an EXE/MSI, you probably want to include chocolatey-uninstall.extension as a dependency. Please verify whether you are using a helper function from that package. -->
 
