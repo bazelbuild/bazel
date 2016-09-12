@@ -90,6 +90,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         sourceFile,
         shouldScanIncludes,
         shouldPruneModules,
+        usePic,
         sourceLabel,
         mandatoryInputs,
         outputFile,
