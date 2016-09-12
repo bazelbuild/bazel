@@ -49,7 +49,7 @@ sh_test(
 
 sh_test(
     name = "startup_options_test",
-    size = "small",
+    size = "medium",
     srcs = ["startup_options_test.sh"],
     data = [":test-deps"],
 )

@@ -32,6 +32,7 @@ function test_different_startup_options() {
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
   kill -0 $pid 2> /dev/null && fail "$pid not dead"
   kill -0 $newpid 2> /dev/null && fail "$newpid not dead"
+  true
 }
 
 run_suite "bazel startup options test"
