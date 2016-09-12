@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -61,14 +60,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppFileTypes.CPP_HEADER, CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE,
       CppFileTypes.ALWAYS_LINK_LIBRARY, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
       CppFileTypes.SHARED_LIBRARY);
-
-  private static final Predicate<LibraryToLink> PIC_STATIC_FILTER = new Predicate<LibraryToLink>() {
-    @Override
-    public boolean apply(LibraryToLink input) {
-      String name = input.getArtifact().getExecPath().getBaseName();
-      return !name.endsWith(".nopic.a") && !name.endsWith(".nopic.lo");
-    }
-  };
 
   private static Runfiles collectRunfiles(RuleContext context,
       CcLinkingOutputs ccLinkingOutputs,
@@ -259,9 +250,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // For now, we don't add the precompiled libraries to the files to build.
     CcLinkingOutputs linkedLibraries = info.getCcLinkingOutputsExcludingPrecompiledLibraries();
 
-    NestedSet<Artifact> artifactsToForce =
-        collectHiddenTopLevelArtifacts(ruleContext, info.getCcCompilationOutputs());
-
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getStaticLibraries()));
     filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getPicStaticLibraries()));
@@ -294,18 +282,22 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
         // Remove this?
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
-        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, artifactsToForce);
-
+        .addOutputGroup(
+            OutputGroupProvider.HIDDEN_TOP_LEVEL,
+            collectHiddenTopLevelArtifacts(ruleContext, info.getCcCompilationOutputs()))
+        .addOutputGroup(
+            CcLibraryHelper.HIDDEN_HEADER_TOKENS,
+            CcLibraryHelper.collectHeaderTokens(ruleContext, info.getCcCompilationOutputs()));
   }
 
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(
-      RuleContext ruleContext, CcCompilationOutputs ccCompilationOutputs) {
+      RuleContext ruleContext,
+      CcCompilationOutputs ccCompilationOutputs) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
-    boolean isLipoCollector =
-        ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector();
-    boolean processHeadersInDependencies =
-        ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies();
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
+    boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
     boolean usePic = CppHelper.usePic(ruleContext, false);
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(

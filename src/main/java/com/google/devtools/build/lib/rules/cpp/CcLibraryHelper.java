@@ -75,6 +75,13 @@ import javax.annotation.Nullable;
  * methods.
  */
 public final class CcLibraryHelper {
+  /**
+   * Similar to {@code OutputGroupProvider.HIDDEN_TOP_LEVEL}, but specific to header token files.
+   */
+  public static final String HIDDEN_HEADER_TOKENS =
+      OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX
+          + "hidden_header_tokens"
+          + OutputGroupProvider.INTERNAL_SUFFIX;
 
   /**
    * A group of source file types and action names for builds controlled by CcLibraryHelper.
@@ -986,11 +993,10 @@ public final class CcLibraryHelper {
     }
 
     outputGroups.put(OutputGroupProvider.TEMP_FILES, getTemps(ccOutputs));
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     if (emitCompileProviders) {
-      boolean isLipoCollector =
-          ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector();
-      boolean processHeadersInDependencies =
-          ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies();
+      boolean isLipoCollector = cppConfiguration.isLipoContextCollector();
+      boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
       boolean usePic = CppHelper.usePic(ruleContext, false);
       outputGroups.put(
           OutputGroupProvider.FILES_TO_COMPILE,
@@ -1008,7 +1014,7 @@ public final class CcLibraryHelper {
     providers.put(CcExecutionDynamicLibrariesProvider.class,
         collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
 
-    boolean forcePic = ruleContext.getFragment(CppConfiguration.class).forcePic();
+    boolean forcePic = cppConfiguration.forcePic();
     if (emitCcSpecificLinkParamsProvider) {
       providers.put(CcSpecificLinkParamsProvider.class, new CcSpecificLinkParamsProvider(
           createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
@@ -1205,6 +1211,19 @@ public final class CcLibraryHelper {
     }
 
     return Iterables.filter(result, Predicates.<CppModuleMap>notNull());
+  }
+
+  static NestedSet<Artifact> collectHeaderTokens(
+      RuleContext ruleContext, CcCompilationOutputs ccCompilationOutputs) {
+    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
+    for (OutputGroupProvider dep :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
+      headerTokens.addTransitive(dep.getOutputGroup(CcLibraryHelper.HIDDEN_HEADER_TOKENS));
+    }
+    if (ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies()) {
+      headerTokens.addAll(ccCompilationOutputs.getHeaderTokenFiles());
+    }
+    return headerTokens.build();
   }
 
   private TransitiveLipoInfoProvider collectTransitiveLipoInfo(CcCompilationOutputs outputs) {

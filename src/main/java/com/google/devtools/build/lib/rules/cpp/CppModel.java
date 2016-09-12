@@ -858,7 +858,6 @@ public final class CppModel {
     CppLinkAction maybePicAction =
         newLinkActionBuilder(linkedArtifact)
             .addObjectFiles(ccOutputs.getObjectFiles(usePicForBinaries))
-            .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addNonCodeInputs(nonCodeLinkerInputs)
             .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(linkType)
@@ -888,7 +887,6 @@ public final class CppModel {
       CppLinkAction picAction =
           newLinkActionBuilder(picArtifact)
               .addObjectFiles(ccOutputs.getObjectFiles(true))
-              .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
               .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
               .setLinkType(picLinkType)
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
