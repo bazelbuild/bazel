@@ -352,15 +352,15 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
 
-  if (stream->handle_ == INVALID_HANDLE_VALUE || stream->closed_.load()) {
-    stream->error_ = "File handle closed";
-    return -1;
-  }
-
   jsize array_size = env->GetArrayLength(java_bytes);
   if (offset < 0 || length <= 0 || offset > array_size - length) {
     stream->error_ = "Array index out of bounds";
     return -1;
+  }
+
+  if (stream->handle_ == INVALID_HANDLE_VALUE || stream->closed_.load()) {
+    stream->error_ = "";
+    return 0;
   }
 
   jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
