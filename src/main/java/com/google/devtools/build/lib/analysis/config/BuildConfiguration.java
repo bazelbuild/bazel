@@ -847,12 +847,6 @@ public final class BuildConfiguration {
         help = "Shows whether these options are set for host configuration.")
     public boolean isHost;
 
-    @Option(name = "experimental_proto_header_modules",
-        defaultValue = "false",
-        category = "undocumented",
-        help  = "Enables compilation of C++ header modules for proto libraries.")
-    public boolean protoHeaderModules;
-
     @Option(name = "features",
         allowMultiple = true,
         defaultValue = "",
@@ -2408,13 +2402,6 @@ public final class BuildConfiguration {
     // TODO(bazel-team): enforce the above automatically (without having to explicitly check
     // for dynamic configuration mode).
     return useDynamicConfigurations() ? this : transitions.getArtifactOwnerConfiguration();
-  }
-
-  /**
-   * @return whether proto header modules should be built.
-   */
-  public boolean getProtoHeaderModules() {
-    return options.protoHeaderModules;
   }
 
   /**
