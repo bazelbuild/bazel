@@ -36,6 +36,10 @@ function write_default_bazelrc() {
   setup_bazelrc
 }
 
+function add_to_bazelrc() {
+  echo "$@" >> .bazelrc
+}
+
 function create_and_cd_client() {
   setup_clean_workspace
   echo "workspace(name = '$WORKSPACE_NAME')" >WORKSPACE
