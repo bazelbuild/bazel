@@ -138,7 +138,7 @@ index 62284a3..bc76cd1 100644
              single_file = True,
          ),
 +        "grpc_java_plugin": attr.label(
-+            cfg = HOST_CFG,
++            cfg = "host",
 +            executable = True,
 +            single_file = True,
 +        ),
