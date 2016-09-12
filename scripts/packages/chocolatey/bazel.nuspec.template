@@ -56,7 +56,7 @@ Bazel is Google's own build tool, now publicly available in Beta.
 
 Bazel has built-in support for building both client and server software, including client applications for both Android and iOS platforms. It also provides an extensible framework that you can use to develop your own build rules.
 </description>
-    <releaseNotes>https://github.com/bazelbuild/bazel/releases</releaseNotes>
+    <releaseNotes>https://github.com/bazelbuild/bazel/releases/tag/$tvVersion</releaseNotes>
     <!-- =============================== -->      
 
     <!-- Specifying dependencies and version ranges? https://docs.nuget.org/create/versioning#specifying-version-ranges-in-.nuspec-files -->
