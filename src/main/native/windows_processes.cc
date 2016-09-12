@@ -143,6 +143,8 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   }
 
   if (stdout_redirect != NULL) {
+    result->stdout_.close();
+
     stdout_process = CreateFile(
         stdout_redirect,
         FILE_APPEND_DATA,
@@ -164,6 +166,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   }
 
   if (stderr_redirect != NULL) {
+    result->stderr_.close();
     if (!strcmp(stdout_redirect, stderr_redirect)) {
       stderr_process = stdout_process;
     } else {

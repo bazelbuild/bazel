@@ -327,7 +327,7 @@ public class WindowsProcessesTest {
   }
 
   @Test
-  public void testErrorWhenReadingFromRedirectedStreams() throws Exception {
+  public void testReadingFromRedirectedStreams() throws Exception {
     String stdoutFile = System.getenv("TEST_TMPDIR") + "\\captured_stdout";
     String stderrFile = System.getenv("TEST_TMPDIR") + "\\captured_stderr";
 
@@ -335,8 +335,8 @@ public class WindowsProcessesTest {
         stdoutFile, stderrFile);
     assertNoProcessError();
     byte[] buf = new byte[1];
-    assertThat(readStdout(buf, 0, 1)).isEqualTo(-1);
-    assertThat(readStderr(buf, 0, 1)).isEqualTo(-1);
+    assertThat(readStdout(buf, 0, 1)).isEqualTo(0);
+    assertThat(readStderr(buf, 0, 1)).isEqualTo(0);
     WindowsProcesses.nativeWaitFor(process, -1);
   }
 
