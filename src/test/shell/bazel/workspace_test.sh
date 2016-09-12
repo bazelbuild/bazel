@@ -120,4 +120,41 @@ EOF
   expect_not_log "Exception"
 }
 
+function test_no_select() {
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "foo",
+    path = "/path/to/foo",
+    build_file = select({
+        "//x:y" : "BUILD.1",
+        "//conditions:default" : "BUILD.2"}),
+)
+EOF
+
+  bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
+  expect_log "select() cannot be used in WORKSPACE files"
+}
+
+function test_macro_select() {
+  cat > WORKSPACE <<EOF
+load('//:foo.bzl', 'foo_repo')
+foo_repo()
+EOF
+
+  touch BUILD
+  cat > foo.bzl <<EOF
+def foo_repo():
+  native.new_local_repository(
+      name = "foo",
+      path = "/path/to/foo",
+      build_file = select({
+          "//x:y" : "BUILD.1",
+          "//conditions:default" : "BUILD.2"}),
+  )
+EOF
+
+  bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
+  expect_log "select() cannot be used in macros called from WORKSPACE files"
+}
+
 run_suite "workspace tests"

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -60,7 +59,7 @@ public class NewRepositoryBuildFileHandler {
   public boolean prepareBuildFile(Rule rule, Environment env)
       throws RepositoryFunctionException, InterruptedException {
 
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
     boolean hasBuildFile = mapper.isAttributeValueExplicitlySpecified("build_file");
     boolean hasBuildFileContent = mapper.isAttributeValueExplicitlySpecified("build_file_content");
 
@@ -78,9 +77,13 @@ public class NewRepositoryBuildFileHandler {
         return false;
       }
 
-    } else if (hasBuildFileContent) { 
+    } else if (hasBuildFileContent) {
 
-      buildFileContent = mapper.get("build_file_content", Type.STRING);
+      try {
+        buildFileContent = mapper.get("build_file_content", Type.STRING);
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
 
     } else {
 
@@ -115,8 +118,13 @@ public class NewRepositoryBuildFileHandler {
 
   private FileValue getBuildFileValue(Rule rule, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    String buildFileAttribute = mapper.get("build_file", Type.STRING);
+    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
+    String buildFileAttribute;
+    try {
+      buildFileAttribute = mapper.get("build_file", Type.STRING);
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
     RootedPath rootedBuild;
 
     if (LabelValidator.isAbsolute(buildFileAttribute)) {

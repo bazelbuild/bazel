@@ -19,9 +19,9 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction.MavenDownloader;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import org.apache.maven.settings.Server;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,9 +45,9 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
         "    artifact = 'x',",
         "    sha1 = '12345',",
         ")");
-    AggregatingAttributeMapper map = AggregatingAttributeMapper.of(rule);
     try {
-      new MavenDownloader("foo", map, scratch.dir("/whatever"), TEST_SERVER);
+      new MavenDownloader(
+          "foo", WorkspaceAttributeMapper.of(rule), scratch.dir("/whatever"), TEST_SERVER);
       fail("Invalid sha1 should have thrown.");
     } catch (IOException expected) {
       assertThat(expected.getMessage()).contains("Invalid SHA-1 for maven_jar foo");
@@ -62,8 +62,8 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
         "    artifact = 'x',",
         "    sha1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709',",
         ")");
-    AggregatingAttributeMapper map = AggregatingAttributeMapper.of(rule);
-    new MavenDownloader("foo", map, scratch.dir("/whatever"), TEST_SERVER);
+    new MavenDownloader(
+        "foo", WorkspaceAttributeMapper.of(rule), scratch.dir("/whatever"), TEST_SERVER);
   }
 
   @Test
@@ -73,7 +73,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
         "    name = 'foo',",
         "    artifact = 'x',",
         ")");
-    AggregatingAttributeMapper map = AggregatingAttributeMapper.of(rule);
-    new MavenDownloader("foo", map, scratch.dir("/whatever"), TEST_SERVER);
+    new MavenDownloader(
+        "foo", WorkspaceAttributeMapper.of(rule), scratch.dir("/whatever"), TEST_SERVER);
   }
 }

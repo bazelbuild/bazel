@@ -18,13 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryNotFoundException;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -90,28 +91,33 @@ public class MavenServerFunction implements SkyFunction {
             Transience.TRANSIENT);
       }
     } else {
-      AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(repositoryRule);
+      WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(repositoryRule);
       serverName = repositoryRule.getName();
-      url = mapper.get("url", Type.STRING);
-      if (!mapper.has("settings_file", Type.STRING)
-          || mapper.get("settings_file", Type.STRING).isEmpty()) {
-        settingsFiles = getDefaultSettingsFile(directories, env);
-      } else {
-        PathFragment settingsFilePath = new PathFragment(mapper.get("settings_file", Type.STRING));
-        RootedPath settingsPath = RootedPath.toRootedPath(
-            directories.getWorkspace().getRelative(settingsFilePath), PathFragment.EMPTY_FRAGMENT);
-        FileValue fileValue = (FileValue) env.getValue(FileValue.key(settingsPath));
-        if (fileValue == null) {
-          return null;
-        }
+      try {
+        url = mapper.get("url", Type.STRING);
+        if (!mapper.isAttributeValueExplicitlySpecified("settings_file")) {
+          settingsFiles = getDefaultSettingsFile(directories, env);
+        } else {
+          PathFragment settingsFilePath = new PathFragment(
+              mapper.get("settings_file", Type.STRING));
+          RootedPath settingsPath = RootedPath.toRootedPath(
+              directories.getWorkspace().getRelative(settingsFilePath),
+              PathFragment.EMPTY_FRAGMENT);
+          FileValue fileValue = (FileValue) env.getValue(FileValue.key(settingsPath));
+          if (fileValue == null) {
+            return null;
+          }
 
-        if (!fileValue.exists()) {
-          throw new RepositoryFunctionException(
-              new IOException("Could not find settings file " + settingsPath),
-              Transience.TRANSIENT);
+          if (!fileValue.exists()) {
+            throw new RepositoryFunctionException(
+                new IOException("Could not find settings file " + settingsPath),
+                Transience.TRANSIENT);
+          }
+          settingsFiles = ImmutableMap.<String, FileValue>builder().put(
+              USER_KEY, fileValue).build();
         }
-        settingsFiles = ImmutableMap.<String, FileValue>builder().put(
-            USER_KEY, fileValue).build();
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
     }
 

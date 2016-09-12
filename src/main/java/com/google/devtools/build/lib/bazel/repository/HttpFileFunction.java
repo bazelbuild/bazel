@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpFileRule;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 /**
  * Downloads a jar file from a URL.
@@ -28,9 +30,14 @@ public class HttpFileFunction extends HttpArchiveFunction {
   @Override
   protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)
       throws RepositoryFunctionException {
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    boolean executable = (mapper.has("executable", Type.BOOLEAN)
-        && mapper.get("executable", Type.BOOLEAN));
+    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
+    boolean executable = false;
+    try {
+      executable = (mapper.isAttributeValueExplicitlySpecified("executable")
+          && mapper.get("executable", Type.BOOLEAN));
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
     return DecompressorDescriptor.builder()
         .setDecompressor(FileDecompressor.INSTANCE)
         .setTargetKind(rule.getTargetKind())

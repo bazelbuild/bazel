@@ -23,10 +23,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -77,53 +76,59 @@ public class MavenJarFunction extends HttpArchiveFunction {
 
   private static MavenServerValue getServer(Rule rule, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    boolean hasRepository =
-        mapper.has("repository", Type.STRING) && !mapper.get("repository", Type.STRING).isEmpty();
-    boolean hasServer = mapper.has("server", Type.STRING)
-        && !mapper.get("server", Type.STRING).isEmpty();
+    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
+    boolean hasRepository = mapper.isAttributeValueExplicitlySpecified("repository");
+    boolean hasServer = mapper.isAttributeValueExplicitlySpecified("server");
 
     if (hasRepository && hasServer) {
       throw new RepositoryFunctionException(new EvalException(
           rule.getLocation(), rule + " specifies both "
-              + "'repository' and 'server', which are mutually exclusive options"),
+          + "'repository' and 'server', which are mutually exclusive options"),
           Transience.PERSISTENT);
-    } else if (hasRepository) {
-      return MavenServerValue.createFromUrl(mapper.get("repository", Type.STRING));
-    } else {
-      String serverName = DEFAULT_SERVER;
-      if (hasServer) {
-        serverName = mapper.get("server", Type.STRING);
-      }
-
-      return (MavenServerValue) env.getValue(MavenServerValue.key(serverName));
     }
+
+    try {
+      if (hasRepository) {
+        return MavenServerValue.createFromUrl(mapper.get("repository", Type.STRING));
+      } else {
+        String serverName = DEFAULT_SERVER;
+        if (hasServer) {
+          serverName = mapper.get("server", Type.STRING);
+        }
+        return (MavenServerValue) env.getValue(MavenServerValue.key(serverName));
+      }
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
+
   }
 
   @Override
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
           throws RepositoryFunctionException, InterruptedException {
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     MavenServerValue serverValue = getServer(rule, env);
     if (env.valuesMissing()) {
       return null;
     }
     MavenDownloader downloader;
     try {
-      downloader = createMavenDownloader(directories, mapper, serverValue);
+      downloader = createMavenDownloader(directories, rule, serverValue);
     } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    } catch (EvalException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
     return createOutputTree(downloader);
   }
 
   private MavenDownloader createMavenDownloader(
-      BlazeDirectories directories, AttributeMap mapper, MavenServerValue serverValue)
-      throws IOException {
-    String name = mapper.getName();
+      BlazeDirectories directories, Rule rule, MavenServerValue serverValue)
+      throws IOException, EvalException {
+    String name = rule.getName();
     Path outputDirectory = getExternalRepositoryDirectory(directories).getRelative(name);
-    return new MavenDownloader(name, mapper, outputDirectory, serverValue);
+    return new MavenDownloader(
+        name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue);
   }
 
   private SkyValue createOutputTree(MavenDownloader downloader)
@@ -169,8 +174,9 @@ public class MavenJarFunction extends HttpArchiveFunction {
     private final Server server;
 
     public MavenDownloader(
-        String name, AttributeMap mapper, Path outputDirectory, MavenServerValue serverValue)
-        throws IOException {
+        String name, WorkspaceAttributeMapper mapper, Path outputDirectory,
+        MavenServerValue serverValue)
+        throws IOException, EvalException {
       this.name = name;
       this.outputDirectory = outputDirectory;
 

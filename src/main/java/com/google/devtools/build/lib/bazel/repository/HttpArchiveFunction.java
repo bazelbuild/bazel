@@ -18,10 +18,11 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -76,9 +77,13 @@ public class HttpArchiveFunction extends RepositoryFunction {
         .setTargetName(rule.getName())
         .setArchivePath(downloadPath)
         .setRepositoryPath(outputDirectory);
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    if (mapper.has("strip_prefix", Type.STRING)) {
-      builder.setPrefix(mapper.get("strip_prefix", Type.STRING));
+    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
+    if (mapper.isAttributeValueExplicitlySpecified("strip_prefix")) {
+      try {
+        builder.setPrefix(mapper.get("strip_prefix", Type.STRING));
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
     }
     return builder.build();
   }
