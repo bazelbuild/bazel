@@ -35,6 +35,14 @@ $installerScriptExpanded = $installerScriptExpanded -replace "ps_var_","$"
 $installerScriptExpanded = $installerScriptExpanded -replace "escape_char","``"
 add-content -value $installerScriptExpanded -path ./tools/chocolateyinstall.ps1
 
+write-host "Copying LICENSE.txt from repo-root to tools directory"
+$licenseHeader = @"
+From: https://github.com/bazelbuild/bazel/blob/master/LICENSE.txt
+
+"@
+add-content -value $licenseHeader -path "./tools/LICENSE.txt"
+add-content -value (get-content "../../../LICENSE.txt") -path "./tools/LICENSE.txt"
+
 choco pack ./bazel.nuspec
 $pkg = get-childitem ./bazel*.nupkg
 choco install $pkg.FullName --verbose --debug --force -y

@@ -3,3 +3,4 @@
 bazel.nuspec
 chocolateyinstall.ps1
 tools/*.exe
+tools/LICENSE.txt
