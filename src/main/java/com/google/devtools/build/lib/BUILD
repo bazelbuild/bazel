@@ -830,6 +830,7 @@ java_library(
         "rules/java/NativeLibraryNestedSetBuilder.java",
         "rules/java/SingleJarActionBuilder.java",
         "rules/java/WriteBuildInfoPropertiesAction.java",
+        "rules/java/proto/GeneratedExtensionRegistryProvider.java",
     ],
     deps = [
         ":build-base",

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
+import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -116,13 +117,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    Artifact srcJar =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_SOURCE_JAR);
-
-    Artifact classJar =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
-
-    ImmutableList<Artifact> srcJars = ImmutableList.of(srcJar);
+    Artifact srcJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_SOURCE_JAR);
+    JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder = JavaSourceJarsProvider.builder()
+        .addSourceJar(srcJar)
+        .addAllTransitiveSourceJars(common.collectTransitiveSourceJars(srcJar));
+    Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
+    JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
+        JavaRuleOutputJarsProvider.builder()
+            .addOutputJar(classJar, null /* iJar */, srcJar);
 
     CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
         CppConfiguration.class);
@@ -178,7 +180,16 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       javaArtifactsBuilder.addRuntimeJar(classJar);
     }
 
+    GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider =
+        semantics.createGeneratedExtensionRegistry(
+            ruleContext,
+            common,
+            filesBuilder,
+            javaArtifactsBuilder,
+            javaRuleOutputJarsProviderBuilder,
+            javaSourceJarsProviderBuilder);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
+    javaRuleOutputJarsProviderBuilder.setJdeps(outputDepsProto);
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
@@ -221,7 +232,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
     }
 
-    NestedSet<Artifact> transitiveSourceJars = common.collectTransitiveSourceJars(srcJar);
+    JavaSourceJarsProvider javaSourceJarsProvider = javaSourceJarsProviderBuilder.build();
+    NestedSet<Artifact> transitiveSourceJars = javaSourceJarsProvider.getTransitiveSourceJars();
 
     // TODO(bazel-team): if (getOptions().sourceJars) then make this a dummy prerequisite for the
     // DeployArchiveAction ? Needs a few changes there as we can't pass inputs
@@ -229,8 +241,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ImmutableMap.<PathFragment, Artifact>of(), transitiveSourceJars.toCollection(),
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
 
-    RuleConfiguredTargetBuilder builder =
-        new RuleConfiguredTargetBuilder(ruleContext);
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder.add(
         JavaPrimaryClassProvider.class,
         new JavaPrimaryClassProvider(
@@ -238,6 +249,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar,
             genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(),
             filesBuilder, builder);
+    if (generatedExtensionRegistryProvider != null) {
+      builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+    }
 
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
@@ -337,12 +351,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .add(
-            JavaRuleOutputJarsProvider.class,
-            JavaRuleOutputJarsProvider.builder()
-                .addOutputJar(classJar, null /* iJar */, srcJar)
-                .setJdeps(outputDepsProto)
-                .build())
+        .add(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProviderBuilder.build())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, executable)
         .add(
@@ -351,9 +360,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        .add(
-            JavaSourceJarsProvider.class,
-            JavaSourceJarsProvider.create(transitiveSourceJars, srcJars))
+        .add(JavaSourceJarsProvider.class, javaSourceJarsProviderBuilder.build())
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
   }

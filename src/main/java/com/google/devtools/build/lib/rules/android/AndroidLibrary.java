@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.java.JavaNeverlinkInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
-import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -206,7 +205,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
-        .add(JavaSourceJarsProvider.class, androidCommon.getJavaSourceJarsProvider())
         .add(
             AndroidCcLinkParamsProvider.class,
             AndroidCcLinkParamsProvider.create(androidCommon.getCcLinkParamsStore()))

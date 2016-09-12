@@ -43,11 +43,14 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -57,6 +60,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Semantics for Bazel Java rules
@@ -456,6 +460,19 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public GeneratedExtensionRegistryProvider createGeneratedExtensionRegistry(
+      RuleContext ruleContext,
+      JavaCommon common,
+      NestedSetBuilder<Artifact> filesBuilder,
+      JavaCompilationArtifacts.Builder javaCompilationArtifactsBuilder,
+      JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
+      JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
+    throws InterruptedException {
     return null;
   }
 }

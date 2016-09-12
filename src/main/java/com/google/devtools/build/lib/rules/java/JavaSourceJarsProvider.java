@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -45,13 +46,63 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
   public abstract ImmutableList<Artifact> getSourceJars();
 
   public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
-    NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
-    ImmutableList.Builder<Artifact> sourceJars = ImmutableList.builder();
-
+    JavaSourceJarsProvider.Builder result = builder();
     for (JavaSourceJarsProvider provider : providers) {
-      transitiveSourceJars.addTransitive(provider.getTransitiveSourceJars());
-      sourceJars.addAll(provider.getSourceJars());
+      result.mergeFrom(provider);
     }
-    return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars.build());
+    return result.build();
+  }
+
+  /** Returns a builder for a {@link JavaSourceJarsProvider}. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /** A builder for {@link JavaSourceJarsProvider}. */
+  public static final class Builder {
+
+    private final ImmutableList.Builder<Artifact> sourceJars = ImmutableList.builder();
+    private final NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
+
+    /** Add a source jar that is to be built when the target is on the command line. */
+    public Builder addSourceJar(Artifact sourceJar) {
+      sourceJars.add(Preconditions.checkNotNull(sourceJar));
+      return this;
+    }
+
+    /** Add source jars to be built when the target is on the command line. */
+    public Builder addAllSourceJars(Iterable<Artifact> sourceJars) {
+      this.sourceJars.addAll(Preconditions.checkNotNull(sourceJars));
+      return this;
+    }
+
+    /**
+     * Add a source jar in the transitive closure, that can be reached by a chain of
+     * JavaSourceJarsProvider instances.
+     */
+    public Builder addTransitiveSourceJar(Artifact transitiveSourceJar) {
+      transitiveSourceJars.add(Preconditions.checkNotNull(transitiveSourceJar));
+      return this;
+    }
+
+    /**
+     * Add source jars in the transitive closure, that can be reached by a chain of
+     * JavaSourceJarsProvider instances.
+     */
+    public Builder addAllTransitiveSourceJars(NestedSet<Artifact> transitiveSourceJars) {
+      this.transitiveSourceJars.addTransitive(Preconditions.checkNotNull(transitiveSourceJars));
+      return this;
+    }
+
+    /** Merge the source jars and transitive source jars from the provider into this builder. */
+    public Builder mergeFrom(JavaSourceJarsProvider provider) {
+      addAllTransitiveSourceJars(provider.getTransitiveSourceJars());
+      addAllSourceJars(provider.getSourceJars());
+      return this;
+    }
+
+    public JavaSourceJarsProvider build() {
+      return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars.build());
+    }
   }
 }

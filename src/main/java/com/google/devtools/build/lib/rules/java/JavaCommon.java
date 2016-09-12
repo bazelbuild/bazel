@@ -351,14 +351,24 @@ public class JavaCommon {
   /**
    * Collects transitive source jars for the current rule.
    *
-   * @param targetSrcJar The source jar artifact corresponding to the output of the current rule.
+   * @param targetSrcJars The source jar artifacts corresponding to the output of the current rule.
    * @return A nested set containing all of the source jar artifacts on which the current rule
    *         transitively depends.
    */
-  public NestedSet<Artifact> collectTransitiveSourceJars(Artifact targetSrcJar) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+  public NestedSet<Artifact> collectTransitiveSourceJars(Artifact... targetSrcJars) {
+    return collectTransitiveSourceJars(ImmutableList.copyOf(targetSrcJars));
+  }
 
-    builder.add(targetSrcJar);
+  /**
+   * Collects transitive source jars for the current rule.
+   *
+   * @param targetSrcJars The source jar artifacts corresponding to the output of the current rule.
+   * @return A nested set containing all of the source jar artifacts on which the current rule
+   *         transitively depends.
+   */
+  public NestedSet<Artifact> collectTransitiveSourceJars(Iterable<Artifact> targetSrcJars) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.<Artifact>stableOrder()
+        .addAll(targetSrcJars);
     for (JavaSourceJarsProvider dep : getDependencies(JavaSourceJarsProvider.class)) {
       builder.addTransitive(dep.getTransitiveSourceJars());
     }
@@ -817,7 +827,7 @@ public class JavaCommon {
   public NestedSet<Artifact> getCompileTimeClasspath() {
     return classpathFragment.getCompileTimeClasspath();
   }
-  
+
   public RuleContext getRuleContext() {
     return ruleContext;
   }
