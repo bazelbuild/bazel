@@ -112,7 +112,7 @@ Compile bazel with msys2 shell and `compile.sh`.
 
 ```powershell
 pushd scripts/packages/chocolatey
-  ./buildAndInstall.ps1 -version 0.3.1 -isRelease
+  ./build.ps1 -version 0.3.1 -isRelease
 popd
 ```
 
@@ -120,15 +120,12 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 
 #### Test
 
-0. remove nupkg files that are not the version you're testing.
 0. Build the package (without `isRelease`)
   * run a webserver (`python -m SimpleHTTPServer` in `scripts/packages/chocolatey` is convenient and starts one on `http://localhost:8000`)
   * adjust `chocolateyinstall.ps1` so that the `$url` and `$url64` parameters point to `http://localhost:8000/bazel_0.3.1_windows_x86_64.zip`
 0. Test the install
 
-    The `buildAndInstall.ps1` should build and install the package.
-
-    `$LASTEXITCODE` after running the script should be `0`.
+    The `test.ps1` should install the package cleanly (and error if it did not install cleanly), then tell you what to do next.
     
     In a new (msys2) shell
     ```shell
@@ -140,7 +137,7 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 
     ```shell
     choco uninstall bazel
-    # should remove bazel from the system
+    # should remove bazel from the system - c:/tools/bazel should be deleted
     ```
 
 Chocolatey's moderation process automates checks here.

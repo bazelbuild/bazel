@@ -12,7 +12,6 @@ if ($isRelease) {
 }
 write-host "download uri: $($tvUri)"
 
-choco uninstall bazel --force -y
 rm -force ./*.nupkg
 rm -force ./*.zip
 rm -force ./bazel.nuspec
@@ -44,5 +43,3 @@ add-content -value $licenseHeader -path "./tools/LICENSE.txt"
 add-content -value (get-content "../../../LICENSE.txt") -path "./tools/LICENSE.txt"
 
 choco pack ./bazel.nuspec
-$pkg = get-childitem ./bazel*.nupkg
-choco install $pkg.FullName --verbose --debug --force -y
