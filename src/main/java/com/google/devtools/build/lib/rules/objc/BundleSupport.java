@@ -441,12 +441,18 @@ final class BundleSupport {
   private CommandLine actoolzipCommandLine(ObjcProvider provider, Artifact zipOutput,
       Artifact partialInfoPlist) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    PlatformType platformType = PlatformType.IOS;
+    // watchOS 1 and 2 use different platform arguments. It is likely that versions 2 and later will
+    // use the watchos platform whereas watchOS 1 uses the iphone platform.
+    if (isBuildingForWatch() && bundling.getBundleDir().startsWith("Watch")) {
+      platformType = PlatformType.WATCHOS;
+    }
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             // The next three arguments are positional, i.e. they don't have flags before them.
             .addPath(zipOutput.getExecPath())
             .add("--platform")
-            .add(appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
+            .add(appleConfiguration.getMultiArchPlatform(platformType)
                 .getLowerCaseNameInPlist())
             .addExecPath("--output-partial-info-plist", partialInfoPlist)
             .add("--minimum-deployment-target")
