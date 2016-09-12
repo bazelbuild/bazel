@@ -40,7 +40,7 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <!-- projectUrl is required for the community feed -->
     <projectUrl>https://bazel.io</projectUrl>
     <iconUrl>http://cdn.rawgit.com/https://github.com/bazelbuild/bazel/master/site/docs/images/bazel-logo.png</iconUrl>
-    <copyright>2016</copyright>
+    <copyright>Copyright 2016 The Bazel Authors. All rights reserved.</copyright>
     <!-- If there is a license Url available, it is is required for the community feed -->
     <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE.txt</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
