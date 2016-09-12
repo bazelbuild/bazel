@@ -40,6 +40,13 @@ sh_test(
 )
 
 sh_test(
+    name = "startup_options_test",
+    size = "small",
+    srcs = ["startup_options_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
