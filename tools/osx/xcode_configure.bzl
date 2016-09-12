@@ -54,7 +54,10 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     decorated_aliases.append("'%s'" % alias)
   xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version", "-sdk"], 5, {"DEVELOPER_DIR": developer_dir})
   if (xcodebuild_result.return_code != 0):
-    print("Invoking xcodebuild failed, return code %s, stderr: %s", xcodebuild_result.return_code, xcodebuild_result.stderr)
+    print(
+        "Invoking xcodebuild failed, return code {code}, stderr: {err}".format(
+            code=xcodebuild_result.return_code,
+            err=xcodebuild_result.stderr))
   ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
   tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
   macosx_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
@@ -82,10 +85,16 @@ def _darwin_build_file(repository_ctx):
 
   xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"])
   if (xcode_locator_result.return_code != 0):
-    print("Invoking xcode-locator failed, return code %s, stderr: %s", xcode_locator_result.return_code, xcode_locator_result.stderr)
+    print(
+        "Invoking xcode-locator failed, return code {code}, stderr: {err}".format(
+            code=xcode_locator_result.return_code,
+            err=xcode_locator_result.stderr))
   xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version"])
   if (xcodebuild_result.return_code != 0):
-    print("Invoking xcodebuild failed, return code %s, stderr: %s", xcodebuild_result.return_code, xcodebuild_result.stderr)
+    print(
+        "Invoking xcodebuild failed, return code {code}, stderr: {err}".format(
+            code=xcodebuild_result.return_code,
+            err=xcodebuild_result.stderr))
 
   default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
   default_xcode_target = ""
