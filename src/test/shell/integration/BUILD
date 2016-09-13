@@ -55,6 +55,13 @@ sh_test(
 )
 
 sh_test(
+    name = "discard_analysis_cache_test",
+    size = "medium",
+    srcs = ["discard_analysis_cache_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
