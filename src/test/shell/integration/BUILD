@@ -76,6 +76,14 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_command_log_test",
+    size = "medium",
+    srcs = ["bazel_command_log_test.sh"],
+    data = [":test-deps"],
+    shard_count = 4,
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
