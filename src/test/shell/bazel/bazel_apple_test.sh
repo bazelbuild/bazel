@@ -603,4 +603,28 @@ EOF
     //ios:{Foo,Bar} >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_minimum_os() {
+  rm -rf ios
+  mkdir -p ios
+
+  touch ios/foo.swift
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "foo",
+              srcs = ["foo.swift"])
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION --ios_minimum_os=9.0\
+      //ios:foo >$TEST_log 2>&1 || fail "should build"
+
+  # Get the min OS version encoded as "version" argument of
+  # LC_VERSION_MIN_IPHONEOS load command in Mach-O
+  MIN_OS=$(otool -l bazel-genfiles/ios/foo/_objs/ios_foo.a | \
+      grep -A 3 LC_VERSION_MIN_IPHONEOS | grep version | cut -d " " -f4)
+  assert_equals $MIN_OS "9.0"
+}
+
 run_suite "apple_tests"

@@ -87,15 +87,15 @@ def _swift_library_impl(ctx):
     cpu = apple_fm.ios_cpu()
     platform = apple_fm.ios_cpu_platform()
 
-  sdk_version = apple_fm.sdk_version_for_platform(platform)
-  target = _swift_target(cpu, platform, sdk_version)
+  target_os = ctx.fragments.objc.ios_minimum_os
+  target = _swift_target(cpu, platform, target_os)
   apple_toolchain = apple_common.apple_toolchain()
 
   module_name = ctx.attr.module_name or _module_name(ctx)
 
   # A list of paths to pass with -F flag.
   framework_dirs = set([
-      apple_toolchain.platform_developer_framework_dir(ctx.fragments.apple)])
+      apple_toolchain.platform_developer_framework_dir(apple_fm)])
 
   # Collect transitive dependecies.
   dep_modules = []
