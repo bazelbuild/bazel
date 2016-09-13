@@ -100,6 +100,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
+    useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = getTargetConfiguration().getCpu();
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -158,6 +159,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFilesToBuildWithInterfaceSharedObjects() throws Exception {
     useConfiguration("--interface_shared_objects");
+    useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = getTargetConfiguration().getCpu();
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -196,6 +198,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     // With interface shared libraries.
     useConfiguration("--interface_shared_objects");
+    useConfiguration("--cpu=k8");
     hello = getConfiguredTarget("//hello:hello");
     sharedObject =
         FileType.filter(getFilesToBuild(hello), CppFileTypes.SHARED_LIBRARY).iterator().next();
@@ -242,6 +245,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testCppLinkActionExtraActionInfoWithSharedLibraries() throws Exception {
+    useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact sharedObject  =
         FileType.filter(getFilesToBuild(hello), CppFileTypes.SHARED_LIBRARY).iterator().next();
@@ -1146,6 +1150,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void alwaysAddStaticAndDynamicLibraryToFilesToBuildWhenBuilding() throws Exception {
+    useConfiguration("--cpu=k8");
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['source.cc'])");
 
@@ -1216,6 +1221,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void forbidBuildingAndWrappingSameLibraryIdentifier() throws Exception {
+    useConfiguration("--cpu=k8");
     checkError(
         "a",
         "foo",
