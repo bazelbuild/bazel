@@ -17,6 +17,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Root;
@@ -122,6 +123,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);

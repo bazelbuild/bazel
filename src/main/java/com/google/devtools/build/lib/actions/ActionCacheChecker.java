@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -125,8 +126,39 @@ public class ActionCacheChecker {
     }
   }
 
+  private void reportClientEnv(EventHandler handler, Action action, Map<String, String> used) {
+    if (handler != null) {
+      if (verboseExplanations) {
+        StringBuilder message = new StringBuilder();
+        message.append("Effective client environment has changed. Now using\n");
+        for (Map.Entry<String, String> entry : used.entrySet()) {
+          message.append("  ").append(entry.getKey()).append("=").append(entry.getValue())
+              .append("\n");
+        }
+        reportRebuild(handler, action, message.toString());
+      } else {
+        reportRebuild(
+            handler,
+            action,
+            "Effective client environment has changed (try --verbose_explanations for more info)");
+      }
+    }
+  }
+
   protected boolean unconditionalExecution(Action action) {
     return !isActionExecutionProhibited(action) && action.executeUnconditionally();
+  }
+
+  private static Map<String, String> computeUsedClientEnv(
+      Action action, Map<String, String> clientEnv) {
+    Map<String, String> used = new HashMap<>();
+    for (String var : action.getClientEnvironmentVariables()) {
+      String value = clientEnv.get(var);
+      if (value != null) {
+        used.put(var, value);
+      }
+    }
+    return used;
   }
 
   /**
@@ -141,8 +173,12 @@ public class ActionCacheChecker {
    */
   // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
-  public Token getTokenIfNeedToExecute(Action action, Iterable<Artifact> resolvedCacheArtifacts,
-      EventHandler handler, MetadataHandler metadataHandler) {
+  public Token getTokenIfNeedToExecute(
+      Action action,
+      Iterable<Artifact> resolvedCacheArtifacts,
+      Map<String, String> clientEnv,
+      EventHandler handler,
+      MetadataHandler metadataHandler) {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
     // that inputs and outputs are still exist (and new inputs have not appeared). All other checks
@@ -168,7 +204,7 @@ public class ActionCacheChecker {
       actionInputs = resolvedCacheArtifacts;
     }
     ActionCache.Entry entry = getCacheEntry(action);
-    if (mustExecute(action, entry, handler, metadataHandler, actionInputs)) {
+    if (mustExecute(action, entry, handler, metadataHandler, actionInputs, clientEnv)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -181,8 +217,13 @@ public class ActionCacheChecker {
     return null;
   }
 
-  protected boolean mustExecute(Action action, @Nullable ActionCache.Entry entry,
-      EventHandler handler, MetadataHandler metadataHandler, Iterable<Artifact> actionInputs) {
+  protected boolean mustExecute(
+      Action action,
+      @Nullable ActionCache.Entry entry,
+      EventHandler handler,
+      MetadataHandler metadataHandler,
+      Iterable<Artifact> actionInputs,
+      Map<String, String> clientEnv) {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
@@ -204,12 +245,19 @@ public class ActionCacheChecker {
       reportCommand(handler, action);
       return true; // must execute -- action key is different
     }
+    Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
+    if (!entry.getUsedClientEnvDigest().equals(DigestUtils.fromEnv(usedClientEnv))) {
+      reportClientEnv(handler, action, usedClientEnv);
+      return true; // different values taken from the environment -- must execute
+    }
+
 
     entry.getFileDigest();
     return false; // cache hit
   }
 
-  public void afterExecution(Action action, Token token, MetadataHandler metadataHandler)
+  public void afterExecution(
+      Action action, Token token, MetadataHandler metadataHandler, Map<String, String> clientEnv)
       throws IOException {
     Preconditions.checkArgument(token != null);
     String key = token.cacheKey;
@@ -217,7 +265,9 @@ public class ActionCacheChecker {
       // This cache entry has already been updated by a shared action. We don't need to do it again.
       return;
     }
-    ActionCache.Entry entry = new ActionCache.Entry(action.getKey(), action.discoversInputs());
+    Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(action.getKey(), usedClientEnv, action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -295,7 +345,7 @@ public class ActionCacheChecker {
       // Compute the aggregated middleman digest.
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
-      entry = new ActionCache.Entry("", false);
+      entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false);
       for (Artifact input : action.getInputs()) {
         entry.addFile(input.getExecPath(), metadataHandler.getMetadataMaybe(input));
       }

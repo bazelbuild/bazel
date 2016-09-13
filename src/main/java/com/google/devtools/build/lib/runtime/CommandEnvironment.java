@@ -57,10 +57,11 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -77,7 +78,8 @@ public final class CommandEnvironment {
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
-  private final Map<String, String> clientEnv = new HashMap<>();
+  private final Map<String, String> clientEnv = new TreeMap<>();
+  private final Set<String> visibleClientEnv = new TreeSet<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
 
   private String[] crashData;
@@ -161,6 +163,21 @@ public final class CommandEnvironment {
    */
   public Map<String, String> getClientEnv() {
     return Collections.unmodifiableMap(clientEnv);
+  }
+
+  /**
+   * Return an ordered version of the client environment restricted to those variables
+   * whitelisted by the command-line options to be inheritable by actions.
+   */
+  private Map<String, String> getCommandlineWhitelistedClientEnv() {
+    Map<String, String> visibleEnv = new TreeMap<>();
+    for (String var : visibleClientEnv) {
+      String value = clientEnv.get(var);
+      if (value != null) {
+        visibleEnv.put(var, value);
+      }
+    }
+    return Collections.unmodifiableMap(visibleEnv);
   }
 
   @VisibleForTesting
@@ -407,8 +424,16 @@ public final class CommandEnvironment {
     if (!skyframeExecutor.hasIncrementalState()) {
       skyframeExecutor.resetEvaluator();
     }
-    skyframeExecutor.sync(reporter, packageCacheOptions, getOutputBase(),
-        getWorkingDirectory(), defaultsPackageContents, getCommandId(),
+    skyframeExecutor.sync(
+        reporter,
+        packageCacheOptions,
+        getOutputBase(),
+        getWorkingDirectory(),
+        defaultsPackageContents,
+        getCommandId(),
+        // TODO(bazel-team): this optimization disallows rule-specified additional dependencies
+        // on the client environment!
+        getCommandlineWhitelistedClientEnv(),
         timestampGranularityMonitor);
   }
 
@@ -497,6 +522,17 @@ public final class CommandEnvironment {
       for (Map.Entry<String, String> entry :
           optionsParser.getOptions(BuildConfiguration.Options.class).testEnvironment) {
         testEnv.put(entry.getKey(), entry.getValue());
+      }
+
+      // Compute the set of environment variables that are whitelisted on the commandline
+      // for inheritence.
+      for (Map.Entry<String, String> entry :
+             optionsParser.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
+        if (entry.getValue() == null) {
+          visibleClientEnv.add(entry.getKey());
+        } else {
+          visibleClientEnv.remove(entry.getKey());
+        }
       }
 
       try {

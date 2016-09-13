@@ -459,11 +459,16 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    * if the action is up to date, and non-null if it needs to be executed, in which case that token
    * should be provided to the ActionCacheChecker after execution.
    */
-  Token checkActionCache(Action action, MetadataHandler metadataHandler,
-      long actionStartTime, Iterable<Artifact> resolvedCacheArtifacts) {
+  Token checkActionCache(
+      Action action,
+      MetadataHandler metadataHandler,
+      long actionStartTime,
+      Iterable<Artifact> resolvedCacheArtifacts,
+      Map<String, String> clientEnv) {
     profiler.startTask(ProfilerTask.ACTION_CHECK, action);
-    Token token = actionCacheChecker.getTokenIfNeedToExecute(
-        action, resolvedCacheArtifacts, explain ? reporter : null, metadataHandler);
+    Token token =
+        actionCacheChecker.getTokenIfNeedToExecute(
+            action, resolvedCacheArtifacts, clientEnv, explain ? reporter : null, metadataHandler);
     profiler.completeTask(ProfilerTask.ACTION_CHECK);
     if (token == null) {
       boolean eventPosted = false;
@@ -487,7 +492,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     return token;
   }
 
-  void afterExecution(Action action, MetadataHandler metadataHandler, Token token) {
+  void afterExecution(
+      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv) {
     if (!actionReallyExecuted(action)) {
       // If an action shared with this one executed, then we need not update the action cache, since
       // the other action will do it. Moreover, this action is not aware of metadata acquired
@@ -495,7 +501,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       return;
     }
     try {
-      actionCacheChecker.afterExecution(action, token, metadataHandler);
+      actionCacheChecker.afterExecution(action, token, metadataHandler, clientEnv);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.

@@ -17,6 +17,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -28,14 +29,12 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-
+import java.util.Collection;
+import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collection;
-import java.util.UUID;
 
 /**
  * Tests for the hash code calculated for Skylark RuleClasses based on the transitive closure
@@ -164,6 +163,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
             7,
             "",
             UUID.randomUUID(),
+            ImmutableMap.of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse("@//" + pkg));
     EvaluationResult<PackageValue> result =

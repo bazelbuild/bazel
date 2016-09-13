@@ -49,15 +49,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsParser;
-
-import org.junit.Before;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.Before;
 
 /**
  * This is a specialization of {@link FoundationTestCase} that's useful for
@@ -131,7 +129,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         defaultVisibility, true, GLOBBING_THREADS, defaultsPackageContents,
-        UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+        UUID.randomUUID(), ImmutableMap.of(),
+        new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
   private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
@@ -144,8 +143,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         GLOBBING_THREADS,
         loadingMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
   private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {

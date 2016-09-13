@@ -73,6 +73,11 @@ public interface ActionAnalysisMetadata {
   /**
    * Returns the environment variables from the client environment that this action depends on. May
    * be empty.
+   *
+   * <p>Warning: For optimization reasons, the available environment variables are restricted to
+   * those white-listed on the command line. If actions want to specify additional client
+   * environment variables to depend on, that restriction must be lifted in
+   * {@link com.google.devtools.build.lib.runtime.CommandEnvironment}.
    */
   Iterable<String> getClientEnvironmentVariables();
 

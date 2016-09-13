@@ -55,20 +55,17 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for incremental loading; these cover both normal operation and diff awareness, for which a
@@ -488,7 +485,8 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+          UUID.randomUUID(), ImmutableMap.of(),
+          new TimestampGranularityMonitor(BlazeClock.instance()));
     }
 
     Path addFile(String fileName, String... content) throws IOException {
@@ -567,7 +565,8 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+          UUID.randomUUID(), ImmutableMap.of(),
+          new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(), modifiedFileSet, workspace);
       ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter());

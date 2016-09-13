@@ -18,6 +18,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -33,14 +34,12 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.UUID;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
@@ -410,6 +409,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             7,
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
+            ImmutableMap.of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
@@ -454,6 +454,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             7,
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
+            ImmutableMap.of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("a/BUILD", "subinclude('//b:c/d/foo')");

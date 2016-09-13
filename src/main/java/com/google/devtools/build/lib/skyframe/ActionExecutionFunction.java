@@ -102,6 +102,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // Depending on the buildID ensure that these actions have a chance to execute.
       PrecomputedValue.BUILD_ID.get(env);
     }
+    // The client environment might influence the action.
+    Map<String, String> clientEnv = PrecomputedValue.CLIENT_ENV.get(env);
+
     // For restarts of this ActionExecutionFunction we use a ContinuationState variable, below, to
     // avoid redoing work. However, if two actions are shared and the first one executes, when the
     // second one goes to execute, we should detect that and short-circuit, even without taking
@@ -170,7 +173,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     ActionExecutionValue result;
     try {
-      result = checkCacheAndExecuteIfNeeded(action, state, env);
+      result = checkCacheAndExecuteIfNeeded(action, state, env, clientEnv);
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -326,9 +329,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
-      Action action,
-      ContinuationState state,
-      Environment env) throws ActionExecutionException, InterruptedException {
+      Action action, ContinuationState state, Environment env, Map<String, String> clientEnv)
+      throws ActionExecutionException, InterruptedException {
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
     if (!state.hasArtifactData()) {
@@ -340,8 +342,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     long actionStartTime = System.nanoTime();
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
-      state.token = skyframeActionExecutor.checkActionCache(action, metadataHandler,
-          actionStartTime, state.allInputs.actionCacheInputs);
+      state.token =
+          skyframeActionExecutor.checkActionCache(
+              action,
+              metadataHandler,
+              actionStartTime,
+              state.allInputs.actionCacheInputs,
+              clientEnv);
     }
 
     if (state.token == null) {
@@ -451,7 +458,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
     Preconditions.checkState(!env.valuesMissing(), action);
-    skyframeActionExecutor.afterExecution(action, metadataHandler, state.token);
+    skyframeActionExecutor.afterExecution(action, metadataHandler, state.token, clientEnv);
     return state.value;
   }
 

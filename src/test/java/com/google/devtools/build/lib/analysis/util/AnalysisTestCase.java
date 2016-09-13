@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -182,6 +183,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
@@ -285,6 +287,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);

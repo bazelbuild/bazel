@@ -685,6 +685,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     buildId.set(commandId);
   }
 
+  protected void setPrecomputedClientEnv(Map<String, String> clientEnv) {
+    PrecomputedValue.CLIENT_ENV.set(injectable(), clientEnv);
+  }
+
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
   public Collection<Artifact> getWorkspaceStatusArtifacts(EventHandler eventHandler)
       throws InterruptedException {
@@ -891,11 +895,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>MUST be run before every incremental build.
    */
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
-                                    boolean showLoadingProgress, int globbingThreads,
-                                    String defaultsPackageContents, UUID commandId,
-                                    TimestampGranularityMonitor tsgm) {
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
+  public void preparePackageLoading(
+      PathPackageLocator pkgLocator,
+      RuleVisibility defaultVisibility,
+      boolean showLoadingProgress,
+      int globbingThreads,
+      String defaultsPackageContents,
+      UUID commandId,
+      Map<String, String> clientEnv,
+      TimestampGranularityMonitor tsgm) {
     Preconditions.checkNotNull(pkgLocator);
     Preconditions.checkNotNull(tsgm);
     setActive(true);
@@ -903,6 +912,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.tsgm.set(tsgm);
     maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
+    setPrecomputedClientEnv(clientEnv);
     setBlacklistedPackagePrefixesFile(getBlacklistedPackagePrefixesFile());
     setShowLoadingProgress(showLoadingProgress);
     setDefaultVisibility(defaultVisibility);
@@ -1627,16 +1637,30 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return memoizingEvaluator;
   }
 
-  public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
-      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId,
+  public void sync(
+      EventHandler eventHandler,
+      PackageCacheOptions packageCacheOptions,
+      Path outputBase,
+      Path workingDirectory,
+      String defaultsPackageContents,
+      UUID commandId,
+      Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
-          throws InterruptedException, AbruptExitException{
+      throws InterruptedException, AbruptExitException {
     preparePackageLoading(
         createPackageLocator(
-            eventHandler, packageCacheOptions, outputBase, directories.getWorkspace(),
+            eventHandler,
+            packageCacheOptions,
+            outputBase,
+            directories.getWorkspace(),
             workingDirectory),
-        packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
-        packageCacheOptions.globbingThreads, defaultsPackageContents, commandId, tsgm);
+        packageCacheOptions.defaultVisibility,
+        packageCacheOptions.showLoadingProgress,
+        packageCacheOptions.globbingThreads,
+        defaultsPackageContents,
+        commandId,
+        clientEnv,
+        tsgm);
     setDeletedPackages(packageCacheOptions.getDeletedPackages());
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();

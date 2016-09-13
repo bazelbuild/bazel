@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
@@ -163,7 +164,8 @@ public class CompactPersistentActionCacheTest {
   // Mutations may result in IllegalStateException.
   @Test
   public void testEntryToStringIsIdempotent() throws Exception {
-    ActionCache.Entry entry = new ActionCache.Entry("actionKey", false);
+    ActionCache.Entry entry =
+        new ActionCache.Entry("actionKey", ImmutableMap.<String, String>of(), false);
     entry.toString();
     entry.addFile(new PathFragment("foo/bar"), Metadata.CONSTANT_METADATA);
     entry.toString();
@@ -217,7 +219,8 @@ public class CompactPersistentActionCacheTest {
   }
 
   private void putKey(String key, ActionCache ac, boolean discoversInputs) {
-    ActionCache.Entry entry = new ActionCache.Entry(key, discoversInputs);
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.<String, String>of(), discoversInputs);
     entry.getFileDigest();
     ac.put(key, entry);
   }

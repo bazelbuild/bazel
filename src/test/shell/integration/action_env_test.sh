@@ -72,4 +72,52 @@ function test_client_env() {
   expect_log "FOO=client_foo"
 }
 
+function test_redo_action() {
+  export FOO=initial_foo
+  export UNRELATED=some_value
+  bazel build --action_env=FOO pkg:showenv || fail "bazel build showenv failed"
+  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=initial_foo"
+
+  # If an unrelated value changes, we expect the action not to be executed again
+  export UNRELATED=some_other_value
+  bazel build --action_env=FOO pkg:showenv 2> $TEST_log \
+      || fail "bazel build showenv failed"
+  expect_log "Critical Path: 0.00s"
+
+  # However, if a used variable changes, we expect the change to be propagated
+  export FOO=changed_foo
+  bazel build --action_env=FOO pkg:showenv || fail "bazel build showenv failed"
+  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=changed_foo"
+
+  # But repeating the build with no further changes, no action should happen
+  bazel build --action_env=FOO pkg:showenv 2> $TEST_log \
+      || fail "bazel build showenv failed"
+  expect_log "Critical Path: 0.00s"
+
+}
+
+function test_latest_wins_arg() {
+  export FOO=bar
+  export BAR=baz
+  bazel build --action_env=BAR --action_env=FOO --action_env=FOO=foo \
+      pkg:showenv || fail "bazel build showenv failed"
+  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=foo"
+  expect_log "BAR=baz"
+  expect_not_log "FOO=bar"
+}
+
+function test_latest_wins_env() {
+  export FOO=bar
+  export BAR=baz
+  bazel build --action_env=BAR --action_env=FOO=foo --action_env=FOO \
+      pkg:showenv || fail "bazel build showenv failed"
+  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=bar"
+  expect_log "BAR=baz"
+  expect_not_log "FOO=foo"
+}
+
 run_suite "Tests for bazel's handling of environment variables in actions"

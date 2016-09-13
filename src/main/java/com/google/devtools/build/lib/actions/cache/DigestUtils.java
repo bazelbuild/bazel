@@ -171,6 +171,21 @@ public class DigestUtils {
     return new Md5Digest(result);
   }
 
+  /**
+   * @param env A collection of (String, String) pairs.
+   * @return an order-independent digest of the given set of pairs.
+   */
+  public static Md5Digest fromEnv(Map<String, String> env) {
+    byte[] result = new byte[Md5Digest.MD5_SIZE];
+    Fingerprint fp = new Fingerprint();
+    for (Map.Entry<String, String> entry : env.entrySet()) {
+      fp.addStringLatin1(entry.getKey());
+      fp.addStringLatin1(entry.getValue());
+      xorWith(result, fp.digestAndReset());
+    }
+    return new Md5Digest(result);
+  }
+
   private static byte[] getDigest(Fingerprint fp, String execPath, Metadata md) {
     fp.addStringLatin1(execPath);
 

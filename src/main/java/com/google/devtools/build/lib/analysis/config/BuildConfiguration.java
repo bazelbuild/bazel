@@ -599,6 +599,9 @@ public final class BuildConfiguration {
     )
     public List<Map.Entry<String, String>> testEnvironment;
 
+    // TODO(bazel-team): The set of available variables from the client environment for actions
+    // is computed independently in CommandEnvironment to inject a more restricted client
+    // environment to skyframe.
     @Option(
       name = "action_env",
       converter = Converters.OptionalAssignmentConverter.class,

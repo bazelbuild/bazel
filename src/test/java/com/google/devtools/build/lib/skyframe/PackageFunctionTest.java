@@ -71,10 +71,16 @@ public class PackageFunctionTest extends BuildViewTestCase {
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
   private void preparePackageLoading(Path... roots) {
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.copyOf(roots)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+    getSkyframeExecutor()
+        .preparePackageLoading(
+            new PathPackageLocator(outputBase, ImmutableList.copyOf(roots)),
+            ConstantRuleVisibility.PUBLIC,
+            true,
+            7,
+            "",
+            UUID.randomUUID(),
+            ImmutableMap.<String, String>of(),
+            new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
   @Override
@@ -435,10 +441,16 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Label.parseAbsoluteUnchecked("//foo:b.txt"))
         .inOrder();
     getSkyframeExecutor().resetEvaluator();
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true, 7, "",
-        UUID.randomUUID(), tsgm);
+    getSkyframeExecutor()
+        .preparePackageLoading(
+            new PathPackageLocator(outputBase, ImmutableList.<Path>of(rootDirectory)),
+            ConstantRuleVisibility.PUBLIC,
+            true,
+            7,
+            "",
+            UUID.randomUUID(),
+            ImmutableMap.of(),
+            tsgm);
     value = validPackage(skyKey);
     assertThat(
             (Iterable<Label>)

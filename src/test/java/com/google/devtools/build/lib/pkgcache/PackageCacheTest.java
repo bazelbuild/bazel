@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -55,17 +56,15 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for package loading.
@@ -112,8 +111,10 @@ public class PackageCacheTest extends FoundationTestCase {
         7,
         analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
   private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {

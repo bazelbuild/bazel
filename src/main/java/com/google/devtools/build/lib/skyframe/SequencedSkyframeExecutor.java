@@ -249,12 +249,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
-      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId,
+  public void sync(
+      EventHandler eventHandler,
+      PackageCacheOptions packageCacheOptions,
+      Path outputBase,
+      Path workingDirectory,
+      String defaultsPackageContents,
+      UUID commandId,
+      Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
-          throws InterruptedException, AbruptExitException {
+      throws InterruptedException, AbruptExitException {
     super.sync(eventHandler, packageCacheOptions, outputBase, workingDirectory,
-        defaultsPackageContents, commandId, tsgm);
+        defaultsPackageContents, commandId, clientEnv, tsgm);
     handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles);
   }
 

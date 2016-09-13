@@ -83,6 +83,9 @@ public final class PrecomputedValue implements SkyValue {
   static final Precomputed<UUID> BUILD_ID =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "build_id"));
 
+  static final Precomputed<Map<String, String>> CLIENT_ENV =
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "client_env"));
+
   static final Precomputed<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
 
