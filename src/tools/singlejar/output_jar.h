@@ -16,6 +16,7 @@
 #define SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 
 #include <stdint.h>
+#include <stdio.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -83,10 +84,10 @@ class OutputJar {
   // Set classpath resource with given resource name and path.
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
-  // Copy the bytes from the given file.
-  ssize_t AppendFile(int in_fd, off_t *in_offset, size_t count);
+  // Copy 'count' bytes starting at 'offset' from the given file.
+  ssize_t AppendFile(int in_fd, off_t offset, size_t count);
   // Write bytes to the output file, return true on success.
-  bool WriteBytes(uint8_t *buffer, size_t count);
+  bool WriteBytes(void *buffer, size_t count);
 
 
   Options *options_;
@@ -98,7 +99,9 @@ class OutputJar {
   };
 
   std::unordered_map<std::string, struct EntryInfo> known_members_;
-  int fd_;
+  FILE *file_;
+  off_t outpos_;
+  std::unique_ptr<char[]> buffer_;
   int entries_;
   int duplicate_entries_;
   uint8_t *cen_;

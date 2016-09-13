@@ -21,9 +21,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if defined(__linux)
-#include <sys/sendfile.h>
-#endif
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -45,7 +42,9 @@
 
 OutputJar::OutputJar()
     : options_(nullptr),
-      fd_(-1),
+      file_(nullptr),
+      outpos_(0),
+      buffer_(nullptr),
       entries_(0),
       duplicate_entries_(0),
       cen_(nullptr),
@@ -105,10 +104,13 @@ int OutputJar::Doit(Options *options) {
     const char *const launcher_path = options_->java_launcher.c_str();
     int in_fd = open(launcher_path, O_RDONLY);
     struct stat statbuf;
-    if (fd_ < 0 || fstat(in_fd, &statbuf)) {
+    if (file_ == nullptr || fstat(in_fd, &statbuf)) {
       diag_err(1, "%s", launcher_path);
     }
-    ssize_t byte_count = AppendFile(in_fd, nullptr, statbuf.st_size);
+    // TODO(asmundak):  Consider going back to sendfile() or reflink
+    // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
+    // be very large for targets with many native deps.
+    ssize_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
     if (byte_count < 0) {
       diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
                launcher_path, options_->output_jar.c_str());
@@ -214,24 +216,34 @@ int OutputJar::Doit(Options *options) {
 }
 
 OutputJar::~OutputJar() {
-  if (fd_ >= 0) {
+  if (file_) {
     diag_warnx("%s:%d: Close() should be called first", __FILE__, __LINE__);
   }
 }
 
+// Try to perform I/O in units of this size.
+// (128KB is the default max request size for fuse filesystems.)
+static const size_t kBufferSize = 128<<10;
+
 bool OutputJar::Open() {
-  if (fd_ >= 0) {
+  if (file_) {
     diag_errx(1, "%s:%d: Cannot open output archive twice", __FILE__, __LINE__);
   }
-  // The output file has read/write/execute permissions for the owner,
-  // default for the rest.
-  mode_t old_umask = umask(0);
-  fd_ = creat(path(), (S_IRWXU | S_IRWXG | S_IRWXO) & ~old_umask);
-  umask(old_umask);
-  if (fd_ < 0) {
+  // Set execute bits since we may produce an executable output file.
+  int fd = open(path(), O_CREAT|O_WRONLY|O_TRUNC, 0777);
+  if (fd < 0) {
     diag_warn("%s:%d: %s", __FILE__, __LINE__, path());
     return false;
   }
+  file_ = fdopen(fd, "w");
+  if (file_ == nullptr) {
+    diag_warn("%s:%d: fdopen of %s", __FILE__, __LINE__, path());
+    close(fd);
+    return false;
+  }
+  outpos_ = 0;
+  buffer_.reset(new char[kBufferSize]);
+  setbuffer(file_, buffer_.get(), kBufferSize);
   if (options_->verbose) {
     fprintf(stderr, "Writing to %s\n", path());
   }
@@ -414,7 +426,7 @@ bool OutputJar::AddJar(int jar_path_index) {
       lh_new->last_mod_file_date(33);
       lh_new->last_mod_file_time(normalized_time);
       // Now write these few bytes and adjust read/write positions accordingly.
-      if (!WriteBytes(reinterpret_cast<uint8_t *>(lh_new), lh_new->size())) {
+      if (!WriteBytes(lh_new, lh_new->size())) {
         diag_err(1, "%s:%d: Cannot copy modified local header for %.*s",
                  __FILE__, __LINE__, file_name_length, file_name);
       }
@@ -425,9 +437,8 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
-    // Do the actual copy. Use sendfile, avoiding copying the data to user
-    // space and back.
-    ssize_t n_copied = AppendFile(input_jar.fd(), &copy_from, num_bytes);
+    // Do the actual copy.
+    ssize_t n_copied = AppendFile(input_jar.fd(), copy_from, num_bytes);
     if (n_copied < 0) {
       diag_err(1, "%s:%d: Cannot copy %ld bytes of %.*s from %s", __FILE__,
                __LINE__, num_bytes, file_name_length, file_name,
@@ -474,12 +485,14 @@ bool OutputJar::AddJar(int jar_path_index) {
 }
 
 off_t OutputJar::Position() {
-  off_t position = lseek(fd_, 0, SEEK_CUR);
-  if (position == (off_t)-1) {
-    diag_err(1, "%s:%d: lseek", __FILE__, __LINE__);
+  if (file_ == nullptr) {
+    diag_err(1, "%s:%d: output file is not open", __FILE__, __LINE__);
   }
-  TODO(position < 0xFFFFFFFF, "Handle Zip64");
-  return position;
+  // You'd think this could be "return ftell(file_);", but that
+  // generates a needless call to lseek.  So instead we cache our
+  // current position in the output.
+  TODO(outpos_ < 0xFFFFFFFF, "Handle Zip64");
+  return outpos_;
 }
 
 // Writes an entry. The argument is the pointer to the contiguos block of
@@ -600,7 +613,7 @@ uint8_t *OutputJar::ReserveCdh(size_t size) {
 
 // Write out combined jar.
 bool OutputJar::Close() {
-  if (fd_ < 0) {
+  if (file_ == nullptr) {
     return true;
   }
 
@@ -614,10 +627,7 @@ bool OutputJar::Close() {
   WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
   WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
-  off_t output_position = lseek(fd_, 0, SEEK_CUR);
-  if (output_position == (off_t)-1) {
-    diag_err(1, "%s:%d: lseek", __FILE__, __LINE__);
-  }
+  off_t output_position = Position();
   bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||
                          cen_size_ >= 0xFFFFFFFF;
 
@@ -667,13 +677,14 @@ bool OutputJar::Close() {
   }
   free(cen_);
 
-  if (close(fd_)) {
+  if (fclose(file_)) {
     diag_err(1, "%s:%d: %s", __FILE__, __LINE__, path());
-    fd_ = -1;
-    return false;
   }
+  file_ = nullptr;
+  // Free the buffer only after fclose(); stdio may flush data from the
+  // buffer on close.
+  buffer_.reset();
 
-  fd_ = -1;
   if (options_->verbose) {
     fprintf(stderr, "Wrote %s with %d entries", path(), entries_);
     if (duplicate_entries_) {
@@ -709,67 +720,33 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
   known_members_.emplace(resource_name, EntryInfo{classpath_resource});
 }
 
-#if defined(__APPLE__)
-ssize_t OutputJar::AppendFile(int in_fd, off_t *in_offset, size_t count) {
-  if (!count) {
+ssize_t OutputJar::AppendFile(int in_fd, off_t offset, size_t count) {
+  if (count == 0) {
     return 0;
   }
-  uint8_t buffer[8192];
+  std::unique_ptr<void, decltype(free)*> buffer(malloc(kBufferSize), free);
+  if (buffer == nullptr) {
+    diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
+  }
   ssize_t total_written = 0;
 
-  // If the input file position (the offset in the input file) has been  passed,
-  // that's where we start, and the input file position has to be restored after
-  // we are done copying.
-  const off_t offset_error = static_cast<off_t>(-1);
-  off_t old_input_offset = offset_error;
-  if (in_offset) {
-    if (offset_error == (old_input_offset = lseek(in_fd, 0, SEEK_CUR)) ||
-        offset_error == lseek(in_fd, *in_offset, SEEK_SET)) {
-      return -1;
-    }
-  }
   while (total_written < count) {
-    ssize_t n_read =
-        read(in_fd, buffer, std::min(sizeof(buffer), count - total_written));
+    size_t len = std::min(kBufferSize, count - total_written);
+    ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
     if (n_read > 0) {
-      if (!WriteBytes(buffer, n_read)) {
+      if (!WriteBytes(buffer.get(), n_read)) {
         return -1;
       }
       total_written += n_read;
     } else if (n_read == 0) {
       break;
-    } else if (EAGAIN != errno) {
+    } else {
       return -1;
     }
   }
 
-  // If the input file position has been passed, update it and restore
-  // the read position in the input file.
-  if (in_offset) {
-    if (offset_error == lseek(in_fd, old_input_offset, SEEK_SET)) {
-      return -1;
-    }
-    *in_offset += total_written;
-  }
   return total_written;
 }
-
-#elif defined(__linux)
-ssize_t OutputJar::AppendFile(int in_fd, off_t *in_offset, size_t count) {
-  // sendfile call is interruptable and has to be handled the same way as write
-  // call.
-  for (size_t to_write = count; to_write > 0;) {
-    ssize_t written = sendfile(fd_, in_fd, in_offset, to_write);
-    if (written < 0) {
-      return written;
-    } else if (written == 0) {
-      return static_cast<ssize_t>(count - to_write);
-    }
-    to_write -= static_cast<size_t>(written);
-  }
-  return static_cast<ssize_t>(count);
-}
-#endif
 
 void OutputJar::ExtraCombiner(const std::string &entry_name,
                               Combiner *combiner) {
@@ -777,16 +754,10 @@ void OutputJar::ExtraCombiner(const std::string &entry_name,
   known_members_.emplace(entry_name, EntryInfo{combiner});
 }
 
-bool OutputJar::WriteBytes(uint8_t *buffer, size_t count) {
-  for (uint8_t *buffer_end = buffer + count; buffer < buffer_end;) {
-    ssize_t n_written = write(fd_, buffer, buffer_end - buffer);
-    if (n_written > 0) {
-      buffer += n_written;
-    } else if (EAGAIN == errno) {
-      return false;
-    }
-  }
-  return true;
+bool OutputJar::WriteBytes(void *buffer, size_t count) {
+  size_t written = fwrite(buffer, 1, count, file_);
+  outpos_ += written;
+  return written == count;
 }
 
 void OutputJar::ExtraHandler(const CDH *) {}
