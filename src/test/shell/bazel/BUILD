@@ -142,6 +142,7 @@ sh_test(
 
 sh_test(
     name = "bazel_objc_test",
+    size = "large",
     srcs = ["bazel_objc_test.sh"],
     data = [
         ":objc-deps",
@@ -195,6 +196,7 @@ sh_test(
     size = "large",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
+    shard_count = 3,
 )
 
 sh_test(
@@ -276,6 +278,7 @@ sh_test(
 
 sh_test(
     name = "workspace_test",
+    size = "large",
     srcs = ["workspace_test.sh"],
     data = [":test-deps"],
 )
