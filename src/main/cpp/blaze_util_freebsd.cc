@@ -86,8 +86,6 @@ string GetSelfPath() {
   return string(buffer);
 }
 
-pid_t GetPeerProcessId(int socket) { return -1; }
-
 uint64_t MonotonicClock() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);

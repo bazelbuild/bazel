@@ -100,9 +100,7 @@ static void Daemonize(const string& daemon_output) {
     // In a daemon, no-one can hear you scream.
     open("/dev/null", O_WRONLY);
   }
-  if (dup(STDOUT_FILENO)) {  // stderr (2>&1)
-    // Placate the compiler.
-  }
+  (void) dup(STDOUT_FILENO);  // stderr (2>&1)
 }
 
 class PipeBlazeServerStartup : public BlazeServerStartup {

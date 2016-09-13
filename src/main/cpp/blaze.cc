@@ -830,9 +830,7 @@ static int ForwardServerOutput(int socket, int output) {
     }
 
     remaining -= bytes;
-    if (write(output, server_output_buffer, bytes) != bytes) {
-      // Not much we can do if this doesn't work, just placate the compiler.
-    }
+    (void) write(output, server_output_buffer, bytes);
   }
 
   return 0;
@@ -1708,9 +1706,9 @@ static void SetupStreams() {
 
   // Ensure we have three open fds.  Otherwise we can end up with
   // bizarre things like stdout going to the lock file, etc.
-  if (fcntl(0, F_GETFL) == -1) open("/dev/null", O_RDONLY);
-  if (fcntl(1, F_GETFL) == -1) open("/dev/null", O_WRONLY);
-  if (fcntl(2, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+  if (fcntl(STDIN_FILENO, F_GETFL) == -1) open("/dev/null", O_RDONLY);
+  if (fcntl(STDOUT_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+  if (fcntl(STDERR_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
 }
 
 static void CheckBinaryPath(const string& argv0) {
@@ -2073,17 +2071,13 @@ unsigned int GrpcBlazeServer::Communicate() {
     }
 
     if (response.standard_output().size() > 0) {
-      if (write(1, response.standard_output().c_str(),
-                response.standard_output().size()) <= 0) {
-        // Placate the compiler.
-      }
+      (void) write(STDOUT_FILENO, response.standard_output().c_str(),
+                   response.standard_output().size());
     }
 
     if (response.standard_error().size() > 0) {
-      if (write(2, response.standard_error().c_str(),
-            response.standard_error().size()) <= 0) {
-        // Placate the compiler.
-      }
+      (void) write(STDERR_FILENO, response.standard_error().c_str(),
+                   response.standard_error().size());
     }
 
     if (!command_id_set && response.command_id().size() > 0) {

@@ -27,9 +27,6 @@ std::string GetSelfPath();
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();
 
-// Returns the process id of the peer connected to this socket.
-pid_t GetPeerProcessId(int socket);
-
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
 void WarnFilesystemType(const std::string& output_base);
 

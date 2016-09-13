@@ -114,16 +114,6 @@ void WarnFilesystemType(const string& output_base) {
   }
 }
 
-pid_t GetPeerProcessId(int socket) {
-  pid_t pid = 0;
-  socklen_t len = sizeof(pid_t);
-  if (getsockopt(socket, SOL_LOCAL, LOCAL_PEERPID, &pid, &len) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "can't get server pid from connection");
-  }
-  return pid;
-}
-
 string GetSelfPath() {
   char pathbuf[PROC_PIDPATHINFO_MAXSIZE] = {};
   int len = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));

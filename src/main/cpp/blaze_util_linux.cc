@@ -95,16 +95,6 @@ string GetSelfPath() {
   return string(buffer);
 }
 
-pid_t GetPeerProcessId(int socket) {
-  struct ucred creds = {};
-  socklen_t len = sizeof creds;
-  if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &creds, &len) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "can't get server pid from connection");
-  }
-  return creds.pid;
-}
-
 uint64_t MonotonicClock() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);

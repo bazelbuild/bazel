@@ -426,9 +426,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   string msg = "owner=launcher\npid="
       + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
   // The contents are currently meant only for debugging.
-  if (write(lockfd, msg.data(), msg.size()) <= 0) {
-    // Placate the compiler.
-  }
+  (void) write(lockfd, msg.data(), msg.size());
   blaze_lock->lockfd = lockfd;
   return wait_time;
 }
@@ -451,9 +449,7 @@ void sigprintf(const char *format, ...) {
   va_start(ap, format);
   int r = vsnprintf(buf, sizeof buf, format, ap);
   va_end(ap);
-  if (write(STDERR_FILENO, buf, r) <= 0) {
-    // We don't care, just placate the compiler.
-  }
+  (void) write(STDERR_FILENO, buf, r);
 }
 
 }  // namespace blaze
