@@ -23,8 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/blaze_startup_options.h"
 #include "src/main/cpp/option_processor.h"
-#include "src/main/cpp/startup_options.h"
 
 using std::vector;
 
@@ -53,7 +53,7 @@ struct GlobalVariables {
 
   // Option processor responsible for parsing RC files and converting them into
   // the argument list passed on to the server.
-  OptionProcessor *option_processor;
+  OptionProcessor option_processor;
 
   // The path of the JVM executable that should be used to launch Blaze.
   string jvm_path;
@@ -72,7 +72,7 @@ struct GlobalVariables {
   vector<string> extracted_binaries;
 
   // Parsed startup options.
-  StartupOptions *options;  // TODO(jmmv): This should really be const.
+  BlazeStartupOptions options;
 
   // The time in ms the launcher spends before sending the request to the blaze
   // server.

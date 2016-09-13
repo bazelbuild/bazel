@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef BAZEL_SRC_MAIN_CPP_STARTUP_OPTIONS_H_
-#define BAZEL_SRC_MAIN_CPP_STARTUP_OPTIONS_H_
+#ifndef BAZEL_SRC_MAIN_CPP_BLAZE_STARTUP_OPTIONS_H_
+#define BAZEL_SRC_MAIN_CPP_BLAZE_STARTUP_OPTIONS_H_
 
 #include <map>
 #include <memory>
@@ -25,6 +25,8 @@ namespace blaze {
 
 using std::string;
 
+struct StartupOptions;
+
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
 // src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java.
@@ -35,10 +37,12 @@ using std::string;
 // TODO(bazel-team): The encapsulation is not quite right -- there are some
 // places in blaze.cc where some of these fields are explicitly modified. Their
 // names also don't conform to the style guide.
-class StartupOptions {
+class BlazeStartupOptions {
  public:
-  StartupOptions();
-  virtual ~StartupOptions();
+  BlazeStartupOptions();
+  BlazeStartupOptions(const BlazeStartupOptions &rhs);
+  ~BlazeStartupOptions();
+  BlazeStartupOptions& operator=(const BlazeStartupOptions &rhs);
 
   // Parses a single argument, either from the command line or from the .blazerc
   // "startup" options.
@@ -60,16 +64,13 @@ class StartupOptions {
       bool *is_space_separated, string *error);
 
   // Adds any other options needed to result.
-  //
-  // TODO(jmmv): Now that we support site-specific options via subclasses of
-  // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
-  virtual void AddExtraOptions(std::vector<string> *result) const;
+  void AddExtraOptions(std::vector<string> *result) const;
 
   // Checks if Blaze needs to be re-executed.  Does not return, if so.
   //
   // Returns the exit code after the check. "error" will contain a descriptive
   // string for any return value other than blaze_exit_code::SUCCESS.
-  virtual blaze_exit_code::ExitCode CheckForReExecuteOptions(
+  blaze_exit_code::ExitCode CheckForReExecuteOptions(
       int argc, const char *argv[], string *error);
 
   // Checks extra fields when processing arg.
@@ -77,40 +78,37 @@ class StartupOptions {
   // Returns the exit code after processing the argument. "error" will contain
   // a descriptive string for any return value other than
   // blaze_exit_code::SUCCESS.
-  //
-  // TODO(jmmv): Now that we support site-specific options via subclasses of
-  // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
-  virtual blaze_exit_code::ExitCode ProcessArgExtra(
+  blaze_exit_code::ExitCode ProcessArgExtra(
     const char *arg, const char *next_arg, const string &rcfile,
     const char **value, bool *is_processed, string *error);
 
   // Return the default path to the JDK used to run Blaze itself
   // (must be an absolute directory).
-  virtual string GetDefaultHostJavabase() const;
+  string GetDefaultHostJavabase() const;
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.
-  virtual string GetJvm();
+  string GetJvm();
 
   // Returns the executable used to start the Blaze server, typically the given
   // JVM.
-  virtual string GetExe(const string &jvm, const string &jar_path);
+  string GetExe(const string &jvm, const string &jar_path);
 
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
-  virtual void AddJVMArgumentPrefix(const string &javabase,
+  void AddJVMArgumentPrefix(const string &javabase,
     std::vector<string> *result) const;
 
   // Adds JVM suffix flags. These will be added after all other JVM flags, and
   // just before the Blaze server startup flags.
-  virtual void AddJVMArgumentSuffix(const string &real_install_dir,
+  void AddJVMArgumentSuffix(const string &real_install_dir,
     const string &jar_path, std::vector<string> *result) const;
 
   // Adds JVM tuning flags for Blaze.
   //
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
-  virtual blaze_exit_code::ExitCode AddJVMArguments(
+  blaze_exit_code::ExitCode AddJVMArguments(
     const string &host_javabase, std::vector<string> *result,
     const std::vector<string> &user_options, string *error) const;
 
@@ -182,8 +180,13 @@ class StartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<string, string> option_sources;
 
+  // This can be used for site-specific startup options. For Bazel, this is
+  // stubbed
+  // out.
+  std::unique_ptr<StartupOptions> extra_options;
+
   // Sanity check for the startup options
-  virtual blaze_exit_code::ExitCode ValidateStartupOptions(
+  static blaze_exit_code::ExitCode ValidateStartupOptions(
       const std::vector<string>& args, string* error);
 
   // Returns the GetHostJavabase. This should be called after parsing
@@ -203,9 +206,14 @@ class StartupOptions {
   // Sets default values for members.
   void Init();
 
+  // Copies member variables from rhs to lhs. This cannot use the compiler-
+  // generated copy constructor because extra_options is a unique_ptr and
+  // unique_ptr deletes its copy constructor.
+  void Copy(const BlazeStartupOptions &rhs, BlazeStartupOptions *lhs);
+
   // Returns the directory to use for storing outputs.
-  virtual string GetOutputRoot();
+  string GetOutputRoot();
 };
 
 }  // namespace blaze
-#endif  // BAZEL_SRC_MAIN_CPP_STARTUP_OPTIONS_H_
+#endif  // BAZEL_SRC_MAIN_CPP_BLAZE_STARTUP_OPTIONS_H_

@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/blaze_startup_options.h"
 #include "src/main/cpp/util/exit_code.h"
 
 namespace blaze {
@@ -33,7 +33,7 @@ using std::string;
 // to the server.
 class OptionProcessor {
  public:
-  OptionProcessor(std::unique_ptr<StartupOptions> default_startup_options);
+  OptionProcessor();
 
   virtual ~OptionProcessor();
 
@@ -59,7 +59,7 @@ class OptionProcessor {
   // executed in.
   void GetCommandArguments(std::vector<string>* result) const;
 
-  StartupOptions* GetParsedStartupOptions() const;
+  const BlazeStartupOptions& GetParsedStartupOptions() const;
 
   virtual blaze_exit_code::ExitCode FindUserBlazerc(const char* cmdLineRcFile,
                                                     const string& rc_basename,
@@ -115,7 +115,7 @@ class OptionProcessor {
   string command_;
   std::vector<string> command_arguments_;
   bool initialized_;
-  std::unique_ptr<StartupOptions> parsed_startup_options_;
+  std::unique_ptr<BlazeStartupOptions> parsed_startup_options_;
 };
 
 }  // namespace blaze

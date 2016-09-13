@@ -160,10 +160,8 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
   return blaze_exit_code::SUCCESS;
 }
 
-OptionProcessor::OptionProcessor(
-    std::unique_ptr<StartupOptions> default_startup_options) :
-    initialized_(false),
-    parsed_startup_options_(std::move(default_startup_options)) {
+OptionProcessor::OptionProcessor()
+    : initialized_(false), parsed_startup_options_(new BlazeStartupOptions()) {
 }
 
 // Return the path to the user's rc file.  If cmdLineRcFile != NULL,
@@ -241,7 +239,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   }
 
   blaze_exit_code::ExitCode validate_startup_options_exit_code =
-      parsed_startup_options_->ValidateStartupOptions(args, error);
+      BlazeStartupOptions::ValidateStartupOptions(args, error);
   if (validate_startup_options_exit_code != blaze_exit_code::SUCCESS) {
     return validate_startup_options_exit_code;
   }
@@ -460,8 +458,8 @@ const string& OptionProcessor::GetCommand() const {
   return command_;
 }
 
-StartupOptions* OptionProcessor::GetParsedStartupOptions() const {
-  return parsed_startup_options_.get();
+const BlazeStartupOptions& OptionProcessor::GetParsedStartupOptions() const {
+  return *parsed_startup_options_.get();
 }
 
 OptionProcessor::~OptionProcessor() {

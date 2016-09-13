@@ -11,18 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/blaze_startup_options.h"
 
-#include <assert.h>
-#include <errno.h>  // errno, ENOENT
-#include <string.h>  // strerror
-#include <unistd.h>  // access
-
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/numbers.h"
@@ -34,17 +30,7 @@
 
 namespace blaze {
 
-using std::vector;
-
-StartupOptions::StartupOptions() {
-  Init();
-}
-
-StartupOptions::~StartupOptions() {
-}
-
-// TODO(jmmv): Integrate Init into the StartupOptions constructor.
-void StartupOptions::Init() {
+void BlazeStartupOptions::Init() {
   bool testing = getenv("TEST_TMPDIR") != NULL;
   if (testing) {
     output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
@@ -52,9 +38,6 @@ void StartupOptions::Init() {
     output_root = GetOutputRoot();
   }
 
-  // TODO(jmmv): Now that we have per-product main.cc files, inject the
-  // product_name at construction time instead of using preprocessor
-  // definitions.
   product_name = PRODUCT_NAME;
   string product_name_lower = PRODUCT_NAME;
   blaze_util::ToLower(&product_name_lower);
@@ -78,13 +61,43 @@ void StartupOptions::Init() {
   invocation_policy = NULL;
 }
 
-string StartupOptions::GetOutputRoot() {
-  return blaze::GetOutputRoot();
+string BlazeStartupOptions::GetHostJavabase() {
+  if (host_javabase.empty()) {
+    host_javabase = GetDefaultHostJavabase();
+  }
+  return host_javabase;
 }
 
-void StartupOptions::AddExtraOptions(vector<string> *result) const {}
+void BlazeStartupOptions::Copy(
+    const BlazeStartupOptions &rhs, BlazeStartupOptions *lhs) {
+  assert(lhs);
 
-blaze_exit_code::ExitCode StartupOptions::ProcessArg(
+  lhs->product_name = rhs.product_name;
+  lhs->output_base = rhs.output_base;
+  lhs->install_base = rhs.install_base;
+  lhs->output_root = rhs.output_root;
+  lhs->output_user_root = rhs.output_user_root;
+  lhs->deep_execroot = rhs.deep_execroot;
+  lhs->block_for_lock = rhs.block_for_lock;
+  lhs->host_jvm_debug = rhs.host_jvm_debug;
+  lhs->host_jvm_profile = rhs.host_jvm_profile;
+  lhs->host_javabase = rhs.host_javabase;
+  lhs->host_jvm_args = rhs.host_jvm_args;
+  lhs->batch = rhs.batch;
+  lhs->batch_cpu_scheduling = rhs.batch_cpu_scheduling;
+  lhs->io_nice_level = rhs.io_nice_level;
+  lhs->max_idle_secs = rhs.max_idle_secs;
+  lhs->command_port = rhs.command_port;
+  lhs->oom_more_eagerly = rhs.oom_more_eagerly;
+  lhs->oom_more_eagerly_threshold = rhs.oom_more_eagerly_threshold;
+  lhs->watchfs = rhs.watchfs;
+  lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
+  lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
+  lhs->option_sources = rhs.option_sources;
+  lhs->invocation_policy = rhs.invocation_policy;
+}
+
+blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
       const string &argstr, const string &next_argstr, const string &rcfile,
       bool *is_space_separated, string *error) {
   // We have to parse a specific option syntax, so GNU getopts won't do.  All
@@ -265,97 +278,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   }
 
   *is_space_separated = ((value == next_arg) && (value != NULL));
-  return blaze_exit_code::SUCCESS;
-}
-
-blaze_exit_code::ExitCode StartupOptions::ProcessArgExtra(
-    const char *arg, const char *next_arg, const string &rcfile,
-    const char **value, bool *is_processed, string *error) {
-  *is_processed = false;
-  return blaze_exit_code::SUCCESS;
-}
-
-blaze_exit_code::ExitCode StartupOptions::CheckForReExecuteOptions(
-      int argc, const char *argv[], string *error) {
-  return blaze_exit_code::SUCCESS;
-}
-
-string StartupOptions::GetDefaultHostJavabase() const {
-  return blaze::GetDefaultHostJavabase();
-}
-
-string StartupOptions::GetHostJavabase() {
-  if (host_javabase.empty()) {
-    host_javabase = GetDefaultHostJavabase();
-  }
-  return host_javabase;
-}
-
-string StartupOptions::GetJvm() {
-  string java_program = GetHostJavabase() + "/bin/java";
-  if (access(java_program.c_str(), X_OK) == -1) {
-    if (errno == ENOENT) {
-      fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
-    } else {
-      fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
-          strerror(errno));
-    }
-    exit(1);
-  }
-  // If the full JDK is installed
-  string jdk_rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
-  // If just the JRE is installed
-  string jre_rt_jar = GetHostJavabase() + "/lib/rt.jar";
-  if ((access(jdk_rt_jar.c_str(), R_OK) == 0)
-      || (access(jre_rt_jar.c_str(), R_OK) == 0)) {
-    return java_program;
-  }
-  fprintf(stderr, "Problem with java installation: "
-      "couldn't find/access rt.jar in %s\n", GetHostJavabase().c_str());
-  exit(1);
-}
-
-string StartupOptions::GetExe(const string &jvm, const string &jar_path) {
-  return jvm;
-}
-
-void StartupOptions::AddJVMArgumentPrefix(const string &javabase,
-    std::vector<string> *result) const {
-}
-
-void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
-                                          const string &jar_path,
-    std::vector<string> *result) const {
-  result->push_back("-jar");
-  result->push_back(blaze::ConvertPath(
-      blaze_util::JoinPath(real_install_dir, jar_path)));
-}
-
-blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
-    const string &host_javabase, vector<string> *result,
-    const vector<string> &user_options, string *error) const {
-  // Configure logging
-  const string propFile = output_base + "/javalog.properties";
-  if (!WriteFile(
-      "handlers=java.util.logging.FileHandler\n"
-      ".level=INFO\n"
-      "java.util.logging.FileHandler.level=INFO\n"
-      "java.util.logging.FileHandler.pattern="
-      + output_base + "/java.log\n"
-      "java.util.logging.FileHandler.limit=50000\n"
-      "java.util.logging.FileHandler.count=1\n"
-      "java.util.logging.FileHandler.formatter="
-      "java.util.logging.SimpleFormatter\n",
-      propFile)) {
-    perror(("Couldn't write logging file " + propFile).c_str());
-  } else {
-    result->push_back("-Djava.util.logging.config.file=" + propFile);
-  }
-  return blaze_exit_code::SUCCESS;
-}
-
-blaze_exit_code::ExitCode StartupOptions::ValidateStartupOptions(
-    const std::vector<string>& args, string* error) {
   return blaze_exit_code::SUCCESS;
 }
 
