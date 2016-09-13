@@ -1114,4 +1114,34 @@ EOF
   bazel build :* || fail "build failed"
 }
 
+# Regression test for #1697.
+function test_overwrite_build_file() {
+  local r=$TEST_TMPDIR/r
+  mkdir -p $r
+  touch $r/WORKSPACE
+  cat > $r/BUILD <<'EOF'
+genrule(
+    name = "orig"
+    cmd = "echo foo > $@",
+    outs = ["orig.out"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+    build_file_content = """
+genrule(
+    name = "rewrite",
+    cmd = "echo bar > \$@",
+    outs = ["rewrite.out"],
+)
+""",
+)
+EOF
+  bazel build @r//... &> $TEST_log || fail "Build failed"
+  assert_contains "orig" $r/BUILD
+}
+
 run_suite "local repository tests"

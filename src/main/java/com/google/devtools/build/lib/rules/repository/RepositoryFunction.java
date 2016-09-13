@@ -198,6 +198,11 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, String contents) throws RepositoryFunctionException {
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");
     try {
+      // Make sure we're not overwriting an existing BUILD file.
+      if (buildFilePath.exists()) {
+        Preconditions.checkState(buildFilePath.isSymbolicLink());
+        buildFilePath.delete();
+      }
       FileSystemUtils.writeContentAsLatin1(buildFilePath, contents);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
