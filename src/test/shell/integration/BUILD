@@ -91,6 +91,16 @@ sh_test(
 )
 
 sh_test(
+    name = "ide_info_generation",
+    size = "medium",
+    srcs = ["ide_info_generation.sh"],
+    data = [
+        ":test-deps",
+        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
+    ],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
