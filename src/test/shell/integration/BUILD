@@ -69,6 +69,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_testjobs_test",
+    srcs = ["bazel_testjobs_test.sh"],
+    data = [":test-deps"],
+    shard_count = 3,
+)
+
+sh_test(
     name = "bazel_query_test",
     size = "medium",
     srcs = ["bazel_query_test.sh"],
