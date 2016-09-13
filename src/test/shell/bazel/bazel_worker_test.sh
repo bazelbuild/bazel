@@ -106,7 +106,7 @@ def _impl(ctx):
 work = rule(
     implementation=_impl,
     attrs={
-        "worker": attr.label(cfg="host", mandatory=True, allow_files=True, executable=True),
+        "worker": attr.label(cfg=HOST_CFG, mandatory=True, allow_files=True, executable=True),
         "worker_args": attr.string_list(),
         "args": attr.string_list(),
         "srcs": attr.label_list(allow_files=True),

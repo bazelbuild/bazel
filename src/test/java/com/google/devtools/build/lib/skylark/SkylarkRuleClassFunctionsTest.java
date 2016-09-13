@@ -409,6 +409,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrCfg_deprecated() throws Exception {
+    Attribute attr = evalAttributeDefinition("attr.label(cfg = HOST_CFG, allow_files = True)")
+        .build("a1");
+    assertEquals(ConfigurationTransition.HOST, attr.getConfigurationTransition());
+  }
+
+  @Test
   public void testAttrCfg() throws Exception {
     Attribute attr = evalAttributeDefinition("attr.label(cfg = 'host', allow_files = True)")
         .build("a1");
@@ -657,8 +664,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testTextMessageInvalidStructure() throws Exception {
     checkErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int "
-            + "but got a function for struct field 'a'",
-        "struct(a=rule).to_proto()");
+            + "but got a ConfigurationTransition for struct field 'a'",
+        "struct(a=DATA_CFG).to_proto()");
   }
 
   private void checkJson(String from, String expected) throws Exception {
@@ -704,8 +711,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testJsonInvalidStructure() throws Exception {
     checkErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-            + "function for struct field 'a'",
-        "struct(a=rule).to_json()");
+            + "ConfigurationTransition for struct field 'a'",
+        "struct(a=DATA_CFG).to_json()");
   }
 
   @Test

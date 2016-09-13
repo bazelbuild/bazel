@@ -75,7 +75,7 @@ _apple_genrule_inner = rule(
     implementation=_apple_genrule,
     attrs={
         "srcs": attr.label_list(allow_files=True),
-        "tools": attr.label_list(cfg="host", allow_files=True),
+        "tools": attr.label_list(cfg=HOST_CFG, allow_files=True),
         "outs": attr.output_list(mandatory=True),
         "cmd": attr.string(mandatory=True),
         "message": attr.string(),
