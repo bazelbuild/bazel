@@ -210,9 +210,6 @@ class BlazeStartupOptions {
   // generated copy constructor because extra_options is a unique_ptr and
   // unique_ptr deletes its copy constructor.
   void Copy(const BlazeStartupOptions &rhs, BlazeStartupOptions *lhs);
-
-  // Returns the directory to use for storing outputs.
-  string GetOutputRoot();
 };
 
 }  // namespace blaze

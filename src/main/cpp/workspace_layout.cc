@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <unistd.h>  // access
 
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 
 namespace blaze {
@@ -23,6 +24,10 @@ namespace blaze {
 using std::vector;
 
 static const char kWorkspaceMarker[] = "WORKSPACE";
+
+string WorkspaceLayout::GetOutputRoot() {
+  return blaze::GetOutputRoot();
+}
 
 bool WorkspaceLayout::InWorkspace(const string &workspace) {
   return access(

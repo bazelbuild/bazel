@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/workspace_layout.h"
 
 #ifndef PRODUCT_NAME
 #define PRODUCT_NAME "Bazel"
@@ -35,7 +36,7 @@ void BlazeStartupOptions::Init() {
   if (testing) {
     output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
   } else {
-    output_root = GetOutputRoot();
+    output_root = WorkspaceLayout::GetOutputRoot();
   }
 
   product_name = PRODUCT_NAME;

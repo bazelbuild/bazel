@@ -70,10 +70,6 @@ BlazeStartupOptions& BlazeStartupOptions::operator=(
   return *this;
 }
 
-string BlazeStartupOptions::GetOutputRoot() {
-  return blaze::GetOutputRoot();
-}
-
 void BlazeStartupOptions::AddExtraOptions(vector<string> *result) const {}
 
 blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArgExtra(

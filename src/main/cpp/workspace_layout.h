@@ -33,6 +33,9 @@ class WorkspaceLayout {
  public:
   WorkspaceLayout() = delete;
 
+  // Returns the directory to use for storing outputs.
+  static string GetOutputRoot();
+
   // Given the working directory, returns the nearest enclosing directory with a
   // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
   //
