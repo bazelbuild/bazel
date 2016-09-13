@@ -69,6 +69,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_query_test",
+    size = "medium",
+    srcs = ["bazel_query_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
