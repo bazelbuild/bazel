@@ -62,6 +62,13 @@ sh_test(
 )
 
 sh_test(
+    name = "output_filter_test",
+    size = "medium",
+    srcs = ["output_filter_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
