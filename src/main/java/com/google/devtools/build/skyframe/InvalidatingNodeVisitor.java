@@ -282,7 +282,16 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
 
                 if (traverseGraph) {
                   // Propagate deletion upwards.
-                  visit(entry.getReverseDeps(), InvalidationType.DELETED);
+                  try {
+                    visit(entry.getReverseDeps(), InvalidationType.DELETED);
+                  } catch (InterruptedException e) {
+                    throw new IllegalStateException(
+                        "Deletion cannot happen on a graph that may have blocking operations: "
+                            + key
+                            + ", "
+                            + entry,
+                        e);
+                  }
 
                   // Unregister this node as an rdep from its direct deps, since reverse dep
                   // edges cannot point to non-existent nodes. To know whether the child has this
@@ -318,7 +327,17 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
                     NodeEntry dep = directDepEntry.getValue();
                     if (dep != null) {
                       if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
-                        dep.removeReverseDep(key);
+                        try {
+                          dep.removeReverseDep(key);
+                        } catch (InterruptedException e) {
+                          throw new IllegalStateException(
+                              "Deletion cannot happen on a graph that may have blocking "
+                                  + "operations: "
+                                  + key
+                                  + ", "
+                                  + entry,
+                              e);
+                        }
                       } else {
                         // This step is not strictly necessary, since all in-progress nodes are
                         // deleted during graph cleaning, which happens in a single

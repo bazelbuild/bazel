@@ -216,7 +216,8 @@ public class NotifyingHelper {
     }
 
     @Override
-    public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
+    public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.BEFORE, reverseDep);
       DependencyState result = super.addReverseDepAndCheckIfDone(reverseDep);
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.AFTER, reverseDep);
@@ -224,7 +225,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public void removeReverseDep(SkyKey reverseDep) {
+    public void removeReverseDep(SkyKey reverseDep) throws InterruptedException {
       graphListener.accept(myKey, EventType.REMOVE_REVERSE_DEP, Order.BEFORE, reverseDep);
       super.removeReverseDep(reverseDep);
       graphListener.accept(myKey, EventType.REMOVE_REVERSE_DEP, Order.AFTER, reverseDep);
@@ -293,7 +294,8 @@ public class NotifyingHelper {
     }
 
     @Override
-    public DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) {
+    public DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.CHECK_IF_DONE, Order.BEFORE, reverseDep);
       return super.checkIfDoneForDirtyReverseDep(reverseDep);
     }

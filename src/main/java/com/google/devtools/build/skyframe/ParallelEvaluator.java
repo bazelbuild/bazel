@@ -207,7 +207,8 @@ public final class ParallelEvaluator implements Evaluator {
         NodeEntry entry,
         SkyKey child,
         NodeEntry childEntry,
-        boolean depAlreadyExists) {
+        boolean depAlreadyExists)
+        throws InterruptedException {
       Preconditions.checkState(!entry.isDone(), "%s %s", skyKey, entry);
       DependencyState dependencyState =
           depAlreadyExists
@@ -595,13 +596,16 @@ public final class ParallelEvaluator implements Evaluator {
    * its requested deps are done. However, that means we're assuming the SkyFunction would throw
    * that same error if all of its requested deps were done. Unfortunately, there is no way to
    * enforce that condition.
+   *
+   * @throws InterruptedException
    */
   private static void registerNewlyDiscoveredDepsForDoneEntry(
       SkyKey skyKey,
       NodeEntry entry,
       Map<SkyKey, ? extends NodeEntry> newlyRequestedDepMap,
       Set<SkyKey> oldDeps,
-      SkyFunctionEnvironment env) {
+      SkyFunctionEnvironment env)
+      throws InterruptedException {
     Set<SkyKey> unfinishedDeps = new HashSet<>();
     for (SkyKey dep : env.getNewlyRequestedDeps()) {
       if (!isDoneForBuild(newlyRequestedDepMap.get(dep))) {

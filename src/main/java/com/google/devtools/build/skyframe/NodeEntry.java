@@ -98,7 +98,7 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /** Removes a reverse dependency. */
   @ThreadSafe
-  void removeReverseDep(SkyKey reverseDep);
+  void removeReverseDep(SkyKey reverseDep) throws InterruptedException;
 
   /**
    * Removes a reverse dependency.
@@ -114,7 +114,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * check-then-act race; {@link #removeReverseDep} may fail for a key that is returned here.
    */
   @ThreadSafe
-  Iterable<SkyKey> getReverseDeps();
+  Iterable<SkyKey> getReverseDeps() throws InterruptedException;
 
   /**
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
@@ -166,9 +166,9 @@ public interface NodeEntry extends ThinNodeEntry {
 
   /**
    * Queries if the node is done and adds the given key as a reverse dependency. The return code
-   * indicates whether a) the node is done, b) the reverse dependency is the first one, so the
-   * node needs to be scheduled, or c) the reverse dependency was added, and the node does not
-   * need to be scheduled.
+   * indicates whether a) the node is done, b) the reverse dependency is the first one, so the node
+   * needs to be scheduled, or c) the reverse dependency was added, and the node does not need to be
+   * scheduled.
    *
    * <p>This method <b>must</b> be called before any processing of the entry. This encourages
    * callers to check that the entry is ready to be processed.
@@ -179,14 +179,15 @@ public interface NodeEntry extends ThinNodeEntry {
    * However, a may complete first, in which case b has to re-schedule itself. Also see {@link
    * #setValue}.
    *
-   * <p>If the parameter is {@code null}, then no reverse dependency is added, but we still check
-   * if the node needs to be scheduled.
+   * <p>If the parameter is {@code null}, then no reverse dependency is added, but we still check if
+   * the node needs to be scheduled.
    *
    * <p>If {@code reverseDep} is a rebuilding dirty entry that was already a reverse dep of this
    * entry, then {@link #checkIfDoneForDirtyReverseDep} must be called instead.
    */
   @ThreadSafe
-  DependencyState addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep);
+  DependencyState addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep)
+      throws InterruptedException;
 
   /**
    * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@param reverseDep} must already
@@ -196,7 +197,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * node for evaluation if needed.
    */
   @ThreadSafe
-  DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep);
+  DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) throws InterruptedException;
 
   /**
    * Tell this node that one of its dependencies is now done. Callers must check the return value,

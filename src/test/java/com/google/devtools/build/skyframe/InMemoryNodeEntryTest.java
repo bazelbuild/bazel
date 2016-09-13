@@ -56,7 +56,7 @@ public class InMemoryNodeEntryTest {
 
   @Test
   public void createEntry() {
-    NodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertFalse(entry.isDone());
     assertTrue(entry.isReady());
@@ -148,7 +148,7 @@ public class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnTooManySignals() {
-    NodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     try {
       entry.signalDep();

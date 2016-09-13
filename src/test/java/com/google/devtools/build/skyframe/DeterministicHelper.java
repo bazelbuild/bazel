@@ -135,7 +135,7 @@ public class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public synchronized Collection<SkyKey> getReverseDeps() {
+    public synchronized Collection<SkyKey> getReverseDeps() throws InterruptedException {
       TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
       Iterables.addAll(result, super.getReverseDeps());
       return result;

@@ -193,13 +193,13 @@ public abstract class GraphConcurrencyTest {
                     .isNotEqualTo(DependencyState.DONE);
                 waitForAddedRdep.countDown();
                 waitForSetValue.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                for (int k = chunkSize; k <= numIterations; k++) {
+                  entry.removeReverseDep(key("rdep" + j));
+                  entry.addReverseDepAndCheckIfDone(key("rdep" + j));
+                  entry.getReverseDeps();
+                }
               } catch (InterruptedException e) {
                 fail("Test failed: " + e.toString());
-              }
-              for (int k = chunkSize; k <= numIterations; k++) {
-                entry.removeReverseDep(key("rdep" + j));
-                entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-                entry.getReverseDeps();
               }
             }
           };
@@ -245,6 +245,7 @@ public abstract class GraphConcurrencyTest {
           final Iterable<SkyKey> keys = ImmutableList.of(key1, key2);
           Runnable r =
               new Runnable() {
+                @Override
                 public void run() {
                   for (SkyKey key : keys) {
                     NodeEntry entry = null;
@@ -268,15 +269,15 @@ public abstract class GraphConcurrencyTest {
                     NodeEntry entry = entries.get(key);
                     // {@code entry.addReverseDepAndCheckIfDone(null)} should return
                     // NEEDS_SCHEDULING at most once.
-                    if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
-                      assertTrue(valuesSet.add(key));
-                      // Set to done.
-                      try {
+                    try {
+                      if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
+                        assertTrue(valuesSet.add(key));
+                        // Set to done.
                         entry.setValue(new StringValue("bar" + keyNum), startingVersion);
-                      } catch (InterruptedException e) {
-                        throw new IllegalStateException(key + ", " + entry, e);
+                        assertThat(entry.isDone()).isTrue();
                       }
-                      assertThat(entry.isDone()).isTrue();
+                    } catch (InterruptedException e) {
+                      throw new IllegalStateException(key + ", " + entry, e);
                     }
                   }
                   // This shouldn't cause any problems from the other threads.
@@ -360,16 +361,13 @@ public abstract class GraphConcurrencyTest {
               }
               try {
                 entry.markDirty(true);
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(keyNum + ", " + entry, e);
-              }
-              // Make some changes, like adding a dep and rdep.
-              entry.addReverseDepAndCheckIfDone(key("rdep"));
-              entry.markRebuilding();
-              addTemporaryDirectDep(entry, key("dep"));
-              entry.signalDep();
-              // Move node from dirty back to done.
-              try {
+
+                // Make some changes, like adding a dep and rdep.
+                entry.addReverseDepAndCheckIfDone(key("rdep"));
+                entry.markRebuilding();
+                addTemporaryDirectDep(entry, key("dep"));
+                entry.signalDep();
+
                 entry.setValue(new StringValue("bar" + keyNum), getNextVersion(startingVersion));
               } catch (InterruptedException e) {
                 throw new IllegalStateException(keyNum + ", " + entry, e);
@@ -461,7 +459,7 @@ public abstract class GraphConcurrencyTest {
     }
   }
 
-  private static DependencyState startEvaluation(NodeEntry entry) {
+  private static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
     return entry.addReverseDepAndCheckIfDone(null);
   }
 

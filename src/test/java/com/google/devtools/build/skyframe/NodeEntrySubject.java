@@ -21,7 +21,6 @@ import com.google.common.truth.DefaultSubject;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
-
 import javax.annotation.Nullable;
 
 /**
@@ -43,7 +42,7 @@ class NodeEntrySubject extends Subject<NodeEntrySubject, NodeEntry> {
   }
 
   ComparableSubject<?, NodeEntry.DependencyState> addReverseDepAndCheckIfDone(
-      @Nullable SkyKey reverseDep) {
+      @Nullable SkyKey reverseDep) throws InterruptedException {
     return assertThat(getSubject().addReverseDepAndCheckIfDone(reverseDep))
         .named(detail("AddReverseDepAndCheckIfDone"));
   }
