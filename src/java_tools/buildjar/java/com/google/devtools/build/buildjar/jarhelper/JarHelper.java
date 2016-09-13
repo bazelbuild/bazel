@@ -14,17 +14,16 @@
 
 package com.google.devtools.build.buildjar.jarhelper;
 
-import com.google.common.hash.Hashing;
-import com.google.common.io.Files;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+import java.util.zip.CRC32;
 
 /**
  * A simple helper class for creating Jar files. All Jar entries are sorted alphabetically. Allows
@@ -137,7 +136,9 @@ public class JarHelper {
       } else {
         entry.setMethod(storageMethod);
         if (storageMethod == JarEntry.STORED) {
-          entry.setCrc(Hashing.crc32().hashBytes(content).padToLong());
+          CRC32 crc = new CRC32();
+          crc.update(content);
+          entry.setCrc(crc.getValue());
         }
         out.putNextEntry(entry);
         out.write(content);
@@ -199,10 +200,20 @@ public class JarHelper {
         } else {
           outEntry.setMethod(storageMethod);
           if (storageMethod == JarEntry.STORED) {
-            outEntry.setCrc(Files.hash(file, Hashing.crc32()).padToLong());
+            // ZipFile requires us to calculate the CRC-32 for any STORED entry.
+            // It would be nicer to do this via DigestInputStream, but
+            // the architecture of ZipOutputStream requires us to know the CRC-32
+            // before we write the data to the stream.
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            CRC32 crc = new CRC32();
+            crc.update(bytes);
+            outEntry.setCrc(crc.getValue());
+            out.putNextEntry(outEntry);
+            out.write(bytes);
+          } else {
+            out.putNextEntry(outEntry);
+            Files.copy(file.toPath(), out);
           }
-          out.putNextEntry(outEntry);
-          Files.copy(file, out);
         }
         out.closeEntry();
       }

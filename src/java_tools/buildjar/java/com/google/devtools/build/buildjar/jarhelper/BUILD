@@ -30,9 +30,6 @@ java_library(
         ":packages",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:__pkg__",
     ],
-    deps = [
-        "//third_party:guava",
-    ],
 )
 
 #
