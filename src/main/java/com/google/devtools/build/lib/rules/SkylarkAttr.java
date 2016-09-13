@@ -259,10 +259,7 @@ public final class SkylarkAttr {
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
-      if (trans instanceof ConfigurationTransition) {
-        // TODO(laurentlb): Deprecated, to be removed in August 2016.
-        builder.cfg((ConfigurationTransition) trans);
-      } else if (trans.equals("data")) {
+      if (trans.equals("data")) {
         builder.cfg(ConfigurationTransition.DATA);
       } else if (trans.equals("host")) {
         builder.cfg(ConfigurationTransition.HOST);

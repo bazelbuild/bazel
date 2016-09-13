@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -170,13 +168,6 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Declaration how the configuration should change when following a label or label list attribute.
    */
-  @SkylarkModule(name = "ConfigurationTransition",
-    category = SkylarkModuleCategory.NONE,
-    doc =
-      "Declares how the configuration should change when following a dependency. "
-    + "It can be either <a href=\"globals.html#DATA_CFG\">DATA_CFG</a> or "
-    + "<a href=\"globals.html#HOST_CFG\">HOST_CFG</a>. "
-    + "This type is deprecated, use string \"host\" or \"data\" instead.")
   public enum ConfigurationTransition implements Transition {
     /** No transition, i.e., the same configuration as the current. */
     NONE,
