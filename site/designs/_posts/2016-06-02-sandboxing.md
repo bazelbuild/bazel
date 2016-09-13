@@ -6,8 +6,11 @@ title: Sandboxing
 # Bazel Sandboxing 2.0
 
 This doc was written by [philwo@google.com](mailto:philwo@google.com).
-Status: unimplemented, section "Handling of environment variables" superseded
-by the
+
+Status: launched
+
+The section "Handling of environment variables" inspired and was then
+superseded by the more detailed
 [Specifying environment variables](/docs/designs/2016/06/21/environment.html)
 design document.
 
