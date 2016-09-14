@@ -129,7 +129,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         defaultVisibility, true, GLOBBING_THREADS, defaultsPackageContents,
-        UUID.randomUUID(), ImmutableMap.of(),
+        UUID.randomUUID(), ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
@@ -143,7 +143,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         GLOBBING_THREADS,
         loadingMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
