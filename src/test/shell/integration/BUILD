@@ -129,6 +129,14 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "discard_graph_edges_test",
+    size = "medium",
+    srcs = ["discard_graph_edges_test.sh"],
+    data = [":test-deps"],
+    shard_count = 5,
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
