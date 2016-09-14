@@ -81,21 +81,22 @@ function test_redo_action() {
 
   # If an unrelated value changes, we expect the action not to be executed again
   export UNRELATED=some_other_value
-  bazel build --action_env=FOO pkg:showenv 2> $TEST_log \
+  bazel build --action_env=FOO -s --experimental_ui pkg:showenv 2> $TEST_log \
       || fail "bazel build showenv failed"
-  expect_log "Critical Path: 0.00s"
+  expect_not_log '^SUBCOMMAND.*pkg:showenv'
 
   # However, if a used variable changes, we expect the change to be propagated
   export FOO=changed_foo
-  bazel build --action_env=FOO pkg:showenv || fail "bazel build showenv failed"
+  bazel build --action_env=FOO -s --experimental_ui pkg:showenv 2> $TEST_log \
+      || fail "bazel build showenv failed"
+  expect_log '^SUBCOMMAND.*pkg:showenv'
   cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=changed_foo"
 
   # But repeating the build with no further changes, no action should happen
-  bazel build --action_env=FOO pkg:showenv 2> $TEST_log \
+  bazel build --action_env=FOO -s --experimental_ui pkg:showenv 2> $TEST_log \
       || fail "bazel build showenv failed"
-  expect_log "Critical Path: 0.00s"
-
+  expect_not_log '^SUBCOMMAND.*pkg:showenv'
 }
 
 function test_latest_wins_arg() {
