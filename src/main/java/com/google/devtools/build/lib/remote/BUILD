@@ -25,6 +25,7 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:hazelcast",
+        "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf",
     ],
