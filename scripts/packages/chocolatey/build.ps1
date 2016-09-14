@@ -12,10 +12,10 @@ if ($isRelease) {
 }
 write-host "download uri: $($tvUri)"
 
-rm -force ./*.nupkg
-rm -force ./*.zip
-rm -force ./bazel.nuspec
-rm -force ./tools/chocolateyinstall.ps1
+rm -force -ErrorAction SilentlyContinue ./*.nupkg
+rm -force -ErrorAction SilentlyContinue ./*.zip
+rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
+rm -force -ErrorAction SilentlyContinue ./tools/chocolateyinstall.ps1
 
 Add-Type -A System.IO.Compression.FileSystem
 $outputDir = "$pwd/../../../output"
