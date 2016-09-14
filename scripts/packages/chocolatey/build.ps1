@@ -18,8 +18,11 @@ rm -force ./bazel.nuspec
 rm -force ./tools/chocolateyinstall.ps1
 
 Add-Type -A System.IO.Compression.FileSystem
-$zipDir = "$pwd/../../../output"
+$outputDir = "$pwd/../../../output"
 $zipFile = "$pwd/$($tvFilename)"
+$zipDir = "$outputDir/package"
+new-item $zipDir -type directory -ErrorAction SilentlyContinue
+cp "$outputDir/bazel.exe" $zipDir
 write-host "Creating zip package from directory: $zipDir to file: $zipFile"
 [IO.Compression.ZipFile]::CreateFromDirectory($zipDir, $zipFile)
 $tvChecksum = (get-filehash $zipFile -algorithm sha256).Hash
