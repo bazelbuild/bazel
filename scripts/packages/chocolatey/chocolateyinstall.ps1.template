@@ -10,8 +10,7 @@ ps_var_toolsDir = Split-Path -parent ps_var_MyInvocation.MyCommand.Definition
 ps_var_packageDir = Split-Path -parent ps_var_toolsDir
 ps_var_binRoot = (Get-ToolsLocation) -replace "\\", "/"
 write-host "package directory: ps_var_packageDir"
-ps_var_destDir = "ps_var_binRoot/ps_var_packageName/"
-write-host "destination directory: ps_var_destDir"
+write-host "destination directory: ps_var_packageDir"
 write-host "url: ps_var_url"
 write-host "url64bit: ps_var_url64bit"
 
@@ -22,13 +21,14 @@ Install-ChocolateyZipPackage -PackageName "ps_var_packageName" escape_char
   -Url64bit "ps_var_url64bit" escape_char
   -Checksum64 "ps_var_checksum64" escape_char
   -Checksum64Type "ps_var_checksumType64" escape_char
-  -UnzipLocation "ps_var_destDir"
+  -UnzipLocation "ps_var_packageDir"
+
 
 write-host @"
-bazel installed to ps_var_destDir
+bazel installed to ps_var_packageDir
 
-To use it, you should add that to your msys2 PATH:
-  export PATH=ps_var_(ps_var_destDir):escape_charps_var_PATH
+To use it in msys2, you should add that to your msys2 PATH:
+  export PATH=ps_var_(ps_var_packageDir):escape_charps_var_PATH
 
 You also need, in your msys2 environment:
   export JAVA_HOME="escape_charps_var_(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)escape_char"
