@@ -163,7 +163,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
             7,
             "",
             UUID.randomUUID(),
-            ImmutableMap.of(),
+            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse("@//" + pkg));
     EvaluationResult<PackageValue> result =

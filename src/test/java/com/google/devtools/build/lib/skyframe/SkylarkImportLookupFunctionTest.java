@@ -54,7 +54,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
             7,
             "",
             UUID.randomUUID(),
-            ImmutableMap.of(),
+            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 

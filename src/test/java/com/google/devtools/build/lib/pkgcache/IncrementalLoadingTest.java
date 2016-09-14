@@ -485,7 +485,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID(), ImmutableMap.of(),
+          UUID.randomUUID(), ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
     }
 
@@ -565,7 +565,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID(), ImmutableMap.of(),
+          UUID.randomUUID(), ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(), modifiedFileSet, workspace);

@@ -449,7 +449,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             7,
             "",
             UUID.randomUUID(),
-            ImmutableMap.of(),
+            ImmutableMap.<String, String>of(),
             tsgm);
     value = validPackage(skyKey);
     assertThat(

@@ -409,7 +409,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             7,
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
-            ImmutableMap.of(),
+            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
@@ -454,7 +454,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             7,
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
-            ImmutableMap.of(),
+            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("a/BUILD", "subinclude('//b:c/d/foo')");

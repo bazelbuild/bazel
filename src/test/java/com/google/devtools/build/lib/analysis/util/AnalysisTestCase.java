@@ -183,7 +183,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
@@ -287,7 +287,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);

@@ -111,7 +111,7 @@ public class PackageCacheTest extends FoundationTestCase {
         7,
         analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));

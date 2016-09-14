@@ -232,7 +232,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         7,
         "",
         UUID.randomUUID(),
-        ImmutableMap.of(),
+        ImmutableMap.<String, String>of(),
         tsgm);
     useConfiguration();
     setUpSkyframe();
