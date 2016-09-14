@@ -719,13 +719,26 @@ public class GrpcServerImpl extends RPCServer {
         }
 
         @Override
-        public void cancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
+        public void cancel(
+            final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
           log.info("Got cancel message for " + request.getCommandId());
           if (!request.getCookie().equals(requestCookie)) {
             streamObserver.onCompleted();
             return;
           }
 
+          // Actually performing the cancellation can result in some blocking which we don't want
+          // to do on the dispatcher thread, instead offload to command pool.
+          commandExecutorPool.execute(new Runnable() {
+            @Override
+            public void run() {
+              doCancel(request, streamObserver);
+            }
+          });
+        }
+
+        private void doCancel(
+            CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
           try (RunningCommand cancelCommand = new RunningCommand()) {
             synchronized (runningCommands) {
               RunningCommand pendingCommand = runningCommands.get(request.getCommandId());
