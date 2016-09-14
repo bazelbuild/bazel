@@ -141,6 +141,9 @@ function test_script_file_generation {
 }
 
 function test_consistent_command_line_encoding {
+  # todo(aehlig): reenable: https://github.com/bazelbuild/bazel/issues/1775
+  return 0
+
   # TODO(bazel-team): fix bazel to have consistent encoding, also on darwin;
   # see https://github.com/bazelbuild/bazel/issues/1766
   [ "$PLATFORM" != "darwin" ] || warn "test disabled on darwin, see Github issue 1766"
