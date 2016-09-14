@@ -1021,8 +1021,9 @@ static void StartServerAndConnect(BlazeServer *server) {
   // disaster.
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
-    if (KillServerProcess(server_pid, globals->options.output_base,
-                          globals->options.install_base)) {
+    if (VerifyServerProcess(server_pid, globals->options.output_base,
+                            globals->options.install_base) &&
+        KillServerProcess(server_pid)) {
       fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
               server_pid);
     }
@@ -1438,16 +1439,38 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
   }
 }
 
+// A signal-safe version of fprintf(stderr, ...).
+//
+// WARNING: any output from the blaze client may be interleaved
+// with output from the blaze server.  In --curses mode,
+// the Blaze server often erases the previous line of output.
+// So, be sure to end each such message with TWO newlines,
+// otherwise it may be erased by the next message from the
+// Blaze server.
+// Also, it's a good idea to start each message with a newline,
+// in case the Blaze server has written a partial line.
+static void sigprintf(const char *format, ...) {
+  char buf[1024];
+  va_list ap;
+  va_start(ap, format);
+  int r = vsnprintf(buf, sizeof buf, format, ap);
+  va_end(ap);
+  if (write(STDERR_FILENO, buf, r) <= 0) {
+    // We don't care, just placate the compiler.
+  }
+}
+
 // Signal handler.
 static void handler(int signum) {
+  int saved_errno = errno;
+
   switch (signum) {
     case SIGINT:
       if (++globals->sigint_count >= 3)  {
         sigprintf("\n%s caught third interrupt signal; killed.\n\n",
                   globals->options.product_name.c_str());
         if (globals->server_pid != -1) {
-          KillServerProcess(globals->server_pid, globals->options.output_base,
-                            globals->options.install_base);
+          KillServerProcess(globals->server_pid);
         }
         _exit(1);
       }
@@ -1473,6 +1496,8 @@ static void handler(int signum) {
       kill(globals->server_pid, SIGQUIT);
       break;
   }
+
+  errno = saved_errno;
 }
 
 // Constructs the command line for a server request.
@@ -2026,8 +2051,10 @@ void GrpcBlazeServer::KillRunningServer() {
   while (reader->Read(&response)) {}
 
   // Kill the server process for good measure.
-  KillServerProcess(globals->server_pid, globals->options.output_base,
-                    globals->options.install_base);
+  if (VerifyServerProcess(globals->server_pid, globals->options.output_base,
+                          globals->options.install_base)) {
+    KillServerProcess(globals->server_pid);
+  }
 
   connected_ = false;
 }

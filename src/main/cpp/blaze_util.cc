@@ -176,7 +176,7 @@ int MakeDirectories(const string& path, mode_t mode) {
 }
 
 // Replaces 'contents' with contents of 'fd' file descriptor.
-// Returns false on error. Can be called from a signal handler.
+// Returns false on error.
 bool ReadFileDescriptor(int fd, string *content) {
   content->clear();
   char buf[4096];
@@ -193,7 +193,7 @@ bool ReadFileDescriptor(int fd, string *content) {
 }
 
 // Replaces 'content' with contents of file 'filename'.
-// Returns false on error. Can be called from a signal handler.
+// Returns false on error.
 bool ReadFile(const string &filename, string *content) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
@@ -433,23 +433,6 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
 
 void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
-}
-
-// WARNING: any output from the blaze client may be interleaved
-// with output from the blaze server.  In --curses mode,
-// the Blaze server often erases the previous line of output.
-// So, be sure to end each such message with TWO newlines,
-// otherwise it may be erased by the next message from the
-// Blaze server.
-// Also, it's a good idea to start each message with a newline,
-// in case the Blaze server has written a partial line.
-void sigprintf(const char *format, ...) {
-  char buf[1024];
-  va_list ap;
-  va_start(ap, format);
-  int r = vsnprintf(buf, sizeof buf, format, ap);
-  va_end(ap);
-  (void) write(STDERR_FILENO, buf, r);
 }
 
 }  // namespace blaze

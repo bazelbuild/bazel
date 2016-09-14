@@ -120,11 +120,14 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode,
 // usual.
 void ReleaseLock(BlazeLock* blaze_lock);
 
-// Kills a server process based on its output base and PID. Returns true if the
-// server process was found and killed.
-// This function can be called from a signal handler!
-bool KillServerProcess(
+// Verifies whether the server process still exists. Returns true if it does.
+bool VerifyServerProcess(
     int pid, const string& output_base, const string& install_base);
+
+// Kills a server process based on its PID. Returns true if the
+// server process was found and killed. This function can be called from a
+// signal handler! Returns true if successful.
+bool KillServerProcess(int pid);
 
 // Mark path as being excluded from backups (if supported by operating system).
 void ExcludePathFromBackup(const string &path);

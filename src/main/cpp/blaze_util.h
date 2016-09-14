@@ -119,9 +119,6 @@ string ToString(const T& value) {
   return oss.str();
 }
 
-// A signal-safe version of fprintf(stderr, ...).
-void sigprintf(const char *format, ...);
-
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_

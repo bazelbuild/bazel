@@ -753,8 +753,14 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
   return a_real == b_real;
 }
 
-bool KillServerProcess(
+bool VerifyServerProcess(
     int pid, const string& output_base, const string& install_base) {
+  // TODO(lberki): This might accidentally kill an unrelated process if the
+  // server died and the PID got reused.
+  return true;
+}
+
+bool KillServerProcess(int pid) {
   HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
   if (process == NULL) {
     // Cannot find the server process. Can happen if the PID file is stale.
