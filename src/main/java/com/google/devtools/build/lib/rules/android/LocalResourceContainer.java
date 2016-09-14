@@ -236,7 +236,7 @@ public final class LocalResourceContainer {
         return null;
       }
       // TODO(bazel-team): Expand Fileset to verify, or remove Fileset as an option for resources.
-      if (artifact.isFileset()) {
+      if (artifact.isFileset() || artifact.isTreeArtifact()) {
         return fragment.subFragment(segmentCount - 1, segmentCount);
       }
 

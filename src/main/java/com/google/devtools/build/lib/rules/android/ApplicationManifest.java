@@ -310,6 +310,32 @@ public final class ApplicationManifest {
         null /* Artifact mergedResources */);
   }
 
+  /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
+  public ResourceApk packWithDataAndResources(
+      RuleContext ruleContext, LocalResourceContainer data, ResourceDependencies resourceDeps)
+      throws InterruptedException {
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+    return createApk(
+        null, /* Artifact resourceApk */
+        ruleContext,
+        true, /* isLibrary */
+        resourceDeps,
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
+        ImmutableList.<String>of(), /* List<String> configurationFilters */
+        ImmutableList.<String>of(), /* List<String> uncompressedExtensions */
+        false, /* crunchPng */
+        ImmutableList.<String>of(), /* List<String> densities */
+        false, /* incremental */
+        data,
+        null, /* Artifact proguardCfg */
+        null, /* Artifact mainDexProguardCfg */
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP));
+  }
+
   /** Packages up the manifest with resource and assets from the rule and dependent resources. */
   public ResourceApk packWithDataAndResources(
       @Nullable Artifact resourceApk,

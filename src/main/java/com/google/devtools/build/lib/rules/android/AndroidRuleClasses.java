@@ -257,6 +257,7 @@ public final class AndroidRuleClasses {
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 
   public static final String[] ALLOWED_DEPENDENCIES = {
+      "aar_import",
       "android_library",
       "cc_library",
       "java_import",

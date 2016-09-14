@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.bazel.rules.android.AarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
@@ -360,6 +361,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect, jackAspect));
     builder.addRuleDefinition(new BazelAndroidLibraryRule());
     builder.addRuleDefinition(new BazelAndroidBinaryRule());
+    builder.addRuleDefinition(new AarImportRule());
 
     builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
 
