@@ -55,6 +55,12 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
 Bazel is Google's own build tool, now publicly available in Beta.
 
 Bazel has built-in support for building both client and server software, including client applications for both Android and iOS platforms. It also provides an extensible framework that you can use to develop your own build rules.
+
+## Package parameters
+
+Supply like `--params="/option:value ..."` ([see docs for --params](https://github.com/chocolatey/choco/wiki/CommandsInstall#options-and-switches))
+
+* `msys2Path` (optional, defaults to c:\tools\msys64) - override this if msys2 is installed elsewhere.
 </description>
     <releaseNotes>https://github.com/bazelbuild/bazel/releases/tag/$tvVersion</releaseNotes>
     <!-- =============================== -->      
