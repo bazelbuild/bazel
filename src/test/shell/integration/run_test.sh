@@ -289,7 +289,7 @@ sh_binary(
 EOF
 
   cat > some/testing/test.sh <<'EOF'
-#!/bin/sh
+#!/bin/bash
 set -ex
 echo "Got $@"
 i=1
