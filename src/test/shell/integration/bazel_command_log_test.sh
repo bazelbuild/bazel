@@ -32,6 +32,8 @@ function tear_down() {
 function strip_lines_from_bazel_cc() {
   # sed can't redirect back to its input file (it'll only generate an empty
   # file). In newer versions of gnu sed there is a -i option to edit in place.
+
+  # different sandbox_root result in different startup options
   clean_log=$(\
     sed\
     -e '/^Sending SIGTERM to previous B(l)?aze(l)? server/d'\
@@ -41,6 +43,8 @@ function strip_lines_from_bazel_cc() {
     -e '/^Extracting B(l)?aze(l)? installation\.\.\.$/d'\
     -e '/Waiting for response from B(l)?aze(l)? server/d'\
     -e '/^\.*$/d'\
+    -e '/^Killed non-responsive server process/d'\
+    -e '/server needs to be killed, because the startup options are different/d'\
     $TEST_log)
 
   echo "$clean_log" > $TEST_log
@@ -69,8 +73,6 @@ function test_batch_mode_with_logging_flag() {
   # strip extra lines printed by bazel.cc
   strip_lines_from_bazel_cc
 
-  # different sandbox_root result in different startup options
-  sed -i "/server needs to be killed, because the startup options are different/d" $TEST_log
   # compare $TEST_log with command.log
   assert_equals "" "$(diff $TEST_log $log 2>&1)"
 
