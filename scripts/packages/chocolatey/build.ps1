@@ -20,11 +20,8 @@ rm -force -ErrorAction SilentlyContinue ./tools/chocolateyinstall.ps1
 Add-Type -A System.IO.Compression.FileSystem
 $outputDir = "$pwd/../../../output"
 $zipFile = "$pwd/$($tvFilename)"
-$zipDir = "$outputDir/package"
-new-item $zipDir -type directory -ErrorAction SilentlyContinue
-cp "$outputDir/bazel.exe" $zipDir
-write-host "Creating zip package from directory: $zipDir to file: $zipFile"
-[IO.Compression.ZipFile]::CreateFromDirectory($zipDir, $zipFile)
+write-host "Creating zip package with $outputDir/bazel.exe: $zipFile"
+Compress-Archive -Path "$outputDir/bazel.exe" -DestinationPath $zipFile
 $tvChecksum = (get-filehash $zipFile -algorithm sha256).Hash
 write-host "zip sha256: $tvChecksum"
 
