@@ -14,15 +14,15 @@
 
 #include <stdlib.h>
 
-#include "src/main/cpp/blaze_startup_options.h"
+#include "src/main/cpp/startup_options.h"
 #include "gtest/gtest.h"
 
 namespace blaze {
 
-class BlazeStartupOptionsTest : public ::testing::Test {
+class StartupOptionsTest : public ::testing::Test {
  protected:
-  BlazeStartupOptionsTest() = default;
-  ~BlazeStartupOptionsTest() = default;
+  StartupOptionsTest() = default;
+  ~StartupOptionsTest() = default;
 
   void SetUp() override {
     // This knowingly ignores the possibility of these environment variables
@@ -42,30 +42,30 @@ class BlazeStartupOptionsTest : public ::testing::Test {
   std::string old_test_tmpdir_;
 };
 
-TEST_F(BlazeStartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
+TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   setenv("HOME", "/nonexistent/home", 1);
   setenv("TEST_TMPDIR", "/nonexistent/tmpdir", 1);
 
-  blaze::BlazeStartupOptions startup_options;
+  blaze::StartupOptions startup_options(blaze::BAZEL_PRODUCT_NAME);
   ASSERT_EQ("/nonexistent/tmpdir", startup_options.output_root);
 }
 
-TEST_F(BlazeStartupOptionsTest, OutputRootUseHomeDirectory) {
+TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
   setenv("HOME", "/nonexistent/home", 1);
   unsetenv("TEST_TMPDIR");
 
-  blaze::BlazeStartupOptions startup_options;
+  blaze::StartupOptions startup_options(blaze::BAZEL_PRODUCT_NAME);
   ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options.output_root);
 }
 
-TEST_F(BlazeStartupOptionsTest, OutputRootUseBuiltin) {
+TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
   // We cannot just unsetenv("HOME") because the logic to compute the output
   // root falls back to using the passwd database if HOME is null... and mocking
   // that out is hard.
   setenv("HOME", "", 1);
   unsetenv("TEST_TMPDIR");
 
-  blaze::BlazeStartupOptions startup_options;
+  blaze::StartupOptions startup_options(blaze::BAZEL_PRODUCT_NAME);
   ASSERT_EQ("/tmp", startup_options.output_root);
 }
 
