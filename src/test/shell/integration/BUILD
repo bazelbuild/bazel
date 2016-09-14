@@ -55,6 +55,14 @@ sh_test(
 )
 
 sh_test(
+    name = "run_test",
+    size = "medium",
+    srcs = ["run_test.sh"],
+    data = [":test-deps"],
+    shard_count = 3,
+)
+
+sh_test(
     name = "discard_analysis_cache_test",
     size = "medium",
     srcs = ["discard_analysis_cache_test.sh"],
