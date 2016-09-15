@@ -433,7 +433,7 @@ bool OutputJar::AddJar(int jar_path_index) {
       copy_from += lh_size;
       num_bytes -= lh_size;
       if (reinterpret_cast<uint8_t *>(lh_new) != lh_buffer) {
-        free(lh_buffer);
+        free(lh_new);
       }
     }
 
