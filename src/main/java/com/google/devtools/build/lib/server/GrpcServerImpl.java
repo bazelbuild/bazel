@@ -625,6 +625,19 @@ public class GrpcServerImpl extends RPCServer {
 
     try (RunningCommand command = new RunningCommand()) {
       commandId = command.id;
+
+      try {
+        // Send the client the command id as soon as we know it.
+        observer.onNext(
+            RunResponse.newBuilder()
+                .setCookie(responseCookie)
+                .setCommandId(commandId)
+                .build());
+      } catch (StatusRuntimeException e) {
+        log.info(
+            "The client cancelled the command before receiving the command id: " + e.getMessage());
+      }
+
       OutErr rpcOutErr =
           OutErr.create(
               new RpcOutputStream(command.id, StreamType.STDOUT, sink),
