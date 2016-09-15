@@ -82,8 +82,9 @@ public final class SkylarkAttr {
           + "compatiblity), use providers instead.";
 
   private static final String ASPECTS_ARG = "aspects";
-  private static final String ASPECT_ARG_DOC =
-      "aspects that should be applied to dependencies specified by this attribute";
+  private static final String ASPECTS_ARG_DOC =
+      "aspects that should be applied to the dependency or dependencies specified by this "
+          + "attribute";
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
@@ -540,6 +541,15 @@ public final class SkylarkAttr {
         named = true,
         positional = false,
         doc = CONFIGURATION_DOC
+      ),
+      @Param(
+          name = ASPECTS_ARG,
+          type = SkylarkList.class,
+          generic1 = SkylarkAspect.class,
+          defaultValue = "[]",
+          named = true,
+          positional = false,
+          doc = ASPECTS_ARG_DOC
       )
     },
     useAst = true,
@@ -557,34 +567,42 @@ public final class SkylarkAttr {
             Object allowRules,
             Boolean singleFile,
             Object cfg,
+            SkylarkList<?> aspects,
             FuncallExpression ast,
             Environment env)
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.label", ast.getLocation());
-          return createAttrDescriptor(
-              EvalUtils.<String, Object>optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultO,
-                  EXECUTABLE_ARG,
-                  executable,
-                  ALLOW_FILES_ARG,
-                  allowFiles,
-                  ALLOW_SINGLE_FILE_ARG,
-                  allowSingleFile,
-                  MANDATORY_ARG,
-                  mandatory,
-                  PROVIDERS_ARG,
-                  providers,
-                  ALLOW_RULES_ARG,
-                  allowRules,
-                  SINGLE_FILE_ARG,
-                  singleFile,
-                  CONFIGURATION_ARG,
-                  cfg),
-              BuildType.LABEL,
-              ast,
-              env);
+          try {
+            Attribute.Builder<?> attribute = createAttribute(
+                BuildType.LABEL,
+                EvalUtils.<String, Object>optionMap(
+                    env,
+                    DEFAULT_ARG,
+                    defaultO,
+                    EXECUTABLE_ARG,
+                    executable,
+                    ALLOW_FILES_ARG,
+                    allowFiles,
+                    ALLOW_SINGLE_FILE_ARG,
+                    allowSingleFile,
+                    MANDATORY_ARG,
+                    mandatory,
+                    PROVIDERS_ARG,
+                    providers,
+                    ALLOW_RULES_ARG,
+                    allowRules,
+                    SINGLE_FILE_ARG,
+                    singleFile,
+                    CONFIGURATION_ARG,
+                    cfg),
+                ast,
+                env);
+            ImmutableList<SkylarkAspect> skylarkAspects =
+                ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
+            return new Descriptor(attribute, skylarkAspects);
+          } catch (EvalException e) {
+            throw new EvalException(ast.getLocation(), e.getMessage(), e);
+          }
         }
       };
 
@@ -811,7 +829,7 @@ public final class SkylarkAttr {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = ASPECT_ARG_DOC
+        doc = ASPECTS_ARG_DOC
       )
     },
     useAst = true,

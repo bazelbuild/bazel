@@ -361,6 +361,43 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testAspectOnLabelAttr() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return struct(aspect_data='foo')",
+        "",
+        "def _rule_impl(ctx):",
+        "   return struct(data=ctx.attr.attr.aspect_data)",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_aspect_impl,",
+        ")",
+        "my_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : ",
+        "             attr.label(aspects = [MyAspect]) },",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('/test/aspect', 'my_rule')",
+        "java_library(",
+        "     name = 'yyy',",
+        ")",
+        "my_rule(",
+        "     name = 'xxx',",
+        "     attr = ':yyy',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:xxx");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
+    Object value = skylarkProviders.getValue("data");
+    assertThat(value).isEqualTo("foo");
+  }
+
+  @Test
   public void testAspectsDoNotAttachToFiles() throws Exception {
     FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
         "bind(name = 'yyy', actual = '//test:zzz.jar')");
