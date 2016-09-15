@@ -435,13 +435,12 @@ testdata/input.txt
 
   BUILD file, relative to the top-level directory of the source tree.
   For example: <code>my/app</code>.
-  Package names must start with a lower-case ASCII letter
-  (<code>a</code>–<code>z</code>),
-  and must be composed entirely of characters drawn from the set
-  <code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>,
-  '<code>_</code>', and '<code>/</code>'.
-</p>
 
+  Package names must be composed entirely of characters drawn from
+  the set <code>A</code>-<code>Z</code>, <code>a</code>–<code>z</code>,
+  <code>0</code>–<code>9</code>, '<code>/</code>', '<code>-</code>',
+  '<code>.</code>', and '<code>_</code>', and cannot start with
+  a slash.
 <p>
   For a language with a directory structure that is significant
   to its module system (e.g. Java), it is important to choose directory names
