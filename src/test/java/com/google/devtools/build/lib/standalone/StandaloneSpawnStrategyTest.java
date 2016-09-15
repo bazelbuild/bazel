@@ -97,7 +97,6 @@ public class StandaloneSpawnStrategyTest {
     this.executor =
         new BlazeExecutor(
             directories.getExecRoot(),
-            directories.getOutputPath(),
             reporter,
             bus,
             BlazeClock.instance(),

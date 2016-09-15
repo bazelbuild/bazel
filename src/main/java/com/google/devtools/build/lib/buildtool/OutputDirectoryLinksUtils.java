@@ -192,7 +192,7 @@ public class OutputDirectoryLinksUtils {
     Path link = base.getRelative(name);
     try {
       if (link.exists(Symlinks.NOFOLLOW)) {
-        ExecutionTool.LOG.finest("Removing " + link);
+        ExecutionTool.log.finest("Removing " + link);
         link.delete();
       }
       return true;

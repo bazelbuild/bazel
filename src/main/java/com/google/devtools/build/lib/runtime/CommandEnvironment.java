@@ -292,13 +292,6 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Returns the output path associated with this Blaze server process..
-   */
-  public Path getOutputPath() {
-    return getDirectories().getOutputPath();
-  }
-
-  /**
    * Returns the execution root directory associated with this Blaze server
    * process. This is where all input and output files visible to the actual
    * build reside.

@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @ThreadSafe
 public final class BlazeExecutor implements Executor {
 
-  private final Path outputPath;
   private final boolean verboseFailures;
   private final boolean showSubcommands;
   private final Path execRoot;
@@ -74,7 +73,6 @@ public final class BlazeExecutor implements Executor {
    * request, and shutdown() when you're done with this executor.
    */
   public BlazeExecutor(Path execRoot,
-      Path outputPath,
       Reporter reporter,
       EventBus eventBus,
       Clock clock,
@@ -85,7 +83,6 @@ public final class BlazeExecutor implements Executor {
       Map<String, SpawnActionContext> spawnActionContextMap,
       Iterable<ActionContextProvider> contextProviders)
       throws ExecutorInitException {
-    this.outputPath = outputPath;
     this.verboseFailures = verboseFailures;
     this.showSubcommands = showSubcommands;
     this.execRoot = execRoot;
@@ -221,9 +218,5 @@ public final class BlazeExecutor implements Executor {
   @Override
   public OptionsClassProvider getOptions() {
     return options;
-  }
-
-  public Path getOutputPath() {
-    return outputPath;
   }
 }

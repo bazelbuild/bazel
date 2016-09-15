@@ -96,7 +96,7 @@ public class TestExecutorBuilder {
   }
 
   public BlazeExecutor build() throws ExecutorInitException {
-    return new BlazeExecutor(directories.getExecRoot(), directories.getOutputPath(), reporter, bus,
+    return new BlazeExecutor(directories.getExecRoot(), reporter, bus,
         BlazeClock.instance(), optionsParser,
         optionsParser.getOptions(ExecutionOptions.class).verboseFailures,
         optionsParser.getOptions(ExecutionOptions.class).showSubcommands,
