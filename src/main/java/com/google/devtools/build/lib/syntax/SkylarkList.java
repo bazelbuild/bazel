@@ -35,7 +35,8 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.BUILTIN,
   doc = "common type of lists and tuples"
 )
-public abstract class SkylarkList<E> extends MutableCollection<E> implements List<E>, RandomAccess {
+public abstract class SkylarkList<E> extends MutableCollection<E> implements List<E>, RandomAccess,
+    SkylarkIndexable {
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
@@ -122,6 +123,39 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
   }
 
   /**
+   * Retrieve an entry from a SkylarkList.
+   *
+   * @param key the index
+   * @param loc a {@link Location} in case of error
+   * @throws EvalException if the key is invalid
+   */
+  @Override
+  public final E getIndex(Object key, Location loc) throws EvalException {
+    List<E> list = getContentsUnsafe();
+    int index = MethodLibrary.getListIndex(key, list.size(), loc);
+    return list.get(index);
+  }
+
+  /**
+   * Retrieve a sublist from a SkylarkList.
+   * @param start start value
+   * @param end end value
+   * @param step step value
+   * @param loc a {@link Location} in case of error
+   * @throws EvalException if the key is invalid
+   */
+  public List<E> getSlice(Object start, Object end, Object step, Location loc)
+      throws EvalException {
+    List<E> list = getContentsUnsafe();
+    int length = list.size();
+    ImmutableList.Builder<E> slice = ImmutableList.builder();
+    for (int pos : MethodLibrary.getSliceIndices(start, end, step, length, loc)) {
+      slice.add(list.get(pos));
+    }
+    return slice.build();
+  }
+
+  /**
    * Put an entry into a SkylarkList.
    * @param key the index
    * @param value the associated value
@@ -131,12 +165,8 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
    */
   public void set(Object key, E value, Location loc, Environment env) throws EvalException {
     checkMutable(loc, env);
-    if (!(key instanceof Integer)) {
-      throw new EvalException(loc, "list indices must be integers, not '" + key + '"');
-    }
-    int index = ((Integer) key).intValue();
     List list = getContentsUnsafe();
-    index = MethodLibrary.getListIndex(index, list.size(), loc);
+    int index = MethodLibrary.getListIndex(key, list.size(), loc);
     list.set(index, value);
   }
 
@@ -495,6 +525,20 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
      */
     public static <E> Tuple<E> of(E... elements) {
       return Tuple.create(ImmutableList.copyOf(elements));
+    }
+
+    /**
+     * Retrieve a sublist from a SkylarkList.
+     * @param start start value
+     * @param end end value
+     * @param step step value
+     * @param loc a {@link Location} in case of error
+     * @throws EvalException if the key is invalid
+     */
+    @Override
+    public final Tuple<E> getSlice(Object start, Object end, Object step, Location loc)
+        throws EvalException {
+      return copyOf(super.getSlice(start, end, step, loc));
     }
 
     @Override

@@ -287,24 +287,11 @@ public final class FuncallExpression extends Expression {
   }
 
   private String functionName() {
-    String name = func.getName();
-    if (name.equals("$slice")) {
-      return "operator [:]";
-    } else if (name.equals("$index")) {
-      return "operator []";
-    } else {
-      return "function " + name;
-    }
+    return "function " + func.getName();
   }
 
   @Override
   public String toString() {
-    if (func.getName().equals("$slice")) {
-      return obj + "[" + args.get(0) + ":" + args.get(1) + "]";
-    }
-    if (func.getName().equals("$index")) {
-      return obj + "[" + args.get(0) + "]";
-    }
     StringBuilder sb = new StringBuilder();
     if (obj != null) {
       sb.append(obj).append(".");

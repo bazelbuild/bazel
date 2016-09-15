@@ -24,19 +24,16 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.LinkedList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.LinkedList;
-import java.util.List;
 
 /**
  *  Tests of parser behaviour.
@@ -259,17 +256,16 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testSubstring() throws Exception {
-    FuncallExpression e = (FuncallExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
-    assertEquals("$slice", e.getFunction().getName());
-    assertThat(e.getArguments()).hasSize(3);
+    SliceExpression s = (SliceExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
+    assertThat(((IntegerLiteral) s.getStart()).value).isEqualTo(1);
 
-    e = (FuncallExpression) parseExpression("'FOO.CC'.lower()[1:].startswith('oo')");
+    FuncallExpression e = (FuncallExpression) parseExpression(
+        "'FOO.CC'.lower()[1:].startswith('oo')");
     assertEquals("startswith", e.getFunction().getName());
     assertThat(e.getArguments()).hasSize(1);
 
-    e = (FuncallExpression) parseExpression("'FOO.CC'[1:][:2]");
-    assertEquals("$slice", e.getFunction().getName());
-    assertThat(e.getArguments()).hasSize(3);
+    s = (SliceExpression) parseExpression("'FOO.CC'[1:][:2]");
+    assertThat(((IntegerLiteral) s.getEnd()).value).isEqualTo(2);
   }
 
   @Test
@@ -288,18 +284,12 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   private void evalSlice(String statement, Object... expectedArgs) {
-    FuncallExpression e = (FuncallExpression) parseExpression(statement);
-    assertEquals("$slice", e.getFunction().getName());
-    List<Passed> actualArgs = e.getArguments();
-    assertThat(actualArgs).hasSize(expectedArgs.length);
-    int pos = 0;
-    for (Passed arg : actualArgs) {
-      // There is no way to evaluate the expression here, so we rely on string comparison.
-      String actualString = arg.getValue().toString();
-      String expectedString = printSliceArg(expectedArgs[pos]);
-      assertThat(actualString).isEqualTo(expectedString);
-      ++pos;
-    }
+    SliceExpression e = (SliceExpression) parseExpression(statement);
+
+    // There is no way to evaluate the expression here, so we rely on string comparison.
+    assertThat(e.getStart().toString()).isEqualTo(printSliceArg(expectedArgs[0]));
+    assertThat(e.getEnd().toString()).isEqualTo(printSliceArg(expectedArgs[1]));
+    assertThat(e.getStep().toString()).isEqualTo(printSliceArg(expectedArgs[2]));
   }
 
   private String printSliceArg(Object arg) {
@@ -456,6 +446,10 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testPrettyPrintFunctions() throws Exception {
     assertEquals("[x[1:3]\n]", parseFile("x[1:3]").toString());
+    assertEquals("[x[1:3]\n]", parseFile("x[1:3:1]").toString());
+    assertEquals("[x[1:3:2]\n]", parseFile("x[1:3:2]").toString());
+    assertEquals("[x[1::2]\n]", parseFile("x[1::2]").toString());
+    assertEquals("[x[1:]\n]", parseFile("x[1:]").toString());
     assertEquals("[str[42]\n]", parseFile("str[42]").toString());
     assertEquals("[ctx.new_file('hello')\n]", parseFile("ctx.new_file('hello')").toString());
     assertEquals("[new_file('hello')\n]", parseFile("new_file('hello')").toString());

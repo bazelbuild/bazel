@@ -22,16 +22,14 @@ import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
 import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.Preconditions;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Removal;
-import net.bytebuddy.implementation.bytecode.constant.IntegerConstant;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import net.bytebuddy.implementation.bytecode.Removal;
+import net.bytebuddy.implementation.bytecode.constant.IntegerConstant;
 
 /**
  * Class representing an LValue.
@@ -85,16 +83,12 @@ public class LValue implements Serializable {
 
     // Support syntax for setting an element in an array, e.g. a[5] = 2
     // TODO: We currently do not allow slices (e.g. a[2:6] = [3]).
-    if (lvalue instanceof FuncallExpression) {
-      FuncallExpression func = (FuncallExpression) lvalue;
-      List<Argument.Passed> args = func.getArguments();
-      if (func.getFunction().getName().equals("$index")
-          && args.size() == 1) {
-        Object key = args.get(0).getValue().eval(env);
-        Object evaluatedObject = func.getObject().eval(env);
-        assignItem(env, loc, evaluatedObject, key, result);
-        return;
-      }
+    if (lvalue instanceof IndexExpression) {
+      IndexExpression expression = (IndexExpression) lvalue;
+      Object key = expression.getKey().eval(env);
+      Object evaluatedObject = expression.getObject().eval(env);
+      assignItem(env, loc, evaluatedObject, key, result);
+      return;
     }
     throw new EvalException(loc,
         "can only assign to variables and tuples, not to '" + lvalue + "'");
@@ -156,11 +150,8 @@ public class LValue implements Serializable {
       }
       return;
     }
-    if (expr instanceof FuncallExpression) {
-      FuncallExpression func = (FuncallExpression) expr;
-      if (func.getFunction().getName().equals("$index")) {
-        return;
-      }
+    if (expr instanceof IndexExpression) {
+      return;
     }
     throw new EvalException(loc,
         "can only assign to variables and tuples, not to '" + expr + "'");

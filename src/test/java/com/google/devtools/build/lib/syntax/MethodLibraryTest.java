@@ -486,7 +486,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .testStatement(
             "str(dir({}))",
-            "[\"$index\", \"clear\", \"get\", \"items\", \"keys\","
+            "[\"clear\", \"get\", \"items\", \"keys\","
                 + " \"pop\", \"popitem\", \"setdefault\", \"update\", \"values\"]");
   }
 
@@ -1145,8 +1145,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testListAccessBadIndex() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Method list.$index(key: int) is not applicable for arguments (string): "
-                + "'key' is string, but should be int",
+            "List indices must be integers, not string",
             "[[1], [2]]['a']");
   }
 
@@ -1484,11 +1483,16 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testListIndexOutOfRange() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("List index out of range", "[0, 1, 2][3]")
-        .testIfErrorContains("List index out of range", "[0, 1, 2][-4]")
-        .testIfErrorContains("List is empty", "[][0]")
-        .testIfErrorContains("List index out of range", "[0][-2]")
-        .testIfErrorContains("List index out of range", "[0][1]");
+        .testIfErrorContains(
+            "List index out of range (index is 3, but list has 3 elements)", "[0, 1, 2][3]")
+        .testIfErrorContains(
+            "List index out of range (index is -4, but list has 3 elements)", "[0, 1, 2][-4]")
+        .testIfErrorContains(
+            "List index out of range (index is -2, but list has 1 elements)", "[0][-2]")
+        .testIfErrorContains(
+            "List index out of range (index is 1, but list has 1 elements)", "[0][1]")
+        .testIfErrorContains(
+            "List index out of range (index is 1, but list has 0 elements)", "[][1]");
   }
 
   @Test

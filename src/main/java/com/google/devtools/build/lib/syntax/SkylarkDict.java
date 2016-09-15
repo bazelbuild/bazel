@@ -18,10 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
-
 import java.util.Map;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +44,7 @@ import javax.annotation.Nullable;
     + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True"
     + "</pre>")
 public final class SkylarkDict<K, V>
-    extends MutableMap<K, V> implements Map<K, V> {
+    extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
 
   private TreeMap<K, V> contents = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
 
@@ -217,6 +215,13 @@ public final class SkylarkDict<K, V>
     return (SkylarkDict<KeyType, ValueType>) this;
   }
 
+  @Override
+  public final Object getIndex(Object key, Location loc) throws EvalException {
+    if (!this.containsKey(key)) {
+      throw new EvalException(loc, Printer.format("Key %r not found in dictionary", key));
+    }
+    return this.get(key);
+  }
 
   public static <K, V> SkylarkDict<K, V> plus(
       SkylarkDict<? extends K, ? extends V> left,

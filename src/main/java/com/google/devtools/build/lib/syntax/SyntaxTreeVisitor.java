@@ -144,6 +144,18 @@ public class SyntaxTreeVisitor {
     visit(node.getField());
   }
 
+  public void visit(IndexExpression node) {
+    visit(node.getObject());
+    visit(node.getKey());
+  }
+
+  public void visit(SliceExpression node) {
+    visit(node.getObject());
+    visit(node.getStart());
+    visit(node.getEnd());
+    visit(node.getStep());
+  }
+
   public void visit(@SuppressWarnings("unused") Comment node) {}
 
   public void visit(ConditionalExpression node) {

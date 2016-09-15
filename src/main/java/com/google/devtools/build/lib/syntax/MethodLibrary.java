@@ -55,7 +55,7 @@ public class MethodLibrary {
   // Convert string index in the same way Python does.
   // If index is negative, starts from the end.
   // If index is outside bounds, it is restricted to the valid range.
-  private static int clampIndex(int index, int length) {
+  public static int clampIndex(int index, int length) {
     if (index < 0) {
       index += length;
     }
@@ -82,17 +82,27 @@ public class MethodLibrary {
     return str.substring(start, stop);
   }
 
-  public static int getListIndex(int index, int listSize, Location loc)
-      throws ConversionException, EvalException {
+  private static int getListIndex(int index, int listSize, Location loc)
+      throws EvalException {
     // Get the nth element in the list
-    if (index < 0) {
-      index += listSize;
+    int actualIndex = index;
+    if (actualIndex < 0) {
+      actualIndex += listSize;
     }
-    if (index < 0 || index >= listSize) {
+    if (actualIndex < 0 || actualIndex >= listSize) {
       throw new EvalException(loc, "List index out of range (index is "
           + index + ", but list has " + listSize + " elements)");
     }
-    return index;
+    return actualIndex;
+  }
+
+  public static int getListIndex(Object index, int listSize, Location loc)
+      throws EvalException {
+    if (!(index instanceof Integer)) {
+      throw new EvalException(loc, "List indices must be integers, not "
+          + EvalUtils.getDataTypeName(index));
+    }
+    return getListIndex(((Integer) index).intValue(), listSize, loc);
   }
 
   // supported string methods
@@ -900,120 +910,28 @@ public class MethodLibrary {
     }
   };
 
-  // slice operator
-  @SkylarkSignature(
-    name = "$slice",
-    objectType = String.class,
-    documented = false,
-    parameters = {
-      @Param(name = "self", type = String.class, doc = "This string."),
-      @Param(name = "start", type = Object.class, doc = "start position of the slice."),
-      @Param(name = "end", type = Object.class, doc = "end position of the slice."),
-      @Param(name = "step", type = Integer.class, defaultValue = "1", doc = "step value.")
-    },
-    doc =
-        "x[<code>start</code>:<code>end</code>:<code>step</code>] returns a slice or a list slice. "
-            + "Values may be negative and can be omitted.",
-    useLocation = true
-  )
-  private static final BuiltinFunction stringSlice =
-      new BuiltinFunction("$slice") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(String self, Object start, Object end, Integer step, Location loc)
-            throws EvalException, ConversionException {
-          List<Integer> indices = getSliceIndices(start, end, step, self.length(), loc);
-          char[] result = new char[indices.size()];
-          char[] original = self.toCharArray();
-          int resultIndex = 0;
-          for (int originalIndex : indices) {
-            result[resultIndex] = original[originalIndex];
-            ++resultIndex;
-          }
-          return new String(result);
-        }
-      };
-
-  @SkylarkSignature(
-    name = "$slice",
-    objectType = MutableList.class,
-    returnType = MutableList.class,
-    documented = false,
-    parameters = {
-      @Param(name = "self", type = MutableList.class, doc = "This list."),
-      @Param(name = "start", type = Object.class, doc = "start position of the slice."),
-      @Param(name = "end", type = Object.class, doc = "end position of the slice."),
-      @Param(name = "step", type = Integer.class, defaultValue = "1", doc = "step value.")
-    },
-    doc =
-        "x[<code>start</code>:<code>end</code>:<code>step</code>] returns a slice or a list slice."
-            + "Values may be negative and can be omitted.",
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction mutableListSlice =
-      new BuiltinFunction("$slice") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public MutableList<Object> invoke(
-            MutableList<Object> self, Object start, Object end, Integer step, Location loc,
-            Environment env)
-            throws EvalException, ConversionException {
-          return new MutableList(sliceList(self, start, end, step, loc), env);
-        }
-      };
-
-  @SkylarkSignature(
-    name = "$slice",
-    objectType = Tuple.class,
-    returnType = Tuple.class,
-    documented = false,
-    parameters = {
-      @Param(name = "self", type = Tuple.class, doc = "This tuple."),
-      @Param(name = "start", type = Object.class, doc = "start position of the slice."),
-      @Param(name = "end", type = Object.class, doc = "end position of the slice."),
-      @Param(name = "step", type = Integer.class, defaultValue = "1", doc = "step value.")
-    },
-    doc =
-        "x[<code>start</code>:<code>end</code>:<code>step</code>] returns a slice or a list slice. "
-            + "Values may be negative and can be omitted.",
-    useLocation = true
-  )
-  private static final BuiltinFunction tupleSlice =
-      new BuiltinFunction("$slice") {
-        @SuppressWarnings("unused") // Accessed via Reflection.
-        public Tuple<Object> invoke(
-            Tuple<Object> self, Object start, Object end, Integer step, Location loc)
-            throws EvalException, ConversionException {
-          return Tuple.copyOf(sliceList(self, start, end, step, loc));
-        }
-      };
-
-  private static List<Object> sliceList(
-      List<Object> original, Object startObj, Object endObj, int step, Location loc)
-      throws EvalException {
-    int length = original.size();
-    ImmutableList.Builder<Object> slice = ImmutableList.builder();
-    for (int pos : getSliceIndices(startObj, endObj, step, length, loc)) {
-      slice.add(original.get(pos));
-    }
-    return slice.build();
-  }
-
   /**
    *  Calculates the indices of the elements that should be included in the slice [start:end:step]
    * of a sequence with the given length.
    */
-  private static List<Integer> getSliceIndices(
-      Object startObj, Object endObj, int step, int length, Location loc) throws EvalException {
+  public static List<Integer> getSliceIndices(
+      Object startObj, Object endObj, Object stepObj, int length, Location loc
+  ) throws EvalException {
+
+    if (!(stepObj instanceof Integer)) {
+      throw new EvalException(loc, "slice step must be an integer");
+    }
+    int step = ((Integer) stepObj).intValue();
     if (step == 0) {
       throw new EvalException(loc, "slice step cannot be zero");
     }
-    int start = getIndex(startObj,
+    int start = getSliceIndex(startObj,
         step,
         /*positiveStepDefault=*/ 0,
         /*negativeStepDefault=*/ length - 1,
         /*length=*/ length,
         loc);
-    int end = getIndex(endObj,
+    int end = getSliceIndex(endObj,
         step,
         /*positiveStepDefault=*/ length,
         /*negativeStepDefault=*/ -1,
@@ -1033,13 +951,13 @@ public class MethodLibrary {
    * <p>If the value is {@code None}, the return value of this methods depends on the sign of the
    * slice step.
    */
-  private static int getIndex(Object value, int step, int positiveStepDefault,
+  private static int getSliceIndex(Object value, int step, int positiveStepDefault,
       int negativeStepDefault, int length, Location loc) throws EvalException {
     if (value == Runtime.NONE) {
       return step < 0 ? negativeStepDefault : positiveStepDefault;
     } else {
       try {
-        return clampIndex(Type.INTEGER.cast(value), length);
+        return MethodLibrary.clampIndex(Type.INTEGER.cast(value), length);
       } catch (ClassCastException ex) {
         throw new EvalException(loc, String.format("'%s' is not a valid int", value));
       }
@@ -1520,93 +1438,6 @@ public class MethodLibrary {
             throws EvalException {
           self.putAll(other, loc, env);
           return Runtime.NONE;
-        }
-      };
-
-  // dictionary access operator
-  @SkylarkSignature(name = "$index", documented = false, objectType = SkylarkDict.class,
-      doc = "Looks up a value in a dictionary.",
-      parameters = {
-        @Param(name = "self", type = SkylarkDict.class, doc = "This dict."),
-        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true, useEnvironment = true)
-  private static final BuiltinFunction dictIndexOperator = new BuiltinFunction("$index") {
-      public Object invoke(SkylarkDict<?, ?> self, Object key,
-        Location loc, Environment env) throws EvalException, ConversionException {
-      if (!self.containsKey(key)) {
-        throw new EvalException(loc, Printer.format("Key %r not found in dictionary", key));
-      }
-      return SkylarkType.convertToSkylark(self.get(key), env);
-    }
-  };
-
-  // list access operator
-  @SkylarkSignature(
-    name = "$index",
-    documented = false,
-    objectType = MutableList.class,
-    doc = "Returns the nth element of a list.",
-    parameters = {
-      @Param(name = "self", type = MutableList.class, doc = "This list."),
-      @Param(name = "key", type = Integer.class, doc = "The index or key to access.")
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction listIndexOperator =
-      new BuiltinFunction("$index") {
-        public Object invoke(MutableList<?> self, Integer key, Location loc, Environment env)
-            throws EvalException, ConversionException {
-          if (self.isEmpty()) {
-            throw new EvalException(loc, "List is empty");
-          }
-          int index = getListIndex(key, self.size(), loc);
-          return SkylarkType.convertToSkylark(self.get(index), env);
-        }
-      };
-
-  // tuple access operator
-  @SkylarkSignature(
-    name = "$index",
-    documented = false,
-    objectType = Tuple.class,
-    doc = "Returns the nth element of a tuple.",
-    parameters = {
-      @Param(name = "self", type = Tuple.class, doc = "This tuple."),
-      @Param(name = "key", type = Integer.class, doc = "The index or key to access.")
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction tupleIndexOperator =
-      new BuiltinFunction("$index") {
-        public Object invoke(Tuple<?> self, Integer key, Location loc, Environment env)
-            throws EvalException, ConversionException {
-          if (self.isEmpty()) {
-            throw new EvalException(loc, "tuple is empty");
-          }
-          int index = getListIndex(key, self.size(), loc);
-          return SkylarkType.convertToSkylark(self.get(index), env);
-        }
-      };
-
-  @SkylarkSignature(
-    name = "$index",
-    documented = false,
-    objectType = String.class,
-    doc = "Returns the nth element of a string.",
-    parameters = {
-      @Param(name = "self", type = String.class, doc = "This string."),
-      @Param(name = "key", type = Integer.class, doc = "The index or key to access.")
-    },
-    useLocation = true
-  )
-  private static final BuiltinFunction stringIndexOperator =
-      new BuiltinFunction("$index") {
-        public Object invoke(String self, Integer key, Location loc)
-            throws EvalException, ConversionException {
-          int index = getListIndex(key, self.length(), loc);
-          return self.substring(index, index + 1);
         }
       };
 
