@@ -373,14 +373,21 @@ def _find_python(repository_ctx):
   """Find where is python on Windows."""
   if "BAZEL_PYTHON" in repository_ctx.os.environ:
     return repository_ctx.os.environ["BAZEL_PYTHON"]
-  auto_configure_warning("'BAZEL_PYTHON' is not set, start finding python in PATH.")
+  auto_configure_warning("'BAZEL_PYTHON' is not set, start looking for python in PATH.")
   python_binary = _which_cmd(repository_ctx, "python.exe", "C:\\Python27\\python.exe")
   return python_binary
 
+def _find_bash(repository_ctx):
+  """Find where is bash on Windows."""
+  if "BAZEL_SH" in repository_ctx.os.environ:
+    return repository_ctx.os.environ["BAZEL_SH"]
+  auto_configure_warning("'BAZEL_SH' is not set, start looking for bash in PATH.")
+  bash_binary = _which_cmd(repository_ctx, "bash.exe")
+  return bash_binary
 
 def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
-  bash_bin = _which_cmd(repository_ctx, "bash.exe")
+  bash_bin = _find_bash(repository_ctx)
   program_files_dir = _get_env_var(repository_ctx, "ProgramFiles(x86)", "C:\\Program Files (x86)")
   vs_version = _execute(repository_ctx, [bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir])
   return program_files_dir + "/" + vs_version
