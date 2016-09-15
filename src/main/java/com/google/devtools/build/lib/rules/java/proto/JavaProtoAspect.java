@@ -22,18 +22,14 @@ import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider.GET_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -59,13 +55,12 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
@@ -138,11 +133,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 attr(SPEED_PROTO_RUNTIME_ATTR, LABEL)
                     .legacyAllowAnyFileType()
                     .value(parseAbsoluteUnchecked(SPEED_PROTO_RUNTIME_LABEL)))
-            .add(
-                attr(PROTO_SOURCE_FILE_BLACKLIST_ATTR, LABEL_LIST)
-                    .cfg(HOST)
-                    .value(
-                        transformToList(protoSourceFileBlacklistLabels, PARSE_ABSOLUTE_UNCHECKED)))
+            .add(ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+                    PROTO_SOURCE_FILE_BLACKLIST_ATTR,
+                    transformToList(protoSourceFileBlacklistLabels, PARSE_ABSOLUTE_UNCHECKED)))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
@@ -163,16 +156,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   private static <F, T> List<T> transformToList(
       Iterable<F> fromIterable, Function<? super F, ? extends T> function) {
     return Lists.<T>newArrayList(transform(fromIterable, function));
-  }
-
-  @VisibleForTesting
-  public static String createBlacklistedProtosMixError(
-      Iterable<String> blacklisted, Iterable<String> nonBlacklisted, String ruleLabel) {
-    return String.format(
-        "The 'srcs' attribute of '%s' contains protos for which 'java_proto_library' "
-            + "shouldn't generate code (%s), in addition to protos for which it should (%s).\n"
-            + "Separate '%1$s' into 2 proto_library rules.",
-        ruleLabel, Joiner.on(", ").join(blacklisted), Joiner.on(", ").join(nonBlacklisted));
   }
 
   private static class Impl {
@@ -270,30 +253,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         return false;
       }
 
-      Set<Artifact> blacklist =
-          Sets.newHashSet(
-              ruleContext
-                  .getPrerequisiteArtifacts(PROTO_SOURCE_FILE_BLACKLIST_ATTR, Mode.HOST)
-                  .list());
-      List<Artifact> blacklisted = new ArrayList<>();
-      List<Artifact> nonBlacklisted = new ArrayList<>();
-      for (Artifact src : supportData.getDirectProtoSources()) {
-        if (blacklist.contains(src)) {
-          blacklisted.add(src);
-        } else {
-          nonBlacklisted.add(src);
-        }
-      }
-      if (!nonBlacklisted.isEmpty() && !blacklisted.isEmpty()) {
-        ruleContext.attributeError(
-            "srcs",
-            createBlacklistedProtosMixError(
-                Artifact.toRootRelativePaths(blacklisted),
-                Artifact.toRootRelativePaths(nonBlacklisted),
-                ruleContext.getLabel().toString()));
-      }
-
-      return blacklisted.isEmpty();
+      ProtoSourceFileBlacklist protoBlackList =
+          new ProtoSourceFileBlacklist(ruleContext, PROTO_SOURCE_FILE_BLACKLIST_ATTR);
+      return protoBlackList.checkSrcs(supportData.getDirectProtoSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {

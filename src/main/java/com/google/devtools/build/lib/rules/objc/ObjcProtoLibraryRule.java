@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PROTO_COM
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PROTO_LIB_ATTR;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -146,9 +148,9 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                       }
                     }))
         .add(
-            attr(PROTOBUF_WELL_KNOWN_TYPES, LABEL)
-                .cfg(HOST)
-                .value(env.getToolsLabel("//tools/objc:protobuf_well_known_types")))
+            ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+                PROTOBUF_WELL_KNOWN_TYPES,
+                ImmutableList.of(env.getToolsLabel("//tools/objc:protobuf_well_known_types"))))
         .add(
             attr(XCODE_GEN_ATTR, LABEL)
                 .cfg(HOST)

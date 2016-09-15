@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -30,10 +29,10 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common rule attributes used by an objc_proto_library. */
 final class ProtoAttributes {
@@ -65,8 +64,6 @@ final class ProtoAttributes {
       "Protobuf objc_proto_library targets can't depend on Protocol Buffers 2 objc_proto_library "
           + "targets. Please migrate your Protocol Buffers 2 objc_proto_library targets to use the "
           + "portable_proto_filters attribute.";
-
-  private static final PathFragment BAZEL_TOOLS_PREFIX = new PathFragment("external/bazel_tools/");
 
   private final RuleContext ruleContext;
 
@@ -230,40 +227,18 @@ final class ProtoAttributes {
    * prevent the well known protos from being generated as they are already generated in the runtime
    * library.
    */
-  ImmutableSet<Artifact> filterWellKnownProtos(Iterable<Artifact> protoFiles) {
-    // Since well known protos are already linked in the runtime library, we have to filter them
-    // so they don't get generated again.
-    ImmutableSet.Builder<Artifact> filteredProtos = new ImmutableSet.Builder<Artifact>();
-    for (Artifact protoFile : protoFiles) {
-      if (!isProtoWellKnown(protoFile)) {
-        filteredProtos.add(protoFile);
-      }
-    }
-    return filteredProtos.build();
+  Iterable<Artifact> filterWellKnownProtos(Iterable<Artifact> protoFiles) {
+    ProtoSourceFileBlacklist wellKnownProtoBlacklist =
+        new ProtoSourceFileBlacklist(ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES);
+    return wellKnownProtoBlacklist.filter(protoFiles);
   }
 
   /** Returns whether the given proto is a well known proto or not. */
   boolean isProtoWellKnown(Artifact protoFile) {
-    return getWellKnownProtoPaths().contains(protoFile.getExecPath());
+    ProtoSourceFileBlacklist wellKnownProtoBlacklist =
+        new ProtoSourceFileBlacklist(ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES);
+    return wellKnownProtoBlacklist.isBlacklisted(protoFile);
   }
-
-  private ImmutableSet<PathFragment> getWellKnownProtoPaths() {
-    ImmutableSet.Builder<PathFragment> wellKnownProtoPathsBuilder = new ImmutableSet.Builder<>();
-    Iterable<Artifact> wellKnownProtoFiles =
-        ruleContext
-            .getPrerequisiteArtifacts(ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST)
-            .list();
-    for (Artifact wellKnownProtoFile : wellKnownProtoFiles) {
-      PathFragment execPath = wellKnownProtoFile.getExecPath();
-      if (execPath.startsWith(BAZEL_TOOLS_PREFIX)) {
-        wellKnownProtoPathsBuilder.add(execPath.relativeTo(BAZEL_TOOLS_PREFIX));
-      } else {
-        wellKnownProtoPathsBuilder.add(execPath);
-      }
-    }
-    return wellKnownProtoPathsBuilder.build();
-  }
-
 
   /** Returns the sets of proto files that were added using proto_library dependencies. */
   private NestedSet<Artifact> getProtoDepsSources() {

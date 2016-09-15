@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeCon
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -891,9 +892,9 @@ public class ObjcRuleClasses {
                   .cfg(HOST)
                   .value(env.getToolsLabel("//tools/objc:protobuf_compiler_support")))
           .add(
-              attr(PROTOBUF_WELL_KNOWN_TYPES, LABEL)
-                  .cfg(HOST)
-                  .value(env.getToolsLabel("//tools/objc:protobuf_well_known_types")))
+              ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+                  PROTOBUF_WELL_KNOWN_TYPES,
+                  ImmutableList.of(env.getToolsLabel("//tools/objc:protobuf_well_known_types"))))
           .override(builder.copy("deps").aspect(objcProtoAspect))
           /* <!-- #BLAZE_RULE($objc_linking_rule).ATTRIBUTE(linkopts) -->
           Extra flags to pass to the linker.
