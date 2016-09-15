@@ -24,3 +24,18 @@ sh_test(
     srcs = ["unittest_test.sh"],
     data = [":bashunit"],
 )
+
+sh_library(
+    name = "shell_utils",
+    srcs = ["shell_utils.sh"],
+)
+
+sh_test(
+    name = "shell_utils_test",
+    srcs = ["shell_utils_test.sh"],
+    data = [
+        "testenv.sh",
+        ":bashunit",
+        ":shell_utils",
+    ],
+)
