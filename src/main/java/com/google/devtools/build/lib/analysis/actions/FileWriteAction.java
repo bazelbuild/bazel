@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.LazyString;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -75,7 +76,23 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   public FileWriteAction(ActionOwner owner, Collection<Artifact> inputs,
       Artifact output, CharSequence fileContents, boolean makeExecutable) {
     super(owner, inputs, output, makeExecutable);
+    if (fileContents instanceof String && fileContents.length() > 256) {
+      fileContents = new StoredAsUTF8((String) fileContents);
+    }
     this.fileContents = fileContents;
+  }
+
+  private static final class StoredAsUTF8 extends LazyString {
+    final byte[] bytes;
+
+    StoredAsUTF8(String chars) {
+      this.bytes = chars.getBytes(UTF_8);
+    }
+
+    @Override
+    public String toString() {
+      return new String(bytes, UTF_8);
+    }
   }
 
   /**
