@@ -28,3 +28,4 @@ INPUT_ZIP="$2"
 OUTPUT_MANIFEST="$3"
 
 zipinfo -1 "$INPUT_ZIP" -x "*/" | grep -x "$REGEX" > "$OUTPUT_MANIFEST"
+exit 0
