@@ -87,6 +87,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     stateMap = Maps.newConcurrentMap();
   }
 
+  private static final Function<String, SkyKey> VAR_TO_SKYKEY =
+      new Function<String, SkyKey>() {
+        @Override
+        public SkyKey apply(String var) {
+          return SkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, var);
+        }
+      };
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws ActionExecutionFunctionException,
       InterruptedException {
@@ -102,8 +110,20 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // Depending on the buildID ensure that these actions have a chance to execute.
       PrecomputedValue.BUILD_ID.get(env);
     }
-    // The client environment might influence the action.
-    Map<String, String> clientEnv = PrecomputedValue.CLIENT_ENV.get(env);
+
+    // Look up the parts of the environment that influence the action.
+    Map<SkyKey, SkyValue> clientEnvLookup =
+        env.getValues(Iterables.transform(action.getClientEnvironmentVariables(), VAR_TO_SKYKEY));
+    if (env.valuesMissing()) {
+      return null;
+    }
+    Map<String, String> clientEnv = new HashMap<>();
+    for (Entry<SkyKey, SkyValue> entry : clientEnvLookup.entrySet()) {
+      ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
+      if (envValue.getValue() != null) {
+        clientEnv.put((String) entry.getKey().argument(), envValue.getValue());
+      }
+    }
 
     // For restarts of this ActionExecutionFunction we use a ContinuationState variable, below, to
     // avoid redoing work. However, if two actions are shared and the first one executes, when the

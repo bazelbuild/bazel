@@ -330,6 +330,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // is inserted.
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> map = ImmutableMap.builder();
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
+    map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction());
     map.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper));
