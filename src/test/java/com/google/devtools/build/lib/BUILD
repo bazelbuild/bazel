@@ -1004,6 +1004,26 @@ java_test(
 )
 
 java_test(
+    name = "remote-tests",
+    srcs = glob(["remote/*.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/protobuf:remote_protocol_java_proto",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+        "//third_party/grpc:grpc-jar",
+        "//third_party/protobuf",
+    ],
+)
+
+java_test(
     name = "sandbox-tests",
     srcs = glob(["sandbox/*.java"]),
     data = [":embedded_scripts"],
