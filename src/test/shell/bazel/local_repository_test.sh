@@ -770,6 +770,7 @@ sample_bin = rule(
         '_dep': attr.label(
             default=Label("@other//:a/b"),
             executable=True,
+            cfg="host",
             allow_files=True,
             single_file=True)
     },

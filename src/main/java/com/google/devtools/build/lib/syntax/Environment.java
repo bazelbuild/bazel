@@ -777,7 +777,7 @@ public final class Environment implements Freezable {
     return knownGlobalVariables != null && knownGlobalVariables.contains(varname);
   }
 
-  void handleEvent(Event event) {
+  public void handleEvent(Event event) {
     eventHandler.handle(event);
   }
 

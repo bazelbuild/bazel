@@ -409,13 +409,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testAttrCfg_deprecated() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label(cfg = HOST_CFG, allow_files = True)")
-        .build("a1");
-    assertEquals(ConfigurationTransition.HOST, attr.getConfigurationTransition());
-  }
-
-  @Test
   public void testAttrCfg() throws Exception {
     Attribute attr = evalAttributeDefinition("attr.label(cfg = 'host', allow_files = True)")
         .build("a1");

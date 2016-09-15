@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
@@ -153,8 +154,8 @@ public final class SkylarkAttr {
   }
 
   private static Attribute.Builder<?> createAttribute(
-      Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env)
-      throws EvalException, ConversionException {
+      Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env,
+      Location loc) throws EvalException, ConversionException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
     Attribute.Builder<?> builder = Attribute.attr("", type);
@@ -198,6 +199,11 @@ public final class SkylarkAttr {
 
     if (containsNonNoneKey(arguments, EXECUTABLE_ARG) && (Boolean) arguments.get(EXECUTABLE_ARG)) {
       builder.setPropertyFlag("EXECUTABLE");
+      if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
+        String message = "Argument `cfg = \"host\"` or `cfg = \"data\"` is required if"
+            + " `executable = True` is provided for a label";
+        env.handleEvent(Event.warn(loc, message));
+      }
     }
 
     // TODO(laurentlb): Deprecated, remove in August 2016 (use allow_single_file).
@@ -262,6 +268,9 @@ public final class SkylarkAttr {
       Object trans = arguments.get(CONFIGURATION_ARG);
       if (trans instanceof ConfigurationTransition) {
         // TODO(laurentlb): Deprecated, to be removed in August 2016.
+        String message = "Variables HOST_CFG and DATA_CFG are deprecated in favor of strings"
+            + " \"host\" and \"data\" correspondingly";
+        env.handleEvent(Event.warn(loc, message));
         builder.cfg((ConfigurationTransition) trans);
       } else if (trans.equals("data")) {
         builder.cfg(ConfigurationTransition.DATA);
@@ -300,7 +309,7 @@ public final class SkylarkAttr {
       SkylarkDict<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
       throws EvalException {
     try {
-      return new Descriptor(createAttribute(type, kwargs, ast, env));
+      return new Descriptor(createAttribute(type, kwargs, ast, env, ast.getLocation()));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -331,7 +340,8 @@ public final class SkylarkAttr {
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
     try {
       return new Descriptor(
-          createAttribute(type, kwargs, ast, env).nonconfigurable(whyNotConfigurableReason));
+          createAttribute(type, kwargs, ast, env, ast.getLocation())
+              .nonconfigurable(whyNotConfigurableReason));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -596,7 +606,8 @@ public final class SkylarkAttr {
                     CONFIGURATION_ARG,
                     cfg),
                 ast,
-                env);
+                env,
+                ast.getLocation());
             ImmutableList<SkylarkAspect> skylarkAspects =
                 ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
             return new Descriptor(attribute, skylarkAspects);
@@ -875,7 +886,7 @@ public final class SkylarkAttr {
                   cfg);
           try {
             Attribute.Builder<?> attribute =
-                createAttribute(BuildType.LABEL_LIST, kwargs, ast, env);
+                createAttribute(BuildType.LABEL_LIST, kwargs, ast, env, ast.getLocation());
             ImmutableList<SkylarkAspect> skylarkAspects =
                 ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
             return new Descriptor(attribute, skylarkAspects);
