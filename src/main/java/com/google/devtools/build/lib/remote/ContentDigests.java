@@ -41,17 +41,15 @@ public final class ContentDigests {
   /**
    * Computes a digest of the given proto message. Currently, we simply rely on message output as
    * bytes, but this implementation relies on the stability of the proto encoding, in particular
-   * between different platforms and languages.
-   * TODO(olaola): upgrade to a better implementation!
+   * between different platforms and languages. TODO(olaola): upgrade to a better implementation!
    */
   public static ContentDigest computeDigest(Message message) {
     return computeDigest(message.toByteArray());
   }
 
   /**
-   * A special type of ContentDigest that is used only as a remote action cache key.
-   * This is a separate type in order to prevent accidentally using other ContentDigests
-   * as action keys.
+   * A special type of ContentDigest that is used only as a remote action cache key. This is a
+   * separate type in order to prevent accidentally using other ContentDigests as action keys.
    */
   public static final class ActionKey {
     private final ContentDigest digest;
@@ -68,7 +66,7 @@ public final class ContentDigests {
   public static ActionKey computeActionKey(Action action) {
     return new ActionKey(computeDigest(action));
   }
-  
+
   public static ContentDigest buildDigest(byte[] digest, long size) {
     ContentDigest.Builder b = ContentDigest.newBuilder();
     b.setDigest(ByteString.copyFrom(digest)).setSizeBytes(size);
@@ -76,7 +74,9 @@ public final class ContentDigests {
   }
 
   public static String toHexString(ContentDigest digest) {
-    return HashCode.fromBytes(digest.getDigest().toByteArray()).toString();
+    return digest.getSizeBytes() > 0
+        ? HashCode.fromBytes(digest.getDigest().toByteArray()).toString()
+        : "";
   }
 
   public static String toString(ContentDigest digest) {
