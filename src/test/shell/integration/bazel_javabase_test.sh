@@ -19,10 +19,6 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
   || { echo "testenv.sh not found!" >&2; exit 1; }
 
-# The javabase that java programs were built with in this (outer) bazel invocation.
-# This must be done before unsetting JAVA_RUNFILES below.
-declare -r BLAZE_JAVABASE=$(blaze_javabase)
-
 put_bazel_on_path
 create_and_cd_client
 
@@ -36,12 +32,6 @@ function test_fallback_depot_javabase() {
   bazel --batch --host_javabase=/does/not/exist version >& $TEST_log ||
     (expect_log "Couldn't find java at" &&
      expect_not_log "Problem with java installation")
-}
-
-function test_specified_javabase() {
-  bazel --batch --host_javabase=$BLAZE_JAVABASE version >& $TEST_log || fail "Couldn't run Bazel"
-  expect_not_log "Couldn't find java at"
-  expect_not_log "Problem with java installation"
 }
 
 run_suite "Tests of specifying custom javabase."
