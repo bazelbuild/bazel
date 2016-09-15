@@ -94,7 +94,7 @@ public final class ListLiteral extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    List<Object> result = new ArrayList<>();
+    List<Object> result = new ArrayList<>(exprs.size());
     for (Expression expr : exprs) {
       // Convert NPEs to EvalExceptions.
       if (expr == null) {
