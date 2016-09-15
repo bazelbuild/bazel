@@ -25,8 +25,6 @@ namespace blaze {
 
 using std::string;
 
-constexpr char BAZEL_PRODUCT_NAME[] = "Bazel";
-
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
 // src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java.
@@ -39,7 +37,7 @@ constexpr char BAZEL_PRODUCT_NAME[] = "Bazel";
 // names also don't conform to the style guide.
 class StartupOptions {
  public:
-  explicit StartupOptions(const string& product_name);
+  StartupOptions();
   virtual ~StartupOptions();
 
   // Parses a single argument, either from the command line or from the .blazerc
@@ -198,6 +196,12 @@ class StartupOptions {
 
   // Invocation policy proto. May be NULL.
   const char* invocation_policy;
+
+ protected:
+  // Constructor for subclasses only so that site-specific extensions of this
+  // class can override the product name.  The product_name must be the
+  // capitalized version of the name, as in "Bazel".
+  explicit StartupOptions(const string& product_name);
 
  private:
   string host_javabase;

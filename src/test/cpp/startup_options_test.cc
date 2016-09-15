@@ -42,11 +42,16 @@ class StartupOptionsTest : public ::testing::Test {
   std::string old_test_tmpdir_;
 };
 
+TEST_F(StartupOptionsTest, ProductName) {
+  blaze::StartupOptions startup_options;
+  ASSERT_EQ("Bazel", startup_options.product_name);
+}
+
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   setenv("HOME", "/nonexistent/home", 1);
   setenv("TEST_TMPDIR", "/nonexistent/tmpdir", 1);
 
-  blaze::StartupOptions startup_options(blaze::BAZEL_PRODUCT_NAME);
+  blaze::StartupOptions startup_options;
   ASSERT_EQ("/nonexistent/tmpdir", startup_options.output_root);
 }
 
@@ -54,7 +59,7 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
   setenv("HOME", "/nonexistent/home", 1);
   unsetenv("TEST_TMPDIR");
 
-  blaze::StartupOptions startup_options(blaze::BAZEL_PRODUCT_NAME);
+  blaze::StartupOptions startup_options;
   ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options.output_root);
 }
 
@@ -65,7 +70,7 @@ TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
   setenv("HOME", "", 1);
   unsetenv("TEST_TMPDIR");
 
-  blaze::StartupOptions startup_options(blaze::BAZEL_PRODUCT_NAME);
+  blaze::StartupOptions startup_options;
   ASSERT_EQ("/tmp", startup_options.output_root);
 }
 

@@ -33,6 +33,11 @@ namespace blaze {
 
 using std::vector;
 
+StartupOptions::StartupOptions() :
+  StartupOptions("Bazel") {
+  Init();
+}
+
 StartupOptions::StartupOptions(const string& product_name) :
   product_name(product_name) {
   Init();
