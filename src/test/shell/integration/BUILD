@@ -33,7 +33,7 @@ sh_test(
 
 sh_test(
     name = "loading_phase_tests",
-    size = "medium",
+    size = "large",
     srcs = ["loading_phase_tests.sh"],
     data = [":test-deps"],
     shard_count = 4,
@@ -71,7 +71,7 @@ sh_test(
 
 sh_test(
     name = "output_filter_test",
-    size = "medium",
+    size = "large",
     srcs = ["output_filter_test.sh"],
     data = [":test-deps"],
 )
@@ -85,7 +85,7 @@ sh_test(
 
 sh_test(
     name = "bazel_query_test",
-    size = "medium",
+    size = "large",
     srcs = ["bazel_query_test.sh"],
     data = [":test-deps"],
 )
@@ -131,7 +131,7 @@ sh_test(
 
 sh_test(
     name = "action_env_test",
-    size = "medium",
+    size = "large",
     srcs = ["action_env_test.sh"],
     data = [":test-deps"],
 )

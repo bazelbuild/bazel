@@ -332,6 +332,7 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
     ],
+    shard_count = 3,
     tags = ["jdk8"],
 )
 
