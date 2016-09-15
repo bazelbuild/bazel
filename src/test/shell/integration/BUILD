@@ -99,6 +99,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_javabase_test",
+    size = "medium",
+    srcs = ["bazel_javabase_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ide_info_generation",
     size = "medium",
     srcs = ["ide_info_generation.sh"],
