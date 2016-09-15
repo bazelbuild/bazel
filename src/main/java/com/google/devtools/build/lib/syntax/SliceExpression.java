@@ -66,14 +66,8 @@ public final class SliceExpression extends Expression {
     Object startValue = start.eval(env);
     Object endValue = end.eval(env);
     Object stepValue = step.eval(env);
-    return eval(objValue, startValue, endValue, stepValue, getLocation(), env);
-  }
+    Location loc = getLocation();
 
-  /**
-   * Returns the result of the given slice, or null if no such slice is supported.
-   */
-  private Object eval(Object objValue, Object startValue, Object endValue, Object stepValue,
-      Location loc, Environment env) throws EvalException {
     if (objValue instanceof SkylarkList) {
       SkylarkList<Object> list = (SkylarkList<Object>) objValue;
       Object slice = list.getSlice(startValue, endValue, stepValue, loc);

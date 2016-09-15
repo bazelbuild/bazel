@@ -151,6 +151,7 @@ public class LValue implements Serializable {
       return;
     }
     if (expr instanceof IndexExpression) {
+      expr.validate(env);
       return;
     }
     throw new EvalException(loc,
