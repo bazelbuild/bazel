@@ -29,14 +29,14 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <!-- <packageSourceUrl>Where is this Chocolatey package located (think GitHub)? packageSourceUrl is highly recommended for the community feed</packageSourceUrl>-->
     <packageSourceUrl>https://github.com/bazelbuild/bazel/tree/master/scripts/packages/chocolatey</packageSourceUrl>
     <!-- owners is a poor name for maintainers of the package. It sticks around by this name for compatibility reasons. It basically means you. -->
-    <owners>Peter Mounce, TODO</owners>
+    <owners>Peter Mounce</owners>
 
     <!-- ============================== -->
 
     <!-- == SOFTWARE SPECIFIC SECTION == -->
     <!-- This section is about the software itself -->
     <title>bazel (Install)</title>
-    <authors>TODO</authors>
+    <authors>The Bazel Authors</authors>
     <!-- projectUrl is required for the community feed -->
     <projectUrl>https://bazel.io</projectUrl>
     <iconUrl>https://cdn.rawgit.com/bazelbuild/bazel/master/site/images/bazel-logo.png</iconUrl>
