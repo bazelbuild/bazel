@@ -7,6 +7,34 @@ Windows support is highly experimental. Known issues are [marked with
 label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
 on github issues.
 
+Building Bazel on Windows
+=========================
+
+We currently support only 64 bit Windows 7 or higher and we compile Bazel as a msys2 binary.
+
+To bootstrap Bazel on Windows, you will need:
+
+*    Java JDK 8 or later
+*    [Visual Studio](https://www.visualstudio.com/) (Community Edition is okay)
+*    [msys2](https://msys2.github.io/) (need to be installed at
+     ``C:\tools\msys64\``).
+*    Several msys2 packages. Use the ``pacman`` command to install them:
+     ``pacman -Syuu gcc git curl zip unzip zlib-devel``
+
+To build Bazel:
+
+*    Open the msys2 shell.
+*    Clone the Bazel git repository as normal.
+*    Set the environment variables:
+
+```bash
+export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
+export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
+```
+
+*     Run ``compile.sh`` in Bazel directory.
+*     If all works fine, bazel will be built at ``output\bazel.exe``.
+
 
 Installing Bazel on Windows
 ===========================
@@ -65,32 +93,3 @@ $ bazel build examples/java-native/src/main/java/com/example/myproject:hello-wor
 $ ./bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 $ bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
 ```
-
-
-Building Bazel on Windows
-=========================
-
-We currently support only 64 bit Windows 7 or higher and we compile Bazel as a msys2 binary.
-
-To bootstrap Bazel on Windows, you will need:
-
-*    Java JDK 8 or later
-*    [Visual Studio](https://www.visualstudio.com/) (Community Edition is okay)
-*    [msys2](https://msys2.github.io/) (need to be installed at
-     ``C:\tools\msys64\``).
-*    Several msys2 packages. Use the ``pacman`` command to install them:
-     ``pacman -Syuu gcc git curl zip unzip zlib-devel``
-
-To build Bazel:
-
-*    Open the msys2 shell.
-*    Clone the Bazel git repository as normal.
-*    Set the environment variables:
-
-```bash
-export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
-export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
-```
-
-*     Run ``compile.sh`` in Bazel directory.
-*     If all works fine, bazel will be built at ``output\bazel.exe``.
