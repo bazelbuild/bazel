@@ -392,13 +392,16 @@ bool OutputJar::AddJar(int jar_path_index) {
     // header to memory as input jar is memory mapped as read-only. Try to copy
     // as little as possible.
     uint16_t normalized_time = 0;
+    const UnixTimeExtraField *lh_field_to_remove = nullptr;
     bool fix_timestamp = false;
     if (options_->normalize_timestamps) {
       if (ends_with(file_name, file_name_length, ".class")) {
         normalized_time = 1;
       }
-      fix_timestamp = jar_entry->last_mod_file_date() != 0 ||
-                      jar_entry->last_mod_file_time() != normalized_time;
+      lh_field_to_remove = lh->unix_time_extra_field();
+      fix_timestamp = jar_entry->last_mod_file_date() != 33 ||
+                      jar_entry->last_mod_file_time() != normalized_time ||
+                      lh_field_to_remove != nullptr;
     }
     if (fix_timestamp) {
       uint8_t lh_buffer[512];
@@ -407,11 +410,10 @@ bool OutputJar::AddJar(int jar_path_index) {
                        ? reinterpret_cast<LH *>(malloc(lh_size))
                        : reinterpret_cast<LH *>(lh_buffer);
       // Remove Unix timestamp field.
-      auto field_to_remove = lh->unix_time_extra_field();
-      if (field_to_remove != nullptr) {
+      if (lh_field_to_remove != nullptr) {
         auto from_end = byte_ptr(lh) + lh->size();
-        size_t removed_size = field_to_remove->size();
-        size_t chunk1_size = byte_ptr(field_to_remove) - byte_ptr(lh);
+        size_t removed_size = lh_field_to_remove->size();
+        size_t chunk1_size = byte_ptr(lh_field_to_remove) - byte_ptr(lh);
         size_t chunk2_size = lh->size() - (chunk1_size + removed_size);
         memcpy(lh_new, lh, chunk1_size);
         if (chunk2_size) {
@@ -495,7 +497,7 @@ off_t OutputJar::Position() {
   return outpos_;
 }
 
-// Writes an entry. The argument is the pointer to the contiguos block of
+// Writes an entry. The argument is the pointer to the contiguous block of
 // memory containing Local Header for the entry, immediately followed by
 // the data. The memory is freed after the data has been written.
 void OutputJar::WriteEntry(void *buffer) {
