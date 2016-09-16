@@ -109,6 +109,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
       String filename, Artifact outputArtifact) {
     return new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$unzip", Mode.HOST))
+        .setMnemonic("AarFileExtractor")
+        .setProgressMessage("Extracting " + filename + " from " + aar.getFilename())
         .addArgument("-j")
         .addInputArgument(aar)
         .addArgument(filename)
@@ -132,6 +134,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
       String filenameRegexp, Artifact manifest) {
     return new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$zip_manifest_creator", Mode.HOST))
+        .setMnemonic("ZipManifestCreator")
+        .setProgressMessage(
+            "Creating manifest for " + aar.getFilename() + " matching " + filenameRegexp)
         .addArgument(filenameRegexp)
         .addInputArgument(aar)
         .addOutputArgument(manifest)
