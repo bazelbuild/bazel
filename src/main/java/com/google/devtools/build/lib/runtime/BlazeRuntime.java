@@ -290,6 +290,10 @@ public final class BlazeRuntime {
     return getWorkspace().getDirectories().getOutputBase().getChild("server");
   }
 
+  public boolean writeCommandLog() {
+    return startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).writeCommandLog;
+  }
+
   /**
    * Returns the {@link QueryEnvironmentFactory} that should be used to create a
    * {@link AbstractBlazeQueryEnvironment}, whenever one is needed.
