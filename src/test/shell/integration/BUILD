@@ -41,7 +41,7 @@ sh_test(
 
 sh_test(
     name = "experimental_ui_test",
-    size = "medium",
+    size = "large",
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
     shard_count = 6,
@@ -114,7 +114,7 @@ sh_test(
 
 sh_test(
     name = "ide_info_generation",
-    size = "medium",
+    size = "large",
     srcs = ["ide_info_generation.sh"],
     data = [
         ":test-deps",

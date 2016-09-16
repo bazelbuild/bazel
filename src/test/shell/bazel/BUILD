@@ -261,7 +261,7 @@ sh_test(
 
 sh_test(
     name = "maven_test",
-    size = "medium",
+    size = "large",
     srcs = ["maven_test.sh"],
     data = [":test-deps"],
 )
