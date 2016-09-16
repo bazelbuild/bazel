@@ -36,11 +36,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -223,6 +225,47 @@ public class AspectTest extends AnalysisTestCase {
       // expected
     }
     assertContainsEvent("Aspect error");
+  }
+
+  @Test
+  public void aspectDependenciesDontShowDeprecationWarnings() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(), new TestAspects.ExtraAttributeAspectRule());
+
+    pkg("extra", "base(name='extra', deprecation='bad aspect')");
+
+    pkg("a",
+        "rule_with_extra_deps_aspect(name='a', foo=[':b'])",
+        "base(name='b')");
+
+    getConfiguredTarget("//a:a");
+    assertContainsEventWithFrequency("bad aspect", 0);
+  }
+
+  @Test
+  public void ruleDependencyDeprecationWarningsAbsentDuringAspectEvaluations() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.AspectRequiringRule());
+
+    pkg("a", "aspect(name='a', foo=['//b:b'])");
+    pkg("b", "aspect(name='b', bar=['//d:d'])");
+    pkg("d", "base(name='d', deprecation='bad rule')");
+
+    getConfiguredTarget("//a:a");
+    assertContainsEventWithFrequency("bad rule", 1);
+  }
+
+  @Test
+  public void aspectWarningsFilteredByOutputFiltersForAssociatedRules() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.WarningAspectRule());
+    pkg("a", "warning_aspect(name='a', foo=['//b:b', '//c:c'])");
+    pkg("b", "base(name='b')");
+    pkg("c", "base(name='c')");
+
+    reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//b:")));
+
+    getConfiguredTarget("//a:a");
+    assertContainsEventWithFrequency("Aspect warning on //b:b", 1);
+    assertContainsEventWithFrequency("Aspect warning on //c:c", 0);
   }
 
   @Test

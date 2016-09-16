@@ -1711,6 +1711,11 @@ public final class RuleContext extends TargetContext
       }
     }
 
+    /** Returns whether the context being constructed is for the evaluation of an aspect. */
+    public boolean forAspect() {
+      return aspectName != null;
+    }
+
     public Rule getRule() {
       return rule;
     }

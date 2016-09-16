@@ -97,7 +97,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     public void validate(
         RuleContext.Builder contextBuilder, ConfiguredTarget prerequisite, Attribute attribute) {
       validateDirectPrerequisiteForDeprecation(
-          contextBuilder, contextBuilder.getRule(), prerequisite);
+          contextBuilder, contextBuilder.getRule(), prerequisite, contextBuilder.forAspect());
     }
 
     /**
@@ -128,18 +128,22 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     /** Returns whether a deprecation warning should be printed for the prerequisite described. */
     private static boolean shouldEmitDeprecationWarningFor(
         String thisDeprecation, PackageIdentifier thisPackage,
-        String prerequisiteDeprecation, PackageIdentifier prerequisitePackage) {
+        String prerequisiteDeprecation, PackageIdentifier prerequisitePackage,
+        boolean forAspect) {
       // Don't report deprecation edges from javatests to java or within a package;
       // otherwise tests of deprecated code generate nuisance warnings.
-      // Don't report deprecation if the current target is also deprecated.
-      return (prerequisiteDeprecation != null
+      // Don't report deprecation if the current target is also deprecated,
+      // or if the current context is evaluating an aspect,
+      // as the base target would have already printed the deprecation warnings.
+      return (!forAspect
+          && prerequisiteDeprecation != null
           && !isSameLogicalPackage(thisPackage, prerequisitePackage)
           && thisDeprecation == null);
     }
 
     /** Checks if the given prerequisite is deprecated and prints a warning if so. */
     public static void validateDirectPrerequisiteForDeprecation(
-        RuleErrorConsumer errors, Rule rule, ConfiguredTarget prerequisite) {
+        RuleErrorConsumer errors, Rule rule, ConfiguredTarget prerequisite, boolean forAspect) {
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
       PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
@@ -152,7 +156,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         String thatDeprecation =
             NonconfigurableAttributeMapper.of(prerequisiteRule).get("deprecation", Type.STRING);
         if (shouldEmitDeprecationWarningFor(
-            thisDeprecation, thisPackage, thatDeprecation, thatPackage)) {
+            thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
           errors.ruleWarning("target '" + rule.getLabel() +  "' depends on deprecated target '"
               + prerequisiteLabel + "': " + thatDeprecation);
         }
@@ -165,7 +169,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         String thatDeprecation =
             NonconfigurableAttributeMapper.of(generatingRule).get("deprecation", Type.STRING);
         if (shouldEmitDeprecationWarningFor(
-            thisDeprecation, thisPackage, thatDeprecation, thatPackage)) {
+            thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
           errors.ruleWarning("target '" + rule.getLabel() + "' depends on the output file "
               + prerequisiteLabel + " of a deprecated rule " + generatingRule.getLabel()
               + "': " + thatDeprecation);

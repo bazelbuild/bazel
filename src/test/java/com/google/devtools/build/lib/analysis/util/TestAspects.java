@@ -293,6 +293,31 @@ public class TestAspects {
           .build();
 
   /**
+   * An aspect that prints a warning.
+   */
+  public static class WarningAspect extends NativeAspectClass
+    implements ConfiguredAspectFactory {
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      ruleContext.ruleWarning("Aspect warning on " + base.getTarget().getLabel());
+      return new ConfiguredAspect.Builder("warning", ruleContext).build();
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return WARNING_ASPECT_DEFINITION;
+    }
+  }
+
+  public static final WarningAspect WARNING_ASPECT = new WarningAspect();
+  private static final AspectDefinition WARNING_ASPECT_DEFINITION =
+      new AspectDefinition.Builder("warning")
+      .attributeAspect("bar", WARNING_ASPECT)
+      .build();
+
+  /**
    * An aspect that raises an error.
    */
   public static class ErrorAspect extends NativeAspectClass
@@ -328,7 +353,7 @@ public class TestAspects {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("testonly", BOOLEAN).nonconfigurable("test").value(false))
-          .add(attr("deprecation", STRING).nonconfigurable("test"))
+          .add(attr("deprecation", STRING).nonconfigurable("test").value((String) null))
           .add(attr("tags", STRING_LIST))
           .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST)
               .nonconfigurable("test"))
@@ -500,7 +525,30 @@ public class TestAspects {
   }
 
   /**
-   * A rule that defines an {@link AspectRequiringProvider} on one of its attributes.
+   * A rule that defines a {@link WarningAspect} on one of its attributes.
+   */
+  public static class WarningAspectRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(WARNING_ASPECT))
+          .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("warning_aspect")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines an {@link ErrorAspect} on one of its attributes.
    */
   public static class ErrorAspectRule implements RuleDefinition {
     @Override
