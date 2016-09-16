@@ -1015,6 +1015,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/protobuf:remote_protocol_java_proto",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
