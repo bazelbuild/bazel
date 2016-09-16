@@ -494,11 +494,30 @@ public class CppLinkActionBuilder {
       allLTOArtifacts = createLTOArtifacts(ltoOutputRootPrefix, uniqueLibraries);
     }
 
+    PathFragment linkerParamsFileRootPath = null;
+    @Nullable Artifact linkerParamsFile = null;
+    if (allLTOArtifacts != null) {
+      // Create artifact for the file that the LTO indexing step will emit
+      // object file names into for any that were included in the link as
+      // determined by the linker's symbol resolution. It will be used to
+      // provide the inputs for the subsequent final native object link.
+      // Note that the paths emitted into this file will have their prefixes
+      // replaced with the final output directory, so they will be the paths
+      // of the native object files not the input bitcode files.
+      linkerParamsFileRootPath =
+          ParameterFile.derivePath(output.getRootRelativePath(), "lto-final");
+      linkerParamsFile =
+          linkArtifactFactory.create(ruleContext, configuration, linkerParamsFileRootPath);
+    }
+
     final ImmutableList<Artifact> actionOutputs;
     if (isLTOIndexing) {
       ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
       for (LTOBackendArtifacts ltoA : allLTOArtifacts) {
         ltoA.addIndexingOutputs(builder);
+      }
+      if (linkerParamsFile != null) {
+        builder.add(linkerParamsFile);
       }
       actionOutputs = builder.build();
     } else {
@@ -518,13 +537,14 @@ public class CppLinkActionBuilder {
     CppLinkVariablesExtension variablesExtension =
         isLTOIndexing
             ? new CppLinkVariablesExtension(
-                linkstampMap, needWholeArchive, linkerInputs, runtimeLinkerInputs, null)
+                linkstampMap, needWholeArchive, linkerInputs, runtimeLinkerInputs, null, null)
             : new CppLinkVariablesExtension(
                 linkstampMap,
                 needWholeArchive,
                 linkerInputs,
                 runtimeLinkerInputs,
-                output);
+                output,
+                linkerParamsFile);
     variablesExtension.addVariables(buildVariablesBuilder);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
@@ -532,8 +552,7 @@ public class CppLinkActionBuilder {
     Variables buildVariables = buildVariablesBuilder.build();
 
     PathFragment paramRootPath =
-        ParameterFile.derivePath(
-            output.getRootRelativePath(), (isLTOIndexing) ? "lto" : "2");
+        ParameterFile.derivePath(output.getRootRelativePath(), (isLTOIndexing) ? "lto-index" : "2");
 
     @Nullable
     final Artifact paramFile =
@@ -597,7 +616,11 @@ public class CppLinkActionBuilder {
       // be converted to a crosstool feature configuration instead.
       List<String> opts = new ArrayList<>(linkopts);
       opts.add("-flto=thin");
-      opts.add("-Wl,-plugin-opt,thinlto-index-only");
+      if (linkerParamsFile != null) {
+        opts.add("-Wl,-plugin-opt,thinlto-index-only=" + linkerParamsFile.getExecPathString());
+      } else {
+        opts.add("-Wl,-plugin-opt,thinlto-index-only");
+      }
       opts.add("-Wl,-plugin-opt,thinlto-emit-imports-files");
       opts.add(
           "-Wl,-plugin-opt,thinlto-prefix-replace="
@@ -675,6 +698,9 @@ public class CppLinkActionBuilder {
             .add(dependencyInputsBuilder.build())
             .add(ImmutableIterable.from(expandedInputs));
 
+    if (linkerParamsFile != null && !isLTOIndexing) {
+      inputsBuilder.add(ImmutableList.of(linkerParamsFile));
+    }
     if (linkCommandLine.getParamFile() != null) {
       inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
       Action parameterFileWriteAction =
@@ -1162,6 +1188,7 @@ public class CppLinkActionBuilder {
     private final Iterable<LinkerInput> linkerInputs;
     private final ImmutableList<LinkerInput> runtimeLinkerInputs;
     private final Artifact outputArtifact;
+    private final Artifact linkerParamsFile;
 
     private final LinkArgCollector linkArgCollector = new LinkArgCollector();
 
@@ -1170,12 +1197,14 @@ public class CppLinkActionBuilder {
         boolean needWholeArchive,
         Iterable<LinkerInput> linkerInputs,
         ImmutableList<LinkerInput> runtimeLinkerInputs,
-        Artifact output) {
+        Artifact output,
+        Artifact linkerParamsFile) {
       this.linkstampMap = linkstampMap;
       this.needWholeArchive = needWholeArchive;
       this.linkerInputs = linkerInputs;
       this.runtimeLinkerInputs = runtimeLinkerInputs;
       this.outputArtifact = output;
+      this.linkerParamsFile = linkerParamsFile;
 
       addInputFileLinkOptions(linkArgCollector);
     }
@@ -1421,6 +1450,9 @@ public class CppLinkActionBuilder {
               ltoMap);
         }
       }
+      if (linkerParamsFile != null) {
+        standardArchiveInputParams.add("-Wl,@" + linkerParamsFile.getExecPathString());
+      }
 
       // rpath ordering matters for performance; first add the one where most libraries are found.
       if (includeSolibDir && rpathRoot != null) {
@@ -1491,27 +1523,35 @@ public class CppLinkActionBuilder {
         LinkerInput input, List<String> wholeArchiveOptions, List<String> standardOptions,
         @Nullable Map<Artifact, Artifact> ltoMap) {
       Preconditions.checkState(!(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY));
+      // If we had any LTO artifacts, ltoMap whould be non-null. In that case,
+      // we should have created a linkerParamsFile which the LTO indexing
+      // step will populate with the exec paths that correspond to the LTO
+      // artifacts that the linker decided to include based on symbol resolution.
+      // Those files will be included directly in the link (and not wrapped
+      // in --start-lib/--end-lib) to ensure consistency between the two link
+      // steps.
+      Preconditions.checkState(ltoMap == null || linkerParamsFile != null);
 
       // start-lib/end-lib library: adds its input object files.
       if (Link.useStartEndLib(input, cppConfiguration.archiveType())) {
         Iterable<Artifact> archiveMembers = input.getObjectFiles();
         if (!Iterables.isEmpty(archiveMembers)) {
-          standardOptions.add("-Wl,--start-lib");
+          List<String> nonLTOArchiveMembers = new ArrayList<>();
           for (Artifact member : archiveMembers) {
-            if (ltoMap != null) {
-              Artifact backend = ltoMap.remove(member);
-
-              if (backend != null) {
-                // If the backend artifact is missing, we can't print a warning because this may
-                // happen normally, due libraries that list .o files explicitly, or generate .o
-                // files from assembler.
-                member = backend;
-              }
+            if (ltoMap != null && ltoMap.remove(member) != null) {
+              // The LTO artifacts that should be included in the final link
+              // are listed in the linkerParamsFile. When ltoMap is non-null
+              // the backend artifact may be missing due to libraries that list .o
+              // files explicitly, or generate .o files from assembler.
+              continue;
             }
-
-            standardOptions.add(member.getExecPathString());
+            nonLTOArchiveMembers.add(member.getExecPathString());
           }
-          standardOptions.add("-Wl,--end-lib");
+          if (!nonLTOArchiveMembers.isEmpty()) {
+            standardOptions.add("-Wl,--start-lib");
+            standardOptions.addAll(nonLTOArchiveMembers);
+            standardOptions.add("-Wl,--end-lib");
+          }
         }
       } else {
         List<String> options = inputNeedsWholeArchive(input)
@@ -1519,11 +1559,10 @@ public class CppLinkActionBuilder {
         // For anything else, add the input directly.
         Artifact inputArtifact = input.getArtifact();
 
-        if (ltoMap != null) {
-          Artifact ltoArtifact = ltoMap.remove(inputArtifact);
-          if (ltoArtifact != null) {
-            inputArtifact = ltoArtifact;
-          }
+        if (ltoMap != null && ltoMap.remove(inputArtifact) != null) {
+          // The LTO artifacts that should be included in the final link
+          // are listed in the linkerParamsFile.
+          return;
         }
 
         if (input.isFake()) {
