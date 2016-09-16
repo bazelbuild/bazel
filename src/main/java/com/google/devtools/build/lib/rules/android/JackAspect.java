@@ -116,9 +116,7 @@ public final class JackAspect extends NativeAspectClass implements ConfiguredAsp
         JavaCommon.isNeverLink(ruleContext)
             ? jackHelper.compileAsNeverlinkLibrary()
             : jackHelper.compileAsLibrary();
-    return new ConfiguredAspect.Builder(NAME, ruleContext)
-        .addProvider(JackLibraryProvider.class, result)
-        .build();
+    return new ConfiguredAspect.Builder(NAME, ruleContext).addProvider(result).build();
   }
 
   /** Gets a list of targets on the given LABEL_LIST attribute if it exists, else an empty list. */

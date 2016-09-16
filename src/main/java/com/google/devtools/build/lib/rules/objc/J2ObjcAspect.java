@@ -235,10 +235,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     }
 
     return builder
-        .addProvider(J2ObjcMappingFileProvider.class,
-            j2ObjcMappingFileProvider(ruleContext, !javaInputFiles.isEmpty()))
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addProvider(XcodeProvider.class, xcodeProvider)
+        .addProvider(j2ObjcMappingFileProvider(ruleContext, !javaInputFiles.isEmpty()))
+        .addProvider(common.getObjcProvider())
+        .addProvider(xcodeProvider)
         .build();
   }
 

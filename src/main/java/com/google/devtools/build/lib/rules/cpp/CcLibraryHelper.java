@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +132,7 @@ public final class CcLibraryHelper {
             CppCompileAction.PREPROCESS_ASSEMBLE,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
             // We need to create pic-specific actions for link actions, as they will produce
-            // differently named outputs. 
+            // differently named outputs.
             Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
             Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName(),
             Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
@@ -155,10 +154,8 @@ public final class CcLibraryHelper {
     public FileTypeSet getSourceTypes() {
       return sourceTypeSet;
     }
-    
-    /**
-     * Returns the set of enabled actions for this category.
-     */
+
+    /** Returns the set of enabled actions for this category. */
     public Set<String> getActionConfigSet() {
       return actionConfigSet;
     }
@@ -180,20 +177,21 @@ public final class CcLibraryHelper {
    * context.
    */
   public static final class Info {
-    private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
-        providers;
+    private final TransitiveInfoProviderMap.Builder providers;
     private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
     private final CcLinkingOutputs linkingOutputs;
     private final CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries;
     private final CppCompilationContext context;
 
-    private Info(Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers,
+    private Info(
+        TransitiveInfoProviderMap providers,
         Map<String, NestedSet<Artifact>> outputGroups,
-        CcCompilationOutputs compilationOutputs, CcLinkingOutputs linkingOutputs,
+        CcCompilationOutputs compilationOutputs,
+        CcLinkingOutputs linkingOutputs,
         CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries,
         CppCompilationContext context) {
-      this.providers = ImmutableMap.copyOf(providers);
+      this.providers = providers.toBuilder();
       this.outputGroups = ImmutableMap.copyOf(outputGroups);
       this.compilationOutputs = compilationOutputs;
       this.linkingOutputs = linkingOutputs;
@@ -202,8 +200,8 @@ public final class CcLibraryHelper {
       this.context = context;
     }
 
-    public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> getProviders() {
-      return providers;
+    public TransitiveInfoProviderMap getProviders() {
+      return providers.build();
     }
 
     public ImmutableMap<String, NestedSet<Artifact>> getOutputGroups() {
@@ -236,11 +234,11 @@ public final class CcLibraryHelper {
      * the given builder.
      */
     public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
-      filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()));
-      filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
-      filesBuilder.addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()));
-      filesBuilder.addAll(
-          LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
+      filesBuilder
+          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()))
+          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()))
+          .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibraries()))
+          .addAll(LinkerInputs.toNonSolibArtifacts(linkingOutputs.getExecutionDynamicLibraries()));
     }
   }
 
@@ -267,7 +265,7 @@ public final class CcLibraryHelper {
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
   private final List<Artifact> linkActionInputs = new ArrayList<>();
-  
+
   @Nullable private Artifact dynamicLibrary;
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
   private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
@@ -288,7 +286,7 @@ public final class CcLibraryHelper {
   private final SourceCategory sourceCategory;
   private List<VariablesExtension> variablesExtensions = new ArrayList<>();
   @Nullable private CppModuleMap injectedCppModuleMap;
-  
+
   private final FeatureConfiguration featureConfiguration;
 
   /**
@@ -319,22 +317,20 @@ public final class CcLibraryHelper {
         CcCommon.configureFeatures(ruleContext, sourceCategory),
         sourceCategory);
   }
-  
+
   /**
    * Creates a CcLibraryHelper for cpp source files.
    *
-   * @param ruleContext  the RuleContext for the rule being built
-   * @param semantics  CppSemantics for the build
-   * @param featureConfiguration  activated features and action configs for the build
+   * @param ruleContext the RuleContext for the rule being built
+   * @param semantics CppSemantics for the build
+   * @param featureConfiguration activated features and action configs for the build
    */
   public CcLibraryHelper(
       RuleContext ruleContext, CppSemantics semantics, FeatureConfiguration featureConfiguration) {
     this(ruleContext, semantics, featureConfiguration, SourceCategory.CC);
   }
-  
-  /**
-   * Sets fields that overlap for cc_library and cc_binary rules.
-   */
+
+  /** Sets fields that overlap for cc_library and cc_binary rules. */
   public CcLibraryHelper fromCommon(CcCommon common) {
     this
         .addCopts(common.getCopts())
@@ -359,7 +355,7 @@ public final class CcLibraryHelper {
     }
     return this;
   }
-  
+
   /**
    * Adds {@code headers} as public header files. These files will be made visible to dependent
    * rules. They may be parsed/preprocessed or compiled into a header module depending on the
@@ -369,7 +365,7 @@ public final class CcLibraryHelper {
     addPublicHeaders(Arrays.asList(headers));
     return this;
   }
-  
+
   /**
    * Adds {@code headers} as public header files. These files will be made visible to dependent
    * rules. They may be parsed/preprocessed or compiled into a header module depending on the
@@ -381,7 +377,7 @@ public final class CcLibraryHelper {
     }
     return this;
   }
-  
+
   /**
    * Add the corresponding files as public header files, i.e., these files will not be compiled, but
    * are made visible as includes to dependent rules in module maps.
@@ -417,7 +413,7 @@ public final class CcLibraryHelper {
     }
     return this;
   }
-  
+
   /**
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules. The given
@@ -448,7 +444,7 @@ public final class CcLibraryHelper {
   public CcLibraryHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
   }
-  
+
   /**
    * Adds a header to {@code publicHeaders} and in case header processing is switched on for the
    * file type also to compilationUnitSources.
@@ -698,10 +694,8 @@ public final class CcLibraryHelper {
     Iterables.addAll(this.includeDirs, includeDirs);
     return this;
   }
-  
-  /**
-   * Adds the given artifact to the input of any generated link actions.
-   */
+
+  /** Adds the given artifact to the input of any generated link actions. */
   public CcLibraryHelper addLinkActionInput(Artifact input) {
     Preconditions.checkNotNull(input);
     this.linkActionInputs.add(input);
@@ -716,16 +710,14 @@ public final class CcLibraryHelper {
     this.variablesExtensions.add(variableExtension);
     return this;
   }
-  
-  /**
-   * Sets the module map artifact for this build.
-   */
+
+  /** Sets the module map artifact for this build. */
   public CcLibraryHelper setCppModuleMap(CppModuleMap cppModuleMap) {
     Preconditions.checkNotNull(cppModuleMap);
     this.injectedCppModuleMap = cppModuleMap;
     return this;
   }
-  
+
   /**
    * Overrides the path for the generated dynamic library - this should only be called if the
    * dynamic library is an implicit or explicit output of the rule, i.e., if it is accessible by
@@ -978,14 +970,14 @@ public final class CcLibraryHelper {
 
     // By very careful when adding new providers here - it can potentially affect a lot of rules.
     // We should consider merging most of these providers into a single provider.
-    Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
-        new LinkedHashMap<>();
-    providers.put(CppRunfilesProvider.class,
-        new CppRunfilesProvider(cppStaticRunfiles, cppSharedRunfiles));
-    providers.put(CppCompilationContext.class, interfaceCompilationContext);
-    providers.put(CppDebugFileProvider.class, new CppDebugFileProvider(
-        dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
-    providers.put(TransitiveLipoInfoProvider.class, collectTransitiveLipoInfo(ccOutputs));
+    TransitiveInfoProviderMap.Builder providers =
+        TransitiveInfoProviderMap.builder()
+            .add(
+                new CppRunfilesProvider(cppStaticRunfiles, cppSharedRunfiles),
+                interfaceCompilationContext,
+                new CppDebugFileProvider(
+                    dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()),
+                collectTransitiveLipoInfo(ccOutputs));
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
 
     if (shouldAddLinkerOutputArtifacts(ruleContext, ccOutputs)) {
@@ -1008,21 +1000,28 @@ public final class CcLibraryHelper {
     // TODO(bazel-team): Maybe we can infer these from other data at the places where they are
     // used.
     if (emitCcNativeLibrariesProvider) {
-      providers.put(CcNativeLibraryProvider.class,
-          new CcNativeLibraryProvider(collectNativeCcLibraries(ccLinkingOutputs)));
+      providers.add(new CcNativeLibraryProvider(collectNativeCcLibraries(ccLinkingOutputs)));
     }
-    providers.put(CcExecutionDynamicLibrariesProvider.class,
+    providers.put(
+        CcExecutionDynamicLibrariesProvider.class,
         collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
 
     boolean forcePic = cppConfiguration.forcePic();
     if (emitCcSpecificLinkParamsProvider) {
-      providers.put(CcSpecificLinkParamsProvider.class, new CcSpecificLinkParamsProvider(
-          createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
+      providers.add(
+          new CcSpecificLinkParamsProvider(
+              createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     } else {
-      providers.put(CcLinkParamsProvider.class, new CcLinkParamsProvider(
-          createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
+      providers.add(
+          new CcLinkParamsProvider(
+              createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     }
-    return new Info(providers, outputGroups, ccOutputs, ccLinkingOutputs, originalLinkingOutputs,
+    return new Info(
+        providers.build(),
+        outputGroups,
+        ccOutputs,
+        ccLinkingOutputs,
+        originalLinkingOutputs,
         cppCompilationContext);
   }
 

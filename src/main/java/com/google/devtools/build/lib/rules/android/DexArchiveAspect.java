@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -115,7 +114,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
     if (JavaCommon.isNeverLink(ruleContext)) {
       return new ConfiguredAspect.Builder(NAME, ruleContext)
-          .addProvider(DexArchiveProvider.class, DexArchiveProvider.NEVERLINK)
+          .addProvider(DexArchiveProvider.NEVERLINK)
           .build();
     }
 
@@ -130,9 +129,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         }
       }
     }
-    return new ConfiguredAspect.Builder(NAME, ruleContext)
-        .addProvider(DexArchiveProvider.class, result.build())
-        .build();
+    return new ConfiguredAspect.Builder(NAME, ruleContext).addProvider(result.build()).build();
   }
 
   private static DexArchiveProvider.Builder createArchiveProviderBuilderFromDeps(

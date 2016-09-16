@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.List;
 
 /**
@@ -133,15 +132,16 @@ public class TestAspects {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
 
-      RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
-          .addProvider(RuleInfo.class,
-              new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
-          .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
-          .setRunfilesSupport(null, null)
-          .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+      RuleConfiguredTargetBuilder builder =
+          new RuleConfiguredTargetBuilder(ruleContext)
+              .addProvider(
+                  new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
+              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+              .setRunfilesSupport(null, null)
+              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
       if (ruleContext.getRule().getRuleClassObject().getName().equals("honest")) {
-        builder.addProvider(RequiredProvider.class, new RequiredProvider());
+        builder.addProvider(new RequiredProvider());
       }
 
       return builder.build();
@@ -161,7 +161,6 @@ public class TestAspects {
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
       return new ConfiguredAspect.Builder(getClass().getName(), ruleContext)
           .addProvider(
-              AspectInfo.class,
               new AspectInfo(
                   collectAspectData("aspect " + ruleContext.getLabel() + information, ruleContext)))
           .build();
@@ -278,9 +277,7 @@ public class TestAspects {
       }
       information.append("]");
       return new ConfiguredAspect.Builder(getClass().getName(), ruleContext)
-          .addProvider(
-              AspectInfo.class,
-              new AspectInfo(collectAspectData(information.toString(), ruleContext)))
+          .addProvider(new AspectInfo(collectAspectData(information.toString(), ruleContext)))
           .build();
     }
   }
