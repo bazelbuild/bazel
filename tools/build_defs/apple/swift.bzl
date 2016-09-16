@@ -135,20 +135,26 @@ def _swift_library_impl(ctx):
   output_lib = ctx.new_file(objs_outputs_path + module_name + ".a")
   output_module = ctx.new_file(objs_outputs_path + module_name + ".swiftmodule")
 
-  # These filenames are guaranteed unique, no need to scope.
+  # These filenames are guaranteed to be unique, no need to scope.
   output_header = ctx.new_file(ctx.label.name + "-Swift.h")
-  output_file_map = ctx.new_file(ctx.label.name + ".output_file_map.json")
+  swiftc_output_map_file = ctx.new_file(ctx.label.name + ".output_file_map.json")
 
-  output_map = struct()
-  output_objs = []
+  swiftc_output_map = struct()  # Maps output types to paths.
+  output_objs = []  # Object file outputs, used in archive action.
+  swiftc_outputs = []  # Other swiftc outputs that aren't processed further.
   for source in ctx.files.srcs:
-    obj = ctx.new_file(objs_outputs_path + source.basename + ".o")
+    basename = source.basename
+    obj = ctx.new_file(objs_outputs_path + basename + ".o")
+    partial_module = ctx.new_file(objs_outputs_path + basename +
+                                  ".partial_swiftmodule")
     output_objs.append(obj)
+    swiftc_outputs.append(partial_module)
 
-    output_map += struct(**{source.path: struct(object=obj.path)})
+    swiftc_output_map += struct(**{
+        source.path: struct(object=obj.path, swiftmodule=partial_module.path)})
 
-  # Write down the output file map for this compilation, to be used with
-  # -output-file-map flag.
+  # Write down the intermediate outputs map for this compilation, to be used
+  # with -output-file-map flag.
   # It's a JSON file that maps each source input (.swift) to its outputs
   # (.o, .bc, .d, ...)
   # Example:
@@ -156,7 +162,7 @@ def _swift_library_impl(ctx):
   #       {'object': 'foo.o', 'bitcode': 'foo.bc', 'dependencies': 'foo.d'}}
   # There's currently no documentation on this option, however all of the keys
   # are listed here https://github.com/apple/swift/blob/swift-2.2.1-RELEASE/include/swift/Driver/Types.def
-  ctx.file_action(output=output_file_map, content=output_map.to_json())
+  ctx.file_action(output=swiftc_output_map_file, content=swiftc_output_map.to_json())
 
   srcs_args = [f.path for f in ctx.files.srcs]
 
@@ -206,7 +212,7 @@ def _swift_library_impl(ctx):
       "-module-cache-path",
       module_cache_path(ctx),
       "-output-file-map",
-      output_file_map.path,
+      swiftc_output_map_file.path,
   ] + _swift_compilation_mode_flags(ctx)
 
   args.extend(srcs_args)
@@ -215,15 +221,16 @@ def _swift_library_impl(ctx):
   args.extend(clang_args)
   args.extend(define_args)
 
-  xcrun_action(ctx,
-               inputs=ctx.files.srcs + dep_modules + list(objc_files) +
-               [output_file_map],
-               outputs=[output_module, output_header] + output_objs,
-               mnemonic="SwiftCompile",
-               arguments=args,
-               use_default_shell_env=False,
-               progress_message=("Compiling Swift module %s (%d files)" %
-                                 (ctx.label.name, len(ctx.files.srcs))))
+  xcrun_action(
+      ctx,
+      inputs=ctx.files.srcs + dep_modules + list(objc_files) +
+      [swiftc_output_map_file],
+      outputs=[output_module, output_header] + output_objs + swiftc_outputs,
+      mnemonic="SwiftCompile",
+      arguments=args,
+      use_default_shell_env=False,
+      progress_message=("Compiling Swift module %s (%d files)" %
+                        (ctx.label.name, len(ctx.files.srcs))))
 
   xcrun_action(ctx,
                inputs=output_objs,
