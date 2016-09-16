@@ -26,13 +26,20 @@ $tvChecksum = (get-filehash $zipFile -algorithm sha256).Hash
 write-host "zip sha256: $tvChecksum"
 
 $nuspecTemplate = get-content "bazel.nuspec.template" | out-string
-$installerScriptTemplate = get-content "chocolateyinstall.ps1.template" | out-string
 $nuspecExpanded = $ExecutionContext.InvokeCommand.ExpandString($nuspecTemplate)
 add-content -value $nuspecExpanded -path bazel.nuspec
+
+$installerScriptTemplate = get-content "chocolateyinstall.ps1.template" | out-string
 $installerScriptExpanded = $ExecutionContext.InvokeCommand.ExpandString($installerScriptTemplate)
 $installerScriptExpanded = $installerScriptExpanded -replace "ps_var_","$"
 $installerScriptExpanded = $installerScriptExpanded -replace "escape_char","``"
 add-content -value $installerScriptExpanded -path ./tools/chocolateyinstall.ps1
+
+$uninstallerScriptTemplate = get-content "chocolateyuninstall.ps1.template" | out-string
+$uninstallerScriptExpanded = $ExecutionContext.InvokeCommand.ExpandString($uninstallerScriptTemplate)
+$uninstallerScriptExpanded = $uninstallerScriptExpanded -replace "ps_var_","$"
+$uninstallerScriptExpanded = $uninstallerScriptExpanded -replace "escape_char","``"
+add-content -value $uninstallerScriptExpanded -path ./tools/chocolateyuninstall.ps1
 
 write-host "Copying LICENSE.txt from repo-root to tools directory"
 $licenseHeader = @"
