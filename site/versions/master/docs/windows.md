@@ -39,7 +39,7 @@ export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
 Installing Bazel on Windows
 ===========================
 
-You can install using the [chocolatey](https://chocolatey.org) package manager:
+You can install the unofficial package using the [chocolatey](https://chocolatey.org) package manager:
 
 ```shell
 choco install bazel
