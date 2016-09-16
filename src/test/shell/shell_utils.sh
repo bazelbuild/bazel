@@ -16,6 +16,8 @@
 
 set -euo pipefail
 
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+
 # Print the resolved path of a symbolic link (or the path itself if not a link).
 #
 # The result may be relative to the current working directory and may contain
@@ -102,5 +104,24 @@ function get_real_path() {
     normalize_path "$(pwd)/$name"
   else
     false  # fail the function
+  fi
+}
+
+function md5_file() {
+  if [ $# -gt 0 ]; then
+    local result=""
+    if [[ ${PLATFORM} == "darwin" ]]; then
+      result=$(md5 -q $@ || echo)
+    else
+      result=$(md5sum $@ | awk '{print $1}' || echo)
+    fi
+
+    if [ -n "$result" ]; then
+      echo "$result"
+    else
+      false
+    fi
+  else
+    false
   fi
 }

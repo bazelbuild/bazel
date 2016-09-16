@@ -28,8 +28,12 @@ cd "$TEST_TMPDIR"
 
 function assert_fails_to() {
   local -r method="$1"
-  local -r path="$2"
-  "$method" "$path" && fail "Symlink resolution for '$path' should have failed"
+  local -r arg="${2:-}"
+  if [ -n "$arg" ]; then
+    "$method" "$arg" && fail "'$method' should have failed for '$arg'"
+  else
+    "$method" && fail "'$method' should have failed for empty argument"
+  fi
   true  # reset the exit status otherwise the test would be considered failed
 }
 
@@ -199,6 +203,24 @@ function test_get_realpath() {
   assert_fails_to get_real_path "non-existent"
   ln -s self self
   assert_fails_to get_real_path "self"
+}
+
+function test_md5_sum() {
+  local -r dir="${FUNCNAME[0]}"
+  mkdir "$dir" || fail "mkdir $dir"
+
+  echo hello > "${dir}/a.txt"
+  echo world > "${dir}/b.txt"
+
+  assert_fails_to md5_file
+  assert_fails_to md5_file "non-existent"
+
+  assert_equals "b1946ac92492d2347c6235b4d2611184" "$(md5_file "${dir}/a.txt")"
+  assert_equals "591785b794601e212b260e25925636fd" "$(md5_file "${dir}/b.txt")"
+
+  local sums="$(echo -e \
+      "b1946ac92492d2347c6235b4d2611184\n591785b794601e212b260e25925636fd")"
+  assert_equals "$sums" "$(md5_file "${dir}/a.txt" "${dir}/b.txt")"
 }
 
 run_suite "Tests for Bash utilities"
