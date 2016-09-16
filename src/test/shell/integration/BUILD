@@ -63,6 +63,13 @@ sh_test(
 )
 
 sh_test(
+    name = "stub_finds_runfiles_test",
+    size = "medium",
+    srcs = ["stub_finds_runfiles_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "discard_analysis_cache_test",
     size = "medium",
     srcs = ["discard_analysis_cache_test.sh"],
