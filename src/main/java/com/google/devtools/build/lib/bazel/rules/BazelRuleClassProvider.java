@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.DeprecationValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -181,6 +182,8 @@ public class BazelRuleClassProvider {
     public void validate(RuleContext.Builder context,
         ConfiguredTarget prerequisite, Attribute attribute) {
       validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
+      DeprecationValidator.validateDirectPrerequisiteForDeprecation(
+          context, context.getRule(), prerequisite);
     }
 
     private void validateDirectPrerequisiteVisibility(
@@ -193,8 +196,6 @@ public class BazelRuleClassProvider {
       }
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
-      // We don't check the visibility of late-bound attributes, because it would break some
-      // features.
       if (!context.getRule().getLabel().getPackageIdentifier().equals(
               prerequisite.getTarget().getLabel().getPackageIdentifier())
           && !context.isVisible(prerequisite)) {
