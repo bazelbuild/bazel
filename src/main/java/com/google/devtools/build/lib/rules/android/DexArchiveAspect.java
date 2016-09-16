@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndro
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -50,7 +52,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -63,7 +67,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
    * aspect. Must be provided when attaching this aspect to a rule.
    */
-  static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
+  public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
       new Function<Rule, AspectParameters>() {
         @Override
         public AspectParameters apply(Rule rule) {
@@ -74,9 +78,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           return result.build();
         }
       };
+  /** Aspect-only label for dexbuidler executable, to avoid name clashes with labels on rules. */
   private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
+  /** Aspect-only label for desugaring executable, to avoid name clashes with labels on rules. */
+  private static final String ASPECT_DESUGAR_PREREQ = "$aspect_desugar";
   private static final ImmutableList<String> TRANSITIVE_ATTRIBUTES =
       ImmutableList.of("deps", "exports", "runtime_deps");
+
   private final String toolsRepository;
 
   public DexArchiveAspect(String toolsRepository) {
@@ -88,9 +96,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     AspectDefinition.Builder result = new AspectDefinition.Builder(NAME)
         // Actually we care about JavaRuntimeJarProvider, but rules don't advertise that provider.
         .requireProvider(JavaCompilationArgsProvider.class)
+        // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
         .add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
-        // Parse label here since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")))
+        .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
+            .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))
         .requiresConfigurationFragments(AndroidConfiguration.class);
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       result.attributeAspect(attr, this);
@@ -121,15 +131,54 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     DexArchiveProvider.Builder result = createArchiveProviderBuilderFromDeps(ruleContext);
     JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
     if (jarProvider != null) {
+      Function<Artifact, Artifact> desugaredJars =
+          desugarJarsIfRequested(base, ruleContext, jarProvider);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
       for (Artifact jar : jarProvider.getRuntimeJars()) {
         for (Set<String> incrementalDexopts : aspectDexopts) {
-          Artifact dexArchive = createDexArchiveAction(ruleContext, jar, incrementalDexopts);
+          // Since we're potentially dexing the same jar multiple times with different flags, we
+          // need to write unique artifacts for each flag combination. Here, it is convenient to
+          // distinguish them by putting the flags that were used for creating the artifacts into
+          // their filenames.
+          String filename = jar.getFilename() + Joiner.on("").join(incrementalDexopts) + ".dex.zip";
+          Artifact dexArchive =
+              createDexArchiveAction(
+                  ruleContext,
+                  ASPECT_DEXBUILDER_PREREQ,
+                  desugaredJars.apply(jar),
+                  incrementalDexopts,
+                  AndroidBinary.getDxArtifact(ruleContext, filename));
           result.addDexArchive(incrementalDexopts, dexArchive, jar);
         }
       }
     }
     return new ConfiguredAspect.Builder(NAME, ruleContext).addProvider(result.build()).build();
+  }
+
+  /**
+   * Runs Jars in {@code jarProvider} through desugaring action if flag is set.  Note that this
+   * cannot happen in a separate aspect because aspects don't see providers added by other aspects
+   * executed on the same target.
+   */
+  private Function<Artifact, Artifact> desugarJarsIfRequested(
+      ConfiguredTarget base, RuleContext ruleContext, JavaRuntimeJarProvider jarProvider) {
+    if (!getAndroidConfig(ruleContext).desugarJava8()) {
+      return Functions.identity();
+    }
+    // These are all transitive hjars of dependencies and hjar of the jar itself
+    NestedSet<Artifact> compileTimeClasspath = base
+        .getProvider(JavaCompilationArgsProvider.class) // aspect definition requires this
+        .getRecursiveJavaCompilationArgs()
+        .getCompileTimeJars();
+    // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
+    ImmutableList<Artifact> bootclasspath = getBootclasspath(base);
+    LinkedHashMap<Artifact, Artifact> desugaredJars = new LinkedHashMap<>();
+    for (Artifact jar : jarProvider.getRuntimeJars()) {
+      Artifact desugared = createDesugarAction(ruleContext, jar, bootclasspath,
+          compileTimeClasspath);
+      desugaredJars.put(jar, desugared);
+    }
+    return Functions.forMap(desugaredJars);
   }
 
   private static DexArchiveProvider.Builder createArchiveProviderBuilderFromDeps(
@@ -144,22 +193,85 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return result;
   }
 
-  private static Artifact createDexArchiveAction(RuleContext ruleContext, Artifact jar,
-      Set<String> incrementalDexopts) {
-    // Since we're potentially dexing the same jar multiple times with different flags, we need to
-    // write out unique artifacts for each flag combinations. Here, it is convenient to distinguish
-    // them by putting the flags that were used for creating the artifacts into their filenames.
-    String filename = jar.getFilename() + Joiner.on("").join(incrementalDexopts) + ".dex.zip";
-    Artifact result = AndroidBinary.getDxArtifact(ruleContext, filename);
-    // Aspect must use attribute name for dexbuilder prereq that's different from the prerequisite
-    // declared on AndroidBinaryBaseRule because the two prereq's can otherwise name-clash when
-    // android_binary targets are built as part of an android_test: building android_test causes
-    // the aspect to apply to the android_binary target, but android_binary itself also declares
-    // a $dexbuilder prerequisite, so if the aspect also used $dexbuilder then
-    // RuleContext.getExecutablePrerequisite would fail with "$dexbuilder produces multiple prereqs"
-    // (note they both resolve to the same artifact but that doesn't seem to prevent the exception
-    // from being thrown).
-    createDexArchiveAction(ruleContext, ASPECT_DEXBUILDER_PREREQ, jar, result, incrementalDexopts);
+  private static ImmutableList<Artifact> getBootclasspath(ConfiguredTarget base) {
+    JavaCompilationInfoProvider compilationInfo =
+        base.getProvider(JavaCompilationInfoProvider.class);
+    if (compilationInfo == null) {
+      return ImmutableList.of();
+    }
+    return compilationInfo.getBootClasspath();
+  }
+
+  private Artifact createDesugarAction(
+      RuleContext ruleContext,
+      Artifact jar,
+      ImmutableList<Artifact> bootclasspath,
+      NestedSet<Artifact> compileTimeClasspath) {
+    return createDesugarAction(
+        ruleContext,
+        ASPECT_DESUGAR_PREREQ,
+        jar,
+        bootclasspath,
+        compileTimeClasspath,
+        AndroidBinary.getDxArtifact(ruleContext, jar.getFilename() + "_desugared.jar"));
+  }
+
+  /**
+   * Desugars the given Jar using an executable prerequisite {@code "$dexbuilder"}.  Rules
+   * calling this method must declare the appropriate prerequisite, similar to how
+   * {@link #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   *
+   * <p>It's useful to have this action separately since callers need to look up classpath and
+   * bootclasspath in a different way than this aspect does it.
+   *
+   * @return the artifact given as {@code result}, which can simplify calling code
+   */
+  static Artifact desugar(
+      RuleContext ruleContext,
+      Artifact jar,
+      ImmutableList<Artifact> bootclasspath,
+      NestedSet<Artifact> classpath,
+      Artifact result) {
+    return createDesugarAction(ruleContext, "$desugar", jar, bootclasspath, classpath, result);
+  }
+
+  private static Artifact createDesugarAction(
+      RuleContext ruleContext,
+      String desugarPrereqName,
+      Artifact jar,
+      ImmutableList<Artifact> bootclasspath,
+      NestedSet<Artifact> classpath,
+      Artifact result) {
+    CustomCommandLine args = new CustomCommandLine.Builder()
+        .addExecPath("--input", jar)
+        .addExecPath("--output", result)
+        .addBeforeEachExecPath("--classpath_entry", classpath)
+        .addBeforeEachExecPath("--bootclasspath_entry", bootclasspath)
+        .build();
+
+    // Just use params file, since classpaths can get long
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(result.getRootRelativePath()), result.getRoot());
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFile,
+            args,
+            ParameterFile.ParameterFileType.UNQUOTED,
+            ISO_8859_1));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName, Mode.HOST))
+            .addArgument("@" + paramFile.getExecPathString())
+            .addInput(jar)
+            .addInput(paramFile)
+            .addInputs(bootclasspath)
+            .addTransitiveInputs(classpath)
+            .addOutput(result)
+            .setMnemonic("Desugar")
+            .setProgressMessage("Desugaring " + jar.prettyPrint() + " for Android")
+            .build(ruleContext));
     return result;
   }
 
@@ -167,24 +279,27 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * Creates a dex archive using an executable prerequisite called {@code "$dexbuilder"}.  Rules
    * calling this method must declare the appropriate prerequisite, similar to how
    * {@link #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   *
+   * @return the artifact given as {@code result}, which can simplify calling code
    */
   // Package-private method for use in AndroidBinary
-  static void createDexArchiveAction(RuleContext ruleContext, Artifact jar, Artifact dexArchive,
-      Set<String> tokenizedDexopts) {
-    createDexArchiveAction(ruleContext, "$dexbuilder", jar, dexArchive, tokenizedDexopts);
+  static Artifact createDexArchiveAction(RuleContext ruleContext, Artifact jar,
+      Set<String> tokenizedDexopts, Artifact result) {
+    return createDexArchiveAction(ruleContext, "$dexbuilder", jar, tokenizedDexopts, result);
   }
 
   /**
    * Creates a dexbuilder action with the given input, output, and flags.  Flags must have been
    * filtered and normalized to a set that the dexbuilder tool can understand.
    */
-  private static void createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
-      Artifact jar, Artifact dexArchive, Set<String> incrementalDexopts) {
+  private static Artifact createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
+      Artifact jar, Set<String> incrementalDexopts, Artifact dexArchive) {
     // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
-    CustomCommandLine.Builder args = new CustomCommandLine.Builder()
+    CustomCommandLine args = new CustomCommandLine.Builder()
         .addExecPath("--input_jar", jar)
         .addExecPath("--output_zip", dexArchive)
-        .add(incrementalDexopts);
+        .add(incrementalDexopts)
+        .build();
     Artifact paramFile =
         ruleContext.getDerivedArtifact(
             ParameterFile.derivePath(dexArchive.getRootRelativePath()), dexArchive.getRoot());
@@ -192,7 +307,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new ParameterFileWriteAction(
             ruleContext.getActionOwner(),
             paramFile,
-            args.build(),
+            args,
             ParameterFile.ParameterFileType.UNQUOTED,
             ISO_8859_1));
     SpawnAction.Builder dexbuilder =
@@ -208,6 +323,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .setProgressMessage(
                 "Dexing " + jar.prettyPrint() + " with applicable dexopts " + incrementalDexopts);
     ruleContext.registerAction(dexbuilder.build(ruleContext));
+    return dexArchive;
   }
 
   private static Set<Set<String>> aspectDexopts(RuleContext ruleContext) {
