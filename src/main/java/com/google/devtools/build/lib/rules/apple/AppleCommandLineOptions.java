@@ -34,17 +34,26 @@ import java.util.List;
 public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
-    name = "xcode_version",
-    defaultValue = "null",
-    category = "build",
-    converter = DottedVersionConverter.class,
-    help =
-        "If specified, uses xcode of the given version for relevant build actions. "
-            + "If unspecified, uses the executor default version of xcode."
+      name = "xcode_version",
+      defaultValue = "null",
+      category = "build",
+      converter = DottedVersionConverter.class,
+      help =
+          "If specified, uses xcode of the given version for relevant build actions. "
+              + "If unspecified, uses the executor default version of xcode."
   )
   // TODO(bazel-team): This should be of String type, to allow referencing an alias based
   // on an xcode_config target.
   public DottedVersion xcodeVersion;
+
+  @Option(
+      name = "swift_toolchain",
+      defaultValue = "null",
+      category = "build",
+      help =
+          "If specified, uses sets TOOLCHAINS environment variable when calling xcrun."
+  )
+  public String swiftToolchain;
 
   @Option(
     name = "ios_sdk_version",

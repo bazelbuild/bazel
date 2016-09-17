@@ -254,12 +254,7 @@ public final class IntermediateArtifacts {
     return inUniqueObjsDir(source, ".partial_swiftmodule");
   }
 
-  /**
-   * Integrated swift module for this target.
-   */
-  public Artifact swiftModule() {
-    return appendExtension(".swiftmodule");
-  }
+
 
   /**
    * Integrated swift header for this target.
@@ -410,8 +405,21 @@ public final class IntermediateArtifacts {
    */
   public CppModuleMap moduleMap() {
 
+    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
+    // parent directory in the module map search paths.
+    return new CppModuleMap(appendExtensionInGenfiles("_modulemaps/foo/module.modulemap"),
+        clangModuleName());
+  }
 
+  /**
+   * Integrated swift module for this target.
+   */
+  public Artifact swiftModule() {
+    // To get Swift to pick up swiftmodules, and only the ones they depend on we have to put it in an isolated directory
+    return appendExtensionInGenfiles(".swiftmodule");
+  }
 
+  private String clangModuleName() {
     String moduleName;
     if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
       moduleName = ruleContext.attributes().get("clang_module_name", Type.STRING);
@@ -424,10 +432,7 @@ public final class IntermediateArtifacts {
               .replace("/", "_")
               .replace(":", "_");
     }
-
-    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
-    // parent directory in the module map search paths.
-    return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+    return moduleName;
   }
 
   /**

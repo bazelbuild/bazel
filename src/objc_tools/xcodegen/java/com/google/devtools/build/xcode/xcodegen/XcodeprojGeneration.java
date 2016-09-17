@@ -14,30 +14,6 @@
 
 package com.google.devtools.build.xcode.xcodegen;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.escape.Escaper;
-import com.google.common.escape.Escapers;
-import com.google.devtools.build.xcode.common.XcodeprojPath;
-import com.google.devtools.build.xcode.util.Containing;
-import com.google.devtools.build.xcode.util.Equaling;
-import com.google.devtools.build.xcode.util.Mapping;
-import com.google.devtools.build.xcode.xcodegen.LibraryObjects.BuildPhaseBuilder;
-import com.google.devtools.build.xcode.xcodegen.SourceFile.BuildType;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
-
 import com.dd.plist.NSArray;
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
@@ -58,7 +34,26 @@ import com.facebook.buck.apple.xcode.xcodeproj.PBXShellScriptBuildPhase;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXSourcesBuildPhase;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXTargetDependency;
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.escape.Escaper;
+import com.google.common.escape.Escapers;
+import com.google.devtools.build.xcode.common.XcodeprojPath;
+import com.google.devtools.build.xcode.util.Containing;
+import com.google.devtools.build.xcode.util.Equaling;
+import com.google.devtools.build.xcode.util.Mapping;
+import com.google.devtools.build.xcode.xcodegen.LibraryObjects.BuildPhaseBuilder;
+import com.google.devtools.build.xcode.xcodegen.SourceFile.BuildType;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -77,6 +72,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Utility code for generating Xcode project files.
@@ -523,7 +521,21 @@ public class XcodeprojGeneration {
             "INFOPLIST_FILE", "$(WORKSPACE_ROOT)/" + targetControl.getInfoplist());
       }
 
+      if (targetControl.hasModuleName()) {
+        targetBuildConfigMap.put("PRODUCT_MODULE_NAME",
+            NSObject.wrap(targetControl.getModuleName()));
+      }
 
+      if (targetControl.hasModulemapPath()) {
+        targetBuildConfigMap.put("MODULEMAP_FILE",
+            NSObject.wrap(targetControl.getModulemapPath()));
+      }
+
+      if (targetControl.getSwiftoptCount() > 0) {
+        List<String> escapedSwiftopts = Lists.transform(
+            targetControl.getSwiftoptList(), QUOTE_ESCAPER.asFunction());
+        targetBuildConfigMap.put("OTHER_SWIFT_FLAGS", NSObject.wrap(escapedSwiftopts));
+      }
       // Double-quotes in copt strings need to be escaped for XCode.
       if (targetControl.getCoptCount() > 0) {
         List<String> escapedCopts = Lists.transform(

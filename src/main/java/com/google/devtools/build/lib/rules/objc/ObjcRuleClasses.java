@@ -57,6 +57,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.rules.apple.AppleConfiguration.SWIFT_TOOLCHAINS_ENV_NAME;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -225,10 +226,16 @@ public class ObjcRuleClasses {
    */
   static ImmutableMap<String, String> appleToolchainEnvironment(
       AppleConfiguration appleConfiguration, Platform targetPlatform) {
-    return ImmutableMap.<String, String>builder()
-        .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
-        .putAll(appleConfiguration.getAppleHostSystemEnv())
-        .build();
+    ImmutableMap.Builder<String, String> result =
+        ImmutableMap.<String, String>builder()
+            .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
+            .putAll(appleConfiguration.getAppleHostSystemEnv());
+
+    if (appleConfiguration.getSwiftToolchainSystemEnv().isPresent()) {
+      result.put(SWIFT_TOOLCHAINS_ENV_NAME, appleConfiguration.getSwiftToolchainSystemEnv().get());
+    }
+
+    return result.build();
   }
 
   /**

@@ -65,6 +65,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
+  public static final String SWIFT_TOOLCHAINS_ENV_NAME = "TOOLCHAINS";
+
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
 
   private final DottedVersion iosSdkVersion;
@@ -76,6 +78,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final Optional<DottedVersion> xcodeVersion;
+  private final Optional<String> swiftToolchain;
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
   private final AppleBitcodeMode bitcodeMode;
@@ -87,7 +90,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion iosSdkVersion,
       DottedVersion watchOsSdkVersion,
       DottedVersion tvOsSdkVersion,
-      DottedVersion macOsXSdkVersion) {
+      DottedVersion macOsXSdkVersion,
+      Optional<String> swiftToolchain) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.watchOsSdkVersion =
         Preconditions.checkNotNull(watchOsSdkVersion, "watchOsSdkVersion");
@@ -111,6 +115,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
+    this.swiftToolchain = swiftToolchain;
   }
 
   /**
@@ -186,6 +191,20 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     } else {
       return ImmutableMap.of();
     }
+  }
+
+  /**
+   * Returns a map of environment variables that should be propagated for actions that build on an
+   * to set the toolchain.
+   */
+  @SkylarkCallable(
+      name = "swift_toolchain_system_env",
+      doc =
+          " Returns a map of environment variables that should be propagated for actions "
+              + "that build on an to set the toolchain."
+  )
+  public Optional<String> getSwiftToolchainSystemEnv() {
+    return swiftToolchain;
   }
 
   /**
@@ -266,17 +285,17 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       case WATCHOS:
         return watchosCpus.get(0);
       // TODO(cparsons): Handle all platform types.
-      default: 
+      default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
   }
- 
+
   /**
    * Gets the "effective" architecture(s) for the given {@link PlatformType}. For example,
    * "i386" or "arm64". At least one architecture is always returned. Prefer this over
    * {@link #getSingleArchitecture} in rule logic which may support multiple architectures, such
    * as bundling rules.
-   * 
+   *
    * <p>Effective architecture(s) is determined using the following rules:
    * <ol>
    * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then
@@ -285,7 +304,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * all architectures from that flag.</li>
    * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.</li>
    * <li>Use the default.</li></ol>
-   * 
+   *
    * @throws IllegalArgumentException if {@code --apple_platform_type} is set (via prior
    *     configuration transition) yet does not match {@code platformType}
    */
@@ -307,7 +326,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         }
       case WATCHOS:
         return watchosCpus;
-      default: 
+      default:
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
   }
@@ -329,7 +348,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public Platform getSingleArchPlatform() {
     return Platform.forTarget(applePlatformType, getSingleArchitecture());
   }
-  
+
   /**
    * Gets the current configuration {@link Platform} for the given {@link PlatformType}. Platform
    * is determined via a combination between the given platform type and the "effective"
@@ -392,7 +411,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     }
     return getIosCpu();
   }
-  
+
   /**
    * List of all CPUs that this invocation is being built for. Different from {@link #getIosCpu()}
    * which is the specific CPU <b>this target</b> is being built for.
@@ -409,11 +428,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable public Label getDefaultProvisioningProfileLabel() {
     return defaultProvisioningProfileLabel;
   }
-  
+
   /**
    * Returns the bitcode mode to use for compilation steps. Users can control bitcode
    * mode using the {@code apple_bitcode} build flag.
-   * 
+   *
    * @see AppleBitcodeMode
    */
   public AppleBitcodeMode getBitcodeMode() {
@@ -474,9 +493,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           ? appleOptions.tvOsSdkVersion : xcodeVersionProperties.getDefaultTvosSdkVersion();
       DottedVersion macosxSdkVersion = (appleOptions.macOsXSdkVersion != null)
           ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
+
+      Optional<String> swiftToolchain = Optional.fromNullable(appleOptions.swiftToolchain);
       AppleConfiguration configuration =
           new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
-              iosSdkVersion, watchosSdkVersion, tvosSdkVersion, macosxSdkVersion);
+              iosSdkVersion, watchosSdkVersion, tvosSdkVersion, macosxSdkVersion, swiftToolchain);
 
       validate(configuration);
       return configuration;
@@ -503,7 +524,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
       return ImmutableSet.<Class<? extends FragmentOptions>>of(AppleCommandLineOptions.class);
     }
-    
+
     /**
      * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
      * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
@@ -518,7 +539,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     private static XcodeVersionProperties getXcodeVersionProperties(
         ConfigurationEnvironment env, AppleCommandLineOptions appleOptions)
         throws InvalidConfigurationException, InterruptedException {
-      Optional<DottedVersion> xcodeVersionCommandLineFlag = 
+      Optional<DottedVersion> xcodeVersionCommandLineFlag =
           Optional.fromNullable(appleOptions.xcodeVersion);
       Label xcodeVersionConfigLabel = appleOptions.xcodeVersionConfig;
 

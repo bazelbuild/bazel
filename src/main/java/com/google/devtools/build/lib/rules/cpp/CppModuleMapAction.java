@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,10 +45,10 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
 
   // C++ module map of the current target
   private final CppModuleMap cppModuleMap;
-  
+
   /**
    * If set, the paths in the module map are relative to the current working directory instead
-   * of relative to the module map file's location. 
+   * of relative to the module map file's location.
    */
   private final boolean moduleMapHomeIsCwd;
 
@@ -184,7 +183,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     }
     content.append("\n");
   }
-  
+
   private boolean shouldCompileHeader(PathFragment path) {
     return compiledModule && !CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(path);
   }
@@ -237,7 +236,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   public Collection<Artifact> getPrivateHeaders() {
     return privateHeaders;
   }
-  
+
   @VisibleForTesting
   public ImmutableList<PathFragment> getAdditionalExportedHeaders() {
     return additionalExportedHeaders;

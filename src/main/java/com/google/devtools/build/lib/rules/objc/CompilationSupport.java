@@ -14,37 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -96,8 +65,41 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SWIFT_MODULE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -110,7 +112,7 @@ public final class CompilationSupport {
 
   @VisibleForTesting
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  
+
   @VisibleForTesting
   static final String MODULES_CACHE_PATH_WARNING =
       "setting '-fmodules-cache-path' manually in copts is unsupported";
@@ -825,6 +827,8 @@ public final class CompilationSupport {
     }
     ImmutableSet<Artifact> otherSwiftSources = otherSwiftSourcesBuilder.build();
 
+    Iterable<String> swiftopts = Iterables.concat(objcConfiguration.getSwiftopts(), attributes.swiftopts());
+
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder()
         .add(SWIFT)
         .add("-frontend")
@@ -832,7 +836,8 @@ public final class CompilationSupport {
         .add("-target").add(swiftTarget(appleConfiguration))
         .add("-sdk").add(AppleToolchain.sdkDir())
         .add("-enable-objc-interop")
-        .add(objcConfiguration.getSwiftCoptsForCompilationMode());
+        .add(objcConfiguration.getSwiftCoptsForCompilationMode())
+        .add(swiftopts);
 
     if (objcConfiguration.generateDsym()) {
       commandLine.add("-g");
@@ -876,6 +881,21 @@ public final class CompilationSupport {
       commandLine.add("-import-underlying-module");
 
       inputHeaders.addAll(objcProvider.get(MODULE_MAP));
+    }
+
+    Set<String> seenSwiftModulePaths = new HashSet<>();
+    // For any dependency we have we need to make sure we are visible
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+      String path = swiftModule.getExecPath().getParentDirectory().getPathString();
+
+      if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
+        inputHeaders.add(swiftModule);
+
+        if (!seenSwiftModulePaths.contains(path)) {
+          seenSwiftModulePaths.add(path);
+          commandLine.add("-I").add(path);
+        }
+      }
     }
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
@@ -925,7 +945,7 @@ public final class CompilationSupport {
         .add("-module-name").add(getModuleName())
         .add("-parse-as-library")
         .addExecPaths(moduleFiles.build())
-        .addExecPath("-o", intermediateArtifacts.swiftModule())
+        .addExecPath("-emit-module-path", intermediateArtifacts.swiftModule())
         .addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader())
         // The swift compiler will invoke clang itself when compiling module maps. This invocation
         // does not include the current working directory, causing cwd-relative imports to fail.
@@ -1201,7 +1221,7 @@ public final class CompilationSupport {
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
             /*generateSubModules=*/ false,
-            /*externDependencies=*/ true));
+            /*externDependencies=*/ false));
   }
 
   private boolean isDynamicLib(CommandLine commandLine) {
@@ -1581,6 +1601,8 @@ public final class CompilationSupport {
       nonPropagatedHeaderSearchPaths.add(new PathFragment(includeDirOption.substring(2)));
     }
 
+    Iterable<String> swiftopts = Iterables.concat(objcConfiguration.getSwiftopts(), attributes.swiftopts());
+
     // We also need to add the -isystem directories from the CC header providers. ObjCommon
     // adds these to the objcProvider, so let's just get them from there.
     Iterable<PathFragment> includeSystemPaths = common.getObjcProvider().get(INCLUDE_SYSTEM);
@@ -1596,7 +1618,8 @@ public final class CompilationSupport {
         .addNonPropagatedHeaderSearchPaths(
             "$(WORKSPACE_ROOT)", nonPropagatedHeaderSearchPaths.build())
         .addCompilationModeCopts(objcConfiguration.getCoptsForCompilationMode())
-        .addCopts(coptsWithoutIncludeDirs);
+        .addCopts(coptsWithoutIncludeDirs)
+        .addSwiftopts(swiftopts);
 
     return this;
   }
@@ -1724,7 +1747,7 @@ public final class CompilationSupport {
       }
     }
   }
-  
+
   private static Iterable<PathFragment> uniqueParentDirectories(Iterable<PathFragment> paths) {
     ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
     for (PathFragment path : paths) {
@@ -1742,7 +1765,7 @@ public final class CompilationSupport {
     // other platform types.
     return configuration.getSingleArchitecture() + "-apple-ios" + configuration.getIosSdkVersion();
   }
-  
+
   /**
    * Returns a list of clang flags used for all link and compile actions executed through clang.
    */

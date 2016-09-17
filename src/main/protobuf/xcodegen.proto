@@ -55,7 +55,7 @@ message DependencyControl {
 }
 
 // Contains information specific to a single target in the project file.
-// Next ID: 24
+// Next ID: 26
 message TargetControl {
   // A short name for the target that need not be unique. For instance, for
   // binary targets this corresponds to the product name.
@@ -88,6 +88,9 @@ message TargetControl {
 
   // Additional flags to pass to the [objective] c[++] compiler.
   repeated string copt = 8;
+
+  // Additional flags to pass to the swift compiler.
+  repeated string swiftopt = 24;
 
   // Additional flags to pass to the linker.
   repeated string linkopt = 22;
@@ -181,6 +184,12 @@ message TargetControl {
   // appear in the Project Build Settings under OTHER_LDFLAGS. For binary
   // targets, this causes the library to be linked with the final binary.
   repeated string sdk_dylib = 19;
+
+  // Clang module name
+  optional string module_name = 25;
+
+  // Modulemap file name
+  optional string modulemap_path = 26;
 }
 
 // Represents the mapping of a build setting recognized by Xcode project files,

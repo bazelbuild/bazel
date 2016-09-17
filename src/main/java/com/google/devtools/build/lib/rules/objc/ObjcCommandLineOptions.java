@@ -64,6 +64,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to Objective C compilation.")
   public List<String> copts;
 
+  @Option(name = "swiftopt",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "flags",
+      help = "Additional options to pass to Swift compilation.")
+  public List<String> swiftopts;
+
   @Option(
     name = "ios_minimum_os",
     defaultValue = DEFAULT_MINIMUM_IOS,
@@ -196,7 +203,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     category = "undocumented"
   )
   public boolean experimentalObjcLibrary;
-  
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @SuppressWarnings("unchecked")

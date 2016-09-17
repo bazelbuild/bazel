@@ -48,6 +48,7 @@ final class CompilationAttributes {
     private final NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<String> swiftopts = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> linkopts = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<CppModuleMap> moduleMapsForDirectDeps =
         NestedSetBuilder.stableOrder();
@@ -111,6 +112,14 @@ final class CompilationAttributes {
      */
     public Builder addCopts(NestedSet<String> copts) {
       this.copts.addTransitive(copts);
+      return this;
+    }
+
+    /**
+     * Adds compile-time options.
+     */
+    public Builder addSwiftopts(NestedSet<String> swiftopts) {
+      this.swiftopts.addTransitive(swiftopts);
       return this;
     }
 
@@ -214,6 +223,7 @@ final class CompilationAttributes {
           this.sdkDylibs.build(),
           this.packageFragment,
           this.copts.build(),
+          this.swiftopts.build(),
           this.linkopts.build(),
           this.moduleMapsForDirectDeps.build(),
           this.enableModules,
@@ -294,6 +304,9 @@ final class CompilationAttributes {
         NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
         copts.addAll(ruleContext.getTokenizedStringListAttr("copts"));
         builder.addCopts(copts.build());
+        NestedSetBuilder<String> swiftopts = NestedSetBuilder.stableOrder();
+        swiftopts.addAll(ruleContext.getTokenizedStringListAttr("swiftopts"));
+        builder.addSwiftopts(swiftopts.build());
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
@@ -354,6 +367,7 @@ final class CompilationAttributes {
   private final NestedSet<String> sdkDylibs;
   private final Optional<PathFragment> packageFragment;
   private final NestedSet<String> copts;
+  private final NestedSet<String> swiftopts;
   private final NestedSet<String> linkopts;
   private final NestedSet<CppModuleMap> moduleMapsForDirectDeps;
   private final boolean enableModules;
@@ -370,6 +384,7 @@ final class CompilationAttributes {
       NestedSet<String> sdkDylibs,
       Optional<PathFragment> packageFragment,
       NestedSet<String> copts,
+      NestedSet<String> swiftopts,
       NestedSet<String> linkopts,
       NestedSet<CppModuleMap> moduleMapsForDirectDeps,
       boolean enableModules,
@@ -384,6 +399,7 @@ final class CompilationAttributes {
     this.sdkDylibs = sdkDylibs;
     this.packageFragment = packageFragment;
     this.copts = copts;
+    this.swiftopts = swiftopts;
     this.linkopts = linkopts;
     this.moduleMapsForDirectDeps = moduleMapsForDirectDeps;
     this.enableModules = enableModules;
@@ -473,6 +489,10 @@ final class CompilationAttributes {
    */
   public NestedSet<String> copts() {
     return this.copts;
+  }
+
+  public NestedSet<String> swiftopts() {
+    return swiftopts;
   }
 
   /**

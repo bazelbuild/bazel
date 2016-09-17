@@ -110,6 +110,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private final ImmutableList.Builder<String> copts = new ImmutableList.Builder<>();
     private final ImmutableList.Builder<String> compilationModeCopts =
         new ImmutableList.Builder<>();
+    private final ImmutableList.Builder<String> swiftopts = new ImmutableList.Builder<>();
     private XcodeProductType productType;
     private final ImmutableList.Builder<Artifact> headers = new ImmutableList.Builder<>();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
@@ -297,6 +298,14 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     }
 
     /**
+     * Sets the swiftopts to use when compiling the Xcode target.
+     */
+    public Builder addSwiftopts(Iterable<String> swiftopts) {
+      this.swiftopts.addAll(swiftopts);
+      return this;
+    }
+
+    /**
      * Sets the product type for the PBXTarget in the .xcodeproj file.
      */
     public Builder setProductType(XcodeProductType productType) {
@@ -430,7 +439,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     public NestedSet<Artifact> getInputsToXcodegen() {
       return inputsToXcodegen;
     }
-    
+
     /**
      * Returns artifacts that are additional sources for the Xcodegen action.
      */
@@ -487,6 +496,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final NestedSet<XcodeProvider> jreDependencies;
   private final ImmutableList<XcodeprojBuildSetting> xcodeprojBuildSettings;
   private final ImmutableList<XcodeprojBuildSetting> companionTargetXcodeprojBuildSettings;
+  private final ImmutableList<String> swiftopts;
   private final ImmutableList<String> copts;
   private final ImmutableList<String> compilationModeCopts;
   private final XcodeProductType productType;
@@ -520,6 +530,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         builder.companionTargetXcodeprojBuildSettings.build();
     this.copts = builder.copts.build();
     this.compilationModeCopts = builder.compilationModeCopts.build();
+    this.swiftopts = builder.swiftopts.build();
     this.productType = Preconditions.checkNotNull(builder.productType);
     this.headers = builder.headers.build();
     this.compilationArtifacts = builder.compilationArtifacts;
@@ -642,6 +653,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .addAllCopt(CompilationSupport.DEFAULT_COMPILER_FLAGS)
             .addAllCopt(Interspersing.prependEach("-D", objcProvider.get(DEFINE)))
             .addAllCopt(copts)
+            .addAllSwiftopt(swiftopts)
             .addAllLinkopt(
                 Interspersing.beforeEach("-force_load", objcProvider.get(FORCE_LOAD_FOR_XCODEGEN)))
             .addAllLinkopt(CompilationSupport.DEFAULT_LINKER_FLAGS)
