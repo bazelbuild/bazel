@@ -444,7 +444,15 @@ public class CppHelper {
             + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()),
         ruleContext.getConfiguration().getGenfilesDirectory(
             ruleContext.getRule().getRepository()));
-    return new CppModuleMap(mapFile, ruleContext.getLabel().toString());
+
+    String moduleName;
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      moduleName = ruleContext.attributes().get("clang_module_name", Type.STRING);
+    } else {
+      moduleName = ruleContext.getLabel().toString();
+    }
+
+    return new CppModuleMap(mapFile, moduleName);
   }
 
   /**

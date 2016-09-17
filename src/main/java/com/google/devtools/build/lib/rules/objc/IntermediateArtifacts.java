@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,7 +54,7 @@ public final class IntermediateArtifacts {
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
     this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration());
   }
- 
+
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
       String outputPrefix, BuildConfiguration buildConfiguration) {
     this.ruleContext = ruleContext;
@@ -408,13 +409,22 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    String moduleName =
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("/", "_")
-            .replace(":", "_");
+
+
+
+    String moduleName;
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      moduleName = ruleContext.attributes().get("clang_module_name", Type.STRING);
+    } else {
+      moduleName =
+          ruleContext
+              .getLabel()
+              .toString()
+              .replace("//", "")
+              .replace("/", "_")
+              .replace(":", "_");
+    }
+
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
     // parent directory in the module map search paths.
     return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);

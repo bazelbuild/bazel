@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
-
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -34,8 +32,9 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
+
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 
 /**
  * Provides a way to access attributes that are common to all compilation rules.
@@ -58,6 +57,7 @@ final class CompilationAttributes {
     private Optional<Artifact> bridgingHeader = Optional.absent();
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
+    private Optional<String> clangModuleName = Optional.absent();
 
     /**
      * Adds the default values available through the rule's context.
@@ -188,6 +188,18 @@ final class CompilationAttributes {
     }
 
     /**
+     * Sets module name for clang module and swift module.
+     */
+    public Builder setClangModuleName(String clangModuleName) {
+      Preconditions.checkState(
+          !this.clangModuleName.isPresent(),
+          "clangModuleName is already set to %s",
+          this.clangModuleName);
+      this.clangModuleName = Optional.of(clangModuleName);
+      return this;
+    }
+
+    /**
      * Builds a {@code CompilationAttributes} object.
      */
     public CompilationAttributes build() {
@@ -204,7 +216,8 @@ final class CompilationAttributes {
           this.copts.build(),
           this.linkopts.build(),
           this.moduleMapsForDirectDeps.build(),
-          this.enableModules);
+          this.enableModules,
+          this.clangModuleName);
     }
 
     private static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
@@ -324,6 +337,10 @@ final class CompilationAttributes {
           && ruleContext.attributes().get("enable_modules", Type.BOOLEAN)) {
         builder.enableModules();
       }
+
+      if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+        builder.setClangModuleName(ruleContext.attributes().get("clang_module_name", Type.STRING));
+      }
     }
   }
 
@@ -340,6 +357,7 @@ final class CompilationAttributes {
   private final NestedSet<String> linkopts;
   private final NestedSet<CppModuleMap> moduleMapsForDirectDeps;
   private final boolean enableModules;
+  private final Optional<String> clangModuleName;
 
   private CompilationAttributes(
       NestedSet<Artifact> hdrs,
@@ -354,7 +372,8 @@ final class CompilationAttributes {
       NestedSet<String> copts,
       NestedSet<String> linkopts,
       NestedSet<CppModuleMap> moduleMapsForDirectDeps,
-      boolean enableModules) {
+      boolean enableModules,
+      Optional<String> clangModuleName) {
     this.hdrs = hdrs;
     this.textualHdrs = textualHdrs;
     this.bridgingHeader = bridgingHeader;
@@ -368,6 +387,7 @@ final class CompilationAttributes {
     this.linkopts = linkopts;
     this.moduleMapsForDirectDeps = moduleMapsForDirectDeps;
     this.enableModules = enableModules;
+    this.clangModuleName = clangModuleName;
   }
 
   /**
@@ -476,5 +496,13 @@ final class CompilationAttributes {
    */
   public boolean enableModules() {
     return this.enableModules;
+  }
+
+  /**
+   * Name of clang module used when creating a modulemap or swift module
+   * {@literal @}import.
+   */
+  public Optional<String> clangModuleName() {
+    return this.clangModuleName;
   }
 }

@@ -14,15 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,6 +51,15 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 /**
  * Shared rule classes and associated utility code for Objective-C rules.
@@ -172,8 +172,8 @@ public class ObjcRuleClasses {
           return null;
         }
       };
-      
-      
+
+
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
@@ -181,7 +181,7 @@ public class ObjcRuleClasses {
    * which contain information about the target and host architectures. This implicitly
    * assumes that this action is targeting ios platforms, and that
    * {@link AppleConfiguration#getIosCpu()} is the source of truth for their target architecture.
-   * 
+   *
    * @deprecated use {@link #spawnAppleEnvActionBuilder(RuleContext, Platform)} instead
    */
   // TODO(cparsons): Refactor callers to use the alternate method. Callers should be aware
@@ -207,7 +207,7 @@ public class ObjcRuleClasses {
     return spawnAppleEnvActionBuilder(
         ruleContext.getFragment(AppleConfiguration.class), targetPlatform);
   }
-  
+
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
@@ -371,7 +371,7 @@ public class ObjcRuleClasses {
   static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
   static final FileType OBJECT_FILE_SOURCES = FileType.of(".o");
-  
+
   static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
   /**
@@ -401,7 +401,7 @@ public class ObjcRuleClasses {
    * Files that are already compiled.
    */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
-  
+
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
@@ -680,7 +680,7 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
-    
+
     /**
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
@@ -688,7 +688,7 @@ public class ObjcRuleClasses {
     static final Iterable<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of(
             "cc_library",
-            "cc_inc_library"); 
+            "cc_inc_library");
     /**
      * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
      */
@@ -696,7 +696,7 @@ public class ObjcRuleClasses {
         Iterables.<String>concat(
             ALLOWED_CC_DEPS_RULE_CLASSES,
             ImmutableList.of("experimental_objc_library"));
-        
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -780,9 +780,15 @@ public class ObjcRuleClasses {
           Enables clang module support (via -fmodules).
           Setting this to 1 will allow you to @import system headers and other targets:
           @import UIKit;
-          @import path_to_package_target;
+          @import clang_module_name;
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("enable_modules", BOOLEAN))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(clang_module_name) -->
+          Controls clang module name. In swift it will apply -module-name.
+          Setting this to 1 will allow you to @import system headers and other targets.
+          The default for this is path_to_package_target
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("clang_module_name", STRING))
           .build();
     }
     @Override

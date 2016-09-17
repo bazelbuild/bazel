@@ -284,7 +284,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
   }
-  
+
   /**
    * Returns true if all objc_library targets should be configured as if they were
    * experimental_objc_library targets.
