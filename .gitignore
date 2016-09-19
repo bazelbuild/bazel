@@ -9,6 +9,7 @@
 /bazel-bazel
 /bazel-bin
 /bazel-genfiles
+/bazel-io_bazel
 /bazel-out
 /bazel-testlogs
 /bazel.iml
