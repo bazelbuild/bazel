@@ -28,6 +28,7 @@ sh_test(
 sh_library(
     name = "shell_utils",
     srcs = ["shell_utils.sh"],
+    visibility = ["//src/test/shell/integration:__pkg__"],
 )
 
 sh_test(
