@@ -524,21 +524,20 @@ public final class BuildConfiguration {
     // CoverageCommand.setDefaultInstrumentationFilter()
     @Option(name = "instrumentation_filter",
         converter = RegexFilter.RegexFilterConverter.class,
-        defaultValue = "-javatests,-_test$,-Tests$",
+        defaultValue = "-/javatests[/:]",
         category = "semantics",
         help = "When coverage is enabled, only rules with names included by the "
             + "specified regex-based filter will be instrumented. Rules prefixed "
-            + "with '-' are excluded instead. By default, rules containing "
-            + "'javatests' or ending with '_test' will not be instrumented.")
+            + "with '-' are excluded instead. Note that only non-test rules are "
+            + "instrumented unless --instrument_test_targets is enabled.")
     public RegexFilter instrumentationFilter;
 
     @Option(name = "instrument_test_targets",
-        defaultValue = "true",
+        defaultValue = "false",
         category = "semantics",
         help = "When coverage is enabled, specifies whether to consider instrumenting test rules. "
-            + "When true (the default), test rules included by --instrumentation_filter are "
-            + "instrumented. When false, test rules are always excluded from coverage "
-            + "instrumentation.")
+            + "When set, test rules included by --instrumentation_filter are instrumented. "
+            + "Otherwise, test rules are always excluded from coverage instrumentation.")
     public boolean instrumentTestTargets;
 
     @Option(name = "show_cached_analysis_results",
