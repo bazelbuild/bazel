@@ -1,4 +1,4 @@
-How to update the binaries other than `protoc-linux-x86_64.exe` and `protoc-linux-arm32.exe`:
+How to update the binaries other than `protoc-linux-x86_64.exe`:
 
 1. Go to http://search.maven.org/
 2. Search for g:"com.google.protobuf"
@@ -6,7 +6,7 @@ How to update the binaries other than `protoc-linux-x86_64.exe` and `protoc-linu
 4. Download all binaries from "protoc".
 5. Strip version number from protoc files: for `i in *.exe; do mv $i $(echo $i | sed s/3.0.0-beta-2-//); done`
 6. Set executable bit: `chmod +x *.exe`
-7. Update third_party/BUILD to point to the new jar file.
+7. Update `third_party/BUILD` to point to the new jar file.
 8. Done.
 
 The 64-bit Linux version of the proto compiler is linked statically. To update it, do
@@ -20,7 +20,7 @@ the following steps on an x86_64 machine:
 6. `make`
 7. `cp src/protoc <Bazel tree>/third_party/protobuf/protoc-linux-x86_64.exe` .
 
-How to update the `src/` directory:
+How to update `protobuf.bzl` and the `src/` directory:
 
 1. `git clone http://github.com/google/protobuf.git`
 2. `git checkout <commithash>` (current is `d5fb408d` or `3.0.0-beta-2`)
@@ -28,3 +28,6 @@ How to update the `src/` directory:
 3. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
 4. Update rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
 5. Done.
+
+How to update anything else in this directory: follow usual procedure as described on
+https://www.bazel.io/contributing.html
