@@ -65,7 +65,7 @@ public class TestConstants {
         "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
-  public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
+  public static final String GCC_INCLUDE_PATH = "../bazel_tools/tools/cpp/gcc3";
 
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
 

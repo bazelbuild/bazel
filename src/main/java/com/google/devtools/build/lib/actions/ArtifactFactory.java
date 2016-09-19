@@ -287,8 +287,9 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    * not null). That Artifact will have root determined by the package roots of this factory if it
    * lives in a subpackage distinct from that of baseExecPath, and {@code baseRoot} otherwise.
    */
-  public synchronized Artifact resolveSourceArtifactWithAncestor(
-      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot) {
+  private synchronized Artifact resolveSourceArtifactWithAncestor(
+      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot,
+      RepositoryName repositoryName) {
     Preconditions.checkState(
         (baseExecPath == null) == (baseRoot == null),
         "%s %s %s",
@@ -313,7 +314,15 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       return null;
     }
 
-    return createArtifactIfNotValid(findSourceRoot(execPath, baseExecPath, baseRoot), execPath);
+    return createArtifactIfNotValid(
+        findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName), execPath);
+  }
+
+  // TODO(kchodorow): make remote repositories work with include scanning.
+  public synchronized Artifact resolveSourceArtifactWithAncestor(
+      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot) {
+    return resolveSourceArtifactWithAncestor(
+        relativePath, baseExecPath, baseRoot, RepositoryName.MAIN);
   }
 
   /**
@@ -322,13 +331,12 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   @Nullable
   private Root findSourceRoot(
-      PathFragment execPath, @Nullable PathFragment baseExecPath, @Nullable Root baseRoot) {
+      PathFragment execPath, @Nullable PathFragment baseExecPath, @Nullable Root baseRoot,
+      RepositoryName repoName) {
     PathFragment dir = execPath.getParentDirectory();
     if (dir == null) {
       return null;
     }
-
-    RepositoryName repoName = RepositoryName.MAIN;
 
     Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
     if (repo != null) {
@@ -336,7 +344,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       dir = repo.getSecond();
     }
 
-    while (dir != null && !dir.equals(baseExecPath)) {
+    while (packageRoots != null && dir != null && !dir.equals(baseExecPath)) {
       Root sourceRoot = packageRoots.get(PackageIdentifier.create(repoName, dir));
       if (sourceRoot != null) {
         return sourceRoot;
@@ -348,9 +356,8 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   }
 
   @Override
-  public Artifact resolveSourceArtifact(PathFragment execPath,
-      @SuppressWarnings("unused") RepositoryName repositoryName) {
-    return resolveSourceArtifactWithAncestor(execPath, null, null);
+  public Artifact resolveSourceArtifact(PathFragment execPath, RepositoryName repositoryName) {
+    return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
   @Override

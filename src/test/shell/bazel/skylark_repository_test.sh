@@ -286,7 +286,8 @@ EOF
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
   expect_not_log "Workspace name in .*/WORKSPACE (@__main__) does not match the name given in the repository's definition (@foo)"
-  cat bazel-genfiles/external/foo/bar.txt >$TEST_log
+  local execution_root=$(bazel info execution_root)
+  cat "$execution_root/../foo/bazel-out/local-fastbuild/genfiles/bar.txt" >$TEST_log
   expect_log "foo"
 }
 

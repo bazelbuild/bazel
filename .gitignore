@@ -8,6 +8,7 @@
 /WORKSPACE.user.bzl
 /bazel-bazel
 /bazel-bin
+/bazel-external
 /bazel-genfiles
 /bazel-io_bazel
 /bazel-out

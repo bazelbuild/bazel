@@ -54,8 +54,8 @@ public final class CompilationHelper {
     }
     MiddlemanFactory factory = env.getMiddlemanFactory();
     return ImmutableList.of(factory.createMiddlemanAllowMultiple(
-        env, actionOwner, ruleContext.getPackageDirectory(), purpose, filesToBuild,
-        ruleContext.getConfiguration().getMiddlemanDirectory(
+        env, actionOwner, ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot(),
+        purpose, filesToBuild, ruleContext.getConfiguration().getMiddlemanDirectory(
             ruleContext.getRule().getRepository())));
   }
 
@@ -87,7 +87,8 @@ public final class CompilationHelper {
     MiddlemanFactory factory = env.getMiddlemanFactory();
     Iterable<Artifact> artifacts = dep.getProvider(FileProvider.class).getFilesToBuild();
     return ImmutableList.of(
-        factory.createMiddlemanAllowMultiple(env, actionOwner, ruleContext.getPackageDirectory(),
+        factory.createMiddlemanAllowMultiple(env, actionOwner,
+            ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot(),
             purpose, artifacts, ruleContext.getConfiguration().getMiddlemanDirectory(
                 ruleContext.getRule().getRepository())));
   }

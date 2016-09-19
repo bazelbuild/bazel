@@ -231,7 +231,7 @@ sh_test(
     args = [
         "src/test/shell",
         "$(location :singlejar)",
-        "$(location //external:jar)",
+        "../local_jdk/bin/jar",
     ],
     data = [
         ":singlejar",

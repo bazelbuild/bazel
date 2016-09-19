@@ -72,7 +72,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
 
-  public static final String EXTERNAL_PATH_PREFIX = "external";
+  public static final String EXTERNAL_PATH_PREFIX = "..";
 
   private static final Interner<Label> LABEL_INTERNER = Interners.newWeakInterner();
 
@@ -334,7 +334,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       doc = "Returns the execution root for the workspace of this label, relative to the execroot. "
       + "For instance:<br>"
       + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-      + " \"external/repo\"</pre>")
+      + " \"../repo\"</pre>")
   public String getWorkspaceRoot() {
     return packageIdentifier.getRepository().getSourceRoot().toString();
   }

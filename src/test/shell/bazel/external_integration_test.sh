@@ -145,7 +145,7 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
-  base_external_path=bazel-out/../external/endangered/fox
+  base_external_path="$(bazel info output_base)/external/endangered/fox"
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
 }
@@ -630,7 +630,8 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  local execroot="$(bazel info execution_root)"
+  assert_contains "abc" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
 }
 
 function test_prefix_stripping_zip() {
@@ -659,7 +660,8 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  local execroot="$(bazel info execution_root)"
+  assert_contains "abc" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -688,7 +690,8 @@ http_archive(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  local execroot="$(bazel info execution_root)"
+  assert_contains "abc" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
 }
 
 function test_moving_build_file() {
@@ -715,14 +718,16 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  local execroot="$(bazel info execution_root)"
+  assert_contains "abc" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
   serve_file x.tar.gz
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  local execroot="$(bazel info execution_root)"
+  assert_contains "abc" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
 }
 
 function test_changing_build_file() {
@@ -759,13 +764,14 @@ genrule(
 EOF
 
   bazel build @x//:catter || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  execroot="$(bazel info execution_root)"
+  assert_contains "abc" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
   serve_file x.tar.gz
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "def" bazel-genfiles/external/x/catter.out
+  assert_contains "def" "$execroot/../x/bazel-out/local-fastbuild/genfiles/catter.out"
 }
 
 function test_truncated() {

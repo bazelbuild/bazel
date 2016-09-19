@@ -214,22 +214,13 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
-   * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
-   * (i.e., it is in the main repository), return an empty path fragment.
+   * Returns the runfiles/execRoot path for this repository: ../reponame. If we don't know the name
+   * of this repo (i.e., it is in the main repository), return an empty path fragment.
    */
   public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
         : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
-  }
-
-  /**
-   * Returns the runfiles path relative to the x.runfiles/main-repo directory.
-   */
-  // TODO(kchodorow): remove once execroot is reorg-ed.
-  public PathFragment getRunfilesPath() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : new PathFragment("..").getRelative(strippedName());
   }
 
   /**

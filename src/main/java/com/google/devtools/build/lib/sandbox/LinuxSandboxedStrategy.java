@@ -102,12 +102,12 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
 
     try {
       // Build the execRoot for the sandbox.
       SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
       ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
+      Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs);
       symlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
 
@@ -118,7 +118,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
                 execRoot,
                 sandboxPath,
                 sandboxExecRoot,
-                getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
+                getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs),
                 getInaccessiblePaths(),
                 verboseFailures,
                 sandboxOptions.sandboxDebug);

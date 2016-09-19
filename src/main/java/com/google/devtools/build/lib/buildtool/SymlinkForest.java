@@ -15,54 +15,70 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Creates a symlink forest based on a package path map.
  */
-class SymlinkForest {
+@Immutable
+final class SymlinkForest {
 
-  private static final Logger LOG = Logger.getLogger(SymlinkForest.class.getName());
-  private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
+  private static final Logger log = Logger.getLogger(SymlinkForest.class.getName());
+  private static final boolean LOG_FINER = log.isLoggable(Level.FINER);
 
   private final ImmutableMap<PackageIdentifier, Path> packageRoots;
   private final Path workspace;
   private final String workspaceName;
   private final String productName;
   private final String[] prefixes;
+  private final ImmutableSet<RepositoryName> repositories;
+  private final boolean legacyExternalRunfiles;
 
-  SymlinkForest(
-      ImmutableMap<PackageIdentifier, Path> packageRoots, Path workspace, String productName,
+  private SymlinkForest(
+      boolean legacyExternalRunfiles,
+      ImmutableMap<PackageIdentifier, Path> packageRoots,
+      Path workspace,
+      String productName,
+      String[] prefixes,
       String workspaceName) {
+    this.legacyExternalRunfiles = legacyExternalRunfiles;
     this.packageRoots = packageRoots;
     this.workspace = workspace;
     this.workspaceName = workspaceName;
     this.productName = productName;
-    this.prefixes = new String[] { ".", "_", productName + "-"};
+    this.prefixes = prefixes;
+    ImmutableSet.Builder<RepositoryName> repositoryNameBuilder = ImmutableSet.builder();
+    for (PackageIdentifier pkgId : packageRoots.keySet()) {
+      repositoryNameBuilder.add(pkgId.getRepository());
+    }
+    this.repositories = repositoryNameBuilder.build();
   }
 
   /**
    * Returns the longest prefix from a given set of 'prefixes' that are
    * contained in 'path'. I.e the closest ancestor directory containing path.
    * Returns null if none found.
-   * @param path
-   * @param prefixes
    */
   @VisibleForTesting
   static PackageIdentifier longestPathPrefix(
@@ -77,26 +93,43 @@ class SymlinkForest {
   }
 
   /**
-   * Delete all dir trees under a given 'dir' that don't start with one of a set
-   * of given 'prefixes'. Does not follow any symbolic links.
+   * Delete all dir trees under each repository root. For the main repository, don't delete trees
+   * that start with one of a set of given 'prefixes'. Does not follow any symbolic links.
    */
   @VisibleForTesting
   @ThreadSafety.ThreadSafe
-  static void deleteTreesBelowNotPrefixed(Path dir, String[] prefixes) throws IOException {
-    dirloop:
-    for (Path p : dir.getDirectoryEntries()) {
-      String name = p.getBaseName();
-      for (String prefix : prefixes) {
-        if (name.startsWith(prefix)) {
-          continue dirloop;
+  void deleteTreesBelowNotPrefixed() throws IOException {
+    for (RepositoryName repositoryName : Iterables.concat(
+        ImmutableList.of(RepositoryName.MAIN), repositories)) {
+      Path repositoryExecRoot = workspace.getRelative(repositoryName.getPathUnderExecRoot());
+      FileSystemUtils.createDirectoryAndParents(repositoryExecRoot);
+      dirloop:
+      for (Path p : repositoryExecRoot.getDirectoryEntries()) {
+        String name = p.getBaseName();
+        for (String prefix : prefixes) {
+          if (name.startsWith(prefix)) {
+            continue dirloop;
+          }
         }
+        FileSystemUtils.deleteTree(p);
       }
-      FileSystemUtils.deleteTree(p);
     }
   }
 
+  private boolean isPackage(PackageIdentifier pkgId) {
+    return packageRoots.containsKey(pkgId);
+  }
+
+  /**
+   * Finds the nearest ancestor package.
+   */
+  @Nullable
+  private PackageIdentifier findParentPackage(PackageIdentifier pkgId) {
+    return longestPathPrefix(pkgId, packageRoots.keySet());
+  }
+
   void plantSymlinkForest() throws IOException {
-    deleteTreesBelowNotPrefixed(workspace, prefixes);
+    deleteTreesBelowNotPrefixed();
 
     // Create a sorted map of all dirs (packages and their ancestors) to sets of their roots.
     // Packages come from exactly one root, but their shared ancestors may come from more.
@@ -122,23 +155,24 @@ class SymlinkForest {
     // Now add in roots for all non-pkg dirs that are in between two packages, and missed above.
     for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
       PackageIdentifier dir = entry.getKey();
-      if (!packageRoots.containsKey(dir)) {
-        PackageIdentifier pkgId = longestPathPrefix(dir, packageRoots.keySet());
-        if (pkgId != null) {
-          entry.getValue().add(packageRoots.get(pkgId));
+      if (!isPackage(dir)) {
+        PackageIdentifier parentPackage = findParentPackage(dir);
+        if (parentPackage != null) {
+          entry.getValue().add(packageRoots.get(parentPackage));
         }
       }
     }
     // Create output dirs for all dirs that have more than one root and need to be split.
     for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
       PackageIdentifier dir = entry.getKey();
+      // Handle creating top level directories for external repositories here, too.
       if (!dir.getRepository().isMain()) {
         FileSystemUtils.createDirectoryAndParents(
             workspace.getRelative(dir.getRepository().getPathUnderExecRoot()));
       }
       if (entry.getValue().size() > 1) {
         if (LOG_FINER) {
-          LOG.finer("mkdir " + workspace.getRelative(dir.getPathUnderExecRoot()));
+          log.finer("mkdir " + workspace.getRelative(dir.getPathUnderExecRoot()));
         }
         FileSystemUtils.createDirectoryAndParents(
             workspace.getRelative(dir.getPathUnderExecRoot()));
@@ -158,43 +192,20 @@ class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Path root = roots.iterator().next();  // lone root in set
         if (LOG_FINER) {
-          LOG.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " "
+          log.finer("ln -s " + root.getRelative(dir.getPackageFragment()) + " "
               + workspace.getRelative(dir.getPathUnderExecRoot()));
         }
         workspace.getRelative(dir.getPathUnderExecRoot())
-            .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
+            .createSymbolicLink(root.getRelative(dir.getPackageFragment()));
       }
     }
     // Make links for dirs within packages, skip parent-only dirs.
     for (Map.Entry<PackageIdentifier, Set<Path>> entry : dirRootsMap.entrySet()) {
-      PackageIdentifier dir = entry.getKey();
+      PackageIdentifier child = entry.getKey();
       if (entry.getValue().size() > 1) {
         // If this dir is at or below a package dir, link in its contents.
-        PackageIdentifier pkgId = longestPathPrefix(dir, packageRoots.keySet());
-        if (pkgId != null) {
-          Path root = packageRoots.get(pkgId);
-          try {
-            Path absdir = root.getRelative(dir.getSourceRoot());
-            if (absdir.isDirectory()) {
-              if (LOG_FINER) {
-                LOG.finer("ln -s " + absdir + "/* "
-                    + workspace.getRelative(dir.getSourceRoot()) + "/");
-              }
-              for (Path target : absdir.getDirectoryEntries()) {
-                PathFragment p = target.relativeTo(root);
-                if (!dirRootsMap.containsKey(createInRepo(pkgId, p))) {
-                  //LOG.finest("ln -s " + target + " " + linkRoot.getRelative(p));
-                  workspace.getRelative(p).createSymbolicLink(target);
-                }
-              }
-            } else {
-              LOG.fine("Symlink planting skipping dir '" + absdir + "'");
-            }
-          } catch (IOException e) {
-            e.printStackTrace();
-          }
-          // Otherwise its just an otherwise empty common parent dir.
-        }
+        PackageIdentifier parent = longestPathPrefix(child, packageRoots.keySet());
+        linkDirectoryEntries(parent, child, dirRootsMap);
       }
     }
 
@@ -210,18 +221,54 @@ class SymlinkForest {
       }
       // For the top-level directory, generate symlinks to everything in the directory instead of
       // the directory itself.
-      Path sourceDirectory = entry.getValue().getRelative(pkgId.getSourceRoot());
-      for (Path target : sourceDirectory.getDirectoryEntries()) {
+      for (Path target : entry.getValue().getDirectoryEntries()) {
         String baseName = target.getBaseName();
         Path execPath = execrootDirectory.getRelative(baseName);
         // Create any links that don't exist yet and don't start with bazel-.
-        if (!baseName.startsWith(productName + "-") && !execPath.exists()) {
+        if (!baseName.startsWith(productName + "-") && !execPath.exists(Symlinks.NOFOLLOW)) {
           execPath.createSymbolicLink(target);
         }
       }
     }
 
+    // Create the external/workspace directory.
+    if (legacyExternalRunfiles) {
+      workspace.getRelative(Label.EXTERNAL_PACKAGE_NAME).createSymbolicLink(
+          workspace.getRelative(Label.EXTERNAL_PATH_PREFIX));
+    }
     symlinkCorrectWorkspaceName();
+  }
+
+  private void linkDirectoryEntries(
+      PackageIdentifier parent, PackageIdentifier child,
+      Map<PackageIdentifier, Set<Path>> dirRootsMap) {
+    if (parent == null) {
+      // No parent package in packageRoots.
+      return;
+    }
+    Path root = packageRoots.get(parent);
+    try {
+      Path absdir = root.getRelative(child.getPackageFragment());
+      if (absdir.isDirectory()) {
+        if (LOG_FINER) {
+          log.finer("ln -s " + absdir + "/* "
+              + workspace.getRelative(child.getPathUnderExecRoot()) + "/");
+        }
+        for (Path target : absdir.getDirectoryEntries()) {
+          PathFragment p = child.getPackageFragment().getRelative(target.getBaseName());
+          if (!dirRootsMap.containsKey(createInRepo(parent, p))) {
+            PathFragment execFragment = child.getPathUnderExecRoot()
+                .getRelative(target.getBaseName());
+            workspace.getRelative(execFragment).createSymbolicLink(target);
+          }
+        }
+      } else {
+        log.fine("Symlink planting skipping dir '" + absdir + "'");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    // Otherwise its just an otherwise empty common parent dir.
   }
 
   /**
@@ -249,5 +296,56 @@ class SymlinkForest {
   private static PackageIdentifier createInRepo(
       PackageIdentifier repo, PathFragment packageFragment) {
     return PackageIdentifier.create(repo.getRepository(), packageFragment);
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public static class Builder {
+    private boolean legacyExternalRunfiles = false;
+    private ImmutableMap<PackageIdentifier, Path> packageRoots = ImmutableMap.of();
+    private Path workspace;
+    private String productName;
+    private String[] prefixes;
+    private String workspaceName;
+
+    Builder setLegacyExternalRunfiles(boolean legacyExternalRunfiles) {
+      this.legacyExternalRunfiles = legacyExternalRunfiles;
+      return this;
+    }
+
+    Builder setPackageRoots(ImmutableMap<PackageIdentifier, Path> packageRoots) {
+      this.packageRoots = packageRoots;
+      return this;
+    }
+
+    Builder setWorkspace(Path workspace) {
+      this.workspace = workspace;
+      return this;
+    }
+
+    Builder setProductName(String productName) {
+      this.productName = productName;
+      this.prefixes = new String[] { ".", "_", productName + "-"};
+      return this;
+    }
+
+    Builder setPrefixes(String[] prefixes) {
+      this.prefixes = prefixes;
+      return this;
+    }
+
+    Builder setWorkspaceName(String workspaceName) {
+      this.workspaceName = workspaceName;
+      return this;
+    }
+
+    public SymlinkForest build() {
+      Preconditions.checkState(workspace != null);
+      Preconditions.checkState(productName != null);
+      return new SymlinkForest(
+          legacyExternalRunfiles, packageRoots, workspace, productName, prefixes, workspaceName);
+    }
   }
 }
