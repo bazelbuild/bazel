@@ -2334,22 +2334,6 @@ public final class BuildConfiguration {
     return buildOptions;
   }
 
-  /**
-   * Returns all the roots for this configuration.
-   */
-  public List<Root> getRoots() {
-    List<Root> roots = new ArrayList<>();
-
-    // Configuration-specific roots.
-    roots.add(getBinDirectory());
-    roots.add(getGenfilesDirectory());
-    roots.add(getIncludeDirectory(RepositoryName.MAIN));
-    roots.add(getMiddlemanDirectory(RepositoryName.MAIN));
-    roots.add(getTestLogsDirectory(RepositoryName.MAIN));
-
-    return ImmutableList.copyOf(roots);
-  }
-
   public ListMultimap<String, Label> getAllLabels() {
     return buildOptions.getAllLabels();
   }
