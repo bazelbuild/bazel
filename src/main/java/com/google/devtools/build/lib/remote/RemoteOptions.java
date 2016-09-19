@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
-/**
- * Options for remote execution and distributed caching.
- */
+/** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "rest_cache_url",
@@ -66,4 +64,12 @@ public final class RemoteOptions extends OptionsBase {
             + "For client mode only."
   )
   public String remoteWorker;
+
+  @Option(
+      name = "grpc_timeout_seconds",
+      defaultValue = "60",
+      category = "remote",
+      help = "The maximal number of seconds to wait for remote calls. For client mode only."
+    )
+    public int grpcTimeoutSeconds;
 }

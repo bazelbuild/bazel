@@ -14,47 +14,87 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
+import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
+import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
+import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
-/**
- * A cache for storing artifacts (input and output) as well as the output of running an action.
- */
+/** A cache for storing artifacts (input and output) as well as the output of running an action. */
 @ThreadCompatible
 interface RemoteActionCache {
+  // CAS API
+
+  // TODO(olaola): create a unified set of exceptions raised by the cache to encapsulate the
+  // underlying CasStatus messages and gRPC errors errors.
+
   /**
-   * Put the file in cache if it is not already in it. No-op if the file is already stored in cache.
-   *
-   * @return The key for fetching the file from cache.
+   * Upload enough of the tree metadata and data into remote cache so that the entire tree can be
+   * reassembled remotely using the root digest.
    */
-  String putFileIfNotExist(ActionInputFileCache cache, ActionInput file)
+  void uploadTree(TreeNodeRepository repository, Path execRoot, TreeNode root)
       throws IOException, InterruptedException;
 
   /**
-   * Write the file in cache identified by key to the file system. The key must uniquely identify
-   * the content of the file. Throws CacheNotFoundException if the file is not found in cache.
+   * Download the entire tree data rooted by the given digest and write it into the given location.
    */
-  void writeFile(String key, Path dest, boolean executable)
+  void downloadTree(ContentDigest rootDigest, Path rootLocation)
       throws IOException, CacheNotFoundException;
 
   /**
-   * Write the action output files identified by the key to the file system. The key must uniquely
-   * identify the action and the content of action inputs.
-   *
-   * @throws CacheNotFoundException if action output is not found in cache.
+   * Download all results of a remotely executed action locally. TODO(olaola): will need to amend to
+   * include the {@link com.google.devtools.build.lib.remote.TreeNodeRepository} for updating.
    */
-  void writeActionOutput(String key, Path execRoot)
+  void downloadAllResults(ActionResult result, Path execRoot)
       throws IOException, CacheNotFoundException;
 
-  /** Update the cache with the action outputs for the specified key. */
-  void putActionOutput(String key, Collection<? extends ActionInput> outputs)
+  /**
+   * Upload all results of a locally executed action to the cache. Add the files to the ActionResult
+   * builder.
+   */
+  void uploadAllResults(Path execRoot, Collection<Path> files, ActionResult.Builder result)
       throws IOException, InterruptedException;
 
-  /** Update the cache with the files for the specified key. */
-  void putActionOutput(String key, Path execRoot, Collection<Path> files)
-      throws IOException, InterruptedException;
+  /**
+   * Put the file contents cache if it is not already in it. No-op if the file is already stored in
+   * cache. The given path must be a full absolute path. Note: this is horribly inefficient, need to
+   * patch through an overload that uses an ActionInputFile cache to compute the digests!
+   *
+   * @return The key for fetching the file contents blob from cache.
+   */
+  ContentDigest uploadFileContents(Path file) throws IOException, InterruptedException;
+
+  /**
+   * Download a blob keyed by the given digest and write it to the specified path. Set the
+   * executable parameter to the specified value.
+   */
+  void downloadFileContents(ContentDigest digest, Path dest, boolean executable)
+      throws IOException, CacheNotFoundException;
+
+  /** Upload the given blobs to the cache, and return their digests. */
+  ImmutableList<ContentDigest> uploadBlobs(Iterable<byte[]> blobs) throws InterruptedException;
+
+  /** Upload the given blob to the cache, and return its digests. */
+  ContentDigest uploadBlob(byte[] blob) throws InterruptedException;
+
+  /** Download and return a blob with a given digest from the cache. */
+  byte[] downloadBlob(ContentDigest digest) throws CacheNotFoundException;
+
+  /** Download and return blobs with given digests from the cache. */
+  ImmutableList<byte[]> downloadBlobs(Iterable<ContentDigest> digests)
+      throws CacheNotFoundException;
+
+  // Execution Cache API
+
+  /** Returns a cached result for a given Action digest, or null if not found in cache. */
+  @Nullable
+  ActionResult getCachedActionResult(ActionKey actionKey);
+
+  /** Sets the given result as result of the given Action. */
+  void setCachedActionResult(ActionKey actionKey, ActionResult result) throws InterruptedException;
 }
