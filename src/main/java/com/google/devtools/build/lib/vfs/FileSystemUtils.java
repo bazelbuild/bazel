@@ -444,6 +444,41 @@ public class FileSystemUtils {
   }
 
   /**
+   * Moves the file from location "from" to location "to", while overwriting a
+   * potentially existing "to". File's last modified time, executable and
+   * writable bits are also preserved.
+   *
+   * <p>If no error occurs, the method returns normally. If a parent directory does
+   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
+   * other erroneous situations occur. (e.g. read errors)
+   */
+  @ThreadSafe  // but not atomic
+  public static void moveFile(Path from, Path to) throws IOException {
+    long mtime = from.getLastModifiedTime();
+    boolean writable = from.isWritable();
+    boolean executable = from.isExecutable();
+
+    // We don't try-catch here for better performance.
+    to.delete();
+    try {
+      from.renameTo(to);
+    } catch (IOException e) {
+      asByteSource(from).copyTo(asByteSink(to));
+      if (!from.delete()) {
+        if (!to.delete()) {
+          throw new IOException("Unable to delete " + to);
+        }
+        throw new IOException("Unable to delete " + from);
+      }
+    }
+    to.setLastModifiedTime(mtime); // Preserve mtime.
+    if (!writable) {
+      to.setWritable(false); // Make file read-only if original was read-only.
+    }
+    to.setExecutable(executable); // Copy executable bit.
+  }
+
+  /**
    * Copies a tool binary from one path to another, returning the target path.
    * The directory of the target path must already exist. The target copy's time
    * is set to match, as well as its read-only and executable flags. The
@@ -564,6 +599,37 @@ public class FileSystemUtils {
         Path subDir = to.getChild(entry.getBaseName());
         subDir.createDirectory();
         copyTreesBelow(entry, subDir);
+      }
+    }
+  }
+
+  /**
+   * Moves all dir trees under a given 'from' dir to location 'to', while overwriting
+   * all files in the potentially existing 'to'. Doesn't resolve symbolic links.
+   *
+   * <p>The source and the destination must be non-overlapping, otherwise an
+   * IllegalArgumentException will be thrown. This method cannot be used to copy
+   * a dir tree to a sub tree of itself.
+   *
+   * <p>If no error occurs, the method returns normally. If the given 'from' does
+   * not exist, a FileNotFoundException is thrown. An IOException is thrown when
+   * other erroneous situations occur. (e.g. read errors)
+   */
+  @ThreadSafe
+  public static void moveTreesBelow(Path from , Path to) throws IOException {
+    if (to.startsWith(from)) {
+      throw new IllegalArgumentException(to + " is a subdirectory of " + from);
+    }
+
+    Collection<Path> entries = from.getDirectoryEntries();
+    for (Path entry : entries) {
+      if (entry.isDirectory(Symlinks.NOFOLLOW)) {
+        Path subDir = to.getChild(entry.getBaseName());
+        subDir.createDirectory();
+        moveTreesBelow(entry, subDir);
+      } else {
+        Path newEntry = to.getChild(entry.getBaseName());
+        moveFile(entry, newEntry);
       }
     }
   }
