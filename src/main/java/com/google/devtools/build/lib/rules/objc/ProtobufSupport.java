@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
-import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,7 +37,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
 
@@ -62,13 +58,6 @@ import java.util.Set;
 final class ProtobufSupport {
 
   private static final String BUNDLED_PROTOS_IDENTIFIER = "BundledProtos";
-
-  /**
-   * List of file name segments that should be upper cased when being generated. More information
-   * available in the generateProtobufFilename() method.
-   */
-  private static final ImmutableSet<String> UPPERCASE_SEGMENTS =
-      ImmutableSet.of("url", "http", "https");
 
   private static final String UNIQUE_DIRECTORY_NAME = "_generated_protos";
 
@@ -546,7 +535,7 @@ final class ProtobufSupport {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
     for (Artifact protoFile : outputProtos) {
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
-      String generatedOutputName = getProtobufFilename(protoFileName);
+      String generatedOutputName = attributes.getGeneratedProtoFilename(protoFileName, true);
 
       PathFragment generatedFilePath =
           new PathFragment(
@@ -580,70 +569,6 @@ final class ProtobufSupport {
           .get(buildConfiguration);
     }
     return ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
-  }
-
-  /**
-   * Processes the case of the proto file name in the same fashion as the objective_c generator's
-   * UnderscoresToCamelCase function.
-   *
-   * <p>https://github.com/google/protobuf/blob/master/src/google/protobuf/compiler/objectivec/objectivec_helpers.cc
-   */
-  private String getProtobufFilename(String protoFilename) {
-    boolean lastCharWasDigit = false;
-    boolean lastCharWasUpper = false;
-    boolean lastCharWasLower = false;
-
-    StringBuilder currentSegment = new StringBuilder();
-
-    ArrayList<String> segments = new ArrayList<>();
-
-    for (int i = 0; i < protoFilename.length(); i++) {
-      char currentChar = protoFilename.charAt(i);
-      if (CharMatcher.javaDigit().matches(currentChar)) {
-        if (!lastCharWasDigit) {
-          segments.add(currentSegment.toString());
-          currentSegment = new StringBuilder();
-        }
-        currentSegment.append(currentChar);
-        lastCharWasDigit = true;
-        lastCharWasUpper = false;
-        lastCharWasLower = false;
-      } else if (CharMatcher.javaLowerCase().matches(currentChar)) {
-        if (!lastCharWasLower && !lastCharWasUpper) {
-          segments.add(currentSegment.toString());
-          currentSegment = new StringBuilder();
-        }
-        currentSegment.append(currentChar);
-        lastCharWasDigit = false;
-        lastCharWasUpper = false;
-        lastCharWasLower = true;
-      } else if (CharMatcher.javaUpperCase().matches(currentChar)) {
-        if (!lastCharWasUpper) {
-          segments.add(currentSegment.toString());
-          currentSegment = new StringBuilder();
-        }
-        currentSegment.append(Character.toLowerCase(currentChar));
-        lastCharWasDigit = false;
-        lastCharWasUpper = true;
-        lastCharWasLower = false;
-      } else {
-        lastCharWasDigit = false;
-        lastCharWasUpper = false;
-        lastCharWasLower = false;
-      }
-    }
-
-    segments.add(currentSegment.toString());
-
-    StringBuilder casedSegments = new StringBuilder();
-    for (String segment : segments) {
-      if (UPPERCASE_SEGMENTS.contains(segment)) {
-        casedSegments.append(segment.toUpperCase());
-      } else {
-        casedSegments.append(LOWER_UNDERSCORE.to(UPPER_CAMEL, segment));
-      }
-    }
-    return casedSegments.toString();
   }
 
   private boolean isLinkingTarget() {

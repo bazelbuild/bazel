@@ -14,12 +14,16 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
+import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -33,9 +37,18 @@ import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
+import java.util.ArrayList;
 
 /** Common rule attributes used by an objc_proto_library. */
 final class ProtoAttributes {
+
+  /**
+   * List of file name segments that should be upper cased when being generated. More information
+   * available in the generateProtobufFilename() method.
+   */
+  private static final ImmutableSet<String> UPPERCASE_SEGMENTS =
+      ImmutableSet.of("url", "http", "https");
+
   @VisibleForTesting
   static final String FILES_DEPRECATED_WARNING =
       "Using files and filegroups in objc_proto_library is deprecated";
@@ -238,6 +251,78 @@ final class ProtoAttributes {
     ProtoSourceFileBlacklist wellKnownProtoBlacklist =
         new ProtoSourceFileBlacklist(ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES);
     return wellKnownProtoBlacklist.isBlacklisted(protoFile);
+  }
+
+  /**
+   * Processes the case of the proto file name in the same fashion as the objective_c generator's
+   * UnderscoresToCamelCase function. This converts snake case to camel case by splitting words
+   * by non alphabetic characters. This also treats the URL, HTTP and HTTPS as special words that
+   * need to be completely uppercase.
+   *
+   * Examples:
+   *   - j2objc_descriptor -> J2ObjcDescriptor (notice that O is uppercase after the 2)
+   *   - my_http_url_array -> MyHTTPURLArray
+   *   - proto-descriptor  -> ProtoDescriptor
+   *
+   * Original code reference:
+   * <p>https://github.com/google/protobuf/blob/master/src/google/protobuf/compiler/objectivec/objectivec_helpers.cc
+   */
+  String getGeneratedProtoFilename(String protoFilename, boolean upcaseReservedWords) {
+    boolean lastCharWasDigit = false;
+    boolean lastCharWasUpper = false;
+    boolean lastCharWasLower = false;
+
+    StringBuilder currentSegment = new StringBuilder();
+
+    ArrayList<String> segments = new ArrayList<>();
+
+    for (int i = 0; i < protoFilename.length(); i++) {
+      char currentChar = protoFilename.charAt(i);
+      if (CharMatcher.javaDigit().matches(currentChar)) {
+        if (!lastCharWasDigit) {
+          segments.add(currentSegment.toString());
+          currentSegment = new StringBuilder();
+        }
+        currentSegment.append(currentChar);
+        lastCharWasDigit = true;
+        lastCharWasUpper = false;
+        lastCharWasLower = false;
+      } else if (CharMatcher.javaLowerCase().matches(currentChar)) {
+        if (!lastCharWasLower && !lastCharWasUpper) {
+          segments.add(currentSegment.toString());
+          currentSegment = new StringBuilder();
+        }
+        currentSegment.append(currentChar);
+        lastCharWasDigit = false;
+        lastCharWasUpper = false;
+        lastCharWasLower = true;
+      } else if (CharMatcher.javaUpperCase().matches(currentChar)) {
+        if (!lastCharWasUpper) {
+          segments.add(currentSegment.toString());
+          currentSegment = new StringBuilder();
+        }
+        currentSegment.append(Character.toLowerCase(currentChar));
+        lastCharWasDigit = false;
+        lastCharWasUpper = true;
+        lastCharWasLower = false;
+      } else {
+        lastCharWasDigit = false;
+        lastCharWasUpper = false;
+        lastCharWasLower = false;
+      }
+    }
+
+    segments.add(currentSegment.toString());
+
+    StringBuilder casedSegments = new StringBuilder();
+    for (String segment : segments) {
+      if (upcaseReservedWords && UPPERCASE_SEGMENTS.contains(segment)) {
+        casedSegments.append(segment.toUpperCase());
+      } else {
+        casedSegments.append(LOWER_UNDERSCORE.to(UPPER_CAMEL, segment));
+      }
+    }
+    return casedSegments.toString();
   }
 
   /** Returns the sets of proto files that were added using proto_library dependencies. */
