@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -68,7 +69,7 @@ public class TreeNodeRepositoryTest {
     TreeNode barNode = aNode.getChildEntries().get(0).getChild();
 
     repo.computeMerkleDigests(root);
-    ImmutableList<ContentDigest> digests = repo.getAllDigests(root);
+    ImmutableCollection<ContentDigest> digests = repo.getAllDigests(root);
     ContentDigest rootDigest = repo.getMerkleDigest(root);
     ContentDigest aDigest = repo.getMerkleDigest(aNode);
     ContentDigest fooDigest = repo.getMerkleDigest(fooNode);
@@ -77,13 +78,12 @@ public class TreeNodeRepositoryTest {
     ContentDigest barContentsDigest = ContentDigests.computeDigest(bar.getPath());
     assertThat(digests)
         .containsExactly(
-            rootDigest, aDigest, barDigest, barContentsDigest, fooDigest, fooContentsDigest)
-        .inOrder();
+            rootDigest, aDigest, barDigest, barContentsDigest, fooDigest, fooContentsDigest);
 
     ArrayList<FileNode> fileNodes = new ArrayList<>();
     ArrayList<ActionInput> actionInputs = new ArrayList<>();
     repo.getDataFromDigests(digests, actionInputs, fileNodes);
-    assertThat(actionInputs).containsExactly(bar, foo).inOrder();
+    assertThat(actionInputs).containsExactly(bar, foo);
     assertThat(fileNodes).hasSize(4);
     FileNode rootFileNode = fileNodes.get(0);
     assertThat(rootFileNode.getChild(0).getPath()).isEqualTo("a");
@@ -97,5 +97,17 @@ public class TreeNodeRepositoryTest {
     assertThat(barFileNode.getFileMetadata().getDigest()).isEqualTo(barContentsDigest);
     FileNode fooFileNode = fileNodes.get(3);
     assertThat(fooFileNode.getFileMetadata().getDigest()).isEqualTo(fooContentsDigest);
+  }
+
+  @Test
+  public void testGetAllDigests() throws Exception {
+    Artifact foo1 = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
+    Artifact foo2 = new Artifact(scratch.file("/exec/root/b/foo", "1"), rootDir);
+    Artifact foo3 = new Artifact(scratch.file("/exec/root/c/foo", "1"), rootDir);
+    TreeNodeRepository repo = new TreeNodeRepository(rootDir.getPath());
+    TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo1, foo2, foo3));
+    repo.computeMerkleDigests(root);
+    // Reusing same node for the "foo" subtree: only need the root, root child, foo, and contents:
+    assertThat(repo.getAllDigests(root)).hasSize(4);
   }
 }
