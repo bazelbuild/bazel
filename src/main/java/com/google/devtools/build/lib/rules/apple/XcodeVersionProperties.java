@@ -28,7 +28,7 @@ public class XcodeVersionProperties implements TransitiveInfoProvider {
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
-  @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "1.0";
+  @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
 
   private final Optional<DottedVersion> xcodeVersion;
   private final DottedVersion defaultIosSdkVersion;

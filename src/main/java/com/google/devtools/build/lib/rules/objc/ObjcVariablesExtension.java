@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.ValueSequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
@@ -119,9 +120,18 @@ class ObjcVariablesExtension implements VariablesExtension {
     Platform platform = appleConfiguration.getSingleArchPlatform();
     switch (platform.getType()) {
       case IOS:
-        builder.addVariable(VERSION_MIN_VARIABLE_NAME, objcConfiguration.getMinimumOs().toString());
+        builder.addVariable(
+            VERSION_MIN_VARIABLE_NAME,
+            objcConfiguration.getMinimumOsForPlatformType(PlatformType.IOS).toString());
+        break;
+      case TVOS:
+        builder.addVariable(
+            VERSION_MIN_VARIABLE_NAME,
+            objcConfiguration.getMinimumOsForPlatformType(PlatformType.TVOS).toString());
         break;
       case WATCHOS:
+        // TODO(bazel-team): Use the minimum OS version derived from the flag as is done for the
+        // other platform types.
         builder.addVariable(
             VERSION_MIN_VARIABLE_NAME,
             appleConfiguration.getSdkVersionForPlatform(platform).toString());

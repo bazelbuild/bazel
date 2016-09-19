@@ -85,13 +85,18 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
-  @VisibleForTesting public static final String DEFAULT_APPLETVOS_SDK_VERSION = "1.0";
+  @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   /**
    * The default watchos CPU value.
    */
   public static final String DEFAULT_WATCHOS_CPU = "i386";
+
+  /**
+   * The default tvOS CPU value.
+   */
+  public static final String DEFAULT_TVOS_CPU = "x86_64";
 
   @Option(name = "ios_cpu",
       defaultValue = DEFAULT_IOS_CPU,
@@ -140,8 +145,15 @@ public class AppleCommandLineOptions extends FragmentOptions {
       converter = CommaSeparatedOptionListConverter.class,
       defaultValue = DEFAULT_WATCHOS_CPU,
       category = "flags",
-      help = "Comma-separated list of architectures for which to build apple watchos binaries.")
+      help = "Comma-separated list of architectures for which to build Apple watchOS binaries.")
   public List<String> watchosCpus;
+
+  @Option(name = "tvos_cpus",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = DEFAULT_TVOS_CPU,
+      category = "flags",
+      help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
+  public List<String> tvosCpus;
 
   @Option(name = "default_ios_provisioning_profile",
       defaultValue = "",

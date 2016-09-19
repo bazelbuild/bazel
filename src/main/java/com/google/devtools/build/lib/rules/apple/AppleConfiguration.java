@@ -78,6 +78,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final Optional<DottedVersion> xcodeVersion;
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
+  private final ImmutableList<String> tvosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
@@ -107,6 +108,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.watchosCpus = (appleOptions.watchosCpus == null || appleOptions.watchosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
         : ImmutableList.copyOf(appleOptions.watchosCpus);
+    this.tvosCpus = (appleOptions.tvosCpus == null || appleOptions.tvosCpus.isEmpty())
+        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
+        : ImmutableList.copyOf(appleOptions.tvosCpus);
     this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
@@ -265,6 +269,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         }
       case WATCHOS:
         return watchosCpus.get(0);
+      case TVOS:
+        return tvosCpus.get(0);
       // TODO(cparsons): Handle all platform types.
       default: 
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
@@ -307,6 +313,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         }
       case WATCHOS:
         return watchosCpus;
+      case TVOS:
+        return tvosCpus;
       default: 
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
@@ -358,6 +366,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           }
         }
         return Platform.WATCHOS_SIMULATOR;
+      case TVOS:
+        for (String arch : architectures) {
+          if (Platform.forTarget(PlatformType.TVOS, arch) == Platform.TVOS_DEVICE) {
+            return Platform.TVOS_DEVICE;
+          }
+        }
+        return Platform.TVOS_SIMULATOR;
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
@@ -545,5 +560,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     APPLEBIN_IOS,
     /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
     APPLEBIN_WATCHOS,
+    /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
+    APPLEBIN_TVOS,
   }
 }

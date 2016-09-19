@@ -51,6 +51,40 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "on the machine the simulator will be run on.")
   public String iosSimulatorDevice;
 
+  @Option(
+      name = "watchos_simulator_version",
+      defaultValue = "2.0",
+      category = "run",
+      converter = DottedVersionConverter.class,
+      help = "The version of watchOS to run on the simulator when running or testing."
+  )
+  public DottedVersion watchosSimulatorVersion;
+
+  @Option(name = "watchos_simulator_device",
+      defaultValue = "Apple Watch - 38mm",
+      category = "run",
+      help = "The device to simulate when running an watchOS application in the simulator, e.g. "
+          + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
+          + "devicetypes' on the machine the simulator will be run on.")
+  public String watchosSimulatorDevice;
+
+  @Option(
+      name = "tvos_simulator_version",
+      defaultValue = "9.0",
+      category = "run",
+      converter = DottedVersionConverter.class,
+      help = "The version of tvOS to run on the simulator when running or testing."
+  )
+  public DottedVersion tvosSimulatorVersion;
+
+  @Option(name = "tvos_simulator_device",
+      defaultValue = "Apple TV 1080p",
+      category = "run",
+      help = "The device to simulate when running an tvOS application in the simulator, e.g. "
+          + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
+          + "devicetypes' on the machine the simulator will be run on.")
+  public String tvosSimulatorDevice;
+
   @Option(name = "objc_generate_linkmap",
       defaultValue = "false",
       category = "flags",
@@ -65,13 +99,31 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public List<String> copts;
 
   @Option(
-    name = "ios_minimum_os",
-    defaultValue = DEFAULT_MINIMUM_IOS,
-    category = "flags",
-    converter = DottedVersionConverter.class,
-    help = "Minimum compatible iOS version for target simulators and devices."
+      name = "ios_minimum_os",
+      defaultValue = DEFAULT_MINIMUM_IOS,
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible iOS version for target simulators and devices."
   )
   public DottedVersion iosMinimumOs;
+
+  @Option(
+      name = "watchos_minimum_os",
+      defaultValue = DEFAULT_MINIMUM_WATCHOS,
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible watchOS version for target simulators and devices."
+  )
+  public DottedVersion watchosMinimumOs;
+
+  @Option(
+      name = "tvos_minimum_os",
+      defaultValue = DEFAULT_MINIMUM_TVOS,
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible tvOS version for target simulators and devices."
+  )
+  public DottedVersion tvosMinimumOs;
 
   @Option(name = "ios_memleaks",
       defaultValue =  "false",
@@ -198,6 +250,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean experimentalObjcLibrary;
   
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
+  @VisibleForTesting static final String DEFAULT_MINIMUM_WATCHOS = "2.0";
+  @VisibleForTesting static final String DEFAULT_MINIMUM_TVOS = "9.0";
 
   @SuppressWarnings("unchecked")
   @Override

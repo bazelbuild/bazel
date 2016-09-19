@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -55,6 +56,12 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion iosMinimumOs;
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
+  private final DottedVersion watchosMinimumOs;
+  private final DottedVersion watchosSimulatorVersion;
+  private final String watchosSimulatorDevice;
+  private final DottedVersion tvosMinimumOs;
+  private final DottedVersion tvosSimulatorVersion;
+  private final String tvosSimulatorDevice;
   private final boolean generateDsym;
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
@@ -80,6 +87,17 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
+    this.watchosMinimumOs =
+        Preconditions.checkNotNull(objcOptions.watchosMinimumOs, "watchosMinimumOs");
+    this.watchosSimulatorDevice =
+        Preconditions.checkNotNull(objcOptions.watchosSimulatorDevice, "watchosSimulatorDevice");
+    this.watchosSimulatorVersion =
+        Preconditions.checkNotNull(objcOptions.watchosSimulatorVersion, "watchosSimulatorVersion");
+    this.tvosMinimumOs = Preconditions.checkNotNull(objcOptions.tvosMinimumOs, "tvosMinimumOs");
+    this.tvosSimulatorDevice =
+        Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
+    this.tvosSimulatorVersion =
+        Preconditions.checkNotNull(objcOptions.tvosSimulatorVersion, "tvosSimulatorVersion");
     this.generateDsym = objcOptions.appleGenerateDsym;
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
@@ -105,8 +123,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * runtime OS supports them.
    */
   @SkylarkCallable(name = "ios_minimum_os", structField = true,
-      doc = "The minimum compatible iOS version for target simulators and devices..")
+      doc = "The minimum compatible iOS version for target simulators and devices.")
   public DottedVersion getMinimumOs() {
+    // TODO(bazel-team): Deprecate in favor of getMinimumOsForPlatformType(IOS).
     return iosMinimumOs;
   }
 
@@ -116,13 +135,66 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "ios_simulator_device", structField = true,
       doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
   public String getIosSimulatorDevice() {
+    // TODO(bazel-team): Deprecate in favor of getSimulatorDeviceForPlatformType(IOS).
     return iosSimulatorDevice;
   }
 
   @SkylarkCallable(name = "ios_simulator_version", structField = true,
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
   public DottedVersion getIosSimulatorVersion() {
+    // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
     return iosSimulatorVersion;
+  }
+
+  @SkylarkCallable(
+      name = "minimum_os_for_platform_type",
+      doc = "The minimum compatible OS version for target simulator and devices for a particular "
+          + "platform type.")
+  public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
+    switch (platformType) {
+      case IOS:
+        return iosMinimumOs;
+      case TVOS:
+        return tvosMinimumOs;
+      case WATCHOS:
+        return watchosMinimumOs;
+      default:
+        throw new IllegalArgumentException("Unhandled platform: " + platformType);
+    }
+  }
+
+  @SkylarkCallable(
+      name = "simulator_device_for_platform_type",
+      doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.")
+  public String getSimulatorDeviceForPlatformType(PlatformType platformType) {
+    switch (platformType) {
+      case IOS:
+        return iosSimulatorDevice;
+      case TVOS:
+        return tvosSimulatorDevice;
+      case WATCHOS:
+        return watchosSimulatorDevice;
+      default:
+        throw new IllegalArgumentException("Platform type " + platformType + " does not support "
+            + "simulators.");
+    }
+  }
+
+  @SkylarkCallable(
+      name = "simulator_version_for_platform_type",
+      doc = "The SDK version of the simulator to use when running on the simulator.")
+  public DottedVersion getSimulatorVersionForPlatformType(PlatformType platformType) {
+    switch (platformType) {
+      case IOS:
+        return iosSimulatorVersion;
+      case TVOS:
+        return tvosSimulatorVersion;
+      case WATCHOS:
+        return watchosSimulatorVersion;
+      default:
+        throw new IllegalArgumentException("Platform type " + platformType + " does not support "
+            + "simulators.");
+    }
   }
 
   /**

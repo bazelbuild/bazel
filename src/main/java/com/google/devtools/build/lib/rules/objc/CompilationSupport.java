@@ -1753,18 +1753,32 @@ public final class CompilationSupport {
     Platform platform = appleConfiguration.getSingleArchPlatform();
     switch (platform) {
       case IOS_SIMULATOR:
-        builder.add("-mios-simulator-version-min=" + objcConfiguration.getMinimumOs());
+        builder.add("-mios-simulator-version-min="
+            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case IOS_DEVICE:
-        builder.add("-miphoneos-version-min=" + objcConfiguration.getMinimumOs());
+        builder.add("-miphoneos-version-min="
+            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case WATCHOS_SIMULATOR:
+        // TODO(bazel-team): Use the value from --watchos-minimum-os instead of tying to the SDK
+        // version.
         builder.add("-mwatchos-simulator-version-min="
             + appleConfiguration.getSdkVersionForPlatform(platform));
         break;
       case WATCHOS_DEVICE:
+        // TODO(bazel-team): Use the value from --watchos-minimum-os instead of tying to the SDK
+        // version.
         builder.add("-mwatchos-version-min="
             + appleConfiguration.getSdkVersionForPlatform(platform));
+        break;
+      case TVOS_SIMULATOR:
+        builder.add("-mtvos-simulator-version-min="
+            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+        break;
+      case TVOS_DEVICE:
+        builder.add("-mtvos-version-min="
+            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       default:
         throw new IllegalArgumentException("Unhandled platform " + platform);
@@ -1827,9 +1841,11 @@ public final class CompilationSupport {
     switch (configuration.getSingleArchPlatform()) {
       case IOS_DEVICE:
       case WATCHOS_DEVICE:
+      case TVOS_DEVICE:
         return ImmutableList.of();
       case IOS_SIMULATOR:
       case WATCHOS_SIMULATOR:
+      case TVOS_SIMULATOR:
         return SIMULATOR_COMPILE_FLAGS;
       default:
         throw new AssertionError();
