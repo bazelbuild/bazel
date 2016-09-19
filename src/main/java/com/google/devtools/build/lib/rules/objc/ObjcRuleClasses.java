@@ -882,10 +882,10 @@ public class ObjcRuleClasses {
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
           .add(
               attr(PROTO_COMPILER_ATTR, LABEL)
-                  .allowedFileTypes(FileType.of(".py"))
+                  .allowedFileTypes(FileType.of(".sh"))
                   .cfg(HOST)
                   .singleArtifact()
-                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler")))
+                  .value(env.getToolsLabel("//tools/objc:protobuf_compiler_wrapper")))
           .add(
               attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
                   .legacyAllowAnyFileType()

@@ -140,6 +140,11 @@ objc_library(
 )
 
 filegroup(
+    name = "protobuf_compiler_wrapper",
+    srcs = ["protobuf_compiler_wrapper.sh"],
+)
+
+filegroup(
     name = "protobuf_compiler",
     srcs = ["protobuf_compiler.py"],
 )

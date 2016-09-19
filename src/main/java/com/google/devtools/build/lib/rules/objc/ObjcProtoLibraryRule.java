@@ -106,7 +106,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                 .cfg(HOST))
         .add(
             attr(PROTO_COMPILER_ATTR, LABEL)
-                .allowedFileTypes(FileType.of(".py"))
+                .allowedFileTypes(FileType.of(".py"), FileType.of(".sh"))
                 .cfg(HOST)
                 .singleArtifact()
                 .value(
@@ -114,7 +114,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         return rule.isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR)
-                            ? env.getToolsLabel("//tools/objc:protobuf_compiler")
+                            ? env.getToolsLabel("//tools/objc:protobuf_compiler_wrapper")
                             : env.getToolsLabel("//tools/objc:compile_protos");
                       }
                     }))

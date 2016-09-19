@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -480,7 +481,7 @@ final class ProtobufSupport {
             false));
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        new SpawnAction.Builder()
             .setMnemonic("GenObjcBundledProtos")
             .addInput(attributes.getProtoCompiler())
             .addInputs(attributes.getProtoCompilerSupport())
@@ -489,7 +490,7 @@ final class ProtobufSupport {
             .addInputs(inputProtos)
             .addOutputs(getGeneratedProtoOutputs(outputProtos, ".pbobjc.h"))
             .addOutputs(getGeneratedProtoOutputs(outputProtos, ".pbobjc.m"))
-            .setExecutable(new PathFragment("/usr/bin/python"))
+            .setExecutable(attributes.getProtoCompiler().getExecPath())
             .setCommandLine(getGenerationCommandLine(protoInputsFile))
             .build(ruleContext));
   }
@@ -510,7 +511,6 @@ final class ProtobufSupport {
 
   private CustomCommandLine getGenerationCommandLine(Artifact protoInputsFile) {
     return new CustomCommandLine.Builder()
-        .add(attributes.getProtoCompiler().getExecPathString())
         .add("--input-file-list")
         .add(protoInputsFile.getExecPathString())
         .add("--output-dir")
