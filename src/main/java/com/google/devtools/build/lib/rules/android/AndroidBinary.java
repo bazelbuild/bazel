@@ -935,11 +935,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(sdk.getAndroidJar())
         .addTransitive(common.getTransitiveNeverLinkLibraries())
         .build();
+    Artifact proguardSeeds =
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
+    Artifact proguardUsage =
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
     ProguardOutput result = ProguardHelper.createProguardAction(
         ruleContext,
         sdk.getProguard(),
         deployJarArtifact,
         proguardSpecs,
+        proguardSeeds,
+        proguardUsage,
         proguardMapping,
         libraryJars,
         proguardOutputJar,
@@ -964,7 +970,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           throws InterruptedException {
     NestedSetBuilder<Artifact> failures = NestedSetBuilder.<Artifact>stableOrder();
     ProguardOutput outputs =
-        ProguardHelper.getProguardOutputs(proguardOutputJar, ruleContext, semantics);
+        ProguardHelper.getProguardOutputs(
+            proguardOutputJar,
+            /* proguardSeeds */ (Artifact) null,
+            /* proguardUsage */ (Artifact) null,
+            ruleContext,
+            semantics);
     outputs.addAllToSet(failures);
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     ruleContext.registerAction(
@@ -975,7 +986,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 optMode == JavaOptimizationMode.LEGACY
                     ? "without proguard_specs"
                     : "in optimization mode " + optMode)));
-    return new ProguardOutput(deployJarArtifact, null, null, null);
+    return new ProguardOutput(deployJarArtifact, null, null, null, null, null);
   }
 
   private static ResourceApk shrinkResources(
