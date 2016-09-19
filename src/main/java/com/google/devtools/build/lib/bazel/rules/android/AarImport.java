@@ -95,9 +95,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 .add(resources)
                 .add(classesJar)
                 .build())
-        .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
-        .add(
+        .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .addProvider(
+            AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
+        .addProvider(
             JavaRuleOutputJarsProvider.class,
             new JavaRuleOutputJarsProvider.Builder()
                 .addOutputJar(classesJar, null, null)
