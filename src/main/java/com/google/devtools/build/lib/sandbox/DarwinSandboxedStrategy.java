@@ -176,6 +176,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     ImmutableMap<String, String> spawnEnvironment =
         StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
 
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
+
     Path runUnderPath = getRunUnderPath(spawn);
 
     try {
@@ -183,7 +185,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
           new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
 
       ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-      Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs);
       hardlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
 
@@ -196,7 +197,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
           new DarwinSandboxRunner(
               sandboxPath,
               sandboxExecRoot,
-              getWritableDirs(sandboxExecRoot, spawnEnvironment, outputs),
+              getWritableDirs(sandboxExecRoot, spawnEnvironment),
               getInaccessiblePaths(),
               runUnderPath,
               verboseFailures);
@@ -220,12 +221,11 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
   }
 
   @Override
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env,
-      ImmutableSet<PathFragment> outputs) {
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env) {
     FileSystem fs = sandboxExecRoot.getFileSystem();
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
 
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env, outputs));
+    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
     writableDirs.add(fs.getPath("/dev"));
 
     String sysTmpDir = System.getenv("TMPDIR");

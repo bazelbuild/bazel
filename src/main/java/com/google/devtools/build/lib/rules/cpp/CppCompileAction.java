@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -329,15 +328,10 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
 
-      // One starting ../ is okay for getting to a sibling repository.
-      PathFragment originalInclude = include;
-      if (include.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
-        include = include.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      }
-
-      if (include.isAbsolute() || !include.normalize().isNormalized()) {
-        ruleContext.ruleError("The include path '" + originalInclude
-            + "' references a path outside of the execution root.");
+      if (include.isAbsolute()
+          || !PathFragment.EMPTY_FRAGMENT.getRelative(include).normalize().isNormalized()) {
+        ruleContext.ruleError(
+            "The include path '" + include + "' references a path outside of the execution root.");
       }
     }
   }
@@ -977,7 +971,6 @@ public class CppCompileAction extends AbstractAction
         if (execPath.getBaseName().endsWith(".pcm")) {
           continue;
         }
-        RepositoryName repositoryName = RepositoryName.MAIN;
         PathFragment execPathFragment = execPath.asFragment();
         if (execPathFragment.isAbsolute()) {
           // Absolute includes from system paths are ignored.
@@ -990,25 +983,14 @@ public class CppCompileAction extends AbstractAction
           // the build with an error.
           if (execPath.startsWith(execRoot)) {
             execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
-          } else if (execPath.startsWith(execRoot.getParentDirectory())) {
-            // External repository.
-            execPathFragment = execPath.relativeTo(execRoot.getParentDirectory());
-            String workspace = execPathFragment.getSegment(0);
-            execPathFragment = execPathFragment.relativeTo(workspace);
-            try {
-              repositoryName = RepositoryName.create("@" + workspace);
-            } catch (LabelSyntaxException e) {
-              throw new IllegalStateException(workspace + " is not a valid repository name");
-            }
           } else {
             problems.add(execPathFragment.getPathString());
             continue;
           }
         }
-        Artifact artifact = allowedDerivedInputsMap.get(
-            repositoryName.getPathUnderExecRoot().getRelative(execPathFragment));
+        Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
         if (artifact == null) {
-          artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repositoryName);
+          artifact = artifactResolver.resolveSourceArtifact(execPathFragment, RepositoryName.MAIN);
         }
         if (artifact != null) {
           inputs.add(artifact);
@@ -1021,7 +1003,7 @@ public class CppCompileAction extends AbstractAction
           problems.add(execPathFragment.getPathString());
         }
       }
-      //TODO(b/22551695): Remove in favor of separate implementations.
+      //TODO(b/22551695): Remove in favor of seperate implementations.
       if (semantics == null || semantics.needsIncludeValidation()) {
         problems.assertProblemFree(this, getSourceFile());
       }

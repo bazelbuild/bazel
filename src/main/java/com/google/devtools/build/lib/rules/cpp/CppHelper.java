@@ -485,7 +485,7 @@ public class CppHelper {
         Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
         symlinkedArtifacts.add(isCppRuntime
             ? SolibSymlinkAction.getCppRuntimeSymlink(
-            ruleContext, artifact, solibDirOverride, configuration)
+                ruleContext, artifact, solibDirOverride, configuration)
             : SolibSymlinkAction.getDynamicLibrarySymlink(
                 ruleContext, artifact, false, true, configuration));
       }
@@ -494,8 +494,7 @@ public class CppHelper {
     }
     return ImmutableList.of(
         factory.createMiddlemanAllowMultiple(ruleContext.getAnalysisEnvironment(), actionOwner,
-            ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot(), purpose,
-            artifacts,
+            ruleContext.getPackageDirectory(), purpose, artifacts,
             configuration.getMiddlemanDirectory(ruleContext.getRule().getRepository())));
   }
 

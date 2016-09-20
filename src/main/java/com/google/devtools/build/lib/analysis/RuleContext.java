@@ -609,7 +609,7 @@ public final class RuleContext extends TargetContext
    * {@link #getUniqueDirectoryArtifact(String, PathFragment, Root)}) ensures that this is the case.
    */
   public PathFragment getPackageDirectory() {
-    return getLabel().getPackageIdentifier().getPackageFragment();
+    return getLabel().getPackageIdentifier().getSourceRoot();
   }
 
   /**

@@ -40,19 +40,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source
  * file or a derived (output) file. Not all Artifacts have a corresponding
- * FileTarget object in the <code>build.lib.packages</code> API: for example,
+ * FileTarget object in the <code>build.packages</code> API: for example,
  * low-level intermediaries internal to a given rule, such as a Java class files
  * or C++ object files. However all FileTargets have a corresponding Artifact.
  *
- * <p>In any given call to
- * {@link com.google.devtools.build.lib.skyframe.SkyframeExecutor#buildArtifacts}, no two Artifacts
- * in the action graph may refer to the same path.
+ * <p>In any given call to Builder#buildArtifacts(), no two Artifacts in the
+ * action graph may refer to the same path.
  *
  * <p>Artifacts generally fall into two classifications, source and derived, but
  * there exist a few other cases that are fuzzy and difficult to classify. The
@@ -130,6 +128,7 @@ public class Artifact
     return EvalUtils.compareByClass(this, o);
   }
 
+
   /** An object that can expand middleman artifacts. */
   public interface ArtifactExpander {
 
@@ -183,10 +182,10 @@ public class Artifact
    * </pre>
    *
    * <p>In a derived Artifact, the execPath will overlap with part of the root, which in turn will
-   * be below the execRoot.
+   * be below of the execRoot.
    * <pre>
    *  [path] == [/root][pathTail] == [/execRoot][execPath] == [/execRoot][rootPrefix][pathTail]
-   * </pre>
+   * <pre>
    */
   @VisibleForTesting
   public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
@@ -201,6 +200,7 @@ public class Artifact
     this.hashCode = path.hashCode();
     this.path = path;
     this.root = root;
+    this.execPath = execPath;
     // These two lines establish the invariant that
     // execPath == rootRelativePath <=> execPath.equals(rootRelativePath)
     // This is important for isSourceArtifact.
@@ -210,7 +210,6 @@ public class Artifact
           + rootRel + " at " + path + " with root " + root);
     }
     this.rootRelativePath = rootRel.equals(execPath) ? execPath : rootRel;
-    this.execPath = externalfy(execPath);
     this.owner = Preconditions.checkNotNull(owner, path);
   }
 
@@ -351,12 +350,7 @@ public class Artifact
   @SkylarkCallable(name = "is_source", structField =  true,
       doc = "Returns true if this is a source file, i.e. it is not generated")
   public final boolean isSourceArtifact() {
-    // All source roots should, you know, point to sources. However, for embedded binaries, they
-    // are actually created as derived artifacts, so we have to special-case isSourceArtifact to
-    // treat derived roots in the main repo where execPath==rootRelPath as source roots.
-    // Source artifacts have reference-identical execPaths and rootRelativePaths, so use
-    // of == instead of .equals() is intentional here.
-    return execPath == rootRelativePath || root.isSourceRoot();
+    return execPath == rootRelativePath;
   }
 
   /**
@@ -521,9 +515,15 @@ public class Artifact
    * For targets in external repositories, this returns the path the artifact live at in the
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
-  // TODO(kchodorow): remove.
   public final PathFragment getRunfilesPath() {
-    return externalfy(rootRelativePath);
+    PathFragment relativePath = rootRelativePath;
+    if (relativePath.segmentCount() > 1
+        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
+      // Turn external/repo/foo into ../repo/foo.
+      relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      relativePath = new PathFragment("..").getRelative(relativePath);
+    }
+    return relativePath;
   }
 
   @SkylarkCallable(
@@ -557,31 +557,7 @@ public class Artifact
             + "runfiles of a binary."
   )
   public final String getExecPathString() {
-    return getExecPath().toString();
-  }
-
-  private PathFragment externalfy(PathFragment relativePath) {
-    if (root.isMainRepo()) {
-      return relativePath;
-    }
-
-    PathFragment prefix;
-    if (root.isSourceRoot()) {
-      prefix = new PathFragment(Label.EXTERNAL_PATH_PREFIX)
-          .getRelative(root.getPath().getBaseName());
-    } else {
-      prefix = new PathFragment(Label.EXTERNAL_PATH_PREFIX)
-          .getRelative(root.getExecRoot().getBaseName());
-    }
-    return prefix.getRelative(relativePath);
-  }
-
-  /**
-   * Returns if this artifact is in the main repository or not.
-   */
-  // TODO(kchodorow): remove once execroot path is correct.
-  public boolean isInMainRepo() {
-    return root.isMainRepo();
+    return getExecPath().getPathString();
   }
 
   /*
@@ -609,7 +585,7 @@ public class Artifact
     // We don't bother to check root in the equivalence relation, because we
     // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return Objects.equals(this.path, that.path);
+    return this.path.equals(that.path);
   }
 
   @Override

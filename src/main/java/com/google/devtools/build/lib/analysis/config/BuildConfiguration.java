@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
@@ -23,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -84,6 +83,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
@@ -955,6 +955,62 @@ public final class BuildConfiguration {
     }
   }
 
+  /**
+   * All the output directories pertinent to a configuration.
+   */
+  private static final class OutputRoots implements Serializable {
+    private final Root outputDirectory; // the configuration-specific output directory.
+    private final Root binDirectory;
+    private final Root genfilesDirectory;
+    private final Root coverageMetadataDirectory; // for coverage-related metadata, artifacts, etc.
+    private final Root testLogsDirectory;
+    private final Root includeDirectory;
+    private final Root middlemanDirectory;
+
+    private OutputRoots(BlazeDirectories directories, String outputDirName) {
+      Path execRoot = directories.getExecRoot();
+      // configuration-specific output tree
+      Path outputDir = directories.getOutputPath().getRelative(outputDirName);
+      this.outputDirectory = Root.asDerivedRoot(execRoot, outputDir, true);
+
+      // specific subdirs under outputDirectory
+      this.binDirectory = Root
+          .asDerivedRoot(execRoot, outputDir.getRelative("bin"), true);
+      this.genfilesDirectory = Root.asDerivedRoot(
+          execRoot, outputDir.getRelative("genfiles"), true);
+      this.coverageMetadataDirectory = Root.asDerivedRoot(execRoot,
+          outputDir.getRelative("coverage-metadata"), true);
+      this.testLogsDirectory = Root.asDerivedRoot(
+          execRoot, outputDir.getRelative("testlogs"), true);
+      this.includeDirectory = Root.asDerivedRoot(
+          execRoot, outputDir.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR), true);
+      this.middlemanDirectory = Root.middlemanRoot(execRoot, outputDir, true);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (!(o instanceof OutputRoots)) {
+        return false;
+      }
+      OutputRoots other = (OutputRoots) o;
+      return outputDirectory.equals(other.outputDirectory)
+          && binDirectory.equals(other.binDirectory)
+          && genfilesDirectory.equals(other.genfilesDirectory)
+          && coverageMetadataDirectory.equals(other.coverageMetadataDirectory)
+          && testLogsDirectory.equals(other.testLogsDirectory)
+          && includeDirectory.equals(other.includeDirectory);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(outputDirectory, binDirectory, genfilesDirectory,
+          coverageMetadataDirectory, testLogsDirectory, includeDirectory);
+    }
+  }
+
   private final String checksum;
 
   private Transitions transitions;
@@ -966,7 +1022,7 @@ public final class BuildConfiguration {
   /**
    * Directories in the output tree.
    *
-   * <p>The computation of the output directories should be a non-injective mapping from
+   * <p>The computation of the output directory should be a non-injective mapping from
    * BuildConfiguration instances to strings. The result should identify the aspects of the
    * configuration that should be reflected in the output file names.  Furthermore the
    * returned string must not contain shell metacharacters.
@@ -1003,54 +1059,7 @@ public final class BuildConfiguration {
    * this so that the build works even if the two configurations are too close (which is common)
    * and so that the path of artifacts in the host configuration is a bit more readable.
    */
-  private enum OutputDirectory {
-    BIN("bin"),
-    GENFILES("genfiles"),
-    MIDDLEMAN(true),
-    TESTLOGS("testlogs"),
-    COVERAGE("coverage-metadata"),
-    INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
-    OUTPUT(false);
-
-    private final String name;
-    private final boolean middleman;
-
-    /**
-     * This constructor is for roots without suffixes, e.g.,
-     * [[execroot/repo]/bazel-out/local-fastbuild].
-     * @param isMiddleman whether the root should be a middleman root or a "normal" derived root.
-     */
-    OutputDirectory(boolean isMiddleman) {
-      this.name = "";
-      this.middleman = isMiddleman;
-    }
-
-    OutputDirectory(String name) {
-      this.name = name;
-      this.middleman = false;
-    }
-
-    Root getRoot(
-        RepositoryName repositoryName, String outputDirName, BlazeDirectories directories) {
-      // e.g., execroot/repo1/../repo2 -> execroot/repo2
-      Path execRoot = directories.getExecRoot().getRelative(repositoryName.getPathUnderExecRoot());
-      // e.g., execroot/repo2/bazel-out/config
-      Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
-          .getRelative(outputDirName);
-      if (middleman) {
-        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir, repositoryName.isMain()));
-      }
-      // e.g., execroot/repo2/bazel-out/config/bin
-      return INTERNER.intern(
-          Root.asDerivedRoot(execRoot, outputDir.getRelative(name), repositoryName.isMain()));
-    }
-  }
-
-  // "Cache" of roots, so we don't keep around thousands of copies of the same root.
-  private static Interner<Root> INTERNER = Interners.newWeakInterner();
-
-  private final BlazeDirectories directories;
-  private final String outputDirName;
+  private final OutputRoots outputRoots;
 
   /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
   private final boolean actionsEnabled;
@@ -1228,12 +1237,23 @@ public final class BuildConfiguration {
   /**
    * Constructs a new BuildConfiguration instance.
    */
-  public BuildConfiguration(
-      BlazeDirectories directories,
+  public BuildConfiguration(BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
       boolean actionsDisabled) {
-    this.directories = directories;
+    this(null, directories, fragmentsMap, buildOptions, actionsDisabled);
+  }
+
+  /**
+   * Constructor variation that uses the passed in output roots if non-null, else computes them
+   * from the directories.
+   */
+  public BuildConfiguration(@Nullable OutputRoots outputRoots,
+      @Nullable BlazeDirectories directories,
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
+      BuildOptions buildOptions,
+      boolean actionsDisabled) {
+    Preconditions.checkState(outputRoots == null ^ directories == null);
     this.actionsEnabled = !actionsDisabled;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
@@ -1261,11 +1281,15 @@ public final class BuildConfiguration {
     commandLineBuildVariables = ImmutableMap.copyOf(commandLineDefinesBuilder);
 
     this.mnemonic = buildMnemonic();
-    this.outputDirName = (options.outputDirectoryName != null)
+    String outputDirName = (options.outputDirectoryName != null)
         ? options.outputDirectoryName : mnemonic;
     this.platformName = buildPlatformName();
 
     this.shExecutable = collectExecutables().get("sh");
+
+    this.outputRoots = outputRoots != null
+        ? outputRoots
+        : new OutputRoots(directories, outputDirName);
 
     Pair<ImmutableMap<String, String>, ImmutableSet<String>> shellEnvironment =
         setupShellEnvironment();
@@ -1310,7 +1334,7 @@ public final class BuildConfiguration {
     BuildOptions options = buildOptions.trim(
         getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
     BuildConfiguration newConfig =
-        new BuildConfiguration(directories, fragmentsMap, options, !actionsEnabled);
+        new BuildConfiguration(outputRoots, null, fragmentsMap, options, !actionsEnabled);
     newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
@@ -1826,6 +1850,23 @@ public final class BuildConfiguration {
   }
 
   /**
+   * For an given environment, returns a subset containing all
+   * variables in the given list if they are defined in the given
+   * environment.
+   */
+  @VisibleForTesting
+  static Map<String, String> getMapping(List<String> variables,
+      Map<String, String> environment) {
+    Map<String, String> result = new HashMap<>();
+    for (String var : variables) {
+      if (environment.containsKey(var)) {
+        result.put(var, environment.get(var));
+      }
+    }
+    return result;
+  }
+
+  /**
    * Returns the {@link Option} class the defines the given option, null if the
    * option isn't recognized.
    *
@@ -1874,7 +1915,7 @@ public final class BuildConfiguration {
    * Returns the output directory for this build configuration.
    */
   public Root getOutputDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.OUTPUT.getRoot(repositoryName, outputDirName, directories);
+    return outputRoots.outputDirectory;
   }
 
   /**
@@ -1883,7 +1924,7 @@ public final class BuildConfiguration {
   @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
   @Deprecated
   public Root getBinDirectory() {
-    return getBinDirectory(RepositoryName.MAIN);
+    return outputRoots.binDirectory;
   }
 
   /**
@@ -1891,9 +1932,11 @@ public final class BuildConfiguration {
    * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
    * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
    * repositories (external) but will need to be fixed.
+   * TODO(kchodorow): Use the repository name to derive the bin directory.
    */
+  @SuppressWarnings("unused")
   public Root getBinDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.BIN.getRoot(repositoryName, outputDirName, directories);
+    return getBinDirectory();
   }
 
   /**
@@ -1905,9 +1948,11 @@ public final class BuildConfiguration {
 
   /**
    * Returns the include directory for this build configuration.
+   * TODO(kchodorow): Use the repository name to derive the include directory.
    */
+  @SuppressWarnings("unused")
   public Root getIncludeDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.INCLUDE.getRoot(repositoryName, outputDirName, directories);
+    return outputRoots.includeDirectory;
   }
 
   /**
@@ -1916,27 +1961,33 @@ public final class BuildConfiguration {
   @SkylarkCallable(name = "genfiles_dir", structField = true, documented = false)
   @Deprecated
   public Root getGenfilesDirectory() {
-    return getGenfilesDirectory(RepositoryName.MAIN);
+    return outputRoots.genfilesDirectory;
   }
 
+  // TODO(kchodorow): Use the repository name to derive the genfiles directory.
+  @SuppressWarnings("unused")
   public Root getGenfilesDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.GENFILES.getRoot(repositoryName, outputDirName, directories);
+    return getGenfilesDirectory();
   }
 
   /**
    * Returns the directory where coverage-related artifacts and metadata files
    * should be stored. This includes for example uninstrumented class files
    * needed for Jacoco's coverage reporting tools.
+   * TODO(kchodorow): Use the repository name to derive the coverage directory.
    */
+  @SuppressWarnings("unused")
   public Root getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.COVERAGE.getRoot(repositoryName, outputDirName, directories);
+    return outputRoots.coverageMetadataDirectory;
   }
 
   /**
    * Returns the testlogs directory for this build configuration.
+   * TODO(kchodorow): Use the repository name to derive the test directory.
    */
+  @SuppressWarnings("unused")
   public Root getTestLogsDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.TESTLOGS.getRoot(repositoryName, outputDirName, directories);
+    return outputRoots.testLogsDirectory;
   }
 
   /**
@@ -1961,9 +2012,11 @@ public final class BuildConfiguration {
 
   /**
    * Returns the internal directory (used for middlemen) for this build configuration.
+   * TODO(kchodorow): Use the repository name to derive the middleman directory.
    */
+  @SuppressWarnings("unused")
   public Root getMiddlemanDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.MIDDLEMAN.getRoot(repositoryName, outputDirName, directories);
+    return outputRoots.middlemanDirectory;
   }
 
   public boolean getAllowRuntimeDepsOnNeverLink() {

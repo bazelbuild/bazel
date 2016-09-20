@@ -508,14 +508,8 @@ public class ExecutionTool {
 
     // Plant the symlink forest.
     try {
-      SymlinkForest.builder()
-          .setLegacyExternalRunfiles(
-              request.getOptions(BuildConfiguration.Options.class).legacyExternalRunfiles)
-          .setPackageRoots(packageRoots)
-          .setWorkspace(getExecRoot())
-          .setProductName(runtime.getProductName())
-          .setWorkspaceName(workspaceName)
-          .build()
+      new SymlinkForest(
+          packageRoots, getExecRoot(), runtime.getProductName(), workspaceName)
           .plantSymlinkForest();
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);

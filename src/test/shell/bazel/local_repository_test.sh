@@ -570,9 +570,9 @@ genrule(
     visibility = ["//visibility:public"],
 )
 EOF
-  local execroot="$(bazel info execution_root)"
+  bazel fetch //external:best-turtle || fail "Fetch failed"
   bazel build //external:best-turtle &> $TEST_log || fail "First build failed"
-  assert_contains "Leonardo" "$execroot/../mutant/bazel-out/local-fastbuild/genfiles/tmnt"
+  assert_contains "Leonardo" bazel-genfiles/external/mutant/tmnt
 
   cat > mutant.BUILD <<EOF
 genrule(
@@ -583,8 +583,7 @@ genrule(
 )
 EOF
   bazel build //external:best-turtle &> $TEST_log || fail "Second build failed"
-  execroot="$(bazel info execution_root)"
-  assert_contains "Donatello" "$execroot/../mutant/bazel-out/local-fastbuild/genfiles/tmnt"
+  assert_contains "Donatello" bazel-genfiles/external/mutant/tmnt
 }
 
 function test_external_deps_in_remote_repo() {
@@ -621,8 +620,7 @@ genrule(
 EOF
 
  bazel build @r//:r || fail "build failed"
- local execroot="$(bazel info execution_root)"
- assert_contains "GOLF" "$execroot/../r/bazel-out/local-fastbuild/genfiles/r.out"
+ assert_contains "GOLF" bazel-genfiles/external/r/r.out
 }
 
 function test_local_deps() {
@@ -973,8 +971,7 @@ local_repository(name='r', path='$r')
 EOF
 
   bazel build @r//a:b || fail "build failed"
-  local execroot="$(bazel info execution_root)"
-  cat "$execroot/../r/bazel-out/local-fastbuild/genfiles/a/bo" > $TEST_log
+  cat bazel-genfiles/external/r/a/bo > $TEST_log
   expect_log "@r a"
 }
 

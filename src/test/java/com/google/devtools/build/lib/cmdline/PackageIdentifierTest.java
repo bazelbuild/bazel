@@ -19,10 +19,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,7 +39,8 @@ public class PackageIdentifierTest {
     PackageIdentifier fooA = PackageIdentifier.parse("@foo//a");
     assertThat(fooA.getRepository().strippedName()).isEqualTo("foo");
     assertThat(fooA.getPackageFragment().getPathString()).isEqualTo("a");
-    assertThat(fooA.getRepository().getSourceRoot()).isEqualTo(new PathFragment("external/foo"));
+    assertThat(fooA.getRepository().getSourceRoot()).isEqualTo(
+        new PathFragment("external/foo"));
 
     PackageIdentifier absoluteA = PackageIdentifier.parse("//a");
     assertThat(absoluteA.getRepository().strippedName()).isEqualTo("");
@@ -98,12 +101,10 @@ public class PackageIdentifierTest {
   }
 
   @Test
-  public void testPathUnderExecRoot() throws Exception {
-    assertThat(
-        PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getPathUnderExecRoot())
+  public void testRunfilesDir() throws Exception {
+    assertThat(PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getRunfilesPath())
         .isEqualTo(new PathFragment("../foo/bar/baz"));
-    assertThat(
-        PackageIdentifier.create("@", new PathFragment("bar/baz")).getPathUnderExecRoot())
+    assertThat(PackageIdentifier.create("@", new PathFragment("bar/baz")).getRunfilesPath())
         .isEqualTo(new PathFragment("bar/baz"));
   }
 }
