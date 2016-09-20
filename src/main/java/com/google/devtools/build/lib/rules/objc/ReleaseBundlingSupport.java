@@ -476,6 +476,7 @@ public final class ReleaseBundlingSupport {
                   ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
               .setMnemonic("ObjcProcessIpa")
               .setProgressMessage("Processing iOS IPA: " + ruleContext.getLabel())
+              .disableSandboxing()
               .addTransitiveInputs(inputs.build())
               .addOutput(processedIpa);
 
