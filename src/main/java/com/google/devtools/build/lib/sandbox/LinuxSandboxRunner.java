@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
@@ -40,25 +41,31 @@ final class LinuxSandboxRunner extends SandboxRunner {
 
   private final Path execRoot;
   private final Path sandboxExecRoot;
+  private final Path sandboxTempDir;
   private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
   private final Set<Path> inaccessiblePaths;
+  private final Set<Path> bindMounts;
   private final boolean sandboxDebug;
 
   LinuxSandboxRunner(
       Path execRoot,
       Path sandboxPath,
       Path sandboxExecRoot,
+      Path sandboxTempDir,
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
+      ImmutableSet<Path> bindMounts,
       boolean verboseFailures,
       boolean sandboxDebug) {
     super(sandboxPath, sandboxExecRoot, verboseFailures);
     this.execRoot = execRoot;
     this.sandboxExecRoot = sandboxExecRoot;
+    this.sandboxTempDir = sandboxTempDir;
     this.argumentsFilePath = sandboxPath.getRelative("linux-sandbox.params");
     this.writableDirs = writableDirs;
     this.inaccessiblePaths = inaccessiblePaths;
+    this.bindMounts = bindMounts;
     this.sandboxDebug = sandboxDebug;
   }
 
@@ -116,6 +123,10 @@ final class LinuxSandboxRunner extends SandboxRunner {
       fileArgs.add("-D");
     }
 
+    // Temporary directory of the sandbox.
+    fileArgs.add("-S");
+    fileArgs.add(sandboxTempDir.toString());
+
     // Working directory of the spawn.
     fileArgs.add("-W");
     fileArgs.add(sandboxExecRoot.toString());
@@ -135,6 +146,11 @@ final class LinuxSandboxRunner extends SandboxRunner {
     for (Path inaccessiblePath : inaccessiblePaths) {
       fileArgs.add("-i");
       fileArgs.add(inaccessiblePath.getPathString());
+    }
+
+    for (Path bindMount : bindMounts) {
+      fileArgs.add("-b");
+      fileArgs.add(bindMount.getPathString());
     }
 
     if (!allowNetwork) {

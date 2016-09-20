@@ -55,8 +55,8 @@
 #include <unistd.h>
 
 static int global_child_pid;
-static char global_inaccessible_directory[] = "/tmp/empty.XXXXXX";
-static char global_inaccessible_file[] = "/tmp/empty.XXXXXX";
+static char global_inaccessible_directory[] = "tmp/empty.XXXXXX";
+static char global_inaccessible_file[] = "tmp/empty.XXXXXX";
 
 static void SetupSelfDestruction(int *sync_pipe) {
   // We could also poll() on the pipe fd to find out when the parent goes away,
@@ -167,13 +167,74 @@ static void SetupHelperFiles() {
   }
 }
 
-static void MountFilesystems() {
-  if (mount("/", global_sandbox_root, NULL, MS_BIND | MS_REC, NULL) < 0) {
-    DIE("mount(/, %s, NULL, MS_BIND | MS_REC, NULL)", global_sandbox_root);
+static bool IsDirectory(const char *path) {
+  struct stat sb;
+  if (stat(path, &sb) < 0) {
+    DIE("stat(%s)", path);
+  }
+  return S_ISDIR(sb.st_mode);
+}
+
+// Recursively creates the file or directory specified in "path" and its parent
+// directories.
+static int CreateTarget(const char *path, bool is_directory) {
+  PRINT_DEBUG("CreateTarget(%s, %s)", path, is_directory ? "true" : "false");
+  if (path == NULL) {
+    errno = EINVAL;
+    return -1;
   }
 
-  if (chdir(global_sandbox_root) < 0) {
-    DIE("chdir(%s)", global_sandbox_root);
+  struct stat sb;
+  // If the path already exists...
+  if (stat(path, &sb) == 0) {
+    if (is_directory && S_ISDIR(sb.st_mode)) {
+      // and it's a directory and supposed to be a directory, we're done here.
+      return 0;
+    } else if (!is_directory && S_ISREG(sb.st_mode)) {
+      // and it's a regular file and supposed to be one, we're done here.
+      return 0;
+    } else {
+      // otherwise something is really wrong.
+      errno = is_directory ? ENOTDIR : EEXIST;
+      return -1;
+    }
+  } else {
+    // If stat failed because of any error other than "the path does not exist",
+    // this is an error.
+    if (errno != ENOENT) {
+      return -1;
+    }
+  }
+
+  // Create the parent directory.
+  if (CreateTarget(dirname(strdupa(path)), true) < 0) {
+    DIE("CreateTarget(%s, true)", dirname(strdupa(path)));
+  }
+
+  if (is_directory) {
+    if (mkdir(path, 0755) < 0) {
+      DIE("mkdir(%s, 0755)", path);
+    }
+  } else {
+    int handle;
+    if ((handle = open(path, O_CREAT | O_WRONLY | O_EXCL, 0666)) < 0) {
+      DIE("open(%s, O_CREAT | O_WRONLY | O_EXCL, 0666)", path);
+    }
+    if (close(handle) < 0) {
+      DIE("close(%d)", handle);
+    }
+  }
+
+  return 0;
+}
+
+static void MountFilesystems() {
+  if (mount("/", opt.sandbox_root_dir, NULL, MS_BIND | MS_REC, NULL) < 0) {
+    DIE("mount(/, %s, NULL, MS_BIND | MS_REC, NULL)", opt.sandbox_root_dir);
+  }
+
+  if (chdir(opt.sandbox_root_dir) < 0) {
+    DIE("chdir(%s)", opt.sandbox_root_dir);
   }
 
   for (const char *tmpfs_dir : opt.tmpfs_dirs) {
@@ -187,9 +248,19 @@ static void MountFilesystems() {
 
   // Make sure that our working directory is a mount point. The easiest way to
   // do this is by bind-mounting it upon itself.
+  PRINT_DEBUG("working dir: %s", opt.working_dir);
+  CreateTarget(opt.working_dir + 1, true);
   if (mount(opt.working_dir, opt.working_dir + 1, NULL, MS_BIND, NULL) < 0) {
     DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir,
         opt.working_dir + 1);
+  }
+
+  for (const char *bind_mount : opt.bind_mounts) {
+    PRINT_DEBUG("bind mount: %s", bind_mount);
+    CreateTarget(bind_mount + 1, IsDirectory(bind_mount));
+    if (mount(bind_mount, bind_mount + 1, NULL, MS_BIND, NULL) < 0) {
+      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", bind_mount, bind_mount + 1);
+    }
   }
 
   for (const char *writable_file : opt.writable_files) {
@@ -229,7 +300,7 @@ static void MountFilesystems() {
 // We later remount everything read-only, except the paths for which this method
 // returns true.
 static bool ShouldBeWritable(char *mnt_dir) {
-  mnt_dir += strlen(global_sandbox_root);
+  mnt_dir += strlen(opt.sandbox_root_dir);
 
   if (strcmp(mnt_dir, opt.working_dir) == 0) {
     return true;
@@ -261,7 +332,7 @@ static void MakeFilesystemMostlyReadOnly() {
   struct mntent *ent;
   while ((ent = getmntent(mounts)) != NULL) {
     // Skip mounts that do not belong to our sandbox.
-    if (strstr(ent->mnt_dir, global_sandbox_root) != ent->mnt_dir) {
+    if (strstr(ent->mnt_dir, opt.sandbox_root_dir) != ent->mnt_dir) {
       continue;
     }
 

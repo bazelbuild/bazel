@@ -101,6 +101,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    Path sandboxTempDir = sandboxPath.getRelative("tmp");
 
 
     try {
@@ -110,6 +111,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs);
       symlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
+      sandboxTempDir.createDirectory();
 
       final SandboxRunner runner;
       if (fullySupported) {
@@ -118,8 +120,10 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
                 execRoot,
                 sandboxPath,
                 sandboxExecRoot,
+                sandboxTempDir,
                 getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs),
                 getInaccessiblePaths(),
+                getBindMounts(blazeDirs),
                 verboseFailures,
                 sandboxOptions.sandboxDebug);
       } else {
@@ -141,6 +145,19 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
+  }
+
+  private ImmutableSet<Path> getBindMounts(BlazeDirectories blazeDirs) {
+    Path tmpPath = blazeDirs.getFileSystem().getPath("/tmp");
+    ImmutableSet.Builder<Path> bindMounts = ImmutableSet.builder();
+    if (blazeDirs.getWorkspace().startsWith(tmpPath)) {
+
+      bindMounts.add(blazeDirs.getWorkspace());
+    }
+    if (blazeDirs.getOutputBase().startsWith(tmpPath)) {
+      bindMounts.add(blazeDirs.getOutputBase());
+    }
+    return bindMounts.build();
   }
 
 }

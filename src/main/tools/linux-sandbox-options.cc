@@ -69,6 +69,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -i <file>  make a file or directory inaccessible for the "
           "sandboxed process\n"
           "  -e <dir>  mount an empty tmpfs on a directory\n"
+          "  -b <dir>  bind mount a file or directory inside the sandbox\n"
           "  -N  if set, a new network namespace will be created\n"
           "  -R  if set, make the uid/gid be root, otherwise use nobody\n"
           "  -D  if set, debug info will be printed\n"
@@ -112,12 +113,24 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt(args->size(), args->data(), ":CS:W:T:t:l:L:w:i:e:NRD")) !=
-         -1) {
+  while ((c = getopt(args->size(), args->data(),
+                     ":CS:W:T:t:l:L:w:i:e:b:NRD")) != -1) {
     switch (c) {
       case 'C':
         // Shortcut for the "does this system support sandboxing" check.
         exit(CheckNamespacesSupported());
+        break;
+      case 'S':
+        if (opt.sandbox_root_dir == NULL) {
+          if (optarg[0] != '/') {
+            Usage(args->front(),
+                  "The -r option must be used with absolute paths only.");
+          }
+          opt.sandbox_root_dir = strdup(optarg);
+        } else {
+          Usage(args->front(),
+                "Multiple root directories (-r) specified, expected one.");
+        }
         break;
       case 'W':
         if (opt.working_dir == NULL) {
@@ -179,6 +192,13 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
                 "The -e option must be used with absolute paths only.");
         }
         opt.tmpfs_dirs.push_back(strdup(optarg));
+        break;
+      case 'b':
+        if (optarg[0] != '/') {
+          Usage(args->front(),
+                "The -b option must be used with absolute paths only.");
+        }
+        opt.bind_mounts.push_back(strdup(optarg));
         break;
       case 'N':
         opt.create_netns = true;

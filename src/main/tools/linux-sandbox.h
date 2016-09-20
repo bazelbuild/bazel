@@ -17,6 +17,5 @@
 
 extern int global_outer_uid;
 extern int global_outer_gid;
-extern char global_sandbox_root[];
 
 #endif
