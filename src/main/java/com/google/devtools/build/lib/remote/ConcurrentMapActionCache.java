@@ -178,6 +178,10 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
     return ImmutableList.copyOf(blobs);
   }
 
+  public boolean containsKey(ContentDigest digest) {
+    return cache.containsKey(ContentDigests.toHexString(digest));
+  }
+
   @Override
   public ActionResult getCachedActionResult(ActionKey actionKey) {
     byte[] data = cache.get(ContentDigests.toHexString(actionKey.getDigest()));

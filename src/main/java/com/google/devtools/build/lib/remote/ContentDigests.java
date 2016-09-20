@@ -67,6 +67,14 @@ public final class ContentDigests {
     return new ActionKey(computeDigest(action));
   }
 
+  /**
+   * Assumes that the given ContentDigest is a valid digest of an Action, and creates an ActionKey
+   * wrapper. This should not be called on the client side!
+   */
+  public static ActionKey unsafeActionKeyFromDigest(ContentDigest digest) {
+    return new ActionKey(digest);
+  }
+
   public static ContentDigest buildDigest(byte[] digest, long size) {
     ContentDigest.Builder b = ContentDigest.newBuilder();
     b.setDigest(ByteString.copyFrom(digest)).setSizeBytes(size);
