@@ -399,6 +399,8 @@ public class JavaCommon {
         usesAnnotationProcessing,
         genClassJar,
         genSourceJar,
+        getProcessorClasspathJars(),
+        getProcessorClassNames(),
         classJarsBuilder.build(),
         sourceJarsBuilder.build()
     );
