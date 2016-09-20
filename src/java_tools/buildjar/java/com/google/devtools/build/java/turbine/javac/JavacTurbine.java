@@ -59,8 +59,8 @@ import org.objectweb.asm.Opcodes;
 /**
  * An header compiler implementation based on javac.
  *
- * <p>This is a reference implementation used to develop the blaze integration, and to validate
- * the real header compilation implementation.
+ * <p>This is a reference implementation used to develop the blaze integration, and to validate the
+ * real header compilation implementation.
  */
 public class JavacTurbine implements AutoCloseable {
 
@@ -262,8 +262,8 @@ public class JavacTurbine implements AutoCloseable {
   /**
    * Remove code attributes and private members.
    *
-   * <p>Most code will already have been removed after parsing, but the bytecode will still
-   * contain e.g. lowered class and instance initializers.
+   * <p>Most code will already have been removed after parsing, but the bytecode will still contain
+   * e.g. lowered class and instance initializers.
    */
   private static byte[] processBytecode(byte[] bytes) {
     ClassWriter cw = new ClassWriter(0);
@@ -275,18 +275,18 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   /**
-   * Prune private members.
+   * Prune bytecode.
    *
-   * <p>Like ijar, turbine prunes private fields and members to improve caching
-   * and reduce output size.
+   * <p>Like ijar, turbine prunes private fields and members to improve caching and reduce output
+   * size.
    *
-   * <p>This is not always a safe optimization: it can prevent javac from emitting
-   * diagnostics e.g. when a public member is hidden by a private member which has
-   * then pruned. The impact of that is believed to be small, and as long as ijar
-   * continues to prune private members turbine should do the same for compatibility.
+   * <p>This is not always a safe optimization: it can prevent javac from emitting diagnostics e.g.
+   * when a public member is hidden by a private member which has then pruned. The impact of that is
+   * believed to be small, and as long as ijar continues to prune private members turbine should do
+   * the same for compatibility.
    *
-   * <p>Some of this work could be done during tree pruning, but it's not completely
-   * trivial to detect private members at that point (e.g. with implicit modifiers).
+   * <p>Some of this work could be done during tree pruning, but it's not completely trivial to
+   * detect private members at that point (e.g. with implicit modifiers).
    */
   static class PrivateMemberPruner extends ClassVisitor {
     public PrivateMemberPruner(ClassVisitor cv) {
@@ -306,6 +306,10 @@ public class JavacTurbine implements AutoCloseable {
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
       if ((access & Opcodes.ACC_PRIVATE) == Opcodes.ACC_PRIVATE) {
+        return null;
+      }
+      if (name.equals("<clinit>")) {
+        // drop class initializers, which are going to be empty after tree pruning
         return null;
       }
       return super.visitMethod(access, name, desc, signature, exceptions);

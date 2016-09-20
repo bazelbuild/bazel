@@ -740,9 +740,6 @@ public class JavacTurbineTest {
       "",
       "  // access flags 0x9",
       "  public static valueOf(Ljava/lang/String;)LTheEnum;",
-      "",
-      "  // access flags 0x8",
-      "  static <clinit>()V",
       "}",
       ""
     };
@@ -991,12 +988,7 @@ public class JavacTurbineTest {
 
   @Test
   public void privateMembers() throws Exception {
-    addSourceLines(
-        "Hello.java",
-        "class Hello {",
-        "  private void f() {}",
-        "  private int x;",
-        "}");
+    addSourceLines("Hello.java", "class Hello {", "  private void f() {}", "  private int x;", "}");
 
     compile();
 
@@ -1217,14 +1209,10 @@ public class JavacTurbineTest {
   @Test
   public void ignoreStrictDepsErrors() throws Exception {
 
-    Path lib = createClassJar("deps.jar",
-        JavacTurbineTest.class,
-        Lib.class);
+    Path lib = createClassJar("deps.jar", JavacTurbineTest.class, Lib.class);
 
     addSourceLines(
-        "Hello.java",
-        "import " + Lib.class.getCanonicalName() + ";",
-        "class Hello extends Lib {}");
+        "Hello.java", "import " + Lib.class.getCanonicalName() + ";", "class Hello extends Lib {}");
 
     optionsBuilder.addIndirectJarToTarget(lib.toString(), JarOwner.create("//lib"));
     optionsBuilder.addClassPathEntries(ImmutableList.of(lib.toString()));
@@ -1239,5 +1227,43 @@ public class JavacTurbineTest {
     }
     assertThat(errOutput.toString()).contains("warning: [strict]");
     assertThat(result).isNotEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
+  }
+
+  @Test
+  public void clinit() throws Exception {
+    addSourceLines(
+        "Hello.java",
+        "class Hello {",
+        "  public static int x;",
+        "  static {",
+        "    x = 42;",
+        "  }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Hello.class");
+
+    String text = textify(outputs.get("Hello.class"));
+    System.err.println(">>>");
+    System.err.println(text);
+    System.err.println(">>>");
+    String[] expected = {
+      "// class version 51.0 (51)",
+      "// access flags 0x20",
+      "class Hello {",
+      "",
+      "",
+      "  // access flags 0x9",
+      "  public static I x",
+      "",
+      "  // access flags 0x0",
+      "  <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
 }
