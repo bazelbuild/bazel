@@ -320,14 +320,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
     outputBuilder.setLabel(base.getLabel().toString());
 
-    outputBuilder.setBuildFile(
-        ruleContext
-            .getRule()
-            .getPackage()
-            .getBuildFile()
-            .getPath()
-            .toString());
-
     outputBuilder.setBuildFileArtifactLocation(
         makeArtifactLocation(ruleContext.getRule().getPackage()));
 
@@ -458,8 +450,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
           Root root = artifact.getRoot();
           return Joiner.on(",").join(
               root.getExecPath().toString(),
-              artifact.getRootRelativePath().toString(),
-              root.getPath().toString() // Remove me once we remove ArtifactLocation root
+              artifact.getRootRelativePath().toString()
           );
         }
       };
@@ -596,7 +587,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
   private static ArtifactLocation makeArtifactLocation(Root root, PathFragment relativePath) {
     return ArtifactLocation.newBuilder()
-        .setRootPath(root.getPath().toString())
         .setRootExecutionPathFragment(root.getExecPath().toString())
         .setRelativePath(relativePath.toString())
         .setIsSource(root.isSourceRoot())
@@ -605,7 +595,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
   private static ArtifactLocation makeArtifactLocation(SourceDirectory resourceDir) {
     return ArtifactLocation.newBuilder()
-        .setRootPath(resourceDir.getRootPath().toString())
         .setRootExecutionPathFragment(resourceDir.getRootExecutionPathFragment().toString())
         .setRelativePath(resourceDir.getRelativePath().toString())
         .setIsSource(resourceDir.isSource())

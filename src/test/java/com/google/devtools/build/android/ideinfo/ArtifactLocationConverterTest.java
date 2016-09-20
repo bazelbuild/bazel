@@ -44,12 +44,11 @@ public class ArtifactLocationConverterTest {
   @Test
   public void testConverterSourceArtifact() throws Exception {
     ArtifactLocation parsed = converter.convert(
-        Joiner.on(",").join("", "test.java", "/usr/local/code")
+        Joiner.on(',').join("", "test.java")
     );
     assertThat(parsed)
         .isEqualTo(
             ArtifactLocation.newBuilder()
-                .setRootPath(Paths.get("/usr/local/code").toString())
                 .setRelativePath(Paths.get("test.java").toString())
                 .setIsSource(true)
                 .build());
@@ -58,12 +57,11 @@ public class ArtifactLocationConverterTest {
   @Test
   public void testConverterDerivedArtifact() throws Exception {
     ArtifactLocation parsed = converter.convert(
-        Joiner.on(",").join("bin", "java/com/test.java", "/usr/local/_tmp/code/bin")
+        Joiner.on(',').join("bin", "java/com/test.java")
     );
     assertThat(parsed)
         .isEqualTo(
             ArtifactLocation.newBuilder()
-                .setRootPath(Paths.get("/usr/local/_tmp/code/bin").toString())
                 .setRootExecutionPathFragment(Paths.get("bin").toString())
                 .setRelativePath(Paths.get("java/com/test.java").toString())
                 .setIsSource(false)
@@ -77,8 +75,9 @@ public class ArtifactLocationConverterTest {
   }
 
   @Test
-  public void testFutureFormat() throws Exception {
-    ArtifactLocation parsed = converter.convert("bin/out,java/com/test.java");
+  public void testOldFormat() throws Exception {
+    ArtifactLocation parsed = converter
+        .convert("bin/out,java/com/test.java,/usr/local/_tmp/code/bin/out");
     assertThat(parsed)
         .isEqualTo(
             ArtifactLocation.newBuilder()

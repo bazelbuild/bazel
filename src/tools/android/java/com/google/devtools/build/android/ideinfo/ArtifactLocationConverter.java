@@ -40,7 +40,8 @@ public class ArtifactLocationConverter implements Converter<ArtifactLocation> {
       Path rootExecutionPathFragment = pathConverter.convert(values.next());
       Path relPath = pathConverter.convert(values.next());
 
-      // will be removed in a future release -- make it forward-compatible
+      // TODO: remove this support for old format after the next blaze release
+      @SuppressWarnings("unused")
       String root = values.hasNext() ? pathConverter.convert(values.next()).toString() : "";
 
       if (values.hasNext()) {
@@ -49,7 +50,6 @@ public class ArtifactLocationConverter implements Converter<ArtifactLocation> {
 
       boolean isSource = rootExecutionPathFragment.toString().isEmpty();
       return ArtifactLocation.newBuilder()
-          .setRootPath(root)
           .setRootExecutionPathFragment(rootExecutionPathFragment.toString())
           .setRelativePath(relPath.toString())
           .setIsSource(isSource)
