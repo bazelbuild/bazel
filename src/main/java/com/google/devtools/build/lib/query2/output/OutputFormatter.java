@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -154,7 +155,8 @@ public abstract class OutputFormatter implements Serializable {
    * the graph maintained by the QueryEnvironment), and print it to "out".
    */
   public abstract void output(QueryOptions options, Digraph<Target> result, PrintStream out,
-      AspectResolver aspectProvider) throws IOException, InterruptedException;
+      AspectResolver aspectProvider)
+          throws IOException, InterruptedException;
 
   /**
    * Unordered streamed output formatter (wrt. dependency ordering).
@@ -177,8 +179,18 @@ public abstract class OutputFormatter implements Serializable {
      *
      * <p>Takes any options specified via the most recent call to {@link #setOptions} into
      * consideration.
+     *
+     * <p>Intended to be use for streaming out during evaluation of a query.
      */
-    OutputFormatterCallback<Target> createStreamCallback(PrintStream out, QueryOptions options);
+    OutputFormatterCallback<Target> createStreamCallback(
+        PrintStream out, QueryOptions options, @Nullable QueryEnvironment<?> env);
+
+    /**
+     * Same as {@link #createStreamCallback}, but intended to be used for outputting the
+     * already-computed result of a query.
+     */
+    OutputFormatterCallback<Target> createPostFactoStreamCallback(
+        PrintStream out, QueryOptions options);
   }
 
   /**
@@ -209,11 +221,14 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
+    public void output(
+        QueryOptions options,
+        Digraph<Target> result,
+        PrintStream out,
         AspectResolver aspectResolver) throws IOException, InterruptedException {
       setOptions(options, aspectResolver);
       OutputFormatterCallback.processAllTargets(
-          createStreamCallback(out, options), getOrderedTargets(result, options));
+          createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
     }
   }
 
@@ -235,7 +250,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createPostFactoStreamCallback(
         final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
 
@@ -252,6 +267,12 @@ public abstract class OutputFormatter implements Serializable {
           }
         }
       };
+    }
+
+    @Override
+    public OutputFormatterCallback<Target> createStreamCallback(
+        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+      return createPostFactoStreamCallback(out, options);
     }
   }
 
@@ -279,7 +300,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createPostFactoStreamCallback(
         final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
         private final Set<String> packageNames = Sets.newTreeSet();
@@ -302,6 +323,12 @@ public abstract class OutputFormatter implements Serializable {
         }
       };
     }
+
+    @Override
+    public OutputFormatterCallback<Target> createStreamCallback(
+        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+      return createPostFactoStreamCallback(out, options);
+    }
   }
 
   /**
@@ -318,7 +345,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createPostFactoStreamCallback(
         final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
 
@@ -339,6 +366,12 @@ public abstract class OutputFormatter implements Serializable {
         }
       };
     }
+
+    @Override
+    public OutputFormatterCallback<Target> createStreamCallback(
+        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+      return createPostFactoStreamCallback(out, options);
+    }
   }
 
   /**
@@ -354,7 +387,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createPostFactoStreamCallback(
         final PrintStream out, final QueryOptions options) {
       return new OutputFormatterCallback<Target>() {
         private final Set<Label> printed = CompactHashSet.create();
@@ -411,6 +444,12 @@ public abstract class OutputFormatter implements Serializable {
           }
         }
       };
+    }
+
+    @Override
+    public OutputFormatterCallback<Target> createStreamCallback(
+        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+      return createPostFactoStreamCallback(out, options);
     }
   }
 
