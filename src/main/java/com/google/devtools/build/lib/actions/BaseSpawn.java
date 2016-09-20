@@ -31,9 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.concurrent.Immutable;
 
-/**
- * Base implementation of a Spawn.
- */
+/** Base implementation of a Spawn. */
 @Immutable
 public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
@@ -72,12 +70,13 @@ public class BaseSpawn implements Spawn {
    * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
    * this method.
    */
-  public BaseSpawn(List<String> arguments,
-     Map<String, String> environment,
-     Map<String, String> executionInfo,
-     RunfilesSupplier runfilesSupplier,
-     ActionExecutionMetadata action,
-     ResourceSet localResources) {
+  public BaseSpawn(
+      List<String> arguments,
+      Map<String, String> environment,
+      Map<String, String> executionInfo,
+      RunfilesSupplier runfilesSupplier,
+      ActionExecutionMetadata action,
+      ResourceSet localResources) {
     this(
         arguments,
         environment,
@@ -93,7 +92,8 @@ public class BaseSpawn implements Spawn {
    * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
    * this method.
    */
-  public BaseSpawn(List<String> arguments,
+  public BaseSpawn(
+      List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
       Map<PathFragment, Artifact> runfilesManifests,
@@ -110,10 +110,9 @@ public class BaseSpawn implements Spawn {
         ImmutableSet.<PathFragment>of());
   }
 
-  /**
-   * Returns a new Spawn.
-   */
-  public BaseSpawn(List<String> arguments,
+  /** Returns a new Spawn. */
+  public BaseSpawn(
+      List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
       ActionExecutionMetadata action,
@@ -148,6 +147,11 @@ public class BaseSpawn implements Spawn {
 
   public static PathFragment runfilesForFragment(PathFragment pathFragment) {
     return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
+  }
+
+  @Override
+  public boolean hasNoSandbox() {
+    return executionInfo.containsKey("nosandbox");
   }
 
   @Override
@@ -186,9 +190,11 @@ public class BaseSpawn implements Spawn {
 
     info.addAllArgument(getArguments());
     for (Map.Entry<String, String> variable : getEnvironment().entrySet()) {
-      info.addVariable(EnvironmentVariable.newBuilder()
-        .setName(variable.getKey())
-        .setValue(variable.getValue()).build());
+      info.addVariable(
+          EnvironmentVariable.newBuilder()
+              .setName(variable.getKey())
+              .setValue(variable.getValue())
+              .build());
     }
     for (ActionInput input : getInputFiles()) {
       // Explicitly ignore middleman artifacts here.
@@ -268,38 +274,38 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ActionOwner getOwner() { return action.getOwner(); }
+  public ActionOwner getOwner() {
+    return action.getOwner();
+  }
 
   @Override
-  public String getMnemonic() { return action.getMnemonic(); }
+  public String getMnemonic() {
+    return action.getMnemonic();
+  }
 
-  /**
-   * Convert a working dir + environment map + arg list into a Bourne shell
-   * command.
-   */
-  public static String asShellCommand(Collection<String> arguments,
-                                      Path workingDirectory,
-                                      Map<String, String> environment) {
+  /** Convert a working dir + environment map + arg list into a Bourne shell command. */
+  public static String asShellCommand(
+      Collection<String> arguments, Path workingDirectory, Map<String, String> environment) {
     // We print this command out in such a way that it can safely be
     // copied+pasted as a Bourne shell command.  This is extremely valuable for
     // debugging.
-    return CommandFailureUtils.describeCommand(CommandDescriptionForm.COMPLETE,
-        arguments, environment, workingDirectory.getPathString());
+    return CommandFailureUtils.describeCommand(
+        CommandDescriptionForm.COMPLETE, arguments, environment, workingDirectory.getPathString());
   }
 
-  /**
-   * A local spawn requiring zero resources.
-   */
+  /** A local spawn requiring zero resources. */
   public static class Local extends BaseSpawn {
-    public Local(List<String> arguments, Map<String, String> environment,
-        ActionExecutionMetadata action) {
+    public Local(
+        List<String> arguments, Map<String, String> environment, ActionExecutionMetadata action) {
       this(arguments, environment, ImmutableMap.<String, String>of(), action);
     }
 
-    public Local(List<String> arguments, Map<String, String> environment,
-        Map<String, String> executionInfo, ActionExecutionMetadata action) {
-      super(arguments, environment, buildExecutionInfo(executionInfo),
-          action, ResourceSet.ZERO);
+    public Local(
+        List<String> arguments,
+        Map<String, String> environment,
+        Map<String, String> executionInfo,
+        ActionExecutionMetadata action) {
+      super(arguments, environment, buildExecutionInfo(executionInfo), action, ResourceSet.ZERO);
     }
 
     private static ImmutableMap<String, String> buildExecutionInfo(

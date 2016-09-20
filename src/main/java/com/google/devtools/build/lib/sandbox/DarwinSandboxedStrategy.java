@@ -151,7 +151,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     Executor executor = actionExecutionContext.getExecutor();
 
     // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
-    if (!spawn.isRemotable()) {
+    if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
       SandboxHelpers.fallbackToNonSandboxedExecution(spawn, actionExecutionContext, executor);
       return;
     }
