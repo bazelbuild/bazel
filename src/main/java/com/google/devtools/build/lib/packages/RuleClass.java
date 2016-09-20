@@ -1727,9 +1727,11 @@ public final class RuleClass {
    */
   private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
       throws ConversionException {
-    String what = "attribute '" + attr.getName() + "' in '" + rule.getRuleClass() + "' rule";
-    Object converted =
-        BuildType.selectableConvert(attr.getType(), buildLangValue, what, rule.getLabel());
+    Object converted = BuildType.selectableConvert(
+        attr.getType(),
+        buildLangValue,
+        new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
+        rule.getLabel());
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(
@@ -1747,6 +1749,28 @@ public final class RuleClass {
 
     return converted;
   }
+
+  /**
+   * Provides a {@link #toString()} description of the attribute being converted for
+   * {@link BuildType#selectableConvert}. This is preferred over a raw string to avoid uselessly
+   * constructing strings which are never used. A separate class instead of inline to avoid
+   * accidental memory leaks.
+   */
+  private static class AttributeConversionContext {
+    private final String attrName;
+    private final String ruleClass;
+
+    AttributeConversionContext(String attrName, String ruleClass) {
+      this.attrName = attrName;
+      this.ruleClass = ruleClass;
+    }
+
+    @Override
+    public String toString() {
+      return "attribute '" + attrName + "' in '" + ruleClass + "' rule";
+    }
+  }
+
 
   /**
    * Verifies that the rule has a valid value for the attribute according to its allowed values.

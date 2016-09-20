@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -33,7 +32,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
-
 import javax.annotation.Nullable;
 
 /**
@@ -73,14 +71,14 @@ public abstract class Type<T> {
    * {@link com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
    *
    * @param x the build-interpreter value to convert.
-   * @param what a string description of what x is for; should be included in
-   *    any exception thrown.  Grammatically, must describe a syntactic
+   * @param what an object having a toString describing what x is for; should be included in
+   *    any exception thrown.  Grammatically, must produce a string describe a syntactic
    *    construct, e.g. "attribute 'srcs' of rule foo".
    * @param context the label of the current BUILD rule; must be non-null if resolution of
    *    package-relative label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    */
-  public abstract T convert(Object x, String what, @Nullable Object context)
+  public abstract T convert(Object x, Object what, @Nullable Object context)
       throws ConversionException;
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
@@ -90,7 +88,7 @@ public abstract class Type<T> {
    * Useful for converting values to types that do not involve the type {@code LABEL}
    * and hence do not require the label of the current package.
    */
-  public final T convert(Object x, String what) throws ConversionException {
+  public final T convert(Object x, Object what) throws ConversionException {
     return convert(x, what, null);
   }
 
@@ -240,7 +238,7 @@ public abstract class Type<T> {
    *  an explanatory error message.
    */
   public static class ConversionException extends EvalException {
-    private static String message(Type<?> type, Object value, String what) {
+    private static String message(Type<?> type, Object value, @Nullable Object what) {
       StringBuilder builder = new StringBuilder();
       builder.append("expected value of type '").append(type).append("'");
       if (what != null) {
@@ -252,7 +250,7 @@ public abstract class Type<T> {
       return builder.toString();
     }
 
-    public ConversionException(Type<?> type, Object value, String what) {
+    public ConversionException(Type<?> type, Object value, @Nullable Object what) {
       super(null, message(type, value, what));
     }
 
@@ -295,7 +293,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Object convert(Object x, String what, Object context) {
+    public Object convert(Object x, Object what, Object context) {
       return x;
     }
   }
@@ -327,7 +325,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Integer convert(Object x, String what, Object context)
+    public Integer convert(Object x, Object what, Object context)
         throws ConversionException {
       if (!(x instanceof Integer)) {
         throw new ConversionException(this, x, what);
@@ -373,7 +371,7 @@ public abstract class Type<T> {
 
     // Conversion to boolean must also tolerate integers of 0 and 1 only.
     @Override
-    public Boolean convert(Object x, String what, Object context)
+    public Boolean convert(Object x, Object what, Object context)
         throws ConversionException {
       if (x instanceof Boolean) {
         return (Boolean) x;
@@ -428,7 +426,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public String convert(Object x, String what, Object context)
+    public String convert(Object x, Object what, Object context)
         throws ConversionException {
       if (!(x instanceof String)) {
         throw new ConversionException(this, x, what);
@@ -512,11 +510,11 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Map<KeyT, ValueT> convert(Object x, String what, Object context)
+    public Map<KeyT, ValueT> convert(Object x, Object what, Object context)
         throws ConversionException {
       if (!(x instanceof Map<?, ?>)) {
         throw new ConversionException(String.format(
-            "Expected a map for dictionary but got a %s", x.getClass().getName())); 
+            "Expected a map for dictionary but got a %s", x.getClass().getName()));
       }
       // Order the keys so the return value will be independent of insertion order.
       Map<KeyT, ValueT> result = new TreeMap<>();
@@ -596,7 +594,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, String what, Object context)
+    public List<ElemT> convert(Object x, Object what, Object context)
         throws ConversionException {
       if (!(x instanceof Iterable<?>)) {
         throw new ConversionException(this, x, what);
@@ -604,8 +602,10 @@ public abstract class Type<T> {
       int index = 0;
       Iterable<?> iterable = (Iterable<?>) x;
       List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
+      ListConversionContext conversionContext = new ListConversionContext(what);
       for (Object elem : iterable) {
-        ElemT converted = elemType.convert(elem, "element " + index + " of " + what, context);
+        conversionContext.update(index);
+        ElemT converted = elemType.convert(elem, conversionContext, context);
         if (converted != null) {
           result.add(converted);
         } else {
@@ -660,6 +660,30 @@ public abstract class Type<T> {
       }
       return tags;
     }
+
+    /**
+     * Provides a {@link #toString()} description of the context of the value in a list being
+     * converted. This is preferred over a raw string to avoid uselessly constructing strings which
+     * are never used. This class is mutable (the index is updated).
+     */
+    private static class ListConversionContext {
+      private final Object what;
+      private int index = 0;
+
+      ListConversionContext(Object what) {
+        this.what = what;
+      }
+
+      void update(int index) {
+        this.index = index;
+      }
+
+      @Override
+      public String toString() {
+        return "element " + index + " of " + what;
+      }
+
+    }
   }
 
   /** Type for lists of arbitrary objects */
@@ -673,7 +697,7 @@ public abstract class Type<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, String what, Object context)
+    public List<Object> convert(Object x, Object what, Object context)
         throws ConversionException {
       if (x instanceof SkylarkList) {
         return ((SkylarkList) x).getImmutableList();
