@@ -627,4 +627,33 @@ EOF
   assert_equals $MIN_OS "9.0"
 }
 
+function test_swift_copts() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.swift <<EOF
+import Foundation
+
+public class SwiftClass {
+  public func bar() {
+    #if !FLAG
+    let x: String = 1 // Invalid statement, should throw compiler error when FLAG is not set
+    #endif
+  }
+}
+EOF
+
+cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              copts = ["-DFLAG"])
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
 run_suite "apple_tests"

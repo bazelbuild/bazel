@@ -220,6 +220,7 @@ def _swift_library_impl(ctx):
   args.extend(framework_args)
   args.extend(clang_args)
   args.extend(define_args)
+  args.extend(ctx.attr.copts)
 
   xcrun_action(
       ctx,
@@ -261,6 +262,7 @@ swift_library = rule(
         "deps": attr.label_list(providers=[["swift"], ["objc"]]),
         "module_name": attr.string(mandatory=False),
         "defines": attr.string_list(mandatory=False, allow_empty=True),
+        "copts": attr.string_list(mandatory=False, allow_empty=True),
         "_xcrunwrapper": attr.label(
             executable=True,
             cfg="host",
@@ -280,6 +282,7 @@ Args:
   module_name: Optional. Sets the Swift module name for this target. By default
       the module name is the target path with all special symbols replaced
       by "_", e.g. //foo:bar can be imported as "foo_bar".
+  copts: A list of flags passed to swiftc command line.
   defines: A list of values for build configuration options (-D). These values
       can be then used for conditional compilation blocks in code. For example:
 
