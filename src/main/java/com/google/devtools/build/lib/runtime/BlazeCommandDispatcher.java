@@ -368,18 +368,20 @@ public class BlazeCommandDispatcher {
       return exitCausingException.getExitCode().getNumericExitCode();
     }
 
-    try {
-      Path commandLog = getCommandLogPath(env.getOutputBase());
+    if (env.getRuntime().writeCommandLog()) {
+      try {
+        Path commandLog = getCommandLogPath(env.getOutputBase());
 
-      // Unlink old command log from previous build, if present, so scripts
-      // reading it don't conflate it with the command log we're about to write.
-      commandLog.delete();
+        // Unlink old command log from previous build, if present, so scripts
+        // reading it don't conflate it with the command log we're about to write.
+        commandLog.delete();
 
-      logOutputStream = commandLog.getOutputStream();
-      outErr = tee(outErr, OutErr.create(logOutputStream, logOutputStream));
-    } catch (IOException ioException) {
-      LoggingUtil.logToRemote(
-          Level.WARNING, "Unable to delete or open command.log", ioException);
+        logOutputStream = commandLog.getOutputStream();
+        outErr = tee(outErr, OutErr.create(logOutputStream, logOutputStream));
+      } catch (IOException ioException) {
+        LoggingUtil.logToRemote(
+            Level.WARNING, "Unable to delete or open command.log", ioException);
+      }
     }
 
     ExitCode result = checkCwdInWorkspace(env, commandAnnotation, commandName, outErr);

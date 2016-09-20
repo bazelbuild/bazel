@@ -306,6 +306,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Enables sanity checks for Jack and Jill compilation.")
     public boolean jackSanityChecks;
 
+    // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
+    // The idea is that once this option works, we'll flip the default value in a config file, then
+    // once it is proven that it works, remove it from Bazel and said config file.
+    @Option(name = "experimental_desugar_for_android",
+        defaultValue = "false",
+        category = "undocumented",
+        implicitRequirements = "--noexperimental_android_use_jack_for_dexing",
+        help = "Whether to desugar Java 8 bytecode before dexing.")
+    public boolean desugarJava8;
+
     @Option(name = "experimental_incremental_dexing",
         defaultValue = "off",
         category = "undocumented",
@@ -467,6 +477,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
+  private final boolean desugarJava8;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
   private final boolean useRClassGenerator;
@@ -491,6 +502,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
+    this.desugarJava8 = options.desugarJava8;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
     this.useRClassGenerator = options.useRClassGenerator;
@@ -551,6 +563,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
+  }
+
+  public boolean desugarJava8() {
+    return desugarJava8;
   }
 
   public boolean allowSrcsLessAndroidLibraryDeps() {

@@ -67,7 +67,6 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
 
     return new ConfiguredAspect.Builder(NAME, ruleContext)
         .addProvider(
-            AndroidNeverLinkLibrariesProvider.class,
             AndroidNeverLinkLibrariesProvider.create(
                 AndroidCommon.collectTransitiveNeverlinkLibraries(
                     ruleContext,

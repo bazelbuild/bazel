@@ -48,6 +48,18 @@ sh_test(
 )
 
 sh_test(
+    name = "java_integration_test",
+    size = "medium",
+    srcs = ["java_integration_test.sh"],
+    args = ["$(JAVABASE)"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:shell_utils",
+    ],
+    shard_count = 5,
+)
+
+sh_test(
     name = "startup_options_test",
     size = "medium",
     srcs = ["startup_options_test.sh"],

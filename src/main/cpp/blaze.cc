@@ -517,6 +517,10 @@ static vector<string> GetArgumentArray() {
   result.push_back("--experimental_oom_more_eagerly_threshold=" +
                    ToString(globals->options->oom_more_eagerly_threshold));
 
+  if (!globals->options->write_command_log) {
+    result.push_back("--nowrite_command_log");
+  }
+
   if (globals->options->watchfs) {
     result.push_back("--watchfs");
   }

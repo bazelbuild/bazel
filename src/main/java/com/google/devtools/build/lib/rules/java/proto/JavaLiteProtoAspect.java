@@ -24,10 +24,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider.GET_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -36,6 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -58,7 +56,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An Aspect which JavaLiteProtoLibrary injects to build Java Lite protos. */
@@ -71,9 +68,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   @Nullable private final String jacocoLabel;
 
-  public JavaLiteProtoAspect(
-      JavaSemantics javaSemantics,
-      @Nullable String jacocoLabel) {
+  public JavaLiteProtoAspect(JavaSemantics javaSemantics, @Nullable String jacocoLabel) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
   }
@@ -125,12 +120,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     private final SupportData supportData;
 
     /**
-     * A map between the ijar and the jar resulting from compiling the code generated for this
-     * proto.
-     */
-    private final BiMap<Artifact, Artifact> compileTimeJarToRuntimeJar = HashBiMap.create();
-
-    /**
      * Compilation-args from all dependencies, merged together. This is typically the input to a
      * Java compilation action.
      */
@@ -153,9 +142,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   GET_PROVIDER));
     }
 
-    Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> createProviders() {
-      ImmutableMap.Builder<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> result =
-          ImmutableMap.builder();
+    TransitiveInfoProviderMap createProviders() {
+      TransitiveInfoProviderMap.Builder result = TransitiveInfoProviderMap.builder();
 
       // Represents the result of compiling the code generated for this proto, including all of its
       // dependencies.
@@ -178,16 +166,12 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             NestedSetBuilder.<Artifact>stableOrder().add(sourceJar).build();
         transitiveOutputJars.add(outputJar);
 
-        result
-            .put(
-                JavaRuntimeJarAspectProvider.class,
-                new JavaRuntimeJarAspectProvider(
-                    new JavaRuntimeJarProvider(ImmutableList.of(outputJar))))
-            .put(
-                JavaSourceJarsAspectProvider.class,
-                new JavaSourceJarsAspectProvider(
-                    JavaSourceJarsProvider.create(
-                        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars)));
+        result.add(
+            new JavaRuntimeJarAspectProvider(
+                new JavaRuntimeJarProvider(ImmutableList.of(outputJar))),
+            new JavaSourceJarsAspectProvider(
+                JavaSourceJarsProvider.create(
+                    NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars)));
       } else {
         // No sources - this proto_library is an alias library, which exports its dependencies.
         // Simply propagate the compilation-args from its dependencies.
@@ -195,11 +179,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       }
 
       return result
-          .put(
-              JavaProtoLibraryTransitiveFilesToBuildProvider.class,
-              new JavaProtoLibraryTransitiveFilesToBuildProvider(transitiveOutputJars.build()))
-          .put(
-              JavaCompilationArgsAspectProvider.class,
+          .add(
+              new JavaProtoLibraryTransitiveFilesToBuildProvider(transitiveOutputJars.build()),
               new JavaCompilationArgsAspectProvider(generatedCompilationArgsProvider))
           .build();
     }
@@ -231,9 +212,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   LITE_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class))
           .setCompilationStrictDepsMode(StrictDepsMode.OFF);
       JavaCompilationArgs artifacts = helper.build(javaSemantics);
-      compileTimeJarToRuntimeJar.put(
-          Iterables.getOnlyElement(artifacts.getCompileTimeJars()),
-          Iterables.getOnlyElement(artifacts.getRuntimeJars()));
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
     }
 

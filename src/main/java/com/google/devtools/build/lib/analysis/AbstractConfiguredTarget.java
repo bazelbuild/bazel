@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import javax.annotation.Nullable;
 
 /**
  * An abstract implementation of ConfiguredTarget in which all properties are
@@ -82,6 +83,7 @@ public abstract class AbstractConfiguredTarget
     return "ConfiguredTarget(" + getTarget().getLabel() + ", " + getConfiguration() + ")";
   }
 
+  @Nullable
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
@@ -111,7 +113,7 @@ public abstract class AbstractConfiguredTarget
         return get(name);
     }
   }
-  
+
   @Override
   public String errorMessage(String name) {
     return null;

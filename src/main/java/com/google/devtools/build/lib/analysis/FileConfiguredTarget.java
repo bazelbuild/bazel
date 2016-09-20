@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -33,19 +31,18 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFilename, LicensesProvider {
 
   private final Artifact artifact;
-  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
-      providers;
+  private final TransitiveInfoProviderMap providers;
 
   FileConfiguredTarget(TargetContext targetContext, Artifact artifact) {
     super(targetContext);
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
     this.artifact = artifact;
-    Builder<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> builder = ImmutableMap
-        .<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>builder()
-        .put(VisibilityProvider.class, this)
-        .put(LicensesProvider.class, this)
-        .put(FileProvider.class, new FileProvider(filesToBuild))
-        .put(FilesToRunProvider.class, FilesToRunProvider.fromSingleExecutableArtifact(artifact));
+    TransitiveInfoProviderMap.Builder builder =
+        TransitiveInfoProviderMap.builder()
+            .put(VisibilityProvider.class, this)
+            .put(LicensesProvider.class, this)
+            .add(new FileProvider(filesToBuild))
+            .add(FilesToRunProvider.fromSingleExecutableArtifact(artifact));
     if (this instanceof FilesetProvider) {
       builder.put(FilesetProvider.class, this);
     }
@@ -75,7 +72,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
-    return provider.cast(providers.get(provider));
+    return providers.getProvider(provider);
   }
 
   @Override

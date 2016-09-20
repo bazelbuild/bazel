@@ -269,4 +269,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       category = "server startup",
       help = "If true, Blaze runs as Exoblaze")
   public boolean exoblaze;
+
+  @Option(name = "write_command_log",
+      defaultValue = "true",
+      category = "undocumented",
+      help = "Whether or not to write the command.log file")
+  public boolean writeCommandLog;
 }

@@ -75,6 +75,11 @@ sh_binary(
     srcs = ["fail.sh"],
 )
 
+sh_binary(
+    name = "desugar_java8",
+    srcs = ["fail.sh"],
+)
+
 alias(
     name = "IdlClass",
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",

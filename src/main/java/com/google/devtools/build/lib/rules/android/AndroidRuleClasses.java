@@ -629,6 +629,8 @@ public final class AndroidRuleClasses {
               .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
           .add(attr("$incremental_split_stub_application", LABEL)
               .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
+          .add(attr("$desugar", LABEL).cfg(HOST).exec()
+              .value(env.getToolsLabel("//tools/android:desugar_java8")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and

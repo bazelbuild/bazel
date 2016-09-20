@@ -866,7 +866,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> libraryResourceJars = libraryResourceJarsBuilder.build();
 
     Iterable<Artifact> filteredJars = ImmutableList.copyOf(
-        filter(jars, not(in(libraryResourceJars.toSet())))); 
+        filter(jars, not(in(libraryResourceJars.toSet()))));
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
 
@@ -1276,11 +1276,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a {@link DexArchiveProvider} of all transitively generated dex archives as well as
-   * dex archives for the Jars produced by the binary target itself.
+   * Returns a {@link DexArchiveProvider} of all transitively generated dex archives as well as dex
+   * archives for the Jars produced by the binary target itself.
    */
   private static Function<Artifact, Artifact> collectDexArchives(
-      RuleContext ruleContext, AndroidCommon common, List<String> dexopts) {
+      RuleContext ruleContext,
+      AndroidCommon common,
+      List<String> dexopts,
+      JavaTargetAttributes attributes) {
     DexArchiveProvider.Builder result = new DexArchiveProvider.Builder()
         // Use providers from all attributes that declare DexArchiveAspect
         .addTransitiveProviders(
@@ -1289,15 +1292,30 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         DexArchiveAspect.incrementalDexopts(ruleContext, dexopts);
     for (Artifact jar : common.getJarsProducedForRuntime()) {
       // Create dex archives next to all Jars produced by AndroidCommon for this rule.  We need to
-      // do this (instead of placing dex archives into the _dx subdirectory like DexArchiveAspect
-      // does because for "legacy" ResourceApks, AndroidCommon produces Jars per resource dependency
-      // that can theoretically have duplicate basenames, so they go into special directories, and
-      // we piggyback on that naming scheme here by placing dex archives into the same directories.
+      // do this (instead of placing dex archives into the _dx subdirectory like DexArchiveAspect)
+      // because for "legacy" ResourceApks, AndroidCommon produces Jars per resource dependency that
+      // can theoretically have duplicate basenames, so they go into special directories, and we
+      // piggyback on that naming scheme here by placing dex archives into the same directories.
       PathFragment jarPath = jar.getRootRelativePath();
-      Artifact dexArchive = ruleContext.getDerivedArtifact(
-          jarPath.replaceName(jarPath.getBaseName() + ".dex.zip"),
-          jar.getRoot());
-      DexArchiveAspect.createDexArchiveAction(ruleContext, jar, dexArchive, incrementalDexopts);
+      Artifact jarToDex = jar;
+      if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8()) {
+        // desugar jars first if desired...
+        jarToDex =
+            DexArchiveAspect.desugar(
+                ruleContext,
+                jar,
+                attributes.getBootClassPath(),
+                attributes.getCompileTimeClassPath(),
+                ruleContext.getDerivedArtifact(
+                    jarPath.replaceName(jarPath.getBaseName() + "_desugared.jar"), jar.getRoot()));
+      }
+      Artifact dexArchive =
+          DexArchiveAspect.createDexArchiveAction(
+              ruleContext,
+              jarToDex,
+              incrementalDexopts,
+              ruleContext.getDerivedArtifact(
+                  jarPath.replaceName(jarPath.getBaseName() + ".dex.zip"), jar.getRoot()));
       result.addDexArchive(incrementalDexopts, dexArchive, jar);
     }
     return result.build().archivesForDexopts(incrementalDexopts);
@@ -1355,7 +1373,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // there should be very few or no Jar files that still end up in shards.  The dexing
         // step below will have to deal with those in addition to merging .dex files together.
         classpath = Iterables
-            .transform(classpath, collectDexArchives(ruleContext, common, dexopts));
+            .transform(classpath, collectDexArchives(ruleContext, common, dexopts, attributes));
         shardCommandLine.add("--split_dexed_classes");
       }
       shardCommandLine.addBeforeEachExecPath("--input_jar", classpath);

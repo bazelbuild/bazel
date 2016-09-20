@@ -593,18 +593,22 @@ $ bazel query '//foo:all' | sort
 
 <h2 id="select">select</h2>
 
-<pre>select({conditionA: valuesA, conditionB: valuesB, ...})</pre>
+<pre>
+select(
+    {conditionA: valuesA, conditionB: valuesB, ...},
+    no_match_error = "custom message"
+)
+</pre>
 
 <p><code>select()</code> is the helper function that makes a rule attribute
   <a href="common-definitions.html#configurable-attributes">configurable</a>.
   It can replace the right-hand side of
 
   <i>almost</i>
-  any attribute assignment so that the attribute's value depends on the
-  Bazel flags passed in at the command line. This can be used, for
-  example, to define platform-specific dependencies or to embed
-  different resources depending on whether a rule is built in
-  "developer" vs. "release" mode.
+  any attribute assignment so its value depends on command-line Bazel flags.
+  This can be used, for example, to define platform-specific dependencies or to
+  embed different resources depending on whether a rule is built in "developer"
+  vs. "release" mode.
 </p>
 
 <p>Basic usage is as follows:</p>
@@ -637,7 +641,7 @@ sh_binary(
   <li>Exactly one condition is selected on any invocation.
   </li>
   <li>If two conditions match and one is a specialization of the other
-    (e.g. it matches on the same flags as the other plus additional flags),
+    (i.e. it matches on the same flags as the other plus additional ones),
     the specialization takes precedence.
   </li>
   <li>If two conditions match and neither is a specialization of the other,
@@ -658,6 +662,46 @@ sh_binary(
 
   </li>
 </ul>
+
+By default, Bazel produces the following error when no conditions match:
+<pre class="code">
+Configurable attribute "foo" doesn't match this configuration (would a default
+condition help?).
+Conditions checked:
+ //pkg:conditionA.
+ //pkg:conditionB.
+</pre>
+
+<code>no_match_error</code> can be used to signal more precise errors.
+
+<h3 id="select_example">Examples</h3>
+
+<pre class="code">
+config_setting(
+    name = "windows",
+    values = {
+        "crosstool_top": "//crosstools/windows",
+    },
+)
+
+cc_binary(
+    name = "multiplatform_app",
+    ...
+    linkopts = select({
+        ":windows": [
+            "-Wl,windows_support1.lib",
+            "-Wl,windows_support2.lib",
+        ],
+        "//conditions:default": [],
+    ...
+)
+</pre>
+
+<p>In the above example, <code>multiplatform_app</code> links with additional
+  options when invoked with <code>bazel build //pkg:multiplatform_app
+  --crosstool_top=//crosstools/windows </code>.
+
+<p>
 
 <!-- =================================================================
                               workspace()

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyTool;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryAndParents;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.deleteTree;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.moveFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.removeExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
@@ -349,6 +350,21 @@ public class FileSystemUtilsTest {
     copyFile(originalFile, copyTarget);
 
     assertTrue(Arrays.equals(content, FileSystemUtils.readContent(copyTarget)));
+  }
+
+  @Test
+  public void testMoveFile() throws IOException {
+    createTestDirectoryTree();
+    Path originalFile = file1;
+    byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
+    FileSystemUtils.writeContent(originalFile, content);
+
+    Path moveTarget = file2;
+
+    moveFile(originalFile, moveTarget);
+
+    assertTrue(Arrays.equals(content, FileSystemUtils.readContent(moveTarget)));
+    assertFalse(originalFile.exists());
   }
 
   @Test

@@ -376,10 +376,10 @@ public final class AspectFunction implements SkyFunction {
         transitivePackages.build());
   }
 
-  @Nullable
   @Override
   public String extractTag(SkyKey skyKey) {
-    return null;
+    AspectKey aspectKey = (AspectKey) skyKey.argument();
+    return Label.print(aspectKey.getLabel());
   }
 
   /**

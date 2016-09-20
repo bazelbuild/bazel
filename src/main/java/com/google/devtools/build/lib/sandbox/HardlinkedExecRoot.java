@@ -124,7 +124,6 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
     }
   }
 
-  // TODO(yueg): import unix.FilesystemUtils and use FilesystemUtils.createHardLink() instead
   private void createHardLink(Path target, Path source) throws IOException {
     java.nio.file.Path targetNio = java.nio.file.Paths.get(target.toString());
     java.nio.file.Path sourceNio = java.nio.file.Paths.get(source.toString());
@@ -153,9 +152,17 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
   public void copyOutputs(Path execRoot, Collection<PathFragment> outputs) throws IOException {
     for (PathFragment output : outputs) {
       Path source = sandboxExecRoot.getRelative(output);
+      Path target = execRoot.getRelative(output);
       if (source.isFile() || source.isSymbolicLink()) {
-        Path target = execRoot.getRelative(output);
         Files.move(source.getPathFile(), target.getPathFile());
+      } else if (source.isDirectory()) {
+        try {
+          source.renameTo(target);
+        } catch (IOException e) {
+          // Failed to move directory directly, thus move it recursively.
+          target.createDirectory();
+          FileSystemUtils.moveTreesBelow(source, target);
+        }
       }
     }
   }

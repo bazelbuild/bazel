@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
@@ -169,15 +169,14 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
         ruleContext, classMappingFiles);
 
     return new ConfiguredAspect.Builder(getName(), ruleContext)
-        .addProvider(
-            J2ObjcMappingFileProvider.class,
+        .addProviders(
             new J2ObjcMappingFileProvider(
                 j2ObjcTransitiveHeaderMappingFiles,
                 j2ObjcTransitiveClassMappingFiles,
                 NestedSetBuilder.<Artifact>stableOrder().build(),
-                NestedSetBuilder.<Artifact>stableOrder().build()))
-        .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addProvider(XcodeProvider.class, xcodeProvider)
+                NestedSetBuilder.<Artifact>stableOrder().build()),
+            common.getObjcProvider(),
+            xcodeProvider)
         .build();
   }
 

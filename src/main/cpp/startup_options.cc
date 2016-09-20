@@ -73,6 +73,7 @@ void StartupOptions::Init() {
   oom_more_eagerly_threshold = 100;
   command_port = 0;
   oom_more_eagerly = false;
+  write_command_log = true;
   watchfs = false;
   invocation_policy = NULL;
 }
@@ -215,6 +216,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["experimental_oom_more_eagerly_threshold"] = rcfile;
+  } else if (GetNullaryOption(arg, "--write_command_log")) {
+    write_command_log = true;
+    option_sources["write_command_log"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nowrite_command_log")) {
+    write_command_log = false;
+    option_sources["write_command_log"] = rcfile;
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;
