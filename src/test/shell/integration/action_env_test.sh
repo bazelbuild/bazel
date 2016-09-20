@@ -121,4 +121,26 @@ function test_latest_wins_env() {
   expect_not_log "FOO=foo"
 }
 
+function test_env_freezing() {
+  cat > .${PRODUCT_NAME}rc <<EOF
+common --action_env=FREEZE_TEST_FOO
+common --action_env=FREEZE_TEST_BAR=is_fixed
+common --action_env=FREEZE_TEST_BAZ=will_be_overridden
+build --action_env=FREEZE_TEST_BUILD
+EOF
+
+  export FREEZE_TEST_FOO=client_foo
+  export FREEZE_TEST_BAR=client_bar
+  export FREEZE_TEST_BAZ=client_baz
+  export FREEZE_TEST_BUILD=client_build
+
+  $bazel info --action_env=FREEZE_TEST_BAZ client-env > $TEST_log
+  expect_log "common --action_env=FREEZE_TEST_FOO=client_foo"
+  expect_not_log "FREEZE_TEST_BAR"
+  expect_log "common --action_env=FREEZE_TEST_BAZ=client_baz"
+  expect_log "common --action_env=FREEZE_TEST_BUILD=client_build"
+
+  rm -f .${PRODUCT_NAME}rc
+}
+
 run_suite "Tests for bazel's handling of environment variables in actions"

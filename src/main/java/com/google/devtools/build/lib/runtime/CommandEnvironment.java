@@ -166,10 +166,10 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Return an ordered version of the client environment restricted to those variables
-   * whitelisted by the command-line options to be inheritable by actions.
+   * Return an ordered version of the client environment restricted to those variables whitelisted
+   * by the command-line options to be inheritable by actions.
    */
-  private Map<String, String> getCommandlineWhitelistedClientEnv() {
+  public Map<String, String> getWhitelistedClientEnv() {
     Map<String, String> visibleEnv = new TreeMap<>();
     for (String var : visibleClientEnv) {
       String value = clientEnv.get(var);
@@ -426,7 +426,7 @@ public final class CommandEnvironment {
         getCommandId(),
         // TODO(bazel-team): this optimization disallows rule-specified additional dependencies
         // on the client environment!
-        getCommandlineWhitelistedClientEnv(),
+        getWhitelistedClientEnv(),
         timestampGranularityMonitor);
   }
 
