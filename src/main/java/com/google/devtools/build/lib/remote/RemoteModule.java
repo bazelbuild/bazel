@@ -66,6 +66,9 @@ public final class RemoteModule extends BlazeModule {
       if (ConcurrentMapFactory.isRemoteCacheOptions(options)) {
         actionCache = new ConcurrentMapActionCache(ConcurrentMapFactory.create(options));
       }
+      if (GrpcActionCache.isRemoteCacheOptions(options)) {
+        actionCache = new GrpcActionCache(options);
+      }
       // Otherwise actionCache remains null and remote caching/execution are disabled.
 
       if (actionCache != null && RemoteWorkExecutor.isRemoteExecutionOptions(options)) {
