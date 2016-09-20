@@ -156,6 +156,19 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "bazel_toolchain_test",
+    size = "medium",
+    srcs = ["bazel_toolchain_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg",
+    ],
+    tags = [
+        "requires-network",
+    ],
+)
+
 # TODO(bazel-team): zip is non-deterministic because of file timestamp,
 # we should use a custom zip version (SingleJar?).
 genrule(
