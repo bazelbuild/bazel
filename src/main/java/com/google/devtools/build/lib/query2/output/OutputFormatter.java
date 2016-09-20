@@ -183,7 +183,7 @@ public abstract class OutputFormatter implements Serializable {
      * <p>Intended to be use for streaming out during evaluation of a query.
      */
     OutputFormatterCallback<Target> createStreamCallback(
-        PrintStream out, QueryOptions options, @Nullable QueryEnvironment<?> env);
+        PrintStream out, QueryOptions options, QueryEnvironment<?> env);
 
     /**
      * Same as {@link #createStreamCallback}, but intended to be used for outputting the
