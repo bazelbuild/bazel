@@ -78,6 +78,9 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
   return build_contents
 
 
+VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
+
+
 def _darwin_build_file(repository_ctx):
   """Evaluates local system state to create xcode_config and xcode_version targets."""
   xcodeloc_src_path = str(repository_ctx.path(Label(repository_ctx.attr.xcode_locator)))
@@ -89,12 +92,14 @@ def _darwin_build_file(repository_ctx):
         "Invoking xcode-locator failed, return code {code}, stderr: {err}".format(
             code=xcode_locator_result.return_code,
             err=xcode_locator_result.stderr))
+    return VERSION_CONFIG_STUB
   xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version"])
   if (xcodebuild_result.return_code != 0):
     print(
         "Invoking xcodebuild failed, return code {code}, stderr: {err}".format(
             code=xcodebuild_result.return_code,
             err=xcodebuild_result.stderr))
+    return VERSION_CONFIG_STUB
 
   default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
   default_xcode_target = ""
@@ -141,7 +146,7 @@ def _impl(repository_ctx):
   if (os_name.startswith("mac os")):
     build_contents += _darwin_build_file(repository_ctx)
   else:
-    build_contents += "xcode_config(name = 'host_xcodes')"
+    build_contents += VERSION_CONFIG_STUB
   repository_ctx.file("BUILD", build_contents)
 
 xcode_autoconf = repository_rule(
