@@ -20,6 +20,7 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -31,16 +32,14 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Test of type-conversions using Type.
@@ -59,7 +58,7 @@ public class TypeTest {
   public void testInteger() throws Exception {
     Object x = 3;
     assertEquals(x, Type.INTEGER.convert(x, null));
-    assertThat(Type.INTEGER.extractLabels(x)).isEmpty();
+    assertThat(collectLabels(Type.INTEGER, x)).isEmpty();
   }
 
   @Test
@@ -91,7 +90,7 @@ public class TypeTest {
   public void testString() throws Exception {
     Object s = "foo";
     assertEquals(s, Type.STRING.convert(s, null));
-    assertThat(Type.STRING.extractLabels(s)).isEmpty();
+    assertThat(collectLabels(Type.STRING, s)).isEmpty();
   }
 
   @Test
@@ -114,7 +113,7 @@ public class TypeTest {
     assertTrue(Type.BOOLEAN.convert(myTrue, null));
     assertFalse(Type.BOOLEAN.convert(false, null));
     assertFalse(Type.BOOLEAN.convert(myFalse, null));
-    assertThat(Type.BOOLEAN.extractLabels(myTrue)).isEmpty();
+    assertThat(collectLabels(Type.BOOLEAN, myTrue)).isEmpty();
   }
 
   @Test
@@ -151,7 +150,7 @@ public class TypeTest {
     assertEquals(TriState.YES, BuildType.TRISTATE.convert(TriState.YES, null));
     assertEquals(TriState.NO, BuildType.TRISTATE.convert(TriState.NO, null));
     assertEquals(TriState.AUTO, BuildType.TRISTATE.convert(TriState.AUTO, null));
-    assertThat(BuildType.TRISTATE.extractLabels(TriState.YES)).isEmpty();
+    assertThat(collectLabels(BuildType.TRISTATE, TriState.YES)).isEmpty();
   }
 
   @Test
@@ -227,7 +226,7 @@ public class TypeTest {
     Label label = Label
         .parseAbsolute("//foo:bar");
     assertEquals(label, BuildType.LABEL.convert("//foo:bar", null, currentRule));
-    assertThat(BuildType.LABEL.extractLabels(label)).containsExactly(label);
+    assertThat(collectLabels(BuildType.LABEL, label)).containsExactly(label);
   }
 
   @Test
@@ -235,7 +234,7 @@ public class TypeTest {
     Label label = Label
         .parseAbsolute("//foo:bar");
     assertEquals(label, BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule));
-    assertThat(BuildType.NODEP_LABEL.extractLabels(label)).containsExactly(label);
+    assertThat(collectLabels(BuildType.NODEP_LABEL, label)).containsExactly(label);
   }
 
   @Test
@@ -279,7 +278,7 @@ public class TypeTest {
         Type.STRING_LIST.convert(input, null);
     assertEquals(input, converted);
     assertNotSame(input, converted);
-    assertThat(Type.STRING_LIST.extractLabels(input)).isEmpty();
+    assertThat(collectLabels(Type.STRING_LIST, input)).isEmpty();
   }
 
   @Test
@@ -289,7 +288,7 @@ public class TypeTest {
     Map<String, String> converted = Type.STRING_DICT.convert(input, null);
     assertEquals(input, converted);
     assertNotSame(input, converted);
-    assertThat(Type.STRING_DICT.extractLabels(converted)).isEmpty();
+    assertThat(collectLabels(Type.STRING_DICT, converted)).isEmpty();
   }
 
   @Test
@@ -336,7 +335,7 @@ public class TypeTest {
                     Label.parseAbsolute("//quux:wiz"));
     assertEquals(expected, converted);
     assertNotSame(expected, converted);
-    assertThat(BuildType.LABEL_LIST.extractLabels(converted)).containsExactlyElementsIn(expected);
+    assertThat(collectLabels(BuildType.LABEL_LIST, converted)).containsExactlyElementsIn(expected);
   }
 
   @Test
@@ -385,7 +384,7 @@ public class TypeTest {
             "wiz", Arrays.asList("bang"));
     assertEquals(expected, converted);
     assertNotSame(expected, converted);
-    assertThat(Type.STRING_LIST_DICT.extractLabels(converted)).isEmpty();
+    assertThat(collectLabels(Type.STRING_LIST_DICT, converted)).isEmpty();
   }
 
   @Test
@@ -438,7 +437,7 @@ public class TypeTest {
             "wiz", "bang");
     assertEquals(expected, converted);
     assertNotSame(expected, converted);
-    assertThat(Type.STRING_DICT_UNARY.extractLabels(converted)).isEmpty();
+    assertThat(collectLabels(Type.STRING_DICT_UNARY, converted)).isEmpty();
   }
 
   @Test
@@ -486,5 +485,18 @@ public class TypeTest {
     } catch (ConversionException e) {
       assertThat(e).hasMessage("Expected a map for dictionary but got a java.lang.String");
     }
+  }
+
+  private static <T> Iterable<T> collectLabels(Type<T> type, Object value)
+      throws InterruptedException {
+    ImmutableList.Builder<T> result = ImmutableList.builder();
+    type.visitLabels(new Type.LabelVisitor() {
+      @SuppressWarnings("unchecked")
+      @Override
+      public void visit(Object object) throws InterruptedException {
+        result.add((T) object);
+      }
+    }, value);
+    return result.build();
   }
 }

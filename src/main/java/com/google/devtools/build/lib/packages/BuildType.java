@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.DictType;
 import com.google.devtools.build.lib.syntax.Type.ListType;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -95,13 +94,7 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return false;
-    }
-
-    @Override
-    public Collection<Object> extractLabels(Object value) {
-      return NO_LABELS;
+    public void visitLabels(LabelVisitor visitor, Object value) {
     }
 
     @Override
@@ -194,13 +187,10 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return true;
-    }
-
-    @Override
-    public Collection<? extends Object> extractLabels(Object value) {
-      return cast(value).getLabels();
+    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+      for (Object label : cast(value).getLabels()) {
+        visitor.visit(label);
+      }
     }
   }
 
@@ -216,13 +206,8 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return true;
-    }
-
-    @Override
-    public Iterable<Label> extractLabels(Object value) {
-      return ImmutableList.of(cast(value));
+    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+      visitor.visit(cast(value));
     }
 
     @Override
@@ -272,13 +257,7 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return false;
-    }
-
-    @Override
-    public Collection<Object> extractLabels(Object value) {
-      return NO_LABELS;
+    public void visitLabels(LabelVisitor visitor, Object value) {
     }
 
     @Override
@@ -317,13 +296,7 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return false;
-    }
-
-    @Override
-    public Collection<Object> extractLabels(Object what) {
-      return NO_LABELS;
+    public void visitLabels(LabelVisitor visitor, Object value) {
     }
 
     @Override
@@ -349,13 +322,8 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return true;
-    }
-
-    @Override
-    public Collection<Label> extractLabels(Object value) {
-      return ImmutableList.of(cast(value));
+    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+      visitor.visit(cast(value));
     }
 
     @Override
@@ -615,13 +583,7 @@ public final class BuildType {
     }
 
     @Override
-    protected boolean containsLabels() {
-      return false;
-    }
-
-    @Override
-    public Collection<Object> extractLabels(Object value) {
-      return NO_LABELS;
+    public void visitLabels(LabelVisitor visitor, Object value) {
     }
 
     @Override

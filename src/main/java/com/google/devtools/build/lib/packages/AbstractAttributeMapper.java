@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
@@ -149,15 +148,20 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   /** Visits all labels reachable from the given attribute. */
-  protected void visitLabels(Attribute attribute, AcceptsLabelAttribute observer)
+  protected void visitLabels(final Attribute attribute, final AcceptsLabelAttribute observer)
       throws InterruptedException {
     Type<?> type = attribute.getType();
     Object value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.
-      for (Label label : extractLabels(type, value)) {
-        Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
-        observer.acceptLabelAttribute(absoluteLabel, attribute);
-      }
+      type.visitLabels(new Type.LabelVisitor() {
+        @Override
+        public void visit(@Nullable Object object) throws InterruptedException {
+          if (object != null) {
+            Label absoluteLabel = ruleLabel.resolveRepositoryRelative((Label) object);
+            observer.acceptLabelAttribute(absoluteLabel, attribute);
+          }
+        }
+      }, value);
     }
   }
 
@@ -243,11 +247,5 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   public boolean has(String attrName, Type<?> type) {
     Attribute attribute = ruleClass.getAttributeByNameMaybe(attrName);
     return attribute != null && attribute.getType() == type;
-  }
-
-  protected static Iterable<Label> extractLabels(Type<?> type, Object value) {
-    return value == null
-        ? ImmutableList.<Label>of()
-        : Iterables.filter(type.extractLabels(value), Label.class);
   }
 }
