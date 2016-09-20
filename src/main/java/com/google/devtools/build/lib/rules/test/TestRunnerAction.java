@@ -80,7 +80,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final PathFragment testStderr;
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
-  private final String namePrefix;
   private final Artifact coverageData;
   private final Artifact microCoverageData;
   private final TestTargetProperties testProperties;
@@ -143,29 +142,28 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.executionSettings = Preconditions.checkNotNull(executionSettings);
 
     this.baseDir = cacheStatus.getExecPath().getParentDirectory();
-    this.namePrefix = FileSystemUtils.removeExtension(cacheStatus.getExecPath().getBaseName());
 
     int totalShards = executionSettings.getTotalShards();
     Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
                                 (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
-    this.testExitSafe = baseDir.getChild(namePrefix + ".exited_prematurely");
+    this.testExitSafe = baseDir.getChild("test.exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1
-        ? baseDir.getChild(namePrefix + ".shard")
+        ? baseDir.getChild("test.shard")
         : null;
-    this.xmlOutputPath = baseDir.getChild(namePrefix + ".xml");
-    this.testWarningsPath = baseDir.getChild(namePrefix + ".warnings");
-    this.unusedRunfilesLogPath = baseDir.getChild(namePrefix + ".unused_runfiles_log");
-    this.testStderr = baseDir.getChild(namePrefix + ".err");
-    this.splitLogsDir = baseDir.getChild(namePrefix + ".raw_splitlogs");
+    this.xmlOutputPath = baseDir.getChild("test.xml");
+    this.testWarningsPath = baseDir.getChild("test.warnings");
+    this.unusedRunfilesLogPath = baseDir.getChild("test.unused_runfiles_log");
+    this.testStderr = baseDir.getChild("test.err");
+    this.splitLogsDir = baseDir.getChild("test.raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
     this.splitLogsPath = splitLogsDir.getChild("test.splitlogs");
-    this.undeclaredOutputsDir = baseDir.getChild(namePrefix + ".outputs");
+    this.undeclaredOutputsDir = baseDir.getChild("test.outputs");
     this.undeclaredOutputsZipPath = undeclaredOutputsDir.getChild("outputs.zip");
-    this.undeclaredOutputsAnnotationsDir = baseDir.getChild(namePrefix + ".outputs_manifest");
+    this.undeclaredOutputsAnnotationsDir = baseDir.getChild("test.outputs_manifest");
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
-    this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
+    this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
     Map<String, String> mergedTestEnv = new HashMap<>(configuration.getTestEnv());
@@ -179,10 +177,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public final PathFragment getBaseDir() {
     return baseDir;
-  }
-
-  public final String getNamePrefix() {
-    return namePrefix;
   }
 
   @Override
@@ -336,7 +330,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     execRoot.getRelative(testInfrastructureFailure).delete();
 
     // Coverage files use "coverage" instead of "test".
-    String coveragePrefix = "coverage" + namePrefix.substring(4);
+    String coveragePrefix = "coverage";
 
     // We cannot use coverageData artifact since it may be null. Generate coverage name instead.
     execRoot.getRelative(baseDir.getChild(coveragePrefix + ".dat")).delete();
@@ -344,8 +338,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     execRoot.getRelative(baseDir.getChild(coveragePrefix + ".micro.dat")).delete();
 
     // Delete files fetched from remote execution.
-    execRoot.getRelative(baseDir.getChild(namePrefix + ".zip")).delete();
-    deleteTestAttemptsDirMaybe(execRoot.getRelative(baseDir), namePrefix);
+    execRoot.getRelative(baseDir.getChild("test.zip")).delete();
+    deleteTestAttemptsDirMaybe(execRoot.getRelative(baseDir), "test");
   }
 
   private void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix) throws IOException {

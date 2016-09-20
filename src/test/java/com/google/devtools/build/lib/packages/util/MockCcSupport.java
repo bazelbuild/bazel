@@ -482,7 +482,7 @@ public abstract class MockCcSupport {
     config.create(
         "tools/cpp/BUILD",
         "cc_library(name = 'stl')",
-        "filegroup(name='toolchain', srcs=['//third_party/crosstool'])");
+        "alias(name='toolchain', actual='//third_party/crosstool')");
   }
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)
