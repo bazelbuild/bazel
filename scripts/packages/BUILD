@@ -92,6 +92,14 @@ pkg_tar(
     strip_prefix = ".",
 )
 
+pkg_tar(
+    name = "bazel-rc",
+    files = ["debian/bazel.bazelrc"],
+    mode = "0644",
+    package_dir = "/etc",
+    strip_prefix = "debian",
+)
+
 genrule(
     name = "rename-bazel-completion",
     srcs = ["//scripts:bash_completion"],
@@ -112,6 +120,7 @@ pkg_tar(
     deps = [
         ":bazel-bin",
         ":bazel-completion",
+        ":bazel-rc",
     ],
 )
 
