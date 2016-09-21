@@ -996,8 +996,6 @@ static int GetServerPid(const string &server_dir) {
 
   // The server writes a file, but we need to handle old servers that still
   // write a symlink.
-  // TODO(lberki): Remove the readlink() call when there is no chance of an old
-  // server lingering around. Probably safe after 2016.06.01.
   int len;
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
