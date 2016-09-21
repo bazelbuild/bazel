@@ -50,29 +50,29 @@ public class ImplicitDependencyExtractor {
   private final Set<String> depsSet;
   /** Map collecting dependency information, used for the proto output */
   private final Map<String, Deps.Dependency> depsMap;
+
   private final TypeVisitor typeVisitor = new TypeVisitor();
   private final JavaFileManager fileManager;
 
   /**
-   * ImplicitDependencyExtractor does not guarantee any ordering of the reported
-   * dependencies. Clients should preserve the original classpath ordering
-   * if trying to minimize their classpaths using this information.
+   * ImplicitDependencyExtractor does not guarantee any ordering of the reported dependencies.
+   * Clients should preserve the original classpath ordering if trying to minimize their classpaths
+   * using this information.
    */
-  public ImplicitDependencyExtractor(Set<String> depsSet, Map<String, Deps.Dependency> depsMap,
-      JavaFileManager fileManager) {
+  public ImplicitDependencyExtractor(
+      Set<String> depsSet, Map<String, Deps.Dependency> depsMap, JavaFileManager fileManager) {
     this.depsSet = depsSet;
     this.depsMap = depsMap;
     this.fileManager = fileManager;
   }
 
   /**
-   * Collects the implicit dependencies of the given set of ClassSymbol roots.
-   * As we're interested in differentiating between symbols that were just
-   * resolved vs. symbols that were fully completed by the compiler, we start
-   * the analysis by finding all the implicit dependencies reachable from the
-   * given set of roots. For completeness, we then walk the symbol table
-   * associated with the given context and collect the jar files of the
-   * remaining class symbols found there.
+   * Collects the implicit dependencies of the given set of ClassSymbol roots. As we're interested
+   * in differentiating between symbols that were just resolved vs. symbols that were fully
+   * completed by the compiler, we start the analysis by finding all the implicit dependencies
+   * reachable from the given set of roots. For completeness, we then walk the symbol table
+   * associated with the given context and collect the jar files of the remaining class symbols
+   * found there.
    *
    * @param context compilation context
    * @param roots root classes in the implicit dependency collection
@@ -92,17 +92,18 @@ public class ImplicitDependencyExtractor {
 
     // Collect all other partially resolved types
     for (ClassSymbol cs : symtab.classes.values()) {
+      // When recording we want to differentiate between jar references through completed symbols
+      // and incomplete symbols
+      boolean completed = cs.isCompleted();
       if (cs.classfile != null) {
-        collectJarOf(cs.classfile, platformJars);
+        collectJarOf(cs.classfile, platformJars, completed);
       } else if (cs.sourcefile != null) {
-        collectJarOf(cs.sourcefile, platformJars);
+        collectJarOf(cs.sourcefile, platformJars, completed);
       }
     }
   }
 
-  /**
-   * Collect the set of jars on the compilation bootclasspath.
-   */
+  /** Collect the set of jars on the compilation bootclasspath. */
   public static Set<String> getPlatformJars(JavaFileManager fileManager) {
 
     if (fileManager instanceof StandardJavaFileManager) {
@@ -125,18 +126,19 @@ public class ImplicitDependencyExtractor {
 
     // TODO(cushon): Assuming JavacPathFileManager or StandardJavaFileManager is slightly brittle,
     // but in practice those are the only implementations that matter.
-    throw new IllegalStateException("Unsupported file manager type: "
-        + fileManager.getClass().toString());
+    throw new IllegalStateException(
+        "Unsupported file manager type: " + fileManager.getClass().getName());
   }
 
   /**
-   * Attempts to add the jar associated with the given JavaFileObject, if any,
-   * to the collection, filtering out jars on the compilation bootclasspath.
+   * Attempts to add the jar associated with the given JavaFileObject, if any, to the collection,
+   * filtering out jars on the compilation bootclasspath.
    *
    * @param reference JavaFileObject representing a class or source file
    * @param platformJars classes on javac's bootclasspath
+   * @param completed whether the jar was referenced through a completed symbol
    */
-  private void collectJarOf(JavaFileObject reference, Set<String> platformJars) {
+  private void collectJarOf(JavaFileObject reference, Set<String> platformJars, boolean completed) {
 
     String name = getJarName(fileManager, reference);
     if (name == null) {
@@ -149,11 +151,18 @@ public class ImplicitDependencyExtractor {
     }
 
     depsSet.add(name);
-    if (!depsMap.containsKey(name)) {
-      depsMap.put(name, Deps.Dependency.newBuilder()
-          .setKind(Deps.Dependency.Kind.IMPLICIT)
-          .setPath(name)
-          .build());
+    Deps.Dependency currentDep = depsMap.get(name);
+
+    // If the dep hasn't been recorded we add it to the map
+    // If it's been recorded as INCOMPLETE but is now complete we upgrade the dependency
+    if (currentDep == null
+        || (completed && currentDep.getKind() == Deps.Dependency.Kind.INCOMPLETE)) {
+      depsMap.put(
+          name,
+          Deps.Dependency.newBuilder()
+              .setKind(completed ? Deps.Dependency.Kind.IMPLICIT : Deps.Dependency.Kind.INCOMPLETE)
+              .setPath(name)
+              .build());
     }
   }
 
@@ -181,7 +190,6 @@ public class ImplicitDependencyExtractor {
 
     return null;
   }
-
 
   private static class TypeVisitor extends SimpleTypeVisitor7<Void, Void> {
     // TODO(bazel-team): Override the visitor methods we're interested in.

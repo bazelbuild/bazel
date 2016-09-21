@@ -299,7 +299,9 @@ public final class DependencyModule {
         throw new IOException("Could not parse Deps.Dependencies message from proto.");
       }
       for (Deps.Dependency dep : deps.getDependencyList()) {
-        if (dep.getKind() == Kind.EXPLICIT || dep.getKind() == Kind.IMPLICIT) {
+        if (dep.getKind() == Kind.EXPLICIT
+            || dep.getKind() == Kind.IMPLICIT
+            || dep.getKind() == Kind.INCOMPLETE) {
           requiredClasspath.add(dep.getPath());
         }
       }

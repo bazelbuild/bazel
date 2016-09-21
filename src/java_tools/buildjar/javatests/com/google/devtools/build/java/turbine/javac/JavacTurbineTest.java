@@ -407,8 +407,8 @@ public class JavacTurbineTest {
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 libA.toString(), Deps.Dependency.Kind.EXPLICIT,
-                libB.toString(), Deps.Dependency.Kind.IMPLICIT,
-                libC.toString(), Deps.Dependency.Kind.IMPLICIT));
+                libB.toString(), Deps.Dependency.Kind.INCOMPLETE,
+                libC.toString(), Deps.Dependency.Kind.INCOMPLETE));
   }
 
   private Map<String, Deps.Dependency.Kind> getEntries(Deps.Dependencies deps) {
@@ -555,7 +555,7 @@ public class JavacTurbineTest {
                   libA.toString(),
                   Deps.Dependency.Kind.EXPLICIT,
                   libB.toString(),
-                  Deps.Dependency.Kind.IMPLICIT));
+                  Deps.Dependency.Kind.INCOMPLETE));
     }
   }
 
