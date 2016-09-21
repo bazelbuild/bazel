@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * A somepath(x, y) query expression, which computes the set of nodes
@@ -94,7 +94,7 @@ class SomePathFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       ThreadSafeCallback<T> callback,
-      ListeningExecutorService executorService) throws QueryException, InterruptedException {
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
     eval(env, context, expression, args, callback);
   }
 }

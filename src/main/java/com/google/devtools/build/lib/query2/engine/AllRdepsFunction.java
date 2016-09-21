@@ -17,13 +17,13 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * An "allrdeps" query expression, which computes the reverse dependencies of the argument within
@@ -111,7 +111,7 @@ public class AllRdepsFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       ThreadSafeCallback<T> callback,
-      ListeningExecutorService executorService) throws QueryException, InterruptedException {
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
     eval(env, context, expression, args, callback);
   }
 }

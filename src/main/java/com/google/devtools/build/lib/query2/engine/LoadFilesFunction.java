@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * A loadfiles(x) query expression, which computes the set of .bzl files
@@ -72,7 +72,7 @@ class LoadFilesFunction implements QueryEnvironment.QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       ThreadSafeCallback<T> callback,
-      ListeningExecutorService executorService) throws QueryException, InterruptedException {
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
     eval(env, context, expression, args, callback);
   }
 

@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nonnull;
 
 /**
@@ -124,7 +124,7 @@ public interface QueryEnvironment<T> {
 
     /**
      * Same as {@link #eval(QueryEnvironment, VariableContext, QueryExpression, List, Callback)},
-     * except that this {@link QueryFunction} may use {@code executorService} to achieve
+     * except that this {@link QueryFunction} may use {@code forkJoinPool} to achieve
      * parallelism.
      *
      * <p>The caller must ensure that {@code env} is thread safe.
@@ -135,7 +135,7 @@ public interface QueryEnvironment<T> {
         QueryExpression expression,
         List<Argument> args,
         ThreadSafeCallback<T> callback,
-        ListeningExecutorService executorService) throws QueryException, InterruptedException;
+        ForkJoinPool forkJoinPool) throws QueryException, InterruptedException;
   }
 
   /**

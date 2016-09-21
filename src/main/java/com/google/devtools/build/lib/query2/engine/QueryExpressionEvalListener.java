@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.concurrent.ForkJoinPool;
 
 /** Listener for calls to the internal methods of {@link QueryExpression} used for evaluation. */
 @ThreadSafe
@@ -32,7 +32,7 @@ public interface QueryExpressionEvalListener<T> {
       QueryEnvironment<T> env,
       VariableContext<T> context,
       ThreadSafeCallback<T> callback,
-      ListeningExecutorService executorService);
+      ForkJoinPool forkJoinPool);
 
   /** A {@link QueryExpressionEvalListener} that does nothing. */
   class NullListener<T> implements QueryExpressionEvalListener<T> {
@@ -60,7 +60,7 @@ public interface QueryExpressionEvalListener<T> {
         QueryEnvironment<T> env,
         VariableContext<T> context,
         ThreadSafeCallback<T> callback,
-        ListeningExecutorService executorService) {
+        ForkJoinPool forkJoinPool) {
     }
   }
 }
