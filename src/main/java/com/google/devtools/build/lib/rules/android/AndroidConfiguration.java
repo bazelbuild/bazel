@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -449,11 +448,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         throws InvalidConfigurationException, InterruptedException {
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
-      Label androidSdk = RedirectChaser.followRedirects(env, androidOptions.sdk, "android_sdk");
-      if (androidSdk == null) {
-        return null;
-      }
-      return new AndroidConfiguration(buildOptions.get(Options.class), androidSdk);
+      return new AndroidConfiguration(buildOptions.get(Options.class), androidOptions.sdk);
     }
 
     @Override
