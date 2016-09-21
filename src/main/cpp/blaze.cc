@@ -31,7 +31,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <poll.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -1070,7 +1069,10 @@ static void StartServerAndConnect(BlazeServer *server) {
     }
     fputc('.', stderr);
     fflush(stderr);
-    poll(NULL, 0, 1000);  // sleep 100ms.  (usleep(3) is obsolete.)
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100 * 1000 * 1000;
+    nanosleep(&ts, NULL);
     if (!server_startup->IsStillAlive()) {
       fprintf(stderr, "\nunexpected pipe read status: %s\n"
           "Server presumed dead. Now printing '%s':\n",
@@ -1094,7 +1096,10 @@ static bool WaitForServerDeath(pid_t pid, int wait_time_secs) {
       }
       pdie(blaze_exit_code::INTERNAL_ERROR, "could not be killed");
     }
-    poll(NULL, 0, 100);  // sleep 100ms.  (usleep(3) is obsolete.)
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100 * 1000 * 1000;
+    nanosleep(&ts, NULL);
   }
   return false;
 }
