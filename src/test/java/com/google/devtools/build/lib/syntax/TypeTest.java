@@ -487,14 +487,14 @@ public class TypeTest {
     }
   }
 
-  private static <T> Iterable<T> collectLabels(Type<T> type, Object value)
+  private static ImmutableList<Label> collectLabels(Type<?> type, Object value)
       throws InterruptedException {
-    ImmutableList.Builder<T> result = ImmutableList.builder();
+    ImmutableList.Builder<Label> result = ImmutableList.builder();
     type.visitLabels(new Type.LabelVisitor() {
       @SuppressWarnings("unchecked")
       @Override
-      public void visit(Object object) throws InterruptedException {
-        result.add((T) object);
+      public void visit(Label label) throws InterruptedException {
+        result.add(label);
       }
     }, value);
     return result.build();
