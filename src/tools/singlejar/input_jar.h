@@ -86,6 +86,10 @@ class InputJar {
     return mapped_file_.offset(lh);
   }
 
+  const uint8_t *mapped_start() const {
+    return mapped_file_.address(0);
+  }
+
  private:
   std::string path_;
   MappedFile mapped_file_;
