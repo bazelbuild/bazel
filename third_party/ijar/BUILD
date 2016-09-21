@@ -24,6 +24,16 @@ cc_library(
         "mapped_file.h",
         "zip.h",
     ],
+    deps = [":zlib_client"],
+)
+
+cc_library(
+    name = "zlib_client",
+    srcs = ["zlib_client.cc"],
+    hdrs = [
+        "common.h",
+        "zlib_client.h",
+    ],
     deps = ["//third_party/zlib"],
 )
 

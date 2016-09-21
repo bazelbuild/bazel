@@ -38,7 +38,7 @@
 
 #include "third_party/ijar/mapped_file.h"
 #include "third_party/ijar/zip.h"
-#include <zlib.h>
+#include "third_party/ijar/zlib_client.h"
 
 #define LOCAL_FILE_HEADER_SIGNATURE   0x04034b50
 #define CENTRAL_FILE_HEADER_SIGNATURE 0x02014b50
@@ -159,6 +159,8 @@ class InputZipFile : public ZipExtractor {
 
   // last error
   char errmsg[4*PATH_MAX];
+
+  Decompressor *decompressor_;
 
   int error(const char *fmt, ...) {
     va_list ap;
@@ -458,73 +460,20 @@ int InputZipFile::SkipFile(const bool compressed) {
 u1* InputZipFile::UncompressFile() {
   size_t in_offset = p - zipdata_in_;
   size_t remaining = input_file_->Length() - in_offset;
-  z_stream stream;
-
-  stream.zalloc = Z_NULL;
-  stream.zfree = Z_NULL;
-  stream.opaque = Z_NULL;
-  stream.avail_in = remaining;
-  stream.next_in = (Bytef *) p;
-
-  int ret = inflateInit2(&stream, -MAX_WBITS);
-  if (ret != Z_OK) {
-    error("inflateInit: %d\n", ret);
-    return NULL;
-  }
-
-  int uncompressed_until_now = 0;
-
-  while (true) {
-    stream.avail_out = uncompressed_data_allocated_ - uncompressed_until_now;
-    stream.next_out = uncompressed_data_ + uncompressed_until_now;
-    int old_avail_out = stream.avail_out;
-
-    ret = inflate(&stream, Z_SYNC_FLUSH);
-    int uncompressed_now = old_avail_out - stream.avail_out;
-    uncompressed_until_now += uncompressed_now;
-
-    switch (ret) {
-      case Z_STREAM_END: {
-        // zlib said that there is no more data to decompress.
-
-        u1 *new_p = reinterpret_cast<u1*>(stream.next_in);
-        compressed_size_ = new_p - p;
-        uncompressed_size_ = uncompressed_until_now;
-        p = new_p;
-        inflateEnd(&stream);
-        return uncompressed_data_;
-      }
-
-      case Z_OK: {
-        // zlib said that there is no more room in the buffer allocated for
-        // the decompressed data. Enlarge that buffer and try again.
-
-        if (uncompressed_data_allocated_ == MAX_BUFFER_SIZE) {
-          error("ijar does not support decompressing files "
-                "larger than %dMB.\n",
-                (int) (MAX_BUFFER_SIZE/(1024*1024)));
-          return NULL;
-        }
-
-        uncompressed_data_allocated_ *= 2;
-        if (uncompressed_data_allocated_ > MAX_BUFFER_SIZE) {
-          uncompressed_data_allocated_ = MAX_BUFFER_SIZE;
-        }
-
-        uncompressed_data_ = reinterpret_cast<u1*>(
-            realloc(uncompressed_data_, uncompressed_data_allocated_));
-        break;
-      }
-
-      case Z_DATA_ERROR:
-      case Z_BUF_ERROR:
-      case Z_STREAM_ERROR:
-      case Z_NEED_DICT:
-      default: {
-        error("zlib returned error code %d during inflate.\n", ret);
-        return NULL;
-      }
+  DecompressedFile *decompressed_file =
+      decompressor_->UncompressFile(p, remaining);
+  if (decompressed_file == NULL) {
+    if (decompressor_->GetError() != NULL) {
+      error(decompressor_->GetError());
     }
+    return NULL;
+  } else {
+    compressed_size_ = decompressed_file->compressed_size;
+    uncompressed_size_ = decompressed_file->uncompressed_size;
+    u1 *uncompressed_data = decompressed_file->uncompressed_data;
+    free(decompressed_file);
+    p += compressed_size_;
+    return uncompressed_data;
   }
 }
 
@@ -859,9 +808,7 @@ InputZipFile::InputZipFile(ZipExtractorProcessor *processor,
                            const char* filename)
     : processor(processor), filename_(filename), input_file_(NULL),
       bytes_unmapped_(0) {
-  uncompressed_data_allocated_ = INITIAL_BUFFER_SIZE;
-  uncompressed_data_ =
-      reinterpret_cast<u1*>(malloc(uncompressed_data_allocated_));
+  decompressor_ = new Decompressor();
   errmsg[0] = 0;
 }
 
@@ -900,7 +847,7 @@ bool InputZipFile::Open() {
 }
 
 InputZipFile::~InputZipFile() {
-  free(uncompressed_data_);
+  delete decompressor_;
   if (input_file_ != NULL) {
     input_file_->Close();
     delete input_file_;
@@ -1064,46 +1011,6 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   return header_ptr;
 }
 
-// Try to compress a file entry in memory using the deflate algorithm.
-// It will compress buf (of size length) unless the compressed size is bigger
-// than the input size. The result will overwrite the content of buf and the
-// final size is returned.
-size_t TryDeflate(u1 *buf, size_t length) {
-  u1 *outbuf = reinterpret_cast<u1 *>(malloc(length));
-  z_stream stream;
-
-  // Initialize the z_stream strcut for reading from buf and wrinting in outbuf.
-  stream.zalloc = Z_NULL;
-  stream.zfree = Z_NULL;
-  stream.opaque = Z_NULL;
-  stream.total_in = length;
-  stream.avail_in = length;
-  stream.total_out = length;
-  stream.avail_out = length;
-  stream.next_in = buf;
-  stream.next_out = outbuf;
-
-  // deflateInit2 negative windows size prevent the zlib wrapper to be used.
-  if (deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
-                  -MAX_WBITS, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-    // Failure to compress => return the buffer uncompressed
-    free(outbuf);
-    return length;
-  }
-
-  if (deflate(&stream, Z_FINISH) == Z_STREAM_END) {
-    // Compression successful and fits in outbuf, let's copy the result in buf.
-    length = stream.total_out;
-    memcpy(buf, outbuf, length);
-  }
-
-  deflateEnd(&stream);
-  free(outbuf);
-
-  // Return the length of the resulting buffer
-  return length;
-}
-
 size_t OutputZipFile::WriteFileSizeInLocalFileHeader(u1 *header_ptr,
                                                      size_t out_length,
                                                      bool compress,
@@ -1149,10 +1056,21 @@ int OutputZipFile::FinishFile(size_t filelength, bool compress,
                               bool compute_crc) {
   u4 crc = 0;
   if (compute_crc) {
-    crc = crc32(crc, q, filelength);
+    crc = ComputeCrcChecksum(q, filelength);
+
+    if (filelength > 0 && crc == 0) {
+      fprintf(stderr, "Error calculating CRC32 checksum.\n");
+      return -1;
+    }
   }
   size_t compressed_size =
       WriteFileSizeInLocalFileHeader(header_ptr, filelength, compress, crc);
+
+  if (compressed_size == 0 && filelength > 0) {
+    fprintf(stderr, "Error compressing files.\n");
+    return -1;
+  }
+
   entries_.back()->crc32 = crc;
   entries_.back()->compressed_length = compressed_size;
   entries_.back()->uncompressed_length = filelength;
@@ -1200,7 +1118,9 @@ ZipBuilder* ZipBuilder::Create(const char* zip_file, u8 estimated_size) {
   return result;
 }
 
-u8 ZipBuilder::EstimateSize(char **files, char **zip_paths, int nb_entries) {
+u8 ZipBuilder::EstimateSize(char const* const* files,
+                            char const* const* zip_paths,
+                            int nb_entries) {
   struct stat statst;
   // Digital signature field size = 6, End of central directory = 22, Total = 28
   u8 size = 28;
