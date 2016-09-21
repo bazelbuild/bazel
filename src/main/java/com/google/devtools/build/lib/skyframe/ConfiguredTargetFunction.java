@@ -301,7 +301,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure (only dynamic configurations support this).
     if (useDynamicConfigurations(ctgValue.getConfiguration())) {
-      depValueNames = trimConfigurations(env, ctgValue, depValueNames, hostConfiguration,
+      depValueNames = getDynamicConfigurations(env, ctgValue, depValueNames, hostConfiguration,
           ruleClassProvider);
       if (depValueNames == null) {
         return null;
@@ -327,7 +327,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Helper class for {@link #trimConfigurations} - encapsulates a set of config fragments and
+   * Helper class for {@link #getDynamicConfigurations} - encapsulates a set of config fragments and
    * a dynamic transition. This can be used to determine the exact build options needed to
    * set a dynamic configuration.
    */
@@ -365,8 +365,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Helper class for {@link #trimConfigurations} - encapsulates an <attribute, label> pair that
-   * can be used to map from an input dependency to a trimmed dependency.
+   * Helper class for {@link #getDynamicConfigurations} - encapsulates an <attribute, label> pair
+   * that can be used to map from an input dependency to a trimmed dependency.
    */
   @Immutable
   private static final class AttributeAndLabel {
@@ -409,9 +409,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *
    * <p>More specifically: given a set of {@link Dependency} instances holding dynamic config
    * transition requests (e.g. {@link Dependency#hasStaticConfiguration()} == false}), returns
-   * equivalent dependencies containing dynamically created configurations that a) apply those
-   * transitions and b) only contain the fragments needed by the dep and everything in its
-   * transitive closure.
+   * equivalent dependencies containing dynamically created configurations applying those
+   * transitions. If {@link BuildConfiguration.Options#trimConfigurations()} is true, these
+   * configurations only contain the fragments needed by the dep and its transitive closure. Else
+   * the configurations unconditionally include all fragments.
    *
    * <p>This method is heavily performance-optimized. Because it, in aggregate, reads over every
    * edge in the configured target graph, small inefficiencies can have observable impact on build
@@ -419,7 +420,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * make.
    */
   @Nullable
-  static OrderedSetMultimap<Attribute, Dependency> trimConfigurations(
+  static OrderedSetMultimap<Attribute, Dependency> getDynamicConfigurations(
       Environment env,
       TargetAndConfiguration ctgValue,
       OrderedSetMultimap<Attribute, Dependency> originalDeps,
@@ -470,16 +471,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Figure out the required fragments for this dep and its transitive closure.
-      SkyKey fragmentsKey = TransitiveTargetValue.key(dep.getLabel());
-      TransitiveTargetValue transitiveDepInfo = (TransitiveTargetValue) env.getValue(fragmentsKey);
-      if (transitiveDepInfo == null) {
-        // This should only be possible for tests. In actual runs, this was already called
-        // as a routine part of the loading phase.
-        // TODO(bazel-team): check this only occurs in a test context.
+      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+          getTransitiveFragments(env, dep.getLabel(), ctgValue.getConfiguration());
+      if (depFragments == null) {
         return null;
       }
-      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
-          transitiveDepInfo.getTransitiveConfigFragments().toSet();
       // TODO(gregce): remove the below call once we have confidence dynamic configurations always
       // provide needed fragments. This unnecessarily drags performance on the critical path.
       checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
@@ -519,8 +515,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
         ImmutableList.Builder<BuildOptions> toOptionsBuilder = ImmutableList.builder();
         for (BuildOptions options : getDynamicTransitionOptions(ctgOptions, transition)) {
           if (!sameFragments) {
-            options = options.trim(BuildConfiguration.getOptionsClasses(
-                transitiveDepInfo.getTransitiveConfigFragments(), ruleClassProvider));
+            options = options.trim(
+                BuildConfiguration.getOptionsClasses(depFragments, ruleClassProvider));
           }
           toOptionsBuilder.add(options);
         }
@@ -585,6 +581,32 @@ final class ConfiguredTargetFunction implements SkyFunction {
       result.putAll(depsEntry.getKey(), trimmedAttrDeps);
     }
     return result;
+  }
+
+  /**
+   * Returns the configuration fragments required by a dep and its transitive closure.
+   * Returns null if Skyframe dependencies aren't yet available.
+   *
+   * @param env Skyframe evaluation environment
+   * @param dep label of the dep to check
+   * @param parentConfig configuration of the rule depending on the dep
+   */
+  @Nullable
+  private static Set<Class<? extends BuildConfiguration.Fragment>> getTransitiveFragments(
+      Environment env, Label dep, BuildConfiguration parentConfig) throws InterruptedException {
+    Preconditions.checkArgument(parentConfig.useDynamicConfigurations());
+    if (!parentConfig.trimConfigurations()) {
+      return parentConfig.getAllFragments().keySet();
+    }
+    SkyKey fragmentsKey = TransitiveTargetValue.key(dep);
+    TransitiveTargetValue transitiveDepInfo = (TransitiveTargetValue) env.getValue(fragmentsKey);
+    if (transitiveDepInfo == null) {
+      // This should only be possible for tests. In actual runs, this was already called
+      // as a routine part of the loading phase.
+      // TODO(bazel-team): check this only occurs in a test context.
+      return null;
+    }
+    return transitiveDepInfo.getTransitiveConfigFragments().toSet();
   }
 
   /**

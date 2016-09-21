@@ -1235,8 +1235,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Retrieves the configurations needed for the given deps, trimming down their fragments
-   * to those only needed by their transitive closures.
+   * Retrieves the configurations needed for the given deps. If
+   * {@link BuildConfiguration.Options#trimConfigurations()} is true, trims their fragments to only
+   * those needed by their transitive closures. Else unconditionally includes all fragments.
    *
    * <p>Skips targets with loading phase errors.
    */
@@ -1246,6 +1247,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Set<Dependency> depsToEvaluate = new HashSet<>();
 
     // Check: if !Configuration.useDynamicConfigs then just return the original configs.
+    Set<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
+    if (useUntrimmedDynamicConfigs(fromOptions)) {
+      allFragments = getAllFragments();
+    }
 
     // Get the fragments needed for dynamic configuration nodes.
     final List<SkyKey> transitiveFragmentSkyKeys = new ArrayList<>();
@@ -1256,6 +1261,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         builder.put(key, key.getConfiguration());
       } else if (key.getTransition() == Attribute.ConfigurationTransition.NULL) {
         builder.put(key, null);
+      } else if (useUntrimmedDynamicConfigs(fromOptions)) {
+        fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
         transitiveFragmentSkyKeys.add(TransitiveTargetValue.key(key.getLabel()));
@@ -1281,28 +1288,56 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Now get the configurations.
     final List<SkyKey> configSkyKeys = new ArrayList<>();
     for (Dependency key : keys) {
-      if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
-      configSkyKeys.add(BuildConfigurationValue.key(depFragments,
-          getDynamicConfigOptions(key, fromOptions, depFragments)));
+      if (depFragments != null) {
+        configSkyKeys.add(BuildConfigurationValue.key(depFragments,
+            getDynamicConfigOptions(key, fromOptions, depFragments)));
+      }
     }
     EvaluationResult<SkyValue> configsResult =
         evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/true);
     for (Dependency key : keys) {
-      if (!depsToEvaluate.contains(key) || labelsWithErrors.contains(key.getLabel())) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
           fragmentsMap.get(key.getLabel());
-      SkyKey configKey = BuildConfigurationValue.key(depFragments,
-          getDynamicConfigOptions(key, fromOptions, depFragments));
-      builder.put(key, ((BuildConfigurationValue) configsResult.get(configKey)).getConfiguration());
+      if (depFragments != null) {
+        SkyKey configKey = BuildConfigurationValue.key(depFragments,
+            getDynamicConfigOptions(key, fromOptions, depFragments));
+        builder
+            .put(key, ((BuildConfigurationValue) configsResult.get(configKey)).getConfiguration());
+      }
     }
 
     return builder;
+  }
+
+  /**
+   * Returns whether dynamic configurations should trim their fragments to only those needed by
+   * targets and their transitive dependencies.
+   */
+  private static boolean useUntrimmedDynamicConfigs(BuildOptions options) {
+    return options.get(BuildConfiguration.Options.class).useDynamicConfigurations
+        == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM;
+  }
+
+  /**
+   * Returns all configuration fragments registered with Blaze.
+   */
+  private Set<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
+    ImmutableSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
+        ImmutableSet.builder();
+    for (ConfigurationFragmentFactory factory :
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationFragments()) {
+      fragmentsBuilder.add(factory.creates());
+    }
+    fragmentsBuilder.add(((ConfiguredRuleClassProvider) ruleClassProvider).getUniversalFragment());
+    return fragmentsBuilder.build();
   }
 
   /**

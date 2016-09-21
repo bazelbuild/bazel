@@ -391,7 +391,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     String[] actualArgs;
     if (useDynamicConfigs) {
       actualArgs = Arrays.copyOf(args, args.length + 1);
-      actualArgs[args.length] = "--experimental_dynamic_configs";
+      actualArgs[args.length] = "--experimental_dynamic_configs=on";
     } else {
       actualArgs = args;
     }
@@ -1282,7 +1282,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config = targetConfig;
     if (targetConfig.useDynamicConfigurations()) {
       try {
-        config = view.trimConfigurationForTesting(getTarget(label), targetConfig, reporter);
+        config = view.getDynamicConfigurationForTesting(getTarget(label), targetConfig, reporter);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }

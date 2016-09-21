@@ -738,13 +738,16 @@ public class BuildView {
       }
     }
     return configurations.useDynamicConfigurations()
-        ? trimConfigurations(nodes, eventHandler)
+        ? getDynamicConfigurations(nodes, eventHandler)
         : ImmutableList.copyOf(nodes);
   }
 
   /**
-   * Transforms a collection of <Target, Configuration> pairs by trimming each target's
+   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, transforms a collection
+   * of <Target, Configuration> pairs by trimming each target's
    * configuration to only the fragments the target and its transitive dependencies need.
+   *
+   * <p>Else returns configurations that unconditionally include all fragments.
    *
    * <p>Preserves the original input order. Uses original (untrimmed) configurations for targets
    * that can't be evaluated (e.g. due to loading phase errors).
@@ -756,8 +759,9 @@ public class BuildView {
    */
   // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
   // never make it through analysis (and especially not seed ConfiguredTargetValues)
-  private List<TargetAndConfiguration> trimConfigurations(Iterable<TargetAndConfiguration> inputs,
-      EventHandler eventHandler) throws InterruptedException {
+  private List<TargetAndConfiguration> getDynamicConfigurations(
+      Iterable<TargetAndConfiguration> inputs, EventHandler eventHandler)
+      throws InterruptedException {
     Map<Label, TargetAndConfiguration> labelsToTargets = new LinkedHashMap<>();
     BuildConfiguration topLevelConfig = null;
     List<Dependency> asDeps = new ArrayList<Dependency>();
@@ -805,12 +809,16 @@ public class BuildView {
   }
 
   /**
-   * Trims a configuration to the fragments needed by the given target.
+   * Gets a dynamic configuration for the given target.
+   *
+   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
+   * includes the fragments needed by the fragment and its transitive closure. Else unconditionally
+   * includes all fragments.
    */
   @VisibleForTesting
-  public BuildConfiguration trimConfigurationForTesting(Target target, BuildConfiguration config,
-      EventHandler eventHandler) throws InterruptedException {
-    return Iterables.getOnlyElement(trimConfigurations(
+  public BuildConfiguration getDynamicConfigurationForTesting(Target target,
+      BuildConfiguration config, EventHandler eventHandler) throws InterruptedException {
+    return Iterables.getOnlyElement(getDynamicConfigurations(
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config)),
         eventHandler)).getConfiguration();
   }

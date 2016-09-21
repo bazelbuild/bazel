@@ -860,12 +860,34 @@ public final class BuildConfiguration {
     )
     public List<Label> targetEnvironments;
 
+    /**
+     * Values for --experimental_dynamic_configs.
+     */
+    public static enum DynamicConfigsMode {
+      /** Don't use dynamic configurations. */
+      OFF,
+      /** Use dynamic configurations, including only the fragments each rule needs. */
+      ON,
+      /** Use dynamic configurations, always including all fragments known to Blaze. */
+      NOTRIM,
+    }
+
+    /**
+     * Converter for --experimental_dynamic_configs.
+     */
+    public static class DynamicConfigsConverter extends EnumConverter<DynamicConfigsMode> {
+      public DynamicConfigsConverter() {
+        super(DynamicConfigsMode.class, "dynamic configurations mode");
+      }
+    }
+
     @Option(name = "experimental_dynamic_configs",
-        defaultValue = "false",
+        defaultValue = "off",
         category = "undocumented",
+        converter = DynamicConfigsConverter.class,
         help = "Dynamically instantiates build configurations instead of using the default "
             + "static globally defined ones")
-    public boolean useDynamicConfigurations;
+    public DynamicConfigsMode useDynamicConfigurations;
 
     @Option(
         name = "experimental_enable_runfiles",
@@ -1180,7 +1202,7 @@ public final class BuildConfiguration {
               + ".blazerc or continuous build"));
     }
 
-    if (options.useDynamicConfigurations && !options.useDistinctHostConfiguration) {
+    if (useDynamicConfigurations() && !options.useDistinctHostConfiguration) {
       reporter.handle(Event.error(
           "--nodistinct_host_configuration does not currently work with dynamic configurations"));
     }
@@ -2283,7 +2305,15 @@ public final class BuildConfiguration {
    * {@link com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory}).
    */
   public boolean useDynamicConfigurations() {
-    return options.useDynamicConfigurations;
+    return options.useDynamicConfigurations != Options.DynamicConfigsMode.OFF;
+  }
+
+  /**
+   * Returns whether we should trim dynamic configurations to only include the fragments needed
+   * to correctly analyze a rule.
+   */
+  public boolean trimConfigurations() {
+    return options.useDynamicConfigurations == Options.DynamicConfigsMode.ON;
   }
 
   /**
