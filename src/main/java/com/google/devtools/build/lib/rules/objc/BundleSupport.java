@@ -407,7 +407,7 @@ final class BundleSupport {
     } else {
       prefixedArtifactName = artifactName;
     }
-    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, prefixedArtifactName); 
+    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, prefixedArtifactName);
   }
 
   private void registerActoolActionIfNecessary(ObjcProvider objcProvider) {
@@ -435,6 +435,7 @@ final class BundleSupport {
                 objcProvider,
                 zipOutput,
                 actoolPartialInfoplist))
+            .disableSandboxing()
             .build(ruleContext));
   }
 
