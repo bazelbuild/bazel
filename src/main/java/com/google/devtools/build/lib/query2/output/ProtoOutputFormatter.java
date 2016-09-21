@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
@@ -87,7 +88,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(
+  public OutputFormatterCallback<Target> createPostFactoStreamCallback(
       final PrintStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
@@ -112,6 +113,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         queryResult.build().writeTo(out);
       }
     };
+  }
+
+  @Override
+  public OutputFormatterCallback<Target> createStreamCallback(
+      PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+    return createPostFactoStreamCallback(out, options);
   }
 
   private static Iterable<Target> getSortedLabels(Digraph<Target> result) {

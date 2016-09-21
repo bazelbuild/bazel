@@ -14,6 +14,13 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.hazelcast.client.HazelcastClient;
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.client.config.ClientNetworkConfig;
+import com.hazelcast.client.config.XmlClientConfigBuilder;
+import com.hazelcast.config.Config;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collection;
@@ -32,13 +39,45 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 
 /**
- * A factory class for providing a {@link ConcurrentMap} object implemented by a REST service. The
- * URL has to support PUT, GET, and HEAD operations
+ * A factory class for providing a {@link ConcurrentMap} objects to be used with
+ * {@link ConcurrentMapActionCache} objects. The underlying maps can be Hazelcast or RestUrl based.
  */
-public final class RestUrlCacheFactory {
+public final class ConcurrentMapFactory {
 
-  public static ConcurrentMap<String, byte[]> create(RemoteOptions options) {
-    return new RestUrlCache(options.restCacheUrl);
+  private static final String HAZELCAST_CACHE_NAME = "hazelcast-build-cache";
+
+  private ConcurrentMapFactory() {}
+
+  public static ConcurrentMap<String, byte[]> createHazelcast(RemoteOptions options) {
+    HazelcastInstance instance;
+    if (options.hazelcastClientConfig != null) {
+      try {
+        ClientConfig config = new XmlClientConfigBuilder(options.hazelcastClientConfig).build();
+        instance = HazelcastClient.newHazelcastClient(config);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (options.hazelcastNode != null) {
+      // If --hazelcast_node is specified then create a client instance.
+      ClientConfig config = new ClientConfig();
+      ClientNetworkConfig net = config.getNetworkConfig();
+      net.addAddress(options.hazelcastNode.split(","));
+      instance = HazelcastClient.newHazelcastClient(config);
+    } else if (options.hazelcastStandaloneListenPort != 0) {
+      Config config = new Config();
+      config
+          .getNetworkConfig()
+          .setPort(options.hazelcastStandaloneListenPort)
+          .getJoin()
+          .getMulticastConfig()
+          .setEnabled(false);
+      instance = Hazelcast.newHazelcastInstance(config);
+    } else {
+      // Otherwise create a default instance. This is going to look at
+      // -Dhazelcast.config=some-hazelcast.xml for configuration.
+      instance = Hazelcast.newHazelcastInstance();
+    }
+    return instance.getMap(HAZELCAST_CACHE_NAME);
   }
 
   private static class RestUrlCache implements ConcurrentMap<String, byte[]> {
@@ -171,5 +210,33 @@ public final class RestUrlCacheFactory {
     public byte[] replace(String key, byte[] value) {
       throw new UnsupportedOperationException();
     }
+  }
+
+  public static ConcurrentMap<String, byte[]> createRestUrl(RemoteOptions options) {
+    return new RestUrlCache(options.restCacheUrl);
+  }
+
+  public static ConcurrentMap<String, byte[]> create(RemoteOptions options) {
+    if (isHazelcastOptions(options)) {
+      return createHazelcast(options);
+    }
+    if (isRestUrlOptions(options)) {
+      return createRestUrl(options);
+    }
+    throw new IllegalArgumentException(
+        "Unrecognized concurrent map RemoteOptions: must specify "
+            + "either Hazelcast or Rest URL options.");
+  }
+
+  public static boolean isRemoteCacheOptions(RemoteOptions options) {
+    return isHazelcastOptions(options) || isRestUrlOptions(options);
+  }
+
+  private static boolean isHazelcastOptions(RemoteOptions options) {
+    return options.hazelcastNode != null || options.hazelcastClientConfig != null;
+  }
+
+  private static boolean isRestUrlOptions(RemoteOptions options) {
+    return options.restCacheUrl != null;
   }
 }

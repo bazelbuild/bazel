@@ -241,27 +241,35 @@ public final class TestActionBuilder {
 
     for (int run = 0; run < runsPerTest; run++) {
       // Use a 1-based index for user friendliness.
-      String runSuffix =
-          runsPerTest > 1 ? String.format("_run_%d_of_%d", run + 1, runsPerTest) : "";
+      String testRunDir =
+          runsPerTest > 1 ? String.format("run_%d_of_%d", run + 1, runsPerTest) : "";
       for (int shard = 0; shard < shardRuns; shard++) {
-        String suffix = (shardRuns > 1 ? String.format("_shard_%d_of_%d", shard + 1, shards) : "")
-            + runSuffix;
-        Artifact testLog = ruleContext.getPackageRelativeArtifact(
-            targetName.getRelative("test" + suffix + ".log"), root);
-        Artifact cacheStatus = ruleContext.getPackageRelativeArtifact(
-            targetName.getRelative("test" + suffix + ".cache_status"), root);
+        String shardRunDir =
+            (shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shards) : "");
+        if (testRunDir.isEmpty()) {
+          shardRunDir = shardRunDir.isEmpty() ? "" : shardRunDir + PathFragment.SEPARATOR_CHAR;
+        } else {
+          testRunDir += PathFragment.SEPARATOR_CHAR;
+          shardRunDir = shardRunDir.isEmpty() ? testRunDir : shardRunDir + "_" + testRunDir;
+        }
+        Artifact testLog =
+            ruleContext.getPackageRelativeArtifact(
+                targetName.getRelative(shardRunDir + "test.log"), root);
+        Artifact cacheStatus =
+            ruleContext.getPackageRelativeArtifact(
+                targetName.getRelative(shardRunDir + "test.cache_status"), root);
 
         Artifact coverageArtifact = null;
         if (collectCodeCoverage) {
           coverageArtifact = ruleContext.getPackageRelativeArtifact(
-              targetName.getRelative("coverage" + suffix + ".dat"), root);
+              targetName.getRelative(shardRunDir + "coverage.dat"), root);
           coverageArtifacts.add(coverageArtifact);
         }
 
         Artifact microCoverageArtifact = null;
         if (collectCodeCoverage && config.isMicroCoverageEnabled()) {
           microCoverageArtifact = ruleContext.getPackageRelativeArtifact(
-              targetName.getRelative("coverage" + suffix + ".micro.dat"), root);
+              targetName.getRelative(shardRunDir + "coverage.micro.dat"), root);
         }
 
         env.registerAction(new TestRunnerAction(

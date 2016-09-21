@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
-/**
- * Options for remote execution and distributed caching.
- */
+/** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
   @Option(
     name = "rest_cache_url",
@@ -66,4 +64,46 @@ public final class RemoteOptions extends OptionsBase {
             + "For client mode only."
   )
   public String remoteWorker;
+
+  @Option(
+    name = "remote_cache",
+    defaultValue = "null",
+    category = "remote",
+    help =
+        "Hostname and port number of remote gRPC cache in the form of host:port. "
+            + "For client mode only."
+  )
+  public String remoteCache;
+
+  @Option(
+    name = "grpc_max_chunk_size_bytes",
+    defaultValue = "400000", // <4MB. Bounded by the gRPC size limit on the overall message.
+    category = "remote",
+    help = "The maximal number of bytes to be sent in a single message. For client mode only."
+  )
+  public int grpcMaxChunkSizeBytes;
+
+  @Option(
+    name = "grpc_max_batch_inputs",
+    defaultValue = "100",
+    category = "remote",
+    help = "The maximal number of input file to be sent in a single batch. For client mode only."
+  )
+  public int grpcMaxBatchInputs;
+
+  @Option(
+    name = "grpc_max_batch_size_bytes",
+    defaultValue = "10485760", // 10MB
+    category = "remote",
+    help = "The maximal number of input bytes to be sent in a single batch. For client mode only."
+  )
+  public int grpcMaxBatchSizeBytes;
+
+  @Option(
+      name = "grpc_timeout_seconds",
+      defaultValue = "60",
+      category = "remote",
+      help = "The maximal number of seconds to wait for remote calls. For client mode only."
+    )
+    public int grpcTimeoutSeconds;
 }

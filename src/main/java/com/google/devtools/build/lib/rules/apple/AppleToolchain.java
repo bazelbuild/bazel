@@ -129,6 +129,8 @@ public class AppleToolchain {
         break;
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
+      case TVOS_DEVICE:
+      case TVOS_SIMULATOR:
         relativePath = SYSTEM_FRAMEWORK_PATH;
         break;
       default:

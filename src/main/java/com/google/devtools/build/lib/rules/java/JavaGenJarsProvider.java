@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,6 +39,10 @@ public final class JavaGenJarsProvider implements TransitiveInfoProvider {
   private final Artifact genClassJar;
   @Nullable
   private final Artifact genSourceJar;
+
+  private final ImmutableList<Artifact> processorClasspath;
+  private final ImmutableList<String> processorClassNames;
+
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
 
@@ -45,11 +50,14 @@ public final class JavaGenJarsProvider implements TransitiveInfoProvider {
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
+      ImmutableList<Artifact> processorClasspath, ImmutableList<String> processorClassNames,
       NestedSet<Artifact> transitiveGenClassJars,
       NestedSet<Artifact> transitiveGenSourceJars) {
     this.usesAnnotationProcessing = usesAnnotationProcessing;
     this.genClassJar = genClassJar;
     this.genSourceJar = genSourceJar;
+    this.processorClasspath = processorClasspath;
+    this.processorClassNames = processorClassNames;
     this.transitiveGenClassJars = transitiveGenClassJars;
     this.transitiveGenSourceJars = transitiveGenSourceJars;
   }
@@ -105,5 +113,25 @@ public final class JavaGenJarsProvider implements TransitiveInfoProvider {
   )
   public NestedSet<Artifact> getTransitiveGenSourceJars() {
     return transitiveGenSourceJars;
+  }
+
+  @SkylarkCallable(
+    name = "processor_classpath",
+    structField = true,
+    doc =
+        "Returns a classpath of annotation processors applied to this rule."
+  )
+  public ImmutableList<Artifact> getProcessorClasspath() {
+    return processorClasspath;
+  }
+
+  @SkylarkCallable(
+    name = "processor_classnames",
+    structField = true,
+    doc =
+      "Returns class names of annotation processors applied to this rule."
+  )
+  public ImmutableList<String> getProcessorClassNames() {
+    return processorClassNames;
   }
 }

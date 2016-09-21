@@ -961,7 +961,8 @@ public final class CppModel {
       env.registerAction(indexAction);
 
       for (LTOBackendArtifacts ltoArtifacts : indexAction.getAllLTOBackendArtifacts()) {
-        ltoArtifacts.scheduleLTOBackendAction(ruleContext, usePicForSharedLibs);
+        ltoArtifacts.scheduleLTOBackendAction(
+            ruleContext, featureConfiguration, usePicForSharedLibs);
       }
 
       linkActionBuilder.setLTOIndexing(false);

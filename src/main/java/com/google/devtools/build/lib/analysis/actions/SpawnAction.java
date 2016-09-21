@@ -506,6 +506,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private ParamFileInfo paramFileInfo = null;
     private String mnemonic = "Unknown";
     private ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
+    private boolean disableSandboxing = false;
 
     /**
      * Creates a SpawnAction builder.
@@ -654,6 +655,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         env = Preconditions.checkNotNull(defaultShellEnvironment);
       } else {
         env = this.environment;
+      }
+
+      if (disableSandboxing) {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.putAll(executionInfo);
+        builder.put("nosandbox", "1");
+        executionInfo = builder.build();
       }
 
       return createSpawnAction(
@@ -1135,6 +1143,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private Builder useParameterFile(
         ParameterFileType parameterFileType, Charset charset, String flagPrefix, boolean always) {
       paramFileInfo = new ParamFileInfo(parameterFileType, charset, flagPrefix, always);
+      return this;
+    }
+
+    public Builder disableSandboxing() {
+      this.disableSandboxing = true;
       return this;
     }
   }

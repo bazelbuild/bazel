@@ -141,6 +141,13 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           }
           configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_WATCHOS;
           break;
+        case TVOS:
+          cpus = buildOptions.get(AppleCommandLineOptions.class).tvosCpus;
+          if (cpus.isEmpty()) {
+            cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU);
+          }
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_TVOS;
+          break;
         default:
           throw new IllegalArgumentException("Unsupported platform type " + platformType);
       }

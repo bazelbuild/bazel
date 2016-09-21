@@ -21,9 +21,6 @@ option java_package = "com.google.devtools.build.lib.ideinfo.androidstudio";
 
 
 message ArtifactLocation {
-  // deprecated -- this is not machine agnostic and will be removed in a future release
-  string root_path = 1 [deprecated=true];
-
   string relative_path = 2;
   bool is_source = 3;
 
@@ -132,8 +129,6 @@ message RuleIdeInfo {
 
   string label = 1;
   Kind kind = 2 [deprecated=true];
-  // deprecated -- this is not machine agnostic and will be removed in a future release
-  string build_file = 3 [deprecated=true];
   repeated string dependencies = 4;
 
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT

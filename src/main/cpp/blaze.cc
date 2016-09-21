@@ -31,7 +31,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <poll.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -825,7 +824,7 @@ static int ReadServerInt(int fd, unsigned int *result) {
 static char server_output_buffer[8192];
 
 // Forwards the output of the server to the specified file handle.
-static int ForwardServerOutput(int socket, int output) {
+static int ForwardServerOutput(int socket, int output, bool* pipe_broken) {
   unsigned int remaining;
   int exit_code = ReadServerInt(socket, &remaining);
   if (exit_code != 0) {
@@ -839,7 +838,9 @@ static int ForwardServerOutput(int socket, int output) {
     }
 
     remaining -= bytes;
-    (void) write(output, server_output_buffer, bytes);
+    if (write(output, server_output_buffer, bytes) < 0 && errno == EPIPE) {
+      *pipe_broken = true;
+    }
   }
 
   return 0;
@@ -900,9 +901,11 @@ unsigned int AfUnixBlazeServer::Communicate() {
   const int TAG_STDERR = 2;
   const int TAG_CONTROL = 3;
   unsigned int exit_code;
+  bool pipe_broken = false;
   for (;;) {
     // Read the tag
     unsigned char tag;
+    bool pipe_broken_now = false;
     exit_code = ReadServerChar(server_socket_, &tag);
     if (exit_code != 0) {
       return exit_code;
@@ -911,17 +914,27 @@ unsigned int AfUnixBlazeServer::Communicate() {
     switch (tag) {
       // stdout
       case TAG_STDOUT:
-        exit_code = ForwardServerOutput(server_socket_, STDOUT_FILENO);
+        exit_code = ForwardServerOutput(server_socket_, STDOUT_FILENO,
+                                        &pipe_broken_now);
         if (exit_code != 0) {
           return exit_code;
+        }
+        if (pipe_broken_now && !pipe_broken) {
+          pipe_broken = true;
+          Cancel();
         }
         break;
 
       // stderr
       case TAG_STDERR:
-        exit_code = ForwardServerOutput(server_socket_, STDERR_FILENO);
+        exit_code = ForwardServerOutput(server_socket_, STDERR_FILENO,
+                                        &pipe_broken_now);
         if (exit_code != 0) {
           return exit_code;
+        }
+        if (pipe_broken_now && !pipe_broken) {
+          pipe_broken = true;
+          Cancel();
         }
         break;
 
@@ -983,11 +996,9 @@ static int GetServerPid(const string &server_dir) {
 
   // The server writes a file, but we need to handle old servers that still
   // write a symlink.
-  // TODO(lberki): Remove the readlink() call when there is no chance of an old
-  // server lingering around. Probably safe after 2016.06.01.
   int len;
-  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
-  string pid_symlink = blaze_util::JoinPath(server_dir, ServerPidSymlink());
+  string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
+  string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
   len = readlink(pid_symlink.c_str(), buf, sizeof(buf) - 1);
   if (len < 0) {
     int fd = open(pid_file.c_str(), O_RDONLY);
@@ -1056,7 +1067,10 @@ static void StartServerAndConnect(BlazeServer *server) {
     }
     fputc('.', stderr);
     fflush(stderr);
-    poll(NULL, 0, 1000);  // sleep 100ms.  (usleep(3) is obsolete.)
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100 * 1000 * 1000;
+    nanosleep(&ts, NULL);
     if (!server_startup->IsStillAlive()) {
       fprintf(stderr, "\nunexpected pipe read status: %s\n"
           "Server presumed dead. Now printing '%s':\n",
@@ -1080,7 +1094,10 @@ static bool WaitForServerDeath(pid_t pid, int wait_time_secs) {
       }
       pdie(blaze_exit_code::INTERNAL_ERROR, "could not be killed");
     }
-    poll(NULL, 0, 100);  // sleep 100ms.  (usleep(3) is obsolete.)
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 100 * 1000 * 1000;
+    nanosleep(&ts, NULL);
   }
   return false;
 }
@@ -1493,9 +1510,6 @@ static void handler(int signum) {
       blaze_server->Cancel();
       break;
     case SIGPIPE:
-      // Don't bother the user with a message in this case; they're
-      // probably using head(1) or more(1).
-      blaze_server->Cancel();
       globals->received_signal = SIGPIPE;
       break;
     case SIGQUIT:
@@ -2100,20 +2114,33 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
+  bool pipe_broken = false;
   while (reader->Read(&response)) {
     if (response.cookie() != response_cookie_) {
       fprintf(stderr, "\nServer response cookie invalid, exiting\n");
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
+    bool pipe_broken_now = false;
     if (response.standard_output().size() > 0) {
-      (void) write(STDOUT_FILENO, response.standard_output().c_str(),
-                   response.standard_output().size());
+      int result = write(STDOUT_FILENO, response.standard_output().c_str(),
+                         response.standard_output().size());
+      if (result < 0 && errno == EPIPE) {
+        pipe_broken_now = true;
+      }
     }
 
     if (response.standard_error().size() > 0) {
-      (void) write(STDERR_FILENO, response.standard_error().c_str(),
-                   response.standard_error().size());
+      int result = write(STDERR_FILENO, response.standard_error().c_str(),
+                         response.standard_error().size());
+      if (result < 0 && errno == EPIPE) {
+        pipe_broken_now = true;
+      }
+    }
+
+    if (pipe_broken_now && !pipe_broken) {
+      pipe_broken = true;
+      Cancel();
     }
 
     if (!command_id_set && response.command_id().size() > 0) {

@@ -51,7 +51,8 @@ public class QueryOutputUtils {
       StreamedFormatter streamedFormatter = (StreamedFormatter) formatter;
       streamedFormatter.setOptions(queryOptions, aspectResolver);
       OutputFormatterCallback.processAllTargets(
-          streamedFormatter.createStreamCallback(outputStream, queryOptions), targetsResult);
+          streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions),
+          targetsResult);
     }
   }
 }

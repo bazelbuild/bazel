@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
+import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import javax.annotation.Nullable;
 
 /**
@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
     + "These extra providers are defined in the <code>struct</code> returned by the rule "
     + "implementation function.</li>"
     + "</ul>")
-public interface TransitiveInfoCollection  {
+public interface TransitiveInfoCollection extends SkylarkIndexable {
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.

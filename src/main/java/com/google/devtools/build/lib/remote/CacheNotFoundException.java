@@ -14,20 +14,25 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
+
 /**
- * An exception to indicate the cache is not found because of an expected
- * problem.
+ * An exception to indicate cache misses.
+ * TODO(olaola): have a class of checked RemoteCacheExceptions.
  */
-final class CacheNotFoundException extends RuntimeException {
-  CacheNotFoundException() {
-    super();
+public final class CacheNotFoundException extends Exception {
+  private final ContentDigest missingDigest;
+
+  CacheNotFoundException(ContentDigest missingDigest) {
+    this.missingDigest = missingDigest;
   }
 
-  CacheNotFoundException(String message) {
-    super(message);
+  public ContentDigest getMissingDigest() {
+    return missingDigest;
   }
 
-  CacheNotFoundException(String message, Throwable cause) {
-    super(message, cause);
+  @Override
+  public String toString() {
+    return "Missing digest: " + ContentDigests.toString(missingDigest);
   }
 }

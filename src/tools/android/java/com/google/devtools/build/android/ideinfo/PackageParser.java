@@ -16,7 +16,6 @@ package com.google.devtools.build.android.ideinfo;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterC
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +44,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -72,14 +69,6 @@ public class PackageParser {
         help = "The path to the manifest file this parser writes to.")
     public Path outputManifest;
 
-    @Option(name = "sources_absolute_paths",
-        defaultValue = "null",
-        converter = PathListConverter.class,
-        category = "input",
-        help = "The absolute paths of the java source files. The expected format is a "
-            + "colon-separated list.")
-    public List<Path> sourcesAbsolutePaths;
-
     @Option(name = "sources_execution_paths",
         defaultValue = "null",
         converter = PathListConverter.class,
@@ -98,20 +87,10 @@ public class PackageParser {
     PackageParserOptions options = parseArgs(args);
     Preconditions.checkNotNull(options.outputManifest);
 
-    // temporary code to handle output from older builds
-    boolean oldFormat = options.sources == null;
-    if (oldFormat) {
-      Preconditions.checkNotNull(options.sourcesAbsolutePaths);
-      Preconditions.checkNotNull(options.sourcesExecutionPaths);
-      Preconditions.checkState(
-          options.sourcesAbsolutePaths.size() == options.sourcesExecutionPaths.size());
-      convertFromOldFormat(options);
-    }
-
     try {
       PackageParser parser = new PackageParser(PackageParserIoProvider.INSTANCE);
       Map<ArtifactLocation, String> outputMap = parser.parsePackageStrings(options.sources);
-      parser.writeManifest(outputMap, options.outputManifest, oldFormat);
+      parser.writeManifest(outputMap, options.outputManifest);
     } catch (Throwable e) {
       logger.log(Level.SEVERE, "Error parsing package strings", e);
       System.exit(1);
@@ -119,41 +98,9 @@ public class PackageParser {
     System.exit(0);
   }
 
-  @VisibleForTesting
-  @Deprecated
-  protected static void convertFromOldFormat(PackageParserOptions options) {
-    options.sources = Lists.newArrayList();
-    for (int i = 0; i < options.sourcesAbsolutePaths.size(); i++) {
-      options.sources.add(dummySourceFromOldFormat(
-          options.sourcesAbsolutePaths.get(i).toString(),
-          options.sourcesExecutionPaths.get(i).toString()));
-    }
-  }
-
-  @Deprecated
-  private static ArtifactLocation dummySourceFromOldFormat(
-      String absolutePath,
-      String executionPath) {
-    if (!absolutePath.endsWith(executionPath)) {
-      throw new IllegalArgumentException(
-          String.format("Cannot parse root path from absolute path %s and execution path %s",
-              absolutePath, executionPath));
-    }
-    String rootPath = absolutePath.substring(0, absolutePath.lastIndexOf(executionPath));
-    return ArtifactLocation.newBuilder()
-        .setRelativePath(executionPath)
-        .setRootPath(rootPath)
-        .build();
-  }
-
   @Nonnull
   private static Path getExecutionPath(@Nonnull ArtifactLocation location) {
     return Paths.get(location.getRootExecutionPathFragment(), location.getRelativePath());
-  }
-
-  @Nonnull
-  private static Path getAbsolutePath(@Nonnull ArtifactLocation location) {
-    return Paths.get(location.getRootPath(), location.getRelativePath());
   }
 
   @VisibleForTesting
@@ -186,17 +133,13 @@ public class PackageParser {
   @VisibleForTesting
   public void writeManifest(
       @Nonnull Map<ArtifactLocation, String> sourceToPackageMap,
-      Path outputFile,
-      boolean oldFormat)
+      Path outputFile)
       throws IOException {
     PackageManifest.Builder builder = PackageManifest.newBuilder();
     for (Entry<ArtifactLocation, String> entry : sourceToPackageMap.entrySet()) {
       JavaSourcePackage.Builder srcBuilder = JavaSourcePackage.newBuilder()
-          .setAbsolutePath(getAbsolutePath(entry.getKey()).toString())
-          .setPackageString(entry.getValue());
-      if (!oldFormat) {
-        srcBuilder.setArtifactLocation(entry.getKey());
-      }
+          .setPackageString(entry.getValue())
+          .setArtifactLocation(entry.getKey());
       builder.addSources(srcBuilder.build());
     }
 

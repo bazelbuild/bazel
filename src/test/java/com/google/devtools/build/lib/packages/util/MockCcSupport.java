@@ -207,6 +207,21 @@ public abstract class MockCcSupport {
           + "      flag: '-flto=thin'"
           + "    }"
           + "  }"
+          + "  flag_set {"
+          + "    action: 'lto-indexing'"
+          + "    flag_group {"
+          + "      flag: 'params_file=%{thinlto_optional_params_file}'"
+          + "      flag: 'prefix_replace=%{thinlto_prefix_replace}'"
+          + "    }"
+          + "  }"
+          + "  flag_set {"
+          + "    action: 'lto-backend'"
+          + "    flag_group {"
+          + "      flag: 'thinlto_index=%{thinlto_index}'"
+          + "      flag: 'thinlto_output_object_file=%{thinlto_output_object_file}'"
+          + "      flag: 'thinlto_input_bitcode_file=%{thinlto_input_bitcode_file}'"
+          + "    }"
+          + "  }"
           + "}";
 
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
@@ -467,7 +482,7 @@ public abstract class MockCcSupport {
     config.create(
         "tools/cpp/BUILD",
         "cc_library(name = 'stl')",
-        "filegroup(name='toolchain', srcs=['//third_party/crosstool'])");
+        "alias(name='toolchain', actual='//third_party/crosstool')");
   }
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)

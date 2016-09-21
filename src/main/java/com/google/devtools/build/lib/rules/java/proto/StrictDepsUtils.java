@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.rules.java.proto;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.packages.AttributeContainer;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -28,26 +26,13 @@ public class StrictDepsUtils {
   /**
    * Returns true iff 'ruleContext' should enforce strict-deps.
    *
-   * <ol>
-   * <li>If the rule explicitly specifies the 'strict_deps' attribute, returns its value.
-   * <li>Otherwise, if the package explicitly specifies 'default_strict_deps_java_proto_library',
-   *     returns that value.
-   * <li>Otherwise, returns the value of the --strict_deps_java_proto_library flag.
-   * </ol>
-   *
-   * Using this method requires requesting the JavaConfiguration fragment.
+   * <p>Using this method requires requesting the JavaConfiguration fragment.
    */
   public static boolean isStrictDepsJavaProtoLibrary(RuleContext ruleContext) {
-    AttributeContainer attributeContainer = ruleContext.getRule().getAttributeContainer();
-    if (attributeContainer.isAttributeValueExplicitlySpecified("strict_deps")) {
-      return (boolean) attributeContainer.getAttr("strict_deps");
+    if (ruleContext.getFragment(JavaConfiguration.class).strictDepsJavaProtos()) {
+      return true;
     }
-    TriState defaultJavaProtoLibraryStrictDeps =
-        ruleContext.getRule().getPackage().getDefaultStrictDepsJavaProtos();
-    if (defaultJavaProtoLibraryStrictDeps == TriState.AUTO) {
-      return ruleContext.getFragment(JavaConfiguration.class).strictDepsJavaProtos();
-    }
-    return defaultJavaProtoLibraryStrictDeps == TriState.YES;
+    return (boolean) ruleContext.getRule().getAttributeContainer().getAttr("strict_deps");
   }
 
   /**

@@ -45,13 +45,8 @@ using std::vector;
 
 namespace blaze {
 
-string ServerPidFile() {
-  return "server.pid.txt";
-}
-
-string ServerPidSymlink() {
-  return "server.pid";
-}
+const char kServerPidFile[] = "server.pid.txt";
+const char kServerPidSymlink[] = "server.pid";
 
 string GetUserName() {
   const char *user = getenv("USER");

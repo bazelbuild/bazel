@@ -36,6 +36,8 @@ message Dependency {
     IMPLICIT = 1;
     // Unused dependency.
     UNUSED = 2;
+    // Implicit dependency considered by the compiler but not completed.
+    INCOMPLETE = 3;
   }
 
   // Path to the artifact representing this dependency.

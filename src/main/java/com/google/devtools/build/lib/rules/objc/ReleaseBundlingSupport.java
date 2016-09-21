@@ -476,6 +476,7 @@ public final class ReleaseBundlingSupport {
                   ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
               .setMnemonic("ObjcProcessIpa")
               .setProgressMessage("Processing iOS IPA: " + ruleContext.getLabel())
+              .disableSandboxing()
               .addTransitiveInputs(inputs.build())
               .addOutput(processedIpa);
 
@@ -990,6 +991,7 @@ public final class ReleaseBundlingSupport {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
             .setMnemonic("ExtractIosTeamPrefix")
+            .disableSandboxing()
             .addInput(releaseBundling.getProvisioningProfile())
             .addOutput(teamPrefixFile)
             .build(ruleContext));
@@ -1009,6 +1011,7 @@ public final class ReleaseBundlingSupport {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
             .setMnemonic("ExtractIosEntitlements")
+            .disableSandboxing()
             .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
             .addInput(releaseBundling.getProvisioningProfile())
             .addOutput(entitlements)

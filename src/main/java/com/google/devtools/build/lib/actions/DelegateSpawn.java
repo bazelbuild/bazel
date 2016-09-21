@@ -45,6 +45,11 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
+  public boolean hasNoSandbox() {
+    return spawn.hasNoSandbox();
+  }
+
+  @Override
   public ImmutableList<Artifact> getFilesetManifests() {
     return spawn.getFilesetManifests();
   }

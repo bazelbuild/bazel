@@ -30,9 +30,11 @@ WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 # file path.
 function hash_objfile() {
   ORIGINAL_NAME="$1"
-  ORIGINAL_HASH="$(/sbin/md5 -q "${ORIGINAL_NAME}")"
+  ORIGINAL_HASH="$(/sbin/md5 -qs "${ORIGINAL_NAME}")"
   SYMLINK_NAME="${ORIGINAL_NAME%.o}_${ORIGINAL_HASH}.o"
-  ln -sf "$(basename "$ORIGINAL_NAME")" "$SYMLINK_NAME"
+  if [[ ! -e "$SYMLINK_NAME" ]]; then
+    ln -sf "$(basename "$ORIGINAL_NAME")" "$SYMLINK_NAME"
+  fi
   echo "$SYMLINK_NAME"
 }
 

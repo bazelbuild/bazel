@@ -352,14 +352,13 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "strict_deps_java_protos",
-    defaultValue = "true",
+    defaultValue = "false",
     category = "undocumented",
     help =
         "When 'strict-deps' is on, .java files that depend on classes not declared in their rule's "
             + "'deps' fail to build. In other words, it's forbidden to depend on classes obtained "
-            + "transitively. This flag controls the behavior of Java proto rules when their "
-            + "'strict_deps' attribute is unspecified, and its containing package doesn't specify "
-            + "'default_strict_deps_java_protos'."
+            + "transitively. When true, Java protos are strict regardless of their 'strict_deps' "
+            + "attribute."
   )
   public boolean strictDepsJavaProtos;
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
@@ -39,9 +38,7 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException, InterruptedException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-    Label javaToolchain = RedirectChaser.followRedirects(env, javaOptions.javaToolchain,
-        "java_toolchain");
-    return create(javaOptions, javaToolchain);
+    return create(javaOptions, javaOptions.javaToolchain);
   }
 
   @Override

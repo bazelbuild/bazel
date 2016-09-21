@@ -128,6 +128,5 @@ The layout of the *.runfiles directories is documented in more detail in the pla
 ## `bazel clean`
 
 `bazel clean` does an `rm -rf` on the `outputPath` and the `action_cache`
-directory. It also removes the workspace symlinks. The `--partial` option to
-`bazel clean` will clean a configuration-specific `outputDir`, and the
-`--expunge` option will clean the entire outputBase.
+directory. It also removes the workspace symlinks. The `--expunge` option
+will clean the entire outputBase.

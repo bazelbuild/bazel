@@ -1010,19 +1010,19 @@ public class FileSystemUtils {
    */
   public static void createHardLink(Path linkPath, Path originalPath) throws IOException {
 
-    // Regular file
-    if (originalPath.isFile()) {
+    // Directory
+    if (originalPath.isDirectory()) {
+      for (Path originalSubpath : originalPath.getDirectoryEntries()) {
+        Path linkSubpath = linkPath.getRelative(originalSubpath.relativeTo(originalPath));
+        createHardLink(linkSubpath, originalSubpath);
+      }
+      // Other types of file
+    } else {
       Path parentDir = linkPath.getParentDirectory();
       if (!parentDir.exists()) {
         FileSystemUtils.createDirectoryAndParents(parentDir);
       }
       originalPath.createHardLink(linkPath);
-      // Directory
-    } else if (originalPath.isDirectory()) {
-      for (Path originalSubpath : originalPath.getDirectoryEntries()) {
-        Path linkSubpath = linkPath.getRelative(originalSubpath.relativeTo(originalPath));
-        createHardLink(linkSubpath, originalSubpath);
-      }
     }
   }
 }

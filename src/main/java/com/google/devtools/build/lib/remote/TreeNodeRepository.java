@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
@@ -335,8 +337,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
    * Returns the precomputed digests for both data and metadata. Should only be used after
    * computeMerkleDigests has been called on one of the node ancestors.
    */
-  public ImmutableList<ContentDigest> getAllDigests(TreeNode root) {
-    ImmutableList.Builder<ContentDigest> digests = ImmutableList.builder();
+  public ImmutableCollection<ContentDigest> getAllDigests(TreeNode root) {
+    ImmutableSet.Builder<ContentDigest> digests = ImmutableSet.builder();
     for (TreeNode node : descendants(root)) {
       digests.add(Preconditions.checkNotNull(treeNodeDigestCache.get(node)));
       if (node.isLeaf()) {

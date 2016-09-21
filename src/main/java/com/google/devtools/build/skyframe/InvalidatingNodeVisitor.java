@@ -123,7 +123,10 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       ForkJoinPool forkJoinPool) {
-    this.executor = new ForkJoinQuiescingExecutor(forkJoinPool, errorClassifier);
+    this.executor = ForkJoinQuiescingExecutor.newBuilder()
+        .withOwnershipOf(forkJoinPool)
+        .setErrorClassifier(errorClassifier)
+        .build();
     this.graph = Preconditions.checkNotNull(graph);
     this.invalidationReceiver = invalidationReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);

@@ -14,3 +14,12 @@ filegroup(
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
+
+filegroup(
+    name = "bazel_toolchain_test_project_pkg",
+    testonly = 1,
+    srcs = [
+        "bazel_toolchain_test_data",
+    ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)

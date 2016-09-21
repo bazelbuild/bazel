@@ -29,9 +29,8 @@ namespace blaze {
 
 using std::string;
 
-string ServerPidFile();
-
-string ServerPidSymlink();
+extern const char kServerPidFile[];
+extern const char kServerPidSymlink[];
 
 string GetUserName();
 

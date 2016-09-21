@@ -46,6 +46,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * An item that is returned by <code>blaze info</code>.
@@ -479,6 +480,29 @@ public abstract class InfoItem {
         gcTime += gcBean.getCollectionTime();
       }
       return print(gcTime + "ms");
+    }
+  }
+
+  /** Info item for the effective current client environment. */
+  public static final class ClientEnv extends InfoItem {
+    public ClientEnv() {
+      super(
+          "client-env",
+          "The specifications that need to be added to the project-specific rc file to freeze the"
+              + " current client environment",
+          true);
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException {
+      String result = "";
+      for (Map.Entry<String, String> entry : env.getWhitelistedClientEnv().entrySet()) {
+        // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in
+        // values, we produce syntax errors if the value of the entry contains a newline character.
+        result += "common --action_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
+      }
+      return print(result);
     }
   }
 

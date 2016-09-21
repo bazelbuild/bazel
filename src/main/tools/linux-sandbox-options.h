@@ -22,6 +22,8 @@
 
 // Options parsing result.
 struct Options {
+  // Temporary root directory (-S)
+  const char *sandbox_root_dir;
   // Working directory (-W)
   const char *working_dir;
   // How long to wait before killing the child (-T)
@@ -32,12 +34,14 @@ struct Options {
   const char *stdout_path;
   // Where to redirect stderr (-L)
   const char *stderr_path;
-  // Files to make writable for the sandboxed process (-w)
+  // Files or directories to make writable for the sandboxed process (-w)
   std::vector<const char *> writable_files;
-  // Files to make inaccessible for the sandboxed process (-i)
+  // Files or directories to make inaccessible for the sandboxed process (-i)
   std::vector<const char *> inaccessible_files;
   // Directories where to mount an empty tmpfs (-e)
   std::vector<const char *> tmpfs_dirs;
+  // Files or directories to explicitly bind mount into the sandbox (-b)
+  std::vector<const char *> bind_mounts;
   // Create a new network namespace (-N)
   bool create_netns;
   // Pretend to be root inside the namespace (-R)

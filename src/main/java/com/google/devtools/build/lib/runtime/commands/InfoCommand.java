@@ -193,29 +193,31 @@ public class InfoCommand implements BlazeCommand {
 
   static Map<String, InfoItem> getHardwiredInfoItemMap(OptionsProvider commandOptions,
       String productName) {
-    List<InfoItem> hardwiredInfoItems = ImmutableList.<InfoItem>of(
-        new InfoItem.WorkspaceInfoItem(),
-        new InfoItem.InstallBaseInfoItem(),
-        new InfoItem.OutputBaseInfoItem(productName),
-        new InfoItem.ExecutionRootInfoItem(),
-        new InfoItem.OutputPathInfoItem(),
-        new InfoItem.BlazeBinInfoItem(productName),
-        new InfoItem.BlazeGenfilesInfoItem(productName),
-        new InfoItem.BlazeTestlogsInfoItem(productName),
-        new InfoItem.CommandLogInfoItem(),
-        new InfoItem.MessageLogInfoItem(),
-        new InfoItem.ReleaseInfoItem(productName),
-        new InfoItem.ServerPidInfoItem(productName),
-        new InfoItem.PackagePathInfoItem(commandOptions),
-        new InfoItem.UsedHeapSizeInfoItem(),
-        new InfoItem.UsedHeapSizeAfterGcInfoItem(),
-        new InfoItem.CommitedHeapSizeInfoItem(),
-        new InfoItem.MaxHeapSizeInfoItem(),
-        new InfoItem.GcTimeInfoItem(),
-        new InfoItem.GcCountInfoItem(),
-        new InfoItem.DefaultsPackageInfoItem(),
-        new InfoItem.BuildLanguageInfoItem(),
-        new InfoItem.DefaultPackagePathInfoItem(commandOptions));
+    List<InfoItem> hardwiredInfoItems =
+        ImmutableList.<InfoItem>of(
+            new InfoItem.WorkspaceInfoItem(),
+            new InfoItem.InstallBaseInfoItem(),
+            new InfoItem.OutputBaseInfoItem(productName),
+            new InfoItem.ExecutionRootInfoItem(),
+            new InfoItem.OutputPathInfoItem(),
+            new InfoItem.ClientEnv(),
+            new InfoItem.BlazeBinInfoItem(productName),
+            new InfoItem.BlazeGenfilesInfoItem(productName),
+            new InfoItem.BlazeTestlogsInfoItem(productName),
+            new InfoItem.CommandLogInfoItem(),
+            new InfoItem.MessageLogInfoItem(),
+            new InfoItem.ReleaseInfoItem(productName),
+            new InfoItem.ServerPidInfoItem(productName),
+            new InfoItem.PackagePathInfoItem(commandOptions),
+            new InfoItem.UsedHeapSizeInfoItem(),
+            new InfoItem.UsedHeapSizeAfterGcInfoItem(),
+            new InfoItem.CommitedHeapSizeInfoItem(),
+            new InfoItem.MaxHeapSizeInfoItem(),
+            new InfoItem.GcTimeInfoItem(),
+            new InfoItem.GcCountInfoItem(),
+            new InfoItem.DefaultsPackageInfoItem(),
+            new InfoItem.BuildLanguageInfoItem(),
+            new InfoItem.DefaultPackagePathInfoItem(commandOptions));
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

@@ -23,9 +23,9 @@ filegroup(
 #   * all file groups that said cc_toolchain might refer to,
 # including the default_grte_top setting in the CROSSTOOL
 # protobuf.
-filegroup(
+alias(
     name = "toolchain",
-    srcs = ["//external:cc_toolchain"],
+    actual = "//external:cc_toolchain",
 )
 
 # Hardcoded toolchain, legacy behaviour.
