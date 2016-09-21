@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -1739,8 +1740,13 @@ public final class CompilationSupport {
     if (objcConfiguration.moduleMapsEnabled()) {
       return intermediateArtifacts.moduleMap().getName();
     }
+
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      return ruleContext.attributes().get("clang_module_name", Type.STRING);
+    }
+
     // Otherwise, just use target name, it doesn't matter.
-    return ruleContext.getLabel().getName();
+    return ruleContext.getRule().getName();
   }
 
   /**
