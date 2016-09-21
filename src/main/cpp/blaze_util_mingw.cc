@@ -394,7 +394,7 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   CloseHandle(pipe_read);
 
   string pid_string = ToString(processInfo.dwProcessId);
-  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
+  string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   if (!WriteFile(pid_string, pid_file)) {
     // Not a lot we can do if this fails
     fprintf(stderr, "Cannot write PID file %s\n", pid_file.c_str());

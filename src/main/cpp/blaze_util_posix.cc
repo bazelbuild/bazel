@@ -153,9 +153,8 @@ void ExecuteDaemon(const string& exe,
 
   Daemonize(daemon_output);
   string pid_string = ToString(getpid());
-  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
-  string pid_symlink_file =
-      blaze_util::JoinPath(server_dir, ServerPidSymlink());
+  string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
+  string pid_symlink_file = blaze_util::JoinPath(server_dir, kServerPidSymlink);
 
   if (!WriteFile(pid_string, pid_file)) {
     // The exit code does not matter because we are already in the daemonized
