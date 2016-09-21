@@ -219,7 +219,7 @@ public abstract class TestStrategy implements TestActionContext {
       args.addAll(execSettings.getRunUnder().getOptions());
       args.addAll(execArgs);
     } else {
-      args.add(testAction.getConfiguration().getShExecutable().getPathString());
+      args.add(testAction.getConfiguration().getShellExecutable().getPathString());
       args.add("-c");
 
       String runUnderCommand = ShellEscaper.escapeString(execSettings.getRunUnder().getCommand());

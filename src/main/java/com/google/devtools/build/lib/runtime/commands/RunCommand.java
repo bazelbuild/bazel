@@ -275,11 +275,11 @@ public class RunCommand implements BlazeCommand  {
           runUnderValue += " " + ShellEscaper.escapeJoinAll(opts);
         }
       }
-      cmdLine.add(configuration.getShExecutable().getPathString());
+      cmdLine.add(configuration.getShellExecutable().getPathString());
       cmdLine.add("-c");
       cmdLine.add(runUnderValue + " " + executablePath.getPathString() + " " +
           ShellEscaper.escapeJoinAll(args));
-      prettyCmdLine.add(configuration.getShExecutable().getPathString());
+      prettyCmdLine.add(configuration.getShellExecutable().getPathString());
       prettyCmdLine.add("-c");
       prettyCmdLine.add(runUnderValue + " " + prettyExecutablePath.getPathString() + " " +
           ShellEscaper.escapeJoinAll(args));

@@ -411,7 +411,7 @@ public final class LinkCommandLine extends CommandLine {
 
       case DYNAMIC_LIBRARY:
         if (interfaceOutput != null) {
-          argv.add(configuration.getShExecutable().getPathString());
+          argv.add(configuration.getShellExecutable().getPathString());
           argv.add("-c");
           argv.add(
               "build_iface_so=\"$0\"; impl=\"$1\"; iface=\"$2\"; cmd=\"$3\"; shift 3; "

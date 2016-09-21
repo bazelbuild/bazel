@@ -198,11 +198,13 @@ public final class BuildConfiguration {
     }
 
     /**
-     * Add mappings from generally available tool names (like "sh") to their paths
-     * that actions can access.
+     * Returns the shell to be used.
+     *
+     * <p>Each configuration instance must have at most one fragment that returns non-null.
      */
     @SuppressWarnings("unused")
-    public void defineExecutables(ImmutableMap.Builder<String, PathFragment> builder) {
+    public PathFragment getShellExecutable() {
+      return null;
     }
 
     /**
@@ -1065,7 +1067,7 @@ public final class BuildConfiguration {
   private final boolean actionsEnabled;
 
   // TODO(bazel-team): Move this to a configuration fragment.
-  private final PathFragment shExecutable;
+  private final PathFragment shellExecutable;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
@@ -1285,7 +1287,7 @@ public final class BuildConfiguration {
         ? options.outputDirectoryName : mnemonic;
     this.platformName = buildPlatformName();
 
-    this.shExecutable = collectExecutables().get("sh");
+    this.shellExecutable = computeShellExecutable();
 
     this.outputRoots = outputRoots != null
         ? outputRoots
@@ -2066,8 +2068,8 @@ public final class BuildConfiguration {
   /**
    * Returns the path to sh.
    */
-  public PathFragment getShExecutable() {
-    return shExecutable;
+  public PathFragment getShellExecutable() {
+    return shellExecutable;
   }
 
   /**
@@ -2366,12 +2368,17 @@ public final class BuildConfiguration {
   /**
    * Collects executables defined by fragments.
    */
-  private ImmutableMap<String, PathFragment> collectExecutables() {
-    ImmutableMap.Builder<String, PathFragment> builder = new ImmutableMap.Builder<>();
+  private PathFragment computeShellExecutable() {
+    PathFragment result = null;
+
     for (Fragment fragment : fragments.values()) {
-      fragment.defineExecutables(builder);
+      if (fragment.getShellExecutable() != null) {
+        Verify.verify(result == null);
+        result = fragment.getShellExecutable();
+      }
     }
-    return builder.build();
+
+    return result;
   }
 
   /**

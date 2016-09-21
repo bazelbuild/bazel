@@ -549,7 +549,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   public PathFragment getShExecutable() {
-    return configuration.getShExecutable();
+    return configuration.getShellExecutable();
   }
 
   public ImmutableMap<String, String> getLocalShellEnvironment() {
