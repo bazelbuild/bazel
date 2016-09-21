@@ -542,15 +542,6 @@ public final class BuildConfiguration {
             + "Otherwise, test rules are always excluded from coverage instrumentation.")
     public boolean instrumentTestTargets;
 
-    @Option(name = "show_cached_analysis_results",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Bazel reruns a static analysis only if it detects changes in the analysis "
-            + "or its dependencies. If this option is enabled, Bazel will show the analysis' "
-            + "results, even if it did not rerun the analysis.  If this option is disabled, "
-            + "Bazel will show analysis results only if it reran the analysis.")
-    public boolean showCachedAnalysisResults;
-
     @Option(name = "host_cpu",
         defaultValue = "",
         category = "semantics",
@@ -2087,14 +2078,6 @@ public final class BuildConfiguration {
    */
   public boolean shouldInstrumentTestTargets() {
     return options.instrumentTestTargets;
-  }
-
-  /**
-   * Returns true if bazel should show analyses results, even if it did not
-   * re-run the analysis.
-   */
-  public boolean showCachedAnalysisResults() {
-    return options.showCachedAnalysisResults;
   }
 
   /**
