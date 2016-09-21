@@ -968,6 +968,21 @@ public final class CompilationSupport {
       commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
     }
 
+    Set<String> seenSwiftModulePaths = new HashSet<>();
+    // For any dependency we have we need to make sure we are visible
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+      String path = swiftModule.getExecPath().getParentDirectory().getPathString();
+
+      if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
+        moduleFiles.add(swiftModule);
+
+        if (!seenSwiftModulePaths.contains(path)) {
+          seenSwiftModulePaths.add(path);
+          commandLine.add("-I").add(path);
+        }
+      }
+    }
+
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
