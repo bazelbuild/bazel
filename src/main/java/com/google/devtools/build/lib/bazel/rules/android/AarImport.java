@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider;
+import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.ApplicationManifest;
 import com.google.devtools.build.lib.rules.android.LocalResourceContainer;
 import com.google.devtools.build.lib.rules.android.ResourceApk;
@@ -75,8 +75,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(createTreePopulater(ruleContext, aar, resourcesManifest, resources));
 
     ApplicationManifest androidManifest =
-        ApplicationManifest.fromExplicitManifest(ruleContext, androidManifestArtifact)
-            .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
+        ApplicationManifest.fromExplicitManifest(ruleContext, androidManifestArtifact);
 
     FileProvider resourcesProvider = new FileProvider(
         new NestedSetBuilder<Artifact>(Order.NAIVE_LINK_ORDER).add(resources).build());
@@ -86,7 +85,11 @@ public class AarImport implements RuleConfiguredTargetFactory {
         new LocalResourceContainer.Builder(ruleContext)
             .withResources(ImmutableList.of(resourcesProvider))
             .build(),
-        ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)));
+        ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP));
 
     return ruleBuilder
         .setFilesToBuild(
