@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -80,8 +82,12 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     // is actually a symlink into the source tree.
     PathFragment includeDirectory = new PathFragment("_")
         .getRelative(ruleContext.getTarget().getName());
-    PathFragment includePath = ruleContext.getConfiguration()
-        .getIncludeDirectory(ruleContext.getRule().getRepository()).getExecPath()
+    Root configIncludeDirectory = ruleContext.getConfiguration().getIncludeDirectory(ruleContext.getRule().getRepository());
+    PathFragment includePath = configIncludeDirectory.getExecPath()
+        .getRelative(packageFragment)
+        .getRelative(includeDirectory);
+    // Path includeRoot = configIncludeDirectory.getPath().getRelative(configIncludeDirectory.getExecRoot())
+    Path includeRoot = configIncludeDirectory.getPath()
         .getRelative(packageFragment)
         .getRelative(includeDirectory);
 
@@ -112,13 +118,12 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
 
       // These virtual artifacts have the symlink action as generating action.
       Artifact virtualArtifact = ruleContext.getPackageRelativeArtifact(
-          virtualPath, ruleContext.getConfiguration()
-              .getIncludeDirectory(ruleContext.getRule().getRepository()));
+          virtualPath, configIncludeDirectory);
       virtualArtifactMapBuilder.put(virtualArtifact, src);
     }
     ImmutableSortedMap<Artifact, Artifact> virtualArtifactMap = virtualArtifactMapBuilder.build();
     ruleContext.registerAction(
-        new CreateIncSymlinkAction(ruleContext.getActionOwner(), virtualArtifactMap));
+        new CreateIncSymlinkAction(ruleContext.getActionOwner(), virtualArtifactMap, includeRoot));
 
     CcLibraryHelper.Info info =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)

@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.SortedMap;
 
 /**
@@ -39,23 +41,33 @@ import java.util.SortedMap;
 @Immutable
 public final class CreateIncSymlinkAction extends AbstractAction {
   private final ImmutableSortedMap<Artifact, Artifact> symlinks;
+  private final Path includePath;
 
   /**
    * Creates a new instance. The symlinks map maps symlinks to their targets, i.e. the symlink paths
    * must be unique, but several of them can point to the same target.
    */
-  public CreateIncSymlinkAction(ActionOwner owner, Map<Artifact, Artifact> symlinks) {
+  public CreateIncSymlinkAction(ActionOwner owner, Map<Artifact, Artifact> symlinks, Path includePath) {
     super(owner, ImmutableList.copyOf(symlinks.values()), ImmutableList.copyOf(symlinks.keySet()));
     this.symlinks = ImmutableSortedMap.copyOf(symlinks, Artifact.EXEC_PATH_COMPARATOR);
+    this.includePath = includePath;
   }
 
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
   throws ActionExecutionException {
     try {
+      HashSet<Path> orphanFiles = new HashSet<Path>();
+      if (includePath.exists()) {
+        FileSystemUtils.traverseTree(orphanFiles, includePath, p -> p.isFile() || p.isSymbolicLink());
+      }
       for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
         Path symlink = entry.getKey().getPath();
         symlink.createSymbolicLink(entry.getValue().getPath());
+        orphanFiles.remove(symlink);
+      }
+      for (Path orphanFile : orphanFiles) {
+        orphanFile.delete();
       }
     } catch (IOException e) {
       String message = "IO Error while creating symlink";
