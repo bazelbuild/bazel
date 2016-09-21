@@ -69,11 +69,11 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
                 .aspect(javaProtoAspect, ASPECT_PARAMETERS))
-        /* <!-- #BLAZE_RULE(java_lite_proto_library).ATTRIBUTE(deps) -->
+        /* <!-- #BLAZE_RULE(java_lite_proto_library).ATTRIBUTE(strict_deps) -->
         When True, this rule only exposes the protos that it wraps directly. Depending on indirect
         protos will break the build and print an 'add_dep' command to correct the build.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("strict_deps", BOOLEAN))
+        .add(attr("strict_deps", BOOLEAN).value(true))
         .add(
             attr(LITE_PROTO_RUNTIME_ATTR, LABEL)
                 .legacyAllowAnyFileType()

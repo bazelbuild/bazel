@@ -35,41 +35,9 @@ public class StrictDepsUtilsTest extends BuildViewTestCase {
         "java_proto_library(name = 'b', strict_deps = 0)",
         "java_proto_library(name = 'c', strict_deps = 1)");
 
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:a"))).isFalse();
+    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:a"))).isTrue();
     assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:b"))).isFalse();
     assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:c"))).isTrue();
-  }
-
-  @Test
-  public void isStrictDepsJavaProtoLibrary_flagIsFalse_packageLevelIs0() throws Exception {
-    useConfiguration("--strict_deps_java_protos=false");
-
-    scratch.file(
-        "y/BUILD",
-        "package(default_strict_deps_java_protos = 0)",
-        "java_proto_library(name = 'a')",
-        "java_proto_library(name = 'b', strict_deps = 0)",
-        "java_proto_library(name = 'c', strict_deps = 1)");
-
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//y:a"))).isFalse();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//y:b"))).isFalse();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//y:c"))).isTrue();
-  }
-
-  @Test
-  public void isStrictDepsJavaProtoLibrary_flagIsFalse_packageLevelIs1() throws Exception {
-    useConfiguration("--strict_deps_java_protos=false");
-
-    scratch.file(
-        "z/BUILD",
-        "package(default_strict_deps_java_protos = 1)",
-        "java_proto_library(name = 'a')",
-        "java_proto_library(name = 'b', strict_deps = 0)",
-        "java_proto_library(name = 'c', strict_deps = 1)");
-
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//z:a"))).isTrue();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//z:b"))).isFalse();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//z:c"))).isTrue();
   }
 
   @Test
@@ -83,40 +51,8 @@ public class StrictDepsUtilsTest extends BuildViewTestCase {
         "java_proto_library(name = 'c', strict_deps = 1)");
 
     assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:a"))).isTrue();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:b"))).isFalse();
+    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:b"))).isTrue();
     assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//x:c"))).isTrue();
-  }
-
-  @Test
-  public void isStrictDepsJavaProtoLibrary_flagIsTrue_packageLevelIs0() throws Exception {
-    useConfiguration("--strict_deps_java_protos=true");
-
-    scratch.file(
-        "y/BUILD",
-        "package(default_strict_deps_java_protos = 0)",
-        "java_proto_library(name = 'a')",
-        "java_proto_library(name = 'b', strict_deps = 0)",
-        "java_proto_library(name = 'c', strict_deps = 1)");
-
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//y:a"))).isFalse();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//y:b"))).isFalse();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//y:c"))).isTrue();
-  }
-
-  @Test
-  public void isStrictDepsJavaProtoLibrary_flagIsTrue_packageLevelIs1() throws Exception {
-    useConfiguration("--strict_deps_java_protos=true");
-
-    scratch.file(
-        "z/BUILD",
-        "package(default_strict_deps_java_protos = 1)",
-        "java_proto_library(name = 'a')",
-        "java_proto_library(name = 'b', strict_deps = 0)",
-        "java_proto_library(name = 'c', strict_deps = 1)");
-
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//z:a"))).isTrue();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//z:b"))).isFalse();
-    assertThat(StrictDepsUtils.isStrictDepsJavaProtoLibrary(getRuleContext("//z:c"))).isTrue();
   }
 
   private RuleContext getRuleContext(String label) throws Exception {
