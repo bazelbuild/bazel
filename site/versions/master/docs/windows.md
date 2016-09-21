@@ -36,18 +36,6 @@ export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
 *     If all works fine, bazel will be built at ``output\bazel.exe``.
 
 
-Installing Bazel on Windows
-===========================
-
-You can install the unofficial package using the [chocolatey](https://chocolatey.org) package manager:
-
-```shell
-choco install bazel
-```
-
-This will install the latest available version of bazel, and dependencies.
-
-
 Using Bazel on Windows
 ======================
 
