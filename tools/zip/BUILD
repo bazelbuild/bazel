@@ -21,3 +21,10 @@ sh_binary(
     name = "zip_manifest_creator",
     srcs = ["zip_manifest_creator.sh"],
 )
+
+sh_test(
+    name = "zip_manifest_creator_test",
+    size = "small",
+    srcs = ["zip_manifest_creator_test.sh"],
+    data = [":zip_manifest_creator"],
+)
