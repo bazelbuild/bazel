@@ -279,6 +279,18 @@ sh_test(
     data = [":test-deps"],
 )
 
+# To run this test, ensure that the maven_dependency_plugin() in WORKSPACE is uncommented as well.
+sh_test(
+    name = "maven_skylark_test",
+    size = "medium",
+    srcs = ["maven_skylark_test.sh"],
+    data = [
+        ":test-deps",
+        "@m2//:files",
+    ],
+    tags = ["manual"],
+)
+
 sh_test(
     name = "generate_workspace_test",
     size = "large",

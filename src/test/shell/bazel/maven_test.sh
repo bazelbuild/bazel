@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,14 +87,8 @@ EOF
 
 function test_maven_jar_404() {
   setup_zoo
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 404 Not Found
+  serve_not_found
 
-EOF
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
-  nc_l $nc_port < $http_response &
-  nc_pid=$!
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
@@ -112,21 +106,20 @@ EOF
 
 function test_maven_jar_mismatched_sha1() {
   setup_zoo
-  serve_jar
+  serve_artifact com.example.carnivore carnivore 1.23
 
   wrong_sha1="0123456789012345678901234567890123456789"
   cat > WORKSPACE <<EOF
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$nc_port/',
+    repository = 'http://localhost:$fileserver_port/',
     sha1 = '$wrong_sha1',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
 
   bazel fetch //zoo:ball-pit >& $TEST_log && echo "Expected fetch to fail"
-  kill_nc
   expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($wrong_sha1)"
 }
 

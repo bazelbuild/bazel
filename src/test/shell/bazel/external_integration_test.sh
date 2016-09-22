@@ -349,15 +349,7 @@ EOF
 }
 
 function test_http_404() {
-  http_response=$TEST_TMPDIR/http_response
-  cat > $http_response <<EOF
-HTTP/1.0 404 Not Found
-
-Help, I'm lost!
-EOF
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
-  nc_l $nc_port < $http_response &
-  nc_pid=$!
+  serve_not_found "Help, I'm lost!"
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
