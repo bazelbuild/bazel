@@ -65,7 +65,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
                 .aspect(javaProtoAspect, ASPECT_PARAMETERS))
-        .add(attr("strict_deps", BOOLEAN).undocumented("for migration"))
+        .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .build();
   }
 

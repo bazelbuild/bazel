@@ -139,9 +139,6 @@ public class Package {
    */
   private String defaultHdrsCheck;
 
-  /** See getter. */
-  private TriState defaultStrictDepsJavaProtos = TriState.AUTO;
-
   /** Default copts for cc_* rules. The rules' individual copts will append to this value. */
   private ImmutableList<String> defaultCopts;
 
@@ -587,15 +584,6 @@ public class Package {
     return defaultDeprecation;
   }
 
-  /**
-   * Default for 'strict_deps' of Java proto rules, when they aren't explicitly specified.
-   *
-   * <p>A value of AUTO is returned when the package didn't itself explicitly specify this value.
-   */
-  public TriState getDefaultStrictDepsJavaProtos() {
-    return defaultStrictDepsJavaProtos;
-  }
-
   /** Gets the default header checking mode. */
   public String getDefaultHdrsCheck() {
     return defaultHdrsCheck != null ? defaultHdrsCheck : "strict";
@@ -909,11 +897,6 @@ public class Package {
       // other code needs the ability to read this info directly from the
       // under-construction package. See {@link Package#setDefaultHdrsCheck}.
       pkg.setDefaultHdrsCheck(hdrsCheck);
-      return this;
-    }
-
-    public Builder setDefaultStrictDepsJavaProtos(TriState value) {
-      pkg.defaultStrictDepsJavaProtos = value;
       return this;
     }
 

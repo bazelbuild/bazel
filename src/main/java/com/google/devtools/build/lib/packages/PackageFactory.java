@@ -262,24 +262,6 @@ public final class PackageFactory {
     }
   }
 
-  /**
-   * Declares the package() attribute specifying the default value for
-   * java_proto_library.strict_deps.
-   *
-   * <p>This attribute should be considered as undocumented/experimental, and is subject to change
-   * at any time without prior notice.
-   */
-  private static class DefaultStrictDepsJavaProtos extends PackageArgument<Boolean> {
-    private DefaultStrictDepsJavaProtos() {
-      super("default_strict_deps_java_protos", Type.BOOLEAN);
-    }
-
-    @Override
-    protected void process(Package.Builder pkgBuilder, Location location, Boolean value) {
-      pkgBuilder.setDefaultStrictDepsJavaProtos(value ? TriState.YES : TriState.NO);
-    }
-  }
-
   public static final String PKG_CONTEXT = "$pkg_context";
 
   // Used outside of Bazel!
@@ -481,7 +463,6 @@ public final class PackageFactory {
     ImmutableList.Builder<PackageArgument<?>> arguments =
         ImmutableList.<PackageArgument<?>>builder()
             .add(new DefaultDeprecation())
-            .add(new DefaultStrictDepsJavaProtos())
             .add(new DefaultDistribs())
             .add(new DefaultLicenses())
             .add(new DefaultTestOnly())
