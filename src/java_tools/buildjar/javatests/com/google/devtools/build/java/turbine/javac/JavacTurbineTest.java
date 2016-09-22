@@ -1263,4 +1263,39 @@ public class JavacTurbineTest {
     };
     assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
+
+  @Test
+  public void bridge() throws Exception {
+    addSourceLines(
+        "Bridge.java",
+        "import java.util.concurrent.Callable;",
+        "class Bridge implements Callable<String> {",
+        "  public String call() { return \"\"; }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Bridge.class");
+
+    String text = textify(outputs.get("Bridge.class"));
+    String[] expected = {
+      "// class version 52.0 (52)",
+      "// access flags 0x20",
+      "// signature Ljava/lang/Object;Ljava/util/concurrent/Callable<Ljava/lang/String;>;",
+      "// declaration: Bridge implements java.util.concurrent.Callable<java.lang.String>",
+      "class Bridge implements java/util/concurrent/Callable  {",
+      "",
+      "",
+      "  // access flags 0x0",
+      "  <init>()V",
+      "",
+      "  // access flags 0x1",
+      "  public call()Ljava/lang/String;",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
 }
