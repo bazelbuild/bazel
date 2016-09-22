@@ -417,7 +417,7 @@ public class BuildTypeTest {
 
   private static ImmutableList<Label> collectLabels(Type<?> type, Object value)
       throws InterruptedException {
-    ImmutableList.Builder<Label> result = ImmutableList.builder();
+    final ImmutableList.Builder<Label> result = ImmutableList.builder();
     type.visitLabels(new Type.LabelVisitor() {
       @SuppressWarnings("unchecked")
       @Override
