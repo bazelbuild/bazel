@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.util.FileType;
  */
 public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String OPTIONS_FILE_ATTR = "options_file";
-  static final String OUTPUT_CPP_ATTR = "output_cpp";
   static final String USE_OBJC_HEADER_NAMES_ATTR = "use_objc_header_names";
   static final String PER_PROTO_INCLUDES_ATTR = "per_proto_includes";
   static final String PORTABLE_PROTO_FILTERS_ATTR = "portable_proto_filters";
@@ -82,10 +80,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         whitelist/blacklist settings).
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OPTIONS_FILE_ATTR, LABEL).legacyAllowAnyFileType().singleArtifact().cfg(HOST))
-        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(output_cpp)[DEPRECATED] -->
-        If true, output C++ rather than ObjC.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(use_objc_header_names) -->
         If true, output headers with .pbobjc.h, rather than .pb.h.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -135,15 +129,13 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
             attr(PROTO_LIB_ATTR, LABEL)
                 .allowedRuleClasses("objc_library")
                 .value(
-                    new ComputedDefault(PORTABLE_PROTO_FILTERS_ATTR, OUTPUT_CPP_ATTR) {
+                    new ComputedDefault(PORTABLE_PROTO_FILTERS_ATTR) {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         if (rule.isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR)) {
                           return env.getLabel("//external:objc_protobuf_lib");
                         } else {
-                          return rule.get(OUTPUT_CPP_ATTR, Type.BOOLEAN)
-                              ? env.getLabel("//external:objc_proto_cpp_lib")
-                              : env.getLabel("//external:objc_proto_lib");
+                          return env.getLabel("//external:objc_proto_lib");
                         }
                       }
                     }))
