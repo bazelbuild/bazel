@@ -85,6 +85,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "devicetypes' on the machine the simulator will be run on.")
   public String tvosSimulatorDevice;
 
+
   @Option(name = "objc_generate_linkmap",
       defaultValue = "false",
       category = "flags",
@@ -131,6 +132,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Minimum compatible tvOS version for target simulators and devices."
   )
   public DottedVersion tvosMinimumOs;
+
+  @Option(
+      name = "macosx_minimum_os",
+      defaultValue = DEFAULT_MINIMUM_MACOSX,
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible macOS version for target."
+  )
+  public DottedVersion macosxMinimumOs;
 
   @Option(name = "ios_memleaks",
       defaultValue =  "false",
@@ -259,6 +269,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_MINIMUM_WATCHOS = "2.0";
   @VisibleForTesting static final String DEFAULT_MINIMUM_TVOS = "9.0";
+  @VisibleForTesting static final String DEFAULT_MINIMUM_MACOSX = "10.11";
 
   @SuppressWarnings("unchecked")
   @Override

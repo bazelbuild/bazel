@@ -525,6 +525,7 @@ public final class ObjcCommon {
 
         boolean usesCpp = false;
         boolean usesSwift = false;
+
         for (Artifact sourceFile :
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
           usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
@@ -538,6 +539,8 @@ public final class ObjcCommon {
         if (usesSwift) {
           objcProvider.add(FLAG, USES_SWIFT);
           objcProvider.add(SWIFT_MODULE, intermediateArtifacts.swiftModule());
+          objcProvider.add(LINKOPT, "-Xlinker");
+          objcProvider.add(LINKOPT, "-force_load_swift_libs");
         }
       }
 

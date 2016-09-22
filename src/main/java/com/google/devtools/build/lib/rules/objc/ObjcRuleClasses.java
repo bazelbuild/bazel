@@ -133,8 +133,12 @@ public class ObjcRuleClasses {
   }
 
   @VisibleForTesting
-  static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
+  static final Iterable<SdkFramework> AUTOMATIC_IOS_SDK_FRAMEWORKS = ImmutableList.of(
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
+
+  @VisibleForTesting
+  static final Iterable<SdkFramework> AUTOMATIC_MACOSX_SDK_FRAMEWORKS = ImmutableList.of(
+      new SdkFramework("Foundation"));
 
   /**
    * Label of a filegroup that contains all crosstool and grte files for all configurations,

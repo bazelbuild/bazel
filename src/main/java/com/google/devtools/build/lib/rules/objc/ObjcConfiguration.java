@@ -62,6 +62,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion tvosMinimumOs;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
+  private final DottedVersion macosxMinimumOs;
   private final boolean generateDsym;
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
@@ -99,6 +100,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
     this.tvosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.tvosSimulatorVersion, "tvosSimulatorVersion");
+    this.macosxMinimumOs = Preconditions.checkNotNull(objcOptions.macosxMinimumOs, "macosxMinimumOs");
     this.generateDsym = objcOptions.appleGenerateDsym;
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
@@ -160,6 +162,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         return tvosMinimumOs;
       case WATCHOS:
         return watchosMinimumOs;
+      case MACOSX:
+        return macosxMinimumOs;
       default:
         throw new IllegalArgumentException("Unhandled platform: " + platformType);
     }

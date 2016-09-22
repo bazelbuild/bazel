@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
@@ -276,10 +278,25 @@ final class CompilationAttributes {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
         NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
         // TODO(bazel-team): Move the inclusion of the default frameworks to CompilationSupport.
-        frameworks.addAll(ObjcRuleClasses.AUTOMATIC_SDK_FRAMEWORKS);
+        AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+        Platform platform = appleConfiguration.getSingleArchPlatform();
+
+        switch (platform) {
+          case IOS_DEVICE:
+          case IOS_SIMULATOR:
+            frameworks.addAll(ObjcRuleClasses.AUTOMATIC_IOS_SDK_FRAMEWORKS);
+            break;
+          case MACOS_X:
+            frameworks.addAll(ObjcRuleClasses.AUTOMATIC_MACOSX_SDK_FRAMEWORKS);
+            break;
+            default:
+              break;
+        }
+
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(new SdkFramework(explicit));
         }
+
         builder.addSdkFrameworks(frameworks.build());
       }
 

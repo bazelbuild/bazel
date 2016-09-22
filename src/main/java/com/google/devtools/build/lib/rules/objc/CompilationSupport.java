@@ -1413,6 +1413,14 @@ public final class CompilationSupport {
       commandLine.add("-filelist").add(inputFileList.getExecPathString());
     }
 
+    // For any dependency we have we need to make sure we are visible
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+      commandLine.add("-Xlinker")
+          .add("-add_ast_path")
+          .add("-Xlinker")
+          .add(swiftModule.getExecPath().getPathString());
+    }
+
     commandLine
         .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add("-Xlinker")
@@ -1450,9 +1458,13 @@ public final class CompilationSupport {
     }
 
     if (objcProvider.is(USES_SWIFT)) {
+      // TODO: Add option in objc_binary or determine based on type of target
+      //boolean useStaticSwiftLibs = objcConfiguration.shouldPrioritizeStaticLibs();
+
       commandLine
           .add("-L")
-          .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform()));
+          .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform(),
+              false));
     }
 
     for (String linkopt : attributes.linkopts()) {
@@ -1790,7 +1802,9 @@ public final class CompilationSupport {
   static String swiftTarget(AppleConfiguration configuration) {
     // TODO(bazel-team): Assert the configuration is for an apple platform, or support
     // other platform types.
-    return configuration.getSingleArchitecture() + "-apple-ios" + configuration.getIosSdkVersion();
+    Platform platform = configuration.getSingleArchPlatform();
+    return configuration.getSingleArchitecture() + "-apple-" + platform.getType().toString() + configuration.getSdkVersionForPlatform(
+        platform);
   }
 
   /**
@@ -1824,6 +1838,10 @@ public final class CompilationSupport {
         break;
       case TVOS_SIMULATOR:
         builder.add("-mtvos-simulator-version-min="
+            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+        break;
+      case MACOS_X:
+        builder.add("-mmacosx-version-min="
             + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case TVOS_DEVICE:
@@ -1889,6 +1907,8 @@ public final class CompilationSupport {
   private static List<String> platformSpecificCompileFlagsForClang(
       AppleConfiguration configuration) {
     switch (configuration.getSingleArchPlatform()) {
+      case MACOS_X:
+        return ImmutableList.of();
       case IOS_DEVICE:
       case WATCHOS_DEVICE:
       case TVOS_DEVICE:

@@ -14,10 +14,6 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
@@ -36,6 +32,10 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
+
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 /**
  * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
@@ -125,7 +125,7 @@ public class AppleToolchain {
         }
         break;
       case MACOS_X:
-        relativePath = DEVELOPER_FRAMEWORK_PATH;
+        relativePath = SYSTEM_FRAMEWORK_PATH;
         break;
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
@@ -140,9 +140,9 @@ public class AppleToolchain {
   }
 
   /** Returns swift libraries path. */
-  public static String swiftLibDir(Platform platform) {
+  public static String swiftLibDir(Platform platform, boolean useStatic) {
     return DEVELOPER_DIR
-        + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/"
+        + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift" + (useStatic ? "_static" : "") + "/"
         + platform.getLowerCaseNameInPlist();
   }
 
