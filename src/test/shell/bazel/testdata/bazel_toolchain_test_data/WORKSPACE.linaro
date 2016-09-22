@@ -1,0 +1,6 @@
+new_http_archive(
+  name = 'linaroLinuxGcc49Repo',
+  build_file = 'compilers/linaro_linux_gcc_4.9.BUILD',
+  url = 'https://releases.linaro.org/15.05/components/toolchain/binaries/arm-linux-gnueabihf/gcc-linaro-4.9-2015.05-x86_64_arm-linux-gnueabihf.tar.xz',
+  strip_prefix = 'gcc-linaro-4.9-2015.05-x86_64_arm-linux-gnueabihf',
+)
