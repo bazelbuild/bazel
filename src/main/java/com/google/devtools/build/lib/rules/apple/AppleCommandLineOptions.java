@@ -107,6 +107,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
    */
   public static final String DEFAULT_TVOS_CPU = "x86_64";
 
+  /**
+   * The default macOS CPU value.
+   */
+  public static final String DEFAULT_MACOS_CPU = "x86_64";
+
   @Option(name = "ios_cpu",
       defaultValue = DEFAULT_IOS_CPU,
       category = "build",
@@ -163,6 +168,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
       category = "flags",
       help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
   public List<String> tvosCpus;
+
+  @Option(name = "macos_cpus",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = DEFAULT_MACOS_CPU,
+      category = "flags",
+      help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
+  public List<String> macosCpus;
 
   @Option(name = "default_ios_provisioning_profile",
       defaultValue = "",

@@ -844,9 +844,15 @@ public final class CompilationSupport {
       commandLine.add("-g");
     }
 
+
     commandLine
-      .add("-module-name").add(getModuleName())
-      .add("-parse-as-library");
+      .add("-module-name").add(getModuleName());
+
+    // Hack, but not better way to do this.
+
+    if (!sourceFile.getFilename().equals("main.swift")) {
+      commandLine.add("-parse-as-library");
+    }
     addSource("-primary-file", commandLine, sourceFile)
       .addExecPaths(otherSwiftSources)
       .addExecPath("-o", objFile)

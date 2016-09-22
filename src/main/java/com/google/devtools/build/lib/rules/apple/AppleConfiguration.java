@@ -82,6 +82,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
+  private final ImmutableList<String> macosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
@@ -115,6 +116,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.tvosCpus = (appleOptions.tvosCpus == null || appleOptions.tvosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
         : ImmutableList.copyOf(appleOptions.tvosCpus);
+    this.macosCpus = (appleOptions.macosCpus == null || appleOptions.macosCpus.isEmpty())
+        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
+        : ImmutableList.copyOf(appleOptions.macosCpus);
     this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
@@ -290,7 +294,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return watchosCpus.get(0);
       case TVOS:
         return tvosCpus.get(0);
-      // TODO(cparsons): Handle all platform types.
+      case MACOSX:
+        return macosCpus.get(0);
       default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
@@ -334,6 +339,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return watchosCpus;
       case TVOS:
         return tvosCpus;
+      case MACOSX:
+        return macosCpus;
       default:
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
