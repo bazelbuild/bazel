@@ -426,11 +426,16 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
   
   /**
-   * Returns the bitcode mode to use for compilation steps. Users can control bitcode
-   * mode using the {@code apple_bitcode} build flag.
-   * 
+   * Returns the bitcode mode to use for compilation steps. Users can control bitcode mode using the
+   * {@code apple_bitcode} build flag.
+   *
    * @see AppleBitcodeMode
    */
+  @SkylarkCallable(
+    name = "bitcode_mode",
+    doc = "Returns the bitcode mode to use for compilation steps.",
+    structField = true
+  )
   public AppleBitcodeMode getBitcodeMode() {
     return bitcodeMode;
   }

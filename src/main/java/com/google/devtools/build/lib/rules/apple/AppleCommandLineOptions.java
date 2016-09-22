@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -215,12 +217,19 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /**
    * Represents the Apple Bitcode mode for compilation steps.
    *
-   * <p>Bitcode is an intermediate representation of a compiled program. For many platforms,
-   * Apple requires app submissions to contain bitcode in order to be uploaded to the app store.
+   * <p>Bitcode is an intermediate representation of a compiled program. For many platforms, Apple
+   * requires app submissions to contain bitcode in order to be uploaded to the app store.
    *
-   * <p>This is a build-wide value, as bitcode mode needs to be consistent among a target and
-   * its compiled dependencies.
+   * <p>This is a build-wide value, as bitcode mode needs to be consistent among a target and its
+   * compiled dependencies.
    */
+  @SkylarkModule(
+    name = "apple_bitcode_mode",
+    category = SkylarkModuleCategory.NONE,
+    doc =
+        "Apple Bitcode mode for compilation steps. Possible values are \"none\", "
+            + "\"embedded\", and \"embedded_markers\""
+  )
   public enum AppleBitcodeMode {
 
     /** Do not compile bitcode. */
