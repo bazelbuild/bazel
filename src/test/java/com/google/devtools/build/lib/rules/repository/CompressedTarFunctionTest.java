@@ -49,13 +49,27 @@ public class CompressedTarFunctionTest {
   private static final String HARD_LINK_FILE_NAME = "hardLinkFile";
 
   /* Symbolic(Soft) link file, created by ln -s <REGULAR_FILE_NAME> <SYMBOLIC_LINK_FILE_NAME> */
-  private static final String SYMBOLIC_LINK_FILE_NAME = "symbolicLinkFile";
+  private static final String RELATIVE_SYMBOLIC_LINK_FILE_NAME = "relativeSymbolicLinkFile";
+  private static final String ABSOLUTE_SYMBOLIC_LINK_FILE_NAME = "absoluteSymbolicLinkFile";
 
   private static final String PATH_TO_TEST_ARCHIVE =
       "/com/google/devtools/build/lib/rules/repository/";
 
+  private static final String ROOT_FOLDER_NAME = "root_folder";
+
+  private static final String INNER_FOLDER_NAME = "another_folder";
+
   /* Tarball, created by
    * tar -czf <ARCHIVE_NAME> <REGULAR_FILE_NAME> <HARD_LINK_FILE_NAME> <SYMBOLIC_LINK_FILE_NAME>
+   *
+   * The tarball has the following structure
+   *
+   * root_folder/
+   *    another_folder/
+   *        regularFile
+   *        hardLinkFile hardlink to root_folder/another_folder/regularFile
+   *        relativeSymbolicLinkFile -> regularFile
+   *        absoluteSymbolicLinkFile -> /root_folder/another_folder/regularFile
    */
   private static final String ARCHIVE_NAME = "test_decompress_archive.tar.gz";
 
@@ -86,12 +100,13 @@ public class CompressedTarFunctionTest {
   }
 
   /**
-   * Test decompressing a tar.gz file with hard link file and symbolic link file inside
+   * Test decompressing a tar.gz file with hard link file and symbolic link file inside without
+   * stripping a prefix
    *
    * @throws Exception
    */
   @Test
-  public void testDecompress() throws Exception {
+  public void testDecompressWithoutPrefix() throws Exception {
 
     Path outputDir =
         new CompressedTarFunction() {
@@ -102,6 +117,35 @@ public class CompressedTarFunctionTest {
           }
         }.decompress(descriptorBuilder.build());
 
+    assertOutputFiles(outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME));
+  }
+
+  /**
+   * Test decompressing a tar.gz file with hard link file and symbolic link file inside and
+   * stripping a prefix
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testDecompressWithPrefix() throws Exception {
+
+    descriptorBuilder.setPrefix(ROOT_FOLDER_NAME);
+
+    Path outputDir =
+        new CompressedTarFunction() {
+          @Override
+          protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
+              throws IOException {
+            return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
+          }
+        }.decompress(descriptorBuilder.build());
+
+    assertOutputFiles(outputDir.getRelative(INNER_FOLDER_NAME));
+  }
+
+  /** Validate the content of the output directory */
+  private void assertOutputFiles(Path outputDir) throws Exception {
+
     assertThat(outputDir.exists()).isTrue();
     assertThat(outputDir.getRelative(REGULAR_FILE_NAME).exists()).isTrue();
     assertThat(outputDir.getRelative(REGULAR_FILE_NAME).getFileSize()).isNotEqualTo(0);
@@ -109,9 +153,14 @@ public class CompressedTarFunctionTest {
     assertThat(outputDir.getRelative(HARD_LINK_FILE_NAME).exists()).isTrue();
     assertThat(outputDir.getRelative(HARD_LINK_FILE_NAME).getFileSize()).isNotEqualTo(0);
     assertThat(outputDir.getRelative(HARD_LINK_FILE_NAME).isSymbolicLink()).isFalse();
-    assertThat(outputDir.getRelative(SYMBOLIC_LINK_FILE_NAME).exists()).isTrue();
-    assertThat(outputDir.getRelative(SYMBOLIC_LINK_FILE_NAME).getFileSize()).isNotEqualTo(0);
-    assertThat(outputDir.getRelative(SYMBOLIC_LINK_FILE_NAME).isSymbolicLink()).isTrue();
+    assertThat(outputDir.getRelative(RELATIVE_SYMBOLIC_LINK_FILE_NAME).exists()).isTrue();
+    assertThat(outputDir.getRelative(RELATIVE_SYMBOLIC_LINK_FILE_NAME).getFileSize())
+        .isNotEqualTo(0);
+    assertThat(outputDir.getRelative(RELATIVE_SYMBOLIC_LINK_FILE_NAME).isSymbolicLink()).isTrue();
+    assertThat(outputDir.getRelative(ABSOLUTE_SYMBOLIC_LINK_FILE_NAME).exists()).isTrue();
+    assertThat(outputDir.getRelative(ABSOLUTE_SYMBOLIC_LINK_FILE_NAME).getFileSize())
+        .isNotEqualTo(0);
+    assertThat(outputDir.getRelative(ABSOLUTE_SYMBOLIC_LINK_FILE_NAME).isSymbolicLink()).isTrue();
     assertThat(
             Files.isSameFile(
                 java.nio.file.Paths.get(outputDir.getRelative(REGULAR_FILE_NAME).toString()),
@@ -120,7 +169,14 @@ public class CompressedTarFunctionTest {
     assertThat(
             Files.isSameFile(
                 java.nio.file.Paths.get(outputDir.getRelative(REGULAR_FILE_NAME).toString()),
-                java.nio.file.Paths.get(outputDir.getRelative(SYMBOLIC_LINK_FILE_NAME).toString())))
+                java.nio.file.Paths.get(
+                    outputDir.getRelative(RELATIVE_SYMBOLIC_LINK_FILE_NAME).toString())))
+        .isTrue();
+    assertThat(
+            Files.isSameFile(
+                java.nio.file.Paths.get(outputDir.getRelative(REGULAR_FILE_NAME).toString()),
+                java.nio.file.Paths.get(
+                    outputDir.getRelative(ABSOLUTE_SYMBOLIC_LINK_FILE_NAME).toString())))
         .isTrue();
   }
 }
