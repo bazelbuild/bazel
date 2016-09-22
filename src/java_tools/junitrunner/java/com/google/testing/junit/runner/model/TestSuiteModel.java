@@ -19,6 +19,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import com.google.testing.junit.junit4.runner.DynamicTestException;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
+import com.google.testing.junit.runner.util.TestIntegrationsRunnerIntegration;
 import com.google.testing.junit.runner.util.TestPropertyRunnerIntegration;
 import com.google.testing.junit.runner.util.Ticker;
 import java.io.IOException;
@@ -106,6 +107,7 @@ public class TestSuiteModel {
     if (testCase != null) {
       testCase.started(currentMillis());
       TestPropertyRunnerIntegration.setTestCaseForThread(testCase);
+      TestIntegrationsRunnerIntegration.setTestCaseForThread(testCase);
     }
   }
 

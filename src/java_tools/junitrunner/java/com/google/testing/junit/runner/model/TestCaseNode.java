@@ -17,6 +17,8 @@ package com.google.testing.junit.runner.model;
 import static com.google.testing.junit.runner.util.TestPropertyExporter.INITIAL_INDEX_FOR_REPEATED_PROPERTY;
 
 import com.google.testing.junit.runner.model.TestResult.Status;
+import com.google.testing.junit.runner.util.TestIntegration;
+import com.google.testing.junit.runner.util.TestIntegrationsExporter;
 import com.google.testing.junit.runner.util.TestPropertyExporter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,22 +26,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 import org.junit.runner.Description;
 
-/**
- * A leaf in the test suite model.
- */
-class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
+/** A leaf in the test suite model. */
+class TestCaseNode extends TestNode
+    implements TestPropertyExporter.Callback, TestIntegrationsExporter.Callback {
   private final TestSuiteNode parent;
   private final Map<String, String> properties = new ConcurrentHashMap<>();
   private final Map<String, Integer> repeatedPropertyNamesToRepetitions = new HashMap<>();
   private final Queue<Throwable> globalFailures = new ConcurrentLinkedQueue<>();
   private final ConcurrentMap<Description, List<Throwable>> dynamicTestToFailures =
       new ConcurrentHashMap<>();
+  private final Set<TestIntegration> integrations =
+      Collections.newSetFromMap(new ConcurrentHashMap<TestIntegration, Boolean>());
 
   @Nullable private volatile TestInterval runTimeInterval = null;
   private volatile State state = State.INITIAL;
@@ -83,6 +87,11 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
     String propertyName = getRepeatedPropertyName(name);
     properties.put(propertyName, value);
     return propertyName;
+  }
+
+  @Override
+  public void exportTestIntegration(TestIntegration testIntegration) {
+    integrations.add(testIntegration);
   }
 
   @Override
@@ -207,6 +216,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
         .numTests(numTests)
         .numFailures(numFailures)
         .childResults(childResults)
+        .integrations(integrations)
         .build();
   }
 
@@ -229,6 +239,7 @@ class TestCaseNode extends TestNode implements TestPropertyExporter.Callback {
         .numTests(1)
         .numFailures(failed ? 1 : 0)
         .childResults(Collections.<TestResult>emptyList())
+        .integrations(Collections.<TestIntegration>emptySet())
         .build();
   }
 
