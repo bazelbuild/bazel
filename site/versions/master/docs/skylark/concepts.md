@@ -27,9 +27,9 @@ imported symbols.
 load("//build_tools/rules:maprule.bzl", maprule_alias = "maprule")
 ```
 
-You define multiple aliases within one `load` statement. Moreover, the argument
-list can contain both aliases and regular symbol names. The following example is
-perfectly legal (please note when to use quotation marks).
+You can define multiple aliases within one `load` statement. Moreover, the
+argument list can contain both aliases and regular symbol names. The following
+example is perfectly legal (please note when to use quotation marks).
 
 ```python
 load("/path/to:my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
@@ -45,7 +45,7 @@ A [macro](macros.md) is a function that instantiates rules. The
 function is evaluated as soon as the BUILD file is read. Bazel has little
 information about macros: if your macro generates a `genrule`, Bazel will behave
 as if you wrote the `genrule`. As a result, `bazel query` will only list the
-generated genrule.
+generated `genrule`.
 
 A [rule](rules.md) is more powerful than a macro, as it can access
 Bazel internals and have full control over what is going on. It may for example
@@ -79,7 +79,7 @@ side-effect, it only defines values and functions.
 
 ## Syntax
 
-The extension language (sometimes referred as "Skylark") is a superset of the
+The extension language (Skylark) is a superset of the
 [Core Build Language](/docs/build-ref.html#core_build_language)
 and its syntax is a subset of Python.
 It is designed to be simple, thread-safe and integrated with the
@@ -152,29 +152,54 @@ phase (i.e. when a custom rule is analyzed).
 In addition to the mutability restrictions, there are also differences with
 Python:
 
-* All global values are constant (they cannot be reassigned).
+* All global variables cannot be reassigned
 
-* `x += y` is syntactic sugar for `x = x + y`. Even if `x` and `y` are lists,
-  dicts or sets, the original value is not mutated, so references to `x`
-  that were assigned before the operation will see the old value. This behavior
-  is temporary, and will follow Python semantics in the future.
-
-* The `+` operator is defined for dictionaries, returning an immutable
-  concatenated dictionary created from the entries of the original
-  dictionaries. In case of duplicate keys, we use values from the second
-  operand. If you need compatibility with Python, we suggest this syntax:
-  `dict(a.items() + b.items())`.
-
-* Dictionaries have deterministic order when iterating (sorted by key).
-
-* Sets use a custom order when iterating (see [documentation](lib/globals.html#set)).
+* Sets and dictionaries have a deterministic order of iteration (see
+  [documentation](lib/globals.html#set) for sets).
 
 * Recursion is not allowed.
 
-* Loops iterate over a shallow copy of the collection. If the collection is a
-  list or dictionary that is modified during iteration, this will not affect
-  what values get bound to the loop variable or variables. The changes are
-  still visible if you directly access the collection.
+* Sets have reference equality semantics and can be stored in other sets.
+
+The following items are upcoming changes.
+
+* Currently loops iterate over a shallow copy of the collection, so that if the
+  list or dictionary is modified during iteration, it will not affect what
+  values get bound to the loop variable or variables. This will be phased out
+  and instead, modifying a collection during iteration will be an error. You can
+  avoid the error by iterating over a copy of the collection, e.g.
+  `for x in list(my_list): ...`.
+
+* Comprehensions currently "leak" the values of their loop variables into the
+  surrounding scope (Python 2 semantics). This will be changed so that
+  comprehension variables are local (Python 3 semantics).
+
+* `load()` statements can currently appear anywhere at the top-level of a file
+  so long as it is not in an indented block of code. In BUILD files, they may
+  overwrite an existing variable with the loaded symbol. In the future, `load()`
+  statements will be required to appear at the beginning of the file and will
+  not be able to overwrite any names (use load aliases to avoid name clashes).
+
+* Previously dictionaries were guaranteed to use sorted order for their keys.
+  Going forward, there is no guarantee on order besides that it is
+  deterministic. As an implementation matter, some kinds of dictionaries may
+  continue to use sorted order while others may use insertion order.
+
+* Some collections currently use reference equality (sometimes inconsistently).
+  This will change to structural equality for all collections except sets.
+
+* The `+=` operator and similar operators are currently syntactic sugar;
+  `x += y` is the same as `x = x + y`. This will change to follow Python
+  semantics, so that for mutable collection datatypes, `x += y` will be a
+  mutation to the value of `x` rather than a rebinding of the variable `x`
+  itself to a new value. E.g. for lists, `x += y` will be the same as
+  `x.extend(y)`.
+
+* The `+` operator is defined for dictionaries, returning an immutable
+  concatenated dictionary created from the entries of the original
+  dictionaries. This will be going away. The same result can be achieved using
+  `dict(a.items() + b.items())`. Likewise, there is a `+` operator for sets that
+  will be going away; users should use `|` instead.
 
 The following Python features are not supported:
 
