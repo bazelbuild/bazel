@@ -44,7 +44,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       "Unsupported platform type \"%s\"";
   
   private static final ImmutableSet<PlatformType> SUPPORTED_PLATFORM_TYPES =
-      ImmutableSet.of(PlatformType.IOS, PlatformType.WATCHOS);
+      ImmutableSet.of(PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS);
 
   /**
    * Returns the apple platform type in the current rule context.
@@ -84,6 +84,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       SPLIT_TRANSITIONS_BY_TYPE = ImmutableMap.<PlatformType, AppleBinaryTransition>builder()
           .put(PlatformType.IOS, new AppleBinaryTransition(PlatformType.IOS))
           .put(PlatformType.WATCHOS, new AppleBinaryTransition(PlatformType.WATCHOS))
+          .put(PlatformType.TVOS, new AppleBinaryTransition(PlatformType.TVOS))
           .build();
 
   @Override
