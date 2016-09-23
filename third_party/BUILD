@@ -286,9 +286,9 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.11.jar",
-        "error_prone/error_prone_annotations-2.0.11.jar",
-        "error_prone/error_prone_annotation-2.0.11.jar",
+        "error_prone/error_prone_core-2.0.13.jar",
+        "error_prone/error_prone_annotations-2.0.13.jar",
+        "error_prone/error_prone_annotation-2.0.13.jar",
     ],
     exports = [
         ":guava",
@@ -318,9 +318,9 @@ java_import(
 filegroup(
     name = "error_prone-jars",
     srcs = [
-        "error_prone/error_prone_annotation-2.0.11.jar",
-        "error_prone/error_prone_annotations-2.0.11.jar",
-        "error_prone/error_prone_core-2.0.11.jar",
+        "error_prone/error_prone_annotation-2.0.13.jar",
+        "error_prone/error_prone_annotations-2.0.13.jar",
+        "error_prone/error_prone_core-2.0.13.jar",
         "guava/guava-19.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",

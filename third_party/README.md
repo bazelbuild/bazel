@@ -97,7 +97,7 @@ a minimal set of extra dependencies.
 
 ## [Error Prone](https://github.com/google/error-prone)
 
-* Version: 2.0.11
+* Version: 2.0.13
 * License: Apache License 2.0
 
 
