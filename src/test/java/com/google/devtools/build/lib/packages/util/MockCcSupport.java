@@ -481,8 +481,10 @@ public abstract class MockCcSupport {
   protected static void createToolsCppPackage(MockToolsConfig config) throws IOException {
     config.create(
         "tools/cpp/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
         "cc_library(name = 'stl')",
-        "alias(name='toolchain', actual='//third_party/crosstool')");
+        "alias(name='toolchain', actual='//third_party/crosstool')",
+        "cc_library(name = 'malloc')");
   }
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)

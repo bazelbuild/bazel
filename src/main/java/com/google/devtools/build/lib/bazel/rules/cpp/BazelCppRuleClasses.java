@@ -467,11 +467,11 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
           Override the default dependency on malloc.
           <p>
-            By default, Linux C++ binaries are linked against <code>//tools/cpp:malloc</code>,
-            which is an empty library so the binary ends up using libc malloc. This label must
-            refer to a <code>cc_library</code>. If compilation is for a non-C++ rule, this option
-            has no effect. The value of this attribute is ignored if <code>linkshared=1</code> is
-            specified.
+            By default, C++ binaries are linked against <code>//tools/cpp:malloc</code>,
+            which is an empty library so the binary ends up using libc malloc.
+            This label must refer to a <code>cc_library</code>. If compilation is for a non-C++
+            rule, this option has no effect. The value of this attribute is ignored if
+            <code>linkshared=1</code> is specified.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("malloc", LABEL)
