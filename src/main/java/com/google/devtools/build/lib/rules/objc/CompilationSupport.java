@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
@@ -656,21 +655,19 @@ public final class CompilationSupport {
     boolean runCodeCoverage =
         buildConfiguration.isCodeCoverageEnabled() && ObjcRuleClasses.isInstrumentable(sourceFile);
     boolean hasSwiftSources = compilationArtifacts.hasSwiftSources();
-    DotdFile dotdFile = intermediateArtifacts.dotdFile(sourceFile);
 
-    CustomCommandLine commandLine =
-        compileActionCommandLine(
-            sourceFile,
-            objFile,
-            objcProvider,
-            priorityHeaders,
-            moduleMap,
-            compilationArtifacts.getPchFile(),
-            Optional.of(dotdFile.artifact()),
-            otherFlags,
-            runCodeCoverage,
-            isCPlusPlusSource,
-            hasSwiftSources);
+    CustomCommandLine commandLine = compileActionCommandLine(
+        sourceFile,
+        objFile,
+        objcProvider,
+        priorityHeaders,
+        moduleMap,
+        compilationArtifacts.getPchFile(),
+        Optional.of(intermediateArtifacts.dotdFile(sourceFile)),
+        otherFlags,
+        runCodeCoverage,
+        isCPlusPlusSource,
+        hasSwiftSources);
 
     Optional<Artifact> gcnoFile = Optional.absent();
     if (runCodeCoverage && !buildConfiguration.isLLVMCoverageMapFormatEnabled()) {
@@ -687,25 +684,24 @@ public final class CompilationSupport {
       moduleMapInputs = objcProvider.get(MODULE_MAP);
     }
 
-    // TODO(bazel-team): Remove private headers from inputs once they're added to the provider.
+    // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
-        ObjcCompileAction.Builder.createObjcCompileActionBuilderWithAppleEnv(
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
-            .setSourceFile(sourceFile)
-            .addMandatoryInputs(swiftHeader.asSet())
-            .addTransitiveMandatoryInputs(moduleMapInputs)
-            .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
-            .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .setDotdFile(dotdFile)
-            .addInputs(compilationArtifacts.getPrivateHdrs())
-            .addInputs(compilationArtifacts.getPchFile().asSet())
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine)
+            .addInput(sourceFile)
+            .addInputs(swiftHeader.asSet())
+            .addTransitiveInputs(moduleMapInputs)
             .addOutput(objFile)
             .addOutputs(gcnoFile.asSet())
-            .addOutput(dotdFile.artifact())
+            .addOutput(intermediateArtifacts.dotdFile(sourceFile))
             .addTransitiveInputs(objcProvider.get(HEADER))
+            .addInputs(compilationArtifacts.getPrivateHdrs())
+            .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .addInputs(compilationArtifacts.getPchFile().asSet())
             .build(ruleContext));
   }
 

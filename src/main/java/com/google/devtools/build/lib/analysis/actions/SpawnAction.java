@@ -65,13 +65,11 @@ import javax.annotation.Nullable;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier, CommandAction {
-  
-  /** Sets extensions on ExtraActionInfo **/
-  protected static class ExtraActionInfoSupplier<T> {
+  private static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
     private final T value;
 
-    protected ExtraActionInfoSupplier(
+    private ExtraActionInfoSupplier(
         GeneratedExtension<ExtraActionInfo, T> extension,
         T value) {
       this.extension = extension;
@@ -497,7 +495,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean isShellCommand = false;
     private boolean useDefaultShellEnvironment = false;
-    protected boolean executeUnconditionally;
+    private boolean executeUnconditionally;
     private PathFragment executable;
     // executableArgs does not include the executable itself.
     private List<String> executableArgs;
@@ -507,7 +505,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private String progressMessage;
     private ParamFileInfo paramFileInfo = null;
     private String mnemonic = "Unknown";
-    protected ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
+    private ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
     private boolean disableSandboxing = false;
 
     /**
@@ -671,7 +669,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           tools,
           inputsAndTools,
           ImmutableList.copyOf(outputs),
-          resourceSet,
           actualCommandLine,
           ImmutableMap.copyOf(env),
           clientEnvironmentVariables,
@@ -681,13 +678,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           mnemonic);
     }
 
-    /** Creates a SpawnAction. */
-    protected SpawnAction createSpawnAction(
+    SpawnAction createSpawnAction(
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
-        ResourceSet resourceSet,
         CommandLine actualCommandLine,
         ImmutableMap<String, String> env,
         ImmutableSet<String> clientEnvironmentVariables,
