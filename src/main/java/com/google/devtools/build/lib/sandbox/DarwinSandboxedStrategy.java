@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Strategy that uses sandboxing to execute a process, for Darwin */
 @ExecutionStrategy(
@@ -147,7 +148,16 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
 
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException {
+      throws ExecException, InterruptedException {
+    exec(spawn, actionExecutionContext, null);
+  }
+
+  @Override
+  public void exec(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
+      throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
 
     // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
@@ -210,13 +220,22 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
             Spawns.getTimeoutSeconds(spawn),
             SandboxHelpers.shouldAllowNetwork(buildRequest, spawn));
       } finally {
-        hardlinkedExecRoot.copyOutputs(execRoot, outputs);
+        if (writeOutputFiles != null
+            && !writeOutputFiles.compareAndSet(null, DarwinSandboxedStrategy.class)) {
+          Thread.currentThread().interrupt();
+        } else {
+          hardlinkedExecRoot.copyOutputs(execRoot, outputs);
+        }
         if (!sandboxDebug) {
           SandboxHelpers.lazyCleanup(backgroundWorkers, runner);
         }
       }
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
+    }
+
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
     }
   }
 
