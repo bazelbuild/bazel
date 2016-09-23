@@ -312,6 +312,10 @@ public class JavacTurbine implements AutoCloseable {
         // drop class initializers, which are going to be empty after tree pruning
         return null;
       }
+      if ((access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0) {
+        // drop bridges (see b/31653210)
+        return null;
+      }
       return super.visitMethod(access, name, desc, signature, exceptions);
     }
   }

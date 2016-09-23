@@ -111,6 +111,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         nocopts,
         VOID_SPECIAL_INPUTS_HANDLER,
         ImmutableList.<IncludeScannable>of(),
+        ImmutableList.<Artifact>of(),
         GUID,
         ImmutableSet.<String>of(),
         ImmutableMap.<String, String>of(),

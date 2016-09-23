@@ -94,6 +94,21 @@ EOF
   redirect_pid=$!
 }
 
+# Serves a HTTP 404 Not Found response with an optional parameter for the
+# response body.
+function serve_not_found() {
+  RESPONSE_BODY=${1:-}
+  http_response=$TEST_TMPDIR/http_response
+  cat > $http_response <<EOF
+HTTP/1.0 404 Not Found
+
+$RESPONSE_BODY
+EOF
+  nc_port=$(pick_random_unused_tcp_port) || exit 1
+  nc_l $nc_port < $http_response &
+  nc_pid=$!
+}
+
 # Waits for the SimpleHTTPServer to actually start up before the test is run.
 # Otherwise the entire test can run before the server starts listening for
 # connections, which causes flakes.

@@ -117,10 +117,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
           if (value != null) {
             type.visitLabels(new Type.LabelVisitor() {
               @Override
-              public void visit(@Nullable Object label) throws InterruptedException {
+              public void visit(@Nullable Label label) throws InterruptedException {
                 if (label != null) {
                   observer.acceptLabelAttribute(
-                      getLabel().resolveRepositoryRelative((Label) label), attribute);
+                      getLabel().resolveRepositoryRelative(label), attribute);
                 }
               }
             }, value);
@@ -141,10 +141,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
               : attribute.getDefaultValue(null);
           type.visitLabels(new Type.LabelVisitor() {
             @Override
-            public void visit(@Nullable Object label) throws InterruptedException {
+            public void visit(@Nullable Label label) throws InterruptedException {
               if (label != null) {
                 observer.acceptLabelAttribute(
-                    getLabel().resolveRepositoryRelative((Label) label), attribute);
+                    getLabel().resolveRepositoryRelative(label), attribute);
               }
             }
           }, value);
@@ -629,9 +629,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       final ImmutableList.Builder<Label> result = ImmutableList.builder();
       type.visitLabels(new Type.LabelVisitor() {
         @Override
-        public void visit(@Nullable Object object) {
-          if (object != null) {
-            result.add((Label) object);
+        public void visit(@Nullable Label label) {
+          if (label != null) {
+            result.add(label);
           }
         }
       }, value);

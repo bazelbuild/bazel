@@ -115,7 +115,7 @@ public class JavacTurbineTest {
         .addBootClassPathEntries(
             ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("sun.boot.class.path"))))
         .setOutputDeps(outputDeps.toString())
-        .addAllJavacOpts(Arrays.asList("-source", "7", "-target", "7"))
+        .addAllJavacOpts(Arrays.asList("-source", "8", "-target", "8"))
         .setTargetLabel("//test")
         .setRuleKind("java_library");
   }
@@ -156,7 +156,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Hello {",
       "",
@@ -186,7 +186,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Hello {",
       "",
@@ -283,7 +283,7 @@ public class JavacTurbineTest {
     {
       String text = textify(outputs.get("Generated.class"));
       String[] expected = {
-        "// class version 51.0 (51)",
+        "// class version 52.0 (52)",
         "// access flags 0x21",
         "public class Generated {",
         "",
@@ -300,7 +300,7 @@ public class JavacTurbineTest {
     {
       String text = textify(outputs.get("Hello.class"));
       String[] expected = {
-        "// class version 51.0 (51)",
+        "// class version 52.0 (52)",
         "// access flags 0x20",
         "class Hello {",
         "",
@@ -669,7 +669,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("Const.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Const {",
       "",
@@ -719,7 +719,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("TheEnum.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x4031",
       "// signature Ljava/lang/Enum<LTheEnum;>;",
       "// declaration: TheEnum extends java.lang.Enum<TheEnum>",
@@ -832,7 +832,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Hello extends Super  {",
       "",
@@ -867,7 +867,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Hello {",
       "",
@@ -998,7 +998,7 @@ public class JavacTurbineTest {
 
     String text = textify(outputs.get("Hello.class"));
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Hello {",
       "",
@@ -1247,11 +1247,8 @@ public class JavacTurbineTest {
     assertThat(outputs.keySet()).containsExactly("Hello.class");
 
     String text = textify(outputs.get("Hello.class"));
-    System.err.println(">>>");
-    System.err.println(text);
-    System.err.println(">>>");
     String[] expected = {
-      "// class version 51.0 (51)",
+      "// class version 52.0 (52)",
       "// access flags 0x20",
       "class Hello {",
       "",
@@ -1261,6 +1258,41 @@ public class JavacTurbineTest {
       "",
       "  // access flags 0x0",
       "  <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void bridge() throws Exception {
+    addSourceLines(
+        "Bridge.java",
+        "import java.util.concurrent.Callable;",
+        "class Bridge implements Callable<String> {",
+        "  public String call() { return \"\"; }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Bridge.class");
+
+    String text = textify(outputs.get("Bridge.class"));
+    String[] expected = {
+      "// class version 52.0 (52)",
+      "// access flags 0x20",
+      "// signature Ljava/lang/Object;Ljava/util/concurrent/Callable<Ljava/lang/String;>;",
+      "// declaration: Bridge implements java.util.concurrent.Callable<java.lang.String>",
+      "class Bridge implements java/util/concurrent/Callable  {",
+      "",
+      "",
+      "  // access flags 0x0",
+      "  <init>()V",
+      "",
+      "  // access flags 0x1",
+      "  public call()Ljava/lang/String;",
       "}",
       ""
     };

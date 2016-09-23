@@ -155,9 +155,9 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value != null) { // null values are particularly possible for computed defaults.
       type.visitLabels(new Type.LabelVisitor() {
         @Override
-        public void visit(@Nullable Object object) throws InterruptedException {
-          if (object != null) {
-            Label absoluteLabel = ruleLabel.resolveRepositoryRelative((Label) object);
+        public void visit(@Nullable Label label) throws InterruptedException {
+          if (label != null) {
+            Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
             observer.acceptLabelAttribute(absoluteLabel, attribute);
           }
         }

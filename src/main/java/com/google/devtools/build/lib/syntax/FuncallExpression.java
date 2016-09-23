@@ -456,6 +456,9 @@ public final class FuncallExpression extends Expression {
     Set<String> keys = new HashSet<>(kwargs.keySet());
     for (Param param : callable.parameters()) {
       SkylarkType type = getType(param);
+      if (param.noneable()) {
+        type = SkylarkType.Union.of(type, SkylarkType.NONE);
+      }
       Object value = null;
       if (i < args.size()) {
         value = args.get(i);

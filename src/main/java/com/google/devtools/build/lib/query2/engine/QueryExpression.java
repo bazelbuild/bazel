@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 import java.util.Collection;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Base class for expressions in the Blaze query language, revision 2.
@@ -86,7 +86,7 @@ public abstract class QueryExpression {
 
   /**
    * Evaluates this query in the specified environment, as in
-   * {@link #eval(QueryEnvironment, VariableContext, Callback)}, using {@code executorService} to
+   * {@link #eval(QueryEnvironment, VariableContext, Callback)}, using {@code forkJoinPool} to
    * achieve parallelism.
    *
    * <p>The caller must ensure that {@code env} is thread safe.
@@ -96,17 +96,17 @@ public abstract class QueryExpression {
       QueryEnvironment<T> env,
       VariableContext<T> context,
       ThreadSafeCallback<T> callback,
-      ListeningExecutorService executorService)
+      ForkJoinPool forkJoinPool)
       throws QueryException, InterruptedException {
-    env.getEvalListener().onParEval(this, env, context, callback, executorService);
-    parEvalImpl(env, context, callback, executorService);
+    env.getEvalListener().onParEval(this, env, context, callback, forkJoinPool);
+    parEvalImpl(env, context, callback, forkJoinPool);
   }
 
   protected <T> void parEvalImpl(
       QueryEnvironment<T> env,
       VariableContext<T> context,
       ThreadSafeCallback<T> callback,
-      ListeningExecutorService executorService)
+      ForkJoinPool forkJoinPool)
       throws QueryException, InterruptedException {
     evalImpl(env, context, callback);
   }

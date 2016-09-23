@@ -52,3 +52,8 @@ bind(name = "xcrunwrapper", actual = "@bazel_tools//tools/objc:xcrunwrapper")
 
 bind(name = "protobuf/java_runtime", actual = "//third_party/protobuf:protobuf")
 bind(name = "protobuf/javalite_runtime", actual = "//third_party/protobuf:protobuf-lite")
+
+# For Skylark tests at //src/test/shell/bazel:maven_skylark_test
+# Uncomment the following lines, and the test in src/test/shell/bazel/BUILD to run it.
+# load("//tools/build_defs/repo:maven_rules.bzl", "maven_dependency_plugin")
+# maven_dependency_plugin()

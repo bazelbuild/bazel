@@ -288,6 +288,46 @@ class LH {
 } __attribute__((packed));
 static_assert(30 == sizeof(LH), "The fields layout for class LH is incorrect");
 
+/* Data descriptor Record:
+ *    4.3.9  Data descriptor:
+ *
+ *      crc-32                          4 bytes
+ *      compressed size                 4 bytes
+ *       uncompressed size               4 bytes
+ *
+ *    4.3.9.1 This descriptor MUST exist if bit 3 of the general purpose bit
+ *    flag is set (see below).  It is byte aligned and immediately follows the
+ *    last byte of compressed data. This descriptor SHOULD be used only when it
+ *    was not possible to seek in the output .ZIP file, e.g., when the output
+ *    .ZIP file was standard output or a non-seekable device.  For ZIP64(tm)
+ *    format archives, the compressed and uncompressed sizes are 8 bytes each.
+ *
+ *    4.3.9.2 When compressing files, compressed and uncompressed sizes should
+ *    be stored in ZIP64 format (as 8 byte values) when a file's size exceeds
+ *    0xFFFFFFFF.   However ZIP64 format may be used regardless of the size of a
+ *    file.  When extracting, if the zip64 extended information extra field is
+ *    present for the file the compressed and uncompressed sizes will be 8 byte
+ *    values.
+ *
+ *    4.3.9.3 Although not originally assigned a signature, the value 0x08074b50
+ *    has commonly been adopted as a signature value for the data descriptor
+ *    record.  Implementers should be aware that ZIP files may be encountered
+ *    with or without this signature marking data descriptors and SHOULD account
+ *    for either case when reading ZIP files to ensure compatibility.
+ */
+class DDR {
+ public:
+  size_t size(bool compressed_size_is_64bits,
+              bool original_size_is_64bits) const {
+    return (0x08074b50 == le32toh(optional_signature_) ? 8 : 4) +
+           (compressed_size_is_64bits ? 8 : 4) +
+           (original_size_is_64bits ? 8 : 4);
+  }
+
+ private:
+  uint32_t optional_signature_;
+} __attribute__((packed));
+
 /* Central Directory Header.  */
 class CDH {
  public:

@@ -198,11 +198,13 @@ public final class BuildConfiguration {
     }
 
     /**
-     * Add mappings from generally available tool names (like "sh") to their paths
-     * that actions can access.
+     * Returns the shell to be used.
+     *
+     * <p>Each configuration instance must have at most one fragment that returns non-null.
      */
     @SuppressWarnings("unused")
-    public void defineExecutables(ImmutableMap.Builder<String, PathFragment> builder) {
+    public PathFragment getShellExecutable() {
+      return null;
     }
 
     /**
@@ -540,15 +542,6 @@ public final class BuildConfiguration {
             + "Otherwise, test rules are always excluded from coverage instrumentation.")
     public boolean instrumentTestTargets;
 
-    @Option(name = "show_cached_analysis_results",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Bazel reruns a static analysis only if it detects changes in the analysis "
-            + "or its dependencies. If this option is enabled, Bazel will show the analysis' "
-            + "results, even if it did not rerun the analysis.  If this option is disabled, "
-            + "Bazel will show analysis results only if it reran the analysis.")
-    public boolean showCachedAnalysisResults;
-
     @Option(name = "host_cpu",
         defaultValue = "",
         category = "semantics",
@@ -867,12 +860,34 @@ public final class BuildConfiguration {
     )
     public List<Label> targetEnvironments;
 
+    /**
+     * Values for --experimental_dynamic_configs.
+     */
+    public static enum DynamicConfigsMode {
+      /** Don't use dynamic configurations. */
+      OFF,
+      /** Use dynamic configurations, including only the fragments each rule needs. */
+      ON,
+      /** Use dynamic configurations, always including all fragments known to Blaze. */
+      NOTRIM,
+    }
+
+    /**
+     * Converter for --experimental_dynamic_configs.
+     */
+    public static class DynamicConfigsConverter extends EnumConverter<DynamicConfigsMode> {
+      public DynamicConfigsConverter() {
+        super(DynamicConfigsMode.class, "dynamic configurations mode");
+      }
+    }
+
     @Option(name = "experimental_dynamic_configs",
-        defaultValue = "false",
+        defaultValue = "off",
         category = "undocumented",
+        converter = DynamicConfigsConverter.class,
         help = "Dynamically instantiates build configurations instead of using the default "
             + "static globally defined ones")
-    public boolean useDynamicConfigurations;
+    public DynamicConfigsMode useDynamicConfigurations;
 
     @Option(
         name = "experimental_enable_runfiles",
@@ -1065,7 +1080,7 @@ public final class BuildConfiguration {
   private final boolean actionsEnabled;
 
   // TODO(bazel-team): Move this to a configuration fragment.
-  private final PathFragment shExecutable;
+  private final PathFragment shellExecutable;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
@@ -1187,7 +1202,7 @@ public final class BuildConfiguration {
               + ".blazerc or continuous build"));
     }
 
-    if (options.useDynamicConfigurations && !options.useDistinctHostConfiguration) {
+    if (useDynamicConfigurations() && !options.useDistinctHostConfiguration) {
       reporter.handle(Event.error(
           "--nodistinct_host_configuration does not currently work with dynamic configurations"));
     }
@@ -1285,7 +1300,7 @@ public final class BuildConfiguration {
         ? options.outputDirectoryName : mnemonic;
     this.platformName = buildPlatformName();
 
-    this.shExecutable = collectExecutables().get("sh");
+    this.shellExecutable = computeShellExecutable();
 
     this.outputRoots = outputRoots != null
         ? outputRoots
@@ -1414,7 +1429,7 @@ public final class BuildConfiguration {
   }
 
   private String buildMnemonic() {
-    // See explanation at getShortName().
+    // See explanation at declaration for outputRoots.
     String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
     ArrayList<String> nameParts = new ArrayList<>();
     for (Fragment fragment : fragments.values()) {
@@ -2036,8 +2051,8 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Like getShortName(), but always returns a configuration-dependent string even for
-   * the host configuration.
+   * Returns the configuration-dependent string for this configuration. This is also the name of the
+   * configuration's base output directory unless {@link Options#outputDirectoryName} overrides it.
    */
   public String getMnemonic() {
     return mnemonic;
@@ -2066,8 +2081,8 @@ public final class BuildConfiguration {
   /**
    * Returns the path to sh.
    */
-  public PathFragment getShExecutable() {
-    return shExecutable;
+  public PathFragment getShellExecutable() {
+    return shellExecutable;
   }
 
   /**
@@ -2085,14 +2100,6 @@ public final class BuildConfiguration {
    */
   public boolean shouldInstrumentTestTargets() {
     return options.instrumentTestTargets;
-  }
-
-  /**
-   * Returns true if bazel should show analyses results, even if it did not
-   * re-run the analysis.
-   */
-  public boolean showCachedAnalysisResults() {
-    return options.showCachedAnalysisResults;
   }
 
   /**
@@ -2298,7 +2305,15 @@ public final class BuildConfiguration {
    * {@link com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory}).
    */
   public boolean useDynamicConfigurations() {
-    return options.useDynamicConfigurations;
+    return options.useDynamicConfigurations != Options.DynamicConfigsMode.OFF;
+  }
+
+  /**
+   * Returns whether we should trim dynamic configurations to only include the fragments needed
+   * to correctly analyze a rule.
+   */
+  public boolean trimConfigurations() {
+    return options.useDynamicConfigurations == Options.DynamicConfigsMode.ON;
   }
 
   /**
@@ -2366,12 +2381,17 @@ public final class BuildConfiguration {
   /**
    * Collects executables defined by fragments.
    */
-  private ImmutableMap<String, PathFragment> collectExecutables() {
-    ImmutableMap.Builder<String, PathFragment> builder = new ImmutableMap.Builder<>();
+  private PathFragment computeShellExecutable() {
+    PathFragment result = null;
+
     for (Fragment fragment : fragments.values()) {
-      fragment.defineExecutables(builder);
+      if (fragment.getShellExecutable() != null) {
+        Verify.verify(result == null);
+        result = fragment.getShellExecutable();
+      }
     }
-    return builder.build();
+
+    return result;
   }
 
   /**

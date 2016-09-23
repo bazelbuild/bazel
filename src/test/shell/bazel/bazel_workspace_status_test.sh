@@ -114,4 +114,55 @@ EOF
   bazel test --stamp //a:verify_scm_status --workspace_status_command=$cmd || fail "build failed"
 }
 
+function test_stable_and_volatile_status() {
+  create_new_workspace
+  cat >$TEST_TMPDIR/wsc.sh <<EOF
+#!/bin/bash
+
+cat $TEST_TMPDIR/status
+EOF
+
+  chmod +x $TEST_TMPDIR/wsc.sh
+
+  cat > BUILD <<'EOF'
+genrule(
+    name = "a",
+    srcs = [],
+    outs = ["ao"],
+    cmd="(echo volatile; cat bazel-out/volatile-status.txt; echo; echo stable; cat bazel-out/stable-status.txt; echo) > $@",
+    stamp=1)
+EOF
+
+  cat >$TEST_TMPDIR/status <<EOF
+STABLE_NAME alice
+NUMBER 1
+EOF
+
+  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a || fail "build failed"
+  assert_contains "STABLE_NAME alice" bazel-genfiles/ao
+  assert_contains "NUMBER 1" bazel-genfiles/ao
+
+
+  cat >$TEST_TMPDIR/status <<EOF
+STABLE_NAME alice
+NUMBER 2
+EOF
+
+  # Changes to volatile fields should not result in a rebuild
+  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a || fail "build failed"
+  assert_contains "STABLE_NAME alice" bazel-genfiles/ao
+  assert_contains "NUMBER 1" bazel-genfiles/ao
+
+  cat >$TEST_TMPDIR/status <<EOF
+STABLE_NAME bob
+NUMBER 3
+EOF
+
+  # Changes to stable fields should result in a rebuild
+  bazel build --workspace_status_command=$TEST_TMPDIR/wsc.sh --stamp //:a || fail "build failed"
+  assert_contains "STABLE_NAME bob" bazel-genfiles/ao
+  assert_contains "NUMBER 3" bazel-genfiles/ao
+
+}
+
 run_suite "workspace status tests"

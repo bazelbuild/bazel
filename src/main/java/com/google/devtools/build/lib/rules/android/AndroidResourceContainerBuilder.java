@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
 /**
- * Encapsulates the process of building the AndroidResourceContainer.
+ * Encapsulates the process of building {@link ResourceContainer}.
  */
 public final class AndroidResourceContainerBuilder {
   private LocalResourceContainer data;
@@ -31,6 +31,7 @@ public final class AndroidResourceContainerBuilder {
   private Artifact rOutput;
   private boolean inlineConstants = false;
   private Artifact symbolsFile;
+  private boolean useJavaPackageFromManifest = false;
 
   /** Provides the resources and assets for the ResourceContainer. */
   public AndroidResourceContainerBuilder withData(LocalResourceContainer data) {
@@ -50,6 +51,12 @@ public final class AndroidResourceContainerBuilder {
 
   public AndroidResourceContainerBuilder withInlinedConstants(boolean inlineContants) {
     this.inlineConstants = inlineContants;
+    return this;
+  }
+
+  public AndroidResourceContainerBuilder useJavaPackageFromManifest(
+      boolean useJavaPackageFromManifest) {
+    this.useJavaPackageFromManifest = useJavaPackageFromManifest;
     return this;
   }
 
@@ -80,6 +87,9 @@ public final class AndroidResourceContainerBuilder {
   }
 
   private String getJavaPackage(RuleContext ruleContext, Artifact rJavaSrcJar) {
+    if (useJavaPackageFromManifest) {
+      return null;
+    }
     if (hasCustomPackage(ruleContext)) {
       return ruleContext.attributes().get("custom_package", Type.STRING);
     }

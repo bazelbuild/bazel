@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -659,6 +660,27 @@ public final class AndroidRuleClasses {
           .add(attr("incremental_dexing", TRISTATE)
               // Read by DexArchiveAspect's attribute extractor
               .nonconfigurable("AspectParameters don't support configurations."))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(multidex) -->
+          Whether to split code into multiple dex files.<br/>
+          Possible values:
+          <ul>
+            <li><code>native</code>: Split code into multiple dex files when the dex 64K index limit
+              is exceeded. Assumes native platform support for loading multidex classes at runtime.
+              <em class="harmful">This works with only Android L and newer</em>.</li>
+            <li><code>legacy</code>: Split code into multiple dex files when the dex 64K index limit
+              is exceeded. Assumes multidex classes are loaded through application code (i.e. no
+              native platform support).</li>
+            <li><code>manual_main_dex</code>: Split code into multiple dex files when the dex 64K
+              index limit is exceeded. The content of the main dex file needs to be specified by
+              providing a list of classes in a text file using the
+              <a href="${link android_binary.main_dex_list}">main_dex_list</a> attribute.</li>
+            <li><code>off</code>: Compile all code to a single dex file, even if it exceeds the
+              index limit.</li>
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("multidex", STRING)
+              .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
+              .value(MultidexMode.OFF.getAttributeValue()))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
           Use this option to affect the classes included in the main dex list.

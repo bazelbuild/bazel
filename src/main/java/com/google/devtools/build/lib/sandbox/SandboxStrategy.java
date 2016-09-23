@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
-abstract class SandboxStrategy implements SpawnActionContext {
+abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
   private final BlazeDirectories blazeDirs;
   private final boolean verboseFailures;

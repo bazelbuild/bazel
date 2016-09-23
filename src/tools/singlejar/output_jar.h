@@ -87,7 +87,7 @@ class OutputJar {
   // Copy 'count' bytes starting at 'offset' from the given file.
   ssize_t AppendFile(int in_fd, off_t offset, size_t count);
   // Write bytes to the output file, return true on success.
-  bool WriteBytes(void *buffer, size_t count);
+  bool WriteBytes(const void *buffer, size_t count);
 
 
   Options *options_;

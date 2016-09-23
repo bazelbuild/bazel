@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.bazel;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -55,8 +57,11 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /**
  * Provides information about the workspace (e.g. source control context, current machine, current
@@ -128,25 +133,56 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return "";
     }
 
+    private static boolean isStableKey(String key) {
+        return key.startsWith("STABLE_");
+    }
+
+    private static Map<String, String> parseWorkspaceStatus(String input) {
+      TreeMap<String, String> result = new TreeMap<>();
+      for (String line : input.trim().split("\n")) {
+        String[] splitLine = line.split(" ", 2);
+        if (splitLine.length >= 2) {
+          result.put(splitLine[0], splitLine[1]);
+        }
+      }
+
+      return result;
+    }
+
+    private static byte[] printStatusMap(Map<String, String> map) {
+      return Joiner.on("\n").join(Iterables.transform(map.entrySet(),
+          new Function<Map.Entry<String, String>, String>() {
+            @Override
+            public String apply(@Nullable Entry<String, String> entry) {
+              return entry.getKey() + " " + entry.getValue();
+            }
+          })).getBytes(StandardCharsets.UTF_8);
+    }
+
     @Override
     public void execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
-        Joiner joiner = Joiner.on('\n');
-        String info =
-            joiner.join(
-                BuildInfo.BUILD_EMBED_LABEL + " " + options.embedLabel,
-                BuildInfo.BUILD_HOST + " " + hostname,
-                BuildInfo.BUILD_USER + " " + username);
-        FileSystemUtils.writeContent(stableStatus.getPath(), info.getBytes(StandardCharsets.UTF_8));
-        long timestamp = System.currentTimeMillis();
-        String volatileInfo =
-            joiner.join(
-                BuildInfo.BUILD_TIMESTAMP + " " + timestamp,
-                getAdditionalWorkspaceStatus(actionExecutionContext));
+        Map<String, String> statusMap = parseWorkspaceStatus(
+            getAdditionalWorkspaceStatus(actionExecutionContext));
+        Map<String, String> volatileMap = new TreeMap<>();
+        Map<String, String> stableMap = new TreeMap<>();
 
-        FileSystemUtils.writeContent(
-            volatileStatus.getPath(), volatileInfo.getBytes(StandardCharsets.UTF_8));
+        for (Map.Entry<String, String> entry : statusMap.entrySet()) {
+          if (isStableKey(entry.getKey())) {
+            stableMap.put(entry.getKey(), entry.getValue());
+          } else {
+            volatileMap.put(entry.getKey(), entry.getValue());
+          }
+        }
+
+        stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
+        stableMap.put(BuildInfo.BUILD_HOST, hostname);
+        stableMap.put(BuildInfo.BUILD_USER, username);
+        volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(System.currentTimeMillis()));
+
+        FileSystemUtils.writeContent(stableStatus.getPath(), printStatusMap(stableMap));
+        FileSystemUtils.writeContent(volatileStatus.getPath(), printStatusMap(volatileMap));
       } catch (IOException e) {
         throw new ActionExecutionException(
             "Failed to run workspace status command " + options.workspaceStatusCommand,

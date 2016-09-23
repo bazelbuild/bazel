@@ -14,13 +14,13 @@
 
 package com.google.testing.junit.runner.model;
 
+import com.google.testing.junit.runner.util.TestIntegration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Result of executing a test suite or test case.
- */
+/** Result of executing a test suite or test case. */
 final class TestResult {
 
   /**
@@ -78,12 +78,15 @@ final class TestResult {
     }
   }
 
-  private final String name, className;
+  private final String name;
+  private final String className;
   private final Map<String, String> properties;
   private final List<Throwable> failures;
   @Nullable private final TestInterval runTime;
+  private final Set<TestIntegration> integrations;
   private final Status status;
-  private final int numTests, numFailures;
+  private final int numTests;
+  private final int numFailures;
   private final List<TestResult> childResults;
 
   private TestResult(Builder builder) {
@@ -96,6 +99,7 @@ final class TestResult {
     numTests = checkNotNull(builder.numTests, "numTests not set");
     numFailures = checkNotNull(builder.numFailures, "numFailures not set");
     childResults = checkNotNull(builder.childResults, "childResults not set");
+    integrations = checkNotNull(builder.integrations, "integrations not set");
   }
 
   String getName() {
@@ -112,6 +116,10 @@ final class TestResult {
 
   List<Throwable> getFailures() {
     return failures;
+  }
+
+  Set<TestIntegration> getIntegrations() {
+    return integrations;
   }
 
   @Nullable
@@ -152,6 +160,7 @@ final class TestResult {
     private Map<String, String> properties = null;
     private List<Throwable> failures = null;
     @Nullable private TestInterval runTime = null;
+    private Set<TestIntegration> integrations = null;
     private Status status = null;
     private Integer numTests = null;
     private Integer numFailures = null;
@@ -171,6 +180,11 @@ final class TestResult {
 
     Builder properties(Map<String, String> properties) {
       this.properties = checkNullToNotNull(this.properties, properties, "properties");
+      return this;
+    }
+
+    Builder integrations(Set<TestIntegration> integrations) {
+      this.integrations = checkNullToNotNull(this.integrations, integrations, "integrations");
       return this;
     }
 

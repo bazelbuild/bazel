@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package java.lang.annotation;
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <iostream>
 
-/**
- * This is stub for the jdk8 ElementType. It allows the test to compile with a
- * jdk7 javabase.
- */
-public enum ElementType { TYPE_USE, TYPE_PARAMETER; }
+int main(int argc, char* argv[]) {
+  std::cout << "Hello! sqrt(time) = " << std::sqrt(time(NULL)) << std::endl;
+  return EXIT_SUCCESS;
+}

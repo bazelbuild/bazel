@@ -1,6 +1,8 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/shell/bazel/testdata/bazel_toolchain_test_data:srcs",
+    ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 

@@ -674,7 +674,6 @@ public class CppLinkActionBuilder {
       for (LTOBackendArtifacts a : allLTOArtifacts) {
         List<String> argv = new ArrayList<>();
         argv.addAll(cppConfiguration.getLinkOptions());
-        argv.addAll(featureConfiguration.getCommandLine(getActionName(), Variables.EMPTY));
         argv.addAll(cppConfiguration.getCompilerOptions(features));
         a.setCommandLine(argv);
       }

@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import static com.google.devtools.build.lib.packages.Attribute.ANY_EDGE;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -38,6 +40,10 @@ public class AarImportRule implements RuleDefinition {
         .add(attr("aar", LABEL)
             .mandatory()
             .allowedFileTypes(FileType.of(".aar")))
+        .add(attr("exports", LABEL_LIST)
+            .allowedRuleClasses("aar_import", "java_import")
+            .allowedFileTypes()
+            .validityPredicate(ANY_EDGE))
         .add(attr("$zip_manifest_creator", LABEL)
             .cfg(HOST)
             .exec()

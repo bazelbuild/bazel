@@ -77,7 +77,7 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
 
     public static ResourceContainer create(
         Label label,
-        String javaPackage,
+        @Nullable String javaPackage,
         @Nullable String renameManifestPackage,
         boolean constantsInlined,
         @Nullable Artifact apk,
@@ -110,7 +110,7 @@ public abstract class AndroidResourcesProvider implements TransitiveInfoProvider
     }
 
     public abstract Label getLabel();
-    public abstract String getJavaPackage();
+    @Nullable public abstract String getJavaPackage();
     @Nullable public abstract String getRenameManifestPackage();
     public abstract boolean getConstantsInlined();
     @Nullable public abstract Artifact getApk();

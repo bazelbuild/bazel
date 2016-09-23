@@ -29,5 +29,15 @@ How to update `protobuf.bzl` and the `src/` directory:
 4. Update rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
 5. Done.
 
+How to update `protoc-mingw.exe`:
+This is pretty much the same steps as for x86_64 above, but they need to be done
+from MingW shell on Windows machine ([https://sourceforge.net/projects/msys2/files/]).
+
+1. `git clone http://github.com/google/protobuf.git`
+2. `git checkout <commithash>` (current is `d5fb408d` or `3.0.0-beta-2`)
+3. `./autogen.sh`
+6. `make`
+7. `cp src/protoc.exe <Bazel tree>/third_party/protobuf/protoc-mingw.exe` .
+
 How to update anything else in this directory: follow usual procedure as described on
 https://www.bazel.io/contributing.html

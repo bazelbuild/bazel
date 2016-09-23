@@ -37,7 +37,6 @@ sh_test(
         ":definitely_zip64.jar",
         ":zip_count",
         "TypeAnnotationTest2.java",
-        # invokedynamic/ClassWithLambda.java, compiled with javac8
         ":libinvokedynamic.jar",
         # Intentionally bad test JAR: file count in central directory
         # wrong.
@@ -71,7 +70,6 @@ java_library(
     name = "invokedynamic",
     testonly = 1,
     srcs = ["invokedynamic/ClassWithLambda.java"],
-    javacopts = ["-source 8 -target 8"],
     tags = ["jdk8"],
 )
 
@@ -103,14 +101,14 @@ genrule(
 java_library(
     name = "typeannotations2",
     srcs = glob(["typeannotations2/**/*.java"]),
-    javacopts = ["-source 8 -target 8"],
     tags = ["jdk8"],
 )
 
 java_library(
     name = "methodparameters",
     srcs = ["methodparameters/Test.java"],
-    javacopts = ["-source 8 -target 8 -parameters"],
+    javacopts = ["-parameters"],
+    tags = ["jdk8"],
 )
 
 java_binary(

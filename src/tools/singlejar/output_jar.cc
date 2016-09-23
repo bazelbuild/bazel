@@ -373,14 +373,12 @@ bool OutputJar::AddJar(int jar_path_index) {
     off_t copy_from = jar_entry->local_header_offset();
     size_t num_bytes = lh->size();
     if (jar_entry->no_size_in_local_header()) {
-      // The size of the data descriptor varies. The actual data in it is three
-      // uint32's (crc32, compressed size, uncompressed size), but these can be
-      // preceded by the "PK\x7\x8" signature word (alas, 'jar' has it).
-      // Reading the descriptor just to figure out whether we need to copy four
-      // or three words will cost us another page read, let us assume the data
-      // description is always 4 words long at the cost of having an occasional
-      // one word gap between the entries.
-      num_bytes += jar_entry->compressed_file_size() + 4 * sizeof(uint32_t);
+      const DDR *ddr = reinterpret_cast<const DDR *>(
+          lh->data() + jar_entry->compressed_file_size());
+      num_bytes +=
+          jar_entry->compressed_file_size() +
+          ddr->size(0xFFFFFFFF == jar_entry->compressed_file_size32(),
+                    0xFFFFFFFF == jar_entry->uncompressed_file_size32());
     } else {
       num_bytes += lh->compressed_file_size();
     }
@@ -440,14 +438,10 @@ bool OutputJar::AddJar(int jar_path_index) {
     }
 
     // Do the actual copy.
-    ssize_t n_copied = AppendFile(input_jar.fd(), copy_from, num_bytes);
-    if (n_copied < 0) {
-      diag_err(1, "%s:%d: Cannot copy %ld bytes of %.*s from %s", __FILE__,
+    if (!WriteBytes(input_jar.mapped_start() + copy_from, num_bytes)) {
+      diag_err(1, "%s:%d: Cannot write %ld bytes of %.*s from %s", __FILE__,
                __LINE__, num_bytes, file_name_length, file_name,
                input_jar_path.c_str());
-    } else if (static_cast<size_t>(n_copied) != num_bytes) {
-      diag_err(1, "%s:%d: Copied only %ld bytes out of %ld from %s", __FILE__,
-               __LINE__, n_copied, num_bytes, input_jar_path.c_str());
     }
 
     // Append central directory header for this file to the output central
@@ -756,7 +750,7 @@ void OutputJar::ExtraCombiner(const std::string &entry_name,
   known_members_.emplace(entry_name, EntryInfo{combiner});
 }
 
-bool OutputJar::WriteBytes(void *buffer, size_t count) {
+bool OutputJar::WriteBytes(const void *buffer, size_t count) {
   size_t written = fwrite(buffer, 1, count, file_);
   outpos_ += written;
   return written == count;

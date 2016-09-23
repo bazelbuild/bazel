@@ -15,6 +15,7 @@
 package com.google.testing.junit.runner.model;
 
 import com.google.testing.junit.runner.model.TestResult.Status;
+import com.google.testing.junit.runner.util.TestIntegration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -88,7 +89,8 @@ class TestSuiteNode extends TestNode {
   @Override
   protected TestResult buildResult() {
     TestInterval runTime = null;
-    int numTests = 0, numFailures = 0;
+    int numTests = 0;
+    int numFailures = 0;
     LinkedList<TestResult> childResults = new LinkedList<>();
 
     for (TestNode child : children) {
@@ -118,6 +120,7 @@ class TestSuiteNode extends TestNode {
         .numTests(numTests)
         .numFailures(numFailures)
         .childResults(childResults)
+        .integrations(Collections.<TestIntegration>emptySet())
         .build();
   }
 }

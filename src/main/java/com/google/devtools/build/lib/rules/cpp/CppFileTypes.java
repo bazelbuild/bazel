@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -149,7 +148,13 @@ public final class CppFileTypes {
   // Output of the dwp tool
   public static final FileType DEBUG_INFO_PACKAGE = FileType.of(".dwp");
 
+  public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
+  public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+
   public static final boolean mustProduceDotdFile(String source) {
-    return !(ASSEMBLER.matches(source) || PIC_ASSEMBLER.matches(source));
+    return !ASSEMBLER.matches(source)
+        && !PIC_ASSEMBLER.matches(source)
+        && !CLIF_INPUT_PROTO.matches(source);
   }
+
 }

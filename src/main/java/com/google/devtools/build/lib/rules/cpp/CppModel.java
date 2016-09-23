@@ -69,6 +69,7 @@ public final class CppModel {
   private CppCompilationContext context;
   private CppCompilationContext interfaceContext;
   private final Set<CppSource> sourceFiles = new LinkedHashSet<>();
+  private final List<Artifact> mandatoryInputs = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
   @Nullable private Pattern nocopts;
   private boolean fake;
@@ -162,6 +163,12 @@ public final class CppModel {
    */
   public CppModel addCompilationUnitSources(Set<CppSource> sources) {
     this.sourceFiles.addAll(sources);
+    return this;
+  }
+
+  /** Adds mandatory inputs. */
+  public CppModel addMandatoryInputs(Collection<Artifact> artifacts) {
+    this.mandatoryInputs.addAll(artifacts);
     return this;
   }
 
@@ -527,6 +534,8 @@ public final class CppModel {
       if (CppFileTypes.CPP_HEADER.matches(source.getSource().getExecPath())) {
         createHeaderAction(outputName, result, env, builder,
             CppFileTypes.mustProduceDotdFile(sourceArtifact.getFilename()));
+      } else if (CppFileTypes.CLIF_INPUT_PROTO.matches(source.getSource().getExecPath())) {
+        createClifMatchAction(outputName, result, env, builder);
       } else {
         createSourceAction(
             outputName,
@@ -564,6 +573,30 @@ public final class CppModel {
         /*gcnoFile=*/ null,
         /*dwoFile=*/ null,
         ImmutableMap.<String, String>of());
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    CppCompileAction compileAction = builder.build();
+    env.registerAction(compileAction);
+    Artifact tokenFile = compileAction.getOutputFile();
+    result.addHeaderTokenFile(tokenFile);
+  }
+
+  private void createClifMatchAction(
+      String outputName, Builder result, AnalysisEnvironment env, CppCompileActionBuilder builder) {
+    builder
+        .setOutputs(ArtifactCategory.CLIF_OUTPUT_PROTO, outputName, false)
+        .setPicMode(false)
+        // The additional headers in a clif action are both mandatory inputs and
+        // need to be include-scanned.
+        .addMandatoryInputs(mandatoryInputs)
+        .addAdditionalIncludes(mandatoryInputs);
+    setupCompileBuildVariables(
+        builder,
+        /* usePic=*/ false,
+        /*ccRelativeName=*/ null,
+        /*autoFdoImportPath=*/ null,
+        /*gcnoFile=*/ null,
+        /*dwoFile=*/ null,
+        /*sourceSpecificBuildVariables=*/ ImmutableMap.<String, String>of());
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.build();
     env.registerAction(compileAction);

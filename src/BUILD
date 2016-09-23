@@ -285,6 +285,7 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/weighted:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",

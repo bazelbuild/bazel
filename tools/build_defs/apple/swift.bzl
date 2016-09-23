@@ -35,14 +35,9 @@ def _intersperse(separator, iterable):
 
 def _swift_target(cpu, platform, sdk_version):
   """Returns a target triplet for Swift compiler."""
-  # TODO(dmishe): Use PlatformType object when available.
-  platform_string = None
-  if str(platform).startswith("IOS_"):
-    platform_string = "ios"
-  elif str(platform).startswith("WATCHOS_"):
-    platform_string = "watchos"
-  else:
-    fail("Platform %s is not supported")
+  platform_string = str(platform.platform_type)
+  if platform_string not in ["ios", "watchos"]:
+    fail("Platform '%s' is not supported" % platform_string)
 
   return "%s-apple-%s%s" % (cpu, platform_string, sdk_version)
 
@@ -74,18 +69,10 @@ def _module_name(ctx):
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
   # TODO(b/29772303): Assert xcode version.
-  apple_fm = ctx.fragments.apple
+  apple_fragment = ctx.fragments.apple
 
-  # TODO(dmishe): Use single_arch_cpu and single_arch_platform when available.
-  if (hasattr(apple_fm, "single_arch_cpu")
-      and hasattr(apple_fm, "single_arch_platform")):
-    cpu = apple_fm.single_arch_cpu
-    platform = apple_fm.single_arch_platform
-  else:
-    # TODO(dmishe): Remove this branch when single_arch_platform is available
-    # by default.
-    cpu = apple_fm.ios_cpu()
-    platform = apple_fm.ios_cpu_platform()
+  cpu = apple_fragment.single_arch_cpu
+  platform = apple_fragment.single_arch_platform
 
   target_os = ctx.fragments.objc.ios_minimum_os
   target = _swift_target(cpu, platform, target_os)
@@ -95,7 +82,7 @@ def _swift_library_impl(ctx):
 
   # A list of paths to pass with -F flag.
   framework_dirs = set([
-      apple_toolchain.platform_developer_framework_dir(apple_fm)])
+      apple_toolchain.platform_developer_framework_dir(apple_fragment)])
 
   # Collect transitive dependecies.
   dep_modules = []

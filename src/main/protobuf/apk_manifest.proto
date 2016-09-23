@@ -48,6 +48,7 @@ message AndroidSdk {
   string shrinked_android_jar = 15;
   string zipalign = 16;
   string build_tools_version = 17; // assume latest if not set
+  string apksigner = 18;
 }
 
 // Information about a resource referenced from AndroidManifest.xml.

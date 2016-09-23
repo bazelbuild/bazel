@@ -103,6 +103,7 @@ public final class CcLibraryHelper {
             CppCompileAction.CPP_MODULE_COMPILE,
             CppCompileAction.ASSEMBLE,
             CppCompileAction.PREPROCESS_ASSEMBLE,
+            CppCompileAction.CLIF_MATCH,
             Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
             // We need to create pic-specific actions for link actions, as they will produce
             // differently named outputs.

@@ -297,4 +297,7 @@ public class CppRuleClasses {
    * A string constant for the coverage feature.
    */
   public static final String COVERAGE = "coverage";
+
+  /** A string constant for the match-clif feature. */
+  public static final String MATCH_CLIF = "match_clif";
 }

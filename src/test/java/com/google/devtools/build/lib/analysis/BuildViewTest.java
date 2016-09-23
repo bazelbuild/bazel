@@ -1182,7 +1182,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("foo/BUILD",
         "sh_library(name='x', ",
         "        srcs=['x.sh'])");
-    useConfiguration("--experimental_dynamic_configs");
+    useConfiguration("--experimental_dynamic_configs=on");
     AnalysisResult res = update("//foo:x");
     ConfiguredTarget topLevelTarget = Iterables.getOnlyElement(res.getTargetsToBuild());
     assertThat(topLevelTarget.getConfiguration().getAllFragments().keySet()).containsExactly(
@@ -1199,7 +1199,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "java_library(",
         "    name = 'javalib',",
         "    srcs = ['javalib.java'])");
-    useConfiguration("--experimental_dynamic_configs", "--experimental_disable_jvm");
+    useConfiguration("--experimental_dynamic_configs=on", "--experimental_disable_jvm");
     reporter.removeHandler(failFastHandler);
     try {
       update("//foo:ccbin");

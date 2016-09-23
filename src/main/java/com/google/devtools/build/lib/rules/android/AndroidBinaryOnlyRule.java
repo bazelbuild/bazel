@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
-import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 
 /**
  * Attributes for {@code android_binary} that are not present on {@code android_test}.
@@ -96,28 +95,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
             .cfg(HOST)
             .exec()
             .value(env.getToolsLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
-
-        /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(multidex) -->
-        Whether to split code into multiple dex files.<br/>
-        Possible values:
-        <ul>
-          <li><code>native</code>: Split code into multiple dex files when the dex 64K index limit
-            is exceeded. Assumes native platform support for loading multidex classes at runtime.
-            <em class="harmful">This works with only Android L and newer</em>.</li>
-          <li><code>legacy</code>: Split code into multiple dex files when the dex 64K index limit
-            is exceeded. Assumes multidex classes are loaded through application code (i.e. no
-            native platform support).</li>
-          <li><code>manual_main_dex</code>: Split code into multiple dex files when the dex 64K
-            index limit is exceeded. The content of the main dex file needs to be specified by
-            providing a list of classes in a text file using the
-            <a href="${link android_binary.main_dex_list}">main_dex_list</a> attribute.</li>
-          <li><code>off</code>: Compile all code to a single dex file, even if it exceeds the index
-            limit.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("multidex", STRING)
-            .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
-            .value(MultidexMode.OFF.getAttributeValue()))
         .removeAttribute("data")
         .build();
   }
