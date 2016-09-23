@@ -157,4 +157,19 @@ EOF
   expect_log "select() cannot be used in macros called from WORKSPACE files"
 }
 
+function test_clean() {
+  mkdir x
+  cd x
+  cat > WORKSPACE <<EOF
+workspace(name = "y")
+EOF
+  cat > BUILD <<'EOF'
+genrule(name = "z", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
+EOF
+  bazel build //:z &> $TEST_log || fail "Expected build to succeed"
+  [ -L bazel-x ] || fail "bazel-x should be a symlink"
+  bazel clean
+  [ ! -L bazel-x ] || fail "bazel-x should have been removed"
+}
+
 run_suite "workspace tests"
