@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -209,9 +210,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     // into batches.
     List<List<PackageIdentifier>> partitions =
         ImmutableList.copyOf(Iterables.partition(pkgIds, MAX_PACKAGES_BULK_GET));
-    ArrayList<Callable<Void>> callables = new ArrayList<>(partitions.size());
+    ArrayList<Future<Void>> tasks = new ArrayList<>(partitions.size());
     for (final Iterable<PackageIdentifier> pkgIdBatch : partitions) {
-      callables.add(new Callable<Void>() {
+      tasks.add(executor.submit(new Callable<Void>() {
           @Override
           public Void call() throws E, TargetParsingException, InterruptedException {
             Iterable<ResolvedTargets<Target>> resolvedTargets =
@@ -233,20 +234,15 @@ public class RecursivePackageProviderBackedTargetPatternResolver
             }
             return null;
           }
-        });
+        }));
     }
-
-    // Note that ExecutorService#invokeAll _does_ block until all the Callables have been run.
-    List<Future<Void>> futures = executor.invokeAll(callables);
-    for (Future<Void> future : futures) {
-      try {
-        future.get();
-      } catch (ExecutionException e) {
-        Throwables.propagateIfPossible(e.getCause(), exceptionClass);
-        Throwables.propagateIfPossible(
-            e.getCause(), TargetParsingException.class, InterruptedException.class);
-        throw new IllegalStateException(e);
-      }
+    try {
+      MoreFutures.waitForAllInterruptiblyFailFast(tasks);
+    } catch (ExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), exceptionClass);
+      Throwables.propagateIfPossible(
+          e.getCause(), TargetParsingException.class, InterruptedException.class);
+      throw new IllegalStateException(e);
     }
     if (!foundTarget.get()) {
       throw new TargetParsingException("no targets found beneath '" + pathFragment + "'");
