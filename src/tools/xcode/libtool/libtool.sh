@@ -16,9 +16,9 @@
 #
 # libtool.sh runs the command passed to it using "xcrunwrapper libtool".
 #
-# It creates symbolic links for all input files with a content-hash appended
+# It creates symbolic links for all input files with a path-hash appended
 # to their original name (foo.o becomes foo_{md5sum}.o). This is to circumvent
-# a bug in the original tool that arises when two input files have the same
+# a bug in the original libtool that arises when two input files have the same
 # base name (even if they are in different directories).
 
 set -eu
@@ -57,9 +57,8 @@ while [[ $# -gt 0 ]]; do
       shift
       HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
       rm -f "${HASHED_FILELIST}"
-      while read INPUT_FILE || [ -n "$INPUT_FILE" ]; do
-        echo "$(hash_objfile "${INPUT_FILE}")" >> "$HASHED_FILELIST"
-      done < "${ARG}"
+      # Use python helper script for fast md5 calculation of many strings.
+      python "${MY_LOCATION}/make_hashed_objlist.py" "${ARG}" "${HASHED_FILELIST}"
       ARGS+=("${HASHED_FILELIST}")
       ;;
    # Output flag
