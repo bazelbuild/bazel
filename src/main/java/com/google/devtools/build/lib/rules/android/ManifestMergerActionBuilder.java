@@ -136,7 +136,7 @@ public class ManifestMergerActionBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_manifest_merger", Mode.HOST))
-            .setProgressMessage("Merging manifest")
+            .setProgressMessage("Merging manifest for " + ruleContext.getLabel())
             .setMnemonic("ManifestMerger")
             .build(context));
   }
