@@ -145,7 +145,8 @@ public class GrpcServerImpl extends RPCServer {
     }
   }
 
-  private enum StreamType {
+  @VisibleForTesting
+  enum StreamType {
     STDOUT,
     STDERR,
   }
@@ -350,43 +351,50 @@ public class GrpcServerImpl extends RPCServer {
   }
 
   // TODO(lberki): Maybe we should implement line buffering?
-  private class RpcOutputStream extends OutputStream {
+  @VisibleForTesting
+  static class RpcOutputStream extends OutputStream {
+    private static final int CHUNK_SIZE = 8192;
+
     private final String commandId;
+    private final String responseCookie;
     private final StreamType type;
     private final GrpcSink sink;
 
-    private RpcOutputStream(String commandId, StreamType type, GrpcSink sink) {
+    RpcOutputStream(String commandId, String responseCookie, StreamType type, GrpcSink sink) {
       this.commandId = commandId;
+      this.responseCookie = responseCookie;
       this.type = type;
       this.sink = sink;
     }
 
     @Override
-    public void write(byte[] b, int off, int inlen) throws IOException {
-      ByteString input = ByteString.copyFrom(b, off, inlen);
-      RunResponse.Builder response = RunResponse
-          .newBuilder()
-          .setCookie(responseCookie)
-          .setCommandId(commandId);
+    public synchronized void write(byte[] b, int off, int inlen) throws IOException {
+      for (int i = 0; i < inlen; i += CHUNK_SIZE) {
+        ByteString input = ByteString.copyFrom(b, off + i, Math.min(CHUNK_SIZE, inlen - i));
+        RunResponse.Builder response = RunResponse
+            .newBuilder()
+            .setCookie(responseCookie)
+            .setCommandId(commandId);
 
-      switch (type) {
-        case STDOUT: response.setStandardOutput(input); break;
-        case STDERR: response.setStandardError(input); break;
-        default: throw new IllegalStateException();
-      }
+        switch (type) {
+          case STDOUT: response.setStandardOutput(input); break;
+          case STDERR: response.setStandardError(input); break;
+          default: throw new IllegalStateException();
+        }
 
-      // Send the chunk to the streamer thread. May block.
-      if (!sink.offer(response.build())) {
-        // Client disconnected. Terminate the current command as soon as possible. Note that
-        // throwing IOException is not enough because we are in the habit of swallowing it. Note
-        // that when gRPC notifies us about the disconnection (see the call to setOnCancelHandler)
-        // we interrupt the command thread, which should be enough to make the server come around as
-        // soon as possible.
-        log.info(
-            String.format(
-                "Client disconnected received for command %s on thread %s",
-                commandId, Thread.currentThread().getName()));
-        throw new IOException("Client disconnected");
+        // Send the chunk to the streamer thread. May block.
+        if (!sink.offer(response.build())) {
+          // Client disconnected. Terminate the current command as soon as possible. Note that
+          // throwing IOException is not enough because we are in the habit of swallowing it. Note
+          // that when gRPC notifies us about the disconnection (see the call to setOnCancelHandler)
+          // we interrupt the command thread, which should be enough to make the server come around
+          // as soon as possible.
+          log.info(
+              String.format(
+                  "Client disconnected received for command %s on thread %s",
+                  commandId, Thread.currentThread().getName()));
+          throw new IOException("Client disconnected");
+        }
       }
     }
 
@@ -640,8 +648,8 @@ public class GrpcServerImpl extends RPCServer {
 
       OutErr rpcOutErr =
           OutErr.create(
-              new RpcOutputStream(command.id, StreamType.STDOUT, sink),
-              new RpcOutputStream(command.id, StreamType.STDERR, sink));
+              new RpcOutputStream(command.id, responseCookie, StreamType.STDOUT, sink),
+              new RpcOutputStream(command.id, responseCookie, StreamType.STDERR, sink));
 
       exitCode =
           commandExecutor.exec(
