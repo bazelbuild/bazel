@@ -62,6 +62,18 @@ def _clang_compilation_mode_flags(ctx):
 
   return [x for x in native_clang_flags if x != "-g"]
 
+def _swift_bitcode_flags(ctx):
+  """Returns bitcode flags based on selected mode."""
+  # TODO(dmishe): Remove this when bitcode_mode is available by default.
+  if hasattr(ctx.fragments.apple, "bitcode_mode"):
+    mode = str(ctx.fragments.apple.bitcode_mode)
+    if mode == "embedded":
+      return ["-embed-bitcode"]
+    elif mode == "embedded_markers":
+      return ["-embed-bitcode-marker"]
+
+  return []
+
 def _module_name(ctx):
   """Returns a module name for the given rule context."""
   return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
@@ -200,7 +212,7 @@ def _swift_library_impl(ctx):
       module_cache_path(ctx),
       "-output-file-map",
       swiftc_output_map_file.path,
-  ] + _swift_compilation_mode_flags(ctx)
+  ] + _swift_compilation_mode_flags(ctx) + _swift_bitcode_flags(ctx)
 
   args.extend(srcs_args)
   args.extend(include_args)
