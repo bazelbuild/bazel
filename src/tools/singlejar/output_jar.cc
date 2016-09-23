@@ -191,7 +191,7 @@ int OutputJar::Doit(Options *options) {
   bool compress = options_->force_compression || options_->preserve_compression;
   // First, write a directory entry for the META-INF, followed by the manifest
   // file, followed by the build properties file.
-  AddDirectory("META-INF/");
+  WriteMetaInf();
   manifest_.Append("\r\n");
   WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
@@ -538,8 +538,8 @@ void OutputJar::WriteEntry(void *buffer) {
     diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
   // Data written, allocate CDH space and populate CDH.
-  CDH *cdh = reinterpret_cast<CDH *>(
-      ReserveCdh(sizeof(CDH) + entry->file_name_length()));
+  CDH *cdh = reinterpret_cast<CDH *>(ReserveCdh(
+      sizeof(CDH) + entry->file_name_length() + entry->extra_fields_length()));
   cdh->signature();
   // Note: do not set the version to Unix 3.0 spec, otherwise
   // unzip will think that 'external_attributes' field contains access mode
@@ -555,7 +555,7 @@ void OutputJar::WriteEntry(void *buffer) {
   TODO(entry->uncompressed_file_size32() != 0xFFFFFFFF, "Handle Zip64");
   cdh->uncompressed_file_size32(entry->uncompressed_file_size32());
   cdh->file_name(entry->file_name(), entry->file_name_length());
-  cdh->extra_fields(nullptr, 0);
+  cdh->extra_fields(entry->extra_fields(), entry->extra_fields_length());
   cdh->comment_length(0);
   cdh->start_disk_nr(0);
   cdh->internal_attributes(0);
@@ -565,9 +565,18 @@ void OutputJar::WriteEntry(void *buffer) {
   free(reinterpret_cast<void *>(entry));
 }
 
-void OutputJar::AddDirectory(const char *path) {
+void OutputJar::WriteMetaInf() {
+  const char path[] = "META-INF/";
   size_t n_path = strlen(path);
-  size_t lh_size = sizeof(LH) + n_path;
+
+  // META_INF/ is always the first entry, and as such it should have an extra
+  // field with the tag 0xCAFE and zero bytes of data. This is not the part of
+  // the jar file spec, but Unix 'file' utility relies on it to distiguish jar
+  // file from zip file. See https://bugs.openjdk.java.net/browse/JDK-6808540
+  const uint8_t extra_fields[] = {0xFE, 0xCA, 0, 0};
+  const uint16_t n_extra_fields =
+      sizeof(extra_fields) / sizeof(extra_fields[0]);
+  size_t lh_size = sizeof(LH) + n_path + n_extra_fields;
   LH *lh = reinterpret_cast<LH *>(malloc(lh_size));
   lh->signature();
   lh->version(20);  // 2.0
@@ -577,7 +586,7 @@ void OutputJar::AddDirectory(const char *path) {
   lh->compressed_file_size32(0);
   lh->uncompressed_file_size32(0);
   lh->file_name(path, n_path);
-  lh->extra_fields(nullptr, 0);
+  lh->extra_fields(extra_fields, n_extra_fields);
   known_members_.emplace(path, EntryInfo{&null_combiner_});
   WriteEntry(lh);
 }

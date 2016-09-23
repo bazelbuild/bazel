@@ -115,9 +115,12 @@ TEST_F(OutputJarSimpleTest, Empty) {
   CreateOutput(out_path, {});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
+  int entry_count = 0;
   const LH *lh;
   const CDH *cdh;
+  const uint8_t cafe_extra_field[] = {0xFE, 0xCA, 0, 0};
   while ((cdh = input_jar.NextEntry(&lh))) {
+    ++entry_count;
     ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
     ASSERT_NE(nullptr, lh) << "No local header.";
     ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
@@ -163,6 +166,19 @@ TEST_F(OutputJarSimpleTest, Empty) {
     EXPECT_GE(now, entry_time) << now_time_str << " vs. " << entry_time_str;
     EXPECT_LE(now, entry_time + 300) << now_time_str << " vs. "
                                      << entry_time_str;
+
+    // The first entry should be for the META-INF/ directory, and it should
+    // contain a single extra field 0xCAFE. Although
+    // https://bugs.openjdk.java.net/browse/JDK-6808540 claims that this extra
+    // field is optional, 'file' utility in Linux relies on to distinguish
+    // jar from zip.
+    if (entry_count == 1) {
+      ASSERT_EQ("META-INF/", lh->file_name_string());
+      ASSERT_EQ(4, lh->extra_fields_length());
+      ASSERT_EQ(0, memcmp(cafe_extra_field, lh->extra_fields(), 4));
+      ASSERT_EQ(4, cdh->extra_fields_length());
+      ASSERT_EQ(0, memcmp(cafe_extra_field, cdh->extra_fields(), 4));
+    }
   }
   input_jar.Close();
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
