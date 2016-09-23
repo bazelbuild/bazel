@@ -1,8 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
-filegroup(
+alias(
     name = "sdk",
-    srcs = ["//external:android/sdk"],
+    actual = "//external:android/sdk",
 )
 
 android_library(
