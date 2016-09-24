@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -69,6 +70,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
@@ -416,10 +418,10 @@ public final class CompilationSupport {
       ExtraCompileArgs extraCompileArgs,
       Iterable<PathFragment> priorityHeaders) {
     if (common.getCompilationArtifacts().isPresent()) {
-      registerGenerateModuleMapAction(common.getCompilationArtifacts());
+      registerGenerateModuleMapActions(common.getCompilationArtifacts());
       Optional<CppModuleMap> moduleMap;
       if (objcConfiguration.moduleMapsEnabled()) {
-        moduleMap = Optional.of(intermediateArtifacts.moduleMap());
+        moduleMap = Optional.of(intermediateArtifacts.unextendedModuleMap());
       } else {
         moduleMap = Optional.absent();
       }
@@ -548,7 +550,7 @@ public final class CompilationSupport {
     if (hasSwiftSources) {
       // Add the directory that contains merged TargetName-Swift.h header to search path, in case
       // any of ObjC files use it.
-      commandLine.add("-I");
+      commandLine.add("-iquote");
       commandLine.addPath(intermediateArtifacts.swiftHeader().getExecPath().getParentDirectory());
     }
 
@@ -632,14 +634,8 @@ public final class CompilationSupport {
       // to the include path instead.
       // TODO(bazel-team): Use -fmodule-map-file when Xcode 6 support is dropped.
       commandLine
-          .add("-iquote")
-          .add(
-              moduleMap
-                  .get()
-                  .getArtifact()
-                  .getExecPath()
-                  .getParentDirectory()
-                  .toString())
+          .add("-fmodule-map-file=" +
+              moduleMap.get().getArtifact().getExecPath().toString())
           .add("-fmodule-name=" + moduleMap.get().getName());
     }
 
@@ -687,6 +683,13 @@ public final class CompilationSupport {
       moduleMapInputs = objcProvider.get(MODULE_MAP);
     }
 
+
+    Optional<Artifact> moduleMapArtifact = moduleMap.transform(new Function<CppModuleMap, Artifact>() {
+      @Nullable @Override public Artifact apply(@Nullable CppModuleMap cppModuleMap) {
+        return cppModuleMap.getArtifact();
+      }
+    });
+
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
@@ -695,6 +698,7 @@ public final class CompilationSupport {
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine)
             .addInput(sourceFile)
+            .addInputs(moduleMapArtifact.asSet())
             .addInputs(swiftHeader.asSet())
             .addTransitiveInputs(moduleMapInputs)
             .addOutput(objFile)
@@ -844,7 +848,6 @@ public final class CompilationSupport {
       commandLine.add("-g");
     }
 
-
     commandLine
       .add("-module-name").add(getModuleName());
 
@@ -883,17 +886,23 @@ public final class CompilationSupport {
     // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
     // directory?
     if (objcConfiguration.moduleMapsEnabled()) {
-      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
-      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+      CppModuleMap unextendedModuleMap = intermediateArtifacts.unextendedModuleMap();
+      PathFragment moduleMapPath = unextendedModuleMap.getArtifact().getExecPath();
+
+      commandLine.add("-I").add(moduleMapPath.getParentDirectory().getPathString());
       commandLine.add("-import-underlying-module");
 
-      inputHeaders.addAll(objcProvider.get(MODULE_MAP));
+      inputHeaders.add(unextendedModuleMap.getArtifact());
     }
+
+    inputHeaders.addAll(Iterables.filter(
+        objcProvider.get(MODULE_MAP),
+        Predicates.not(Predicates.equalTo(intermediateArtifacts.moduleMap().getArtifact()))));
 
     Set<String> seenSwiftModulePaths = new HashSet<>();
     // For any dependency we have we need to make sure we are visible
     for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
-      String path = swiftModule.getExecPath().getParentDirectory().getPathString();
+      String path = swiftModule.getExecPath().getParentDirectory().toString();
 
       if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
         inputHeaders.add(swiftModule);
@@ -968,11 +977,9 @@ public final class CompilationSupport {
     }
 
     // Import the Objective-C module map.
-    // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
-    // directory?
     if (objcConfiguration.moduleMapsEnabled()) {
-      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
-      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+      PathFragment moduleMapPath = intermediateArtifacts.unextendedModuleMap().getArtifact().getExecPath().getParentDirectory();
+      commandLine.add("-I").add(moduleMapPath.toString());
     }
 
     Set<String> seenSwiftModulePaths = new HashSet<>();
@@ -999,7 +1006,10 @@ public final class CompilationSupport {
         .setCommandLine(commandLine.build())
         .addInputs(moduleFiles.build())
         .addTransitiveInputs(objcProvider.get(HEADER))
-        .addTransitiveInputs(objcProvider.get(MODULE_MAP))
+        .addInput(intermediateArtifacts.unextendedModuleMap().getArtifact())
+        .addInputs(Iterables.filter(
+            objcProvider.get(MODULE_MAP),
+            Predicates.not(Predicates.equalTo(intermediateArtifacts.moduleMap().getArtifact()))))
         .addOutput(intermediateArtifacts.swiftModule())
         .addOutput(intermediateArtifacts.swiftHeader())
         .build(ruleContext));
@@ -1204,19 +1214,27 @@ public final class CompilationSupport {
    * Registers an action that will generate a clang module map for this target, using the hdrs
    * attribute of this rule.
    */
-  CompilationSupport registerGenerateModuleMapAction(
+  CompilationSupport registerGenerateModuleMapActions(
       Optional<CompilationArtifacts> compilationArtifacts) {
     // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
     // dropped.
     Iterable<Artifact> publicHeaders = attributes.hdrs();
     Iterable<Artifact> privateHeaders = ImmutableList.of();
+    Optional<Artifact> swiftCompatibilityHeader = Optional.absent();
+
     if (compilationArtifacts.isPresent()) {
       CompilationArtifacts artifacts = compilationArtifacts.get();
       publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
       privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
+      swiftCompatibilityHeader = artifacts.getSwiftCompatabilityHeader();
     }
-    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-    registerGenerateModuleMapAction(moduleMap, publicHeaders, privateHeaders);
+
+    registerGenerateModuleMapAction(intermediateArtifacts.moduleMap(), publicHeaders,
+        privateHeaders,
+        swiftCompatibilityHeader, false);
+    registerGenerateModuleMapAction(intermediateArtifacts.unextendedModuleMap(), publicHeaders,
+        privateHeaders,
+        swiftCompatibilityHeader, true);
 
     return this;
   }
@@ -1227,9 +1245,12 @@ public final class CompilationSupport {
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
    * @param privateHeaders the headers that should only be directly accessible by this module
+   * @param swiftCompatibilityHeader
+   * @param isUnextendedSwift
    */
   private void registerGenerateModuleMapAction(
-      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders) {
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders,
+      Optional<Artifact> swiftCompatibilityHeader, boolean isUnextendedSwift) {
     publicHeaders = Iterables.filter(publicHeaders, MODULE_MAP_HEADER);
     privateHeaders = Iterables.filter(privateHeaders, MODULE_MAP_HEADER);
     ruleContext.registerAction(
@@ -1240,10 +1261,12 @@ public final class CompilationSupport {
             publicHeaders,
             attributes.moduleMapsForDirectDeps(),
             ImmutableList.<PathFragment>of(),
+            swiftCompatibilityHeader,
+            /*isUnextendedSwift=*/ isUnextendedSwift,
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
             /*generateSubModules=*/ false,
-            /*externDependencies=*/ false));
+            /*externDependencies=*/ true));
   }
 
   private boolean isDynamicLib(CommandLine commandLine) {

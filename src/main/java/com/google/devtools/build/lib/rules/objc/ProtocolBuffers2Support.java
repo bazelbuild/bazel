@@ -95,7 +95,7 @@ final class ProtocolBuffers2Support {
   public ProtocolBuffers2Support registerCompilationActions() {
     new CompilationSupport(ruleContext)
         .registerCompileAndArchiveActions(getCommon())
-        .registerGenerateModuleMapAction(Optional.of(getCompilationArtifacts()));
+        .registerGenerateModuleMapActions(Optional.of(getCompilationArtifacts()));
     return this;
   }
 

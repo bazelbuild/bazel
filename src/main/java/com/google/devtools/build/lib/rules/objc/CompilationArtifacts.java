@@ -34,6 +34,7 @@ final class CompilationArtifacts {
     private Iterable<Artifact> privateHdrs = ImmutableList.of();
     private Iterable<Artifact> precompiledSrcs = ImmutableList.of();
     private Optional<Artifact> pchFile;
+    private Optional<Artifact> swiftCompatabilityHeader = Optional.absent();
     private IntermediateArtifacts intermediateArtifacts;
 
     Builder addSrcs(Iterable<Artifact> srcs) {
@@ -102,8 +103,22 @@ final class CompilationArtifacts {
           || !Iterables.isEmpty(precompiledSrcs)) {
         archive = Optional.of(intermediateArtifacts.archive());
       }
+      boolean hasSwiftSources = Iterables.any(this.srcs, new Predicate<Artifact>() {
+        @Override
+        public boolean apply(Artifact artifact) {
+          return ObjcRuleClasses.SWIFT_SOURCES.matches(artifact.getExecPath());
+        }
+      });
+
+      Optional<Artifact> swiftCompatabilityHeader = Optional.absent();
+
+      if (hasSwiftSources) {
+        swiftCompatabilityHeader = Optional.of(intermediateArtifacts.swiftHeader());
+      }
+
       return new CompilationArtifacts(
-          srcs, nonArcSrcs, additionalHdrs, privateHdrs, precompiledSrcs, archive, pchFile);
+          srcs, nonArcSrcs, additionalHdrs, privateHdrs, precompiledSrcs, archive, pchFile,
+          swiftCompatabilityHeader, hasSwiftSources);
     }
   }
 
@@ -114,6 +129,7 @@ final class CompilationArtifacts {
   private final Iterable<Artifact> privateHdrs;
   private final Iterable<Artifact> precompiledSrcs;
   private final Optional<Artifact> pchFile;
+  private final Optional<Artifact> swiftCompatabilityHeader;
   private final boolean hasSwiftSources;
 
   private CompilationArtifacts(
@@ -123,7 +139,9 @@ final class CompilationArtifacts {
       Iterable<Artifact> privateHdrs,
       Iterable<Artifact> precompiledSrcs,
       Optional<Artifact> archive,
-      Optional<Artifact> pchFile) {
+      Optional<Artifact> pchFile,
+      Optional<Artifact> swiftCompatabilityHeader,
+      boolean hasSwiftSources) {
     this.srcs = Preconditions.checkNotNull(srcs);
     this.nonArcSrcs = Preconditions.checkNotNull(nonArcSrcs);
     this.additionalHdrs = Preconditions.checkNotNull(additionalHdrs);
@@ -131,12 +149,8 @@ final class CompilationArtifacts {
     this.precompiledSrcs = Preconditions.checkNotNull(precompiledSrcs);
     this.archive = Preconditions.checkNotNull(archive);
     this.pchFile = Preconditions.checkNotNull(pchFile);
-    this.hasSwiftSources = Iterables.any(this.srcs, new Predicate<Artifact>() {
-      @Override
-      public boolean apply(Artifact artifact) {
-        return ObjcRuleClasses.SWIFT_SOURCES.matches(artifact.getExecPath());
-      }
-    });
+    this.swiftCompatabilityHeader = Preconditions.checkNotNull(swiftCompatabilityHeader);
+    this.hasSwiftSources = hasSwiftSources;
   }
 
   public Iterable<Artifact> getSrcs() {
@@ -187,5 +201,9 @@ final class CompilationArtifacts {
    */
   public boolean hasSwiftSources() {
     return hasSwiftSources;
+  }
+
+  public Optional<Artifact> getSwiftCompatabilityHeader() {
+    return swiftCompatabilityHeader;
   }
 }
