@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -31,6 +32,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 
@@ -46,21 +48,23 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   // C++ module map of the current target
   private final CppModuleMap cppModuleMap;
 
+  private final boolean isUnextendedSwift;
   /**
    * If set, the paths in the module map are relative to the current working directory instead
    * of relative to the module map file's location.
    */
   private final boolean moduleMapHomeIsCwd;
-
   // Data required to build the actual module map.
   // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
   private final ImmutableList<Artifact> privateHeaders;
+
   private final ImmutableList<Artifact> publicHeaders;
   private final ImmutableList<CppModuleMap> dependencies;
   private final ImmutableList<PathFragment> additionalExportedHeaders;
   private final boolean compiledModule;
   private final boolean generateSubmodules;
   private final boolean externDependencies;
+  private final Optional<Artifact> swiftCompatibilityHeader;
 
   public CppModuleMapAction(
       ActionOwner owner,
@@ -69,6 +73,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       Iterable<Artifact> publicHeaders,
       Iterable<CppModuleMap> dependencies,
       Iterable<PathFragment> additionalExportedHeaders,
+      Optional<Artifact> swiftCompatibilityHeader,
+      boolean isUnextendedSwift,
       boolean compiledModule,
       boolean moduleMapHomeIsCwd,
       boolean generateSubmodules,
@@ -78,10 +84,13 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         ImmutableList.<Artifact>builder()
             .addAll(Iterables.filter(privateHeaders, Artifact.IS_TREE_ARTIFACT))
             .addAll(Iterables.filter(publicHeaders, Artifact.IS_TREE_ARTIFACT))
+            .addAll(isUnextendedSwift ? Collections.emptySet() : swiftCompatibilityHeader.asSet())
             .build(),
         cppModuleMap.getArtifact(),
         /*makeExecutable=*/false);
     this.cppModuleMap = cppModuleMap;
+    this.swiftCompatibilityHeader = swiftCompatibilityHeader;
+    this.isUnextendedSwift = isUnextendedSwift;
     this.moduleMapHomeIsCwd = moduleMapHomeIsCwd;
     this.privateHeaders = ImmutableList.copyOf(privateHeaders);
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
@@ -111,7 +120,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         HashSet<PathFragment> deduper = new HashSet<>();
         for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
           appendHeader(
-              content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/ true, deduper);
+              content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/ true, deduper,
+              false);
         }
         for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
           appendHeader(
@@ -120,11 +130,12 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               artifact.getExecPath(),
               leadingPeriods,
               /*canCompile=*/ true,
-              deduper);
+              deduper, false);
         }
         for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
           appendHeader(
-              content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/ false, deduper);
+              content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/ false, deduper,
+              false);
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
@@ -141,6 +152,23 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 .append("\"");
           }
         }
+
+        if (swiftCompatibilityHeader.isPresent()) {
+          if (isUnextendedSwift) {
+            //content.append("\nmodule \"").append(cppModuleMap.getName()).append("\".__Swift {\n");
+            //appendHeader(
+            //    content, "", swiftCompatibilityHeader.get().getExecPath(), leadingPeriods, /*canCompile=*/
+            //    true, deduper, true);
+            //content.append("}");
+          } else {
+            content.append("\nmodule \"").append(cppModuleMap.getName()).append("\".Swift {\n");
+            appendHeader(
+                content, "", swiftCompatibilityHeader.get().getExecPath(), leadingPeriods, /*canCompile=*/
+                true, deduper, false);
+            content.append("}");
+          }
+        }
+
         out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
       }
     };
@@ -161,7 +189,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
-      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper) {
+      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper, boolean exclude) {
     if (deduper.contains(path)) {
       return;
     }
@@ -173,6 +201,9 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     content.append("  ");
     if (!visibilitySpecifier.isEmpty()) {
       content.append(visibilitySpecifier).append(" ");
+    }
+    if (exclude) {
+      content.append("exclude ");
     }
     if (!canCompile || !shouldCompileHeader(path)) {
       content.append("textual ");
@@ -219,6 +250,10 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     f.addBoolean(compiledModule);
     f.addBoolean(generateSubmodules);
     f.addBoolean(externDependencies);
+    if (swiftCompatibilityHeader.isPresent()) {
+      f.addPath(swiftCompatibilityHeader.get().getExecPath());
+    }
+    f.addBoolean(isUnextendedSwift);
     return f.hexDigestAndReset();
   }
 

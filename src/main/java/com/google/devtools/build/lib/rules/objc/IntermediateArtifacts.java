@@ -407,7 +407,18 @@ public final class IntermediateArtifacts {
 
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
     // parent directory in the module map search paths.
-    return new CppModuleMap(appendExtensionInGenfiles("_modulemaps/foo/module.modulemap"),
+    return new CppModuleMap(appendExtensionInGenfiles("_modulemaps/foo/bar/baz/module.modulemap"),
+        clangModuleName());
+  }
+
+  /**
+   * {@link CppModuleMap} that provides the unextended clang module map for this target. This is for compiling the current module
+   */
+  public CppModuleMap unextendedModuleMap() {
+
+    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
+    // parent directory in the module map search paths.
+    return new CppModuleMap(appendExtensionInGenfiles("_modulemaps_unextended/foo/bar/baz/module.modulemap"),
         clangModuleName());
   }
 
