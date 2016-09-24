@@ -190,6 +190,12 @@ message TargetControl {
 
   // Modulemap file name
   optional string modulemap_path = 26;
+
+  // Used to specify swift version.
+  optional string swift_version = 27;
+
+  // If we should enable modules for the xcode project.
+  optional bool enable_modules = 28;
 }
 
 // Represents the mapping of a build setting recognized by Xcode project files,

@@ -85,6 +85,7 @@ public class XcodeprojGeneration {
   public static final String FILE_TYPE_WRAPPER_BUNDLE = "wrapper.cfbundle";
   public static final String FILE_TYPE_APP_EXTENSION = "wrapper.app-extension";
   public static final String FILE_TYPE_FRAMEWORK = "wrapper.frawework";
+  public static final String FILE_TYPE_DYLIB = "compiled.mach-o.dylib";
   private static final String DEFAULT_OPTIONS_NAME = "Debug";
   private static final Escaper QUOTE_ESCAPER = Escapers.builder().addEscape('"', "\\\"").build();
 
@@ -126,6 +127,7 @@ public class XcodeprojGeneration {
 
   private static final EnumSet<ProductType> SUPPORTED_PRODUCT_TYPES = EnumSet.of(
       ProductType.STATIC_LIBRARY,
+      ProductType.DYNAMIC_LIBRARY,
       ProductType.APPLICATION,
       ProductType.BUNDLE,
       ProductType.UNIT_TEST,
@@ -136,6 +138,7 @@ public class XcodeprojGeneration {
 
   private static final EnumSet<ProductType> PRODUCT_TYPES_THAT_HAVE_A_BINARY = EnumSet.of(
       ProductType.APPLICATION,
+      ProductType.DYNAMIC_LIBRARY,
       ProductType.BUNDLE,
       ProductType.UNIT_TEST,
       ProductType.APP_EXTENSION,
@@ -197,6 +200,10 @@ public class XcodeprojGeneration {
         return FileReference.of(
             String.format("lib%s.a", productName), SourceTree.BUILT_PRODUCTS_DIR)
                 .withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY);
+      case DYNAMIC_LIBRARY:
+        return FileReference.of(
+            String.format("lib%s.dylib", productName), SourceTree.BUILT_PRODUCTS_DIR)
+                .withExplicitFileType(FILE_TYPE_DYLIB);
       case BUNDLE:
         return FileReference.of(
             String.format("%s.bundle", productName), SourceTree.BUILT_PRODUCTS_DIR)
@@ -526,9 +533,20 @@ public class XcodeprojGeneration {
             NSObject.wrap(targetControl.getModuleName()));
       }
 
+      if (targetControl.hasSwiftVersion()) {
+        targetBuildConfigMap.put("SWIFT_VERSION",
+            NSObject.wrap(targetControl.getSwiftVersion()));
+      }
+
       if (targetControl.hasModulemapPath()) {
+        targetBuildConfigMap.put("DEFINES_MODULE", "YES");
         targetBuildConfigMap.put("MODULEMAP_FILE",
-            NSObject.wrap(targetControl.getModulemapPath()));
+            "$(WORKSPACE_ROOT)/" + targetControl.getModulemapPath());
+      }
+
+      if (targetControl.getEnableModules()) {
+        targetBuildConfigMap.put("CLANG_ENABLE_MODULES",
+            "YES");
       }
 
       if (targetControl.getSwiftoptCount() > 0) {

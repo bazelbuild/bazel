@@ -1678,8 +1678,20 @@ public final class CompilationSupport {
         .addCopts(coptsWithoutIncludeDirs)
         .addSwiftopts(swiftopts);
 
+    if (objcConfiguration.moduleMapsEnabled()) {
+      xcodeProviderBuilder.setModulemap(
+          Optional.of(intermediateArtifacts.unextendedModuleMap().getArtifact()))
+      .setEnableModules();
+    }
+
+    if (appleConfiguration.getSwiftVersion().isPresent()) {
+      xcodeProviderBuilder.setSwiftVersion(appleConfiguration.getSwiftVersion());
+    }
+
     return this;
   }
+
+
 
   /**
    * Validates compilation-related attributes on this rule.

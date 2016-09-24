@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SWIFT_MODULE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -34,6 +35,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -75,6 +78,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
    * A builder for instances of {@link XcodeProvider}.
    */
   public static final class Builder {
+
     private Label label;
     // Propagated dependencies and search paths are seen by all transitive dependents of this
     // target. Non propagated dependencies are only seen by this target; none of the direct and
@@ -122,6 +126,9 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private String architecture;
     private boolean generateCompanionLibTarget = false;
     private ConfigurationDistinguisher configurationDistinguisher;
+    private Optional<DottedVersion> swiftVersion = Optional.absent();
+    private Optional<Artifact> modulemap = Optional.absent();
+    private boolean enableModules = false;
 
     /**
      * Sets the label of the build target which corresponds to this Xcode target.
@@ -163,6 +170,27 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      */
     public Builder setBundleInfoplist(Artifact bundleInfoplist) {
       this.bundleInfoplist = Optional.of(bundleInfoplist);
+      return this;
+    }
+
+    /**
+     * Sets swift version to be used in xcode project.
+     */
+    public Builder setSwiftVersion(Optional<DottedVersion> swiftVersion) {
+      this.swiftVersion = swiftVersion;
+      return this;
+    }
+
+    /**
+     * Sets modulemap to be propagated to xcode target
+     */
+    public Builder setModulemap(Optional<Artifact> modulemap) {
+      this.modulemap = modulemap;
+      return this;
+    }
+
+    public Builder setEnableModules() {
+      this.enableModules = true;
       return this;
     }
 
@@ -366,7 +394,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
 
     /**
      * Sets the CPU architecture this xcode target was constructed for, derived from
-     * {@link ObjcConfiguration#getIosCpu()}.
+     * {@link com.google.devtools.build.lib.rules.apple.AppleConfiguration#getIosCpu()}.
      */
     public Builder setArchitecture(String architecture) {
       this.architecture = architecture;
@@ -510,6 +538,9 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final String architecture;
   private final boolean generateCompanionLibTarget;
   private final ConfigurationDistinguisher configurationDistinguisher;
+  private final Optional<DottedVersion> swiftVersion;
+  private final Optional<Artifact> modulemap;
+  private final boolean enableModules;
 
   private XcodeProvider(Builder builder) {
     this.label = Preconditions.checkNotNull(builder.label);
@@ -543,6 +574,9 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.generateCompanionLibTarget = builder.generateCompanionLibTarget;
     this.configurationDistinguisher =
         Preconditions.checkNotNull(builder.configurationDistinguisher);
+    this.swiftVersion = builder.swiftVersion;
+    this.modulemap = builder.modulemap;
+    this.enableModules = builder.enableModules;
   }
 
   private void collectProviders(Set<XcodeProvider> allProviders) {
@@ -676,6 +710,28 @@ public final class XcodeProvider implements TransitiveInfoProvider {
                 Artifact.toExecPaths(objcProvider.get(GENERAL_RESOURCE_FILE)))
             .addAllGeneralResourceFile(
                 PathFragment.safePathStrings(objcProvider.get(GENERAL_RESOURCE_DIR)));
+
+    if (swiftVersion.isPresent()) {
+      targetControl.setSwiftVersion(swiftVersion.get().toString());
+    }
+
+    if (modulemap.isPresent()) {
+      String modulemapPathString = modulemap.get().getExecPath().getSafePathString();
+      targetControl.setModulemapPath(modulemapPathString);
+      targetControl.addSupportFile(modulemapPathString);
+      targetControl.addSwiftopt("-import-underlying-module");
+      targetControl.addUserHeaderSearchPath(modulemap.get().getExecPath().getParentDirectory().getSafePathString());
+    }
+
+    for (Artifact module : objcProvider.get(SWIFT_MODULE)) {
+      targetControl.addSwiftopt(
+          "-I" + module.getExecPath().getParentDirectory().getSafePathString());
+    }
+
+    if (enableModules) {
+      targetControl.setEnableModules(true);
+    }
+
 
     if (CAN_LINK_PRODUCT_TYPES.contains(productType)) {
       // For builds with --ios_multi_cpus set, we may have several copies of some XCodeProviders

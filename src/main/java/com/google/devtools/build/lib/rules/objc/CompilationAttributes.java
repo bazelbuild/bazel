@@ -321,6 +321,9 @@ final class CompilationAttributes {
         NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
         copts.addAll(ruleContext.getTokenizedStringListAttr("copts"));
         builder.addCopts(copts.build());
+      }
+
+      if (ruleContext.attributes().has("swiftopts", Type.STRING_LIST)) {
         NestedSetBuilder<String> swiftopts = NestedSetBuilder.stableOrder();
         swiftopts.addAll(ruleContext.getTokenizedStringListAttr("swiftopts"));
         builder.addSwiftopts(swiftopts.build());

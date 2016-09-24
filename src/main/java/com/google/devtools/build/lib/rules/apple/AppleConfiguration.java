@@ -79,6 +79,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final Optional<DottedVersion> xcodeVersion;
   private final Optional<String> swiftToolchain;
+  private final Optional<DottedVersion> swiftVersion;
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
@@ -93,7 +94,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion watchOsSdkVersion,
       DottedVersion tvOsSdkVersion,
       DottedVersion macOsXSdkVersion,
-      Optional<String> swiftToolchain) {
+      Optional<String> swiftToolchain,
+      Optional<DottedVersion> swiftVersion) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.watchOsSdkVersion =
         Preconditions.checkNotNull(watchOsSdkVersion, "watchOsSdkVersion");
@@ -124,6 +126,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
     this.swiftToolchain = swiftToolchain;
+    this.swiftVersion = swiftVersion;
   }
 
   /**
@@ -199,6 +202,16 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     } else {
       return ImmutableMap.of();
     }
+  }
+
+  /**
+   * Returns swift version that should be used in the xcode SWIFT_VERSION configuration.
+   */
+  @SkylarkCallable(
+      name = "swift_version",
+      doc = "Returns swift version that should be used in the xcode SWIFT_VERSION configuration"  )
+  public Optional<DottedVersion> getSwiftVersion() {
+    return swiftVersion;
   }
 
   /**
@@ -522,9 +535,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
 
       Optional<String> swiftToolchain = Optional.fromNullable(appleOptions.swiftToolchain);
+      Optional<DottedVersion> swiftVersion = Optional.fromNullable(appleOptions.swiftVersion);
       AppleConfiguration configuration =
           new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
-              iosSdkVersion, watchosSdkVersion, tvosSdkVersion, macosxSdkVersion, swiftToolchain);
+              iosSdkVersion, watchosSdkVersion, tvosSdkVersion, macosxSdkVersion, swiftToolchain,
+              swiftVersion);
 
       validate(configuration);
       return configuration;

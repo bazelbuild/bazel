@@ -58,6 +58,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public String swiftToolchain;
 
   @Option(
+      name = "swift_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      category = "build",
+      help =
+          "Sets SWIFT_VERSION in generated xcode projects."
+  )
+  public DottedVersion swiftVersion;
+
+  @Option(
     name = "ios_sdk_version",
     defaultValue = "null",
     converter = DottedVersionConverter.class,
