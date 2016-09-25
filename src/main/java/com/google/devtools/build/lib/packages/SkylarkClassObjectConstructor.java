@@ -29,7 +29,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A constructor for {@link SkylarkClassObject}.
+ * Declared Provider (a constructor for {@link SkylarkClassObject}).
  */
 @SkylarkModule(name = "provider",
     doc = "A constructor for simple value objects. "
@@ -41,7 +41,7 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
    * "struct" function.
    */
   public static final SkylarkClassObjectConstructor STRUCT =
-      new SkylarkClassObjectConstructor("struct");
+      createNative("struct");
 
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -50,12 +50,29 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   @Nullable
   private Key key;
 
-  public SkylarkClassObjectConstructor(String name, Location location) {
+  private SkylarkClassObjectConstructor(String name, Location location) {
     super(name, SIGNATURE, location);
   }
 
-  public SkylarkClassObjectConstructor(String name) {
+  private SkylarkClassObjectConstructor(String name) {
     this(name, Location.BUILTIN);
+    key = new NativeKey();
+  }
+
+  /**
+   * Create a native Declared Provider({@link SkylarkClassObject} constructor)
+   */
+  public static SkylarkClassObjectConstructor createNative(String name) {
+    return new SkylarkClassObjectConstructor(name);
+  }
+
+  /**
+   * Create a Skylark-defined Declared Provider({@link SkylarkClassObject} constructor)
+   *
+   * Needs to be exported later.
+   */
+  public static SkylarkClassObjectConstructor createSkylark(String name, Location location) {
+    return new SkylarkClassObjectConstructor(name, location);
   }
 
   @Override
@@ -85,13 +102,13 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   }
 
   public String getPrintableName() {
-    return key != null ? key.exportedName : getName();
+    return key != null ? key.getExportedName() : getName();
   }
 
   @Override
   public void export(Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
-    this.key = new Key(extensionLabel, exportedName);
+    this.key = new SkylarkKey(extensionLabel, exportedName);
   }
 
   @Override
@@ -104,16 +121,28 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
     return other == this;
   }
 
+
   /**
-   * A serializable representation of {@link SkylarkClassObjectConstructor}
+   * A representation of {@link SkylarkClassObjectConstructor}.
+   */
+  // todo(vladmos,dslomov): when we allow declared providers in `requiredProviders`,
+  // we will need to serialize this somehow.
+  public abstract static class Key {
+    private Key() {}
+
+    public abstract String getExportedName();
+  }
+
+  /**
+   * A serializable representation of Skylark-defined {@link SkylarkClassObjectConstructor}
    * that uniquely identifies all {@link SkylarkClassObjectConstructor}s that
    * are exposed to SkyFrame.
    */
-  public static class Key {
+  public static class SkylarkKey extends Key {
     private final Label extensionLabel;
     private final String exportedName;
 
-    public Key(Label extensionLabel, String exportedName) {
+    public SkylarkKey(Label extensionLabel, String exportedName) {
       this.extensionLabel = Preconditions.checkNotNull(extensionLabel);
       this.exportedName = Preconditions.checkNotNull(exportedName);
     }
@@ -122,6 +151,7 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
       return extensionLabel;
     }
 
+    @Override
     public String getExportedName() {
       return exportedName;
     }
@@ -137,12 +167,31 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
         return true;
       }
 
-      if (!(obj instanceof Key)) {
+      if (!(obj instanceof SkylarkKey)) {
         return false;
       }
-      Key other = (Key) obj;
+      SkylarkKey other = (SkylarkKey) obj;
       return Objects.equals(this.extensionLabel, other.extensionLabel)
           && Objects.equals(this.exportedName, other.exportedName);
+    }
+  }
+
+  /**
+   * A representation of {@link SkylarkClassObjectConstructor} defined in native code.
+   */
+  // todo(vladmos,dslomov): when we allow declared providers in `requiredProviders`,
+  // we will need to serialize this somehow.
+  public final class NativeKey extends Key {
+    private NativeKey() {
+    }
+
+    @Override
+    public String getExportedName() {
+      return SkylarkClassObjectConstructor.this.getName();
+    }
+
+    public SkylarkClassObjectConstructor getConstructor() {
+      return SkylarkClassObjectConstructor.this;
     }
   }
 }

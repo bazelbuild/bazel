@@ -211,7 +211,7 @@ public class SkylarkRuleClassFunctions {
   private static final BuiltinFunction provider =
       new BuiltinFunction("provider") {
         public SkylarkClassObjectConstructor invoke(Location location) {
-          return new SkylarkClassObjectConstructor(
+          return SkylarkClassObjectConstructor.createSkylark(
               "<no name>", // name is set on export.
               location);
         }

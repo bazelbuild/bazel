@@ -817,7 +817,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     );
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:r");
-    SkylarkClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.Key(
+    SkylarkClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
         Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
         "my_provider");
     SkylarkProviders skylarkProviders = configuredTarget.getProvider(SkylarkProviders.class);
@@ -844,7 +844,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     );
 
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
-    SkylarkClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.Key(
+    SkylarkClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
         Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
         "my_provider");
     SkylarkProviders skylarkProviders = configuredTarget.getProvider(SkylarkProviders.class);

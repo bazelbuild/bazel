@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -64,7 +64,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
     SkylarkProviders provider = configuredTarget.getProvider(SkylarkProviders.class);
     SkylarkClassObject skylarkClassObject = provider
-      .getDeclaredProvider(new Key(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
+      .getDeclaredProvider(
+          new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
     assertThat(Iterables.transform((List<?>) skylarkClassObject.getValue("processor_classpath"),
         new Function<Object, String>() {
