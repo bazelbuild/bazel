@@ -643,4 +643,36 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData2) {
   EXPECT_EQ("build: foo", GetEntryContents(out_path, kBuildDataFile));
 }
 
+// Test that the entries with suffixes in --nocompressed_suffixes are
+// not compressed. This applies both to the source archives' entries and
+// standalone files.
+TEST_F(OutputJarSimpleTest, Nocompress) {
+  string res1_path =
+      CreateTextFile("resource.foo", "line1\nline2\nline3\nline4\n");
+  string res2_path =
+      CreateTextFile("resource.bar", "line1\nline2\nline3\nline4\n");
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--compression", "--sources",
+                DATA_DIR_TOP "src/tools/singlejar/libtest1.jar", "--resources",
+                res1_path, res2_path, "--nocompress_suffixes", ".foo", ".h"});
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    const char *entry_name_end = lh->file_name() + lh->file_name_length();
+    if (!strncmp(entry_name_end - 4, ".foo", 4) ||
+        !strncmp(entry_name_end - 2, ".h", 2)) {
+      EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())
+          << "Expected " << lh->file_name_string() << " uncompressed";
+    } else if (!strncmp(entry_name_end - 3, ".cc", 3) ||
+               !strncmp(entry_name_end - 4, ".bar", 4)) {
+      EXPECT_EQ(Z_DEFLATED, lh->compression_method())
+          << "Expected " << lh->file_name_string() << " compressed";
+    }
+  }
+  input_jar.Close();
+}
+
 }  // namespace

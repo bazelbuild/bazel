@@ -200,7 +200,19 @@ int OutputJar::Doit(Options *options) {
 
   // Then classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
-    WriteEntry(classpath_resource->OutputEntry(compress));
+    bool do_compress = compress;
+    if (do_compress && !options_->nocompress_suffixes.empty()) {
+      for (auto &suffix : options_->nocompress_suffixes) {
+        auto entry_name = classpath_resource->filename();
+        if (entry_name.length() >= suffix.size() &&
+            !entry_name.compare(entry_name.length() - suffix.size(),
+                                suffix.size(), suffix)) {
+          do_compress = false;
+          break;
+        }
+      }
+    }
+    WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
   // Then copy source files' contents.
@@ -340,30 +352,32 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
-    // For the file entries and unless preserve_compression option is set,
-    // decide what to do with an entry depending on force_compress option
-    // and entry's current state:
-    //   force_compress    preserve_compress   compressed    Action
-    //         N                  N                 N        Copy
-    //         N                  N                 Y        Decompress
-    //         N                  Y                 *        Copy
-    //         Y                  *                 N        Compress
-    //         Y                  N                 Y        Copy
-    //         Y                  Y      can't be
-    if (is_file &&
-        !options_->preserve_compression &&
-        ((options_->force_compression &&
-          jar_entry->compression_method() == Z_NO_COMPRESSION) ||
-         (!options_->force_compression && !options_->preserve_compression &&
-          jar_entry->compression_method() == Z_DEFLATED))) {
-      // Change compression.
-      Concatenator combiner(jar_entry->file_name_string());
-      if (!combiner.Merge(jar_entry, lh)) {
-        diag_err(1, "%s:%d: cannot add %.*s", __FILE__, __LINE__,
-                 jar_entry->file_name_length(), jar_entry->file_name());
+    // For the file entries, decide whether output should be compressed.
+    if (is_file) {
+      bool input_compressed =
+          jar_entry->compression_method() != Z_NO_COMPRESSION;
+      bool output_compressed =
+          options_->force_compression ||
+          (options_->preserve_compression && input_compressed);
+      if (output_compressed && !options_->nocompress_suffixes.empty()) {
+        for (auto &suffix : options_->nocompress_suffixes) {
+          if (file_name_length >= suffix.size() &&
+              !strncmp(file_name + file_name_length - suffix.size(),
+                       suffix.c_str(), suffix.size())) {
+            output_compressed = false;
+            break;
+          }
+        }
       }
-      WriteEntry(combiner.OutputEntry(options_->force_compression));
-      continue;
+      if (input_compressed != output_compressed) {
+        Concatenator combiner(jar_entry->file_name_string());
+        if (!combiner.Merge(jar_entry, lh)) {
+          diag_err(1, "%s:%d: cannot add %.*s", __FILE__, __LINE__,
+                   jar_entry->file_name_length(), jar_entry->file_name());
+        }
+        WriteEntry(combiner.OutputEntry(output_compressed));
+        continue;
+      }
     }
 
     // Now we have to copy:
