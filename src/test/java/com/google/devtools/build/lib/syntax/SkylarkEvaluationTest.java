@@ -675,14 +675,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'named' has no default value (in function with_params(int, bool) of Mock).",
-            "mock.with_params(1, True)");
+            "Type Mock has no function with_params(int, bool)", "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'named' has no default value (in function with_params(int, bool, bool) "
-                + "of Mock).",
+            "Type Mock has no function with_params(int, bool, bool)",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
         .update("mock", new Mock())
@@ -700,15 +698,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Too many arguments (in function with_params(int, bool, bool named, "
-                + "bool posOrNamed, int n) of Mock).",
+            "Type Mock has no function with_params(int, bool, bool named, bool posOrNamed, int n)",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'nonNoneable' cannot be None (in function with_params(int, bool, bool, "
-                + "bool named, bool optionalNamed, NoneType nonNoneable) of Mock).",
+            "Type Mock has no function with_params(int, bool, bool, bool named, bool optionalNamed,"
+                + " NoneType nonNoneable)",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
   }
 
