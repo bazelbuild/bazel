@@ -49,14 +49,14 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact c = new Artifact(new PathFragment("c"), root);
     Artifact d = new Artifact(new PathFragment("d"), root);
     CreateIncSymlinkAction action1 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b, c, d));
+        ImmutableMap.of(a, b, c, d), root.getPath());
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = new Artifact(new PathFragment("a"), root);
     b = new Artifact(new PathFragment("b"), root);
     c = new Artifact(new PathFragment("c"), root);
     d = new Artifact(new PathFragment("d"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(c, d, a, b));
+        ImmutableMap.of(c, d, a, b), root.getPath());
     assertEquals(action1.computeKey(), action2.computeKey());
   }
 
@@ -66,12 +66,12 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact a = new Artifact(new PathFragment("a"), root);
     Artifact b = new Artifact(new PathFragment("b"), root);
     CreateIncSymlinkAction action1 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b));
+        ImmutableMap.of(a, b), root.getPath());
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = new Artifact(new PathFragment("a"), root);
     b = new Artifact(new PathFragment("c"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b));
+        ImmutableMap.of(a, b), root.getPath());
     assertThat(action2.computeKey()).isNotEqualTo(action1.computeKey());
   }
 
@@ -81,12 +81,12 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact a = new Artifact(new PathFragment("a"), root);
     Artifact b = new Artifact(new PathFragment("b"), root);
     CreateIncSymlinkAction action1 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b));
+        ImmutableMap.of(a, b), root.getPath());
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = new Artifact(new PathFragment("c"), root);
     b = new Artifact(new PathFragment("b"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b));
+        ImmutableMap.of(a, b), root.getPath());
     assertThat(action2.computeKey()).isNotEqualTo(action1.computeKey());
   }
 
@@ -99,11 +99,28 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact a = new Artifact(symlink, root);
     Artifact b = new Artifact(new PathFragment("b"), root);
     CreateIncSymlinkAction action = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b));
+        ImmutableMap.of(a, b), outputDir);
     action.execute(null);
     symlink.stat(Symlinks.NOFOLLOW);
     assertTrue(symlink.isSymbolicLink());
     assertEquals(symlink.readSymbolicLink(), b.getPath().asFragment());
     assertFalse(rootDirectory.getRelative("a").exists());
+  }
+
+  @Test
+  public void testFileRemoved() throws Exception {
+    Path outputDir = rootDirectory.getRelative("out");
+    outputDir.createDirectory();
+    Root root = Root.asDerivedRoot(rootDirectory, outputDir);
+    Path symlink = rootDirectory.getRelative("out/a");
+    Artifact a = new Artifact(symlink, root);
+    Artifact b = new Artifact(new PathFragment("b"), root);
+    CreateIncSymlinkAction action = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
+        ImmutableMap.of(a, b), outputDir);
+    Path extra = rootDirectory.getRelative("out/extra");
+    extra.getOutputStream().close();
+    assertTrue(extra.exists());
+    action.execute(null);
+    assertFalse(extra.exists());
   }
 }
