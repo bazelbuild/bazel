@@ -542,6 +542,21 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       }
       return this;
     }
+   
+    /**
+     * Add all keys and values from the given provider, but propagate any normally-propagated items
+     * only to direct dependers of this ObjcProvider.
+     */
+    public Builder addAsDirectDeps(ObjcProvider provider) {
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
+        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(),
+            this.strictDependencyItems);
+      }
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
+        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
+      }
+      return this;
+    }
 
     /**
      * Add all elements from a single key of the given provider, and propagate them to any
@@ -679,6 +694,32 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
                     EvalUtils.getDataTypeName(toAddObject)));
           } else {
             this.addTransitiveAndPropagate((ObjcProvider) toAddObject);
+          }
+        }
+      }
+    }
+
+    /**
+     * Adds the given providers from skylark, but propagate any normally-propagated items
+     * only to direct dependers. An error is thrown if toAdd is not an iterable of ObjcProvider
+     * instances.
+     */
+    @SuppressWarnings("unchecked")
+    void addDirectDepProvidersFromSkylark(Object toAdd) {
+      if (!(toAdd instanceof Iterable)) {
+        throw new IllegalArgumentException(
+            String.format(
+                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
+      } else {
+        Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
+        for (Object toAddObject : toAddIterable) {
+          if (!(toAddObject instanceof ObjcProvider)) {
+            throw new IllegalArgumentException(
+                String.format(
+                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
+                    EvalUtils.getDataTypeName(toAddObject)));
+          } else {
+            this.addAsDirectDeps((ObjcProvider) toAddObject);
           }
         }
       }

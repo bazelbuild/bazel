@@ -40,7 +40,8 @@ import javax.annotation.Nullable;
 public class AppleSkylarkCommon {
  
   @VisibleForTesting
-  public static final String BAD_KEY_ERROR = "Argument %s not a recognized key or 'providers'.";
+  public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
+      + " or 'direct_dep_providers'.";
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
@@ -128,6 +129,8 @@ public class AppleSkylarkCommon {
               resultBuilder.addElementsFromSkylark(key, entry.getValue());
             } else if (entry.getKey().equals("providers")) {
               resultBuilder.addProvidersFromSkylark(entry.getValue());
+            } else if (entry.getKey().equals("direct_dep_providers")) {
+              resultBuilder.addDirectDepProvidersFromSkylark(entry.getValue());
             } else {
               throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
             }
