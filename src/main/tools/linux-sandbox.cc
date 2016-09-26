@@ -180,6 +180,8 @@ static void SpawnPid1() {
     DIE("clone");
   }
 
+  PRINT_DEBUG("linux-sandbox-pid1 has PID %d", global_child_pid);
+
   // We close the write end of the sync pipe, read a byte and then close the
   // pipe. This proves to the linux-sandbox-pid1 process that we still existed
   // after it ran prctl(PR_SET_PDEATHSIG, SIGKILL), thus preventing a race
