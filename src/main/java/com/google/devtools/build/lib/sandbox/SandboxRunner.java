@@ -57,8 +57,13 @@ abstract class SandboxRunner {
       OutErr outErr,
       int timeout,
       boolean allowNetwork)
-      throws IOException, ExecException {
-    Command cmd = getCommand(arguments, environment, timeout, allowNetwork);
+      throws ExecException {
+    Command cmd;
+    try {
+      cmd = getCommand(arguments, environment, timeout, allowNetwork);
+    } catch (IOException e) {
+      throw new UserExecException("I/O error during sandboxed execution", e);
+    }
 
     try {
       cmd.execute(

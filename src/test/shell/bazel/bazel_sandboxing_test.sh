@@ -394,6 +394,60 @@ bazel build examples/genrule:works &> ${TEST_log}
 EOF
 }
 
+function test_succeeding_action_with_ioexception_while_copying_outputs_throws_correct_exception() {
+  cat > BUILD <<'EOF'
+genrule(
+  name = "test",
+  outs = ["readonlydir/output.txt"],
+  cmd = "touch $(location readonlydir/output.txt); chmod 0 $(location readonlydir/output.txt); chmod 0500 `dirname $(location readonlydir/output.txt)`",
+)
+EOF
+  bazel build :test &> $TEST_log \
+    && fail "build should have failed" || true
+
+  # This is the generic "we caught an IOException" log message used by the
+  # SandboxedStrategy. We don't want to see this in this case, because we have
+  # special handling that prints a better error message and then lets the
+  # sandbox code throw the actual ExecException.
+  expect_not_log "I/O error during sandboxed execution"
+
+  # There was no ExecException during sandboxed execution, because the action
+  # returned an exit code of 0.
+  expect_not_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
+
+  # This is the error message printed by the EventHandler telling us that some
+  # output artifacts couldn't be copied.
+  expect_log "ERROR: I/O exception while extracting output artifacts from sandboxed execution.*(Permission denied)"
+
+  # The build fails, because the action didn't generate its output artifact.
+  expect_log "ERROR:.*declared output 'readonlydir/output.txt' was not created by genrule"
+}
+
+function test_failing_action_with_ioexception_while_copying_outputs_throws_correct_exception() {
+  cat > BUILD <<'EOF'
+genrule(
+  name = "test",
+  outs = ["readonlydir/output.txt"],
+  cmd = "touch $(location readonlydir/output.txt); chmod 0 $(location readonlydir/output.txt); chmod 0500 `dirname $(location readonlydir/output.txt)`; exit 1",
+)
+EOF
+  bazel build :test &> $TEST_log \
+    && fail "build should have failed" || true
+
+  # This is the generic "we caught an IOException" log message used by the
+  # SandboxedStrategy. We don't want to see this in this case, because we have
+  # special handling that prints a better error message and then lets the
+  # sandbox code throw the actual ExecException.
+  expect_not_log "I/O error during sandboxed execution"
+
+  # This is the error message printed by the EventHandler telling us that some
+  # output artifacts couldn't be copied.
+  expect_log "ERROR: I/O exception while extracting output artifacts from sandboxed execution.*(Permission denied)"
+
+  # This is the UserExecException telling us that the build failed.
+  expect_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
 check_sandbox_allowed || exit 0

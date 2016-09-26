@@ -21,26 +21,92 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
 abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
+  private final BuildRequest buildRequest;
   private final BlazeDirectories blazeDirs;
+  private final Path execRoot;
+  private final ExecutorService backgroundWorkers;
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
   private final SpawnHelpers spawnHelpers;
 
   public SandboxStrategy(
-      BlazeDirectories blazeDirs, boolean verboseFailures, SandboxOptions sandboxOptions) {
+      BuildRequest buildRequest,
+      BlazeDirectories blazeDirs,
+      ExecutorService backgroundWorkers,
+      boolean verboseFailures,
+      SandboxOptions sandboxOptions) {
+    this.buildRequest = buildRequest;
     this.blazeDirs = blazeDirs;
+    this.execRoot = blazeDirs.getExecRoot();
+    this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
     this.spawnHelpers = new SpawnHelpers(blazeDirs.getExecRoot());
+  }
+
+  protected void runSpawn(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      Map<String, String> spawnEnvironment,
+      SandboxExecRoot sandboxExecRoot,
+      Set<PathFragment> outputs,
+      SandboxRunner runner,
+      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
+      throws ExecException, InterruptedException {
+    try {
+      runner.run(
+          spawn.getArguments(),
+          spawnEnvironment,
+          actionExecutionContext.getFileOutErr(),
+          Spawns.getTimeoutSeconds(spawn),
+          SandboxHelpers.shouldAllowNetwork(buildRequest, spawn));
+    } finally {
+      if (writeOutputFiles != null
+          && !writeOutputFiles.compareAndSet(null, SandboxStrategy.class)) {
+        Thread.currentThread().interrupt();
+      } else {
+        try {
+          // We copy the outputs even when the command failed, otherwise StandaloneTestStrategy
+          // won't be able to get the test logs of a failed test. (We should probably do this in
+          // some better way.)
+          sandboxExecRoot.copyOutputs(execRoot, outputs);
+        } catch (IOException e) {
+          // Catch the IOException and turn it into an error message, otherwise this might hide an
+          // exception thrown during runner.run earlier.
+          actionExecutionContext
+              .getExecutor()
+              .getEventHandler()
+              .handle(
+                  Event.error(
+                      "I/O exception while extracting output artifacts from sandboxed execution: "
+                          + e));
+        }
+      }
+      if (!sandboxOptions.sandboxDebug) {
+        SandboxHelpers.lazyCleanup(backgroundWorkers, runner);
+      }
+    }
+
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
   }
 
   /** Gets the list of directories that the spawn will assume to be writable. */
