@@ -197,6 +197,32 @@ public final class FuncallExpression extends Expression {
     return null;
   }
 
+  private static class ArgumentListConversionResult {
+    private final ImmutableList<Object> arguments;
+    private final String error;
+
+    private ArgumentListConversionResult(ImmutableList<Object> arguments, String error) {
+      this.arguments = arguments;
+      this.error = error;
+    }
+
+    public static ArgumentListConversionResult fromArgumentList(ImmutableList<Object> arguments) {
+      return new ArgumentListConversionResult(arguments, null);
+    }
+
+    public static ArgumentListConversionResult fromError(String error) {
+      return new ArgumentListConversionResult(null, error);
+    }
+
+    public String getError() {
+      return error;
+    }
+
+    public ImmutableList<Object> getArguments() {
+      return arguments;
+    }
+  }
+
   /**
    * An exception class to handle exceptions in direct Java API calls.
    */
@@ -373,18 +399,20 @@ public final class FuncallExpression extends Expression {
   // TODO(bazel-team): If there's exactly one usable method, this works. If there are multiple
   // matching methods, it still can be a problem. Figure out how the Java compiler does it
   // exactly and copy that behaviour.
+  // Throws an EvalException when it cannot find a matching function.
   private Pair<MethodDescriptor, List<Object>> findJavaMethod(
       Class<?> objClass, String methodName, List<Object> args, Map<String, Object> kwargs)
       throws EvalException {
     Pair<MethodDescriptor, List<Object>> matchingMethod = null;
     List<MethodDescriptor> methods = getMethods(objClass, methodName, getLocation());
+    ArgumentListConversionResult argumentListConversionResult = null;
     if (methods != null) {
       for (MethodDescriptor method : methods) {
         if (!method.getAnnotation().structField()) {
-          List<Object> resultArgs = convertArgumentList(args, kwargs, method);
-          if (resultArgs != null) {
+          argumentListConversionResult = convertArgumentList(args, kwargs, method);
+          if (argumentListConversionResult.getArguments() != null) {
             if (matchingMethod == null) {
-              matchingMethod = new Pair<>(method, resultArgs);
+              matchingMethod = new Pair<>(method, argumentListConversionResult.getArguments());
             } else {
               throw new EvalException(
                   getLocation(),
@@ -397,11 +425,22 @@ public final class FuncallExpression extends Expression {
       }
     }
     if (matchingMethod == null) {
-      throw new EvalException(
-          getLocation(),
-          String.format(
-              "Type %s has no %s",
-              EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs)));
+      String errorMessage;
+      if (argumentListConversionResult == null || argumentListConversionResult.getError() == null) {
+        errorMessage =
+            String.format(
+                "Type %s has no %s",
+                EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs));
+
+      } else {
+        errorMessage =
+            String.format(
+                "%s (in %s of %s).",
+                argumentListConversionResult.getError(),
+                formatMethod(args, kwargs),
+                EvalUtils.getDataTypeNameFromClass(objClass));
+      }
+      throw new EvalException(getLocation(), errorMessage);
     }
     return matchingMethod;
   }
@@ -416,10 +455,10 @@ public final class FuncallExpression extends Expression {
 
   /**
    * Constructs the parameters list to actually pass to the method, filling with default values if
-   * any. If the type does not match, returns null.
+   * any. If the type does not match, returns null and fills in methodTypeMatchError with the
+   * appropriate message.
    */
-  @Nullable
-  private ImmutableList<Object> convertArgumentList(
+  private ArgumentListConversionResult convertArgumentList(
       List<Object> args, Map<String, Object> kwargs, MethodDescriptor method) {
     ImmutableList.Builder<Object> builder = ImmutableList.builder();
     Class<?>[] params = method.getMethod().getParameterTypes();
@@ -434,15 +473,17 @@ public final class FuncallExpression extends Expression {
     }
     if (mandatoryPositionals > args.size()
         || args.size() > mandatoryPositionals + callable.parameters().length) {
-      return null;
+      return ArgumentListConversionResult.fromError("Too many arguments");
     }
-    // First process the legacy positional parameters
+    // First process the legacy positional parameters.
     int i = 0;
     if (mandatoryPositionals > 0) {
       for (Class<?> param : params) {
         Object value = args.get(i);
         if (!param.isAssignableFrom(value.getClass())) {
-          return null;
+          return ArgumentListConversionResult.fromError(
+              String.format(
+                  "Cannot convert parameter at position %d to type %s", i, param.toString()));
         }
         builder.add(value);
         i++;
@@ -452,6 +493,7 @@ public final class FuncallExpression extends Expression {
         }
       }
     }
+
     // Then the parameters specified in callable.parameters()
     Set<String> keys = new HashSet<>(kwargs.keySet());
     for (Param param : callable.parameters()) {
@@ -462,32 +504,41 @@ public final class FuncallExpression extends Expression {
       Object value = null;
       if (i < args.size()) {
         value = args.get(i);
-        if (!param.positional() || !type.contains(value)) {
-          return null; // next positional argument is not of the good type
+        if (!param.positional()) {
+          return ArgumentListConversionResult.fromError(
+              String.format("Parameter '%s' is not positional", param.name()));
+        } else if (!type.contains(value)) {
+          return ArgumentListConversionResult.fromError(
+              String.format(
+                  "Cannot convert parameter '%s' to type %s", param.name(), type.toString()));
         }
         i++;
       } else if (param.named() && keys.remove(param.name())) {
         // Named parameters
         value = kwargs.get(param.name());
         if (!type.contains(value)) {
-          return null; // type does not match
+          return ArgumentListConversionResult.fromError(
+              String.format(
+                  "Cannot convert parameter '%s' to type %s", param.name(), type.toString()));
         }
       } else {
         // Use default value
         if (param.defaultValue().isEmpty()) {
-          return null; // no default value
+          return ArgumentListConversionResult.fromError(
+              String.format("Parameter '%s' has no default value", param.name()));
         }
         value = SkylarkSignatureProcessor.getDefaultValue(param, null);
       }
       builder.add(value);
       if (!param.noneable() && value instanceof NoneType) {
-        return null; // cannot be None
+        return ArgumentListConversionResult.fromError(
+            String.format("Parameter '%s' cannot be None", param.name()));
       }
     }
     if (i < args.size() || !keys.isEmpty()) {
-      return null; // too many arguments
+      return ArgumentListConversionResult.fromError("Too many arguments");
     }
-    return builder.build();
+    return ArgumentListConversionResult.fromArgumentList(builder.build());
   }
 
   private String formatMethod(List<Object> args, Map<String, Object> kwargs) {
