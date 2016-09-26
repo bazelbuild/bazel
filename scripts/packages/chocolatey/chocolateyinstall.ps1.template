@@ -1,0 +1,69 @@
+﻿ps_var_ErrorActionPreference = 'Stop'; # stop on all errors
+ps_var_packageName = 'bazel'
+ps_var_url = "$tvUri"
+ps_var_checksum = "$tvChecksum"
+ps_var_checksumType = 'sha256'
+ps_var_url64bit = ps_var_url
+ps_var_checksum64 = "$tvChecksum"
+ps_var_checksumType64 = ps_var_checksumType
+ps_var_toolsDir = Split-Path -parent ps_var_MyInvocation.MyCommand.Definition
+ps_var_packageDir = Split-Path -parent ps_var_toolsDir
+ps_var_binRoot = (Get-ToolsLocation) -replace "\\", "/"
+write-host "package directory: ps_var_packageDir"
+write-host "destination directory: ps_var_packageDir"
+write-host "url: ps_var_url"
+write-host "url64bit: ps_var_url64bit"
+
+Install-ChocolateyZipPackage -PackageName "ps_var_packageName" escape_char
+  -Url "ps_var_url" escape_char
+  -Checksum "ps_var_checksum" escape_char
+  -ChecksumType "ps_var_checksumType" escape_char
+  -Url64bit "ps_var_url64bit" escape_char
+  -Checksum64 "ps_var_checksum64" escape_char
+  -Checksum64Type "ps_var_checksumType64" escape_char
+  -UnzipLocation "ps_var_packageDir"
+
+write-host "Ensure that msys2 dll is present in PATH to allow bazel to be run from non-msys2 shells"
+
+# stolen from docs: https://github.com/chocolatey/choco/wiki/How-To-Parse-PackageParameters-Argument
+ps_var_msys2Path = "c:\tools\msys64"
+if (ps_var_packageParameters)
+{
+  ps_var_match_pattern = "\/(?<option>([a-zA-Z]+)):(?<value>([escape_char"'])?([a-zA-Z0-9- _\\:\.]+)([escape_char"'])?)|\/(?<option>([a-zA-Z]+))"
+  ps_var_option_name = 'option'
+  ps_var_value_name = 'value'
+
+  if (ps_var_packageParameters -match ps_var_match_pattern)
+  {
+    ps_var_results = ps_var_packageParameters | Select-String ps_var_match_pattern -AllMatches
+    ps_var_results.matches | % {
+      ps_var_arguments.Add(
+        ps_var__.Groups[ps_var_option_name].Value.Trim(),
+        ps_var__.Groups[ps_var_value_name].Value.Trim())
+    }
+  }
+  else
+  {
+    Throw "Package Parameters were found but were invalid (REGEX Failure)"
+  }
+
+  if (ps_var_arguments.ContainsKey("msys2Path")) {
+    ps_var_msys2Path = ps_var_arguments["msys2Path"]
+    Write-Host "msys2Path Argument Found: ps_var_msys2Path"
+  }
+}
+Install-ChocolateyPath -PathToInstall "ps_var_msys2Path\usr\bin" -PathType "Machine"
+
+write-host @"
+bazel installed to ps_var_packageDir
+
+To use it in msys2, you should add that to your msys2 PATH:
+  export PATH=ps_var_(ps_var_packageDir):escape_charps_var_PATH
+
+You also need, in your msys2 environment:
+  export JAVA_HOME="escape_charps_var_(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)escape_char"
+  export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
+  export BAZEL_PYTHON=c:/tools/python2/python.exe
+
+See also https://bazel.io/docs/windows.html
+"@
