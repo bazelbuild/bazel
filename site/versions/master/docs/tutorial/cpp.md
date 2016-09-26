@@ -299,7 +299,7 @@ cc_library(
 )
 ```
 
-Now `cc_` rules can depend on `//external:gtest/main`.
+Now `cc_` rules can depend on `@gtest//:main`.
 
 ## Writing and running C++ tests
 
