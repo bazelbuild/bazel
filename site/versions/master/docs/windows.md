@@ -93,4 +93,3 @@ $ ./bazel-bin/examples/py_native/bin
 $ python ./bazel-bin/examples/py_native/bin    # This works in both msys and cmd.exe
 $ bazel run examples/py_native:bin
 ```
-
