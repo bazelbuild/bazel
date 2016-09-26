@@ -29,11 +29,12 @@ LINKPATTERNS = [
     (('-o', '(.+)'), ['/OUT:$PATH0']),
     ('-B(.+)', []),
     ('-lpthread', []),
-    ('-l(.+)', ['lib$0.so']),
     ('-L(.+)', ['/LIBPATH:$PATH0']),
     ('-static', []),
     ('-shared', ['/DLL']),
-    ('-whole-archive', []),
+    # TODO(pcloudy): Make "whole archive" a feature in CROSSTOOL
+    # /WHOLEARCHIVE is supported in Visual Stuido 2015 update 2
+    (('-whole-archive', '(.+)'), ['/WHOLEARCHIVE:$PATH0']),
     ('-no-whole-archive', []),
     ('-rdynamic', []),
     (r'-Wl,(.+)\.lib', ['$0.lib']),
