@@ -122,4 +122,8 @@ abstract class SandboxRunner {
       FileSystemUtils.deleteTree(sandboxPath);
     }
   }
+
+  Path getSandboxPath() {
+    return sandboxPath;
+  }
 }

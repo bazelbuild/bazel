@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,6 +71,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       SandboxRunner runner,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
+    EventHandler eventHandler = actionExecutionContext.getExecutor().getEventHandler();
     try {
       runner.run(
           spawn.getArguments(),
@@ -90,17 +92,14 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
         } catch (IOException e) {
           // Catch the IOException and turn it into an error message, otherwise this might hide an
           // exception thrown during runner.run earlier.
-          actionExecutionContext
-              .getExecutor()
-              .getEventHandler()
-              .handle(
-                  Event.error(
-                      "I/O exception while extracting output artifacts from sandboxed execution: "
-                          + e));
+          eventHandler.handle(
+              Event.error(
+                  "I/O exception while extracting output artifacts from sandboxed execution: "
+                      + e));
         }
       }
       if (!sandboxOptions.sandboxDebug) {
-        SandboxHelpers.lazyCleanup(backgroundWorkers, runner);
+        SandboxHelpers.lazyCleanup(backgroundWorkers, eventHandler, runner);
       }
     }
 

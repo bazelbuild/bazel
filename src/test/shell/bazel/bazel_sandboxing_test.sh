@@ -222,8 +222,7 @@ function test_sandbox_cleanup() {
   bazel build examples/genrule:tools_work &> $TEST_log \
     || fail "Hermetic genrule failed: examples/genrule:tools_work"
   bazel shutdown &> $TEST_log || fail "bazel shutdown failed"
-  ls -la "$(bazel info output_base)/bazel-sandbox"
-  if [[ "$(ls -A "$(bazel info execution_root)"/bazel-sandbox)" ]]; then
+  if [[ "$(ls -la "$(bazel info output_base)/bazel-sandbox")" ]]; then
     fail "Build left files around afterwards"
   fi
 }
