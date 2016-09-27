@@ -116,7 +116,8 @@ be refined if appropriate.
     <tr>
       <td rowspan="2"><b>0.4</b></td>
       <td rowspan="2"><b>2016&#8209;10</b></td>
-      <td>P0. Persistent Java compiler is enabled</td>
+      <td>P0.<a
+      href="https://github.com/bazelbuild/bazel/commit/490f250b27183a886cf70a5fe9e99d9428141b34"> Persistent Java compiler is enabled</a></td>
     </tr>
     <tr><td>P2. Sandboxing of action for OS X</td></tr>
     <tr>
