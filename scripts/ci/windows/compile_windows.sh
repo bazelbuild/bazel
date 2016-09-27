@@ -42,6 +42,10 @@ mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 # containing spaces seem to be passed properly.
 echo "Bootstrapping Bazel"
 retCode=0
+source ./scripts/ci/build.sh
+
+# TODO(bazel-team): we should replace ./compile.sh by the same script we use
+# for other platform
 ./compile.sh "$*" || retCode=$?
 if (( $retCode != 0 )); then
   echo "$retCode" > .unstable
@@ -50,7 +54,7 @@ fi
 
 # Copy the resulting artifact.
 mkdir -p output/ci
-cp output/bazel.exe output/ci/
+cp output/bazel.exe output/ci/bazel-$(get_full_release_name).exe
 
 # todo(bazel-team): add more tests here.
 echo "Running tests"
