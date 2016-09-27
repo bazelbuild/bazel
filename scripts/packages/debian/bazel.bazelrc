@@ -1,3 +1,0 @@
-common --action_env=PATH
-common --action_env=LD_LIBRARY_PATH
-common --action_env=TMPDIR
