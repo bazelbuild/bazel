@@ -48,6 +48,9 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   private static final Predicate<SkyKey> IS_AST_FILE_LOOKUP =
       SkyFunctions.isSkyFunction(SkyFunctions.AST_FILE_LOOKUP);
 
+  private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
+      SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
+
   @Override
   public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
       EventHandler eventHandler) {
@@ -83,7 +86,8 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       return true;
     } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP) && Iterables.any(cycle, IS_WORKSPACE_FILE)
         && (IS_REPOSITORY_DIRECTORY.apply(lastPathElement)
-        || IS_PACKAGE_SKY_KEY.apply(lastPathElement))) {
+        || IS_PACKAGE_SKY_KEY.apply(lastPathElement)
+        || IS_EXTERNAL_PACKAGE.apply(lastPathElement))) {
       // We have a cycle in the workspace file, report as such.
       Label fileLabel =
           (Label) Iterables.getLast(Iterables.filter(cycle, IS_AST_FILE_LOOKUP)).argument();

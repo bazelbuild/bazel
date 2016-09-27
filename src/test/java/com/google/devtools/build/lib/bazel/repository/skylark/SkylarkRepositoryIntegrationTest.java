@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -261,6 +263,32 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     assertDoesNotContainEvent("cycle");
     assertContainsEvent("Maybe repository 'foo' was defined later in your WORKSPACE file?");
     assertContainsEvent("Failed to load Skylark extension '@foo//:def.bzl'.");
+  }
+
+  @Test
+  public void testCycleErrorInWorkspaceFileWithExternalRepo() throws Exception {
+    try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(true /* append */)) {
+      output.write((
+          "\nload('//foo:bar.bzl', 'foobar')"
+              + "\ngit_repository(name = 'git_repo')").getBytes(StandardCharsets.UTF_8));
+    }
+    scratch.file("BUILD", "");
+    scratch.file("foo/BUILD", "");
+    scratch.file(
+        "foo/bar.bzl",
+        "load('@git_repo//xyz:foo.bzl', 'rule_from_git')",
+        "rule_from_git(name = 'foobar')");
+
+    invalidatePackages();
+    try {
+      getTarget("@//:git_repo");
+      fail();
+    } catch (AssertionError expected) {
+      assertThat(expected.getMessage()).contains("Failed to load Skylark extension "
+          + "'@git_repo//xyz:foo.bzl'.\n"
+          + "It usually happens when the repository is not defined prior to being used.\n"
+          + "Maybe repository 'git_repo' was defined later in your WORKSPACE file?");
+    }
   }
 
   @Test
