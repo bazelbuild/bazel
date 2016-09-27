@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -521,13 +522,25 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
+
+    ImmutableList<Artifact> bootclasspath;
+    if (getAndroidConfig(ruleContext).desugarJava8()) {
+      bootclasspath = ImmutableList.<Artifact>builder()
+          .addAll(ruleContext.getPrerequisite("$desugar_java8_extra_bootclasspath", Mode.HOST)
+              .getProvider(FileProvider.class)
+              .getFilesToBuild())
+          .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
+          .build();
+    } else {
+      bootclasspath =
+          ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
+    }
     JavaTargetAttributes.Builder attributes =
         javaCommon
             .initCommon(
                 idlHelper.getIdlGeneratedJavaSources(),
                 androidSemantics.getJavacArguments(ruleContext))
-            .setBootClassPath(
-                ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
+            .setBootClassPath(bootclasspath);
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     ImmutableList.Builder<Artifact> jarsProducedForRuntime = ImmutableList.builder();

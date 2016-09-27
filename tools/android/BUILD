@@ -80,6 +80,13 @@ sh_binary(
     srcs = ["fail.sh"],
 )
 
+# TODO(bazel-team): Figure out how to compute this for Bazel
+filegroup(
+    name = "desugar_java8_extra_bootclasspath",
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+
 alias(
     name = "IdlClass",
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",

@@ -542,6 +542,8 @@ public final class AndroidRuleClasses {
               .value(env.getToolsLabel("//third_party/java/jarjar:jarjar_bin")))
           .add(attr("$idlclass", LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/android:IdlClass")))
+          .add(attr("$desugar_java8_extra_bootclasspath", LABEL).cfg(HOST)
+              .value(env.getToolsLabel("//tools/android:desugar_java8_extra_bootclasspath")))
           .build();
     }
 
