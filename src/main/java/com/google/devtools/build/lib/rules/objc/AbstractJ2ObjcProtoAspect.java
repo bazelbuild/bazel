@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -61,6 +62,8 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
   private static final Iterable<Attribute> DEPENDENT_ATTRIBUTES = ImmutableList.of(
       new Attribute("$protobuf_lib", Mode.TARGET),
       new Attribute("deps", Mode.TARGET));
+
+  private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$j2objc_proto_blacklist";
 
   /** Flags passed to J2ObjC proto compiler plugin. */
   protected static final Iterable<String> J2OBJC_PLUGIN_PARAMS =
@@ -97,7 +100,11 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
             .checkConstraints()
             .direct_compile_time_input()
             .cfg(HOST)
-            .value(new AppleToolchain.XcodeConfigLabel(toolsRepository)));
+            .value(new AppleToolchain.XcodeConfigLabel(toolsRepository)))
+        .add(ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+            PROTO_SOURCE_FILE_BLACKLIST_ATTR,
+            ImmutableList.of(Label.parseAbsoluteUnchecked(
+                toolsRepository + "//tools/j2objc:j2objc_proto_blacklist"))));
     return addAdditionalAttributes(builder).build();
   }
 
@@ -118,12 +125,18 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
     ImmutableList<Artifact> protoSources = protoSourcesProvider.getDirectProtoSources();
     NestedSet<Artifact> transitiveImports = protoSourcesProvider.getTransitiveImports();
 
+    // Avoid pulling in any generated files from blacklisted protos.
+    ProtoSourceFileBlacklist protoBlacklist =
+        new ProtoSourceFileBlacklist(ruleContext, PROTO_SOURCE_FILE_BLACKLIST_ATTR);
+    ImmutableList<Artifact> filteredProtoSources = ImmutableList.copyOf(
+        protoBlacklist.filter(protoSources));
+
     XcodeProvider xcodeProvider;
     Iterable<Artifact> headerMappingFiles;
     Iterable<Artifact> classMappingFiles;
     ObjcCommon common;
 
-    if (protoSources.isEmpty()) {
+    if (filteredProtoSources.isEmpty()) {
       headerMappingFiles = ImmutableList.of();
       classMappingFiles = ImmutableList.of();
       common = J2ObjcAspect.common(
@@ -139,11 +152,11 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
           ImmutableList.<PathFragment>of(),
           DEPENDENT_ATTRIBUTES);
     } else {
-      J2ObjcSource j2ObjcSource = j2ObjcSource(ruleContext, protoSources);
-      headerMappingFiles = headerMappingFiles(ruleContext, protoSources);
-      classMappingFiles = classMappingFiles(ruleContext, protoSources);
+      J2ObjcSource j2ObjcSource = j2ObjcSource(ruleContext, filteredProtoSources);
+      headerMappingFiles = headerMappingFiles(ruleContext, filteredProtoSources);
+      classMappingFiles = classMappingFiles(ruleContext, filteredProtoSources);
 
-      createActions(base, ruleContext, protoSources, transitiveImports,
+      createActions(base, ruleContext, filteredProtoSources, transitiveImports,
           headerMappingFiles, classMappingFiles, j2ObjcSource);
       common = J2ObjcAspect.common(
           ruleContext,
@@ -185,13 +198,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
       Iterable<Artifact> headerMappingFiles, Iterable<Artifact> classMappingFiles,
       J2ObjcSource j2ObjcSource);
 
-  protected abstract boolean checkShouldCreateSources(RuleContext ruleContext);
-
-  private J2ObjcSource j2ObjcSource(RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources) {
-    Iterable<Artifact> generatedSourceFiles = checkShouldCreateSources(ruleContext)
-        ? ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.m")
-        : ImmutableList.<Artifact>of();
+  private J2ObjcSource j2ObjcSource(RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
     PathFragment objcFileRootExecPath = ruleContext.getConfiguration()
         .getGenfilesDirectory(ruleContext.getRule().getRepository())
         .getExecPath();
@@ -200,7 +207,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
 
     return new J2ObjcSource(
         ruleContext.getTarget().getLabel(),
-        generatedSourceFiles,
+        ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.m"),
         ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.h"),
         objcFileRootExecPath,
         SourceType.PROTO,

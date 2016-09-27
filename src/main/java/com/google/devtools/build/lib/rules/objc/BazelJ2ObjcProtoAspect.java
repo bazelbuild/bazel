@@ -97,9 +97,4 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
             .addOutputs(classMappingFiles)
             .build(ruleContext));
   }
-
-  @Override
-  protected boolean checkShouldCreateSources(RuleContext ruleContext) {
-    return true;
-  }
 }
