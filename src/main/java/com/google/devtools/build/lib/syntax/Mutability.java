@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * A Mutability is a resource associated with an {@link Environment} during an evaluation,
@@ -29,6 +33,11 @@ import java.io.Serializable;
  * created in a previous, concurrent or future {@link Environment}, and conversely,
  * the bindings and objects in this {@link Environment} will be protected from
  * mutation by evaluation in a different {@link Environment}.
+ *
+ * <p>In addition, a Mutability tracks which of its objects are temporarily locked from mutation.
+ * This is used to prevent modification of iterables during loops. A Freezable may be locked
+ * multiple times (e.g., nested loops over the same iterable). Locking an object does not prohibit
+ * mutating its deeply contained values, e.g. in the case of a list of lists.
  *
  * <p>Only a single thread may use the {@link Environment} and objects created within it while the
  * Mutability is still mutable as tested by {@link #isMutable}. Once the Mutability resource
@@ -46,7 +55,14 @@ import java.io.Serializable;
 // TODO(bazel-team): When we start using Java 8, this safe usage pattern can be enforced
 // through the use of a higher-order function.
 public final class Mutability implements AutoCloseable, Serializable {
+
   private boolean isMutable;
+  // For each locked Freezable, store all Locations where it is locked.
+  // This field is set null once the Mutability is closed.
+  // Since some SkylarkValues currently override Object.equals() and Object.hashCode() in ways
+  // that break Java equality semantics, this map is keyed on the System.identityHashCode() value
+  // of the object.
+  private ArrayListMultimap<Integer, Location> lockedItems;
   private final String annotation; // For error reporting.
 
   /**
@@ -56,6 +72,7 @@ public final class Mutability implements AutoCloseable, Serializable {
    */
   private Mutability(String annotation) {
     this.isMutable = true;
+    this.lockedItems = ArrayListMultimap.create();
     this.annotation = Preconditions.checkNotNull(annotation);
   }
 
@@ -85,10 +102,79 @@ public final class Mutability implements AutoCloseable, Serializable {
   }
 
   /**
+   * Return whether a {@link Freezable} belonging to this Mutability is currently locked.
+   * Frozen objects are not considered locked, though they are of course immutable nonetheless.
+   */
+  public boolean isLocked(Freezable object) {
+    if (!object.mutability().equals(this)) {
+      throw new AssertionError("trying to check the lock of an object from a different context");
+    }
+    if (!isMutable) {
+      return false;
+    }
+    Integer hash = System.identityHashCode(object);
+    return lockedItems.containsKey(hash);
+  }
+
+  /**
+   * For a locked {@link Freezable} that belongs to this Mutability, return a List of the
+   * {@link Locations} corresponding to its current locks.
+   */
+  public List<Location> getLockLocations(Freezable object) {
+    if (!isLocked(object)) {
+      throw new AssertionError("trying to get lock locations for an object that is not locked");
+    }
+    Integer hash = System.identityHashCode(object);
+    return lockedItems.get(hash);
+  }
+
+  /**
+   * Add a lock on a {@link Freezable} belonging to this Mutability. The object cannot be
+   * mutated until all locks on it are gone. For error reporting purposes each lock is
+   * associated with its originating {@link Location}.
+   */
+  public void lock(Freezable object, Location loc) {
+    if (!object.mutability().equals(this)) {
+      throw new AssertionError("trying to lock an object from a different context");
+    }
+    if (!isMutable) {
+      return;
+    }
+    Integer hash = System.identityHashCode(object);
+    lockedItems.put(hash, loc);
+  }
+
+  /**
+   * Remove the lock for a given {@link Freezable} that is associated with the given
+   * @{link Location}. It is an error if {@code object} does not belong to this mutability,
+   * or has no lock corresponding to {@code loc}.
+   */
+  public void unlock(Freezable object, Location loc) {
+    if (!object.mutability().equals(this)) {
+      throw new AssertionError("trying to unlock an object from a different context");
+    }
+    if (!isMutable) {
+      // It's okay if we somehow got frozen while there were still locked objects.
+      return;
+    }
+    Integer hash = System.identityHashCode(object);
+    if (!lockedItems.containsKey(hash)) {
+      throw new AssertionError("trying to unlock an object that is not locked");
+    }
+    boolean changed = lockedItems.remove(hash, loc);
+    if (!changed) {
+      throw new AssertionError(Printer.format("trying to unlock an object for a location at which "
+          + "it was not locked (%r)", loc));
+    }
+  }
+
+  /**
    * Freezes this Mutability, marking as immutable all {@link Freezable} objects that use it.
    */
   @Override
   public void close() {
+    // No need to track per-Freezable info since everything is immutable now.
+    lockedItems = null;
     isMutable = false;
   }
 
@@ -120,21 +206,26 @@ public final class Mutability implements AutoCloseable, Serializable {
   public interface Freezable {
     /**
      * Returns the {@link Mutability} capability associated with this Freezable object.
+     * This should not change over the lifetime of the object.
      */
     Mutability mutability();
   }
 
   /**
    * Checks that this Freezable object can be mutated from the given {@link Environment}.
+   * If the object is mutable, it must be from the environment.
    * @param object a Freezable object that we check is still mutable.
    * @param env the {@link Environment} attempting the mutation.
-   * @throws MutabilityException when the object was frozen already, or is from another context.
+   * @throws MutabilityException when the object was frozen already, or is locked.
    */
   public static void checkMutable(Freezable object, Environment env)
       throws MutabilityException {
     if (!object.mutability().isMutable()) {
+      // Throw MutabilityException, not AssertionError, even if the object was from
+      // another context.
       throw new MutabilityException("trying to mutate a frozen object");
     }
+
     // Consider an {@link Environment} e1, in which is created {@link UserDefinedFunction} f1,
     // that closes over some variable v1 bound to list l1. If somehow, via the magic of callbacks,
     // f1 or l1 is passed as argument to some function f2 evaluated in {@link environment} e2
@@ -144,6 +235,20 @@ public final class Mutability implements AutoCloseable, Serializable {
     // then we should throw a MutabilityException instead.
     if (!object.mutability().equals(env.mutability())) {
       throw new AssertionError("trying to mutate an object from a different context");
+    }
+
+    if (env.mutability().isLocked(object)) {
+      Iterable<String> locs = Iterables.transform(env.mutability().getLockLocations(object),
+          new Function<Location, String>() {
+              @Override
+              public String apply(Location loc) {
+                return loc.print();
+              }});
+      throw new MutabilityException(
+          "trying to mutate a locked object (is it currently being iterated over by a for loop "
+          + "or comprehension?)\n"
+          + "Object locked at the following locations: "
+          + String.join(", ", locs));
     }
   }
 

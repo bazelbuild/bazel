@@ -20,7 +20,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -167,6 +169,60 @@ public class EnvironmentTest extends EvaluationTestCase {
       throw new Exception("failed to fail"); // not an AssertionError like fail()
     } catch (AssertionError e) {
       assertThat(e).hasMessage("Can't update newvar to 5 in frozen environment");
+    }
+  }
+
+  @Test
+  public void testLocked() throws Exception {
+    Mutability mutability = Mutability.create("testLocked");
+    class DummyFreezable implements Mutability.Freezable {
+      @Override
+      public Mutability mutability() {
+        return mutability;
+      }
+    }
+    DummyFreezable dummy = new DummyFreezable();
+    Location locA = Location.fromPathFragment(new PathFragment("/a"));
+    Location locB = Location.fromPathFragment(new PathFragment("/b"));
+    Environment env = Environment.builder(mutability).build();
+
+    // Acquire two locks, release two locks, check along the way.
+    assertThat(mutability.isLocked(dummy)).isFalse();
+    mutability.lock(dummy, locA);
+    assertThat(mutability.isLocked(dummy)).isTrue();
+    mutability.lock(dummy, locB);
+    assertThat(mutability.isLocked(dummy)).isTrue();
+    assertThat(mutability.getLockLocations(dummy)).containsExactly(locA, locB);
+    mutability.unlock(dummy, locA);
+    assertThat(mutability.isLocked(dummy)).isTrue();
+    try {
+      Mutability.checkMutable(dummy, env);
+      fail("Able to mutate locked object");
+    } catch (Mutability.MutabilityException e) {
+      assertThat(e).hasMessage("trying to mutate a locked object (is it currently being iterated "
+          + "over by a for loop or comprehension?)\n"
+          + "Object locked at the following locations: /b:1");
+    }
+    try {
+      mutability.unlock(dummy, locA);
+      fail("Able to unlock object with wrong location");
+    } catch (AssertionError e) {
+      assertThat(e).hasMessage("trying to unlock an object for a location at which "
+          + "it was not locked (/a:1)");
+    }
+    mutability.unlock(dummy, locB);
+    assertThat(mutability.isLocked(dummy)).isFalse();
+    Mutability.checkMutable(dummy, env);
+
+    // Acquire, then freeze.
+    mutability.lock(dummy, locA);
+    mutability.freeze();
+    assertThat(mutability.isLocked(dummy)).isFalse();
+    try {
+      Mutability.checkMutable(dummy, env);
+      fail("Able to mutate locked object");
+    } catch (Mutability.MutabilityException e) {
+      assertThat(e).hasMessage("trying to mutate a frozen object");
     }
   }
 

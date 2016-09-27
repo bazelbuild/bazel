@@ -357,37 +357,93 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testForUpdateList() throws Exception {
-    // Check that modifying the list within the loop doesn't affect what gets iterated over.
-    // TODO(brandjon): When we support in-place assignment to a list index, also test that
-    // as a modification here.
     new SkylarkTest().setUp("def foo():",
-        "  xs = ['a', 'b', 'c']",
-        "  s = ''",
+        "  xs = [1, 2, 3]",
         "  for x in xs:",
-        "    s = s + x",
-        "    if x == 'a':",
-        "      xs.pop(0)",
-        "      xs.pop(1)",
-        "    elif x == 'c':",
-        "      xs.append('d')",
-        "  return s",
-        "s = foo()").testLookup("s", "abc");
+        "    if x == 1:",
+        "      xs.append(10)"
+        ).testIfErrorContains("trying to mutate a locked object", "foo()");
   }
 
   @Test
   public void testForUpdateDict() throws Exception {
-    // Check that modifying the dict within the loop doesn't affect what gets iterated over.
     new SkylarkTest().setUp("def foo():",
         "  d = {'a': 1, 'b': 2, 'c': 3}",
-        "  s = ''",
         "  for k in d:",
-        "    s = s + k",
-        "    if k == 'a':",
-        "      d.pop('a')",
-        "      d.pop('b')",
-        "    d.update({'d': 4})",
-        "  return s",
-        "s = foo()").testLookup("s", "abc");
+        "    d[k] *= 2"
+        ).testIfErrorContains("trying to mutate a locked object", "foo()");
+  }
+
+  @Test
+  public void testForUnlockedAfterBreak() throws Exception {
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [1, 2]",
+        "  for x in xs:",
+        "    break",
+        "  xs.append(3)",
+        "  return xs"
+        ).testEval("foo()", "[1, 2, 3]");
+  }
+
+  @Test
+  public void testForNestedOnSameListStillLocked() throws Exception {
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [1, 2]",
+        "  ys = []",
+        "  for x1 in xs:",
+        "    for x2 in xs:",
+        "      ys.append(x1 * x2)",
+        "    xs.append(4)",
+        "  return ys"
+        ).testIfErrorContains("trying to mutate a locked object", "foo()");
+  }
+
+  @Test
+  public void testForNestedOnSameListErrorMessage() throws Exception {
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [1, 2]",
+        "  ys = []",
+        "  for x1 in xs:",
+        "    for x2 in xs:",
+        "      ys.append(x1 * x2)",
+        "      xs.append(4)",
+        "  return ys"
+        // No file name in message, due to how test is set up.
+        ).testIfErrorContains("Object locked at the following locations: 4:3, 5:5", "foo()");
+  }
+
+  @Test
+  public void testForNestedOnSameListUnlockedAtEnd() throws Exception {
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [1, 2]",
+        "  ys = []",
+        "  for x1 in xs:",
+        "    for x2 in xs:",
+        "      ys.append(x1 * x2)",
+        "  xs.append(4)",
+        "  return ys"
+        ).testEval("foo()", "[1, 2, 2, 4]");
+  }
+
+  @Test
+  public void testForNestedWithListCompGood() throws Exception {
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [1, 2]",
+        "  ys = []",
+        "  for x in xs:",
+        "    zs = [None for x in xs for y in (ys.append(x) or ys)]",
+        "  return ys"
+        ).testEval("foo()", "[1, 2, 1, 2]");
+  }
+  @Test
+  public void testForNestedWithListCompBad() throws Exception {
+    new SkylarkTest().setUp("def foo():",
+        "  xs = [1, 2, 3]",
+        "  ys = []",
+        "  for x in xs:",
+        "    zs = [None for x in xs for y in (xs.append(x) or ys)]",
+        "  return ys"
+        ).testIfErrorContains("trying to mutate a locked object", "foo()");
   }
 
   @Test

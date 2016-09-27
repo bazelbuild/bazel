@@ -55,6 +55,20 @@ abstract class SkylarkMutable implements Freezable, SkylarkValue {
     return Printer.repr(this);
   }
 
+  /**
+   * Add a new lock at {@code loc}. No effect if frozen.
+   */
+  public void lock(Location loc) {
+    mutability().lock(this, loc);
+  }
+
+  /**
+   * Remove the lock at {@code loc}; such a lock must already exist. No effect if frozen.
+   */
+  public void unlock(Location loc) {
+    mutability().unlock(this, loc);
+  }
+
   abstract static class MutableCollection<E> extends SkylarkMutable implements Collection<E> {
 
     protected MutableCollection() {}

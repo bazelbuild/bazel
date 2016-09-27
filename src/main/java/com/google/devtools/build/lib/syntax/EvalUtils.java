@@ -369,6 +369,18 @@ public final class EvalUtils {
     }
   }
 
+  public static void lock(Object object, Location loc) {
+    if (object instanceof SkylarkMutable) {
+      ((SkylarkMutable) object).lock(loc);
+    }
+  }
+
+  public static void unlock(Object object, Location loc) {
+    if (object instanceof SkylarkMutable) {
+      ((SkylarkMutable) object).unlock(loc);
+    }
+  }
+
   private static ImmutableList<String> split(String value) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : value.toCharArray()) {
