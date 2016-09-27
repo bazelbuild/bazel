@@ -1885,7 +1885,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getInvalidationReceiver().invalidated(skyKey, state);
+      skyframeBuildView.getProgressReceiver().invalidated(skyKey, state);
     }
 
     @Override
@@ -1893,7 +1893,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getInvalidationReceiver().enqueueing(skyKey);
+      skyframeBuildView.getProgressReceiver().enqueueing(skyKey);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.enqueueing(skyKey);
       }
@@ -1907,7 +1907,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getInvalidationReceiver().evaluated(skyKey, valueSupplier, state);
+      skyframeBuildView.getProgressReceiver().evaluated(skyKey, valueSupplier, state);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(skyKey, valueSupplier, state);
       }

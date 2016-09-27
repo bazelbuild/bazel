@@ -80,7 +80,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       };
 
   protected final TGraph graph;
-  @Nullable protected final EvaluationProgressReceiver invalidationReceiver;
+  @Nullable protected final EvaluationProgressReceiver progressReceiver;
   protected final DirtyKeyTracker dirtyKeyTracker;
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
@@ -88,16 +88,16 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
 
   protected InvalidatingNodeVisitor(
       TGraph graph,
-      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      @Nullable EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker) {
     this(
-        graph, invalidationReceiver, state, dirtyKeyTracker, AbstractQueueVisitor.EXECUTOR_FACTORY);
+        graph, progressReceiver, state, dirtyKeyTracker, AbstractQueueVisitor.EXECUTOR_FACTORY);
   }
 
   protected InvalidatingNodeVisitor(
       TGraph graph,
-      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      @Nullable EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
@@ -112,14 +112,14 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
             executorFactory,
             errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);
-    this.invalidationReceiver = invalidationReceiver;
+    this.progressReceiver = progressReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
     this.pendingVisitations = state.pendingValues;
   }
 
   protected InvalidatingNodeVisitor(
       TGraph graph,
-      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      @Nullable EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       ForkJoinPool forkJoinPool) {
@@ -128,7 +128,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
         .setErrorClassifier(errorClassifier)
         .build();
     this.graph = Preconditions.checkNotNull(graph);
-    this.invalidationReceiver = invalidationReceiver;
+    this.progressReceiver = progressReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
     this.pendingVisitations = state.pendingValues;
   }
@@ -162,10 +162,10 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
     return executor.getInterruptionLatchForTestingOnly();
   }
 
-  protected void informInvalidationReceiver(SkyKey key,
+  protected void informProgressReceiver(SkyKey key,
       EvaluationProgressReceiver.InvalidationState state) {
-    if (invalidationReceiver != null) {
-      invalidationReceiver.invalidated(key, state);
+    if (progressReceiver != null) {
+      progressReceiver.invalidated(key, state);
     }
   }
 
@@ -242,11 +242,11 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
 
     DeletingNodeVisitor(
         InMemoryGraph graph,
-        EvaluationProgressReceiver invalidationReceiver,
+        EvaluationProgressReceiver progressReceiver,
         InvalidationState state,
         boolean traverseGraph,
         DirtyKeyTracker dirtyKeyTracker) {
-      super(graph, invalidationReceiver, state, dirtyKeyTracker);
+      super(graph, progressReceiver, state, dirtyKeyTracker);
       this.traverseGraph = traverseGraph;
     }
 
@@ -353,7 +353,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
                 }
 
                 // Allow custom key-specific logic to update dirtiness status.
-                informInvalidationReceiver(
+                informProgressReceiver(
                     key, EvaluationProgressReceiver.InvalidationState.DELETED);
                 // Actually remove the node.
                 graph.remove(key);
@@ -382,11 +382,11 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
 
     protected DirtyingNodeVisitor(
         QueryableGraph graph,
-        EvaluationProgressReceiver invalidationReceiver,
+        EvaluationProgressReceiver progressReceiver,
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
         Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
-      super(graph, invalidationReceiver, state, dirtyKeyTracker, executorFactory);
+      super(graph, progressReceiver, state, dirtyKeyTracker, executorFactory);
       this.supportInterruptions = true;
     }
 
@@ -396,12 +396,12 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
      */
     protected DirtyingNodeVisitor(
         QueryableGraph graph,
-        EvaluationProgressReceiver invalidationReceiver,
+        EvaluationProgressReceiver progressReceiver,
         InvalidationState state,
         DirtyKeyTracker dirtyKeyTracker,
         ForkJoinPool forkJoinPool,
         boolean supportInterruptions) {
-      super(graph, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool);
+      super(graph, progressReceiver, state, dirtyKeyTracker, forkJoinPool);
       this.supportInterruptions = supportInterruptions;
     }
 
@@ -526,7 +526,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
                 // only be marked dirty (because only a dependency of theirs has changed).
                 visit(markedDirtyResult.getReverseDepsUnsafe(), InvalidationType.DIRTIED, key);
 
-                informInvalidationReceiver(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
+                informProgressReceiver(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
                 dirtyKeyTracker.dirty(key);
                 // Remove the node from the set as the last operation.
                 if (supportInterruptions) {

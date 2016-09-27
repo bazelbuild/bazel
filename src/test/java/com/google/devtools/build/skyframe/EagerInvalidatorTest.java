@@ -85,7 +85,7 @@ public class EagerInvalidatorTest {
 
   @SuppressWarnings("unused") // Overridden by subclasses.
   void invalidate(
-      InMemoryGraph graph, EvaluationProgressReceiver invalidationReceiver, SkyKey... keys)
+      InMemoryGraph graph, EvaluationProgressReceiver progressReceiver, SkyKey... keys)
       throws InterruptedException {
     throw new UnsupportedOperationException();
   }
@@ -164,9 +164,9 @@ public class EagerInvalidatorTest {
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 
-  protected void invalidateWithoutError(@Nullable EvaluationProgressReceiver invalidationReceiver,
+  protected void invalidateWithoutError(@Nullable EvaluationProgressReceiver progressReceiver,
       SkyKey... keys) throws InterruptedException {
-    invalidate(graph, invalidationReceiver, keys);
+    invalidate(graph, progressReceiver, keys);
     assertTrue(state.isEmpty());
   }
 
@@ -604,12 +604,12 @@ public class EagerInvalidatorTest {
   public static class DeletingInvalidatorTest extends EagerInvalidatorTest {
     @Override
     protected void invalidate(
-        InMemoryGraph graph, EvaluationProgressReceiver invalidationReceiver, SkyKey... keys)
+        InMemoryGraph graph, EvaluationProgressReceiver progressReceiver, SkyKey... keys)
         throws InterruptedException {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       DeletingNodeVisitor deletingNodeVisitor =
           EagerInvalidator.createDeletingVisitorIfNeeded(
-              graph, diff, invalidationReceiver, state, true, dirtyKeyTracker);
+              graph, diff, progressReceiver, state, true, dirtyKeyTracker);
       if (deletingNodeVisitor != null) {
         visitor.set(deletingNodeVisitor);
         deletingNodeVisitor.run();
@@ -644,7 +644,7 @@ public class EagerInvalidatorTest {
     @Test
     public void dirtyKeyTrackerWorksWithDeletingInvalidator() throws Exception {
       setupInvalidatableGraph();
-      TrackingInvalidationReceiver receiver = new TrackingInvalidationReceiver();
+      TrackingProgressReceiver receiver = new TrackingProgressReceiver();
 
       // Dirty the node, and ensure that the tracker is aware of it:
       Iterable<SkyKey> diff1 = ImmutableList.of(skyKey("a"));
@@ -675,14 +675,14 @@ public class EagerInvalidatorTest {
   public static class DirtyingInvalidatorTest extends EagerInvalidatorTest {
     @Override
     protected void invalidate(
-        InMemoryGraph graph, EvaluationProgressReceiver invalidationReceiver, SkyKey... keys)
+        InMemoryGraph graph, EvaluationProgressReceiver progressReceiver, SkyKey... keys)
         throws InterruptedException {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       DirtyingNodeVisitor dirtyingNodeVisitor =
           EagerInvalidator.createInvalidatingVisitorIfNeeded(
               graph,
               diff,
-              invalidationReceiver,
+              progressReceiver,
               state,
               dirtyKeyTracker,
               AbstractQueueVisitor.EXECUTOR_FACTORY);
@@ -720,7 +720,7 @@ public class EagerInvalidatorTest {
     @Test
     public void dirtyKeyTrackerWorksWithDirtyingInvalidator() throws Exception {
       setupInvalidatableGraph();
-      TrackingInvalidationReceiver receiver = new TrackingInvalidationReceiver();
+      TrackingProgressReceiver receiver = new TrackingProgressReceiver();
 
       // Dirty the node, and ensure that the tracker is aware of it:
       invalidate(graph, receiver, skyKey("a"));

@@ -9,7 +9,7 @@ TESTUTIL_FILES = [
     "GraphTester.java",
     "GenericFunctionException.java",
     "SomeErrorException.java",
-    "TrackingInvalidationReceiver.java",
+    "TrackingProgressReceiver.java",
     "WalkableGraphUtils.java",
     # Truth Subject, SubjectFactory, and Graph files.
 ] + glob(["*Subject.java"]) + glob(["*SubjectFactory.java"]) + glob(["*Graph.java"]) + glob(["*Helper.java"])

@@ -101,11 +101,11 @@ public class MemoizingEvaluatorTest {
     TrackingAwaiter.INSTANCE.assertNoErrors();
   }
 
-  private void initializeTester(@Nullable TrackingInvalidationReceiver customInvalidationReceiver) {
+  private void initializeTester(@Nullable TrackingProgressReceiver customProgressReceiver) {
     emittedEventState = new MemoizingEvaluator.EmittedEventState();
     tester = new MemoizingEvaluatorTester();
-    if (customInvalidationReceiver != null) {
-      tester.setInvalidationReceiver(customInvalidationReceiver);
+    if (customProgressReceiver != null) {
+      tester.setProgressReceiver(customProgressReceiver);
     }
     tester.initialize();
   }
@@ -113,9 +113,9 @@ public class MemoizingEvaluatorTest {
   protected MemoizingEvaluator getMemoizingEvaluator(
       Map<SkyFunctionName, ? extends SkyFunction> functions,
       Differencer differencer,
-      EvaluationProgressReceiver invalidationReceiver) {
+      EvaluationProgressReceiver progressReceiver) {
     return new InMemoryMemoizingEvaluator(
-        functions, differencer, invalidationReceiver, emittedEventState, true);
+        functions, differencer, progressReceiver, emittedEventState, true);
   }
 
   protected BuildDriver getBuildDriver(MemoizingEvaluator evaluator) {
@@ -749,7 +749,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(mid).setHasError(true);
     tester.eval(/*keepGoing=*/false, top, mid);
     assertEquals(0L, valueSet.getCount());
-    assertThat(tester.invalidationReceiver.evaluated).containsExactly(mid);
+    assertThat(tester.progressReceiver.evaluated).containsExactly(mid);
   }
 
   @Test
@@ -761,12 +761,12 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
     tester.eval(/*keepGoing=*/true, top);
-    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf, top, cycle);
-    tester.invalidationReceiver.clear();
+    assertThat(tester.progressReceiver.evaluated).containsExactly(leaf, top, cycle);
+    tester.progressReceiver.clear();
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.invalidate();
     tester.eval(/*keepGoing=*/true, top);
-    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf, top);
+    assertThat(tester.progressReceiver.evaluated).containsExactly(leaf, top);
   }
 
   @Test
@@ -2560,7 +2560,7 @@ public class MemoizingEvaluatorTest {
   public void deletingDirtyNodes() throws Exception {
     final Thread thread = Thread.currentThread();
     final AtomicBoolean interruptInvalidation = new AtomicBoolean(false);
-    initializeTester(new TrackingInvalidationReceiver() {
+    initializeTester(new TrackingProgressReceiver() {
       private final AtomicBoolean firstInvalidation = new AtomicBoolean(true);
 
       @Override
@@ -3960,9 +3960,9 @@ public class MemoizingEvaluatorTest {
    */
   @Test
   public void shutDownBuildOnCachedError_Verified() throws Exception {
-    // TrackingInvalidationReceiver does unnecessary examination of node values.
+    // TrackingProgressReceiver does unnecessary examination of node values.
     initializeTester(
-        new TrackingInvalidationReceiver() {
+        new TrackingProgressReceiver() {
           @Override
           public void evaluated(
               SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
@@ -4095,9 +4095,9 @@ public class MemoizingEvaluatorTest {
    */
   @Test
   public void cachedErrorCausesRestart() throws Exception {
-    // TrackingInvalidationReceiver does unnecessary examination of node values.
+    // TrackingProgressReceiver does unnecessary examination of node values.
     initializeTester(
-        new TrackingInvalidationReceiver() {
+        new TrackingProgressReceiver() {
           @Override
           public void evaluated(
               SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
@@ -4426,23 +4426,23 @@ public class MemoizingEvaluatorTest {
     private RecordingDifferencer differencer = new RecordingDifferencer();
     private MemoizingEvaluator evaluator;
     private BuildDriver driver;
-    private TrackingInvalidationReceiver invalidationReceiver = new TrackingInvalidationReceiver();
+    private TrackingProgressReceiver progressReceiver = new TrackingProgressReceiver();
 
     public void initialize() {
       this.evaluator =
-          getMemoizingEvaluator(getSkyFunctionMap(), differencer, invalidationReceiver);
+          getMemoizingEvaluator(getSkyFunctionMap(), differencer, progressReceiver);
       this.driver = getBuildDriver(evaluator);
     }
 
-    public void setInvalidationReceiver(TrackingInvalidationReceiver customInvalidationReceiver) {
+    public void setProgressReceiver(TrackingProgressReceiver customProgressReceiver) {
       Preconditions.checkState(evaluator == null, "evaluator already initialized");
-      invalidationReceiver = customInvalidationReceiver;
+      progressReceiver = customProgressReceiver;
     }
 
     public void invalidate() {
       differencer.invalidate(getModifiedValues());
       clearModifiedValues();
-      invalidationReceiver.clear();
+      progressReceiver.clear();
     }
 
     public void invalidateTransientErrors() {
@@ -4458,15 +4458,15 @@ public class MemoizingEvaluatorTest {
     }
 
     public Set<SkyKey> getDirtyKeys() {
-      return invalidationReceiver.dirty;
+      return progressReceiver.dirty;
     }
 
     public Set<SkyKey> getDeletedKeys() {
-      return invalidationReceiver.deleted;
+      return progressReceiver.deleted;
     }
 
     public Set<SkyKey> getEnqueuedValues() {
-      return invalidationReceiver.enqueued;
+      return progressReceiver.enqueued;
     }
 
     public <T extends SkyValue> EvaluationResult<T> eval(
