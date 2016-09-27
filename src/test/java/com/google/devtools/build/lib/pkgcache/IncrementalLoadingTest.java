@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.common.options.Options;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -482,10 +483,16 @@ public class IncrementalLoadingTest {
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
               loadingMock.getProductName());
+      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
+      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageCacheOptions.showLoadingProgress = true;
+      packageCacheOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
-          ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID(), ImmutableMap.<String, String>of(),
+          packageCacheOptions,
+          "",
+          UUID.randomUUID(),
+          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
     }
 
@@ -562,10 +569,16 @@ public class IncrementalLoadingTest {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
+      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
+      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageCacheOptions.showLoadingProgress = true;
+      packageCacheOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
-          ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID(), ImmutableMap.<String, String>of(),
+          packageCacheOptions,
+          "",
+          UUID.randomUUID(),
+          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(), modifiedFileSet, workspace);

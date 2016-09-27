@@ -104,11 +104,11 @@ public class PackageCacheTest extends FoundationTestCase {
   private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    packageCacheOptions.showLoadingProgress = true;
+    packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions.defaultVisibility,
-        true,
-        7,
+        packageCacheOptions,
         analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
