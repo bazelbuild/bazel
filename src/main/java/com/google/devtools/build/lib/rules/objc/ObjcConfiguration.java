@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -79,6 +79,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final boolean experimentalObjcLibrary;
+  private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -115,6 +116,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
+    this.dotdPruningPlan =
+        objcOptions.useDotdPruning
+            ? HeaderDiscovery.DotdPruningMode.USE
+            : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
   }
 
   /**
@@ -363,5 +368,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
+  }
+  
+  /** Returns the DotdPruningPlan for compiles in this build. */
+  public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
+    return dotdPruningPlan;
   }
 }

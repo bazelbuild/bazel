@@ -36,6 +36,12 @@ import java.util.Map;
 /** Manages the process of obtaining inputs used in a compilation from .d files. */
 public class HeaderDiscovery {
 
+  /** Indicates if a compile should perform dotd pruning. */
+  public static enum DotdPruningMode {
+    USE,
+    DO_NOT_USE
+  }
+  
   private final Action action;
   private final Artifact sourceFile;
   private final DotdFile dotdFile;
@@ -46,7 +52,7 @@ public class HeaderDiscovery {
   private final DependencySet depSet;
   private final List<Path> permittedSystemIncludePrefixes;
   private final Map<PathFragment, Artifact> allowedDerivedInputsMap;
-
+  
   /**
    * Creates a HeaderDiscover instance
    *

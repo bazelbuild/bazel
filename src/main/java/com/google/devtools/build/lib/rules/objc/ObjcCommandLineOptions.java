@@ -249,6 +249,16 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean experimentalObjcLibrary;
   
+  @Option(
+    name = "objc_use_dotd_pruning",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If set, .d files emited by clang will be used to prune the set of inputs passed into objc "
+            + "compiles."
+  )
+  public boolean useDotdPruning;
+  
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
   @VisibleForTesting static final String DEFAULT_MINIMUM_WATCHOS = "2.0";
   @VisibleForTesting static final String DEFAULT_MINIMUM_TVOS = "9.0";
