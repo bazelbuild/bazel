@@ -19,6 +19,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",

@@ -1,0 +1,98 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package build_event_stream;
+
+option java_package = "com.google.devtools.build.lib.buildeventstream";
+option java_outer_classname = "BuildEventStreamProtos";
+
+// Identifier for a build event. It is deliberately structured to also provide
+// information about which build target etc the event is related to.
+//
+// Events are chained via the event id as follows: each event has an id and a
+// set of ids of children events such that apart from the initial event each
+// event has an id that is mentioned as child id in an earlier event and a build
+// invocation is complete if and only if all direct and indirect children of the
+// initial event have been posted.
+message BuildEventId {
+  // Generic identifier for a build event. This is the default type of
+  // BuildEventId, but should not be used outside testing; nevertheless,
+  // tools should handle build events with this kind of id gracefully.
+  message UnknownBuildEventId {
+    string details = 1;
+  }
+
+  // Identifier of an event reporting progress. Those events are also used to
+  // chain in events that come early.
+  message ProgressId {
+    // Unique identifier. No assumption should be made about how the ids are
+    // assigned; the only meaningful operation on this field is test for
+    // equality.
+    int32 opaque_count = 1;
+  }
+
+  oneof id {
+    UnknownBuildEventId unknown = 1;
+    ProgressId progress = 2;
+  }
+}
+
+// Payload of an event summarizing the progress of the build so far. Those
+// events are also used to be parents of events where the more logical parent
+// event cannot be posted yet as the needed information is not yet complete.
+message Progress {
+}
+
+// Payload of an event indicating that an expected event will not come, as
+// the build is aborted prematurely for some reason.
+message Aborted {
+  enum AbortReason {
+    UNKNOWN = 0;
+
+    // The user requested the build to be aborted (e.g., by hitting Ctl-C).
+    USER_INTERRUPTED = 1;
+
+    // The build or target was aborted as a timeout was exceeded.
+    TIME_OUT = 2;
+
+    // The build or target was aborted as some remote environment (e.g., for
+    // remote execution of actions) was not available in the expected way.
+    REMOTE_ENVIRONMENT_FAILURE = 3;
+
+    // Failure due to reasons entirely internal to the build tool, e.g.,
+    // running out of memory.
+    INTERNAL = 4;
+  }
+  AbortReason reason = 1;
+
+  // A human readable description with more details about there reason, where
+  // available and useful.
+  string description = 2;
+}
+
+// Message describing a build event. Events will have an identifier that
+// is unique within a given build invocation; they also announce follow-up
+// events as children. More details, which are specific to the kind of event
+// that is observed, is provided in the payload. More options for the payload
+// might be added in the future.
+message BuildEvent {
+  BuildEventId id = 1;
+  repeated BuildEventId children = 2;
+  oneof payload {
+    Progress progress = 3;
+    Aborted aborted = 4;
+  };
+}
