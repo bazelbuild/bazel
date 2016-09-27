@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -47,12 +48,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 
@@ -116,12 +119,19 @@ public class TestAspects {
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
     NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
     result.add(me);
-    if (ruleContext.attributes().has("foo", LABEL_LIST)) {
-      for (AspectInfo dep : ruleContext.getPrerequisites("foo", Mode.TARGET, AspectInfo.class)) {
-        result.addTransitive(dep.getData());
+
+    Iterable<String> attributeNames = ruleContext.attributes().getAttributeNames();
+    for (String attributeName : attributeNames) {
+      Type<?> attributeType = ruleContext.attributes().getAttributeType(attributeName);
+      if (!LABEL.equals(attributeType) && !LABEL_LIST.equals(attributeType)) {
+        continue;
+      }
+      Iterable<AspectInfo> prerequisites = ruleContext
+          .getPrerequisites(attributeName, Mode.DONT_CHECK, AspectInfo.class);
+      for (AspectInfo prerequisite : prerequisites) {
+        result.addTransitive(prerequisite.getData());
       }
     }
-
     return result.build();
   }
 
@@ -210,6 +220,24 @@ public class TestAspects {
       new AspectDefinition.Builder("attribute")
       .attributeAspect("foo", ATTRIBUTE_ASPECT)
       .build();
+
+  /**
+   * An aspect that propagates along all attributes.
+   */
+  public static class AllAttributesAspect extends BaseAspect {
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return ALL_ATTRIBUTES_ASPECT_DEFINITION;
+    }
+  }
+  public static final NativeAspectClass ALL_ATTRIBUTES_ASPECT = new AllAttributesAspect();
+  private static final AspectDefinition ALL_ATTRIBUTES_ASPECT_DEFINITION =
+      new AspectDefinition.Builder("all_attributes_aspect")
+          .allAttributesAspect(ALL_ATTRIBUTES_ASPECT)
+          .build();
+
+
 
   /**
    * An aspect that requires aspects on the attributes of rules it attaches to.
@@ -525,6 +553,29 @@ public class TestAspects {
   }
 
   /**
+   * A rule that defines an {@link AllAttributesAspect} on one of its attributes.
+   */
+  public static class AllAttributesAspectRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(ALL_ATTRIBUTES_ASPECT))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("all_attributes_aspect")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
    * A rule that defines a {@link WarningAspect} on one of its attributes.
    */
   public static class WarningAspectRule implements RuleDefinition {
@@ -578,6 +629,8 @@ public class TestAspects {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(attr("foo1", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(attr("txt", STRING))
           .build();
     }
 
@@ -634,4 +687,56 @@ public class TestAspects {
           .build();
     }
   }
+
+  /**
+   * Rule with an implcit dependency.
+   */
+  public static class ImplicitDepRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("implicit_dep")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Rule with a late-bound dependency.
+   */
+  public static class LateBoundDepRule implements RuleDefinition {
+    private static final LateBoundLabelList<BuildConfiguration> PLUGINS_LABEL_LIST =
+        new LateBoundLabelList<BuildConfiguration>() {
+          @Override
+          public List<Label> resolve(Rule rule, AttributeMap attributes,
+              BuildConfiguration configuration) {
+            return configuration.getPlugins();
+          }
+        };
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr(":plugins", LABEL_LIST).value(PLUGINS_LABEL_LIST))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("late_bound_dep")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
 }

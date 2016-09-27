@@ -425,6 +425,80 @@ public class AspectTest extends AnalysisTestCase {
         a.getProvider(ExtraActionArtifactsProvider.class)
             .getTransitiveExtraActionArtifacts();
     assertThat(getOnlyElement(extraActionArtifacts).getLabel()).isEqualTo(Label.create("@//a", "b"));
-
   }
+
+  @Test
+  public void aspectPropagatesToAllAttributes() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.AllAttributesAspectRule());
+    pkg("a",
+        "simple(name='a', foo=[':b'], foo1=':c', txt='some text')",
+        "simple(name='b', foo=[], txt='some text')",
+        "simple(name='c', foo=[], txt='more text')",
+        "all_attributes_aspect(name='x', foo=[':a'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:x");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("aspect //a:a",  "aspect //a:b", "aspect //a:c", "rule //a:x");
+  }
+
+  @Test
+  public void aspectPropagatesToAllAttributesImplicit() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.ImplicitDepRule(),
+        new TestAspects.AllAttributesAspectRule());
+
+    scratch.file(
+        "extra/BUILD",
+        "simple(name ='extra')"
+    );
+    pkg("a",
+        "simple(name='a', foo=[':b'], foo1=':c', txt='some text')",
+        "simple(name='b', foo=[], txt='some text')",
+        "implicit_dep(name='c')",
+        "all_attributes_aspect(name='x', foo=[':a'])");
+    update();
+
+    ConfiguredTarget a = getConfiguredTarget("//a:x");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly(
+            "aspect //a:a",
+            "aspect //a:b",
+            "aspect //a:c",
+            "aspect //extra:extra",
+            "rule //a:x");
+  }
+
+
+  @Test
+  public void aspectPropagatesToAllAttributesLateBound() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.LateBoundDepRule(),
+        new TestAspects.AllAttributesAspectRule());
+
+    scratch.file(
+        "extra/BUILD",
+        "simple(name ='extra')"
+    );
+    pkg("a",
+        "simple(name='a', foo=[':b'], foo1=':c', txt='some text')",
+        "simple(name='b', foo=[], txt='some text')",
+        "late_bound_dep(name='c')",
+        "all_attributes_aspect(name='x', foo=[':a'])");
+    useConfiguration("--plugin=//extra:extra");
+    update();
+
+    ConfiguredTarget a = getConfiguredTarget("//a:x");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly(
+            "aspect //a:a",
+            "aspect //a:b",
+            "aspect //a:c",
+            "aspect //extra:extra",
+            "rule //a:x");
+  }
+
 }

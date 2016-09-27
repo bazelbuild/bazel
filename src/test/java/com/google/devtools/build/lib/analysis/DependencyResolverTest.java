@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -159,6 +158,19 @@ public class DependencyResolverTest extends AnalysisTestCase {
     assertDep(
         map, "foo", "//a:b",
         new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT));
+  }
+
+  @Test
+  public void hasAllAttributesAspect() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.SimpleRule());
+    pkg("a",
+        "simple(name='a', foo=[':b'])",
+        "simple(name='b', foo=[])");
+    OrderedSetMultimap<Attribute, Dependency> map =
+        dependentNodeMap("//a:a", TestAspects.ALL_ATTRIBUTES_ASPECT);
+    assertDep(
+        map, "foo", "//a:b",
+        new AspectDescriptor(TestAspects.ALL_ATTRIBUTES_ASPECT));
   }
 
   @Test
