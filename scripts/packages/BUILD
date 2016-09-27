@@ -159,11 +159,8 @@ pkg_deb(
             "google-jdk | java8-jdk | java8-sdk",
         ],
     }) + [
-        "pkg-config",
-        "zip",
         "g++",
         "zlib1g-dev",
-        "unzip",
         "bash-completion",
     ],
     description_file = "debian/description",
