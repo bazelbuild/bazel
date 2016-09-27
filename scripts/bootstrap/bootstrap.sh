@@ -45,23 +45,30 @@ else
 fi
 
 if [ -z "${BAZEL-}" ]; then
-  function bazel_build() {
-    bootstrap_build ${BAZEL_ARGS-} \
-                    --verbose_failures \
-                    --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-                    "${EMBED_LABEL_ARG[@]}" \
-                    "${@}"
+  function run_bootstrapping_bazel() {
+    local command=$1
+    shift
+    run_bazel_jar $command \
+        ${BAZEL_ARGS-} --verbose_failures \
+        --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 else
-  function bazel_build() {
-    ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} build \
-           ${BAZEL_ARGS-} \
-           --verbose_failures \
-           --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-           "${EMBED_LABEL_ARG[@]}" \
-           "${@}"
+  function run_bootstrapping_bazel() {
+    local command=$1
+    shift
+    ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
+        ${BAZEL_ARGS-} --verbose_failures \
+        --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 fi
+
+function bazel_build() {
+  run_bootstrapping_bazel build "${EMBED_LABEL_ARG[@]}" "$@"
+}
+
+function get_bazel_bin_path() {
+  run_bootstrapping_bazel info "bazel-bin" || echo "bazel-bin"
+}
 
 function md5_outputs() {
   [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output

@@ -302,8 +302,9 @@ else
   cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 fi
 
-# bazel build using bootstrap version
-function bootstrap_build() {
+function run_bazel_jar() {
+  local command=$1
+  shift
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
@@ -319,7 +320,7 @@ function bootstrap_build() {
       --nofatal_event_bus_exceptions \
       ${BAZEL_DIR_STARTUP_OPTIONS} \
       ${BAZEL_BOOTSTRAP_STARTUP_OPTIONS:-} \
-      build \
+      $command \
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
