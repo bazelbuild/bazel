@@ -427,7 +427,8 @@ public final class IntermediateArtifacts {
    */
   public Artifact swiftModule() {
     // To get Swift to pick up swiftmodules, and only the ones they depend on we have to put it in an isolated directory
-    return appendExtensionInGenfiles(".swiftmodule");
+    return
+        appendExtensionInGenfiles("_swiftmodules/foo/bar/baz/" + clangModuleName() + ".swiftmodule");
   }
 
   private String clangModuleName() {

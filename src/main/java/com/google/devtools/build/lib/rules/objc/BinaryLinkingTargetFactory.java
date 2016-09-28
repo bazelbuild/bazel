@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +33,9 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
 /** Implementation for rules that link binaries. */
 abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory {
@@ -206,6 +206,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
 
+
     ObjcCommon.Builder builder =
         new ObjcCommon.Builder(ruleContext)
             .setCompilationAttributes(
@@ -231,6 +232,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateLinkmap()) {
       builder.setLinkmapFile(intermediateArtifacts.linkmap());
+    }
+
+    if (compilationArtifacts.hasSwiftSources()) {
+      builder.setSwiftModule(intermediateArtifacts.swiftModule());
     }
 
     return builder.build();

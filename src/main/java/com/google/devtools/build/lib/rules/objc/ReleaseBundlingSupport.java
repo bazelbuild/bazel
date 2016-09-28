@@ -14,14 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.DEBUG_ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.EXTRA_ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
-
 import com.dd.plist.NSArray;
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
@@ -68,6 +60,14 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 import java.util.List;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.DEBUG_ENTITLEMENTS_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.EXTRA_ENTITLEMENTS_ATTR;
+import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
 
 /**
  * Support for released bundles, such as an application or extension. Such a bundle is generally
@@ -689,6 +689,7 @@ public final class ReleaseBundlingSupport {
         new ObjcProvider.Builder()
             .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.SWIFT_MODULE, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.DEFINE, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)

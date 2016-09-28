@@ -901,7 +901,7 @@ public final class CompilationSupport {
 
     Set<String> seenSwiftModulePaths = new HashSet<>();
     // For any dependency we have we need to make sure we are visible
-    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE)) {
       String path = swiftModule.getExecPath().getParentDirectory().toString();
 
       if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
@@ -984,7 +984,7 @@ public final class CompilationSupport {
 
     Set<String> seenSwiftModulePaths = new HashSet<>();
     // For any dependency we have we need to make sure we are visible
-    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE)) {
       String path = swiftModule.getExecPath().getParentDirectory().getPathString();
 
       if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
