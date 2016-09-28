@@ -174,6 +174,15 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public Label xcodeVersionConfig;
 
+  // TODO(b/30281236): Remove the flag after deprecation.
+  @Option(
+    name = "experimental_disable_native_swift_rules",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "Disables Swift support in native objc_ rules."
+  )
+  public boolean disableNativeSwiftRules;
+
   /**
    * The default label of the build-wide {@code xcode_config} configuration rule. This can be
    * changed from the default using the {@code xcode_version_config} build flag.
