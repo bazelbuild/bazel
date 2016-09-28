@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -25,16 +24,10 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfigurationFragmentValue.ConfigurationFragmentKey;
@@ -44,10 +37,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * A builder for {@link ConfigurationFragmentValue}s.
@@ -79,10 +68,6 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      sanityCheck(fragment, packageProvider);
-      if (env.valuesMissing()) {
-        return null;
-      }
       return new ConfigurationFragmentValue(fragment);
     } catch (InvalidConfigurationException e) {
       // TODO(bazel-team): Rework the control-flow here so that we're not actually throwing this
@@ -91,71 +76,6 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
         return null;
       }
       throw new ConfigurationFragmentFunctionException(e);
-    }
-  }
-
-  /**
-   * Checks that the implicit labels are reachable from the loaded labels. The loaded labels are
-   * those returned from {@link BuildOptions#getAllLabels()}, and the implicit ones are those that
-   * are returned from {@link Fragment#getImplicitLabels}.
-   */
-  private static void sanityCheck(
-      Fragment fragment,
-      PackageProviderForConfigurations packageProvider)
-      throws InvalidConfigurationException, InterruptedException {
-    if (fragment == null) {
-      return;
-    }
-    ListMultimap<String, Label> implicitLabels = fragment.getImplicitLabels();
-    if (implicitLabels.isEmpty()) {
-      return;
-    }
-    // Sanity check that the implicit labels are all in the transitive closure of explicit ones.
-    // This also registers all targets in the cache entry and validates them on subsequent requests.
-    Set<Label> reachableLabels = new HashSet<>();
-    for (Label root : fragment.getSanityCheckRoots()) {
-      try {
-        collectAllTransitiveLabels(packageProvider, reachableLabels, root);
-      } catch (NoSuchThingException e) {
-        packageProvider.getEventHandler().handle(Event.error(e.getMessage()));
-        throw new InvalidConfigurationException(
-            String.format("Failed to load transitive closure of '%s': %s", root, e.getMessage()));
-      }
-    }
-    if (packageProvider.valuesMissing()) {
-      return;
-    }
-    for (Map.Entry<String, Label> entry : implicitLabels.entries()) {
-      if (!reachableLabels.contains(entry.getValue())) {
-        throw new InvalidConfigurationException(
-            String.format("The required %s target is not transitively reachable from a "
-            + "command-line option: '%s'", entry.getKey(), entry.getValue()));
-      }
-    }
-  }
-
-  private static void collectAllTransitiveLabels(
-      PackageProviderForConfigurations packageProvider, Set<Label> reachableLabels, Label from)
-      throws NoSuchThingException, InterruptedException {
-    if (!reachableLabels.add(from)) {
-      return;
-    }
-    Target fromTarget = packageProvider.getTarget(from);
-    if (fromTarget == null) {
-      return;
-    }
-    if (fromTarget instanceof Rule) {
-      Rule rule = (Rule) fromTarget;
-      final Set<Label> allLabels = new LinkedHashSet<>();
-      AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
-        @Override
-        public void acceptLabelAttribute(Label label, Attribute attribute) {
-          allLabels.add(label);
-        }
-      });
-      for (Label label : allLabels) {
-        collectAllTransitiveLabels(packageProvider, reachableLabels, label);
-      }
     }
   }
 

@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -1996,26 +1995,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     globalMakeEnvBuilder.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
     globalMakeEnvBuilder.put("ABI", abi);
-  }
-
-  @Override
-  public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
-    if (getLibcLabel() != null) {
-      implicitLabels.put("crosstool", getLibcLabel());
-    }
-
-    implicitLabels.put("crosstool", crosstoolTop);
-  }
-
-  @Override
-  public Iterable<Label> getSanityCheckRoots() {
-    ImmutableList.Builder<Label> result = ImmutableList.builder();
-    result.add(cppOptions.crosstoolTop);
-    if (cppOptions.libcTop != null) {
-      result.add(cppOptions.libcTop.getLabel());
-    }
-
-    return result.build();
   }
 
   @Override
