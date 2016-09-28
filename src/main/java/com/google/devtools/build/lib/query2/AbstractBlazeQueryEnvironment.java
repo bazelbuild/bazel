@@ -46,7 +46,7 @@ import java.util.logging.Logger;
  * QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
  */
 public abstract class AbstractBlazeQueryEnvironment<T>
-    implements QueryEnvironment<T>, AutoCloseable {
+    implements QueryEnvironment<T> {
   protected final ErrorSensingEventHandler eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
@@ -145,9 +145,6 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     return new QueryEvalResult(!eventHandler.hasErrors(), empty.get());
   }
-
-  @Override
-  public abstract void close();
 
   public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     return queryExpression;
