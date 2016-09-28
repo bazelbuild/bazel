@@ -249,8 +249,8 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   /**
    * See the javadoc for {@link com.google.devtools.build.lib.actions.Action} and
-   * {@link com.google.devtools.build.lib.actions.ActionMetadata#getKey()} for the contract for
-   * {@link #computeKey()}.
+   * {@link com.google.devtools.build.lib.actions.ActionExecutionMetadata#getKey()} for the contract
+   * for {@link #computeKey()}.
    */
   protected abstract String computeKey();
 
