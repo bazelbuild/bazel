@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
@@ -45,6 +44,7 @@ final class LinuxSandboxRunner extends SandboxRunner {
   private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
   private final Set<Path> inaccessiblePaths;
+  private final Set<Path> tmpfsPaths;
   private final Set<Path> bindMounts;
   private final boolean sandboxDebug;
 
@@ -55,7 +55,8 @@ final class LinuxSandboxRunner extends SandboxRunner {
       Path sandboxTempDir,
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
-      ImmutableSet<Path> bindMounts,
+      Set<Path> tmpfsPaths,
+      Set<Path> bindMounts,
       boolean verboseFailures,
       boolean sandboxDebug) {
     super(sandboxPath, sandboxExecRoot, verboseFailures);
@@ -65,6 +66,7 @@ final class LinuxSandboxRunner extends SandboxRunner {
     this.argumentsFilePath = sandboxPath.getRelative("linux-sandbox.params");
     this.writableDirs = writableDirs;
     this.inaccessiblePaths = inaccessiblePaths;
+    this.tmpfsPaths = tmpfsPaths;
     this.bindMounts = bindMounts;
     this.sandboxDebug = sandboxDebug;
   }
@@ -146,6 +148,11 @@ final class LinuxSandboxRunner extends SandboxRunner {
     for (Path inaccessiblePath : inaccessiblePaths) {
       fileArgs.add("-i");
       fileArgs.add(inaccessiblePath.getPathString());
+    }
+
+    for (Path tmpfsPath : tmpfsPaths) {
+      fileArgs.add("-e");
+      fileArgs.add(tmpfsPath.getPathString());
     }
 
     for (Path bindMount : bindMounts) {

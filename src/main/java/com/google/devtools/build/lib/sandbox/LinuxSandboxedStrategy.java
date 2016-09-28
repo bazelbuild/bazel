@@ -143,6 +143,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
           sandboxTempDir,
           getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
           getInaccessiblePaths(),
+          getTmpfsPaths(),
           getBindMounts(blazeDirs),
           verboseFailures,
           sandboxOptions.sandboxDebug);
@@ -151,11 +152,18 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     }
   }
 
+  private ImmutableSet<Path> getTmpfsPaths() {
+    ImmutableSet.Builder<Path> tmpfsPaths = ImmutableSet.builder();
+    for (String tmpfsPath : sandboxOptions.sandboxTmpfsPath) {
+      tmpfsPaths.add(blazeDirs.getFileSystem().getPath(tmpfsPath));
+    }
+    return tmpfsPaths.build();
+  }
+
   private ImmutableSet<Path> getBindMounts(BlazeDirectories blazeDirs) {
     Path tmpPath = blazeDirs.getFileSystem().getPath("/tmp");
     ImmutableSet.Builder<Path> bindMounts = ImmutableSet.builder();
     if (blazeDirs.getWorkspace().startsWith(tmpPath)) {
-
       bindMounts.add(blazeDirs.getWorkspace());
     }
     if (blazeDirs.getOutputBase().startsWith(tmpPath)) {
