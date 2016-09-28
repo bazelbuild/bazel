@@ -372,7 +372,10 @@ def _find_cc(repository_ctx):
 def _find_python(repository_ctx):
   """Find where is python on Windows."""
   if "BAZEL_PYTHON" in repository_ctx.os.environ:
-    return repository_ctx.os.environ["BAZEL_PYTHON"]
+    python_binary = repository_ctx.os.environ["BAZEL_PYTHON"]
+    if not python_binary.endswith(".exe"):
+      python_binary = python_binary + ".exe"
+    return python_binary
   auto_configure_warning("'BAZEL_PYTHON' is not set, start looking for python in PATH.")
   python_binary = _which_cmd(repository_ctx, "python.exe")
   auto_configure_warning("Python found at %s" % python_binary)
@@ -381,7 +384,10 @@ def _find_python(repository_ctx):
 def _find_bash(repository_ctx):
   """Find where is bash on Windows."""
   if "BAZEL_SH" in repository_ctx.os.environ:
-    return repository_ctx.os.environ["BAZEL_SH"]
+    bash_binary = repository_ctx.os.environ["BAZEL_SH"]
+    if not bash_binary.endswith(".exe"):
+      bash_binary = bash_binary + ".exe"
+    return bash_binary
   auto_configure_warning("'BAZEL_SH' is not set, start looking for bash in PATH.")
   bash_binary = _which_cmd(repository_ctx, "bash.exe")
   auto_configure_warning("Bash binary found at %s" % bash_binary)
