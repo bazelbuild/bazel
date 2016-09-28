@@ -1109,7 +1109,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
         Artifact jarToDex = getDxArtifact(ruleContext, "classes.jar");
         createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
-            common, inclusionFilterJar, dexopts, attributes, (Artifact) null);
+            common, inclusionFilterJar, dexopts, androidSemantics, attributes, (Artifact) null);
         createDexMergerAction(ruleContext, "off", jarToDex, classesDex, (Artifact) null, dexopts);
         return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
       } else {
@@ -1145,6 +1145,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 common,
                 inclusionFilterJar,
                 dexopts,
+                androidSemantics,
                 attributes,
                 mainDexList);
 
@@ -1192,7 +1193,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_UNSHARDED)) {
           Artifact jarToDex = AndroidBinary.getDxArtifact(ruleContext, "classes.jar");
           createShuffleJarAction(ruleContext, true, (Artifact) null, ImmutableList.of(jarToDex),
-              common, inclusionFilterJar, dexopts, attributes, (Artifact) null);
+              common, inclusionFilterJar, dexopts, androidSemantics, attributes, (Artifact) null);
           createDexMergerAction(ruleContext, "minimal", jarToDex, classesDex, mainDexList, dexopts);
         } else {
           // Because the dexer also places resources into this zip, we also need to create a cleanup
@@ -1294,11 +1295,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       AndroidCommon common,
       List<String> dexopts,
+      AndroidSemantics semantics,
       JavaTargetAttributes attributes) {
-    DexArchiveProvider.Builder result = new DexArchiveProvider.Builder()
-        // Use providers from all attributes that declare DexArchiveAspect
-        .addTransitiveProviders(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, DexArchiveProvider.class));
+    DexArchiveProvider.Builder result = new DexArchiveProvider.Builder();
+    for (String attr : semantics.getAttributesWithJavaRuntimeDeps(ruleContext)) {
+      // Use all available DexArchiveProviders from attributes that carry runtime dependencies
+      result.addTransitiveProviders(
+          ruleContext.getPrerequisites(attr, Mode.TARGET, DexArchiveProvider.class));
+    }
     ImmutableSet<String> incrementalDexopts =
         DexArchiveAspect.incrementalDexopts(ruleContext, dexopts);
     for (Artifact jar : common.getJarsProducedForRuntime()) {
@@ -1340,6 +1344,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon common,
       @Nullable Artifact inclusionFilterJar,
       List<String> dexopts,
+      AndroidSemantics semantics,
       JavaTargetAttributes attributes,
       @Nullable Artifact mainDexList)
       throws InterruptedException {
@@ -1383,8 +1388,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // Use dex archives instead of their corresponding Jars wherever we can.  At this point
         // there should be very few or no Jar files that still end up in shards.  The dexing
         // step below will have to deal with those in addition to merging .dex files together.
-        classpath = Iterables
-            .transform(classpath, collectDexArchives(ruleContext, common, dexopts, attributes));
+        classpath = Iterables.transform(classpath,
+            collectDexArchives(ruleContext, common, dexopts, semantics, attributes));
         shardCommandLine.add("--split_dexed_classes");
       }
       shardCommandLine.addBeforeEachExecPath("--input_jar", classpath);
