@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -25,26 +25,56 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
  * Factory used by the pool to create / destroy / validate worker processes.
  */
 final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
-  private final Path logDir;
-  private Reporter reporter;
-  private boolean verbose;
 
-  public WorkerFactory(Path logDir) {
-    super();
-    this.logDir = logDir;
+  // It's fine to use an AtomicInteger here (which is 32-bit), because it is only incremented when
+  // spawning a new worker, thus even under worst-case circumstances and buggy workers quitting
+  // after each action, this should never overflow.
+  private static final AtomicInteger pidCounter = new AtomicInteger();
+
+  private WorkerOptions workerOptions;
+  private final Path workerBaseDir;
+  private Reporter reporter;
+
+  public WorkerFactory(WorkerOptions workerOptions, Path workerBaseDir) {
+    this.workerOptions = workerOptions;
+    this.workerBaseDir = workerBaseDir;
   }
 
   public void setReporter(Reporter reporter) {
     this.reporter = reporter;
   }
 
-  public void setVerbose(boolean verbose) {
-    this.verbose = verbose;
+  public void setOptions(WorkerOptions workerOptions) {
+    this.workerOptions = workerOptions;
   }
 
   @Override
   public Worker create(WorkerKey key) throws Exception {
-    return Worker.create(key, logDir, reporter, verbose);
+    int workerId = pidCounter.getAndIncrement();
+    Path logFile =
+        workerBaseDir.getRelative("worker-" + workerId + "-" + key.getMnemonic() + ".log");
+
+    Worker worker;
+    boolean sandboxed = workerOptions.workerSandboxing || key.mustBeSandboxed();
+    if (sandboxed) {
+      Path workDir = workerBaseDir.getRelative("worker-" + workerId + "-" + key.getMnemonic());
+      worker = new SandboxedWorker(key, workerId, workDir, logFile);
+    } else {
+      worker = new Worker(key, workerId, key.getExecRoot(), logFile);
+    }
+    worker.prepareExecution(key);
+    worker.createProcess();
+    if (workerOptions.workerVerbose) {
+      reporter.handle(
+          Event.info(
+              String.format(
+                  "Created new %s %s worker (id %d), logging to %s",
+                  sandboxed ? "sandboxed" : "non-sandboxed",
+                  key.getMnemonic(),
+                  workerId,
+                  logFile)));
+    }
+    return worker;
   }
 
   /**
@@ -60,14 +90,11 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
    */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) throws Exception {
-    if (verbose) {
+    if (workerOptions.workerVerbose) {
       reporter.handle(
           Event.info(
-              "Destroying "
-                  + key.getMnemonic()
-                  + " worker (id "
-                  + p.getObject().getWorkerId()
-                  + ")."));
+              String.format(
+                  "Destroying %s worker (id %d)", key.getMnemonic(), p.getObject().getWorkerId())));
     }
     p.getObject().destroy();
   }

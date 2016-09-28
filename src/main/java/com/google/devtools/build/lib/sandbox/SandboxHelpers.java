@@ -38,7 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Helper methods that are shared by the different sandboxing strategies in this package. */
-final class SandboxHelpers {
+public final class SandboxHelpers {
 
   static void lazyCleanup(
       ExecutorService backgroundWorkers,
@@ -84,7 +84,7 @@ final class SandboxHelpers {
     }
   }
 
-  static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {
+  public static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {
     Builder<PathFragment> outputFiles = ImmutableSet.builder();
     for (PathFragment optionalOutput : spawn.getOptionalOutputFiles()) {
       Preconditions.checkArgument(!optionalOutput.isAbsolute());

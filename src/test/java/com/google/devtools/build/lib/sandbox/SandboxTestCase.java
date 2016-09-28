@@ -13,23 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.base.Predicates;
-import com.google.devtools.build.lib.testutil.BlazeTestSuiteBuilder;
-import com.google.devtools.build.lib.testutil.CustomSuite;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
+import org.junit.Before;
 
-import org.junit.runner.RunWith;
+/** Common parts of all sandbox tests. */
+public class SandboxTestCase {
+  protected FileSystem fileSystem;
+  protected Path testRoot;
 
-import java.util.Set;
-
-/**
- * Test suite that runs all tests that are not local-only.
- */
-@RunWith(CustomSuite.class)
-public class SandboxTests extends BlazeTestSuiteBuilder {
-  public static Set<Class<?>> suite() {
-    return new SandboxTests()
-        .getBuilder()
-        .matchClasses(Predicates.not(BlazeTestSuiteBuilder.TEST_IS_LOCAL_ONLY))
-        .create();
+  @Before
+  public final void createTestRoot() throws Exception {
+    fileSystem = FileSystems.getNativeFileSystem();
+    testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    FileSystemUtils.deleteTreesBelow(testRoot);
   }
 }

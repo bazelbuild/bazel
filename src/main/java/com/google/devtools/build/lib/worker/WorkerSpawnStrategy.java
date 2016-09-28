@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -36,20 +38,25 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SpawnHelpers;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A spawn action context that launches Spawns the first time they are used in a persistent mode and
@@ -59,7 +66,7 @@ import java.util.List;
   name = {"worker"},
   contextType = SpawnActionContext.class
 )
-public final class WorkerSpawnStrategy implements SpawnActionContext {
+public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
@@ -68,18 +75,16 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
   public static final String REASON_NO_EXECUTION_INFO =
       "because the action's execution info does not contain 'supports-workers=1'";
 
-  private final Path execRoot;
   private final WorkerPool workers;
+  private final Path execRoot;
   private final boolean verboseFailures;
   private final int maxRetries;
 
   public WorkerSpawnStrategy(
       BlazeDirectories blazeDirs,
-      OptionsClassProvider optionsProvider,
       WorkerPool workers,
       boolean verboseFailures,
       int maxRetries) {
-    Preconditions.checkNotNull(optionsProvider);
     this.workers = Preconditions.checkNotNull(workers);
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
@@ -88,6 +93,15 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
 
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    exec(spawn, actionExecutionContext, null);
+  }
+
+  @Override
+  public void exec(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     EventHandler eventHandler = executor.getEventHandler();
@@ -142,7 +156,19 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
       ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
 
       HashCode workerFilesHash = combineActionInputHashes(spawn.getToolFiles(), inputFileCache);
-      WorkerKey key = new WorkerKey(args, env, execRoot, spawn.getMnemonic(), workerFilesHash);
+      Map<PathFragment, Path> inputFiles =
+          new SpawnHelpers(execRoot).getMounts(spawn, actionExecutionContext);
+      Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
+      WorkerKey key =
+          new WorkerKey(
+              args,
+              env,
+              execRoot,
+              spawn.getMnemonic(),
+              workerFilesHash,
+              inputFiles,
+              outputFiles,
+              writeOutputFiles != null);
 
       WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
       expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
@@ -167,7 +193,8 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
             .build();
       }
 
-      WorkResponse response = execInWorker(eventHandler, key, requestBuilder.build(), maxRetries);
+      WorkResponse response =
+          execInWorker(eventHandler, key, requestBuilder.build(), maxRetries, writeOutputFiles);
 
       outErr.getErrorStream().write(response.getOutputBytes().toByteArray());
 
@@ -217,29 +244,36 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
   }
 
   private WorkResponse execInWorker(
-      EventHandler eventHandler, WorkerKey key, WorkRequest request, int retriesLeft)
+      EventHandler eventHandler,
+      WorkerKey key,
+      WorkRequest request,
+      int retriesLeft,
+      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws IOException, InterruptedException, UserExecException {
     Worker worker = null;
     WorkResponse response = null;
 
     try {
       worker = workers.borrowObject(key);
+      worker.prepareExecution(key);
+
       request.writeDelimitedTo(worker.getOutputStream());
       worker.getOutputStream().flush();
-
       response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
+
+      if (writeOutputFiles != null
+          && !writeOutputFiles.compareAndSet(null, WorkerSpawnStrategy.class)) {
+        throw new InterruptedException();
+      }
+
+      worker.finishExecution(key);
 
       if (response == null) {
         throw new UserExecException(
             "Worker process did not return a correct WorkResponse. This is probably caused by a "
                 + "bug in the worker, writing unexpected other data to stdout.");
       }
-    } catch (IOException | InterruptedException e) {
-      if (e instanceof InterruptedException) {
-        // The user pressed Ctrl-C. Get out here quick.
-        retriesLeft = 0;
-      }
-
+    } catch (IOException e) {
       if (worker != null) {
         workers.invalidateObject(key, worker);
         worker = null;
@@ -252,9 +286,9 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
             Event.warn(
                 key.getMnemonic()
                     + " worker failed ("
-                    + e
+                    + Throwables.getStackTraceAsString(e)
                     + "), invalidating and retrying with new worker..."));
-        return execInWorker(eventHandler, key, request, retriesLeft - 1);
+        return execInWorker(eventHandler, key, request, retriesLeft - 1, writeOutputFiles);
       } else {
         throw e;
       }

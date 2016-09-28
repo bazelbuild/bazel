@@ -19,19 +19,27 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@code LinuxSandboxedStrategy}.
- */
+/** Tests for {@code LinuxSandboxedStrategy}. */
 @RunWith(JUnit4.class)
-public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
+public class LinuxSandboxedStrategyTest extends SandboxTestCase {
+  private Path workspaceDir;
+
+  @Before
+  public final void createWorkspaceDir() throws IOException {
+    workspaceDir = testRoot.getRelative("workspace");
+    workspaceDir.createDirectory();
+  }
+
   @Test
   public void testParseManifestFile() throws Exception {
     PathFragment targetDir = new PathFragment("runfiles");
