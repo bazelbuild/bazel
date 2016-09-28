@@ -374,7 +374,8 @@ def _find_python(repository_ctx):
   if "BAZEL_PYTHON" in repository_ctx.os.environ:
     return repository_ctx.os.environ["BAZEL_PYTHON"]
   auto_configure_warning("'BAZEL_PYTHON' is not set, start looking for python in PATH.")
-  python_binary = _which_cmd(repository_ctx, "python.exe", "C:\\Python27\\python.exe")
+  python_binary = _which_cmd(repository_ctx, "python.exe")
+  auto_configure_warning("Python found at %s" % python_binary)
   return python_binary
 
 def _find_bash(repository_ctx):
@@ -383,14 +384,27 @@ def _find_bash(repository_ctx):
     return repository_ctx.os.environ["BAZEL_SH"]
   auto_configure_warning("'BAZEL_SH' is not set, start looking for bash in PATH.")
   bash_binary = _which_cmd(repository_ctx, "bash.exe")
+  auto_configure_warning("Bash binary found at %s" % bash_binary)
+  if bash_binary.lower() == "c:/windows/system32/bash.exe":
+    auto_configure_fail("Bash on Windows currently doesn't work with Bazel, please set BAZEL_SH or make sure 'which bash' returns MSYS bash binary.")
   return bash_binary
 
 def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
+  if "BAZEL_VS" in repository_ctx.os.environ:
+    return repository_ctx.os.environ["BAZEL_VS"]
+  auto_configure_warning("'BAZEL_VS' is not set, start looking for the latest Visual Studio installed.")
   bash_bin = _find_bash(repository_ctx)
   program_files_dir = _get_env_var(repository_ctx, "ProgramFiles(x86)", "C:\\Program Files (x86)")
-  vs_version = _execute(repository_ctx, [bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | sort | tail -n 1" % program_files_dir])
-  return program_files_dir + "/" + vs_version
+  # --version-sort let us find the latest version of Visual Studio
+  # Make sure we are using msys sort, the Windows one doesn't support --version-sort.
+  sort_binary = bash_bin[0:-8].replace("\\", "/") + "sort.exe"
+  vs_version = _execute(repository_ctx, [bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | %s --version-sort | tail -n 1" % (program_files_dir, sort_binary)])
+  if not vs_version:
+    auto_configure_fail("Visual Studio not found under %s" % program_files_dir)
+  vs_dir = program_files_dir + "/" + vs_version
+  auto_configure_warning("Visual Studio found at %s" % vs_dir)
+  return vs_dir
 
 
 def _find_env_vars(repository_ctx, vs_path):
