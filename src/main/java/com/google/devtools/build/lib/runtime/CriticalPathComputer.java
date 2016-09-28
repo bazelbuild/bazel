@@ -26,13 +26,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentMap;
-
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -244,6 +243,23 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   private void addArtifactDependency(C actionStats, Artifact input) {
     C depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
+      if (depComponent.isRunning) {
+        // Rare case that an action depending on a previously-cached shared action sees a different
+        // shared action that is in the midst of being an action cache hit.
+        Action action = depComponent.getAction();
+        for (Artifact actionOutput : action.getOutputs()) {
+          if (input.equals(actionOutput)
+              && Objects.equals(input.getArtifactOwner(), actionOutput.getArtifactOwner())) {
+            // As far as we can tell, this (currently running) action is the same action that
+            // produced input, not another shared action. This should be impossible.
+            throw new IllegalStateException(
+                String.format(
+                    "Cannot add critical path stats when the action is not finished. %s. %s. %s",
+                    input, actionStats.getAction(), depComponent.getAction()));
+          }
+        }
+        return;
+      }
       actionStats.addDepInfo(depComponent);
     }
   }

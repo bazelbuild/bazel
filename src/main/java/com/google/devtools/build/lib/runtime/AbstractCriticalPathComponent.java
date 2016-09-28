@@ -17,9 +17,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
 
 /**
@@ -78,12 +76,10 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   /**
-   * Add statistics for one dependency of this action.
+   * Add statistics for one dependency of this action. Caller should ensure {@code dep} not
+   * running.
    */
-  public synchronized void addDepInfo(C dep) {
-    Preconditions.checkState(!dep.isRunning,
-        "Cannot add critical path stats when the action is not finished. %s. %s", action,
-        dep.getAction());
+  synchronized void addDepInfo(C dep) {
     long childAggregatedWallTime = dep.getAggregatedElapsedTimeNanos();
     // Replace the child if its critical path had the maximum elapsed time.
     if (child == null || childAggregatedWallTime > this.childAggregatedElapsedTime) {
