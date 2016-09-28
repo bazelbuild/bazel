@@ -214,12 +214,17 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, runfiles, executable);
 
+    ImmutableMap.Builder<String, String> execInfoMapBuilder = new ImmutableMap.Builder<>();
+    execInfoMapBuilder.put(ExecutionRequirements.REQUIRES_DARWIN, "");
+    if (ruleContext.getFragment(ObjcConfiguration.class).runMemleaks()) {
+      execInfoMapBuilder.put("nosandbox", "");
+    }
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuildBuilder.build())
         .addProvider(xcodeProvider)
         .addProvider(RunfilesProvider.simple(runfiles))
-        .addProvider(
-            new ExecutionInfoProvider(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")))
+        .addProvider(new ExecutionInfoProvider(execInfoMapBuilder.build()))
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProviders(testSupport.getExtraProviders())
         .setRunfilesSupport(runfilesSupport, executable)
