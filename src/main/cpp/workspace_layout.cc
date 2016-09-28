@@ -39,8 +39,7 @@ string WorkspaceLayout::GetWorkspace(const string &cwd) {
   string workspace = cwd;
 
   do {
-    if (access(blaze_util::JoinPath(
-            workspace, kWorkspaceMarker).c_str(), F_OK) != -1) {
+    if (InWorkspace(workspace)) {
       return workspace;
     }
     workspace = blaze_util::Dirname(workspace);
