@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -398,9 +400,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
   /**
    * Variation of {@link Multimap#put} that triggers an exception if a value already exists.
    */
-  private static <K, V> void putOnlyEntry(Multimap<K, V> map, K key, V value) {
-    Verify.verify(!map.containsKey(key),
-        "couldn't insert %s: map already has key %s", value.toString(), key.toString());
+  @VisibleForTesting
+  static <K, V> void putOnlyEntry(Multimap<K, V> map, K key, V value) {
+    // Performance note: while "Verify.verify(!map.containsKey(key, value), String.format(...)))"
+    // is simpler code, profiling shows a substantial performance penalty to that approach
+    // (~10% extra analysis phase time on a simple cc_binary). Most of that is from the cost of
+    // evaluating value.toString() on every call. This approach essentially eliminates the overhead.
+    if (map.containsKey(key)) {
+      throw new VerifyException(
+          String.format("couldn't insert %s: map already has key %s",
+              value.toString(), key.toString()));
+    }
     map.put(key, value);
   }
 
@@ -452,6 +462,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // the results in order (some results need Skyframe-evaluated configurations while others can
     // be computed trivially), we dump them all into this map, then as a final step iterate through
     // the original list and pluck out values from here for the final value.
+    //
+    // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
     Multimap<AttributeAndLabel, Dependency> trimmedDeps = LinkedHashMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
@@ -459,14 +471,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
       AttributeAndLabel attributeAndLabel =
           new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
 
-      if (dep.hasStaticConfiguration()) {
-        // Certain targets (like output files) trivially pass their
-        // configurations to their deps. So no need to transform them in any way.
-        trimmedDeps.put(attributeAndLabel, dep);
-        continue;
-      } else if (dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
-        putOnlyEntry(
-            trimmedDeps, attributeAndLabel, Dependency.withNullConfiguration(dep.getLabel()));
+      // Certain targets (like output files) trivially re-use their input configuration. Likewise,
+      // deps with null configurations (e.g. source files), can be trivially computed. So we skip
+      // all logic in this method for these cases and just reinsert their original configurations
+      // back at the end.
+      //
+      // A *lot* of targets have null deps, so this produces real savings. Profiling tests over a
+      // simple cc_binary show this saves ~1% of total analysis phase time.
+      if (dep.hasStaticConfiguration()
+          || dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
         continue;
       }
 
@@ -477,9 +490,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
         return null;
       }
       // TODO(gregce): remove the below call once we have confidence dynamic configurations always
-      // provide needed fragments. This unnecessarily drags performance on the critical path.
-      checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
-          depFragments);
+      // provide needed fragments. This unnecessarily drags performance on the critical path (up
+      // to 0.5% of total analysis time as profiled over a simple cc_binary).
+      if (ctgValue.getConfiguration().trimConfigurations()) {
+        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
+            depFragments);
+      }
 
       boolean sameFragments = depFragments.equals(ctgFragments);
       Attribute.Transition transition = dep.getTransition();
@@ -575,10 +591,21 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // appear in the same order) as the input.
     OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
-      Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(
-          new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel()));
-      Verify.verify(!trimmedAttrDeps.isEmpty());
-      result.putAll(depsEntry.getKey(), trimmedAttrDeps);
+      AttributeAndLabel attrAndLabel =
+          new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel());
+      if (depsEntry.getValue().hasStaticConfiguration()) {
+        result.put(attrAndLabel.attribute, depsEntry.getValue());
+      } else if (depsEntry.getValue().getTransition() == Attribute.ConfigurationTransition.NULL) {
+        // TODO(gregce): explore re-using the original Dependency (which would have to become a
+        // null-configured static Dependency instead of a dynamic Dependency with a NULL transition)
+        // instead of needlessly recreating the object here. Some memory/performance profiling
+        // would help determine the right course.
+        result.put(attrAndLabel.attribute, Dependency.withNullConfiguration(attrAndLabel.label));
+      } else {
+        Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(attrAndLabel);
+        Verify.verify(!trimmedAttrDeps.isEmpty());
+        result.putAll(depsEntry.getKey(), trimmedAttrDeps);
+      }
     }
     return result;
   }
