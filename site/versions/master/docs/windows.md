@@ -48,6 +48,9 @@ To build C++ targets, you will need:
 <br/>We are using MSVC as the native C++ toolchain, so please ensure you have Visual
 Studio installed with the Visual C++ components
 (which is NOT the default installation type of Visual Studio).
+You can set BAZEL\_VS environment variable to tell Bazel
+where Visual Studio is, otherwise Bazel will try to find the latest version installed.
+<br/>For example: `export BAZEL_VS="C:/Program Files (x86)/Microsoft Visual Studio 14.0"`
 
 * [Python 2.7](https://www.python.org/downloads/)
 <br/>Currently, we use python wrapper scripts to call the actual MSVC compiler, so
