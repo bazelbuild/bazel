@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
@@ -58,30 +57,6 @@ public final class QueryUtil {
     AggregateAllCallback<T> callback = new AggregateAllCallback<>();
     env.eval(expr, context, callback);
     return callback.result;
-  }
-
-  /**
-   * Notify {@code parentCallback} only about the events that match {@code retainIfTrue} predicate.
-   *
-   * @param parentCallback The parent callback to notify with the matching elements
-   * @param retainIfTrue A predicate that defines what elements to notify to the parent callback.
-   */
-  public static <T> Callback<T> filteredCallback(final Callback<T> parentCallback,
-      final Predicate<T> retainIfTrue) {
-    return new Callback<T>() {
-      @Override
-      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
-        Iterable<T> filter = Iterables.filter(partialResult, retainIfTrue);
-        if (!Iterables.isEmpty(filter)) {
-          parentCallback.process(filter);
-        }
-      }
-
-      @Override
-      public String toString() {
-        return "filtered parentCallback of : " + retainIfTrue;
-      }
-    };
   }
 
   /** A trivial {@link Uniquifier} base class. */

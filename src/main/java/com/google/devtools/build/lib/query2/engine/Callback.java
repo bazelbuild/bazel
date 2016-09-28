@@ -27,5 +27,6 @@ public interface Callback<T> extends BatchCallback<T, QueryException> {
    * However, {@code QueryExpression}s calling the callback do not need to maintain this property,
    * as the {@code QueryEnvironment} should filter out duplicates.
    */
+  @Override
   void process(Iterable<T> partialResult) throws QueryException, InterruptedException;
 }

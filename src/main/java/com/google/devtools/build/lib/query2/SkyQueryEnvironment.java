@@ -116,8 +116,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     implements StreamableQueryEnvironment<Target> {
   // 10k is likely a good balance between using batch efficiently and not blowing up memory.
   // TODO(janakr): Unify with RecursivePackageProviderBackedTargetPatternResolver's constant.
-  private static final int BATCH_CALLBACK_SIZE = 10000;
-  private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+  static final int BATCH_CALLBACK_SIZE = 10000;
+  protected static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
   private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
   private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
   private static final Function<Target, Label> TARGET_LABEL_FUNCTION =
@@ -538,7 +538,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   @Override
   public ThreadSafeUniquifier<Target> createUniquifier() {
+    return createTargetUniquifier();
+  }
+
+  @ThreadSafe
+  ThreadSafeUniquifier<Target> createTargetUniquifier() {
     return new ThreadSafeTargetUniquifier(DEFAULT_THREAD_COUNT);
+  }
+
+  @ThreadSafe
+  ThreadSafeUniquifier<SkyKey> createSkyKeyUniquifier() {
+    return new ThreadSafeSkyKeyUniquifier(DEFAULT_THREAD_COUNT);
   }
 
   @ThreadSafe
@@ -735,6 +745,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   };
 
+  @ThreadSafe
   public Map<SkyKey, Target> makeTargetsFromSkyKeys(Iterable<SkyKey> keys)
       throws InterruptedException {
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = ArrayListMultimap.create();
@@ -822,7 +833,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
-  private Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments)
+  Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments)
       throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
     Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
@@ -894,10 +905,19 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       };
 
-  private static Iterable<Target> getBuildFilesForPackageValues(Iterable<SkyValue> packageValues) {
+  static Iterable<Target> getBuildFilesForPackageValues(Iterable<SkyValue> packageValues) {
     return Iterables.transform(
         Iterables.filter(Iterables.transform(packageValues, EXTRACT_PACKAGE), ERROR_FREE_PACKAGE),
         GET_BUILD_FILE);
+  }
+
+  @ThreadSafe
+  void getRBuildFilesParallel(
+      Collection<PathFragment> fileIdentifiers,
+      ThreadSafeCallback<Target> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    ParallelSkyQueryUtils.getRBuildFilesParallel(this, fileIdentifiers, callback, forkJoinPool);
   }
 
   /**
@@ -1041,6 +1061,18 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       }
     }
+  }
+
+  @ThreadSafe
+  @Override
+  public void getAllRdepsUnboundedParallel(
+      QueryExpression expression,
+      VariableContext<Target> context,
+      ThreadSafeCallback<Target> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    ParallelSkyQueryUtils.getAllRdepsUnboundedParallel(
+        this, expression, context, callback, forkJoinPool);
   }
 
   @ThreadSafe
