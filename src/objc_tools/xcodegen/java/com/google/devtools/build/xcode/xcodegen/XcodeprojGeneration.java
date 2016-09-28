@@ -433,7 +433,7 @@ public class XcodeprojGeneration {
     projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
     projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
     projBuildConfigMap.put("CODE_SIGN_IDENTITY[sdk=iphoneos*]", "iPhone Developer");
-
+    projBuildConfigMap.put("CLANG_CXX_LANGUAGE_STANDARD", "gnu++14");
     // Disable bitcode for now.
     // TODO(bazel-team): Need to re-enable once we have real Xcode 7 support.
     projBuildConfigMap.put("ENABLE_BITCODE", "NO");

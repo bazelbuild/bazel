@@ -230,7 +230,7 @@ public final class IntermediateArtifacts {
     PathFragment uniqueDir =
         new PathFragment("_objs").getRelative(ruleContext.getLabel().getName());
     PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
-    PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
+    PathFragment scopeRelativePath = FileSystemUtils.appendExtension(sourceFile, extension);
     return scopedArtifact(scopeRelativePath);
   }
 
