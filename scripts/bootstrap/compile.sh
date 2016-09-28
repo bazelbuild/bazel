@@ -16,7 +16,7 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto)
+PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
 GRPC_JAVA_VERSION=0.15.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
@@ -180,7 +180,9 @@ function create_deploy_jar() {
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   log "Compiling Java stubs for protocol buffers..."
   for f in $PROTO_FILES ; do
-    run "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src \
+    run "${PROTOC}" -Isrc/main/protobuf/ \
+        -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+        --java_out=${OUTPUT_DIR}/src \
         --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
         --grpc_out=${OUTPUT_DIR}/src "$f"
   done

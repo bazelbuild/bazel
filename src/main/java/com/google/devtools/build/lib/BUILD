@@ -294,6 +294,18 @@ java_library(
     ],
 )
 
+# External build-event reporting infrastructure
+java_library(
+    name = "buildeventstream",
+    srcs = glob(["buildeventstream/*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:jsr305",
+        "//third_party/protobuf",
+    ],
+)
+
 ########################################################################
 #
 # The "foundation" library (concurrent, events, util, vfs, inmemoryfs, options)
