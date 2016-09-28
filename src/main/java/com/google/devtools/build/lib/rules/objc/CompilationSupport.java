@@ -1232,6 +1232,7 @@ public final class CompilationSupport {
     registerGenerateModuleMapAction(intermediateArtifacts.moduleMap(), publicHeaders,
         privateHeaders,
         swiftCompatibilityHeader, false);
+
     registerGenerateModuleMapAction(intermediateArtifacts.unextendedModuleMap(), publicHeaders,
         privateHeaders,
         swiftCompatibilityHeader, true);
@@ -1257,7 +1258,8 @@ public final class CompilationSupport {
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            privateHeaders,
+            //privateHeaders,
+            ImmutableList.<Artifact>of(),
             publicHeaders,
             attributes.moduleMapsForDirectDeps(),
             ImmutableList.<PathFragment>of(),

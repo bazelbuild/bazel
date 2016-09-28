@@ -311,6 +311,15 @@ public class ObjcRuleClasses {
           added to the header search paths for the associated Xcode target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("copts", STRING_LIST))
+          /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(swiftopts) -->
+          Extra flags to pass to the compiler.
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+          These flags will only apply to this target, and not those upon which
+          it depends, or those which depend on it.
+          <p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("swiftopts", STRING_LIST))
           .build();
     }
 
