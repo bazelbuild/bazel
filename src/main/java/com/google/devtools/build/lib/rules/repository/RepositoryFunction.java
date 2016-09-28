@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -198,9 +199,10 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, String contents) throws RepositoryFunctionException {
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");
     try {
-      // Make sure we're not overwriting an existing BUILD file.
-      if (buildFilePath.exists()) {
-        Preconditions.checkState(buildFilePath.isSymbolicLink());
+      // The repository could have an existing BUILD file that's either a regular file (for remote
+      // repositories) or a symlink (for local repositories). Either way, we want to remove it and
+      // write our own.
+      if (buildFilePath.exists(Symlinks.NOFOLLOW)) {
         buildFilePath.delete();
       }
       FileSystemUtils.writeContentAsLatin1(buildFilePath, contents);
