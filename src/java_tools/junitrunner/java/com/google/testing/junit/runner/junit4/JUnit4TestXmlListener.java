@@ -18,20 +18,17 @@ import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.Stderr;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.Supplier;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import org.junit.Ignore;
 import org.junit.runner.Description;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
-
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
-
-import java.io.OutputStream;
-import java.io.PrintStream;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 /**
  * A listener that writes the test output as XML.

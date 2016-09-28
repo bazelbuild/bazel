@@ -14,10 +14,9 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import java.util.regex.Pattern;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
-
-import java.util.regex.Pattern;
 
 /**
  * Filter that filters out test cases that either matches or does not match a specified regular
