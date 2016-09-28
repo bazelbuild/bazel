@@ -227,7 +227,11 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     ImmutableList.Builder<TransitiveInfoCollection> directDepsBuilder = ImmutableList.builder();
     for (PrerequisiteAttr prerequisiteAttr : prerequisiteAttrs) {
       if (ruleContext.attributes().has(prerequisiteAttr.name, prerequisiteAttr.type)) {
-        directDepsBuilder.addAll(ruleContext.getPrerequisites(prerequisiteAttr.name, Mode.TARGET));
+        Mode mode = ruleContext.getAttributeMode(prerequisiteAttr.name);
+        if (mode == Mode.TARGET || mode == Mode.SPLIT) {
+          directDepsBuilder
+              .addAll(ruleContext.getPrerequisites(prerequisiteAttr.name, Mode.TARGET));
+        }
       }
     }
     List<TransitiveInfoCollection> directDeps = directDepsBuilder.build();

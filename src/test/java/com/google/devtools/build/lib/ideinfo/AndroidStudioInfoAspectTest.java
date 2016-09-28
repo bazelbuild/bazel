@@ -1649,6 +1649,27 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(getRuleInfoAndVerifyLabel("//com/google/example:real", ruleIdeInfos)).isNotNull();
   }
 
+  @Test
+  public void testDataModeDepsAttributeDoesNotCrashAspect() throws Exception {
+    scratch.file(
+        "com/google/example/foo.bzl",
+        "def impl(ctx):",
+        "  return struct()",
+        "",
+        "foo = rule(",
+        "  implementation=impl,",
+        "  attrs={'deps': attr.label_list(cfg='data')},",
+        ")"
+    );
+    scratch.file(
+        "com/google/example/BUILD",
+        "load('//com/google/example:foo.bzl', 'foo')",
+        "foo(",
+        "  name='foo',",
+        ")");
+    buildRuleIdeInfo("//com/google/example:foo");
+  }
+
   /**
    * Returns true if we are testing the native aspect, not the Skylark one.
    * Eventually Skylark aspect will be equivalent to a native one, and this method
