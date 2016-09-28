@@ -7,13 +7,9 @@ filegroup(
 java_test(
     name = "RepositoryTests",
     srcs = select({
-        "//src:windows": glob(
-            ["*.java"],
-            exclude = ["CompressedTarFunctionTest.java"],
-        ),
-        "//conditions:default": glob(
-            ["*.java"],
-        ),
+        "//src:windows": [":RepositoryTests_windows_srcs"],
+        "//src:windows_msvc": [":RepositoryTests_windows_srcs"],
+        "//conditions:default": glob(["*.java"]),
     }),
     data = ["test_decompress_archive.tar.gz"],
     tags = ["rules"],
@@ -41,4 +37,12 @@ java_test(
         "//third_party:truth",
         "//third_party/protobuf",
     ],
+)
+
+filegroup(
+    name = "RepositoryTests_windows_srcs",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["CompressedTarFunctionTest.java"],
+    ),
 )

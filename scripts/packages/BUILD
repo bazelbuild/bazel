@@ -8,6 +8,7 @@ filegroup(
     name = "packages",
     srcs = select({
         "//src:windows": [],
+        "//src:windows_msvc": [],
         "//src:darwin": [
             ":install.sh",
             ":generate-package-info",

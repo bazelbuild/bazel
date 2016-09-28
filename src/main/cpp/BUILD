@@ -24,6 +24,9 @@ cc_library(
         "//src:windows": [
             "blaze_util_mingw.cc",
         ],
+        "//src:windows_msvc": [
+            "blaze_util_msvc.cc",
+        ],
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",

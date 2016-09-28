@@ -15,6 +15,9 @@ cc_library(
         "//src:windows": [
             "mapped_file_windows.cc",
         ],
+        "//src:windows_msvc": [
+            "mapped_file_windows.cc",
+        ],
         "//conditions:default": [
             "mapped_file_unix.cc",
         ],

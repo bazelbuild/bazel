@@ -78,6 +78,7 @@ java_library(
     ]),
     data = select({
         "//src:windows": [],
+        "//src:windows_msvc": [],
         "//conditions:default": [
             "//src/main/native:libunix.dylib",
             "//src/main/native:libunix.so",
@@ -211,6 +212,7 @@ java_test(
         ":MockSubprocess_deploy.jar",
     ] + select({
         "//src:windows": ["//src/main/native:windows_jni.dll"],
+        "//src:windows_msvc": ["//src/main/native:windows_jni.dll"],
         "//conditions:default": [
             "//src/main/native:libunix.dylib",
             "//src/main/native:libunix.so",
