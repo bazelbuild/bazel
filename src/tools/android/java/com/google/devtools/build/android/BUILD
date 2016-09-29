@@ -104,6 +104,7 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/dexer:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
