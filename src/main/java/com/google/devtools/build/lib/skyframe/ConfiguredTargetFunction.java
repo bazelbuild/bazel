@@ -377,12 +377,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private static final class AttributeAndLabel {
     final Attribute attribute;
     final Label label;
-    final int hashCode;
+    Integer hashCode;
 
     AttributeAndLabel(Attribute attribute, Label label) {
       this.attribute = attribute;
       this.label = label;
-      this.hashCode = Objects.hash(this.attribute, this.label);
     }
 
     @Override
@@ -396,6 +395,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     @Override
     public int hashCode() {
+      if (hashCode == null) {
+        // Not every <Attribute, Label> pair gets hashed. So only evaluate for the instances that
+        // need it. This can significantly reduce the number of evaluations.
+        hashCode = Objects.hash(this.attribute, this.label);
+      }
       return hashCode;
     }
   }
