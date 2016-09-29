@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Bu
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.syntax.Environment;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -89,7 +89,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      final PrintStream out, final QueryOptions options) {
+      final OutputStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
       private Builder queryResult;
@@ -117,7 +117,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createStreamCallback(
-      PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+      OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return createPostFactoStreamCallback(out, options);
   }
 

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -154,7 +155,7 @@ public abstract class OutputFormatter implements Serializable {
    * Format the result (a set of target nodes implicitly ordered according to
    * the graph maintained by the QueryEnvironment), and print it to "out".
    */
-  public abstract void output(QueryOptions options, Digraph<Target> result, PrintStream out,
+  public abstract void output(QueryOptions options, Digraph<Target> result, OutputStream out,
       AspectResolver aspectProvider)
           throws IOException, InterruptedException;
 
@@ -183,14 +184,14 @@ public abstract class OutputFormatter implements Serializable {
      * <p>Intended to be use for streaming out during evaluation of a query.
      */
     OutputFormatterCallback<Target> createStreamCallback(
-        PrintStream out, QueryOptions options, QueryEnvironment<?> env);
+        OutputStream out, QueryOptions options, QueryEnvironment<?> env);
 
     /**
      * Same as {@link #createStreamCallback}, but intended to be used for outputting the
      * already-computed result of a query.
      */
     OutputFormatterCallback<Target> createPostFactoStreamCallback(
-        PrintStream out, QueryOptions options);
+        OutputStream out, QueryOptions options);
   }
 
   /**
@@ -224,11 +225,25 @@ public abstract class OutputFormatter implements Serializable {
     public void output(
         QueryOptions options,
         Digraph<Target> result,
-        PrintStream out,
+        OutputStream out,
         AspectResolver aspectResolver) throws IOException, InterruptedException {
       setOptions(options, aspectResolver);
       OutputFormatterCallback.processAllTargets(
           createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
+    }
+  }
+
+  /** Abstract class supplying a {@link PrintStream} to implementations, flushing it on close. */
+  private abstract static class TextOutputFormatterCallback<T> extends OutputFormatterCallback<T> {
+    protected PrintStream printStream;
+
+    private TextOutputFormatterCallback(OutputStream out) {
+      this.printStream = new PrintStream(out);
+    }
+
+    @Override
+    public void close() throws IOException {
+      flushAndCheckError(printStream);
     }
   }
 
@@ -251,18 +266,16 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-        final PrintStream out, final QueryOptions options) {
-      return new OutputFormatterCallback<Target>() {
-
+        OutputStream out, final QueryOptions options) {
+      return new TextOutputFormatterCallback<Target>(out) {
         @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
+        protected void processOutput(Iterable<Target> partialResult) {
           for (Target target : partialResult) {
             if (showKind) {
-              out.print(target.getTargetKind());
-              out.print(' ');
+              printStream.print(target.getTargetKind());
+              printStream.print(' ');
             }
-            out.printf(
+            printStream.printf(
                 "%s%s", target.getLabel().getDefaultCanonicalForm(), options.getLineTerminator());
           }
         }
@@ -271,7 +284,7 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createStreamCallback(
-        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+        OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
       return createPostFactoStreamCallback(out, options);
     }
   }
@@ -301,13 +314,12 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-        final PrintStream out, final QueryOptions options) {
-      return new OutputFormatterCallback<Target>() {
+        OutputStream out, final QueryOptions options) {
+      return new TextOutputFormatterCallback<Target>(out) {
         private final Set<String> packageNames = Sets.newTreeSet();
 
         @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
+        protected void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
             packageNames.add(target.getLabel().getPackageName());
@@ -318,15 +330,16 @@ public abstract class OutputFormatter implements Serializable {
         public void close() throws IOException {
           final String lineTerm = options.getLineTerminator();
           for (String packageName : packageNames) {
-            out.printf("%s%s", packageName, lineTerm);
+            printStream.printf("%s%s", packageName, lineTerm);
           }
+          super.close();
         }
       };
     }
 
     @Override
     public OutputFormatterCallback<Target> createStreamCallback(
-        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+        OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
       return createPostFactoStreamCallback(out, options);
     }
   }
@@ -346,16 +359,15 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-        final PrintStream out, final QueryOptions options) {
-      return new OutputFormatterCallback<Target>() {
+        OutputStream out, final QueryOptions options) {
+      return new TextOutputFormatterCallback<Target>(out) {
 
         @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
+        protected void processOutput(Iterable<Target> partialResult) {
           final String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             Location location = target.getLocation();
-            out.print(
+            printStream.print(
                 location.print()
                     + ": "
                     + target.getTargetKind()
@@ -369,7 +381,7 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createStreamCallback(
-        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+        OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
       return createPostFactoStreamCallback(out, options);
     }
   }
@@ -388,15 +400,15 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-        final PrintStream out, final QueryOptions options) {
-      return new OutputFormatterCallback<Target>() {
+        OutputStream out, final QueryOptions options) {
+      return new TextOutputFormatterCallback<Target>(out) {
         private final Set<Label> printed = CompactHashSet.create();
 
-        private void outputRule(Rule rule, PrintStream out) {
+        private void outputRule(Rule rule, PrintStream printStream) {
           final String lineTerm = options.getLineTerminator();
-          out.printf("# %s%s", rule.getLocation(), lineTerm);
-          out.printf("%s(%s", rule.getRuleClass(), lineTerm);
-          out.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
+          printStream.printf("# %s%s", rule.getLocation(), lineTerm);
+          printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
+          printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
 
           for (Attribute attr : rule.getAttributes()) {
             Pair<Iterable<Object>, AttributeValueSource> values =
@@ -408,11 +420,11 @@ public abstract class OutputFormatter implements Serializable {
               continue; // Don't print default values.
             }
             Object value = Iterables.getOnlyElement(values.first);
-            out.printf("  %s = ", attr.getPublicName());
+            printStream.printf("  %s = ", attr.getPublicName());
             if (value instanceof Label) {
               value = ((Label) value).getDefaultCanonicalForm();
             } else if (value instanceof License) {
-              List<String> licenseTypes = new ArrayList<String>();
+              List<String> licenseTypes = new ArrayList<>();
               for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
                 licenseTypes.add(licenseType.toString().toLowerCase());
               }
@@ -424,22 +436,21 @@ public abstract class OutputFormatter implements Serializable {
             // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
             StringBuilder builder = new StringBuilder();
             Printer.write(builder, value);
-            out.print(builder);
-            out.printf(",%s", lineTerm);
+            printStream.print(builder);
+            printStream.printf(",%s", lineTerm);
           }
-          out.printf(")\n%s", lineTerm);
+          printStream.printf(")\n%s", lineTerm);
         }
 
         @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
+        protected void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
             Rule rule = target.getAssociatedRule();
             if (rule == null || printed.contains(rule.getLabel())) {
               continue;
             }
-            outputRule(rule, out);
+            outputRule(rule, printStream);
             printed.add(rule.getLabel());
           }
         }
@@ -448,7 +459,7 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public OutputFormatterCallback<Target> createStreamCallback(
-        PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+        OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
       return createPostFactoStreamCallback(out, options);
     }
   }
@@ -507,15 +518,20 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
-        AspectResolver aspectResolver) {
+    public void output(
+        QueryOptions options,
+        Digraph<Target> result,
+        OutputStream out,
+        AspectResolver aspectResolver)
+            throws IOException {
+      PrintStream printStream = new PrintStream(out);
       // getRoots() isn't defined for cyclic graphs, so in order to handle
       // cycles correctly, we need work on the strong component graph, as
       // cycles should be treated a "clump" of nodes all on the same rank.
       // Graphs may contain cycles because there are errors in BUILD files.
 
       List<RankAndLabel> outputToOrder =
-          options.orderOutput == OrderOutput.FULL ? new ArrayList<RankAndLabel>() : null;
+          options.orderOutput == OrderOutput.FULL ? new ArrayList<>() : null;
       Digraph<Set<Node<Target>>> scGraph = result.getStrongComponentGraph();
       Set<Node<Set<Node<Target>>>> rankNodes = scGraph.getRoots();
       Set<Node<Set<Node<Target>>>> seen = new HashSet<>();
@@ -525,7 +541,8 @@ public abstract class OutputFormatter implements Serializable {
         // Print out this rank:
         for (Node<Set<Node<Target>>> xScc : rankNodes) {
           for (Node<Target> x : xScc.getLabel()) {
-            outputToStreamOrSave(rank, x.getLabel().getLabel(), out, outputToOrder, lineTerm);
+            outputToStreamOrSave(
+                rank, x.getLabel().getLabel(), printStream, outputToOrder, lineTerm);
           }
         }
 
@@ -543,9 +560,11 @@ public abstract class OutputFormatter implements Serializable {
       if (outputToOrder != null) {
         Collections.sort(outputToOrder);
         for (RankAndLabel item : outputToOrder) {
-          out.printf("%s%s", item, lineTerm);
+          printStream.printf("%s%s", item, lineTerm);
         }
       }
+
+      flushAndCheckError(printStream);
     }
   }
 
@@ -568,8 +587,12 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
-        AspectResolver aspectResolver) {
+    public void output(
+        QueryOptions options,
+        Digraph<Target> result,
+        OutputStream out,
+        AspectResolver aspectResolver)
+            throws IOException {
       // In order to handle cycles correctly, we need work on the strong
       // component graph, as cycles should be treated a "clump" of nodes all on
       // the same rank. Graphs may contain cycles because there are errors in BUILD files.
@@ -617,9 +640,11 @@ public abstract class OutputFormatter implements Serializable {
             });
       }
       final String lineTerm = options.getLineTerminator();
+      PrintStream printStream = new PrintStream(out);
       for (RankAndLabel item : output) {
-        out.printf("%s%s", item, lineTerm);
+        printStream.printf("%s%s", item, lineTerm);
       }
+      flushAndCheckError(printStream);
     }
   }
 
@@ -654,6 +679,12 @@ public abstract class OutputFormatter implements Serializable {
     Iterable<Object> possibleAttributeValues =
         AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
     return Pair.of(possibleAttributeValues, source);
+  }
+
+  private static void flushAndCheckError(PrintStream printStream) throws IOException {
+    if (printStream.checkError()) {
+      throw new IOException("PrintStream encountered an error");
+    }
   }
 
   /**

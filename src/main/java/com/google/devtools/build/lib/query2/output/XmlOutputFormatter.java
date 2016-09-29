@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDepen
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -62,13 +62,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createStreamCallback(
-      PrintStream out, QueryOptions options, QueryEnvironment<?> env) {
+      OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return createPostFactoStreamCallback(out, options);
   }
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      final PrintStream out, final QueryOptions options) {
+      final OutputStream out, final QueryOptions options) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;
