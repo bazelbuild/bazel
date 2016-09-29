@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import com.google.testing.junit.junit4.runner.RegExTestCaseFilter;
 import com.google.testing.junit.junit4.runner.SuiteTrimmingFilter;
 import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.model.TestSuiteModel;

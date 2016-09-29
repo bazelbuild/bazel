@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.runner.junit4;
+package com.google.testing.junit.junit4.runner;
 
 import java.util.regex.Pattern;
 import org.junit.runner.Description;
