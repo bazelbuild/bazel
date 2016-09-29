@@ -2,12 +2,9 @@
 
 1. Go to http://search.maven.org/
 2. Search for g:"com.google.protobuf"
-3. Download the "jar" link from protobuf-java.
-4. Download all binaries from "protoc".
-5. Strip version number from protoc files: for `i in *.exe; do mv $i $(echo $i | sed s/3.0.0-beta-2-//); done`
-6. Set executable bit: `chmod +x *.exe`
-7. Update `third_party/BUILD` to point to the new jar file.
-8. Done.
+3. Download the "jar" link from protobuf-java and put them in `<Bazel tree>/third_party/protobuf/<version>`
+4. Download all binaries from "protoc" and put them in `<Bazel tree>/third_party/protobuf/<version>`
+5. Set executable bit: `chmod +x *.exe`
 
 * * *
 ### Updating the Linux 64-bit proto compiler
@@ -20,7 +17,7 @@ the following steps on an x86_64 machine:
 4. `LDFLAGS=-static ./configure`
 5. Change `LDFLAGS = -static` to `LDFLAGS = -all-static` in  `src/Makefile`.
 6. `make`
-7. `cp src/protoc <Bazel tree>/third_party/protobuf/protoc-linux-x86_64.exe` .
+7. `cp src/protoc <Bazel tree>/third_party/protobuf/<version>/protoc-<version>-linux-x86_64.exe` .
 
 * * *
 ### Updating the MinGW proto compiler (64-bit)
@@ -37,6 +34,7 @@ a Windows machine.
 2. Close all other MSYS/MinGW/Cygwin windows. Kill all running background jobs.
    This step is optional, but if you have other terminal windows open the next
    step may print some error messages (though it still seems to work).
+
 3. Install necessary MinGW packages
 
    ```sh
@@ -62,10 +60,19 @@ a Windows machine.
 
 1. `git clone http://github.com/google/protobuf.git`
 2. `git checkout <tag or commithash>` (e.g. `v3.0.0` or `e8ae137`)
-2. `mkdir -p third_party/protobuf/src/google` in the root of the Bazel tree.
-3. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
-4. Update rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
-5. Done.
+3. `mkdir -p third_party/protobuf/<version>/src/google` in the root of the Bazel tree.
+4. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
+5. Update the rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
+
+Finally, update the rules:
+
+1. Add a BUILD file to `third_party/protobuf/<version>/`. Use the BUILD file
+   for the previous version as a template. Update the `cc_library` rules to
+   match the rules in the BUILD file in the protobuf repository. Also copy
+   `protobuf.bzl` from the protobuf repository into
+   `third_party/protobuf/<version>/`.
+2. Modify `third_party/protobuf/BUILD` to point to the new rules.
+3. Delete the old version of protobuf.
 
 * * *
 ### Updating anything else in the directory
