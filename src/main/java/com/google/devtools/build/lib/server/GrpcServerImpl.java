@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ThreadUtils;
+import com.google.devtools.build.lib.util.io.LineFlushingOutputStream;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -352,9 +353,7 @@ public class GrpcServerImpl extends RPCServer {
 
   // TODO(lberki): Maybe we should implement line buffering?
   @VisibleForTesting
-  static class RpcOutputStream extends OutputStream {
-    private static final int CHUNK_SIZE = 8192;
-
+  static class RpcOutputStream extends LineFlushingOutputStream {
     private final String commandId;
     private final String responseCookie;
     private final StreamType type;
@@ -368,40 +367,32 @@ public class GrpcServerImpl extends RPCServer {
     }
 
     @Override
-    public synchronized void write(byte[] b, int off, int inlen) throws IOException {
-      for (int i = 0; i < inlen; i += CHUNK_SIZE) {
-        ByteString input = ByteString.copyFrom(b, off + i, Math.min(CHUNK_SIZE, inlen - i));
-        RunResponse.Builder response = RunResponse
-            .newBuilder()
-            .setCookie(responseCookie)
-            .setCommandId(commandId);
+    public void flushingHook() throws IOException {
+      ByteString input = ByteString.copyFrom(buffer, 0, len);
+      RunResponse.Builder response = RunResponse
+          .newBuilder()
+          .setCookie(responseCookie)
+          .setCommandId(commandId);
 
-        switch (type) {
-          case STDOUT: response.setStandardOutput(input); break;
-          case STDERR: response.setStandardError(input); break;
-          default: throw new IllegalStateException();
-        }
-
-        // Send the chunk to the streamer thread. May block.
-        if (!sink.offer(response.build())) {
-          // Client disconnected. Terminate the current command as soon as possible. Note that
-          // throwing IOException is not enough because we are in the habit of swallowing it. Note
-          // that when gRPC notifies us about the disconnection (see the call to setOnCancelHandler)
-          // we interrupt the command thread, which should be enough to make the server come around
-          // as soon as possible.
-          log.info(
-              String.format(
-                  "Client disconnected received for command %s on thread %s",
-                  commandId, Thread.currentThread().getName()));
-          throw new IOException("Client disconnected");
-        }
+      switch (type) {
+        case STDOUT: response.setStandardOutput(input); break;
+        case STDERR: response.setStandardError(input); break;
+        default: throw new IllegalStateException();
       }
-    }
 
-    @Override
-    public void write(int byteAsInt) throws IOException {
-      byte b = (byte) byteAsInt; // make sure we work with bytes in comparisons
-      write(new byte[] {b}, 0, 1);
+      // Send the chunk to the streamer thread. May block.
+      if (!sink.offer(response.build())) {
+        // Client disconnected. Terminate the current command as soon as possible. Note that
+        // throwing IOException is not enough because we are in the habit of swallowing it. Note
+        // that when gRPC notifies us about the disconnection (see the call to setOnCancelHandler)
+        // we interrupt the command thread, which should be enough to make the server come around
+        // as soon as possible.
+        log.info(
+            String.format(
+                "Client disconnected received for command %s on thread %s",
+                commandId, Thread.currentThread().getName()));
+        throw new IOException("Client disconnected");
+      }
     }
   }
 

@@ -14,11 +14,7 @@
 
 package com.google.devtools.build.lib.util.io;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.PrintWriter;
+import java.io.*;
 
 /**
  * A pair of output streams to be used for redirecting the output and error

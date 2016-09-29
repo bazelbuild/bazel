@@ -22,7 +22,7 @@ import java.io.OutputStream;
  * that might be new line characters. This stream implements {@link #close()}
  * as {@link #flush()}.
  */
-abstract class LineFlushingOutputStream extends OutputStream {
+public abstract class LineFlushingOutputStream extends OutputStream {
 
   static final int BUFFER_LENGTH = 8192;
   protected static byte NEWLINE = '\n';
