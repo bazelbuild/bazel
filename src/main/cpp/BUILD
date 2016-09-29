@@ -52,7 +52,14 @@ cc_library(
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
-    ],
+    ] + select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:freebsd": [],
+        "//src:windows": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": ["//src/main/cpp/util:file_linux"],
+    }),
 )
 
 cc_library(
