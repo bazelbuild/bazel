@@ -85,6 +85,10 @@ while [[ $# -gt 0 ]]; do
      echo "Unrecognized libtool flag ${ARG}"
      exit 1
      ;;
+   # Archive inputs can remain untouched, as they come from other targets.
+   *.a)
+     ARGS+=("${ARG}")
+     ;;
    # Remaining args are input objects
    *)
      ARGS+=("$(echo "$(hash_objfile "${ARG}")")")
