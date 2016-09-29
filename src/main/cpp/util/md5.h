@@ -20,6 +20,10 @@
 
 #include <string>
 
+#if defined(COMPILER_MSVC) && !defined(__alignof__)
+#define __alignof__ __alignof
+#endif  // COMPILER_MSVC && !__alignof__
+
 namespace blaze_util {
 
 using std::string;
