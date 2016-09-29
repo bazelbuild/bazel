@@ -60,14 +60,14 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   }
 
   /**
-   * Create a native Declared Provider({@link SkylarkClassObject} constructor)
+   * Create a native Declared Provider ({@link SkylarkClassObject} constructor)
    */
   public static SkylarkClassObjectConstructor createNative(String name) {
     return new SkylarkClassObjectConstructor(name);
   }
 
   /**
-   * Create a Skylark-defined Declared Provider({@link SkylarkClassObject} constructor)
+   * Create a Skylark-defined Declared Provider ({@link SkylarkClassObject} constructor)
    *
    * Needs to be exported later.
    */

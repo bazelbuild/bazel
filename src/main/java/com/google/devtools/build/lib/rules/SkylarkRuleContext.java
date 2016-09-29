@@ -307,7 +307,7 @@ public final class SkylarkRuleContext {
       }
       filesBuilder.put(
           skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), Mode.DONT_CHECK).list());
-      List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
+
       if (type == BuildType.LABEL && !a.hasSplitConfigurationTransition()) {
         Object prereq = ruleContext.getPrerequisite(a.getName(), Mode.DONT_CHECK);
         if (prereq == null) {
@@ -316,6 +316,7 @@ public final class SkylarkRuleContext {
         attrBuilder.put(skyname, prereq);
       } else {
         // Type.LABEL_LIST
+        List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
         attrBuilder.put(skyname, SkylarkList.createImmutable(allPrereq));
       }
     }

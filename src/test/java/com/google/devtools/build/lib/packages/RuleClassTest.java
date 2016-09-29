@@ -880,6 +880,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         name,
         /*isSkylark=*/ skylarkExecutable,
         skylarkExecutable,
+        /*skylarkTestable=*/ false,
         documented,
         publicByDefault,
         binaryOutput,

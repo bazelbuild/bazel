@@ -114,7 +114,7 @@ public final class FuncallExpression extends Expression {
                         callable.parameters().length == 0 || !callable.structField(),
                         "Method "
                             + method
-                            + " was annotated with both structField amd parameters.");
+                            + " was annotated with both structField and parameters.");
                     if (callable.parameters().length > 0 || callable.mandatoryPositionals() >= 0) {
                       int nbArgs =
                           callable.parameters().length
