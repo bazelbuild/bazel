@@ -260,6 +260,7 @@ public class AndroidCommon {
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
             .setResourceJar(resourceJar)
             .setAar(aar)
+            .addIdlImportRoot(idlHelper.getIdlImportRoot())
             .addIdlParcelables(idlHelper.getIdlParcelables())
             .addIdlSrcs(idlHelper.getIdlSources())
             .addIdlGeneratedJavaFiles(idlHelper.getIdlGeneratedJavaSources())

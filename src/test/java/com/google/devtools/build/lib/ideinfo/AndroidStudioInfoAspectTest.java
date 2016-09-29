@@ -815,6 +815,35 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
+  public void testAndroidLibraryWithAidlWithoutImportRoot() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'no_idl_import_root',",
+        "  idl_srcs = ['a.aidl'],",
+        ")");
+    String idlTarget = "//java/com/google/example:no_idl_import_root";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(idlTarget);
+    RuleIdeInfo idlRuleInfo = getRuleInfoAndVerifyLabel(idlTarget, ruleIdeInfos);
+    assertThat(idlRuleInfo.getAndroidRuleIdeInfo().getIdlImportRoot()).isEmpty();
+  }
+
+  @Test
+  public void testAndroidLibraryWithAidlWithImportRoot() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'has_idl_import_root',",
+        "  idl_import_root = 'idl',",
+        "  idl_srcs = ['idl/com/google/example/a.aidl'],",
+        ")");
+    String idlTarget = "//java/com/google/example:has_idl_import_root";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(idlTarget);
+    RuleIdeInfo idlRuleInfo = getRuleInfoAndVerifyLabel(idlTarget, ruleIdeInfos);
+    assertThat(idlRuleInfo.getAndroidRuleIdeInfo().getIdlImportRoot()).isEqualTo("idl");
+  }
+
+  @Test
   public void testAndroidLibraryGeneratedManifestIsAddedToOutputGroup() throws Exception {
     scratch.file(
         "com/google/example/BUILD",

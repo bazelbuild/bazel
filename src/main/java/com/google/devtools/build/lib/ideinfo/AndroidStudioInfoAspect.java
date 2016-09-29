@@ -522,6 +522,10 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       builder.setJavaPackage(androidIdeInfoProvider.getJavaPackage());
     }
 
+    String idlImportRoot = androidIdeInfoProvider.getIdlImportRoot();
+    if (idlImportRoot != null) {
+      builder.setIdlImportRoot(idlImportRoot);
+    }
     boolean hasIdlSources = !androidIdeInfoProvider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);
     if (hasIdlSources) {

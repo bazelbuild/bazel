@@ -392,6 +392,7 @@ def build_android_rule_ide_info(target, ctx, legacy_resource_label):
 
   android_rule_ide_info = struct_omit_none(
       java_package = target.android.java_package,
+      idl_import_root = target.android.idl.import_root,
       manifest = artifact_location(target.android.manifest),
       apk = artifact_location(target.android.apk),
       dependency_apk = [artifact_location(apk) for apk in target.android.apks_under_test],

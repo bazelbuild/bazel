@@ -131,6 +131,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact idlSourceJar = null;
     private OutputJar resourceJar = null;
     private String javaPackage = null;
+    private String idlImportRoot = null;
     private final Set<SourceDirectory> resourceDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> assetDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> idlDirs = new LinkedHashSet<>();
@@ -143,6 +144,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     public AndroidIdeInfoProvider build() {
       return new AndroidIdeInfoProvider(
           javaPackage,
+          idlImportRoot,
           manifest,
           generatedManifest,
           apk,
@@ -206,6 +208,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     public Builder setAar(Artifact aar) {
       this.aar = aar;
+      return this;
+    }
+
+    public Builder addIdlImportRoot(String idlImportRoot) {
+      this.idlImportRoot = idlImportRoot;
       return this;
     }
 
@@ -290,6 +297,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   }
 
   private final String javaPackage;
+  private final String idlImportRoot;
   private final Artifact manifest;
   private final Artifact generatedManifest;
   private final Artifact signedApk;
@@ -307,6 +315,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
   AndroidIdeInfoProvider(
       String javaPackage,
+      String idlImportRoot,
       @Nullable Artifact manifest,
       @Nullable Artifact generatedManifest,
       @Nullable Artifact signedApk,
@@ -322,6 +331,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest) {
     this.javaPackage = javaPackage;
+    this.idlImportRoot = idlImportRoot;
     this.manifest = manifest;
     this.generatedManifest = generatedManifest;
     this.signedApk = signedApk;
@@ -361,6 +371,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
    */
   public boolean definesAndroidResources() {
     return this.definesAndroidResources;
+  }
+
+  @Nullable
+  public String getIdlImportRoot() {
+    return idlImportRoot;
   }
 
   /** Returns the direct debug key signed apk, if there is one. */

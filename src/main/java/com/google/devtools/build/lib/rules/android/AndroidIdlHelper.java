@@ -105,6 +105,13 @@ public class AndroidIdlHelper {
   }
 
   /**
+   * Returns the root directory under which idl_srcs and idl_parcelables are located in this rule.
+   */
+  public String getIdlImportRoot() {
+    return hasExplicitlySpecifiedIdlImportRoot(ruleContext) ? getIdlImportRoot(ruleContext) : null;
+  }
+
+  /**
    * Returns the raw (non-processed) idl_srcs, not including parcelable marker files.
    */
   public Collection<Artifact> getIdlSources() {
