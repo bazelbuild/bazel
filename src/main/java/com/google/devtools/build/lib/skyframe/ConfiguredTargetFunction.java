@@ -77,8 +77,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
+
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -466,11 +469,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
     Multimap<AttributeAndLabel, Dependency> trimmedDeps = LinkedHashMultimap.create();
 
+    // Performance optimization: This method iterates over originalDeps twice. By storing
+    // AttributeAndLabel instances in this list, we avoid having to recreate them the second time
+    // (particularly avoid recomputing their hash codes). Profiling shows this shaves 25% off this
+    // method's execution time (at the time of this comment).
+    ArrayList<AttributeAndLabel> attributesAndLabels = new ArrayList<>(originalDeps.size());
+
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       Dependency dep = depsEntry.getValue();
       AttributeAndLabel attributeAndLabel =
           new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
-
+      attributesAndLabels.add(attributeAndLabel);
       // Certain targets (like output files) trivially re-use their input configuration. Likewise,
       // deps with null configurations (e.g. source files), can be trivially computed. So we skip
       // all logic in this method for these cases and just reinsert their original configurations
@@ -590,10 +599,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Re-assemble the output map with the same value ordering (e.g. each attribute's dep labels
     // appear in the same order) as the input.
+    Iterator<AttributeAndLabel> iterator = attributesAndLabels.iterator();
     OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
-      AttributeAndLabel attrAndLabel =
-          new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel());
+      AttributeAndLabel attrAndLabel = iterator.next();
       if (depsEntry.getValue().hasStaticConfiguration()) {
         result.put(attrAndLabel.attribute, depsEntry.getValue());
       } else {
