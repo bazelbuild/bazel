@@ -35,6 +35,9 @@ import java.util.List;
  */
 public class AppleCommandLineOptions extends FragmentOptions {
 
+  @VisibleForTesting
+  public static final String DEFAULT_MINIMUM_IOS = "7.0";
+
   @Option(
     name = "xcode_version",
     defaultValue = "null",
@@ -83,6 +86,33 @@ public class AppleCommandLineOptions extends FragmentOptions {
     help = "Specifies the version of the Mac OS X SDK to use to build Mac OS X applications."
   )
   public DottedVersion macOsXSdkVersion;
+
+  @Option(
+      name = "ios_minimum_os",
+      defaultValue = DEFAULT_MINIMUM_IOS,
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible iOS version for target simulators and devices."
+  )
+  public DottedVersion iosMinimumOs;
+
+  @Option(
+      name = "watchos_minimum_os",
+      defaultValue = "null",
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible watchOS version for target simulators and devices."
+  )
+  public DottedVersion watchosMinimumOs;
+
+  @Option(
+      name = "tvos_minimum_os",
+      defaultValue = "null",
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible tvOS version for target simulators and devices."
+  )
+  public DottedVersion tvosMinimumOs;
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";

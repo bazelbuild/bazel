@@ -122,7 +122,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     switch (hasReleaseBundlingSupport) {
       case YES:
         AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
@@ -133,7 +132,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 objcProvider,
                 LinkedBinary.LOCAL_AND_DEPENDENCIES,
                 ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
-                objcConfiguration.getMinimumOs(),
+                appleConfiguration.getMinimumOsForPlatformType(PlatformType.IOS),
                 appleConfiguration.getSingleArchPlatform());
         releaseBundlingSupport
             .registerActions(DsymOutputType.APP)

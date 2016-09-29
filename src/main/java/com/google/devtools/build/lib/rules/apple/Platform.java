@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Set;
@@ -35,13 +34,13 @@ import javax.annotation.Nullable;
 )
 public enum Platform {
 
-  IOS_DEVICE("iPhoneOS", PlatformType.IOS, true),
-  IOS_SIMULATOR("iPhoneSimulator", PlatformType.IOS, false),
-  MACOS_X("MacOSX", PlatformType.MACOSX, true),
-  TVOS_DEVICE("AppleTVOS", PlatformType.TVOS, true),
-  TVOS_SIMULATOR("AppleTVSimulator", PlatformType.TVOS, false),
-  WATCHOS_DEVICE("WatchOS", PlatformType.WATCHOS, true),
-  WATCHOS_SIMULATOR("WatchSimulator", PlatformType.WATCHOS, false);
+  IOS_DEVICE("ios_device", "iPhoneOS", PlatformType.IOS, true),
+  IOS_SIMULATOR("ios_simulator", "iPhoneSimulator", PlatformType.IOS, false),
+  MACOS_X("macos_x", "MacOSX", PlatformType.MACOSX, true),
+  TVOS_DEVICE("tvos_device", "AppleTVOS", PlatformType.TVOS, true),
+  TVOS_SIMULATOR("tvos_simulator", "AppleTVSimulator", PlatformType.TVOS, false),
+  WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
+  WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false);
 
   private static final Set<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
@@ -58,11 +57,13 @@ public enum Platform {
   private static final Set<String> MACOSX_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64");
 
+  private final String skylarkKey;
   private final String nameInPlist;
   private final PlatformType platformType;
   private final boolean isDevice;
 
-  Platform(String nameInPlist, PlatformType platformType, boolean isDevice) {
+  Platform(String skylarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
+    this.skylarkKey = skylarkKey;
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
     this.platformType = platformType;
     this.isDevice = isDevice;
@@ -163,6 +164,17 @@ public enum Platform {
    */
   public static boolean isApplePlatform(String targetCpu) {
     return forTargetCpuNullable(targetCpu) != null;
+  }
+
+  /** Returns a Skylark struct that contains the instances of this enum. */
+  public static SkylarkClassObject getSkylarkStruct() {
+    SkylarkClassObjectConstructor constructor =
+        SkylarkClassObjectConstructor.createNative("platforms");
+    HashMap<String, Object> fields = new HashMap<>();
+    for (Platform type : values()) {
+      fields.put(type.skylarkKey, type);
+    }
+    return new SkylarkClassObject(constructor, fields);
   }
 
   /**

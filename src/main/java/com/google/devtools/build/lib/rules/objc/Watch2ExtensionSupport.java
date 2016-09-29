@@ -37,11 +37,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.syntax.Type;
-
 import javax.annotation.Nullable;
 
 /**
@@ -112,7 +110,6 @@ public class Watch2ExtensionSupport {
     }
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    Platform appPlatform = appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS);
 
     ReleaseBundlingSupport releaseBundlingSupport =
         new ReleaseBundlingSupport(
@@ -121,7 +118,7 @@ public class Watch2ExtensionSupport {
             LinkedBinary.DEPENDENCIES_ONLY,
             ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT,
             bundleName,
-            appleConfiguration.getSdkVersionForPlatform(appPlatform),
+            appleConfiguration.getMinimumOsForPlatformType(PlatformType.WATCHOS),
             releaseBundling.build(),
             appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS));
 

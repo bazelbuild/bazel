@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -97,33 +96,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       category = "flags",
       help = "Additional options to pass to Objective C compilation.")
   public List<String> copts;
-
-  @Option(
-      name = "ios_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_IOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible iOS version for target simulators and devices."
-  )
-  public DottedVersion iosMinimumOs;
-
-  @Option(
-      name = "watchos_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_WATCHOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible watchOS version for target simulators and devices."
-  )
-  public DottedVersion watchosMinimumOs;
-
-  @Option(
-      name = "tvos_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_TVOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible tvOS version for target simulators and devices."
-  )
-  public DottedVersion tvosMinimumOs;
 
   @Option(name = "ios_memleaks",
       defaultValue =  "false",
@@ -248,7 +220,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     category = "undocumented"
   )
   public boolean experimentalObjcLibrary;
-  
+
   @Option(
     name = "objc_use_dotd_pruning",
     defaultValue = "false",
@@ -258,10 +230,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "compiles."
   )
   public boolean useDotdPruning;
-  
-  @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
-  @VisibleForTesting static final String DEFAULT_MINIMUM_WATCHOS = "2.0";
-  @VisibleForTesting static final String DEFAULT_MINIMUM_TVOS = "9.0";
 
   @SuppressWarnings("unchecked")
   @Override

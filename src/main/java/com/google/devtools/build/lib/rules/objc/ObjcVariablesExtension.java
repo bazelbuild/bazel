@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.ValueSequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
@@ -52,7 +51,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private final BuildConfiguration buildConfiguration;
   private final AppleConfiguration appleConfiguration;
-  private final ObjcConfiguration objcConfiguration;
 
   public ObjcVariablesExtension(
       RuleContext ruleContext,
@@ -67,7 +65,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.fullyLinkArchive = fullyLinkArchive;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
-    this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
   }
 
@@ -118,27 +115,8 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private void addArchVariables(CcToolchainFeatures.Variables.Builder builder) {
     Platform platform = appleConfiguration.getSingleArchPlatform();
-    switch (platform.getType()) {
-      case IOS:
-        builder.addVariable(
-            VERSION_MIN_VARIABLE_NAME,
-            objcConfiguration.getMinimumOsForPlatformType(PlatformType.IOS).toString());
-        break;
-      case TVOS:
-        builder.addVariable(
-            VERSION_MIN_VARIABLE_NAME,
-            objcConfiguration.getMinimumOsForPlatformType(PlatformType.TVOS).toString());
-        break;
-      case WATCHOS:
-        // TODO(bazel-team): Use the minimum OS version derived from the flag as is done for the
-        // other platform types.
-        builder.addVariable(
-            VERSION_MIN_VARIABLE_NAME,
-            appleConfiguration.getSdkVersionForPlatform(platform).toString());
-        break;
-      default:
-        throw new IllegalArgumentException("Unhandled platform: " + platform);
-    }
+    builder.addVariable(VERSION_MIN_VARIABLE_NAME,
+        appleConfiguration.getMinimumOsForPlatformType(platform.getType()).toString());
   }
 
   private void addArchiveVariables(CcToolchainFeatures.Variables.Builder builder) {

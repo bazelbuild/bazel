@@ -1799,11 +1799,11 @@ public final class CompilationSupport {
     switch (platform) {
       case IOS_SIMULATOR:
         builder.add("-mios-simulator-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case IOS_DEVICE:
         builder.add("-miphoneos-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case WATCHOS_SIMULATOR:
         // TODO(bazel-team): Use the value from --watchos-minimum-os instead of tying to the SDK
@@ -1819,11 +1819,11 @@ public final class CompilationSupport {
         break;
       case TVOS_SIMULATOR:
         builder.add("-mtvos-simulator-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case TVOS_DEVICE:
         builder.add("-mtvos-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       default:
         throw new IllegalArgumentException("Unhandled platform " + platform);

@@ -125,7 +125,8 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
    * configuration).
    */
   protected DottedVersion bundleMinimumOsVersion(RuleContext ruleContext) {
-    return ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs();
+    return ruleContext.getFragment(AppleConfiguration.class)
+        .getMinimumOsForPlatformType(PlatformType.IOS);
   }
 
   /**

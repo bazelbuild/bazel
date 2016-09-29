@@ -53,13 +53,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       ImmutableList.of(
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
-  private final DottedVersion iosMinimumOs;
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  private final DottedVersion watchosMinimumOs;
   private final DottedVersion watchosSimulatorVersion;
   private final String watchosSimulatorDevice;
-  private final DottedVersion tvosMinimumOs;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
   private final boolean generateDsym;
@@ -83,18 +80,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
-    this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
-    this.watchosMinimumOs =
-        Preconditions.checkNotNull(objcOptions.watchosMinimumOs, "watchosMinimumOs");
     this.watchosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.watchosSimulatorDevice, "watchosSimulatorDevice");
     this.watchosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.watchosSimulatorVersion, "watchosSimulatorVersion");
-    this.tvosMinimumOs = Preconditions.checkNotNull(objcOptions.tvosMinimumOs, "tvosMinimumOs");
     this.tvosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
     this.tvosSimulatorVersion =
@@ -123,18 +116,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the minimum iOS version supported by binaries and libraries. Any dependencies on newer
-   * iOS version features or libraries will become weak dependencies which are only loaded if the
-   * runtime OS supports them.
-   */
-  @SkylarkCallable(name = "ios_minimum_os", structField = true,
-      doc = "The minimum compatible iOS version for target simulators and devices.")
-  public DottedVersion getMinimumOs() {
-    // TODO(bazel-team): Deprecate in favor of getMinimumOsForPlatformType(IOS).
-    return iosMinimumOs;
-  }
-
-  /**
    * Returns the type of device (e.g. 'iPhone 6') to simulate when running on the simulator.
    */
   @SkylarkCallable(name = "ios_simulator_device", structField = true,
@@ -149,23 +130,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public DottedVersion getIosSimulatorVersion() {
     // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
     return iosSimulatorVersion;
-  }
-
-  @SkylarkCallable(
-      name = "minimum_os_for_platform_type",
-      doc = "The minimum compatible OS version for target simulator and devices for a particular "
-          + "platform type.")
-  public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
-    switch (platformType) {
-      case IOS:
-        return iosMinimumOs;
-      case TVOS:
-        return tvosMinimumOs;
-      case WATCHOS:
-        return watchosMinimumOs;
-      default:
-        throw new IllegalArgumentException("Unhandled platform: " + platformType);
-    }
   }
 
   @SkylarkCallable(

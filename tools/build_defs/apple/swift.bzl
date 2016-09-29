@@ -86,7 +86,12 @@ def _swift_library_impl(ctx):
   cpu = apple_fragment.single_arch_cpu
   platform = apple_fragment.single_arch_platform
 
-  target_os = ctx.fragments.objc.ios_minimum_os
+  # TODO(cparsons): Remove after blaze release.
+  if hasattr(ctx.fragments.apple, "minimum_os_for_platform_type"):
+    target_os = ctx.fragments.apple.minimum_os_for_platform_type(
+        apple_common.platform_type.ios)
+  else:
+    target_os = ctx.fragments.objc.ios_minimum_os
   target = _swift_target(cpu, platform, target_os)
   apple_toolchain = apple_common.apple_toolchain()
 
