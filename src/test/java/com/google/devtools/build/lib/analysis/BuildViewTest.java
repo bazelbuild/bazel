@@ -345,20 +345,15 @@ public class BuildViewTest extends BuildViewTestBase {
               Label.parseAbsolute("//package:inner"),
               Attribute.ConfigurationTransition.NONE,
               ImmutableSet.<AspectDescriptor>of());
-      fileDependency =
-          Dependency.withTransitionAndAspects(
-              Label.parseAbsolute("//package:file"),
-              Attribute.ConfigurationTransition.NULL,
-              ImmutableSet.<AspectDescriptor>of());
     } else {
       innerDependency =
           Dependency.withConfiguration(
               Label.parseAbsolute("//package:inner"),
               getTargetConfiguration());
-      fileDependency =
-          Dependency.withNullConfiguration(
-              Label.parseAbsolute("//package:file"));
     }
+    fileDependency =
+        Dependency.withNullConfiguration(
+            Label.parseAbsolute("//package:file"));
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }

@@ -91,7 +91,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     KEEP_GOING,
     SKYFRAME_LOADING_PHASE,
+    // Dynamic configurations that only include the fragments a target needs to properly analyze.
     DYNAMIC_CONFIGURATIONS,
+    // Dynamic configurations that always include all fragments even for targets don't need them.
+    DYNAMIC_CONFIGURATIONS_NOTRIM
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -220,6 +223,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     optionsParser.parse(args);
     if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS)) {
       optionsParser.parse("--experimental_dynamic_configs=on");
+    } else if (defaultFlags().contains(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM)) {
+      optionsParser.parse("--experimental_dynamic_configs=notrim");
     }
 
     InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();

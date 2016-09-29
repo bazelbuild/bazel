@@ -1742,7 +1742,13 @@ public final class BuildConfiguration {
     public Iterable<Dependency> getDependencies(
         Label label, ImmutableSet<AspectDescriptor> aspects) {
       return ImmutableList.of(
-          Dependency.withTransitionAndAspects(label, currentTransition, aspects));
+          isNull()
+              // We can trivially set the final value for null-configured targets now. This saves
+              // us from having to recreate a new Dependency object for the final value later. Since
+              // there are lots of null-configured targets (e.g. all source files), this can add up
+              // over the course of a build.
+              ? Dependency.withNullConfiguration(label)
+              : Dependency.withTransitionAndAspects(label, currentTransition, aspects));
     }
   }
 

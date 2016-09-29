@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.testutil.BuildRuleBuilder;
 import com.google.devtools.build.lib.testutil.BuildRuleWithDefaultsBuilder;
@@ -216,6 +217,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new ObjcConfigurationLoader(),
         new AppleConfiguration.Loader(),
         new J2ObjcConfiguration.Loader(),
+        new ProtoConfiguration.Loader(),
         new AndroidConfiguration.Loader());
   }
 

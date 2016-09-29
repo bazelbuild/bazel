@@ -474,12 +474,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
       // Certain targets (like output files) trivially re-use their input configuration. Likewise,
       // deps with null configurations (e.g. source files), can be trivially computed. So we skip
       // all logic in this method for these cases and just reinsert their original configurations
-      // back at the end.
+      // back at the end (note that null-configured targets will have a static
+      // NullConfigurationDependency instead of dynamic
+      // Dependency(label, transition=Attribute.Configuration.Transition.NULL)).
       //
       // A *lot* of targets have null deps, so this produces real savings. Profiling tests over a
       // simple cc_binary show this saves ~1% of total analysis phase time.
-      if (dep.hasStaticConfiguration()
-          || dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
+      if (dep.hasStaticConfiguration()) {
         continue;
       }
 
@@ -595,12 +596,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
           new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel());
       if (depsEntry.getValue().hasStaticConfiguration()) {
         result.put(attrAndLabel.attribute, depsEntry.getValue());
-      } else if (depsEntry.getValue().getTransition() == Attribute.ConfigurationTransition.NULL) {
-        // TODO(gregce): explore re-using the original Dependency (which would have to become a
-        // null-configured static Dependency instead of a dynamic Dependency with a NULL transition)
-        // instead of needlessly recreating the object here. Some memory/performance profiling
-        // would help determine the right course.
-        result.put(attrAndLabel.attribute, Dependency.withNullConfiguration(attrAndLabel.label));
       } else {
         Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(attrAndLabel);
         Verify.verify(!trimmedAttrDeps.isEmpty());

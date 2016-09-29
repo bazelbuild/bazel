@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.testutil.Suite;
+import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.List;
 import java.util.Set;
@@ -109,7 +111,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
   }
 
   @SafeVarargs
-  private final void assertDep(
+  private final Dependency assertDep(
       OrderedSetMultimap<Attribute, Dependency> dependentNodeMap,
       String attrName,
       String dep,
@@ -133,6 +135,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
     assertNotNull("Dependency '" + dep + "' on attribute '" + attrName + "' not found", dependency);
     assertThat(dependency.getAspects()).containsExactly((Object[]) aspects);
+    return dependency;
   }
 
   @Test
@@ -181,5 +184,40 @@ public class DependencyResolverTest extends AnalysisTestCase {
     OrderedSetMultimap<Attribute, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.EXTRA_ATTRIBUTE_ASPECT);
     assertDep(map, "$dep", "//extra:extra");
+  }
+
+  /**
+   * Null configurations should be static whether we're building with static or dynamic
+   * configurations. This is because the dynamic config logic that translates transitions into
+   * final configurations can be trivially skipped in those cases.
+   */
+  @Test
+  public void nullConfigurationsAlwaysStatic() throws Exception {
+    pkg("a",
+        "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
+    update();
+    Dependency dep = assertDep(dependentNodeMap("//a:gen", null), "srcs", "//a:gen.in");
+    assertThat(dep.hasStaticConfiguration()).isTrue();
+    assertThat(dep.getConfiguration()).isNull();
+  }
+
+  /** Runs the same test with trimmed dynamic configurations. */
+  @TestSpec(size = Suite.SMALL_TESTS)
+  @RunWith(JUnit4.class)
+  public static class WithDynamicConfigurations extends DependencyResolverTest {
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
+    }
+  }
+
+  /** Runs the same test with untrimmed dynamic configurations. */
+  @TestSpec(size = Suite.SMALL_TESTS)
+  @RunWith(JUnit4.class)
+  public static class WithDynamicConfigurationsNoTrim extends DependencyResolverTest {
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM);
+    }
   }
 }

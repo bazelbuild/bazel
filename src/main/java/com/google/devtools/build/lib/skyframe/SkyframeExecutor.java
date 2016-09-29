@@ -1257,8 +1257,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (Dependency key : keys) {
       if (key.hasStaticConfiguration()) {
         builder.put(key, key.getConfiguration());
-      } else if (key.getTransition() == Attribute.ConfigurationTransition.NULL) {
-        builder.put(key, null);
       } else if (useUntrimmedDynamicConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
