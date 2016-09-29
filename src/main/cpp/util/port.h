@@ -14,7 +14,8 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_
 
-#include <stddef.h>  // For size_t
+#include <stddef.h>  // For size_t on Linux, Darwin
+#include <stdint.h>  // For size_t on Windows
 
 // GCC-specific features
 #if (defined(COMPILER_GCC3) || defined(__APPLE__)) && !defined(SWIG)
