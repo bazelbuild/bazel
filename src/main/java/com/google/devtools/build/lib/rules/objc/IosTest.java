@@ -158,7 +158,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             extraLinkInputs,
             DsymOutputType.TEST)
         .registerCompileAndArchiveActions(common)
-        .registerFullyLinkAction(common.getObjcProvider())
+        .registerFullyLinkAction(common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 

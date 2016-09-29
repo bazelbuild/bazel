@@ -913,15 +913,15 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Attribute name for apple platform type (e.g. ios or watchos).
-   */
-  static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
-
-  /**
    * Common attributes for apple rules that build multi-architecture outputs for a given platform
    * type (such as ios or watchos).
    */
   public static class MultiArchPlatformRule implements RuleDefinition {
+
+    /**
+     * Attribute name for apple platform type (e.g. ios or watchos).
+     */
+    static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {

@@ -111,6 +111,7 @@ import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.objc.AppleBinaryRule;
 import com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon;
+import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch1ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch2ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatchExtensionBinaryRule;
@@ -427,6 +428,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new IosTestRule());
     builder.addRuleDefinition(new IosDeviceRule());
     builder.addRuleDefinition(new AppleBinaryRule());
+    builder.addRuleDefinition(new AppleStaticLibraryRule());
     builder.addRuleDefinition(new ObjcBinaryRule());
     builder.addRuleDefinition(new ExperimentalObjcLibraryRule());
     builder.addRuleDefinition(new ObjcBundleRule());

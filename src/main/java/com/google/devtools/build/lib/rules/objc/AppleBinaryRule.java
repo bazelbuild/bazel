@@ -33,12 +33,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 public class AppleBinaryRule implements RuleDefinition {
 
   /**
-   * Attribute name for {@code apple_binary}'s apple platform type (for which all dependencies and
-   * sources of an {@code apple_binary} target will be built).
-   */
-  static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
-
-  /**
    * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of
    * multiple architectures).
    */

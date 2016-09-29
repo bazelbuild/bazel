@@ -1027,18 +1027,8 @@ public final class CompilationSupport {
     return this;
   }
 
-  /**
-   * Registers an action to create an archive artifact by fully (statically) linking all
-   * transitive dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   */
-  public CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider)
-      throws InterruptedException {
-    Artifact outputArchive =
-        ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB);
-    ImmutableList<Artifact> objcLibraries = objcProvider.getObjcLibraries();
-    ImmutableList<Artifact> ccLibraries = objcProvider.getCcLibraries();
+  private CompilationSupport registerFullyLinkAction(Iterable<Artifact> inputArtifacts,
+      Artifact outputArchive) {
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
@@ -1048,16 +1038,56 @@ public final class CompilationSupport {
             .add("-arch_only").add(appleConfiguration.getSingleArchitecture())
             .add("-syslibroot").add(AppleToolchain.sdkDir())
             .add("-o").add(outputArchive.getExecPathString())
-            .addExecPaths(objcLibraries)
-            .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
-            .addExecPaths(ccLibraries)
+            .addExecPaths(inputArtifacts)
             .build())
-        .addInputs(ccLibraries)
-        .addInputs(objcLibraries)
-        .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
+        .addInputs(inputArtifacts)
         .addOutput(outputArchive)
         .build(ruleContext));
     return this;
+  }
+
+  /**
+   * Registers an action to create an archive artifact by fully (statically) linking all
+   * transitive dependencies of this rule.
+   *
+   * @param objcProvider provides all compiling and linking information to create this artifact
+   * @param outputArchive the output artifact for this action
+   */
+  public CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider,
+      Artifact outputArchive) {
+    ImmutableList<Artifact> inputArtifacts = ImmutableList.<Artifact>builder()
+        .addAll(objcProvider.getObjcLibraries())
+        .addAll(objcProvider.get(IMPORTED_LIBRARY))
+        .addAll(objcProvider.getCcLibraries()).build();
+    return registerFullyLinkAction(inputArtifacts, outputArchive);
+  }
+  
+  /**
+   * Registers an action to create an archive artifact by fully (statically) linking all
+   * transitive dependencies of this rule *except* for dependencies given in {@code avoidsDeps}.
+   *
+   * @param objcProvider provides all compiling and linking information to create this artifact
+   * @param outputArchive the output artifact for this action
+   * @param avoidsDeps list of providers with dependencies that should not be linked into the
+   *     output artifact
+   */
+  public CompilationSupport registerFullyLinkActionWithAvoids(ObjcProvider objcProvider,
+      Artifact outputArchive, Iterable<ObjcProvider> avoidsDeps) {
+    ImmutableSet.Builder<Artifact> avoidsDepsArtifacts = ImmutableSet.builder();
+
+    for (ObjcProvider avoidsProvider : avoidsDeps) {
+      avoidsDepsArtifacts.addAll(avoidsProvider.getObjcLibraries())
+          .addAll(avoidsProvider.get(IMPORTED_LIBRARY))
+          .addAll(avoidsProvider.getCcLibraries());
+    }
+    ImmutableList<Artifact> depsArtifacts = ImmutableList.<Artifact>builder()
+        .addAll(objcProvider.getObjcLibraries())
+        .addAll(objcProvider.get(IMPORTED_LIBRARY))
+        .addAll(objcProvider.getCcLibraries()).build();
+    
+    Iterable<Artifact> inputArtifacts = Iterables.filter(depsArtifacts,
+        Predicates.not(Predicates.in(avoidsDepsArtifacts.build())));
+    return registerFullyLinkAction(inputArtifacts, outputArchive);
   }
 
   private NestedSet<Artifact> getGcovForObjectiveCIfNeeded() {

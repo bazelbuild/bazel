@@ -173,7 +173,8 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
 
       new CompilationSupport(ruleContext)
           .registerCompileAndArchiveActions(common)
-          .registerFullyLinkAction(common.getObjcProvider());
+          .registerFullyLinkAction(common.getObjcProvider(),
+              ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
     }
 
     NestedSet<Artifact> j2ObjcTransitiveHeaderMappingFiles = j2ObjcTransitiveHeaderMappingFiles(

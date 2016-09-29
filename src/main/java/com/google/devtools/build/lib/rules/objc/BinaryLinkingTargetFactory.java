@@ -108,7 +108,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     CompilationSupport compilationSupport =
         new CompilationSupport(ruleContext)
             .registerCompileAndArchiveActions(common)
-            .registerFullyLinkAction(common.getObjcProvider())
+            .registerFullyLinkAction(common.getObjcProvider(),
+                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
             .addXcodeSettings(xcodeProviderBuilder, common)
             .registerLinkActions(
                 objcProvider,
