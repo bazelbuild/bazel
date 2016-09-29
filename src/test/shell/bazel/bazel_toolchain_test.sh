@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests compiling using an external toolchain
+# Tests compiling using an external Linaro toolchain on a Linux machine
 #
 
 # Load test environment
