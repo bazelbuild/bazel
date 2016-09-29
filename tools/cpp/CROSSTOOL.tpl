@@ -17,6 +17,11 @@ default_toolchain {
   toolchain_identifier: "vc_14_0_x64"
 }
 
+default_toolchain {
+  cpu: "s390x"
+  toolchain_identifier: "local"
+}
+
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
 toolchain {
   abi_version: "armeabi-v7a"

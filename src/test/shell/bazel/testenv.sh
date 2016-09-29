@@ -102,6 +102,12 @@ MACHINE_IS_64BIT='no'
 if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' ]; then
   MACHINE_IS_64BIT='yes'
 fi
+
+MACHINE_IS_Z='no'
+if [ "${MACHINE_TYPE}" = 's390x' ]; then
+  MACHINE_IS_Z='yes'
+fi
+
 case "${PLATFORM}" in
   darwin)
     if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
@@ -114,7 +120,11 @@ case "${PLATFORM}" in
     if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
       protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_64.exe"
     else
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"
+      if [ "${MACHINE_IS_Z}" = 'yes' ]; then
+        protoc_compiler="${BAZEL_RUNFILES}//third_party/protobuf/protoc-linux-s390x.exe"
+      else
+        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"
+      fi
     fi
     ;;
 esac
