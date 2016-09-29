@@ -132,7 +132,7 @@ public class CppCompileAction extends AbstractAction
    * A string constant for the objc++ compile action.
    */
   public static final String OBJCPP_COMPILE = "objc++-compile";
-  
+
   /**
    * A string constant for the c++ header parsing.
    */
@@ -1341,6 +1341,10 @@ public class CppCompileAction extends AbstractAction
       return commandLine;
     }
 
+    private boolean isObjcCompile(String actionName) {
+      return (actionName.equals(OBJC_COMPILE) || actionName.equals(OBJCPP_COMPILE));
+    }
+
     public List<String> getCompilerOptions(
         @Nullable CcToolchainFeatures.Variables overwrittenVariables) {
       List<String> options = new ArrayList<>();
@@ -1383,7 +1387,9 @@ public class CppCompileAction extends AbstractAction
       // Unfiltered compiler options contain system include paths. These must be added after
       // the user provided options, otherwise users adding include paths will not pick up their
       // own include paths first.
-      options.addAll(toolchain.getUnfilteredCompilerOptions(features));
+      if (!isObjcCompile(actionName)) {
+        options.addAll(toolchain.getUnfilteredCompilerOptions(features));
+      }
 
       // Add the options of --per_file_copt, if the label or the base name of the source file
       // matches the specified regular expression filter.
