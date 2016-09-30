@@ -27,13 +27,11 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
@@ -42,7 +40,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   private final BuildRequest buildRequest;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
-  private final ExecutorService backgroundWorkers;
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
   private final SpawnHelpers spawnHelpers;
@@ -50,13 +47,11 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   public SandboxStrategy(
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
-      ExecutorService backgroundWorkers,
       boolean verboseFailures,
       SandboxOptions sandboxOptions) {
     this.buildRequest = buildRequest;
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
-    this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
     this.spawnHelpers = new SpawnHelpers(blazeDirs.getExecRoot());
@@ -97,9 +92,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
                   "I/O exception while extracting output artifacts from sandboxed execution: "
                       + e));
         }
-      }
-      if (!sandboxOptions.sandboxDebug) {
-        SandboxHelpers.lazyCleanup(backgroundWorkers, eventHandler, runner);
       }
     }
 

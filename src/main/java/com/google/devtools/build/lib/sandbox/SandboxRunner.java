@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Arrays;
@@ -32,12 +31,11 @@ import java.util.Map;
 
 /** A common interface of all sandbox runners, no matter which platform they're working on. */
 abstract class SandboxRunner {
-  private final Path sandboxPath;
+
   private final boolean verboseFailures;
   private final Path sandboxExecRoot;
 
-  SandboxRunner(Path sandboxPath, Path sandboxExecRoot, boolean verboseFailures) {
-    this.sandboxPath = sandboxPath;
+  SandboxRunner(Path sandboxExecRoot, boolean verboseFailures) {
     this.sandboxExecRoot = sandboxExecRoot;
     this.verboseFailures = verboseFailures;
   }
@@ -115,15 +113,5 @@ abstract class SandboxRunner {
    */
   protected int getSignalOnTimeout() {
     return 14; /* SIGALRM */
-  }
-
-  void cleanup() throws IOException {
-    if (sandboxPath.exists()) {
-      FileSystemUtils.deleteTree(sandboxPath);
-    }
-  }
-
-  Path getSandboxPath() {
-    return sandboxPath;
   }
 }

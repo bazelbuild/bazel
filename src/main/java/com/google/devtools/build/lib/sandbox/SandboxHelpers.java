@@ -26,44 +26,15 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Helper methods that are shared by the different sandboxing strategies in this package. */
 final class SandboxHelpers {
-
-  static void lazyCleanup(
-      ExecutorService backgroundWorkers,
-      final EventHandler eventHandler,
-      final SandboxRunner runner) {
-    // By deleting the sandbox directory in the background, we avoid having to wait for it to
-    // complete before returning from the action, which improves performance.
-    backgroundWorkers.execute(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              runner.cleanup();
-            } catch (IOException e) {
-              // Can't do anything except logging here. SandboxModule#afterCommand will try again
-              // and alert the user if cleanup still fails.
-              eventHandler.handle(
-                  Event.warn(
-                      String.format(
-                          "Could not delete sandbox directory after action execution: %s (%s)",
-                          runner.getSandboxPath(), e)));
-            }
-          }
-        });
-  }
 
   static void fallbackToNonSandboxedExecution(
       Spawn spawn, ActionExecutionContext actionExecutionContext, Executor executor)
