@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
+import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 
 /**
  * A class for coordinating APK building, signing and zipaligning.
@@ -27,30 +30,28 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * <p>It is not always necessary to zip align APKs, for instance if the APK does not contain
  * resources. Furthermore, we do not always care about the unsigned apk because it cannot be
  * installed on a device until it is signed.
- *
- * <p>This interface allows the caller to specify their desired APKs and the implementations
- * determines which tools to use to build actions to fulfill them.
  */
-public abstract class ApkActionsBuilder {
+public class ApkActionsBuilder {
   private Artifact classesDex;
   private Artifact resourceApk;
   private Artifact javaResourceZip;
   private Artifact javaResourceFile;
   private NativeLibs nativeLibs = NativeLibs.EMPTY;
+  private Artifact unsignedApk;
+  private Artifact signedApk;
+  private boolean zipalignApk = false;
 
-  Artifact unsignedApk;
-  Artifact signedApk;
-  String apkName;
-  boolean zipalignApk = false;
+  private final String apkName;
+  private final ApkSigningMethod signingMethod;
 
-  /** Sets the user-visible apkName that is included in the action progress messages. */
-  public ApkActionsBuilder setApkName(String apkName) {
-    this.apkName = apkName;
-    return this;
+  public static ApkActionsBuilder create(String apkName, ApkSigningMethod signingMethod) {
+    return new ApkActionsBuilder(apkName, signingMethod);
   }
 
-  /** Registers the actions needed to build the requested APKs in the rule context. */
-  public abstract void registerActions(RuleContext ruleContext, AndroidSemantics semantics);
+  private ApkActionsBuilder(String apkName, ApkSigningMethod signingMethod) {
+    this.apkName = apkName;
+    this.signingMethod = signingMethod;
+  }
 
   /** Sets the native libraries to be included in the APK. */
   public ApkActionsBuilder setNativeLibs(NativeLibs nativeLibs) {
@@ -116,13 +117,59 @@ public abstract class ApkActionsBuilder {
     return this;
   }
 
+  /** Registers the actions needed to build the requested APKs in the rule context. */
+  public void registerActions(RuleContext ruleContext, AndroidSemantics semantics) {
+    boolean useSingleJarApkBuilder =
+        ruleContext.getFragment(AndroidConfiguration.class).useSingleJarApkBuilder();
+
+    // If the caller did not request an unsigned APK, we still need to construct one so that
+    // we can sign it. So we make up an intermediate artifact.
+    Artifact intermediateUnsignedApk = unsignedApk != null
+        ? unsignedApk
+        : AndroidBinary.getDxArtifact(ruleContext, "unsigned_" + signedApk.getFilename());
+    if (useSingleJarApkBuilder) {
+      buildApk(ruleContext, intermediateUnsignedApk, "Generating unsigned " + apkName);
+    } else {
+      legacyBuildApk(ruleContext, intermediateUnsignedApk, null, "Generating unsigned " + apkName);
+    }
+
+    if (signedApk != null) {
+      if (signingMethod.signLegacy()) {
+        // With the legacy signer, zipalignment is performed after signing. So if a zipaligned APK
+        // is requested, we need an intermediate signed-but-not-zipaligned apk artifact.
+        Artifact intermediateSignedApk = zipalignApk
+            ? AndroidBinary.getDxArtifact(ruleContext, "signed_" + signedApk.getFilename())
+            : signedApk;
+        legacyBuildApk(
+            ruleContext,
+            intermediateSignedApk,
+            semantics.getApkDebugSigningKey(ruleContext),
+            "Generating signed " + apkName);
+        if (zipalignApk) {
+          zipalignApk(ruleContext, intermediateSignedApk, signedApk);
+        }
+      } else {
+        Artifact apkToSign = intermediateUnsignedApk;
+        // With apksigner, zipalignment is performed before signing. So if a zipaligned APK is
+        // requested, we need an intermediate zipaligned-but-not-signed apk artifact.
+        if (zipalignApk) {
+          apkToSign =
+              AndroidBinary.getDxArtifact(ruleContext, "zipaligned_" + signedApk.getFilename());
+          zipalignApk(ruleContext, intermediateUnsignedApk, apkToSign);
+        }
+        signApk(ruleContext, semantics.getApkDebugSigningKey(ruleContext), apkToSign, signedApk);
+      }
+    }
+  }
+
   /**
-   * Creates a generating action for {@code outApk} that builds the APK specified.
+   * Registers generating actions for {@code outApk} that builds the APK specified.
    *
    * <p>If {@code signingKey} is not null, the apk will be signed with it using the V1 signature
    * scheme.
    */
-  Action[] buildApk(RuleContext ruleContext, Artifact outApk, Artifact signingKey, String message) {
+  private void legacyBuildApk(RuleContext ruleContext, Artifact outApk, Artifact signingKey,
+      String message) {
     SpawnAction.Builder actionBuilder = new SpawnAction.Builder()
         .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkBuilder())
         .setProgressMessage(message)
@@ -178,12 +225,109 @@ public abstract class ApkActionsBuilder {
           .addInputArgument(classesDex);
     }
 
-    return actionBuilder.build(ruleContext);
+    ruleContext.registerAction(actionBuilder.build(ruleContext));
+  }
+
+  /**
+   * Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar.
+   */
+  private void buildApk(RuleContext ruleContext, Artifact outApk, String message) {
+    Map<String, String> executionInfo = ImmutableMap.of("supports-workers", "1");
+
+    Artifact compressedApk =
+        AndroidBinary.getDxArtifact(ruleContext, "compressed_" + outApk.getFilename());
+    SpawnAction.Builder compressedApkActionBuilder = new SpawnAction.Builder()
+        .setMnemonic("ApkBuilder")
+        .setProgressMessage(message)
+        .setExecutionInfo(executionInfo)
+        .addArgument("--exclude_build_data")
+        .addArgument("--compression")
+        .addArgument("--output")
+        .addOutputArgument(compressedApk);
+    setSingleJarAsExecutable(ruleContext, compressedApkActionBuilder);
+
+    if (classesDex != null) {
+      if (classesDex.getFilename().endsWith(".zip")) {
+        compressedApkActionBuilder
+            .addArgument("--sources")
+            .addInputArgument(classesDex);
+      } else {
+        compressedApkActionBuilder
+            .addArgument("--resources")
+            .addInputArgument(classesDex);
+      }
+    }
+
+    if (javaResourceFile != null) {
+      compressedApkActionBuilder
+          .addArgument("--resources")
+          .addInputArgument(javaResourceFile);
+    }
+
+    for (String architecture : nativeLibs.getMap().keySet()) {
+      for (Artifact nativeLib : nativeLibs.getMap().get(architecture)) {
+        compressedApkActionBuilder
+            .addArgument("--resources")
+            .addArgument(
+                nativeLib.getExecPathString()
+                    + ":lib/"
+                    + architecture
+                    + "/"
+                    + nativeLib.getFilename())
+            .addInput(nativeLib);
+      }
+    }
+
+    ruleContext.registerAction(compressedApkActionBuilder.build(ruleContext));
+
+    SpawnAction.Builder singleJarActionBuilder = new SpawnAction.Builder()
+        .setMnemonic("ApkBuilder")
+        .setProgressMessage(message)
+        .setExecutionInfo(executionInfo)
+        .addArgument("--exclude_build_data")
+        .addArgument("--dont_change_compression")
+        .addArgument("--sources")
+        .addInputArgument(compressedApk)
+        .addArgument("--output")
+        .addOutputArgument(outApk);
+    setSingleJarAsExecutable(ruleContext, singleJarActionBuilder);
+
+    if (javaResourceZip != null) {
+      // The javaResourceZip contains many files that are unwanted in the APK such as .class files.
+      Artifact extractedJavaResourceZip =
+          AndroidBinary.getDxArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
+      ruleContext.registerAction(new SpawnAction.Builder()
+          .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getResourceExtractor())
+          .setMnemonic("ResourceExtractor")
+          .setProgressMessage("Extracting Java resources from deploy jar for " + apkName)
+          .addInputArgument(javaResourceZip)
+          .addOutputArgument(extractedJavaResourceZip)
+          .build(ruleContext));
+
+      singleJarActionBuilder
+          .addArgument("--sources")
+          .addInputArgument(extractedJavaResourceZip);
+    }
+
+    if (nativeLibs.getName() != null) {
+      singleJarActionBuilder
+          .addArgument("--resources")
+          .addArgument(
+              nativeLibs.getName().getExecPathString() + ":" + nativeLibs.getName().getFilename())
+          .addInput(nativeLibs.getName());
+    }
+
+    if (resourceApk != null) {
+      singleJarActionBuilder
+          .addArgument("--sources")
+          .addInputArgument(resourceApk);
+    }
+    ruleContext.registerAction(singleJarActionBuilder.build(ruleContext));
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
-  Action[] zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
-    return new SpawnAction.Builder()
+  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
+    ruleContext.registerAction(new SpawnAction.Builder()
         .addInput(inputApk)
         .addOutput(zipAlignedApk)
         .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
@@ -192,119 +336,46 @@ public abstract class ApkActionsBuilder {
         .addOutputArgument(zipAlignedApk)
         .setProgressMessage("Zipaligning " + apkName)
         .setMnemonic("AndroidZipAlign")
-        .build(ruleContext);
+        .build(ruleContext));
   }
 
   /**
-   * An implementation that uses ApkBuilderMain to both build and sign APKs and the Android SDK
-   * zipalign tool to zipalign. This implementation only supports V1 signature scheme (JAR signing).
+   * Signs an APK using the ApkSignerTool. Supports both the jar signing scheme(v1) and the apk
+   * signing scheme v2. Note that zip alignment is preserved by this step. Furthermore,
+   * zip alignment cannot be performed after v2 signing without invalidating the signature.
    */
-  static class LegacySignerApkActionsBuilder extends ApkActionsBuilder {
-    @Override
-    public void registerActions(RuleContext ruleContext, AndroidSemantics semantics) {
-      Preconditions.checkNotNull(
-          apkName, "APK name must be set to create progress messages for APK actions.");
-
-      if (unsignedApk != null) {
-        ruleContext.registerAction(
-            buildApk(ruleContext, unsignedApk, null, "Generating unsigned " + apkName));
-      }
-
-      if (signedApk != null) {
-        // Legacy signing destroys zip aligning, so if zip aligning is requested we build an
-        // intermediate APK that is signed but not zip aligned then zip align it. If zip aligning
-        // is not requested then the output of the buildApk step is the final apk.
-        Artifact intermediateSignedApk;
-        if (zipalignApk) {
-          intermediateSignedApk =
-              AndroidBinary.getDxArtifact(ruleContext, "signed_" + signedApk.getFilename());
-        } else {
-          intermediateSignedApk = signedApk;
-        }
-
-        ruleContext.registerAction(buildApk(
-            ruleContext,
-            intermediateSignedApk,
-            semantics.getApkDebugSigningKey(ruleContext),
-            "Generating signed " + apkName));
-
-        if (zipalignApk) {
-          ruleContext.registerAction(
-              zipalignApk(ruleContext, intermediateSignedApk, signedApk));
-        }
-      }
-    }
+  private void signApk(RuleContext ruleContext, Artifact signingKey,
+      Artifact unsignedApk, Artifact signedAndZipalignedApk) {
+    ruleContext.registerAction(new SpawnAction.Builder()
+        .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
+        .setProgressMessage("Signing " + apkName)
+        .setMnemonic("ApkSignerTool")
+        .addArgument("sign")
+        .addArgument("--ks")
+        .addInputArgument(signingKey)
+        .addArguments("--ks-pass", "pass:android")
+        .addArguments("--v1-signing-enabled", Boolean.toString(signingMethod.signV1()))
+        .addArguments("--v1-signer-name", "CERT")
+        .addArguments("--v2-signing-enabled", Boolean.toString(signingMethod.signV2()))
+        .addArgument("--out")
+        .addOutputArgument(signedAndZipalignedApk)
+        .addInputArgument(unsignedApk)
+        .build(ruleContext));
   }
 
-  /**
-   * This implementation uses the executables from the apkbuilder and apksigner attributes of
-   * android_sdk to build and sign the SDKs. Zipaligning is done before the apksigner
-   * by the zipalign tool. The signer supports both V1 and V2 signing signatures configured by the
-   * {@link ApkSigningMethod} parameter.
-   */
-  static class SignerToolApkActionsBuilder extends ApkActionsBuilder {
-    private final ApkSigningMethod signingMethod;
-
-    SignerToolApkActionsBuilder(ApkSigningMethod signingMethod) {
-      this.signingMethod = signingMethod;
-    }
-
-    @Override
-    public void registerActions(RuleContext ruleContext, AndroidSemantics semantics) {
-      Preconditions.checkNotNull(
-          apkName, "APK name must be set to create progress messages for APK actions.");
-
-      if (signedApk != null) {
-        Artifact intermediateUnsignedApk = unsignedApk;
-        if (intermediateUnsignedApk == null) {
-          // If the caller did not request an unsigned APK, we still need to construct one so that
-          // we can sign it. So we make up an intermediate artifact.
-          intermediateUnsignedApk =
-              AndroidBinary.getDxArtifact(ruleContext, "unsigned_" + signedApk.getFilename());
-        }
-        ruleContext.registerAction(
-            buildApk(ruleContext, intermediateUnsignedApk, null, "Generating unsigned " + apkName));
-
-        Artifact apkToSign = intermediateUnsignedApk;
-        if (zipalignApk) {
-          apkToSign =
-              AndroidBinary.getDxArtifact(ruleContext, "zipaligned_" + signedApk.getFilename());
-          ruleContext.registerAction(zipalignApk(ruleContext, intermediateUnsignedApk, apkToSign));
-        }
-
-        ruleContext.registerAction(signApk(
-            ruleContext,
-            semantics.getApkDebugSigningKey(ruleContext),
-            apkToSign,
-            signedApk));
-      } else if (unsignedApk != null) {
-        ruleContext.registerAction(
-            buildApk(ruleContext, unsignedApk, null, "Generating unsigned " + apkName));
-      }
-    }
-
-    /**
-     * Signs an APK using the ApkSignerTool. Supports both the jar signing scheme(v1) and the apk
-     * signing scheme v2. Note that zip alignment is preserved by this step. Furthermore,
-     * zip alignment cannot be performed after v2 signing without invalidating the signature.
-     */
-    private Action[] signApk(RuleContext ruleContext, Artifact signingKey, Artifact unsignedApk,
-        Artifact signedAndZipalignedApk) {
-      return new SpawnAction.Builder()
-          .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
-          .setProgressMessage("Signing " + apkName)
-          .setMnemonic("ApkSignerTool")
-          .addArgument("sign")
-          .addArgument("--ks")
-          .addInputArgument(signingKey)
-          .addArguments("--ks-pass", "pass:android")
-          .addArguments("--v1-signing-enabled", Boolean.toString(signingMethod.signV1()))
-          .addArguments("--v1-signer-name", "CERT")
-          .addArguments("--v2-signing-enabled", Boolean.toString(signingMethod.signV2()))
-          .addArgument("--out")
-          .addOutputArgument(signedAndZipalignedApk)
-          .addInputArgument(unsignedApk)
-          .build(ruleContext);
+  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
+  private static void setSingleJarAsExecutable(
+      RuleContext ruleContext, SpawnAction.Builder builder) {
+    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    if (singleJar.getFilename().endsWith(".jar")) {
+      builder
+          .setJarExecutable(
+              ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+              singleJar,
+              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext));
+    } else {
+      builder.setExecutable(singleJar);
     }
   }
 }
