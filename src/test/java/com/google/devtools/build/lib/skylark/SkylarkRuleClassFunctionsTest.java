@@ -97,9 +97,24 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
       Assert.fail("Expected error '"
           + "There is already a built-in attribute 'tags' which cannot be overridden"
           + "' but got no error");
-    } catch (IllegalArgumentException | EvalException e) {
+    } catch (EvalException e) {
       assertThat(e).hasMessage(
           "There is already a built-in attribute 'tags' which cannot be overridden");
+    }
+  }
+
+  @Test
+  public void testCannotOverrideBuiltInAttributeName() throws Exception {
+    ev.setFailFast(true);
+    try {
+      evalAndExport(
+          "def impl(ctx): return", "r = rule(impl, attrs = {'name': attr.string()})");
+      Assert.fail("Expected error '"
+          + "There is already a built-in attribute 'name' which cannot be overridden"
+          + "' but got no error");
+    } catch (EvalException e) {
+      assertThat(e).hasMessage(
+          "There is already a built-in attribute 'name' which cannot be overridden");
     }
   }
 
