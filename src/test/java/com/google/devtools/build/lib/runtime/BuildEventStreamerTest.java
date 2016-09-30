@@ -1,0 +1,183 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.runtime;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests {@link BuildEventStreamer}. */
+@RunWith(JUnit4.class)
+public class BuildEventStreamerTest {
+
+  private static class RecordingBuildEventTransport implements BuildEventTransport {
+    private final List<BuildEvent> events;
+
+    RecordingBuildEventTransport() {
+      events = new ArrayList<>();
+    }
+
+    @Override
+    public void sendBuildEvent(BuildEvent event) {
+      events.add(event);
+    }
+
+    @Override
+    public void close() {}
+
+    List<BuildEvent> getEvents() {
+      return events;
+    }
+  }
+
+  private static BuildEventId testId(String opaque) {
+    return BuildEventId.unknownBuildEventId(opaque);
+  }
+
+  @Test
+  public void testSimpleStream() {
+    // Verify that a well-formed event is passed through and that completion of the
+    // build clears the pending progress-update event.
+
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    streamer.buildEvent(startEvent);
+
+    List<BuildEvent> afterFirstEvent = transport.getEvents();
+    assertThat(afterFirstEvent).hasSize(1);
+    assertEquals(startEvent.getEventId(), afterFirstEvent.get(0).getEventId());
+
+    streamer.buildComplete(new BuildCompleteEvent(null));
+
+    List<BuildEvent> finalStream = transport.getEvents();
+    assertThat(finalStream).hasSize(2);
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, finalStream.get(1).getEventId());
+  }
+
+  @Test
+  public void testChaining() {
+    // Verify that unannounced events are linked in with progress update events, assuming
+    // a correctly formed initial event.
+
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildEvent unexpectedEvent = new GenericBuildEvent(testId("unexpected"), ImmutableSet.of());
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(unexpectedEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+    assertEquals(startEvent.getEventId(), eventsSeen.get(0).getEventId());
+    assertEquals(unexpectedEvent.getEventId(), eventsSeen.get(2).getEventId());
+    BuildEvent linkEvent = eventsSeen.get(1);
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
+    assertTrue(
+        "Unexpected events should be linked",
+        linkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()));
+  }
+
+  @Test
+  public void testBadInitialEvent() {
+    // Verify that, if the initial event does not announce the initial progress update event,
+    // the initial progress event is used instead to chain that event; in this way, new
+    // progress updates can always be chained in.
+
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+
+    BuildEvent unexpectedStartEvent =
+        new GenericBuildEvent(testId("unexpected start"), ImmutableSet.of());
+
+    streamer.buildEvent(unexpectedStartEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(2);
+    assertEquals(unexpectedStartEvent.getEventId(), eventsSeen.get(1).getEventId());
+    BuildEvent initial = eventsSeen.get(0);
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, initial.getEventId());
+    assertTrue(
+        "Event should be linked",
+        initial.getChildrenEvents().contains(unexpectedStartEvent.getEventId()));
+
+    // The initial event should also announce a new progress event; we test this
+    // by streaming another unannounced event.
+
+    BuildEvent unexpectedEvent = new GenericBuildEvent(testId("unexpected"), ImmutableSet.of());
+
+    streamer.buildEvent(unexpectedEvent);
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    assertThat(allEventsSeen).hasSize(4);
+    assertEquals(unexpectedEvent.getEventId(), allEventsSeen.get(3).getEventId());
+    BuildEvent secondLinkEvent = allEventsSeen.get(2);
+    assertTrue(
+        "Progress should have been announced",
+        initial.getChildrenEvents().contains(secondLinkEvent.getEventId()));
+    assertTrue(
+        "Second event should be linked",
+        secondLinkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()));
+  }
+
+  @Test
+  public void testReferPastEvent() {
+    // Verify that, if an event is refers to a previously done event, that duplicated
+    // late-referenced event is not expected again.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildEvent earlyEvent = new GenericBuildEvent(testId("unexpected"), ImmutableSet.of());
+    BuildEvent lateReference =
+        new GenericBuildEvent(testId("late reference"), ImmutableSet.of(earlyEvent.getEventId()));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(earlyEvent);
+    streamer.buildEvent(lateReference);
+    streamer.buildComplete(new BuildCompleteEvent(null));
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    int earlyEventCount = 0;
+    for (BuildEvent event : eventsSeen) {
+      if (event.getEventId().equals(earlyEvent.getEventId())) {
+        earlyEventCount++;
+      }
+    }
+    // The early event should be reported precisely once.
+    assertEquals(1, earlyEventCount);
+  }
+}
