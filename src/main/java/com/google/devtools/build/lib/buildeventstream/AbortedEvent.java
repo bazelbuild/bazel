@@ -23,7 +23,7 @@ public class AbortedEvent extends GenericBuildEvent {
 
   public AbortedEvent(
       BuildEventId id, BuildEventStreamProtos.Aborted.AbortReason reason, String description) {
-    super(id, ImmutableList.of());
+    super(id, ImmutableList.<BuildEventId>of());
     this.reason = reason;
     this.description = description;
   }

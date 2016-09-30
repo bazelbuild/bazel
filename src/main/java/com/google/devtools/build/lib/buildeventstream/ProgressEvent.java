@@ -60,6 +60,6 @@ public final class ProgressEvent extends GenericBuildEvent {
    */
   public static BuildEvent finalProgressUpdate(int number) {
     BuildEventId id = BuildEventId.progressId(number);
-    return new ProgressEvent(id, ImmutableList.of());
+    return new ProgressEvent(id, ImmutableList.<BuildEventId>of());
   }
 }

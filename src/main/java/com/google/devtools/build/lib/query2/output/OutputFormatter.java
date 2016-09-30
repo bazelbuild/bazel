@@ -531,7 +531,7 @@ public abstract class OutputFormatter implements Serializable {
       // Graphs may contain cycles because there are errors in BUILD files.
 
       List<RankAndLabel> outputToOrder =
-          options.orderOutput == OrderOutput.FULL ? new ArrayList<>() : null;
+          options.orderOutput == OrderOutput.FULL ? new ArrayList<RankAndLabel>() : null;
       Digraph<Set<Node<Target>>> scGraph = result.getStrongComponentGraph();
       Set<Node<Set<Node<Target>>>> rankNodes = scGraph.getRoots();
       Set<Node<Set<Node<Target>>>> seen = new HashSet<>();

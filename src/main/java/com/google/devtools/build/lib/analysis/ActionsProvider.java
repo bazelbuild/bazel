@@ -41,7 +41,7 @@ public final class ActionsProvider{
         }
       }
     }
-    ImmutableMap<String, Object> fields = ImmutableMap.of("by_file", map);
+    ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
     return new SkylarkClassObject(ACTIONS_PROVIDER, fields);
   }
 }
