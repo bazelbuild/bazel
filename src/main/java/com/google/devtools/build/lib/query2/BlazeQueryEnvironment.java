@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -38,10 +37,12 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AbstractUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -58,7 +60,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The environment of a Blaze query. Not thread-safe.
@@ -110,23 +111,15 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public DigraphQueryEvalResult<Target> evaluateQuery(QueryExpression expr,
-      final Callback<Target> callback) throws QueryException, InterruptedException {
-    // Some errors are reported as QueryExceptions and others as ERROR events (if --keep_going). The
-    // result is set to have an error iff there were errors emitted during the query, so we reset
-    // errors here.
+  public DigraphQueryEvalResult<Target> evaluateQuery(
+      QueryExpression expr,
+      final OutputFormatterCallback<Target> callback)
+          throws QueryException, InterruptedException, IOException {
     eventHandler.resetErrors();
-    final AtomicBoolean empty = new AtomicBoolean(true);
     resolvedTargetPatterns.clear();
-    QueryEvalResult queryEvalResult = super.evaluateQuery(expr, new Callback<Target>() {
-      @Override
-      public void process(Iterable<Target> partialResult)
-          throws QueryException, InterruptedException {
-        empty.compareAndSet(true, Iterables.isEmpty(partialResult));
-        callback.process(partialResult);
-      }
-    });
-    return new DigraphQueryEvalResult<>(queryEvalResult.getSuccess(), empty.get(), graph);
+    QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
+    return new DigraphQueryEvalResult<>(
+        queryEvalResult.getSuccess(), queryEvalResult.isEmpty(), graph);
   }
 
   @Override
@@ -283,7 +276,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public void eval(QueryExpression expr, VariableContext<Target> context, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    AggregateAllCallback<Target> aggregator = new AggregateAllCallback<>();
+    AggregateAllCallback<Target> aggregator = QueryUtil.newAggregateAllCallback();
     expr.eval(this, context, aggregator);
     callback.process(aggregator.getResult());
   }

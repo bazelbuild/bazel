@@ -269,7 +269,7 @@ public abstract class OutputFormatter implements Serializable {
         OutputStream out, final QueryOptions options) {
       return new TextOutputFormatterCallback<Target>(out) {
         @Override
-        protected void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) {
           for (Target target : partialResult) {
             if (showKind) {
               printStream.print(target.getTargetKind());
@@ -319,7 +319,7 @@ public abstract class OutputFormatter implements Serializable {
         private final Set<String> packageNames = Sets.newTreeSet();
 
         @Override
-        protected void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
             packageNames.add(target.getLabel().getPackageName());
@@ -363,7 +363,7 @@ public abstract class OutputFormatter implements Serializable {
       return new TextOutputFormatterCallback<Target>(out) {
 
         @Override
-        protected void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) {
           final String lineTerm = options.getLineTerminator();
           for (Target target : partialResult) {
             Location location = target.getLocation();
@@ -443,7 +443,7 @@ public abstract class OutputFormatter implements Serializable {
         }
 
         @Override
-        protected void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
             Rule rule = target.getAssociatedRule();

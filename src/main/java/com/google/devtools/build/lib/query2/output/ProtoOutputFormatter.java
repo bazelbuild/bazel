@@ -100,7 +100,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       @Override
-      protected void processOutput(Iterable<Target> partialResult)
+      public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
 
         for (Target target : partialResult) {

@@ -26,37 +26,64 @@ public final class QueryUtil {
 
   private QueryUtil() { }
 
-  /** A callback that can aggregate all the partial results in one set */
-  public static class AggregateAllCallback<T> implements Callback<T> {
+  /** A {@link Callback} that can aggregate all the partial results into one set. */
+  public interface AggregateAllCallback<T> extends Callback<T> {
+    Set<T> getResult();
+  }
 
-    private final CompactHashSet<T> result = CompactHashSet.create();
+  /** A {@link OutputFormatterCallback} that can aggregate all the partial results into one set. */
+  public abstract static class AggregateAllOutputFormatterCallback<T>
+      extends OutputFormatterCallback<T> implements AggregateAllCallback<T>  {
+  }
+
+  private static class AggregateAllOutputFormatterCallbackImpl<T>
+      extends AggregateAllOutputFormatterCallback<T> {
+    private final Set<T> result = CompactHashSet.create();
 
     @Override
-    public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+    public final void processOutput(Iterable<T> partialResult) {
       Iterables.addAll(result, partialResult);
     }
 
+    @Override
     public Set<T> getResult() {
       return result;
     }
+  }
 
-    @Override
-    public String toString() {
-      return "Aggregate all: " + result;
-    }
+  /**
+   * Returns a fresh {@link AggregateAllOutputFormatterCallback} that can aggregate all the partial
+   * results into one set.
+   *
+   * <p>Intended to be used by top-level evaluation of {@link QueryExpression}s; contrast with
+   * {@link #newAggregateAllCallback}.
+   */
+  public static <T> AggregateAllOutputFormatterCallback<T>
+      newAggregateAllOutputFormatterCallback() {
+    return new AggregateAllOutputFormatterCallbackImpl<>();
+  }
+
+  /**
+   * Returns a fresh {@link AggregateAllCallback}.
+   *
+   * <p>Intended to be used by {@link QueryExpression} implementations; contrast with
+   * {@link #newAggregateAllOutputFormatterCallback}.
+   */
+  public static <T> AggregateAllCallback<T> newAggregateAllCallback() {
+    return new AggregateAllOutputFormatterCallbackImpl<>();
   }
 
   /**
    * Fully evaluate a {@code QueryExpression} and return a set with all the results.
    *
-   * <p>Should ony be used by QueryExpressions when it is the only way of achieving correctness.
+   * <p>Should only be used by QueryExpressions when it is the only way of achieving correctness.
    */
   public static <T> Set<T> evalAll(
       QueryEnvironment<T> env, VariableContext<T> context, QueryExpression expr)
           throws QueryException, InterruptedException {
-    AggregateAllCallback<T> callback = new AggregateAllCallback<>();
+    AggregateAllCallback<T> callback = newAggregateAllCallback();
     env.eval(expr, context, callback);
-    return callback.result;
+    return callback.getResult();
   }
 
   /** A trivial {@link Uniquifier} base class. */

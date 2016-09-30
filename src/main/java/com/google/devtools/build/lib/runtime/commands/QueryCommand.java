@@ -18,9 +18,7 @@ import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -31,6 +29,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
@@ -163,11 +163,10 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
-      callback = new AggregateAllOutputFormatterCallback<>();
+      callback = QueryUtil.newAggregateAllOutputFormatterCallback();
     }
     boolean catastrophe = true;
     try {
-      callback.start();
       result = queryEnv.evaluateQuery(expr, callback);
       catastrophe = false;
     } catch (QueryException e) {
@@ -195,13 +194,6 @@ public final class QueryCommand implements BlazeCommand {
     } finally {
       if (!catastrophe) {
         try {
-          callback.close();
-        } catch (IOException e) {
-          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-          return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
-        }
-
-        try {
           out.flush();
         } catch (IOException e) {
           env.getReporter().handle(
@@ -218,7 +210,7 @@ public final class QueryCommand implements BlazeCommand {
       // 3. Output results:
       try {
         Set<Target> targets =
-            ((AggregateAllOutputFormatterCallback<Target>) callback).getOutput();
+            ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
         QueryOutputUtils.output(
             queryOptions,
             result,
@@ -289,20 +281,5 @@ public final class QueryCommand implements BlazeCommand {
             env.getRuntime().getQueryFunctions(),
             QueryExpressionEvalListener.NullListener.<Target>instance(),
             env.getPackageManager().getPackagePath());
-  }
-
-  private static class AggregateAllOutputFormatterCallback<T> extends OutputFormatterCallback<T> {
-
-    private Set<T> output = CompactHashSet.create();
-
-    @Override
-    protected final void processOutput(Iterable<T> partialResult)
-        throws IOException, InterruptedException {
-      Iterables.addAll(output, partialResult);
-    }
-
-    public Set<T> getOutput() {
-      return output;
-    }
   }
 }
