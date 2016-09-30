@@ -32,6 +32,7 @@
 #include <set>
 #include <string>
 
+#include "src/main/cpp/util/file.h"
 #include "third_party/ijar/zip.h"
 
 namespace devtools_ijar {
@@ -51,7 +52,7 @@ class UnzipProcessor : public ZipExtractorProcessor {
   // Create a processor who will extract the given files (or all files if NULL)
   // into output_root if "extract" is set to true and will print the list of
   // files and their unix modes if "verbose" is set to true.
-  UnzipProcessor(const char *output_root, char **files, bool verbose,
+  UnzipProcessor(const std::string& output_root, char **files, bool verbose,
                  bool extract) : output_root_(output_root),
                                  verbose_(verbose),
                                  extract_(extract) {
@@ -77,29 +78,11 @@ class UnzipProcessor : public ZipExtractorProcessor {
   }
 
  private:
-  const char *output_root_;
+  const std::string& output_root_;
   const bool verbose_;
   const bool extract_;
   std::set<std::string> file_names;
 };
-
-// Concatene 2 path, path1 and path2, using / as a directory separator and
-// puting the result in "out". "size" specify the size of the output buffer
-void concat_path(char* out, const size_t size,
-                 const char *path1, const char *path2) {
-  int len1 = strlen(path1);
-  size_t l = len1;
-  strncpy(out, path1, size - 1);
-  out[size-1] = 0;
-  if (l < size - 1 && path1[len1] != '/' && path2[0] != '/') {
-    out[l] = '/';
-    l++;
-    out[l] = 0;
-  }
-  if (l < size - 1) {
-    strncat(out, path2, size - 1 - l);
-  }
-}
 
 // Do a recursive mkdir of all folders of path except the last path
 // segment (if path ends with a / then the last path segment is empty).
@@ -140,17 +123,16 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
     printf("%c %o %s\n", isdir ? 'd' : 'f', perm, filename);
   }
   if (extract_) {
-    char path[PATH_MAX];
     int fd;
-    concat_path(path, PATH_MAX, output_root_, filename);
+    std::string path = blaze_util::JoinPath(output_root_, filename);
     // Directories created must have executable bit set and be owner writeable.
     // Otherwise, we cannot write or create any file inside.
-    mkdirs(path, perm | S_IWUSR | S_IXUSR);
+    mkdirs(path.c_str(), perm | S_IWUSR | S_IXUSR);
     if (!isdir) {
-      fd = open(path, O_CREAT | O_WRONLY, perm);
+      fd = open(path.c_str(), O_CREAT | O_WRONLY, perm);
       if (fd < 0) {
         fprintf(stderr, "Cannot open file %s for writing: %s\n",
-                path, strerror(errno));
+                path.c_str(), strerror(errno));
         abort();
       }
       SYSCALL(write(fd, data, size));
@@ -198,11 +180,11 @@ int extract(char *zipfile, char* exdir, char **files, bool verbose,
     return -1;
   }
 
-  char output_root[PATH_MAX];
+  std::string output_root;
   if (exdir != NULL) {
-    concat_path(output_root, PATH_MAX, cwd, exdir);
+    output_root = blaze_util::JoinPath(cwd, exdir);
   } else {
-    strncpy(output_root, cwd, PATH_MAX);
+    output_root = cwd;
   }
 
   UnzipProcessor processor(output_root, files, verbose, extract);

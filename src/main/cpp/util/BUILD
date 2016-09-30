@@ -37,7 +37,10 @@ cc_library(
     name = "file",
     srcs = ["file.cc"],
     hdrs = ["file.h"],
-    visibility = ["//src/tools/singlejar:__pkg__"],
+    visibility = [
+        "//src/tools/singlejar:__pkg__",
+        "//third_party/ijar:__pkg__",
+    ],
     deps = [
         ":blaze_exit_code",
         ":errors",

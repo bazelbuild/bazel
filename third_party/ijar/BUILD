@@ -44,7 +44,10 @@ cc_binary(
     name = "zipper",
     srcs = ["zip_main.cc"],
     visibility = ["//visibility:public"],
-    deps = [":zip"],
+    deps = [
+        ":zip",
+        "//src/main/cpp/util:file",
+    ],
 )
 
 cc_binary(
