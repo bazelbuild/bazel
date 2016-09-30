@@ -33,50 +33,40 @@ namespace blaze {
 
 using std::vector;
 
-StartupOptions::StartupOptions() :
-  StartupOptions("Bazel") {
-  Init();
-}
+StartupOptions::StartupOptions() : StartupOptions("Bazel") {}
 
-StartupOptions::StartupOptions(const string& product_name) :
-  product_name(product_name) {
-  Init();
-}
-
-StartupOptions::~StartupOptions() {
-}
-
-// TODO(jmmv): Integrate Init into the StartupOptions constructor.
-void StartupOptions::Init() {
+StartupOptions::StartupOptions(const string &product_name)
+    : product_name(product_name),
+      deep_execroot(true),
+      block_for_lock(true),
+      host_jvm_debug(false),
+      batch(false),
+      batch_cpu_scheduling(false),
+      io_nice_level(-1),
+      oom_more_eagerly(false),
+      oom_more_eagerly_threshold(100),
+      write_command_log(true),
+      watchfs(false),
+      allow_configurable_attributes(false),
+      fatal_event_bus_exceptions(false),
+      command_port(0),
+      invocation_policy(NULL) {
   bool testing = getenv("TEST_TMPDIR") != NULL;
   if (testing) {
     output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
   } else {
-      output_root = WorkspaceLayout::GetOutputRoot();
+    output_root = WorkspaceLayout::GetOutputRoot();
   }
 
   string product_name_lower = product_name;
   blaze_util::ToLower(&product_name_lower);
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
-  deep_execroot = true;
-  block_for_lock = true;
-  host_jvm_debug = false;
-  host_javabase = "";
-  batch = false;
-  batch_cpu_scheduling = false;
-  allow_configurable_attributes = false;
-  fatal_event_bus_exceptions = false;
-  io_nice_level = -1;
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
-  oom_more_eagerly_threshold = 100;
-  command_port = 0;
-  oom_more_eagerly = false;
-  write_command_log = true;
-  watchfs = false;
-  invocation_policy = NULL;
 }
+
+StartupOptions::~StartupOptions() {}
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {}
 
