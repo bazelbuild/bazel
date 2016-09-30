@@ -16,22 +16,16 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * This module provides the Sandbox spawn strategy.
@@ -40,18 +34,14 @@ public final class SandboxModule extends BlazeModule {
   // Per-command state
   private CommandEnvironment env;
   private BuildRequest buildRequest;
-  private ExecutorService backgroundWorkers;
-  private SandboxOptions sandboxOptions;
 
   @Override
   public Iterable<ActionContextProvider> getActionContextProviders() {
     Preconditions.checkNotNull(env);
     Preconditions.checkNotNull(buildRequest);
-    Preconditions.checkNotNull(backgroundWorkers);
-    sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     try {
       return ImmutableList.<ActionContextProvider>of(
-          SandboxActionContextProvider.create(env, buildRequest, backgroundWorkers));
+          SandboxActionContextProvider.create(env, buildRequest));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -72,55 +62,14 @@ public final class SandboxModule extends BlazeModule {
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
-    backgroundWorkers =
-        Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat("sandbox-background-worker-%d").build());
     this.env = env;
     env.getEventBus().register(this);
   }
 
   @Override
   public void afterCommand() {
-    // We want to make sure that all sandbox directories are deleted after a command finishes or at
-    // least the user gets notified if some of them can't be deleted. However we can't rely on the
-    // background workers for that, because a) they can't log, and b) if a directory is undeletable,
-    // the Runnable might never finish. So we cancel them and delete the remaining directories here,
-    // where we have more control.
-    backgroundWorkers.shutdownNow();
-    if (sandboxOptions != null && !sandboxOptions.sandboxDebug) {
-      Path sandboxRoot =
-          env.getDirectories()
-              .getOutputBase()
-              .getRelative(env.getRuntime().getProductName() + "-sandbox");
-      if (sandboxRoot.exists()) {
-        try {
-          for (Path child : sandboxRoot.getDirectoryEntries()) {
-            try {
-              FileSystemUtils.deleteTree(child);
-            } catch (IOException e) {
-              env.getReporter()
-                  .handle(
-                      Event.warn(
-                          String.format(
-                              "Could not delete sandbox directory: %s (%s)",
-                              child.getPathString(), e)));
-            }
-          }
-          sandboxRoot.delete();
-        } catch (IOException e) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      String.format(
-                          "Could not delete %s directory: %s", sandboxRoot.getBaseName(), e)));
-        }
-      }
-    }
-
     env = null;
     buildRequest = null;
-    backgroundWorkers = null;
-    sandboxOptions = null;
   }
 
   @Subscribe
