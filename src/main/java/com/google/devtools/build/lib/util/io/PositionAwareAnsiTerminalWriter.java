@@ -43,8 +43,17 @@ public class PositionAwareAnsiTerminalWriter implements AnsiTerminalWriter {
 
   @Override
   public AnsiTerminalWriter append(String text) throws IOException {
-    for (int i = 0; i < text.length(); i++) {
-      appendChar(text.charAt(i));
+    int i = 0;
+    while (i < text.length()) {
+      int next = text.indexOf('\n', i);
+      if (next == -1) {
+        terminalWriter.append(text.substring(i));
+        i = text.length();
+      } else {
+        terminalWriter.append(text.substring(i, next - 1));
+        terminalWriter.newline();
+        i = next;
+      }
     }
     return this;
   }
