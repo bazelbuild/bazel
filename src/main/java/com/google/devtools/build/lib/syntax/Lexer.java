@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,11 +124,11 @@ public final class Lexer {
   }
 
   /**
-   * Returns the filename from which the lexer's input came. Returns a dummy
-   * value if the input came from a string.
+   * Returns the filename from which the lexer's input came. Returns an empty value if the input
+   * came from a string.
    */
   public PathFragment getFilename() {
-    return locationInfo.filename;
+    return locationInfo.filename != null ? locationInfo.filename : PathFragment.EMPTY_FRAGMENT;
   }
 
   /**
