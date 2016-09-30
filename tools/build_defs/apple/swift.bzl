@@ -176,6 +176,9 @@ def _swift_library_impl(ctx):
   # Include the parent directory of the resulting module so LLDB can find it.
   include_dirs += set([output_module.dirname])
 
+  # Include the genfiles root so full-path imports can work for generated protos.
+  include_dirs += set([ctx.configuration.genfiles_dir.path])
+
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in ctx.attr.defines]
