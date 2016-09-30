@@ -51,6 +51,7 @@ public class AppleToolchain {
   // until compile time on any given build machine.
   @VisibleForTesting public static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
   @VisibleForTesting public static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
+  @VisibleForTesting public static final String SWIFT_TOOLCHAIN_DIR = "__BAZEL_SWIFT_TOOLCHAIN_DIR__";
 
   // These two paths are framework paths relative to SDKROOT.
   @VisibleForTesting
@@ -141,8 +142,8 @@ public class AppleToolchain {
 
   /** Returns swift libraries path. */
   public static String swiftLibDir(Platform platform, boolean useStatic) {
-    return DEVELOPER_DIR
-        + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift" + (useStatic ? "_static" : "") + "/"
+    return DEVELOPER_DIR + SWIFT_TOOLCHAIN_DIR
+        + "/usr/lib/swift" + (useStatic ? "_static" : "") + "/"
         + platform.getLowerCaseNameInPlist();
   }
 

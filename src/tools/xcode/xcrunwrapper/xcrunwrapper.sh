@@ -33,6 +33,15 @@ if [[ -z "${WRAPPER_DEVDIR}" ]] ; then
   WRAPPER_DEVDIR="$(xcode-select -p)"
 fi
 
+
+if [[ "$@" == *"__BAZEL_SWIFT_TOOLCHAIN_DIR__"* ]]; then
+  # TODO(lewis): remove this
+  WRAPPER_SWIFT_TOOLCHAIN_DIR="$(dirname $(dirname $(dirname $(xcrun -f swift))))"
+else
+  WRAPPER_SWIFT_TOOLCHAIN_DIR=""
+fi
+
+
 # TODO(blaze-team): Remove this once all build environments are setting SDKROOT
 # for us.
 WRAPPER_SDKROOT="${SDKROOT:-}"
@@ -56,6 +65,7 @@ UPDATEDARGS=()
 for ARG in "$@" ; do
   ARG="${ARG//__BAZEL_XCODE_DEVELOPER_DIR__/${WRAPPER_DEVDIR}}"
   ARG="${ARG//__BAZEL_XCODE_SDKROOT__/${WRAPPER_SDKROOT}}"
+  ARG="${ARG//__BAZEL_SWIFT_TOOLCHAIN_DIR__/${WRAPPER_SWIFT_TOOLCHAIN_DIR}}"
   UPDATEDARGS+=("${ARG}")
 done
 

@@ -121,7 +121,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
           appendHeader(
               content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/ true, deduper,
-              false);
+              false, false);
         }
         for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
           appendHeader(
@@ -130,12 +130,12 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               artifact.getExecPath(),
               leadingPeriods,
               /*canCompile=*/ true,
-              deduper, false);
+              deduper, false, false);
         }
         for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
           appendHeader(
               content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/ false, deduper,
-              false);
+              false, false);
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
@@ -164,7 +164,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
             content.append("\nmodule \"").append(cppModuleMap.getName()).append("\".Swift {\n");
             appendHeader(
                 content, "", swiftCompatibilityHeader.get().getExecPath(), leadingPeriods, /*canCompile=*/
-                true, deduper, false);
+                true, deduper, false, true);
             content.append("}");
           }
         }
@@ -189,13 +189,14 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
-      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper, boolean exclude) {
+      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper, boolean exclude, boolean forceNoSubmodule) {
     if (deduper.contains(path)) {
       return;
     }
     deduper.add(path);
-    if (generateSubmodules) {
-      content.append("  module \"").append(path).append("\" {\n");
+    boolean shouldWrapInSubmodule = generateSubmodules && !forceNoSubmodule;
+    if (shouldWrapInSubmodule) {
+      content.append("  module \"").append(path.getSafePathString().replace('/', '_').replace(".h", "")).append("\" {\n");
       content.append("    export *\n  ");
     }
     content.append("  ");
@@ -209,7 +210,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       content.append("textual ");
     }
     content.append("header \"").append(leadingPeriods).append(path).append("\"");
-    if (generateSubmodules) {
+    if (shouldWrapInSubmodule) {
       content.append("\n  }");
     }
     content.append("\n");

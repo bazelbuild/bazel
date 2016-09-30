@@ -544,7 +544,7 @@ public final class CompilationSupport {
 
     if (isCPlusPlusSource) {
       commandLine.add("-stdlib=libc++");
-      commandLine.add("-std=gnu++11");
+      commandLine.add("-std=gnu++14");
     }
 
     if (hasSwiftSources) {
@@ -838,7 +838,7 @@ public final class CompilationSupport {
         .add(SWIFT)
         .add("-frontend")
         .add("-emit-object")
-        .add("-target").add(swiftTarget(appleConfiguration))
+        .add("-target").add(swiftTarget(appleConfiguration, objcConfiguration))
         .add("-sdk").add(AppleToolchain.sdkDir())
         .add("-enable-objc-interop")
         .add(objcConfiguration.getSwiftCoptsForCompilationMode())
@@ -870,6 +870,12 @@ public final class CompilationSupport {
     // compiler. Using two add() calls generates a correctly formed command line.
     for (PathFragment directory : objcProvider.get(INCLUDE).toList()) {
       commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
+    }
+
+    // Make it so swift gets our command line options
+    for (String option : commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration,
+        appleConfiguration)) {
+      commandLine.add("-Xcc").add(option);
     }
 
     ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
@@ -950,7 +956,7 @@ public final class CompilationSupport {
         .add("-frontend")
         .add("-emit-module")
         .add("-sdk").add(AppleToolchain.sdkDir())
-        .add("-target").add(swiftTarget(appleConfiguration))
+        .add("-target").add(swiftTarget(appleConfiguration, objcConfiguration))
         .add(objcConfiguration.getSwiftCoptsForCompilationMode());
 
     if (objcConfiguration.generateDsym()) {
@@ -1267,7 +1273,7 @@ public final class CompilationSupport {
             /*isUnextendedSwift=*/ isUnextendedSwift,
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
-            /*generateSubModules=*/ false,
+            /*generateSubModules=*/ true,
             /*externDependencies=*/ true));
   }
 
@@ -1406,7 +1412,7 @@ public final class CompilationSupport {
       commandLine
           .add(CLANG_PLUSPLUS)
           .add("-stdlib=libc++")
-          .add("-std=gnu++11");
+          .add("-std=gnu++14");
     } else {
       commandLine.add(CLANG);
     }
@@ -1836,12 +1842,12 @@ public final class CompilationSupport {
    * Returns the target string for swift compiler. For example, "x86_64-apple-ios8.2"
    */
   @VisibleForTesting
-  static String swiftTarget(AppleConfiguration configuration) {
+  static String swiftTarget(AppleConfiguration configuration, ObjcConfiguration objcConfiguration) {
     // TODO(bazel-team): Assert the configuration is for an apple platform, or support
     // other platform types.
     Platform platform = configuration.getSingleArchPlatform();
-    return configuration.getSingleArchitecture() + "-apple-" + platform.getType().toString() + configuration.getSdkVersionForPlatform(
-        platform);
+    return configuration.getSingleArchitecture() + "-apple-" + platform.getType().toString() + objcConfiguration
+        .getMinimumOsForPlatformType(platform.getType());
   }
 
   /**
