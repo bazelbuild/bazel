@@ -105,8 +105,7 @@ public final class FuncallExpression extends Expression {
                     if (method.isSynthetic()) {
                       continue;
                     }
-                    SkylarkCallable callable =
-                        getAnnotationFromParentClass(method.getDeclaringClass(), method);
+                    SkylarkCallable callable = getAnnotationFromParentClass(method);
                     if (callable == null) {
                       continue;
                     }
@@ -164,8 +163,15 @@ public final class FuncallExpression extends Expression {
     return methodMap.build();
   }
 
+  /**
+   * Returns the {@link SkylarkCallable} annotation for the given method, if it exists, and
+   * null otherwise. The method must be declared in {@code classObj} or one of its base classes
+   * or interfaces. The first annotation of an overridden version of the method that is found
+   * will be returned, starting with {@code classObj} and following its base classes and
+   * interfaces recursively.
+   */
   @Nullable
-  private static SkylarkCallable getAnnotationFromParentClass(Class<?> classObj, Method method) {
+  public static SkylarkCallable getAnnotationFromParentClass(Class<?> classObj, Method method) {
     boolean keepLooking = false;
     try {
       Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
@@ -195,6 +201,15 @@ public final class FuncallExpression extends Expression {
       }
     }
     return null;
+  }
+
+  /**
+   * Convenience version of {@code getAnnotationsFromParentClass(Class, Method)} that uses
+   * the declaring class of the method.
+   */
+  @Nullable
+  public static SkylarkCallable getAnnotationFromParentClass(Method method) {
+    return getAnnotationFromParentClass(method.getDeclaringClass(), method);
   }
 
   private static class ArgumentListConversionResult {

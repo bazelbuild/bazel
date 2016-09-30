@@ -108,14 +108,16 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(collect(SkylarkRuleContext.class)).isNotEmpty();
   }
 
+  /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "")
   public static class MockClassA {
-    @SkylarkCallable(doc = "")
+    @SkylarkCallable(doc = "MockClassA#get")
     public Integer get() {
       return 0;
     }
   }
 
+  /** MockClassB */
   @SkylarkModule(name = "MockClassB", doc = "")
   public static class MockClassB {
     @SkylarkCallable(doc = "")
@@ -124,6 +126,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  /** MockClassC */
   @SkylarkModule(name = "MockClassC", doc = "")
   public static class MockClassC extends MockClassA {
     @SkylarkCallable(doc = "")
@@ -132,6 +135,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
   }
 
+  /** MockClassD */
   @SkylarkModule(name = "MockClassD", doc = "MockClassD")
   public static class MockClassD {
     @SkylarkCallable(
@@ -145,6 +149,15 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     )
     public Integer test(int a, int b, int c, int d) {
       return 0;
+    }
+  }
+
+  /** MockClassE */
+  @SkylarkModule(name = "MockClassE", doc = "MockClassE")
+  public static class MockClassE extends MockClassA {
+    @Override
+    public Integer get() {
+      return 1;
     }
   }
 
@@ -183,6 +196,19 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test.");
     assertThat(methodDoc.getSignature()).isEqualTo("int MockClassD.test(arg0:int, b, *, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(3);
+  }
+
+  @Test
+  public void testSkylarkCallableOverriding() throws Exception {
+    Map<String, SkylarkModuleDoc> objects = collect(MockClassE.class);
+    assertThat(objects).hasSize(1);
+    assertThat(objects).containsKey("MockClassE");
+    SkylarkModuleDoc moduleDoc = objects.get("MockClassE");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassE.");
+    assertThat(moduleDoc.getMethods()).hasSize(1);
+    SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassA#get.");
+    assertThat(methodDoc.getSignature()).isEqualTo("int MockClassE.get()");
   }
 
   private Iterable<Method> extractMethods(Collection<SkylarkJavaMethodDoc> methods) {
