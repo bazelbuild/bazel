@@ -32,6 +32,7 @@
 #include <set>
 #include <string>
 
+#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/util/file.h"
 #include "third_party/ijar/zip.h"
 
@@ -52,10 +53,9 @@ class UnzipProcessor : public ZipExtractorProcessor {
   // Create a processor who will extract the given files (or all files if NULL)
   // into output_root if "extract" is set to true and will print the list of
   // files and their unix modes if "verbose" is set to true.
-  UnzipProcessor(const std::string& output_root, char **files, bool verbose,
-                 bool extract) : output_root_(output_root),
-                                 verbose_(verbose),
-                                 extract_(extract) {
+  UnzipProcessor(const std::string &output_root, char **files, bool verbose,
+                 bool extract)
+      : output_root_(output_root), verbose_(verbose), extract_(extract) {
     if (files != NULL) {
       for (int i = 0; files[i] != NULL; i++) {
         file_names.insert(std::string(files[i]));
@@ -78,7 +78,7 @@ class UnzipProcessor : public ZipExtractorProcessor {
   }
 
  private:
-  const std::string& output_root_;
+  const std::string &output_root_;
   const bool verbose_;
   const bool extract_;
   std::set<std::string> file_names;
@@ -87,7 +87,7 @@ class UnzipProcessor : public ZipExtractorProcessor {
 // Do a recursive mkdir of all folders of path except the last path
 // segment (if path ends with a / then the last path segment is empty).
 // All folders are created using "mode" for creation mode.
-void mkdirs(const char *path, mode_t mode) {
+int mkdirs(const char *path, mode_t mode) {
   char path_[PATH_MAX];
   struct stat statst;
   strncpy(path_, path, PATH_MAX);
@@ -98,15 +98,14 @@ void mkdirs(const char *path, mode_t mode) {
       *pointer = 0;
       if (stat(path_, &statst) != 0) {
         if (mkdir(path_, mode) < 0) {
-          fprintf(stderr, "Cannot create folder %s: %s\n",
-                  path_, strerror(errno));
-          abort();
+          return -1;
         }
       }
       *pointer = '/';
     }
     pointer++;
   }
+  return 0;
 }
 
 void UnzipProcessor::Process(const char* filename, const u4 attr,
@@ -127,31 +126,22 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
     std::string path = blaze_util::JoinPath(output_root_, filename);
     // Directories created must have executable bit set and be owner writeable.
     // Otherwise, we cannot write or create any file inside.
-    mkdirs(path.c_str(), perm | S_IWUSR | S_IXUSR);
+    if (mkdirs(path.c_str(), perm | S_IWUSR | S_IXUSR) < 0) {
+      fprintf(stderr, "Cannot create folder %s: %s\n",
+              path.c_str(), strerror(errno));
+      abort();
+    }
     if (!isdir) {
       fd = open(path.c_str(), O_CREAT | O_WRONLY, perm);
       if (fd < 0) {
-        fprintf(stderr, "Cannot open file %s for writing: %s\n",
-                path.c_str(), strerror(errno));
+        fprintf(stderr, "Cannot open file %s for writing: %s\n", path.c_str(),
+                strerror(errno));
         abort();
       }
       SYSCALL(write(fd, data, size));
       SYSCALL(close(fd));
     }
   }
-}
-
-// Get the basename of path and store it in output. output_size
-// is the size of the output buffer.
-void basename(const char *path, char *output, size_t output_size) {
-  const char *pointer = strrchr(path, '/');
-  if (pointer == NULL) {
-    pointer = path;
-  } else {
-    pointer++;  // Skip the leading slash.
-  }
-  strncpy(output, pointer, output_size);
-  output[output_size-1] = 0;
 }
 
 // copy size bytes from file descriptor fd into buffer.
@@ -224,30 +214,28 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
   }
 
   // Compute the path, flattening it if requested
-  char path[PATH_MAX];
+  std::string path;
   size_t len = strlen(final_path);
   if (len > PATH_MAX) {
     fprintf(stderr, "Path too long: %s.\n", final_path);
     return -1;
   }
   if (flatten) {
-    basename(final_path, path, PATH_MAX);
+    path = blaze_util::Basename(final_path);
   } else {
-    strncpy(path, final_path, PATH_MAX);
-    path[PATH_MAX - 1] = 0;
-    if (isdir && len < PATH_MAX - 1) {
+    path = final_path;
+    if (isdir) {
       // Add the trailing slash for folders
-      path[len] = '/';
-      path[len + 1] = 0;
+      path += '/';
     }
   }
 
   if (verbose) {
     mode_t perm = statst.st_mode & 0777;
-    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
+    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path.c_str());
   }
 
-  u1 *buffer = builder->NewFile(path, mode_to_zipattr(statst.st_mode));
+  u1 *buffer = builder->NewFile(path.c_str(), mode_to_zipattr(statst.st_mode));
   if (isdir || statst.st_size == 0) {
     builder->FinishFile(0);
   } else {

@@ -46,6 +46,7 @@ cc_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":zip",
+        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util:file",
     ],
 )
