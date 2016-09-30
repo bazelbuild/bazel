@@ -30,22 +30,33 @@ import com.google.devtools.build.lib.util.OS;
 final class SandboxActionContextConsumer implements ActionContextConsumer {
 
   private final ImmutableMultimap<Class<? extends ActionContext>, String> contexts;
+  private final ImmutableMap<String, String> spawnContexts;
 
   public SandboxActionContextConsumer(CommandEnvironment env) {
     ImmutableMultimap.Builder<Class<? extends ActionContext>, String> contexts =
         ImmutableMultimap.builder();
+    ImmutableMap.Builder<String, String> spawnContexts = ImmutableMap.builder();
 
+    // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
+    // but it is not necessarily the default.
     if ((OS.getCurrent() == OS.LINUX && LinuxSandboxedStrategy.isSupported(env))
         || (OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported())) {
       contexts.put(SpawnActionContext.class, "sandboxed");
+
+      // This makes the "sandboxed" strategy the default Spawn strategy on Linux, unless it is
+      // overridden by a later BlazeModule.
+      if (OS.getCurrent() == OS.LINUX) {
+        spawnContexts.put("", "sandboxed");
+      }
     }
 
     this.contexts = contexts.build();
+    this.spawnContexts = spawnContexts.build();
   }
 
   @Override
   public ImmutableMap<String, String> getSpawnActionContexts() {
-    return ImmutableMap.of();
+    return spawnContexts;
   }
 
   @Override
