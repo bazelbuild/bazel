@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** A Skylark value that is a result of an 'aspect(..)' function call. */
@@ -111,11 +113,18 @@ public class SkylarkAspect implements SkylarkExportable {
     this.aspectClass = new SkylarkAspectClass(extensionLabel, name);
   }
 
+  private static final List<String> allAttrAspects = Arrays.asList("*");
+
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
-    for (String attributeAspect : attributeAspects) {
-      builder.attributeAspect(attributeAspect, aspectClass);
+    if (allAttrAspects.equals(attributeAspects)) {
+      builder.allAttributesAspect(aspectClass);
+    } else {
+      for (String attributeAspect : attributeAspects) {
+        builder.attributeAspect(attributeAspect, aspectClass);
+      }
     }
+    
     for (Attribute attribute : attributes) {
       Attribute attr = attribute;  // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {

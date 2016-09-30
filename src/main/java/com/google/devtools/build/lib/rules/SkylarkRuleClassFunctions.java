@@ -394,7 +394,8 @@ public class SkylarkRuleClassFunctions {
       @Param(name = "attr_aspects", type = SkylarkList.class, generic1 = String.class,
         defaultValue = "[]",
         doc = "List of attribute names.  The aspect propagates along dependencies specified by "
-        + " attributes of a target with this name"
+        + " attributes of a target with this name. The list can also contain a single string '*':"
+        + " in that case aspect propagates along all dependencies of a target."
       ),
       @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
         doc = "dictionary to declare all the attributes of the aspect.  "
@@ -444,6 +445,14 @@ public class SkylarkRuleClassFunctions {
           ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
           for (Object attributeAspect : attributeAspects) {
             String attrName = STRING.convert(attributeAspect, "attr_aspects");
+
+            if (attrName.equals("*") && attributeAspects.size() != 1) {
+              throw new EvalException(
+                  ast.getLocation(),
+                  "'*' must be the only string in 'attr_aspects' list"
+              );
+            }
+
             if (!attrName.startsWith("_")) {
               attrAspects.add(attrName);
             } else  {
