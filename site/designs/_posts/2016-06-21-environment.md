@@ -162,9 +162,11 @@ transition to the new set up, the global Bazel rc-file provided by upstream
 will have the following content.
 
 ```
-common --action_env=PATH
-common --action_env=LD_LIBRARY_PATH
-common --action_env=TMPDIR
+build --action_env=PATH
+build --action_env=LD_LIBRARY_PATH
+build --action_env=TMPDIR
+build --test_env=PATH
+build --test_env=LD_LIBRARY_PATH
 ```
 
 
