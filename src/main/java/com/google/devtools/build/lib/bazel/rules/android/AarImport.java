@@ -117,15 +117,15 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static Action[] createSingleFileExtractor(RuleContext ruleContext, Artifact aar,
       String filename, Artifact outputArtifact) {
     return new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$unzip", Mode.HOST))
+        .setExecutable(ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST))
         .setMnemonic("AarFileExtractor")
         .setProgressMessage("Extracting " + filename + " from " + aar.getFilename())
-        .addArgument("-j")
+        .addArgument("x")
         .addInputArgument(aar)
-        .addArgument(filename)
         .addArgument("-d")
         .addOutput(outputArtifact)
         .addArgument(outputArtifact.getExecPath().getParentDirectory().getPathString())
+        .addArgument(filename)
         .build(ruleContext);
   }
 

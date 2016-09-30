@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidAaptBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the aar_import rule. */
 public class AarImportRule implements RuleDefinition {
@@ -49,12 +48,6 @@ public class AarImportRule implements RuleDefinition {
             .exec()
             .value(Label.parseAbsoluteUnchecked(
                 environment.getToolsRepository() + "//tools/zip:zip_manifest_creator")))
-        .add(attr("$unzip", LABEL)
-            .cfg(HOST)
-            .exec()
-            .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/zip:unzip"))
-            .allowedFileTypes(FileTypeSet.ANY_FILE))
         .add(attr("$zipper", LABEL)
             .cfg(HOST)
             .exec()
