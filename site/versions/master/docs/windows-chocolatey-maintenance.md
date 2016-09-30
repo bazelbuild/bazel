@@ -8,7 +8,7 @@ Installing Bazel on Windows
 
 You can install the unofficial package using the [chocolatey](https://chocolatey.org) package manager:
 
-```shell
+```sh
 choco install bazel
 ```
 
@@ -50,14 +50,14 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
     The `test.ps1` should install the package cleanly (and error if it did not install cleanly), then tell you what to do next.
 
     In a new (msys2) shell
-    ```shell
+    ```sh
     bazel version
     ```
     should result in that version, with executable from PATH.
 
 0. Test the uninstall
 
-    ```shell
+    ```sh
     choco uninstall bazel
     # should remove bazel from the system - c:/tools/bazel should be deleted
     ```
@@ -66,7 +66,7 @@ Chocolatey's moderation process automates checks here.
 
 ### Publish
 
-```shell
+```sh
 choco push bazel.x.y.z.nupkg --source https://chocolatey.org/
 ```
 
