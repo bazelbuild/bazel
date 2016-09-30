@@ -73,9 +73,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     addPchVariables(builder);
     addFrameworkVariables(builder);
     addArchVariables(builder);
-    if (ObjcCommon.shouldUseObjcModules(ruleContext)) {
-      addModuleMapVariables(builder);
-    }
+    addModuleMapVariables(builder);
     if (compilationArtifacts.getArchive().isPresent()) {
       addArchiveVariables(builder);
     }

@@ -118,17 +118,14 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addIncludeDirs(common.getObjcProvider().get(INCLUDE))
             .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
             .addSystemIncludeDirs(common.getObjcProvider().get(INCLUDE_SYSTEM))
-            .addVariableExtension(variablesExtension);
+            .addVariableExtension(variablesExtension)
+            .setCppModuleMap(ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap());
 
     if (compilationArtifacts.getArchive().isPresent()) {
       registerArchiveAction(
           intermediateArtifacts, compilationSupport, compilationArtifacts, helper);
     }
     registerFullyLinkAction(ruleContext, common, variablesExtension, featureConfiguration);
-
-    if (ObjcCommon.shouldUseObjcModules(ruleContext)) {
-      helper.setCppModuleMap(ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap());
-    }
 
     CcLibraryHelper.Info info = helper.build();
 
@@ -172,14 +169,11 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
       activatedCrosstoolSelectables.add("pch");
     }
 
-    if (ObjcCommon.shouldUseObjcModules(ruleContext)) {
-      activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
-    }
-
     activatedCrosstoolSelectables.addAll(
         ruleContext.getFragment(AppleConfiguration.class).getBitcodeMode().getFeatureNames());
 
     // We create a module map by default to allow for swift interop.
+    activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
     activatedCrosstoolSelectables.add(CppRuleClasses.MODULE_MAPS);
     activatedCrosstoolSelectables.add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET);
     activatedCrosstoolSelectables.add(CppRuleClasses.DEPENDENCY_FILE);
@@ -257,6 +251,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
+        .setHasModuleMap()
         .build();
   }
   
