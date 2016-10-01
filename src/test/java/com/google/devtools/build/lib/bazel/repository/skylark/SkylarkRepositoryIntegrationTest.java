@@ -335,30 +335,4 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     invalidatePackages();
     assertThat(getRuleContext(getConfiguredTarget("//:data")).getWorkspaceName()).isEqualTo("bleh");
   }
-
-  @Test
-  public void testSkylarkRepositoryCannotOverrideBuiltInAttribute() throws Exception {
-    scratch.file(
-        "def.bzl",
-        "def _impl(ctx):",
-        "  print(ctx.attr.name)",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    attrs={'name': attr.string(mandatory=True)})");
-    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "load('//:def.bzl', 'repo')",
-        "repo(name='foo')");
-
-    invalidatePackages();
-    try {
-      getConfiguredTarget("@foo//:bar");
-      fail();
-    } catch (AssertionError e) {
-      assertThat(e.getMessage()).contains("There is already a built-in attribute 'name' "
-          + "which cannot be overridden");
-    }
-  }
 }

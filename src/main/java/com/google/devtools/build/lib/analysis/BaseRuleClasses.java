@@ -161,8 +161,6 @@ public class BaseRuleClasses {
    */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
     return builder
-        .add(attr("name", STRING)
-            .nonconfigurable("Rule name"))
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
         // Package groups always have the null configuration so that they are not duplicated
