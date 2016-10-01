@@ -14,11 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
-
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
@@ -38,13 +33,18 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 /**
  * Support for generating iOS bundles which contain metadata (a plist file), assets, resources and
@@ -220,7 +220,7 @@ final class BundleSupport {
   ImmutableSet<TargetDeviceFamily> targetDeviceFamilies() {
     return bundling.getTargetDeviceFamilies();
   }
- 
+
   /**
    * Returns true if this bundle is targeted to {@link TargetDeviceFamily#WATCH}, false otherwise.
    */
@@ -290,7 +290,7 @@ final class BundleSupport {
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString())
             .add("--module")
-            .add(ruleContext.getLabel().getName());
+            .add(getModuleName());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
@@ -301,6 +301,14 @@ final class BundleSupport {
         .build();
   }
 
+  private String getModuleName() {
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      return ruleContext.attributes().get("clang_module_name", Type.STRING);
+    }
+
+    // Otherwise, just use target name, it doesn't matter.
+    return ruleContext.getRule().getName();
+  }
   private void registerMomczipActions(ObjcProvider objcProvider) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<Xcdatamodel> xcdatamodels = Xcdatamodels.xcdatamodels(

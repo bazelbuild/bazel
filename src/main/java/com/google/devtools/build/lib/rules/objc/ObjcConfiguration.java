@@ -259,11 +259,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public ImmutableList<String> getSwiftCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
-        return ImmutableList.of("-Onone", "-DDEBUG=1", "-g");
+        return ImmutableList.of("-Onone", "-DDEBUG", "-g");
       case FASTBUILD:
-        return ImmutableList.of("-Onone", "-DDEBUG=1");
+        return ImmutableList.of("-Onone", "-DDEBUG");
       case OPT:
-        return ImmutableList.of("-O", "-DNDEBUG=1");
+        return ImmutableList.of("-O", "-DNDEBUG");
       default:
         throw new AssertionError();
     }

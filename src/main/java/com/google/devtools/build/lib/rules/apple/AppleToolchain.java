@@ -142,7 +142,7 @@ public class AppleToolchain {
 
   /** Returns swift libraries path. */
   public static String swiftLibDir(Platform platform, boolean useStatic) {
-    return DEVELOPER_DIR + SWIFT_TOOLCHAIN_DIR
+    return SWIFT_TOOLCHAIN_DIR
         + "/usr/lib/swift" + (useStatic ? "_static" : "") + "/"
         + platform.getLowerCaseNameInPlist();
   }
