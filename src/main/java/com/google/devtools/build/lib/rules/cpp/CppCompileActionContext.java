@@ -70,11 +70,6 @@ public interface CppCompileActionContext extends ActionContext {
   ResourceSet estimateResourceConsumption(CppCompileAction action);
 
   /**
-   * Returns whether include scanning needs to be run.
-   */
-  boolean needsIncludeScanning();
-
-  /**
    * Returns the include files that should be shipped to the executor in addition the ones that
    * were declared.
    */

@@ -37,11 +37,6 @@ import java.util.Collection;
 public class SpawnGccStrategy implements CppCompileActionContext {
 
   @Override
-  public boolean needsIncludeScanning() {
-    return false;
-  }
-
-  @Override
   public Collection<Artifact> findAdditionalInputs(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
