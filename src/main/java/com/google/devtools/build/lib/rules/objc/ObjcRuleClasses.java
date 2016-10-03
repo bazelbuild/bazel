@@ -644,6 +644,15 @@ public class ObjcRuleClasses {
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(HDRS_TYPE))
+          /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(cc_hdrs) -->
+          The list of C++, Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library. These will be compiled separately from the source if modules
+          are enabled. These will be given special treatment when generating a modulemap
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("cc_hdrs", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(textual_hdrs) -->
           The list of C, C++, Objective-C, and Objective-C++ files that are
           included as headers by source files in this rule or by users of this

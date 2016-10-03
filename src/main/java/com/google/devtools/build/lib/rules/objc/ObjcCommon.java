@@ -478,6 +478,8 @@ public final class ObjcCommon {
         objcProvider
             .addAll(HEADER, attributes.hdrs())
             .addAll(HEADER, attributes.textualHdrs())
+            .addAll(HEADER, attributes.ccHdrs())
+            .addAll(HEADER, attributes.bridgingHeader().asSet())
             .addAll(INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
@@ -552,6 +554,7 @@ public final class ObjcCommon {
           objcProvider.add(SWIFT_MODULE, intermediateArtifacts.swiftModule());
           objcProvider.add(LINKOPT, "-Xlinker");
           objcProvider.add(LINKOPT, "-force_load_swift_libs");
+          objcProvider.add(HEADER, intermediateArtifacts.swiftHeader());
         }
       }
 

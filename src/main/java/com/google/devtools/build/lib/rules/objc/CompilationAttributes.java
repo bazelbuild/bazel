@@ -20,9 +20,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -46,6 +48,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MO
 final class CompilationAttributes {
   static class Builder {
     private final NestedSetBuilder<Artifact> hdrs = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Artifact> ccHdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> textualHdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
@@ -82,6 +85,14 @@ final class CompilationAttributes {
      */
     public Builder addHdrs(NestedSet<Artifact> hdrs) {
       this.hdrs.addTransitive(hdrs);
+      return this;
+    }
+
+    /**
+     * Adds headers to be made available for c++/objc++ dependents.
+     */
+    public Builder addCcHdrs(NestedSet<Artifact> hdrs) {
+      this.ccHdrs.addTransitive(hdrs);
       return this;
     }
 
@@ -216,6 +227,7 @@ final class CompilationAttributes {
     public CompilationAttributes build() {
       return new CompilationAttributes(
           this.hdrs.build(),
+          this.ccHdrs.build(),
           this.textualHdrs.build(),
           this.bridgingHeader,
           this.includes.build(),
@@ -239,6 +251,19 @@ final class CompilationAttributes {
           headers.add(header.first);
         }
         builder.addHdrs(headers.build());
+      }
+
+      if (ruleContext.attributes().has("cc_hdrs", BuildType.LABEL_LIST)) {
+        NestedSetBuilder<Artifact> headers = NestedSetBuilder.stableOrder();
+        for (TransitiveInfoCollection target :
+            ruleContext.getPrerequisitesIf("cc_hdrs", Mode.TARGET, FileProvider.class)) {
+          FileProvider provider = target.getProvider(FileProvider.class);
+          for (Artifact artifact : provider.getFilesToBuild()) {
+            headers.add(artifact);
+          }
+        }
+
+        builder.addCcHdrs(headers.build());
       }
 
       if (ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
@@ -378,6 +403,7 @@ final class CompilationAttributes {
   }
 
   private final NestedSet<Artifact> hdrs;
+  private final NestedSet<Artifact> ccHdrs;
   private final NestedSet<Artifact> textualHdrs;
   private final Optional<Artifact> bridgingHeader;
   private final NestedSet<PathFragment> includes;
@@ -395,6 +421,7 @@ final class CompilationAttributes {
 
   private CompilationAttributes(
       NestedSet<Artifact> hdrs,
+      NestedSet<Artifact> ccHdrs,
       NestedSet<Artifact> textualHdrs,
       Optional<Artifact> bridgingHeader,
       NestedSet<PathFragment> includes,
@@ -410,6 +437,7 @@ final class CompilationAttributes {
       boolean enableModules,
       Optional<String> clangModuleName) {
     this.hdrs = hdrs;
+    this.ccHdrs = ccHdrs;
     this.textualHdrs = textualHdrs;
     this.bridgingHeader = bridgingHeader;
     this.includes = includes;
@@ -431,6 +459,13 @@ final class CompilationAttributes {
    */
   public NestedSet<Artifact> hdrs() {
     return this.hdrs;
+  }
+
+  /**
+   * Returns the headers to be made available for dependents.
+   */
+  public NestedSet<Artifact> ccHdrs() {
+    return this.ccHdrs;
   }
 
   /**

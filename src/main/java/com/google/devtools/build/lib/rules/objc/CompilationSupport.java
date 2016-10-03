@@ -880,6 +880,7 @@ public final class CompilationSupport {
 
     ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
         .addAll(attributes.hdrs())
+        .addAll(attributes.ccHdrs())
         .addAll(attributes.textualHdrs());
 
     Optional<Artifact> bridgingHeader = attributes.bridgingHeader();
@@ -922,6 +923,8 @@ public final class CompilationSupport {
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
+    Artifact swiftHeader = intermediateArtifacts.swiftHeader();
+
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
@@ -931,7 +934,9 @@ public final class CompilationSupport {
             .addInput(sourceFile)
             .addInputs(otherSwiftSources)
             .addInputs(inputHeaders.build())
-            .addTransitiveInputs(objcProvider.get(HEADER))
+            .addInputs(Iterables.filter(
+                objcProvider.get(HEADER),
+                Predicates.not(Predicates.equalTo(swiftHeader))))
             .addOutput(objFile)
             .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
             .build(ruleContext));
@@ -963,12 +968,13 @@ public final class CompilationSupport {
       commandLine.add("-g");
     }
 
+    Artifact swiftHeader = intermediateArtifacts.swiftHeader();
     commandLine
         .add("-module-name").add(getModuleName())
         .add("-parse-as-library")
         .addExecPaths(moduleFiles.build())
         .addExecPath("-emit-module-path", intermediateArtifacts.swiftModule())
-        .addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader())
+        .addExecPath("-emit-objc-header-path", swiftHeader)
         // The swift compiler will invoke clang itself when compiling module maps. This invocation
         // does not include the current working directory, causing cwd-relative imports to fail.
         // Including the current working directory to the header search paths ensures that these
@@ -1011,13 +1017,15 @@ public final class CompilationSupport {
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
         .addInputs(moduleFiles.build())
-        .addTransitiveInputs(objcProvider.get(HEADER))
+        .addInputs(Iterables.filter(
+            objcProvider.get(HEADER),
+            Predicates.not(Predicates.equalTo(swiftHeader))))
         .addInput(intermediateArtifacts.unextendedModuleMap().getArtifact())
         .addInputs(Iterables.filter(
             objcProvider.get(MODULE_MAP),
             Predicates.not(Predicates.equalTo(intermediateArtifacts.moduleMap().getArtifact()))))
         .addOutput(intermediateArtifacts.swiftModule())
-        .addOutput(intermediateArtifacts.swiftHeader())
+        .addOutput(swiftHeader)
         .build(ruleContext));
   }
 
@@ -1225,6 +1233,7 @@ public final class CompilationSupport {
     // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
     // dropped.
     Iterable<Artifact> publicHeaders = attributes.hdrs();
+    Iterable<Artifact> publicCcHeaders = attributes.ccHdrs();
     Iterable<Artifact> privateHeaders = ImmutableList.of();
     Optional<Artifact> swiftCompatibilityHeader = Optional.absent();
 
@@ -1235,13 +1244,16 @@ public final class CompilationSupport {
       swiftCompatibilityHeader = artifacts.getSwiftCompatabilityHeader();
     }
 
-    registerGenerateModuleMapAction(intermediateArtifacts.moduleMap(), publicHeaders,
+    registerGenerateModuleMapAction(intermediateArtifacts.moduleMap(), publicHeaders, publicCcHeaders,
         privateHeaders,
-        swiftCompatibilityHeader, false);
+        swiftCompatibilityHeader,
+        false);
 
     registerGenerateModuleMapAction(intermediateArtifacts.unextendedModuleMap(), publicHeaders,
+        publicCcHeaders,
         privateHeaders,
-        swiftCompatibilityHeader, true);
+        swiftCompatibilityHeader,
+        true);
 
     return this;
   }
@@ -1251,12 +1263,14 @@ public final class CompilationSupport {
    *
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
+   * @param publicCcHeaders the headers that should be directly accessible by dependers that are c++ or objc++
    * @param privateHeaders the headers that should only be directly accessible by this module
    * @param swiftCompatibilityHeader
    * @param isUnextendedSwift
    */
   private void registerGenerateModuleMapAction(
-      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders,
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders,
+      Iterable<Artifact> publicCcHeaders, Iterable<Artifact> privateHeaders,
       Optional<Artifact> swiftCompatibilityHeader, boolean isUnextendedSwift) {
     publicHeaders = Iterables.filter(publicHeaders, MODULE_MAP_HEADER);
     privateHeaders = Iterables.filter(privateHeaders, MODULE_MAP_HEADER);
@@ -1267,6 +1281,7 @@ public final class CompilationSupport {
             //privateHeaders,
             ImmutableList.<Artifact>of(),
             publicHeaders,
+            publicCcHeaders,
             attributes.moduleMapsForDirectDeps(),
             ImmutableList.<PathFragment>of(),
             swiftCompatibilityHeader,
@@ -1675,6 +1690,7 @@ public final class CompilationSupport {
     xcodeProviderBuilder
         .addHeaders(attributes.hdrs())
         .addHeaders(attributes.textualHdrs())
+        .addHeaders(attributes.ccHdrs())
         .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(buildConfiguration))
         .addHeaderSearchPaths("$(WORKSPACE_ROOT)",
             attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
@@ -1715,7 +1731,7 @@ public final class CompilationSupport {
     }
 
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(attributes.hdrs());
+      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(Iterables.concat(attributes.hdrs(), attributes.ccHdrs()));
       ImmutableSet<Artifact> srcsSet =
           ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
 

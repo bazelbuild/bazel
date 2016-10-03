@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -1162,6 +1163,7 @@ public final class CcLibraryHelper {
               cppModuleMap,
               privateHeaders,
               publicHeaders,
+              ImmutableList.of(),
               collectModuleMaps(),
               additionalExportedHeaders,
               Optional.absent(),

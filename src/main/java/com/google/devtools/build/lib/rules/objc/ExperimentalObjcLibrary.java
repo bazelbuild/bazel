@@ -54,14 +54,14 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
           "assemble", "preprocess-assemble", "c-compile", "c++-compile");
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) 
+  public ConfiguredTarget create(RuleContext ruleContext)
     throws InterruptedException, RuleErrorException {
     return configureExperimentalObjcLibrary(ruleContext);
   }
-  
+
   /**
    * Returns a configured target using the given context as an experimental_objc_library.
-   * 
+   *
    * <p>Implemented outside of {@link RuleClass.ConfiguredTargetFactory#create} so as to allow
    * experimental analysis of objc_library targets as experimental_objc_library.
    */
@@ -94,6 +94,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     Collection<Artifact> nonArcSources = Sets.newHashSet(compilationArtifacts.getNonArcSrcs());
     Collection<Artifact> privateHdrs = Sets.newHashSet(compilationArtifacts.getPrivateHdrs());
     Collection<Artifact> publicHdrs = Sets.newHashSet(compilationAttributes.hdrs());
+    Collection<Artifact> publicCcHdrs = Sets.newHashSet(compilationAttributes.ccHdrs());
     Artifact pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);
     ImmutableList<Artifact> pchHdrList = (pchHdr != null)
         ? ImmutableList.<Artifact>of(pchHdr)
@@ -111,6 +112,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addDefines(common.getObjcProvider().get(DEFINE))
             .enableCompileProviders()
             .addPublicHeaders(publicHdrs)
+            .addPublicHeaders(publicCcHdrs)
             .addPublicHeaders(pchHdrList)
             .addPrecompiledFiles(precompiledFiles)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
@@ -137,11 +139,11 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     compilationSupport.addXcodeSettings(xcodeProviderBuilder, common);
-    
+
     new ResourceSupport(ruleContext)
         .validateAttributes()
         .addXcodeSettings(xcodeProviderBuilder);
-    
+
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
@@ -259,7 +261,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .build();
   }
-  
+
   private static ImmutableList<Artifact> getObjFiles(
       CompilationArtifacts compilationArtifacts, IntermediateArtifacts intermediateArtifacts) {
     ImmutableList.Builder<Artifact> result = new ImmutableList.Builder<>();
