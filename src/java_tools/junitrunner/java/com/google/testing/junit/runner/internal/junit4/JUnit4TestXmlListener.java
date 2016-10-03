@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.runner.junit4;
+package com.google.testing.junit.runner.internal.junit4;
 
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.Stderr;
+import com.google.testing.junit.runner.internal.Xml;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.Supplier;
 import java.io.OutputStream;
@@ -34,7 +35,7 @@ import sun.misc.SignalHandler;
  * A listener that writes the test output as XML.
  */
 @Singleton
-class JUnit4TestXmlListener extends RunListener  {
+public class JUnit4TestXmlListener extends RunListener  {
   private final Supplier<TestSuiteModel> modelSupplier;
   private final CancellableRequestFactory requestFactory;
   private final SignalHandlers signalHandlers;

@@ -15,6 +15,11 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.internal.SignalHandlers;
+import com.google.testing.junit.runner.internal.Xml;
+import com.google.testing.junit.runner.internal.junit4.JUnit4TestNameListener;
+import com.google.testing.junit.runner.internal.junit4.JUnit4TestStackTraceListener;
+import com.google.testing.junit.runner.internal.junit4.JUnit4TestXmlListener;
+import com.google.testing.junit.runner.internal.junit4.SettableCurrentRunningTest;
 import com.google.testing.junit.runner.util.TestNameProvider;
 import com.google.testing.junit.runner.util.Ticker;
 import java.io.FileNotFoundException;
@@ -98,7 +103,7 @@ public final class JUnit4RunnerModule {
   SettableCurrentRunningTest provideCurrentRunningTest() {
     return new SettableCurrentRunningTest() {
       @Override
-      void setGlobalTestNameProvider(TestNameProvider provider) {
+      protected void setGlobalTestNameProvider(TestNameProvider provider) {
         testNameProvider = provider;
       }
     };
