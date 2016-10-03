@@ -17,7 +17,9 @@
 # swiftstdlibtoolwrapper runs swift-stdlib-tool and zips up the output.
 # This script only runs on darwin and you must have Xcode installed.
 #
-# $1 OUTZIP - the path to place the output zip file.
+# --output_zip_path - the path to place the output zip file.
+# --bundle_path - the path inside of the archive to where libs will be copied.
+# --toolchain - toolchain identifier to use with xcrun.
 
 set -eu
 
@@ -25,15 +27,50 @@ MY_LOCATION=${MY_LOCATION:-"$0.runfiles/bazel_tools/tools/objc"}
 REALPATH="${MY_LOCATION}/realpath"
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-OUTZIP=$("${REALPATH}" "$1")
-PATH_INSIDE_ZIP="$2"
-shift 2
+TOOL_ARGS=()
+while [[ $# -gt 0 ]]; do
+  ARG="$1"
+  shift
+  case "${ARG}" in
+    --output_zip_path)
+      ARG="$1"
+      shift
+      OUTZIP=$("${REALPATH}" "${ARG}")
+      ;;
+    --bundle_path)
+      ARG="$1"
+      shift
+      PATH_INSIDE_ZIP="$ARG"
+      ;;
+    --toolchain)
+      ARG="$1"
+      shift
+      TOOLCHAIN=${ARG}
+      ;;
+    # Remaining args are swift-stdlib-tool args
+    *)
+     TOOL_ARGS+=("$ARG")
+     ;;
+    esac
+done
+
+
 TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/swiftstdlibtoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
 FULLPATH="$TEMPDIR/$PATH_INSIDE_ZIP"
 
-$WRAPPER swift-stdlib-tool --copy --verbose --destination "$FULLPATH" "$@"
+XCRUN_ARGS=()
+
+if [ -n "${TOOLCHAIN:-}" ]; then
+  XCRUN_ARGS+=(--toolchain "$TOOLCHAIN")
+fi
+
+XCRUN_ARGS+=(swift-stdlib-tool --copy --verbose )
+XCRUN_ARGS+=(--destination "$FULLPATH")
+XCRUN_ARGS+=( "${TOOL_ARGS[@]}" )
+
+$WRAPPER "${XCRUN_ARGS[@]}"
 
 # Need to push/pop tempdir so it isn't the current working directory
 # when we remove it via the EXIT trap.
