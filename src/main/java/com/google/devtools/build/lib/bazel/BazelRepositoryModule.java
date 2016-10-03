@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.Map.Entry;
@@ -169,5 +172,12 @@ public class BazelRepositoryModule extends BlazeModule {
   public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
     delegator.setClientEnvironment(env.getClientEnv());
     skylarkRepositoryFunction.setCommandEnvironment(env);
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return "fetch".equals(command.name()) || "build".equals(command.name())
+        ? ImmutableList.of(RepositoryOptions.class)
+        : ImmutableList.<Class<? extends OptionsBase>>of();
   }
 }
