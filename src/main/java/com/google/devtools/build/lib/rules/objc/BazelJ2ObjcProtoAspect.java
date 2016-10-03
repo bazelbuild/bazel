@@ -28,9 +28,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 
 /**
- * An aspect that transpiles .proto dependencies using the J2ObjC proto plugin,
- * //tools/objc:compile_protos and //tools/objc:proto_support. N.B.: These two tools
- * have not yet been released into open-source.
+ * An aspect that transpiles .proto dependencies using the J2ObjC proto plugin
+ * and //tools/objc:standalone_protoc. N.B.: This tool has not yet been released into
+ * open-source.
  */
 public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
   public static final String NAME = "BazelJ2ObjcProtoAspect";
