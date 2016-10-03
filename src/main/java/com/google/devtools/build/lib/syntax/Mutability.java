@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 
 /**
@@ -58,11 +59,10 @@ public final class Mutability implements AutoCloseable, Serializable {
 
   private boolean isMutable;
   // For each locked Freezable, store all Locations where it is locked.
-  // This field is set null once the Mutability is closed.
-  // Since some SkylarkValues currently override Object.equals() and Object.hashCode() in ways
-  // that break Java equality semantics, this map is keyed on the System.identityHashCode() value
-  // of the object.
-  private ArrayListMultimap<Integer, Location> lockedItems;
+  // This field is set null once the Mutability is closed. This saves some
+  // space, and avoids a concurrency bug from multiple Skylark modules
+  // accessing the same Mutability at once.
+  private IdentityHashMap<Freezable, List<Location>> lockedItems;
   private final String annotation; // For error reporting.
 
   /**
@@ -72,7 +72,8 @@ public final class Mutability implements AutoCloseable, Serializable {
    */
   private Mutability(String annotation) {
     this.isMutable = true;
-    this.lockedItems = ArrayListMultimap.create();
+    // Seems unlikely that we'll often lock more than 10 things at once.
+    this.lockedItems = new IdentityHashMap<>(10);
     this.annotation = Preconditions.checkNotNull(annotation);
   }
 
@@ -112,8 +113,7 @@ public final class Mutability implements AutoCloseable, Serializable {
     if (!isMutable) {
       return false;
     }
-    Integer hash = System.identityHashCode(object);
-    return lockedItems.containsKey(hash);
+    return lockedItems.containsKey(object);
   }
 
   /**
@@ -124,8 +124,7 @@ public final class Mutability implements AutoCloseable, Serializable {
     if (!isLocked(object)) {
       throw new AssertionError("trying to get lock locations for an object that is not locked");
     }
-    Integer hash = System.identityHashCode(object);
-    return lockedItems.get(hash);
+    return lockedItems.get(object);
   }
 
   /**
@@ -140,8 +139,14 @@ public final class Mutability implements AutoCloseable, Serializable {
     if (!isMutable) {
       return;
     }
-    Integer hash = System.identityHashCode(object);
-    lockedItems.put(hash, loc);
+    List<Location> locList;
+    if (!lockedItems.containsKey(object)) {
+      locList = new ArrayList<>();
+      lockedItems.put(object, locList);
+    } else {
+      locList = lockedItems.get(object);
+    }
+    locList.add(loc);
   }
 
   /**
@@ -157,14 +162,17 @@ public final class Mutability implements AutoCloseable, Serializable {
       // It's okay if we somehow got frozen while there were still locked objects.
       return;
     }
-    Integer hash = System.identityHashCode(object);
-    if (!lockedItems.containsKey(hash)) {
+    if (!lockedItems.containsKey(object)) {
       throw new AssertionError("trying to unlock an object that is not locked");
     }
-    boolean changed = lockedItems.remove(hash, loc);
+    List<Location> locList = lockedItems.get(object);
+    boolean changed = locList.remove(loc);
     if (!changed) {
       throw new AssertionError(Printer.format("trying to unlock an object for a location at which "
           + "it was not locked (%r)", loc));
+    }
+    if (locList.isEmpty()) {
+      lockedItems.remove(object);
     }
   }
 
@@ -247,7 +255,7 @@ public final class Mutability implements AutoCloseable, Serializable {
       throw new MutabilityException(
           "trying to mutate a locked object (is it currently being iterated over by a for loop "
           + "or comprehension?)\n"
-          + "Object locked at the following locations: "
+          + "Object locked at the following location(s): "
           + String.join(", ", locs));
     }
   }

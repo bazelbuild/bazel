@@ -201,7 +201,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     } catch (Mutability.MutabilityException e) {
       assertThat(e).hasMessage("trying to mutate a locked object (is it currently being iterated "
           + "over by a for loop or comprehension?)\n"
-          + "Object locked at the following locations: /b:1");
+          + "Object locked at the following location(s): /b:1");
     }
     try {
       mutability.unlock(dummy, locA);
