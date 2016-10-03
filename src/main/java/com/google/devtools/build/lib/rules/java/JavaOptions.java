@@ -377,6 +377,7 @@ public class JavaOptions extends FragmentOptions {
     // Java builds often contain complicated code generators for which
     // incremental build performance is important.
     host.useIjars = useIjars;
+    host.headerCompilation = headerCompilation;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
