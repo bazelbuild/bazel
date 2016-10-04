@@ -878,6 +878,11 @@ public final class CompilationSupport {
       commandLine.add("-Xcc").add(option);
     }
 
+    for (String option : getCompileRuleCopts()) {
+      commandLine.add("-Xcc").add(option);
+    }
+
+
     ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
         .addAll(attributes.hdrs())
         .addAll(attributes.ccHdrs())
@@ -989,6 +994,10 @@ public final class CompilationSupport {
       commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
     }
 
+    for (String option : getCompileRuleCopts()) {
+      commandLine.add("-Xcc").add(option);
+    }
+    
     // Import the Objective-C module map.
     if (objcConfiguration.moduleMapsEnabled()) {
       PathFragment moduleMapPath = intermediateArtifacts.unextendedModuleMap().getArtifact().getExecPath().getParentDirectory();
