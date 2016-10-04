@@ -813,8 +813,10 @@ public class CppCompileAction extends AbstractAction
     Set<PathFragment> declaredIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeDirs());
     Set<PathFragment> warnIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeWarnDirs());
     Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(getDeclaredIncludeSrcs());
+    Set<Artifact> transitiveModules = Sets.newHashSet(context.getTransitiveModules(usePic));
     for (Artifact input : inputsForValidation) {
       if (context.getTransitiveCompilationPrerequisites().contains(input)
+          || transitiveModules.contains(input)
           || allowedIncludes.contains(input)) {
         continue; // ignore our fixed source in mandatoryInput: we just want includes
       }
@@ -1014,6 +1016,7 @@ public class CppCompileAction extends AbstractAction
     addToMap(allowedDerivedInputMap, mandatoryInputs);
     addToMap(allowedDerivedInputMap, getDeclaredIncludeSrcs());
     addToMap(allowedDerivedInputMap, context.getTransitiveCompilationPrerequisites());
+    addToMap(allowedDerivedInputMap, context.getTransitiveModules(usePic));
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
       allowedDerivedInputMap.put(artifact.getExecPath(), artifact);

@@ -103,10 +103,6 @@ public class HeaderDiscovery {
     // Check inclusions.
     IncludeProblems problems = new IncludeProblems();
     for (Path execPath : depSet.getDependencies()) {
-      // Module .pcm files are generated and thus aren't declared inputs.
-      if (execPath.getBaseName().endsWith(".pcm")) {
-        continue;
-      }
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
         // Absolute includes from system paths are ignored.
