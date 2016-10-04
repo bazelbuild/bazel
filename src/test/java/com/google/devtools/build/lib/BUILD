@@ -78,6 +78,7 @@ java_library(
     ]),
     data = select({
         "//src:windows": [],
+        "//src:windows_msvc": [],
         "//conditions:default": [
             "//src/main/native:libunix.dylib",
             "//src/main/native:libunix.so",
@@ -211,6 +212,7 @@ java_test(
         ":MockSubprocess_deploy.jar",
     ] + select({
         "//src:windows": ["//src/main/native:windows_jni.dll"],
+        "//src:windows_msvc": ["//src/main/native:windows_jni.dll"],
         "//conditions:default": [
             "//src/main/native:libunix.dylib",
             "//src/main/native:libunix.so",
@@ -326,6 +328,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:java-rules",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -989,6 +992,7 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:buildeventstream",
         "//src/main/java/com/google/devtools/build/lib:clock",
         "//src/main/java/com/google/devtools/build/lib:flags",
         "//src/main/java/com/google/devtools/build/lib:io",
@@ -997,6 +1001,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
@@ -1015,9 +1020,11 @@ java_test(
         ":foundations_testutil",
         ":test_runner",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:remote_protocol_java_proto",
         "//third_party:guava",
         "//third_party:junit4",

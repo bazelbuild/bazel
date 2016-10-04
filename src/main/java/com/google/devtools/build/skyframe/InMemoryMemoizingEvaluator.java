@@ -85,19 +85,19 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       Differencer differencer,
-      @Nullable EvaluationProgressReceiver invalidationReceiver) {
-    this(skyFunctions, differencer, invalidationReceiver, new EmittedEventState(), true);
+      @Nullable EvaluationProgressReceiver progressReceiver) {
+    this(skyFunctions, differencer, progressReceiver, new EmittedEventState(), true);
   }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       Differencer differencer,
-      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      @Nullable EvaluationProgressReceiver progressReceiver,
       EmittedEventState emittedEventState,
       boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
-    this.progressReceiver = invalidationReceiver;
+    this.progressReceiver = progressReceiver;
     this.graph = new InMemoryGraphImpl(keepEdges);
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
@@ -388,11 +388,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         public MemoizingEvaluator create(
             ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
             Differencer differencer,
-            @Nullable EvaluationProgressReceiver invalidationReceiver,
+            @Nullable EvaluationProgressReceiver progressReceiver,
             EmittedEventState emittedEventState,
             boolean keepEdges) {
           return new InMemoryMemoizingEvaluator(
-              skyFunctions, differencer, invalidationReceiver, emittedEventState, keepEdges);
+              skyFunctions, differencer, progressReceiver, emittedEventState, keepEdges);
         }
       };
 }

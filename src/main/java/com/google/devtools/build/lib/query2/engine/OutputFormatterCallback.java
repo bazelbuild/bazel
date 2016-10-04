@@ -14,15 +14,12 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-
-import java.io.Closeable;
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /** A callback that can receive a finish event when there are no more partial results */
 @ThreadCompatible
-public abstract class OutputFormatterCallback<T> implements Callback<T>, Closeable {
+public abstract class OutputFormatterCallback<T> implements Callback<T> {
 
   private IOException ioException;
 
@@ -31,15 +28,16 @@ public abstract class OutputFormatterCallback<T> implements Callback<T>, Closeab
    *
    * <p>It should be used for opening resources or sending a header to the output.
    */
-  public void start() throws IOException { }
+  public void start() throws IOException {
+  }
 
   /**
-   * Same as start but for closing resources or writting a footer.
+   * Same as start but for closing resources or writing a footer.
    *
    * <p>Will be called even in the case of an error.
    */
-  @Override
-  public void close() throws IOException{}
+  public void close() throws InterruptedException, IOException {
+  }
 
   /**
    * Note that {@link Callback} interface does not throw IOExceptions. What this implementation does
@@ -57,7 +55,7 @@ public abstract class OutputFormatterCallback<T> implements Callback<T>, Closeab
     }
   }
 
-  protected abstract void processOutput(Iterable<T> partialResult)
+  public abstract void processOutput(Iterable<T> partialResult)
       throws IOException, InterruptedException;
 
   @Nullable

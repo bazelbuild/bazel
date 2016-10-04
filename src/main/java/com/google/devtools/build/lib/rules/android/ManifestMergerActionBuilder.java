@@ -43,6 +43,7 @@ public class ManifestMergerActionBuilder {
   private Map<String, String> manifestValues;
   private String customPackage;
   private Artifact manifestOutput;
+  private Artifact logOut;
 
   public ManifestMergerActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -76,6 +77,11 @@ public class ManifestMergerActionBuilder {
 
   public ManifestMergerActionBuilder setManifestOutput(Artifact manifestOutput) {
     this.manifestOutput = manifestOutput;
+    return this;
+  }
+
+  public ManifestMergerActionBuilder setLogOut(Artifact logOut) {
+    this.logOut = logOut;
     return this;
   }
 
@@ -118,6 +124,11 @@ public class ManifestMergerActionBuilder {
     builder.addExecPath("--manifestOutput", manifestOutput);
     outputs.add(manifestOutput);
 
+    if (logOut != null) {
+      builder.addExecPath("--log", logOut);
+      outputs.add(logOut);
+    }
+
     ruleContext.registerAction(
         this.spawnActionBuilder
             .addTransitiveInputs(inputs.build())
@@ -125,7 +136,7 @@ public class ManifestMergerActionBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_manifest_merger", Mode.HOST))
-            .setProgressMessage("Merging manifest")
+            .setProgressMessage("Merging manifest for " + ruleContext.getLabel())
             .setMnemonic("ManifestMerger")
             .build(context));
   }

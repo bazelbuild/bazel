@@ -243,7 +243,7 @@ class LH {
   uint8_t *extra_fields() {
     return reinterpret_cast<uint8_t *>(file_name_) + file_name_length();
   }
-  void extra_fields(uint8_t *data, uint16_t data_length) {
+  void extra_fields(const uint8_t *data, uint16_t data_length) {
     extra_fields_length_ = htole16(data_length);
     if (data_length) {
       memcpy(extra_fields(), data, data_length);

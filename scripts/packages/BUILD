@@ -8,6 +8,7 @@ filegroup(
     name = "packages",
     srcs = select({
         "//src:windows": [],
+        "//src:windows_msvc": [],
         "//src:darwin": [
             ":install.sh",
             ":generate-package-info",
@@ -159,11 +160,8 @@ pkg_deb(
             "google-jdk | java8-jdk | java8-sdk",
         ],
     }) + [
-        "pkg-config",
-        "zip",
         "g++",
         "zlib1g-dev",
-        "unzip",
         "bash-completion",
     ],
     description_file = "debian/description",

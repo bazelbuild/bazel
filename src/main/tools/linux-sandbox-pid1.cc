@@ -458,28 +458,96 @@ static void InstallSignalHandler(int signum, void (*handler)(int)) {
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
   sa.sa_handler = handler;
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
+  if (handler == SIG_IGN || handler == SIG_DFL) {
+    // No point in blocking signals when using the default handler or ignoring
+    // the signal.
+    if (sigemptyset(&sa.sa_mask) < 0) {
+      DIE("sigemptyset");
+    }
+  } else {
+    // When using a custom handler, block all signals from firing while the
+    // handler is running.
+    if (sigfillset(&sa.sa_mask) < 0) {
+      DIE("sigfillset");
+    }
   }
+  // sigaction may fail for certain reserved signals. Ignore failure in this
+  // case, but report it in debug mode, just in case.
   if (sigaction(signum, &sa, NULL) < 0) {
-    DIE("sigaction");
+    PRINT_DEBUG("sigaction(%d, &sa, NULL) failed", signum);
   }
 }
 
 static void IgnoreSignal(int signum) { InstallSignalHandler(signum, SIG_IGN); }
 
-static void InstallDefaultSignalHandler(int signum) {
-  InstallSignalHandler(signum, SIG_DFL);
+// Reset the signal mask and restore the default handler for all signals.
+static void RestoreSignalHandlersAndMask() {
+  // Use an empty signal mask for the process (= unblock all signals).
+  sigset_t empty_set;
+  if (sigemptyset(&empty_set) < 0) {
+    DIE("sigemptyset");
+  }
+  if (sigprocmask(SIG_SETMASK, &empty_set, nullptr) < 0) {
+    DIE("sigprocmask(SIG_SETMASK, <empty set>, nullptr)");
+  }
+
+  // Set the default signal handler for all signals.
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  if (sigemptyset(&sa.sa_mask) < 0) {
+    DIE("sigemptyset");
+  }
+  sa.sa_handler = SIG_DFL;
+  for (int i = 1; i < NSIG; ++i) {
+    // Ignore possible errors, because we might not be allowed to set the
+    // handler for certain signals, but we still want to try.
+    sigaction(i, &sa, nullptr);
+  }
+}
+
+static void ForwardSignal(int signum) {
+  PRINT_DEBUG("ForwardSignal(%d)", signum);
+  kill(-global_child_pid, signum);
+}
+
+static void SetupSignalHandlers() {
+  RestoreSignalHandlersAndMask();
+
+  for (int signum = 1; signum < NSIG; signum++) {
+    switch (signum) {
+      // Some signals should indeed kill us and not be forwarded to the child,
+      // thus we can use the default handler.
+      case SIGABRT:
+      case SIGBUS:
+      case SIGFPE:
+      case SIGILL:
+      case SIGSEGV:
+      case SIGSYS:
+      case SIGTRAP:
+        break;
+      // It's fine to use the default handler for SIGCHLD, because we use
+      // waitpid() in the main loop to wait for children to die anyway.
+      case SIGCHLD:
+        break;
+      // One does not simply install a signal handler for these two signals
+      case SIGKILL:
+      case SIGSTOP:
+        break;
+      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
+      // SpawnChild().
+      case SIGTTIN:
+      case SIGTTOU:
+        IgnoreSignal(signum);
+        break;
+      // All other signals should be forwarded to the child.
+      default:
+        InstallSignalHandler(signum, ForwardSignal);
+        break;
+    }
+  }
 }
 
 static void SpawnChild() {
-  // Ignore SIGTTIN / SIGTTOU in PID 1, as we're about to hand off the terminal
-  // to the child. A big thanks to @krallin for figuring out the intricacies of
-  // dealing with these signals and documenting it on
-  // http://curiousthing.org/sigttin-sigttou-deep-dive-linux.
-  IgnoreSignal(SIGTTIN);
-  IgnoreSignal(SIGTTOU);
-
   global_child_pid = fork();
 
   if (global_child_pid < 0) {
@@ -495,9 +563,8 @@ static void SpawnChild() {
       DIE("tcsetpgrp")
     }
 
-    // Restore handlers for SIGTTIN / SIGTTOU.
-    InstallDefaultSignalHandler(SIGTTIN);
-    InstallDefaultSignalHandler(SIGTTOU);
+    // Unblock all signals, restore default handlers.
+    RestoreSignalHandlersAndMask();
 
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.
@@ -512,48 +579,36 @@ static void SpawnChild() {
   }
 }
 
-static void HandleSignal(int signum) {
-  if (signum == SIGCHLD) {
-    // Our child process or one of its children died.
+static void WaitForChild() {
+  while (1) {
+    // Check for zombies to be reaped and exit, if our own child exited.
     int status;
-    pid_t killed_pid;
-    while ((killed_pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    pid_t killed_pid = waitpid(-1, &status, 0);
+    PRINT_DEBUG("waitpid returned %d", killed_pid);
+
+    if (killed_pid < 0) {
+      // Our PID1 process got a signal that interrupted the waitpid() call and
+      // that was either ignored or forwared to the child. This is expected &
+      // fine, just continue waiting.
+      if (errno == EINTR) {
+        continue;
+      }
+      DIE("waitpid")
+    } else {
       if (killed_pid == global_child_pid) {
         // If the child process we spawned earlier terminated, we'll also
         // terminate. We can simply _exit() here, because the Linux kernel will
         // kindly SIGKILL all remaining processes in our PID namespace once we
         // exit.
         if (WIFSIGNALED(status)) {
+          PRINT_DEBUG("child died due to signal %d", WTERMSIG(status));
           _exit(128 + WTERMSIG(status));
         } else {
+          PRINT_DEBUG("child exited with code %d", WEXITSTATUS(status));
           _exit(WEXITSTATUS(status));
         }
       }
     }
-  } else {
-    kill(-global_child_pid, signum);
-  }
-}
-
-static void WaitForChild() {
-  sigset_t all_signals;
-  if (sigfillset(&all_signals) < 0) {
-    DIE("sigfillset");
-  }
-  if (sigdelset(&all_signals, SIGTTIN) < 0) {
-    DIE("sigdelset");
-  }
-  if (sigdelset(&all_signals, SIGTTOU) < 0) {
-    DIE("sigdelset");
-  }
-  if (sigprocmask(SIG_BLOCK, &all_signals, NULL) < 0) {
-    DIE("sigprocmask");
-  }
-
-  while (1) {
-    int signum;
-    sigwait(&all_signals, &signum);
-    HandleSignal(signum);
   }
 }
 
@@ -571,6 +626,7 @@ int Pid1Main(void *sync_pipe_param) {
   MountProc();
   SetupNetworking();
   EnterSandbox();
+  SetupSignalHandlers();
   SpawnChild();
   WaitForChild();
   _exit(EXIT_FAILURE);

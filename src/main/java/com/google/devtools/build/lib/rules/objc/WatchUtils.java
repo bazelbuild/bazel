@@ -193,7 +193,8 @@ final class WatchUtils {
         XcodeprojBuildSetting.newBuilder()
             .setName("IPHONEOS_DEPLOYMENT_TARGET")
             .setValue(determineMinimumIosVersion(
-                ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs()).toString())
+                ruleContext.getFragment(AppleConfiguration.class)
+                    .getMinimumOsForPlatformType(PlatformType.IOS)).toString())
             .build());
     return xcodeSettings.build();
   }

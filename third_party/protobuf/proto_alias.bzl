@@ -1,5 +1,3 @@
-#!/bin/bash
-#
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This exists so that unzip can be invoked by a SpawnAction. It relies on unzip
-# existing in the user's path.
-
-unzip "$@"
+def proto_alias(name, version):
+  native.alias(
+      name = name,
+      actual = "//third_party/protobuf/" + version + ":" + name)

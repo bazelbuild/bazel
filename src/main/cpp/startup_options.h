@@ -207,10 +207,8 @@ class StartupOptions {
 
  private:
   string host_javabase;
-
-  // Sets default values for members.
-  void Init();
 };
 
 }  // namespace blaze
+
 #endif  // BAZEL_SRC_MAIN_CPP_STARTUP_OPTIONS_H_

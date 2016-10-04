@@ -158,18 +158,18 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             extraLinkInputs,
             DsymOutputType.TEST)
         .registerCompileAndArchiveActions(common)
-        .registerFullyLinkAction(common.getObjcProvider())
+        .registerFullyLinkAction(common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     new ReleaseBundlingSupport(
             ruleContext,
             common.getObjcProvider(),
             LinkedBinary.LOCAL_AND_DEPENDENCIES,
             bundleFormat,
-            objcConfiguration.getMinimumOs(),
+            appleConfiguration.getMinimumOsForPlatformType(PlatformType.IOS),
             appleConfiguration.getMultiArchPlatform(PlatformType.IOS))
         .registerActions(DsymOutputType.TEST)
         .addXcodeSettings(xcodeProviderBuilder)
@@ -214,12 +214,17 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, runfiles, executable);
 
+    ImmutableMap.Builder<String, String> execInfoMapBuilder = new ImmutableMap.Builder<>();
+    execInfoMapBuilder.put(ExecutionRequirements.REQUIRES_DARWIN, "");
+    if (ruleContext.getFragment(ObjcConfiguration.class).runMemleaks()) {
+      execInfoMapBuilder.put("nosandbox", "");
+    }
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuildBuilder.build())
         .addProvider(xcodeProvider)
         .addProvider(RunfilesProvider.simple(runfiles))
-        .addProvider(
-            new ExecutionInfoProvider(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")))
+        .addProvider(new ExecutionInfoProvider(execInfoMapBuilder.build()))
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProviders(testSupport.getExtraProviders())
         .setRunfilesSupport(runfilesSupport, executable)

@@ -58,12 +58,12 @@ import org.junit.runners.JUnit4;
 public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   private Builder builder;
   private Executor executor;
-  private TrackingEvaluationProgressReceiver invalidationReceiver;
+  private TrackingEvaluationProgressReceiver progressReceiver;
 
   @Before
   public final void createBuilder() throws Exception {
-    invalidationReceiver = new TrackingEvaluationProgressReceiver();
-    builder = createBuilder(inMemoryCache, 1, /*keepGoing=*/ false, invalidationReceiver);
+    progressReceiver = new TrackingEvaluationProgressReceiver();
+    builder = createBuilder(inMemoryCache, 1, /*keepGoing=*/ false, progressReceiver);
   }
 
   @Before
@@ -396,7 +396,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionExecutionValue.key(action);
     TrackingEvaluationProgressReceiver.EvaluatedEntry evaluatedAction =
-        invalidationReceiver.getEvalutedEntry(actionKey);
+        progressReceiver.getEvalutedEntry(actionKey);
     assertThat(evaluatedAction).isNotNull();
     SkyValue actionValue = evaluatedAction.value;
 
@@ -407,7 +407,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     betweenBuilds.call();
 
     // Rebuild the output.
-    invalidationReceiver.reset();
+    progressReceiver.reset();
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(actionOutput),
@@ -422,10 +422,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null);
 
     if (expectActionIs.dirtied()) {
-      assertThat(invalidationReceiver.wasInvalidated(actionKey)).isTrue();
+      assertThat(progressReceiver.wasInvalidated(actionKey)).isTrue();
 
       TrackingEvaluationProgressReceiver.EvaluatedEntry newEntry =
-          invalidationReceiver.getEvalutedEntry(actionKey);
+          progressReceiver.getEvalutedEntry(actionKey);
       assertThat(newEntry).isNotNull();
       if (expectActionIs.actuallyClean()) {
         // Action was dirtied but verified clean.
@@ -439,7 +439,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       }
     } else {
       // Action was not dirtied.
-      assertThat(invalidationReceiver.wasInvalidated(actionKey)).isFalse();
+      assertThat(progressReceiver.wasInvalidated(actionKey)).isFalse();
     }
 
     // Assert that the action was executed the right number of times. Whether the action execution

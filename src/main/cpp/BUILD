@@ -24,6 +24,9 @@ cc_library(
         "//src:windows": [
             "blaze_util_mingw.cc",
         ],
+        "//src:windows_msvc": [
+            "blaze_util_msvc.cc",
+        ],
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",
@@ -49,7 +52,14 @@ cc_library(
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
-    ],
+    ] + select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:freebsd": [],
+        "//src:windows": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": ["//src/main/cpp/util:file_linux"],
+    }),
 )
 
 cc_library(

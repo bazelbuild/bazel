@@ -656,4 +656,43 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
+test_swift_bitcode() {
+  rm -rf ios
+  mkdir -p ios
+
+cat >ios/main.swift <<EOF
+func f() {}
+EOF
+
+cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"])
+EOF
+
+  ARCHIVE=bazel-genfiles/ios/swift_lib/_objs/ios_swift_lib.a
+
+  # No bitcode
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+  ! otool -l $ARCHIVE | grep __bitcode -sq \
+      || fail "expected a.o to contain bitcode"
+
+  # Bitcode marker
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded_markers \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+  # Bitcode marker has a length of 1.
+  assert_equals $(size -m $ARCHIVE | grep __bitcode | cut -d: -f2 | tr -d ' ') "1"
+
+  # Full bitcode
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+  otool -l $ARCHIVE | grep __bitcode -sq \
+      || fail "expected a.o to contain bitcode"
+}
+
 run_suite "apple_tests"

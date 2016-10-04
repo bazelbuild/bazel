@@ -16,9 +16,8 @@
 
 #ifdef __linux
 #include <sys/syscall.h>
-#endif  // __linux
-
 #include <unistd.h>
+#endif  // __linux
 
 namespace blaze_util {
 

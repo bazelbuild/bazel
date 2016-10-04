@@ -56,7 +56,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
@@ -81,7 +82,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -262,7 +262,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     DigraphQueryEvalResult<Target> queryResult;
     OutputFormatter formatter;
-    AggregateAllCallback<Target> targets = new AggregateAllCallback<>();
+    AggregateAllOutputFormatterCallback<Target> targets =
+        QueryUtil.newAggregateAllOutputFormatterCallback();
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -306,21 +307,20 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     } catch (QueryException e) {
       ruleContext.ruleError("query failed: " + e.getMessage());
       return null;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    PrintStream printStream = new PrintStream(outputStream);
-
     try {
       QueryOutputUtils
-          .output(queryOptions, queryResult, targets.getResult(), formatter, printStream,
+          .output(queryOptions, queryResult, targets.getResult(), formatter, outputStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    printStream.flush();
 
     return outputStream.toByteArray();
   }

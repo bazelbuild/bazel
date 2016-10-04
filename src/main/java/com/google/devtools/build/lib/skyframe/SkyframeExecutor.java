@@ -899,9 +899,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
-      RuleVisibility defaultVisibility,
-      boolean showLoadingProgress,
-      int globbingThreads,
+      PackageCacheOptions packageCacheOptions,
       String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
@@ -915,13 +913,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setCommandId(commandId);
     setPrecomputedClientEnv(clientEnv);
     setBlacklistedPackagePrefixesFile(getBlacklistedPackagePrefixesFile());
-    setShowLoadingProgress(showLoadingProgress);
-    setDefaultVisibility(defaultVisibility);
+    setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
+    setDefaultVisibility(packageCacheOptions.defaultVisibility);
     setupDefaultPackage(defaultsPackageContents);
     setPackageLocator(pkgLocator);
 
-    syscalls.set(newPerBuildSyscallCache(globbingThreads));
-    this.pkgFactory.setGlobbingThreads(globbingThreads);
+    syscalls.set(newPerBuildSyscallCache(packageCacheOptions.globbingThreads));
+    this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
     checkPreprocessorFactory();
     emittedEventState.clear();
 
@@ -1259,8 +1257,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (Dependency key : keys) {
       if (key.hasStaticConfiguration()) {
         builder.put(key, key.getConfiguration());
-      } else if (key.getTransition() == Attribute.ConfigurationTransition.NULL) {
-        builder.put(key, null);
       } else if (useUntrimmedDynamicConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
@@ -1690,9 +1686,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             outputBase,
             directories.getWorkspace(),
             workingDirectory),
-        packageCacheOptions.defaultVisibility,
-        packageCacheOptions.showLoadingProgress,
-        packageCacheOptions.globbingThreads,
+        packageCacheOptions,
         defaultsPackageContents,
         commandId,
         clientEnv,
@@ -1889,7 +1883,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getInvalidationReceiver().invalidated(skyKey, state);
+      skyframeBuildView.getProgressReceiver().invalidated(skyKey, state);
     }
 
     @Override
@@ -1897,7 +1891,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getInvalidationReceiver().enqueueing(skyKey);
+      skyframeBuildView.getProgressReceiver().enqueueing(skyKey);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.enqueueing(skyKey);
       }
@@ -1911,7 +1905,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getInvalidationReceiver().evaluated(skyKey, valueSupplier, state);
+      skyframeBuildView.getProgressReceiver().evaluated(skyKey, valueSupplier, state);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(skyKey, valueSupplier, state);
       }

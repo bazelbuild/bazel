@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.runner.junit4;
-
-import org.junit.runner.Description;
-import org.junit.runner.manipulation.Filter;
+package com.google.testing.junit.junit4.runner;
 
 import java.util.regex.Pattern;
+import org.junit.runner.Description;
+import org.junit.runner.manipulation.Filter;
 
 /**
  * Filter that filters out test cases that either matches or does not match a specified regular

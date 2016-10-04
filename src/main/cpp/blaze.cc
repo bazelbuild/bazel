@@ -50,6 +50,7 @@
 #include <utime.h>
 
 #include <grpc/grpc.h>
+#include <grpc/support/log.h>
 #include <grpc++/channel.h>
 #include <grpc++/client_context.h>
 #include <grpc++/create_channel.h>

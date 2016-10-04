@@ -111,6 +111,10 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   public static final Key<Artifact> MULTI_ARCH_LINKED_BINARIES =
       new Key<>(STABLE_ORDER, "combined_arch_linked_binary", Artifact.class);
 
+  /** Combined-architecture archives to include in the final bundle. */
+  public static final Key<Artifact> MULTI_ARCH_LINKED_ARCHIVES =
+      new Key<>(STABLE_ORDER, "combined_arch_linked_archive", Artifact.class);
+
   /**
    * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
    * the {@link #LIBRARY} and {@link #IMPORTED_LIBRARY} sets.
@@ -425,7 +429,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
   private static final SkylarkClassObjectConstructor OBJC_PROVIDER =
-      new SkylarkClassObjectConstructor("objc_provider");
+      SkylarkClassObjectConstructor.createNative("objc_provider");
 
   private ObjcProvider(
       ImmutableMap<Key<?>, NestedSet<?>> items,
@@ -543,6 +547,21 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     public Builder addTransitiveAndPropagate(ObjcProvider provider) {
       for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
         uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.items);
+      }
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
+        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
+      }
+      return this;
+    }
+   
+    /**
+     * Add all keys and values from the given provider, but propagate any normally-propagated items
+     * only to direct dependers of this ObjcProvider.
+     */
+    public Builder addAsDirectDeps(ObjcProvider provider) {
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
+        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(),
+            this.strictDependencyItems);
       }
       for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
         uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
@@ -686,6 +705,32 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
                     EvalUtils.getDataTypeName(toAddObject)));
           } else {
             this.addTransitiveAndPropagate((ObjcProvider) toAddObject);
+          }
+        }
+      }
+    }
+
+    /**
+     * Adds the given providers from skylark, but propagate any normally-propagated items
+     * only to direct dependers. An error is thrown if toAdd is not an iterable of ObjcProvider
+     * instances.
+     */
+    @SuppressWarnings("unchecked")
+    void addDirectDepProvidersFromSkylark(Object toAdd) {
+      if (!(toAdd instanceof Iterable)) {
+        throw new IllegalArgumentException(
+            String.format(
+                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
+      } else {
+        Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
+        for (Object toAddObject : toAddIterable) {
+          if (!(toAddObject instanceof ObjcProvider)) {
+            throw new IllegalArgumentException(
+                String.format(
+                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
+                    EvalUtils.getDataTypeName(toAddObject)));
+          } else {
+            this.addAsDirectDeps((ObjcProvider) toAddObject);
           }
         }
       }

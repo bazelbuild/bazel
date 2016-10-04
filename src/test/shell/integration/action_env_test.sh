@@ -47,7 +47,7 @@ function test_simple() {
   export FOO=baz
   bazel build --action_env=FOO=bar pkg:showenv \
       || fail "bazel build showenv failed"
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=bar"
 }
 
@@ -57,7 +57,7 @@ function test_simple_latest_wins() {
   bazel build --action_env=FOO=foo \
       --action_env=BAR=willbeoverridden --action_env=BAR=bar pkg:showenv \
       || fail "bazel build showenv failed"
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=foo"
   expect_log "BAR=bar"
 }
@@ -68,7 +68,7 @@ function test_client_env() {
   bazel help build > /dev/null || fail "bazel help failed"
   export FOO=client_foo
   bazel build --action_env=FOO pkg:showenv || fail "bazel build showenv failed"
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=client_foo"
 }
 
@@ -76,7 +76,7 @@ function test_redo_action() {
   export FOO=initial_foo
   export UNRELATED=some_value
   bazel build --action_env=FOO pkg:showenv || fail "bazel build showenv failed"
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=initial_foo"
 
   # If an unrelated value changes, we expect the action not to be executed again
@@ -90,7 +90,7 @@ function test_redo_action() {
   bazel build --action_env=FOO -s --experimental_ui pkg:showenv 2> $TEST_log \
       || fail "bazel build showenv failed"
   expect_log '^SUBCOMMAND.*pkg:showenv'
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=changed_foo"
 
   # But repeating the build with no further changes, no action should happen
@@ -104,7 +104,7 @@ function test_latest_wins_arg() {
   export BAR=baz
   bazel build --action_env=BAR --action_env=FOO --action_env=FOO=foo \
       pkg:showenv || fail "bazel build showenv failed"
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=foo"
   expect_log "BAR=baz"
   expect_not_log "FOO=bar"
@@ -115,7 +115,7 @@ function test_latest_wins_env() {
   export BAR=baz
   bazel build --action_env=BAR --action_env=FOO=foo --action_env=FOO \
       pkg:showenv || fail "bazel build showenv failed"
-  cat `bazel info bazel-genfiles`/pkg/env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=bar"
   expect_log "BAR=baz"
   expect_not_log "FOO=foo"

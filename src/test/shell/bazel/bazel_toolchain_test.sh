@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests compiling using an external toolchain
+# Tests compiling using an external Linaro toolchain on a Linux machine
 #
 
 # Load test environment
@@ -28,6 +28,9 @@ cp -r ${testdata_path}/bazel_toolchain_test_data/* .
 # (Did not include the file WORKSPACE in the test because source tree under
 # directories that contain this file is not parsed)
 mv WORKSPACE.linaro WORKSPACE
+
+# Make sure that the wrapper scripts have the execution permission
+chmod +x tools/arm_compiler/linaro_linux_gcc/arm-linux-gnueabihf-*
 
 bazel clean --expunge
 bazel build --crosstool_top=//tools/arm_compiler:toolchain --cpu=armeabi-v7a \

@@ -14,6 +14,8 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import com.google.testing.junit.runner.internal.junit4.JUnit4TestNameListener;
+import com.google.testing.junit.runner.internal.junit4.SettableCurrentRunningTest;
 import com.google.testing.junit.runner.util.Factory;
 import com.google.testing.junit.runner.util.Supplier;
 

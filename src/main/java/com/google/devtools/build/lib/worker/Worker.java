@@ -14,17 +14,12 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Interface to a worker process running as a child process.
@@ -37,70 +32,62 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Other code in Blaze can talk to the worker process via input / output streams provided by this
  * class.
  */
-final class Worker {
-  private static final AtomicInteger pidCounter = new AtomicInteger();
+class Worker {
+  private final WorkerKey workerKey;
   private final int workerId;
-  private final Process process;
-  private final Thread shutdownHook;
-  private final HashCode workerFilesHash;
+  private final Path workDir;
+  private final Path logFile;
 
-  private Worker(Process process, Thread shutdownHook, int pid, HashCode workerFilesHash) {
-    this.process = process;
-    this.shutdownHook = shutdownHook;
-    this.workerId = pid;
-    this.workerFilesHash = workerFilesHash;
+  private Process process;
+  private Thread shutdownHook;
+
+  Worker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
+    this.workerKey = workerKey;
+    this.workerId = workerId;
+    this.workDir = workDir;
+    this.logFile = logFile;
+
+    final Worker self = this;
+    this.shutdownHook =
+        new Thread() {
+          @Override
+          public void run() {
+            try {
+              self.shutdownHook = null;
+              self.destroy();
+            } catch (IOException e) {
+              // We can't do anything here.
+            }
+          }
+        };
+    Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
-  static Worker create(WorkerKey key, Path logDir, Reporter reporter, boolean verbose)
-      throws IOException {
-    Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(logDir);
-
-    int workerId = pidCounter.getAndIncrement();
-    Path logFile = logDir.getRelative("worker-" + workerId + "-" + key.getMnemonic() + ".log");
-
-    String[] command = key.getArgs().toArray(new String[0]);
+  void createProcess() throws IOException {
+    String[] command = workerKey.getArgs().toArray(new String[0]);
 
     // Follows the logic of {@link com.google.devtools.build.lib.shell.Command}.
     File executable = new File(command[0]);
     if (!executable.isAbsolute() && executable.getParent() != null) {
-      command[0] = new File(key.getWorkDir().getPathFile(), command[0]).getAbsolutePath();
+      command[0] = new File(workDir.getPathFile(), command[0]).getAbsolutePath();
     }
     ProcessBuilder processBuilder =
         new ProcessBuilder(command)
-            .directory(key.getWorkDir().getPathFile())
+            .directory(workDir.getPathFile())
             .redirectError(Redirect.appendTo(logFile.getPathFile()));
     processBuilder.environment().clear();
-    processBuilder.environment().putAll(key.getEnv());
+    processBuilder.environment().putAll(workerKey.getEnv());
 
-    final Process process = processBuilder.start();
-
-    Thread shutdownHook =
-        new Thread() {
-          @Override
-          public void run() {
-            destroyProcess(process);
-          }
-        };
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
-
-    if (verbose) {
-      reporter.handle(
-          Event.info(
-              "Created new "
-                  + key.getMnemonic()
-                  + " worker (id "
-                  + workerId
-                  + "), logging to "
-                  + logFile));
-    }
-
-    return new Worker(process, shutdownHook, workerId, key.getWorkerFilesHash());
+    this.process = processBuilder.start();
   }
 
-  void destroy() {
-    Runtime.getRuntime().removeShutdownHook(shutdownHook);
-    destroyProcess(process);
+  void destroy() throws IOException {
+    if (shutdownHook != null) {
+      Runtime.getRuntime().removeShutdownHook(shutdownHook);
+    }
+    if (process != null) {
+      destroyProcess(process);
+    }
   }
 
   /**
@@ -138,7 +125,7 @@ final class Worker {
   }
 
   HashCode getWorkerFilesHash() {
-    return workerFilesHash;
+    return workerKey.getWorkerFilesHash();
   }
 
   boolean isAlive() {
@@ -159,4 +146,8 @@ final class Worker {
   OutputStream getOutputStream() {
     return process.getOutputStream();
   }
+
+  public void prepareExecution(WorkerKey key) throws IOException {}
+
+  public void finishExecution(WorkerKey key) throws IOException {}
 }

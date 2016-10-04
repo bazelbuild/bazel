@@ -548,7 +548,7 @@ public abstract class DependencyResolver {
     aspectCandidates.addAll(attribute.getAspects(originalRule));
     if (aspect != null) {
       for (AspectClass aspectClass :
-          aspect.getDefinition().getAttributeAspects().get(attribute.getName())) {
+          aspect.getDefinition().getAttributeAspects(attribute)) {
         if (aspectClass.equals(aspect.getAspectClass())) {
           aspectCandidates.add(aspect);
         } else if (aspectClass instanceof NativeAspectClass) {

@@ -74,7 +74,7 @@ def java_library_impl(ctx):
     inputs = (sources + compile_time_jars_list + [sources_param_file] +
               [ctx.file._jar] + ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
     outputs = [class_jar],
-    mnemonic='Javac',
+    mnemonic='JavacBootstrap',
     command=cmd,
     use_default_shell_env=True)
 

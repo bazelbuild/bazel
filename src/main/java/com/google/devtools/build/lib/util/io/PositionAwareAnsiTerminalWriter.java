@@ -31,21 +31,23 @@ public class PositionAwareAnsiTerminalWriter implements AnsiTerminalWriter {
     this.position = 0;
   }
 
-  private void appendChar(char c) throws IOException {
-    if (c == '\n') {
-      terminalWriter.newline();
-      position = 0;
-    } else {
-      terminalWriter.append(Character.toString(c));
-      position++;
-    }
-  }
-
   @Override
   public AnsiTerminalWriter append(String text) throws IOException {
-    for (int i = 0; i < text.length(); i++) {
-      appendChar(text.charAt(i));
+    int i = 0;
+    while (i < text.length()) {
+       int next = text.indexOf('\n', i);
+       if (next == -1) {
+         terminalWriter.append(text.substring(i));
+         position += text.length() - i;
+         i = text.length();
+       } else {
+         terminalWriter.append(text.substring(i, next));
+         terminalWriter.newline();
+         i = next + 1;
+         position = 0;
+       }
     }
+
     return this;
   }
 

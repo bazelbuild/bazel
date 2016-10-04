@@ -22,6 +22,11 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef COMPILER_MSVC
+#define PATH_MAX 4096
+typedef int mode_t;
+#endif  // COMPILER_MSVC
+
 namespace devtools_ijar {
 
 typedef unsigned long long u8;

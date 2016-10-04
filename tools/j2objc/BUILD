@@ -17,3 +17,8 @@ filegroup(
     name = "j2objc_wrapper",
     srcs = ["j2objc_wrapper.py"],
 )
+
+filegroup(
+    name = "j2objc_proto_blacklist",
+    srcs = ["dummy.proto"],
+)

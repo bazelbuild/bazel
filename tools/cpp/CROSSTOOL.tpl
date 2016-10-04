@@ -297,6 +297,7 @@ toolchain {
     compiler_flag: "-g"
     compiler_flag: "/Od"
     compiler_flag: "-Xcompilation-mode=dbg"
+    linker_flag: "-Xcompilation-mode=dbg"
   }
 
   compilation_mode_flags {
@@ -304,6 +305,7 @@ toolchain {
     compiler_flag: "/DNDEBUG"
     compiler_flag: "/Od"
     compiler_flag: "-Xcompilation-mode=fastbuild"
+    linker_flag: "-Xcompilation-mode=fastbuild"
   }
 
   compilation_mode_flags {
@@ -311,5 +313,6 @@ toolchain {
     compiler_flag: "/DNDEBUG"
     compiler_flag: "/O2"
     compiler_flag: "-Xcompilation-mode=opt"
+    linker_flag: "-Xcompilation-mode=opt"
   }
 }

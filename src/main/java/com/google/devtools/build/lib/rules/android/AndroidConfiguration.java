@@ -332,6 +332,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + "Jack and Jill.")
     public boolean incrementalDexing;
 
+    // Do not use on the command line and instead flip this default globally.
+    @Option(name = "host_incremental_dexing",
+        defaultValue = "false",
+        category = "hidden",
+        help = "Does most of the work for dexing separately for each Jar file that's part of an "
+            + "Android binary built in host configuration.")
+    public boolean hostIncrementalDexing;
+
     // Do not use on the command line.
     // The idea is that this option lets us gradually turn on incremental dexing for different
     // binaries.  Users should rely on --noincremental_dexing to turn it off.
@@ -411,6 +419,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Implementation to use to sign APKs")
     public ApkSigningMethod apkSigningMethod;
 
+    @Option(name = "use_singlejar_apkbuilder",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Build Android APKs with SingleJar.")
+    public boolean useSingleJarApkBuilder;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -425,6 +439,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       Options host = (Options) super.getHost(fallback);
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;
+      host.fatApkCpus = ImmutableList.<String>of(); // Fat APK archs don't apply to the host.
+
+      host.desugarJava8 = desugarJava8;
+      host.incrementalDexing = hostIncrementalDexing;
+      host.incrementalDexingBinaries = incrementalDexingBinaries;
+      host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
+      host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+      host.dexingStrategy = dexingStrategy;
       return host;
     }
 
@@ -479,6 +501,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useParallelResourceProcessing;
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
+  private final boolean useSingleJarApkBuilder;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -504,6 +527,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useParallelResourceProcessing = options.useParallelResourceProcessing;
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
+    this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
   }
 
   public String getCpu() {
@@ -586,6 +610,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public ApkSigningMethod getApkSigningMethod() {
     return apkSigningMethod;
+  }
+
+  public boolean useSingleJarApkBuilder() {
+    return useSingleJarApkBuilder;
   }
 
   @Override

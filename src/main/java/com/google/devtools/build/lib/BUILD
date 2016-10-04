@@ -19,6 +19,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
@@ -62,6 +64,7 @@ java_library(
     resources = select({
         # todo(dslomov): Get rid of this whole library on Windows.
         "//src:windows": [],
+        "//src:windows_msvc": [],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     deps = [
@@ -290,6 +293,19 @@ java_library(
         ":vfs",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+# External build-event reporting infrastructure
+java_library(
+    name = "buildeventstream",
+    srcs = glob(["buildeventstream/*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/protobuf",
     ],
 )
 
@@ -964,6 +980,7 @@ java_library(
     ),
     deps = [
         ":build-base",
+        ":buildeventstream",
         ":clock",
         ":collect",
         ":concurrent",
@@ -981,6 +998,7 @@ java_library(
         ":windows",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",

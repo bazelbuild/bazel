@@ -23,12 +23,15 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -1010,5 +1013,78 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     String filename = evalRuleContextCode(ruleContext, "ruleContext.files.srcs[0].short_path")
         .toString();
     assertThat(filename).isEqualTo("../foo/bar.txt");
+  }
+
+  private void setUpActionTest() throws Exception {
+    scratch.file("test/rules.bzl",
+        "def _testable_impl(ctx):",
+        "  out = ctx.outputs.out",
+        "  ctx.action(outputs=[out], command='echo foo123 > ' + out.path)",
+        "testable_rule = rule(",
+        "  implementation = _testable_impl,",
+        "  outputs = {'out': '%{name}.txt'},",
+        "  _skylark_testable = True,",
+        ")",
+        "def _nontestable_impl(ctx):",
+        "  out = ctx.outputs.out",
+        "  ctx.action(outputs=[out], command='echo bar123 > ' + out.path)",
+        "nontestable_rule = rule(",
+        "  implementation = _nontestable_impl,",
+        "  outputs = {'out': '%{name}.txt'},",
+        ")",
+        "def _testing_impl(ctx):",
+        "  pass",
+        "testing_rule = rule(",
+        "  implementation = _testing_impl,",
+        "  attrs = {'dep1': attr.label(),",
+        "           'dep2': attr.label(),},",
+        ")");
+    scratch.file("test/BUILD",
+        "load(':rules.bzl', 'testable_rule', 'nontestable_rule', 'testing_rule')",
+        "testable_rule(",
+        "    name = 'testable',",
+        ")",
+        "nontestable_rule(",
+        "    name = 'nontestable',",
+        ")",
+        "testing_rule(",
+        "    name = 'testing',",
+        "    dep1 = ':testable',",
+        "    dep2 = ':nontestable',",
+        ")");
+  }
+
+  @Test
+  public void testDependencyActionsProvider() throws Exception {
+    setUpActionTest();
+    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+
+    Object provider = evalRuleContextCode(ruleContext, "ruleContext.attr.dep1[Actions]");
+    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
+    assertThat(((SkylarkClassObject) provider).getConstructor())
+        .isEqualTo(ActionsProvider.ACTIONS_PROVIDER);
+    update("actions", provider);
+
+    Object mapping = eval("actions.by_file");
+    assertThat(mapping).isInstanceOf(SkylarkDict.class);
+    assertThat((SkylarkDict<?, ?>) mapping).hasSize(1);
+    update("file", eval("list(ruleContext.attr.dep1.files)[0]"));
+    Object actionUnchecked = eval("actions.by_file[file]");
+    assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
+  }
+
+  @Test
+  public void testNoAccessToDependencyActionsWithoutSkylarkTest() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    setUpActionTest();
+    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+
+    try {
+      evalRuleContextCode(ruleContext, "ruleContext.attr.dep2[Actions]");
+      fail("Should have failed due to trying to access actions of a rule not marked "
+          + "_skylark_testable");
+    } catch (Exception e) {
+      assertThat(e).hasMessage("Object of type Target doesn't contain declared provider Actions");
+    }
   }
 }

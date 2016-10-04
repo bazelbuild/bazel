@@ -18,15 +18,10 @@ import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_S
 
 import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.runner.internal.Stdout;
-import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.util.MemoizingSupplier;
 import com.google.testing.junit.runner.util.Supplier;
-import dagger.Module;
-import dagger.Provides;
-import dagger.multibindings.IntoSet;
-import dagger.multibindings.Multibinds;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
@@ -41,31 +36,23 @@ import org.junit.runner.notification.RunListener;
  * Dagger module for creating a {@link JUnit4Runner}. This contains the common bindings used when
  * either the runner runs actual tests or when we do integration tests of the runner itself.
  */
-@Module(includes = SuiteClass.class)
 public abstract class JUnit4RunnerBaseModule {
 
-  @Multibinds
   abstract Set<JUnit4Runner.Initializer> initializers();
   
-  @Provides
   static ShardingFilterFactory shardingFilterFactory() {
     return DEFAULT_SHARDING_STRATEGY;
   }
 
-  @Provides
-  @IntoSet
   static RunListener textListener(TextListener impl) {
     return impl;
   }
 
-
-  @Provides
   @Singleton
   static Supplier<TestSuiteModel> provideTestSuiteModelSupplier(JUnit4TestModelBuilder builder) {
     return new MemoizingSupplier<>(builder);
   }
 
-  @Provides
   @Singleton
   static TextListener provideTextListener(@Stdout PrintStream testRunnerOut) {
     return new TextListener(asUtf8PrintStream(testRunnerOut));
@@ -79,7 +66,6 @@ public abstract class JUnit4RunnerBaseModule {
     }
   }
 
-  @Provides
   @Singleton
   static Request provideRequest(@TopLevelSuite Class<?> suiteClass) {
     /*

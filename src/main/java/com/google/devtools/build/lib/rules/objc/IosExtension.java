@@ -25,10 +25,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
-
 import java.io.Serializable;
 
 /**
@@ -60,7 +61,9 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
 
   @Override
   protected DottedVersion bundleMinimumOsVersion(RuleContext ruleContext) {
-    return determineMinimumOsVersion(ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs(),
+    return determineMinimumOsVersion(
+        ruleContext.getFragment(AppleConfiguration.class)
+            .getMinimumOsForPlatformType(PlatformType.IOS),
         EXTENSION_MINIMUM_OS_VERSION);
   }
 
@@ -110,11 +113,11 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
 
     @Override
     protected ImmutableList<BuildOptions> defaultOptions(BuildOptions originalOptions) {
-      ObjcCommandLineOptions objcOptions = originalOptions.get(ObjcCommandLineOptions.class);
-      DottedVersion newMinimumVersion = determineMinimumOsVersion(objcOptions.iosMinimumOs,
+      AppleCommandLineOptions appleOptions = originalOptions.get(AppleCommandLineOptions.class);
+      DottedVersion newMinimumVersion = determineMinimumOsVersion(appleOptions.iosMinimumOs,
           minimumOSVersion);
 
-      if (newMinimumVersion.equals(objcOptions.iosMinimumOs)) {
+      if (newMinimumVersion.equals(appleOptions.iosMinimumOs)) {
         return ImmutableList.of();
       }
 
@@ -127,7 +130,7 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
 
     @Override
     protected void setAdditionalOptions(BuildOptions splitOptions, BuildOptions originalOptions) {
-      DottedVersion fromFlag = originalOptions.get(ObjcCommandLineOptions.class).iosMinimumOs;
+      DottedVersion fromFlag = originalOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
       setMinimumOsVersion(splitOptions, determineMinimumOsVersion(fromFlag, minimumOSVersion));
     }
 
@@ -137,7 +140,7 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
     }
 
     private void setMinimumOsVersion(BuildOptions splitOptions, DottedVersion newMinimumVersion) {
-      splitOptions.get(ObjcCommandLineOptions.class).iosMinimumOs = newMinimumVersion;
+      splitOptions.get(AppleCommandLineOptions.class).iosMinimumOs = newMinimumVersion;
     }
   }
 }

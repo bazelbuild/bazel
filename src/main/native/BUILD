@@ -65,8 +65,6 @@ cc_binary(
 
 genrule(
     name = "windows_jni",
-    # Keep this `glob` in sync with scripts/bootstrap/compile.sh:build_jni
-    # function's msys*|mingw* case.
     srcs = glob([
         "windows_*.cc",
         "windows_*.h",

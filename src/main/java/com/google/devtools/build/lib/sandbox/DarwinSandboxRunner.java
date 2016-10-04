@@ -50,7 +50,7 @@ final class DarwinSandboxRunner extends SandboxRunner {
       Set<Path> inaccessiblePaths,
       Path runUnderPath,
       boolean verboseFailures) {
-    super(sandboxPath, sandboxExecRoot, verboseFailures);
+    super(sandboxExecRoot, verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
     this.argumentsFilePath = sandboxPath.getRelative("sandbox.sb");
     this.writableDirs = writableDirs;

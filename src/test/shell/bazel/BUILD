@@ -159,7 +159,10 @@ sh_test(
 sh_test(
     name = "bazel_toolchain_test",
     size = "medium",
-    srcs = ["bazel_toolchain_test.sh"],
+    srcs = select({
+        ":darwin": [],
+        "//conditions:default": ["bazel_toolchain_test.sh"],
+    }),
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg",
@@ -353,6 +356,26 @@ sh_test(
     name = "bazel_worker_test",
     size = "large",
     srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing=no",
+        "non-sandboxed",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = ["jdk8"],
+)
+
+sh_test(
+    name = "bazel_sandboxed_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "--worker_sandboxing",
+        "sandboxed",
+    ],
     data = [
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",

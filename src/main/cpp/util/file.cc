@@ -15,7 +15,6 @@
 
 #include <limits.h>  // PATH_MAX
 #include <sys/stat.h>
-#include <unistd.h>  // access
 #include <cstdlib>
 #include <vector>
 
@@ -70,31 +69,6 @@ string JoinPath(const string &path1, const string &path2) {
       return path1 + "/" + path2;
     }
   }
-}
-
-string Which(const string &executable) {
-  char *path_cstr = getenv("PATH");
-  if (path_cstr == NULL || path_cstr[0] == '\0') {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-               "Could not get PATH to find %s", executable.c_str());
-  }
-
-  string path(path_cstr);
-  std::vector<std::string> pieces = blaze_util::Split(path, ':');
-  for (auto piece : pieces) {
-    if (piece.empty()) {
-      piece = ".";
-    }
-
-    struct stat file_stat;
-    string candidate = blaze_util::JoinPath(piece, executable);
-    if (access(candidate.c_str(), X_OK) == 0 &&
-        stat(candidate.c_str(), &file_stat) == 0 &&
-        S_ISREG(file_stat.st_mode)) {
-      return candidate;
-    }
-  }
-  return "";
 }
 
 }  // namespace blaze_util

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.Callback;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.IOException;
 
 /**
  * Fetches external repositories. Which is so fetch.
@@ -118,10 +119,9 @@ public final class FetchCommand implements BlazeCommand {
 
     // 2. Evaluate expression:
     try {
-      queryEnv.evaluateQuery(expr, new Callback<Target>() {
+      queryEnv.evaluateQuery(expr, new OutputFormatterCallback<Target>() {
         @Override
-        public void process(Iterable<Target> partialResult)
-            throws QueryException, InterruptedException {
+        public void processOutput(Iterable<Target> partialResult) {
           // Throw away the result.
         }
       });
@@ -129,6 +129,9 @@ public final class FetchCommand implements BlazeCommand {
       // Keep consistent with reportBuildFileError()
       env.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
+    } catch (IOException e) {
+      // Should be impossible since our OutputFormatterCallback doesn't throw IOException.
+      throw new IllegalStateException(e);
     }
 
     env.getReporter().handle(

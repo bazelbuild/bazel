@@ -9,7 +9,7 @@ Supported platforms:
 
 *   [Ubuntu Linux (Wily 15.10 and Trusty 14.04 LTS)](#ubuntu)
 *   [Mac OS X](#mac-os-x)
-*   [Windows (highly experimental)](windows.md)
+*   [Windows (highly experimental)](windows.md#installing-bazel-on-windows)
 
 For other platforms, you can try to [compile from source](#compiling-from-source).
 

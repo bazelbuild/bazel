@@ -21,18 +21,17 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -52,11 +51,9 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     return sandboxingSupported.booleanValue();
   }
 
-  private final BuildRequest buildRequest;
   private final SandboxOptions sandboxOptions;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
-  private final ExecutorService backgroundWorkers;
   private final boolean verboseFailures;
   private final String productName;
   private final boolean fullySupported;
@@ -67,16 +64,17 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
   LinuxSandboxedStrategy(
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
-      ExecutorService backgroundWorkers,
       boolean verboseFailures,
       String productName,
       boolean fullySupported) {
-    super(blazeDirs, verboseFailures, buildRequest.getOptions(SandboxOptions.class));
-    this.buildRequest = buildRequest;
+    super(
+        buildRequest,
+        blazeDirs,
+        verboseFailures,
+        buildRequest.getOptions(SandboxOptions.class));
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
-    this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
     this.productName = productName;
     this.fullySupported = fullySupported;
@@ -113,64 +111,74 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
 
+    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
+    ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     try {
-      // Build the execRoot for the sandbox.
-      SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
-      ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
       symlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
       sandboxTempDir.createDirectory();
-
-      final SandboxRunner runner;
-      if (fullySupported) {
-        runner =
-            new LinuxSandboxRunner(
-                execRoot,
-                sandboxPath,
-                sandboxExecRoot,
-                sandboxTempDir,
-                getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
-                getInaccessiblePaths(),
-                getBindMounts(blazeDirs),
-                verboseFailures,
-                sandboxOptions.sandboxDebug);
-      } else {
-        runner = new ProcessWrapperRunner(execRoot, sandboxPath, sandboxExecRoot, verboseFailures);
-      }
-
-      try {
-        runner.run(
-            spawn.getArguments(),
-            spawn.getEnvironment(),
-            actionExecutionContext.getFileOutErr(),
-            Spawns.getTimeoutSeconds(spawn),
-            SandboxHelpers.shouldAllowNetwork(buildRequest, spawn));
-      } finally {
-        if (writeOutputFiles != null
-            && !writeOutputFiles.compareAndSet(null, LinuxSandboxedStrategy.class)) {
-          Thread.currentThread().interrupt();
-        } else {
-          symlinkedExecRoot.copyOutputs(execRoot, outputs);
-        }
-
-        if (!sandboxOptions.sandboxDebug) {
-          SandboxHelpers.lazyCleanup(backgroundWorkers, runner);
-        }
-      }
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
+    SandboxRunner runner = getSandboxRunner(spawn, sandboxPath, sandboxExecRoot, sandboxTempDir);
+    try {
+      runSpawn(
+          spawn,
+          actionExecutionContext,
+          spawn.getEnvironment(),
+          symlinkedExecRoot,
+          outputs,
+          runner,
+          writeOutputFiles);
+    } finally {
+      if (!sandboxOptions.sandboxDebug) {
+        try {
+          FileSystemUtils.deleteTree(sandboxPath);
+        } catch (IOException e) {
+          executor
+              .getEventHandler()
+              .handle(
+                  Event.error(
+                      String.format(
+                          "Cannot delete sandbox directory after action execution: %s (%s)",
+                          sandboxPath.getPathString(), e)));
+        }
+      }
     }
+  }
+
+  private SandboxRunner getSandboxRunner(
+      Spawn spawn, Path sandboxPath, Path sandboxExecRoot, Path sandboxTempDir) {
+    if (fullySupported) {
+      return new LinuxSandboxRunner(
+          execRoot,
+          sandboxPath,
+          sandboxExecRoot,
+          sandboxTempDir,
+          getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
+          getInaccessiblePaths(),
+          getTmpfsPaths(),
+          getBindMounts(blazeDirs),
+          verboseFailures,
+          sandboxOptions.sandboxDebug);
+    } else {
+      return new ProcessWrapperRunner(execRoot, sandboxPath, sandboxExecRoot, verboseFailures);
+    }
+  }
+
+  private ImmutableSet<Path> getTmpfsPaths() {
+    ImmutableSet.Builder<Path> tmpfsPaths = ImmutableSet.builder();
+    for (String tmpfsPath : sandboxOptions.sandboxTmpfsPath) {
+      tmpfsPaths.add(blazeDirs.getFileSystem().getPath(tmpfsPath));
+    }
+    return tmpfsPaths.build();
   }
 
   private ImmutableSet<Path> getBindMounts(BlazeDirectories blazeDirs) {
     Path tmpPath = blazeDirs.getFileSystem().getPath("/tmp");
     ImmutableSet.Builder<Path> bindMounts = ImmutableSet.builder();
     if (blazeDirs.getWorkspace().startsWith(tmpPath)) {
-
       bindMounts.add(blazeDirs.getWorkspace());
     }
     if (blazeDirs.getOutputBase().startsWith(tmpPath)) {

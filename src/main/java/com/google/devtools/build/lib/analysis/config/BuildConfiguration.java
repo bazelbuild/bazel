@@ -139,42 +139,6 @@ public final class BuildConfiguration {
     }
 
     /**
-     * Collects all labels that should be implicitly loaded from labels that were specified as
-     * options, keyed by the name to be displayed to the user if something goes wrong.
-     * The resulting set only contains labels that were derived from command-line options; the
-     * intention is that it can be used to sanity-check that the command-line options actually
-     * contain these in their transitive closure.
-     *
-     * <p>This functionality only exists for legacy configuration fragments that compute labels from
-     * command-line option values. Don't do that! Instead, use a rule that specifies the mapping
-     * explicitly.
-     */
-    @SuppressWarnings("unused")
-    protected void addImplicitLabels(Multimap<String, Label> implicitLabels) {
-    }
-
-    /**
-     * Returns the roots used for the "all labels in the configuration must be reachable from the
-     * labels provided on the command line" sanity check.
-     */
-    public Iterable<Label> getSanityCheckRoots() {
-      return ImmutableList.of();
-    }
-
-    /**
-     * Returns a multimap of all labels that should be implicitly loaded from labels that were
-     * specified as options, keyed by the name to be displayed to the user if something goes wrong.
-     * The returned set only contains labels that were derived from command-line options; the
-     * intention is that it can be used to sanity-check that the command-line options actually
-     * contain these in their transitive closure.
-     */
-    public final ListMultimap<String, Label> getImplicitLabels() {
-      ListMultimap<String, Label> implicitLabels = ArrayListMultimap.create();
-      addImplicitLabels(implicitLabels);
-      return implicitLabels;
-    }
-
-    /**
      * Returns a fragment of the output directory name for this configuration. The output
      * directory for the whole configuration contains all the short names by all fragments.
      */
@@ -1778,7 +1742,13 @@ public final class BuildConfiguration {
     public Iterable<Dependency> getDependencies(
         Label label, ImmutableSet<AspectDescriptor> aspects) {
       return ImmutableList.of(
-          Dependency.withTransitionAndAspects(label, currentTransition, aspects));
+          isNull()
+              // We can trivially set the final value for null-configured targets now. This saves
+              // us from having to recreate a new Dependency object for the final value later. Since
+              // there are lots of null-configured targets (e.g. all source files), this can add up
+              // over the course of a build.
+              ? Dependency.withNullConfiguration(label)
+              : Dependency.withTransitionAndAspects(label, currentTransition, aspects));
     }
   }
 

@@ -161,14 +161,12 @@ Python:
 
 * Sets have reference equality semantics and can be stored in other sets.
 
-The following items are upcoming changes.
+* Modifying a collection during iteration is an error. You can avoid the error
+  by iterating over a copy of the collection, e.g.
+  `for x in list(my_list): ...`. You can still modify its deep contents
+  regardless.
 
-* Currently loops iterate over a shallow copy of the collection, so that if the
-  list or dictionary is modified during iteration, it will not affect what
-  values get bound to the loop variable or variables. This will be phased out
-  and instead, modifying a collection during iteration will be an error. You can
-  avoid the error by iterating over a copy of the collection, e.g.
-  `for x in list(my_list): ...`.
+The following items are upcoming changes.
 
 * Comprehensions currently "leak" the values of their loop variables into the
   surrounding scope (Python 2 semantics). This will be changed so that

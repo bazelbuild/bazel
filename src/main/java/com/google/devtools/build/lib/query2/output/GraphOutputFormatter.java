@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.graph.LabelSerializer;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,7 +47,7 @@ class GraphOutputFormatter extends OutputFormatter {
   }
 
   @Override
-  public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
+  public void output(QueryOptions options, Digraph<Target> result, OutputStream out,
       AspectResolver aspectProvider) {
     this.graphNodeStringLimit = options.graphNodeStringLimit;
 

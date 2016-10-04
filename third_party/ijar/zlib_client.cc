@@ -14,6 +14,7 @@
 
 #include <stdlib.h>
 #include <algorithm>
+#include <cstdio>
 
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/zlib_client.h"

@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.annotation.Nullable;
 
@@ -27,6 +32,38 @@ import javax.annotation.Nullable;
 public class MoreFutures {
 
   private MoreFutures() {}
+
+  /**
+   * Waits for the first one of the following to occur:
+   * <ul>
+   * <li>All of the given futures complete successfully.
+   * <li>One of the given futures has an {@link ExecutionException}. This {@link ExecutionException}
+   *   is propagated. (N.B. If multiple futures have {@link ExecutionExceptions}s, one will be
+   *   selected non-deterministically.)
+   * <li>The calling thread is interrupted. The {@link InterruptedException} is propagated.
+   * </ul>
+   */
+  public static <V> void waitForAllInterruptiblyFailFast(
+      Iterable<? extends Future<? extends V>> futures)
+      throws ExecutionException, InterruptedException {
+    int numFutures = Iterables.size(futures);
+    while (true) {
+      int numCompletedFutures = 0;
+      for (Future<? extends V> future : futures) {
+        try {
+          future.get(1, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException te) {
+          continue;
+        } catch (ExecutionException ee) {
+          throw ee;
+        }
+        numCompletedFutures++;
+      }
+      if (numCompletedFutures == numFutures) {
+        return;
+      }
+    }
+  }
 
   /**
    * Creates a new {@code ListenableFuture} whose value is a list containing the

@@ -95,4 +95,14 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       JavaSemantics javaSemantics, boolean forAndroidTest, Builder attributes,
       JavaCompilationArtifacts.Builder artifactsBuilder) {
   }
+
+  @Override
+  public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {
+    switch (ruleContext.getRule().getRuleClass()) {
+      case "android_binary":
+        return ImmutableList.of("deps");
+      default:
+        throw new UnsupportedOperationException("Only supported for top-level binaries");
+    }
+  }
 }

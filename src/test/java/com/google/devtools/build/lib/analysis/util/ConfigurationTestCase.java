@@ -115,11 +115,12 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             ImmutableList.<SkyValueDirtinessChecker>of(),
             analysisMock.getProductName());
 
+    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
+    packageCacheOptions.showLoadingProgress = true;
+    packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        Options.getDefaults(PackageCacheOptions.class).defaultVisibility,
-        true,
-        7,
+        packageCacheOptions,
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),

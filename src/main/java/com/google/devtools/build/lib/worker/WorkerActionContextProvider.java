@@ -35,7 +35,6 @@ final class WorkerActionContextProvider extends ActionContextProvider {
         ImmutableList.<ActionContext>of(
             new WorkerSpawnStrategy(
                 env.getDirectories(),
-                buildRequest,
                 workers,
                 verboseFailures,
                 maxRetries));

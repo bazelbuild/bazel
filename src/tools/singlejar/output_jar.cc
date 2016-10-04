@@ -191,7 +191,7 @@ int OutputJar::Doit(Options *options) {
   bool compress = options_->force_compression || options_->preserve_compression;
   // First, write a directory entry for the META-INF, followed by the manifest
   // file, followed by the build properties file.
-  AddDirectory("META-INF/");
+  WriteMetaInf();
   manifest_.Append("\r\n");
   WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
@@ -200,7 +200,19 @@ int OutputJar::Doit(Options *options) {
 
   // Then classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
-    WriteEntry(classpath_resource->OutputEntry(compress));
+    bool do_compress = compress;
+    if (do_compress && !options_->nocompress_suffixes.empty()) {
+      for (auto &suffix : options_->nocompress_suffixes) {
+        auto entry_name = classpath_resource->filename();
+        if (entry_name.length() >= suffix.size() &&
+            !entry_name.compare(entry_name.length() - suffix.size(),
+                                suffix.size(), suffix)) {
+          do_compress = false;
+          break;
+        }
+      }
+    }
+    WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
   // Then copy source files' contents.
@@ -340,30 +352,32 @@ bool OutputJar::AddJar(int jar_path_index) {
       }
     }
 
-    // For the file entries and unless preserve_compression option is set,
-    // decide what to do with an entry depending on force_compress option
-    // and entry's current state:
-    //   force_compress    preserve_compress   compressed    Action
-    //         N                  N                 N        Copy
-    //         N                  N                 Y        Decompress
-    //         N                  Y                 *        Copy
-    //         Y                  *                 N        Compress
-    //         Y                  N                 Y        Copy
-    //         Y                  Y      can't be
-    if (is_file &&
-        !options_->preserve_compression &&
-        ((options_->force_compression &&
-          jar_entry->compression_method() == Z_NO_COMPRESSION) ||
-         (!options_->force_compression && !options_->preserve_compression &&
-          jar_entry->compression_method() == Z_DEFLATED))) {
-      // Change compression.
-      Concatenator combiner(jar_entry->file_name_string());
-      if (!combiner.Merge(jar_entry, lh)) {
-        diag_err(1, "%s:%d: cannot add %.*s", __FILE__, __LINE__,
-                 jar_entry->file_name_length(), jar_entry->file_name());
+    // For the file entries, decide whether output should be compressed.
+    if (is_file) {
+      bool input_compressed =
+          jar_entry->compression_method() != Z_NO_COMPRESSION;
+      bool output_compressed =
+          options_->force_compression ||
+          (options_->preserve_compression && input_compressed);
+      if (output_compressed && !options_->nocompress_suffixes.empty()) {
+        for (auto &suffix : options_->nocompress_suffixes) {
+          if (file_name_length >= suffix.size() &&
+              !strncmp(file_name + file_name_length - suffix.size(),
+                       suffix.c_str(), suffix.size())) {
+            output_compressed = false;
+            break;
+          }
+        }
       }
-      WriteEntry(combiner.OutputEntry(options_->force_compression));
-      continue;
+      if (input_compressed != output_compressed) {
+        Concatenator combiner(jar_entry->file_name_string());
+        if (!combiner.Merge(jar_entry, lh)) {
+          diag_err(1, "%s:%d: cannot add %.*s", __FILE__, __LINE__,
+                   jar_entry->file_name_length(), jar_entry->file_name());
+        }
+        WriteEntry(combiner.OutputEntry(output_compressed));
+        continue;
+      }
     }
 
     // Now we have to copy:
@@ -538,8 +552,8 @@ void OutputJar::WriteEntry(void *buffer) {
     diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
   // Data written, allocate CDH space and populate CDH.
-  CDH *cdh = reinterpret_cast<CDH *>(
-      ReserveCdh(sizeof(CDH) + entry->file_name_length()));
+  CDH *cdh = reinterpret_cast<CDH *>(ReserveCdh(
+      sizeof(CDH) + entry->file_name_length() + entry->extra_fields_length()));
   cdh->signature();
   // Note: do not set the version to Unix 3.0 spec, otherwise
   // unzip will think that 'external_attributes' field contains access mode
@@ -555,7 +569,7 @@ void OutputJar::WriteEntry(void *buffer) {
   TODO(entry->uncompressed_file_size32() != 0xFFFFFFFF, "Handle Zip64");
   cdh->uncompressed_file_size32(entry->uncompressed_file_size32());
   cdh->file_name(entry->file_name(), entry->file_name_length());
-  cdh->extra_fields(nullptr, 0);
+  cdh->extra_fields(entry->extra_fields(), entry->extra_fields_length());
   cdh->comment_length(0);
   cdh->start_disk_nr(0);
   cdh->internal_attributes(0);
@@ -565,9 +579,18 @@ void OutputJar::WriteEntry(void *buffer) {
   free(reinterpret_cast<void *>(entry));
 }
 
-void OutputJar::AddDirectory(const char *path) {
+void OutputJar::WriteMetaInf() {
+  const char path[] = "META-INF/";
   size_t n_path = strlen(path);
-  size_t lh_size = sizeof(LH) + n_path;
+
+  // META_INF/ is always the first entry, and as such it should have an extra
+  // field with the tag 0xCAFE and zero bytes of data. This is not the part of
+  // the jar file spec, but Unix 'file' utility relies on it to distiguish jar
+  // file from zip file. See https://bugs.openjdk.java.net/browse/JDK-6808540
+  const uint8_t extra_fields[] = {0xFE, 0xCA, 0, 0};
+  const uint16_t n_extra_fields =
+      sizeof(extra_fields) / sizeof(extra_fields[0]);
+  size_t lh_size = sizeof(LH) + n_path + n_extra_fields;
   LH *lh = reinterpret_cast<LH *>(malloc(lh_size));
   lh->signature();
   lh->version(20);  // 2.0
@@ -577,7 +600,7 @@ void OutputJar::AddDirectory(const char *path) {
   lh->compressed_file_size32(0);
   lh->uncompressed_file_size32(0);
   lh->file_name(path, n_path);
-  lh->extra_fields(nullptr, 0);
+  lh->extra_fields(extra_fields, n_extra_fields);
   known_members_.emplace(path, EntryInfo{&null_combiner_});
   WriteEntry(lh);
 }

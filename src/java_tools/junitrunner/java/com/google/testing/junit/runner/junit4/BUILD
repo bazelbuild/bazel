@@ -1,37 +1,24 @@
 DEFAULT_VISIBILITY = [
-    "//java/com/google/testing/junit/runner:__subpackages__",
-    "//javatests/com/google/testing/junit/runner:__subpackages__",
     "//third_party/bazel/src/java_tools/junitrunner/java/com/google/testing/junit/runner:__subpackages__",
     "//third_party/bazel/src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:__subpackages__",
 ]
 
 package(default_visibility = ["//src:__subpackages__"])
 
+# JUnit4 test runner core code.
 java_library(
     name = "junit4",
-    srcs = glob(
-        ["*.java"],
-        exclude = ["RegExTestCaseFilter.java"],
-    ),
+    srcs = glob(["*.java"]),
     deps = [
-        ":filter",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
-        "//third_party:dagger",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
-        "//third_party:junit4",
-    ],
-)
-
-java_library(
-    name = "filter",
-    srcs = ["RegExTestCaseFilter.java"],
-    deps = [
         "//third_party:junit4",
     ],
 )

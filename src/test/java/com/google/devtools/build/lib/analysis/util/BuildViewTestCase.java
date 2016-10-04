@@ -225,11 +225,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             analysisMock.getProductName());
+    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageCacheOptions.showLoadingProgress = true;
+    packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC,
-        true,
-        7,
+        packageCacheOptions,
         "",
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -315,11 +316,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private void setUpSkyframe() {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
+    packageCacheOptions.showLoadingProgress = true;
+    packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions.defaultVisibility,
-        true,
-        7,
+        packageCacheOptions,
         ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),

@@ -22,7 +22,7 @@ import java.util.Set;
 /**
  * A testing utility to keep track of evaluation.
  */
-public class TrackingInvalidationReceiver implements EvaluationProgressReceiver {
+public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   public final Set<SkyKey> dirty = Sets.newConcurrentHashSet();
   public final Set<SkyKey> deleted = Sets.newConcurrentHashSet();
   public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();

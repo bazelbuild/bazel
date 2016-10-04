@@ -99,8 +99,13 @@ if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
   display "."
   log "Building output/bazel"
-  bazel_build "src:bazel${EXE_EXT}"
-  cp -f "bazel-bin/src/bazel${EXE_EXT}" "output/bazel${EXE_EXT}"
+  bazel_build "src:bazel${EXE_EXT}" \
+    || fail "Could not build Bazel"
+  bazel_bin_path="$(get_bazel_bin_path)/src/bazel${EXE_EXT}"
+  [ -e "$bazel_bin_path" ] \
+    || fail "Could not find freshly built Bazel binary at '$bazel_bin_path'"
+  cp -f "$bazel_bin_path" "output/bazel${EXE_EXT}" \
+    || fail "Could not copy '$bazel_bin_path' to 'output/bazel${EXE_EXT}'"
   chmod 0755 "output/bazel${EXE_EXT}"
   BAZEL="$(pwd)/output/bazel${EXE_EXT}"
 fi

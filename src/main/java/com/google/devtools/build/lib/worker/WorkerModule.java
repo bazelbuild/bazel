@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.io.IOException;
 
 /**
@@ -37,11 +36,11 @@ import java.io.IOException;
 public class WorkerModule extends BlazeModule {
   private CommandEnvironment env;
   private BuildRequest buildRequest;
-  private boolean verbose;
 
   private WorkerFactory workerFactory;
   private WorkerPool workerPool;
   private WorkerPoolConfig workerPoolConfig;
+  private WorkerOptions options;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -59,33 +58,35 @@ public class WorkerModule extends BlazeModule {
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
     buildRequest = event.getRequest();
-    WorkerOptions options = buildRequest.getOptions(WorkerOptions.class);
-    verbose = options.workerVerbose;
+    options = buildRequest.getOptions(WorkerOptions.class);
 
     if (workerFactory == null) {
-      Path logDir = env.getOutputBase().getRelative("worker-logs");
+      Path workerDir =
+          env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
       try {
-        if (!logDir.createDirectory()) {
+        if (!workerDir.createDirectory()) {
           // Clean out old log files.
-          for (Path logFile : logDir.getDirectoryEntries()) {
-            try {
-              logFile.delete();
-            } catch (IOException e) {
-              env.getReporter().handle(Event.error("Could not delete old worker log: " + logFile));
+          for (Path logFile : workerDir.getDirectoryEntries()) {
+            if (logFile.getBaseName().endsWith(".log")) {
+              try {
+                logFile.delete();
+              } catch (IOException e) {
+                env.getReporter()
+                    .handle(Event.error("Could not delete old worker log: " + logFile));
+              }
             }
           }
         }
       } catch (IOException e) {
-        env
-            .getReporter()
-            .handle(Event.error("Could not create directory for worker logs: " + logDir));
+        env.getReporter()
+            .handle(Event.error("Could not create base directory for workers: " + workerDir));
       }
 
-      workerFactory = new WorkerFactory(logDir);
+      workerFactory = new WorkerFactory(options, workerDir);
     }
 
     workerFactory.setReporter(env.getReporter());
-    workerFactory.setVerbose(options.workerVerbose);
+    workerFactory.setOptions(options);
 
     WorkerPoolConfig newConfig = createWorkerPoolConfig(options);
 
@@ -170,7 +171,7 @@ public class WorkerModule extends BlazeModule {
     Preconditions.checkArgument(!reason.isEmpty());
 
     if (workerPool != null) {
-      if (verbose) {
+      if (options != null && options.workerVerbose) {
         env.getReporter().handle(Event.info(reason));
       }
       workerPool.close();
@@ -182,7 +183,7 @@ public class WorkerModule extends BlazeModule {
   public void afterCommand() {
     this.env = null;
     this.buildRequest = null;
-    this.verbose = false;
+    this.options = null;
 
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);

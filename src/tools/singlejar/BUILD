@@ -340,6 +340,7 @@ filegroup(
 java_library(
     name = "test1",
     resources = [
+        "options.cc",
         "zip_headers.h",
         "zlib_interface.h",
     ],

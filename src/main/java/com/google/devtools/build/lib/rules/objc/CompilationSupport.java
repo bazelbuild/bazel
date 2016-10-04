@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT_SOURCES;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
@@ -449,7 +451,8 @@ public final class CompilationSupport {
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
-      if (ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getFilename())) {
+      if (!appleConfiguration.disableNativeSwiftRules()
+          && ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getFilename())) {
         registerSwiftCompileAction(sourceFile, objFile, objcProvider);
       } else {
         if (objFile.isTreeArtifact()) {
@@ -654,19 +657,21 @@ public final class CompilationSupport {
     boolean runCodeCoverage =
         buildConfiguration.isCodeCoverageEnabled() && ObjcRuleClasses.isInstrumentable(sourceFile);
     boolean hasSwiftSources = compilationArtifacts.hasSwiftSources();
+    DotdFile dotdFile = intermediateArtifacts.dotdFile(sourceFile);
 
-    CustomCommandLine commandLine = compileActionCommandLine(
-        sourceFile,
-        objFile,
-        objcProvider,
-        priorityHeaders,
-        moduleMap,
-        compilationArtifacts.getPchFile(),
-        Optional.of(intermediateArtifacts.dotdFile(sourceFile)),
-        otherFlags,
-        runCodeCoverage,
-        isCPlusPlusSource,
-        hasSwiftSources);
+    CustomCommandLine commandLine =
+        compileActionCommandLine(
+            sourceFile,
+            objFile,
+            objcProvider,
+            priorityHeaders,
+            moduleMap,
+            compilationArtifacts.getPchFile(),
+            Optional.of(dotdFile.artifact()),
+            otherFlags,
+            runCodeCoverage,
+            isCPlusPlusSource,
+            hasSwiftSources);
 
     Optional<Artifact> gcnoFile = Optional.absent();
     if (runCodeCoverage && !buildConfiguration.isLLVMCoverageMapFormatEnabled()) {
@@ -683,32 +688,33 @@ public final class CompilationSupport {
       moduleMapInputs = objcProvider.get(MODULE_MAP);
     }
 
-
     Optional<Artifact> moduleMapArtifact = moduleMap.transform(new Function<CppModuleMap, Artifact>() {
       @Nullable @Override public Artifact apply(@Nullable CppModuleMap cppModuleMap) {
         return cppModuleMap.getArtifact();
       }
     });
 
-    // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
+    // TODO(bazel-team): Remove private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+        ObjcCompileAction.Builder.createObjcCompileActionBuilderWithAppleEnv(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
+            .setDotdPruningPlan(objcConfiguration.getDotdPruningPlan())
+            .setSourceFile(sourceFile)
+            .addMandatoryInputs(swiftHeader.asSet())
+            .addTransitiveMandatoryInputs(moduleMapInputs)
+            .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .setDotdFile(dotdFile)
+            .addInputs(compilationArtifacts.getPrivateHdrs())
+            .addInputs(compilationArtifacts.getPchFile().asSet())
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine)
-            .addInput(sourceFile)
             .addInputs(moduleMapArtifact.asSet())
-            .addInputs(swiftHeader.asSet())
-            .addTransitiveInputs(moduleMapInputs)
             .addOutput(objFile)
             .addOutputs(gcnoFile.asSet())
-            .addOutput(intermediateArtifacts.dotdFile(sourceFile))
+            .addOutput(dotdFile.artifact())
             .addTransitiveInputs(objcProvider.get(HEADER))
-            .addInputs(compilationArtifacts.getPrivateHdrs())
-            .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
-            .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .addInputs(compilationArtifacts.getPchFile().asSet())
             .build(ruleContext));
   }
 
@@ -1098,18 +1104,8 @@ public final class CompilationSupport {
     return this;
   }
 
-  /**
-   * Registers an action to create an archive artifact by fully (statically) linking all
-   * transitive dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   */
-  public CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider)
-      throws InterruptedException {
-    Artifact outputArchive =
-        ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB);
-    ImmutableList<Artifact> objcLibraries = objcProvider.getObjcLibraries();
-    ImmutableList<Artifact> ccLibraries = objcProvider.getCcLibraries();
+  private CompilationSupport registerFullyLinkAction(Iterable<Artifact> inputArtifacts,
+      Artifact outputArchive) {
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("ObjcLink")
@@ -1119,16 +1115,56 @@ public final class CompilationSupport {
             .add("-arch_only").add(appleConfiguration.getSingleArchitecture())
             .add("-syslibroot").add(AppleToolchain.sdkDir())
             .add("-o").add(outputArchive.getExecPathString())
-            .addExecPaths(objcLibraries)
-            .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
-            .addExecPaths(ccLibraries)
+            .addExecPaths(inputArtifacts)
             .build())
-        .addInputs(ccLibraries)
-        .addInputs(objcLibraries)
-        .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
+        .addInputs(inputArtifacts)
         .addOutput(outputArchive)
         .build(ruleContext));
     return this;
+  }
+
+  /**
+   * Registers an action to create an archive artifact by fully (statically) linking all
+   * transitive dependencies of this rule.
+   *
+   * @param objcProvider provides all compiling and linking information to create this artifact
+   * @param outputArchive the output artifact for this action
+   */
+  public CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider,
+      Artifact outputArchive) {
+    ImmutableList<Artifact> inputArtifacts = ImmutableList.<Artifact>builder()
+        .addAll(objcProvider.getObjcLibraries())
+        .addAll(objcProvider.get(IMPORTED_LIBRARY))
+        .addAll(objcProvider.getCcLibraries()).build();
+    return registerFullyLinkAction(inputArtifacts, outputArchive);
+  }
+  
+  /**
+   * Registers an action to create an archive artifact by fully (statically) linking all
+   * transitive dependencies of this rule *except* for dependencies given in {@code avoidsDeps}.
+   *
+   * @param objcProvider provides all compiling and linking information to create this artifact
+   * @param outputArchive the output artifact for this action
+   * @param avoidsDeps list of providers with dependencies that should not be linked into the
+   *     output artifact
+   */
+  public CompilationSupport registerFullyLinkActionWithAvoids(ObjcProvider objcProvider,
+      Artifact outputArchive, Iterable<ObjcProvider> avoidsDeps) {
+    ImmutableSet.Builder<Artifact> avoidsDepsArtifacts = ImmutableSet.builder();
+
+    for (ObjcProvider avoidsProvider : avoidsDeps) {
+      avoidsDepsArtifacts.addAll(avoidsProvider.getObjcLibraries())
+          .addAll(avoidsProvider.get(IMPORTED_LIBRARY))
+          .addAll(avoidsProvider.getCcLibraries());
+    }
+    ImmutableList<Artifact> depsArtifacts = ImmutableList.<Artifact>builder()
+        .addAll(objcProvider.getObjcLibraries())
+        .addAll(objcProvider.get(IMPORTED_LIBRARY))
+        .addAll(objcProvider.getCcLibraries()).build();
+    
+    Iterable<Artifact> inputArtifacts = Iterables.filter(depsArtifacts,
+        Predicates.not(Predicates.in(avoidsDepsArtifacts.build())));
+    return registerFullyLinkAction(inputArtifacts, outputArchive);
   }
 
   private NestedSet<Artifact> getGcovForObjectiveCIfNeeded() {
@@ -1763,6 +1799,14 @@ public final class CompilationSupport {
         ruleContext.attributeError(
             "srcs", String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, path));
       }
+
+      if (appleConfiguration.disableNativeSwiftRules()) {
+        for (Artifact src : srcsSet) {
+          if (SWIFT_SOURCES.apply(src.getFilename())) {
+            ruleContext.attributeError("srcs", "Swift is not supported in native rules.");
+          }
+        }
+      }
     }
 
     ruleContext.assertNoErrors();
@@ -1889,11 +1933,11 @@ public final class CompilationSupport {
     switch (platform) {
       case IOS_SIMULATOR:
         builder.add("-mios-simulator-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case IOS_DEVICE:
         builder.add("-miphoneos-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case WATCHOS_SIMULATOR:
         // TODO(bazel-team): Use the value from --watchos-minimum-os instead of tying to the SDK
@@ -1909,7 +1953,7 @@ public final class CompilationSupport {
         break;
       case TVOS_SIMULATOR:
         builder.add("-mtvos-simulator-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case MACOS_X:
         builder.add("-mmacosx-version-min="
@@ -1917,7 +1961,7 @@ public final class CompilationSupport {
         break;
       case TVOS_DEVICE:
         builder.add("-mtvos-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       default:
         throw new IllegalArgumentException("Unhandled platform " + platform);

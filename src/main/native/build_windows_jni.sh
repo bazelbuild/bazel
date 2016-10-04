@@ -29,12 +29,15 @@ trap "rm -fr \"$VSTEMP\"" EXIT
 
 # Find Visual Studio. We don't have any regular environment variables available
 # so this is the best we can do.
-VSVERSION="$(ls "C:/Program Files (x86)" | grep -E "Microsoft Visual Studio [0-9]+" | sort | tail -n 1)"
-if [[ "$VSVERSION" == "" ]]; then
-  echo "Visual Studio not found"
-  exit 1
+if [ -z "${BAZEL_VS+set}" ]; then
+  VSVERSION="$(ls "C:/Program Files (x86)" | grep -E "Microsoft Visual Studio [0-9]+" | sort --version-sort | tail -n 1)"
+  if [[ "$VSVERSION" == "" ]]; then
+    echo "Visual Studio not found"
+    exit 1
+  fi
+  BAZEL_VS="C:/Program Files (x86)/$VSVERSION"
 fi
-VSVARS="C:/Program Files (x86)/$VSVERSION/VC/VCVARSALL.BAT"
+VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
 
 # Find Java. $(JAVA) in the BUILD file points to external/local_jdk/..., which
 # is not very useful for anything not MSYS-based.

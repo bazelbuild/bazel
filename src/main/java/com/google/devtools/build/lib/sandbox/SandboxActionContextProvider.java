@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 
 /**
  * Provides the sandboxed spawn strategy.
@@ -43,8 +42,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
   }
 
   public static SandboxActionContextProvider create(
-      CommandEnvironment env, BuildRequest buildRequest, ExecutorService backgroundWorkers)
-      throws IOException {
+      CommandEnvironment env, BuildRequest buildRequest) throws IOException {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     ImmutableList.Builder<ActionContext> contexts = ImmutableList.builder();
 
@@ -60,7 +58,6 @@ final class SandboxActionContextProvider extends ActionContextProvider {
               new LinuxSandboxedStrategy(
                   buildRequest,
                   env.getDirectories(),
-                  backgroundWorkers,
                   verboseFailures,
                   env.getRuntime().getProductName(),
                   fullySupported));
@@ -73,7 +70,6 @@ final class SandboxActionContextProvider extends ActionContextProvider {
                   buildRequest,
                   env.getClientEnv(),
                   env.getDirectories(),
-                  backgroundWorkers,
                   verboseFailures,
                   env.getRuntime().getProductName()));
         }

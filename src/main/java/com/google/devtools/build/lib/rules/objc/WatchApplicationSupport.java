@@ -191,11 +191,10 @@ final class WatchApplicationSupport {
 
     PlatformType appPlatformType = watchOSVersion == WatchOSVersion.OS1
          ? PlatformType.IOS : PlatformType.WATCHOS;
-    Platform appPlatform = appleConfiguration.getMultiArchPlatform(appPlatformType);
     DottedVersion minimumOsVersion = appPlatformType == PlatformType.IOS
         ? WatchUtils.determineMinimumIosVersion(
-            ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs())
-        : appleConfiguration.getSdkVersionForPlatform(appPlatform);
+            appleConfiguration.getMinimumOsForPlatformType(PlatformType.IOS))
+        : appleConfiguration.getMinimumOsForPlatformType(PlatformType.WATCHOS);
 
     ReleaseBundlingSupport releaseBundlingSupport =
         new ReleaseBundlingSupport(

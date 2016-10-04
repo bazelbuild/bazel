@@ -720,7 +720,8 @@ EOF
 function test_changing_build_file() {
   echo "abc" > w
   echo "def" > w.new
-  tar czf x.tar.gz w w.new
+  echo "I'm a build file" > BUILD
+  tar czf x.tar.gz w w.new BUILD
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 

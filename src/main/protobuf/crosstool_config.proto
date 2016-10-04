@@ -330,6 +330,7 @@ message CToolchain {
   repeated OptionalFlag optional_cxx_flag = 36;
   // Additional unfiltered compiler flags for C/C++/Asm compilation.
   // These are not subject to nocopt filtering in cc_* rules.
+  // Note: These flags are *not* applied to objc/objc++ compiles.
   repeated string unfiltered_cxx_flag = 25;
   repeated OptionalFlag optional_unfiltered_cxx_flag = 37;
   // Linker flags.

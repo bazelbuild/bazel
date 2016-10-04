@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -792,6 +793,24 @@ public class CcCommonTest extends BuildViewTestCase {
     scratchConfiguredTarget("a", "a",
         "cc_library(name='a', srcs=['a.cc'], hdrs=[':b'])",
         "cc_library(name='b', srcs=['b.cc'])");
+  }
+
+  @Test
+  public void testExpandedLinkopts() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "genrule(name = 'linker', cmd='generate', outs=['a.lds'])",
+        "cc_binary(",
+        "    name='bin',",
+        "    srcs=['b.cc'],",
+        "    linkopts=['-Wl,@$(location a.lds)'],",
+        "    deps=['a.lds'])");
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    CppLinkAction action =
+        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
+    assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
+        String.format("-Wl,@%s/genfiles/a/a.lds", getTargetConfiguration().getOutputDirectory(
+            RepositoryName.MAIN).getExecPath().getPathString()));
   }
 
   @RunWith(JUnit4.class)

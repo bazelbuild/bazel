@@ -30,38 +30,11 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Helper methods that are shared by the different sandboxing strategies in this package. */
-final class SandboxHelpers {
-
-  static void lazyCleanup(ExecutorService backgroundWorkers, final SandboxRunner runner) {
-    // By deleting the sandbox directory in the background, we avoid having to wait for it to
-    // complete before returning from the action, which improves performance.
-    backgroundWorkers.execute(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              while (!Thread.currentThread().isInterrupted()) {
-                try {
-                  runner.cleanup();
-                  return;
-                } catch (IOException e2) {
-                  // Sleep & retry.
-                  Thread.sleep(250);
-                }
-              }
-            } catch (InterruptedException e) {
-              // Mark ourselves as interrupted and then exit.
-              Thread.currentThread().interrupt();
-            }
-          }
-        });
-  }
+public final class SandboxHelpers {
 
   static void fallbackToNonSandboxedExecution(
       Spawn spawn, ActionExecutionContext actionExecutionContext, Executor executor)
@@ -82,7 +55,7 @@ final class SandboxHelpers {
     }
   }
 
-  static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {
+  public static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {
     Builder<PathFragment> outputFiles = ImmutableSet.builder();
     for (PathFragment optionalOutput : spawn.getOptionalOutputFiles()) {
       Preconditions.checkArgument(!optionalOutput.isAbsolute());

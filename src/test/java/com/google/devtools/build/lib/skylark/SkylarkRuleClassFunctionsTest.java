@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -981,7 +982,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(dataConstructor.isExported()).isTrue();
     assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
     assertThat(dataConstructor.getKey()).isEqualTo(
-        new SkylarkClassObjectConstructor.Key(FAKE_LABEL, "data")
+        new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "data")
     );
   }
 
@@ -1016,5 +1017,39 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "d2 = data2(y = 2)",
         "d = d1 + d2"
     );
+  }
+
+  @Test
+  public void structsAsDeclaredProvidersTest() throws Exception {
+    evalAndExport(
+        "data = struct(x = 1)"
+    );
+    SkylarkClassObject data = (SkylarkClassObject) lookup("data");
+    assertThat(SkylarkClassObjectConstructor.STRUCT.isExported()).isTrue();
+    assertThat(data.getConstructor()).isEqualTo(SkylarkClassObjectConstructor.STRUCT);
+    assertThat(data.getConstructor().getKey())
+        .isEqualTo(SkylarkClassObjectConstructor.STRUCT.getKey());
+  }
+
+  @Test
+  public void aspectAllAttrs() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, attr_aspects=['*'])");
+
+    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).getAttributeAspects(
+        Attribute.attr("foo", BuildType.LABEL).allowedFileTypes().build()
+    )).containsExactly(myAspect.getAspectClass());
+  }
+
+
+  @Test
+  public void starTheOnlyAspectArg() throws Exception {
+    checkEvalError("'*' must be the only string in 'attr_aspects' list",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect(_impl, attr_aspects=['*', 'foo'])");
   }
 }

@@ -38,7 +38,7 @@ public class OutputDirectoryLinksUtils {
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
-  public static final String getOutputSymlinkName(String productName) {
+  public static String getOutputSymlinkName(String productName) {
     return productName + "-out";
   }
 
@@ -51,7 +51,7 @@ public class OutputDirectoryLinksUtils {
    * directories. Issues a warning if it fails, e.g. because workspaceDirectory
    * is readonly.
    */
-  public static void createOutputDirectoryLinks(String workspaceName,
+  static void createOutputDirectoryLinks(String workspaceName,
       Path workspace, Path execRoot, Path outputPath,
       EventHandler eventHandler, @Nullable BuildConfiguration targetConfig,
       String symlinkPrefix, String productName) {

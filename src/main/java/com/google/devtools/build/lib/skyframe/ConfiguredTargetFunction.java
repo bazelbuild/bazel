@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -75,8 +77,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
+
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -183,7 +188,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // associates the corresponding error with this target, as expected. Without this line,
     // the first TransitiveTargetValue call happens on its dep (in trimConfigurations), so Bazel
     // associates the error with the dep, which is misleading.
-    if (useDynamicConfigurations(configuration)
+    if (useDynamicConfigurations(configuration) && configuration.trimConfigurations()
         && env.getValue(TransitiveTargetValue.key(lc.getLabel())) == null) {
       return null;
     }
@@ -372,12 +377,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private static final class AttributeAndLabel {
     final Attribute attribute;
     final Label label;
-    final int hashCode;
+    Integer hashCode;
 
     AttributeAndLabel(Attribute attribute, Label label) {
       this.attribute = attribute;
       this.label = label;
-      this.hashCode = Objects.hash(this.attribute, this.label);
     }
 
     @Override
@@ -391,6 +395,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     @Override
     public int hashCode() {
+      if (hashCode == null) {
+        // Not every <Attribute, Label> pair gets hashed. So only evaluate for the instances that
+        // need it. This can significantly reduce the number of evaluations.
+        hashCode = Objects.hash(this.attribute, this.label);
+      }
       return hashCode;
     }
   }
@@ -398,9 +407,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
   /**
    * Variation of {@link Multimap#put} that triggers an exception if a value already exists.
    */
-  private static <K, V> void putOnlyEntry(Multimap<K, V> map, K key, V value) {
-    Verify.verify(!map.containsKey(key),
-        "couldn't insert %s: map already has key %s", value.toString(), key.toString());
+  @VisibleForTesting
+  static <K, V> void putOnlyEntry(Multimap<K, V> map, K key, V value) {
+    // Performance note: while "Verify.verify(!map.containsKey(key, value), String.format(...)))"
+    // is simpler code, profiling shows a substantial performance penalty to that approach
+    // (~10% extra analysis phase time on a simple cc_binary). Most of that is from the cost of
+    // evaluating value.toString() on every call. This approach essentially eliminates the overhead.
+    if (map.containsKey(key)) {
+      throw new VerifyException(
+          String.format("couldn't insert %s: map already has key %s",
+              value.toString(), key.toString()));
+    }
     map.put(key, value);
   }
 
@@ -452,21 +469,31 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // the results in order (some results need Skyframe-evaluated configurations while others can
     // be computed trivially), we dump them all into this map, then as a final step iterate through
     // the original list and pluck out values from here for the final value.
+    //
+    // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
     Multimap<AttributeAndLabel, Dependency> trimmedDeps = LinkedHashMultimap.create();
+
+    // Performance optimization: This method iterates over originalDeps twice. By storing
+    // AttributeAndLabel instances in this list, we avoid having to recreate them the second time
+    // (particularly avoid recomputing their hash codes). Profiling shows this shaves 25% off this
+    // method's execution time (at the time of this comment).
+    ArrayList<AttributeAndLabel> attributesAndLabels = new ArrayList<>(originalDeps.size());
 
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       Dependency dep = depsEntry.getValue();
       AttributeAndLabel attributeAndLabel =
           new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
-
+      attributesAndLabels.add(attributeAndLabel);
+      // Certain targets (like output files) trivially re-use their input configuration. Likewise,
+      // deps with null configurations (e.g. source files), can be trivially computed. So we skip
+      // all logic in this method for these cases and just reinsert their original configurations
+      // back at the end (note that null-configured targets will have a static
+      // NullConfigurationDependency instead of dynamic
+      // Dependency(label, transition=Attribute.Configuration.Transition.NULL)).
+      //
+      // A *lot* of targets have null deps, so this produces real savings. Profiling tests over a
+      // simple cc_binary show this saves ~1% of total analysis phase time.
       if (dep.hasStaticConfiguration()) {
-        // Certain targets (like output files) trivially pass their
-        // configurations to their deps. So no need to transform them in any way.
-        trimmedDeps.put(attributeAndLabel, dep);
-        continue;
-      } else if (dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
-        putOnlyEntry(
-            trimmedDeps, attributeAndLabel, Dependency.withNullConfiguration(dep.getLabel()));
         continue;
       }
 
@@ -477,9 +504,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
         return null;
       }
       // TODO(gregce): remove the below call once we have confidence dynamic configurations always
-      // provide needed fragments. This unnecessarily drags performance on the critical path.
-      checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
-          depFragments);
+      // provide needed fragments. This unnecessarily drags performance on the critical path (up
+      // to 0.5% of total analysis time as profiled over a simple cc_binary).
+      if (ctgValue.getConfiguration().trimConfigurations()) {
+        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
+            depFragments);
+      }
 
       boolean sameFragments = depFragments.equals(ctgFragments);
       Attribute.Transition transition = dep.getTransition();
@@ -573,12 +603,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Re-assemble the output map with the same value ordering (e.g. each attribute's dep labels
     // appear in the same order) as the input.
+    Iterator<AttributeAndLabel> iterator = attributesAndLabels.iterator();
     OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
-      Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(
-          new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel()));
-      Verify.verify(!trimmedAttrDeps.isEmpty());
-      result.putAll(depsEntry.getKey(), trimmedAttrDeps);
+      AttributeAndLabel attrAndLabel = iterator.next();
+      if (depsEntry.getValue().hasStaticConfiguration()) {
+        result.put(attrAndLabel.attribute, depsEntry.getValue());
+      } else {
+        Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(attrAndLabel);
+        Verify.verify(!trimmedAttrDeps.isEmpty());
+        result.putAll(depsEntry.getKey(), trimmedAttrDeps);
+      }
     }
     return result;
   }

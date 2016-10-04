@@ -12,21 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.runner.junit4;
+package com.google.testing.junit.runner.internal.junit4;
 
 import com.google.testing.junit.runner.util.TestNameProvider;
-
-import org.junit.runner.Description;
-import org.junit.runner.notification.RunListener;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import org.junit.runner.Description;
+import org.junit.runner.notification.RunListener;
 
 /**
  * A listener to get the name of a JUnit4 test.
  */
 @Singleton
-class JUnit4TestNameListener extends RunListener {
+public class JUnit4TestNameListener extends RunListener {
   private final ThreadLocal<Description> runningTest = new ThreadLocal<>();
   private final SettableCurrentRunningTest currentRunningTest;
 

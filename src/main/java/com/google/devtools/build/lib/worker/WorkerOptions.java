@@ -71,4 +71,12 @@ public class WorkerOptions extends OptionsBase {
     help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
   )
   public boolean workerVerbose;
+
+  @Option(
+    name = "worker_sandboxing",
+    defaultValue = "false",
+    category = "strategy",
+    help = "If enabled, workers will be executed in a sandboxed environment."
+  )
+  public boolean workerSandboxing;
 }

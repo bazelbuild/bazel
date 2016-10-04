@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CUT=$(dirname "{BASH_SOURCE[0]}")/tools/zip/zip_manifest_creator.sh
+export RUNFILES=${RUNFILES:-$($(cd $(dirname ${BASH_SOURCE[0]})); pwd)}
+CUT=$RUNFILES/tools/zip/zip_manifest_creator
 
 touch classes.jar
 touch AndroidManifest.xml
@@ -29,7 +30,7 @@ zip -q foo.zip res/values/baz.xml
 
 $CUT 'res/.*' foo.zip actual.manifest
 
-cat <<EOT >> expected.manifest
+cat > expected.manifest <<EOT
 res/values/bar.xml
 res/values/baz.xml
 EOT

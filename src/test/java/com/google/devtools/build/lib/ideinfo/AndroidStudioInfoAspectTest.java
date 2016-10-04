@@ -815,6 +815,35 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
+  public void testAndroidLibraryWithAidlWithoutImportRoot() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'no_idl_import_root',",
+        "  idl_srcs = ['a.aidl'],",
+        ")");
+    String idlTarget = "//java/com/google/example:no_idl_import_root";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(idlTarget);
+    RuleIdeInfo idlRuleInfo = getRuleInfoAndVerifyLabel(idlTarget, ruleIdeInfos);
+    assertThat(idlRuleInfo.getAndroidRuleIdeInfo().getIdlImportRoot()).isEmpty();
+  }
+
+  @Test
+  public void testAndroidLibraryWithAidlWithImportRoot() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "  name = 'has_idl_import_root',",
+        "  idl_import_root = 'idl',",
+        "  idl_srcs = ['idl/com/google/example/a.aidl'],",
+        ")");
+    String idlTarget = "//java/com/google/example:has_idl_import_root";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(idlTarget);
+    RuleIdeInfo idlRuleInfo = getRuleInfoAndVerifyLabel(idlTarget, ruleIdeInfos);
+    assertThat(idlRuleInfo.getAndroidRuleIdeInfo().getIdlImportRoot()).isEqualTo("idl");
+  }
+
+  @Test
   public void testAndroidLibraryGeneratedManifestIsAddedToOutputGroup() throws Exception {
     scratch.file(
         "com/google/example/BUILD",
@@ -1647,6 +1676,27 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(testInfo.getDependenciesList())
         .contains("//com/google/example:real");
     assertThat(getRuleInfoAndVerifyLabel("//com/google/example:real", ruleIdeInfos)).isNotNull();
+  }
+
+  @Test
+  public void testDataModeDepsAttributeDoesNotCrashAspect() throws Exception {
+    scratch.file(
+        "com/google/example/foo.bzl",
+        "def impl(ctx):",
+        "  return struct()",
+        "",
+        "foo = rule(",
+        "  implementation=impl,",
+        "  attrs={'deps': attr.label_list(cfg='data')},",
+        ")"
+    );
+    scratch.file(
+        "com/google/example/BUILD",
+        "load('//com/google/example:foo.bzl', 'foo')",
+        "foo(",
+        "  name='foo',",
+        ")");
+    buildRuleIdeInfo("//com/google/example:foo");
   }
 
   /**

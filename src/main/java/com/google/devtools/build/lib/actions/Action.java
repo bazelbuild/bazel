@@ -144,8 +144,8 @@ public interface Action extends ActionExecutionMetadata, Describable {
 
   /**
    * Method used to find inputs before execution for an action that
-   * {@link ActionMetadata#discoversInputs}. Returns null if action's inputs will be discovered
-   * during execution proper.
+   * {@link ActionExecutionMetadata#discoversInputs}. Returns null if action's inputs will be
+   * discovered during execution proper.
    */
   @Nullable
   Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -175,7 +175,7 @@ public interface Action extends ActionExecutionMetadata, Describable {
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
    * only be called for actions that discover inputs. After this method is called,
-   * {@link ActionMetadata#inputsKnown} should return true.
+   * {@link ActionExecutionMetadata#inputsKnown} should return true.
    */
   void updateInputs(Iterable<Artifact> inputs);
 

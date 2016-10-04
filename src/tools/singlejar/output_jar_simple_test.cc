@@ -115,9 +115,12 @@ TEST_F(OutputJarSimpleTest, Empty) {
   CreateOutput(out_path, {});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
+  int entry_count = 0;
   const LH *lh;
   const CDH *cdh;
+  const uint8_t cafe_extra_field[] = {0xFE, 0xCA, 0, 0};
   while ((cdh = input_jar.NextEntry(&lh))) {
+    ++entry_count;
     ASSERT_TRUE(cdh->is()) << "No expected tag in the Central Directory Entry.";
     ASSERT_NE(nullptr, lh) << "No local header.";
     ASSERT_TRUE(lh->is()) << "No expected tag in the Local Header.";
@@ -163,6 +166,19 @@ TEST_F(OutputJarSimpleTest, Empty) {
     EXPECT_GE(now, entry_time) << now_time_str << " vs. " << entry_time_str;
     EXPECT_LE(now, entry_time + 300) << now_time_str << " vs. "
                                      << entry_time_str;
+
+    // The first entry should be for the META-INF/ directory, and it should
+    // contain a single extra field 0xCAFE. Although
+    // https://bugs.openjdk.java.net/browse/JDK-6808540 claims that this extra
+    // field is optional, 'file' utility in Linux relies on to distinguish
+    // jar from zip.
+    if (entry_count == 1) {
+      ASSERT_EQ("META-INF/", lh->file_name_string());
+      ASSERT_EQ(4, lh->extra_fields_length());
+      ASSERT_EQ(0, memcmp(cafe_extra_field, lh->extra_fields(), 4));
+      ASSERT_EQ(4, cdh->extra_fields_length());
+      ASSERT_EQ(0, memcmp(cafe_extra_field, cdh->extra_fields(), 4));
+    }
   }
   input_jar.Close();
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
@@ -625,6 +641,38 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData2) {
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, {"--exclude_build_data", "--sources", testzip_path});
   EXPECT_EQ("build: foo", GetEntryContents(out_path, kBuildDataFile));
+}
+
+// Test that the entries with suffixes in --nocompressed_suffixes are
+// not compressed. This applies both to the source archives' entries and
+// standalone files.
+TEST_F(OutputJarSimpleTest, Nocompress) {
+  string res1_path =
+      CreateTextFile("resource.foo", "line1\nline2\nline3\nline4\n");
+  string res2_path =
+      CreateTextFile("resource.bar", "line1\nline2\nline3\nline4\n");
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--compression", "--sources",
+                DATA_DIR_TOP "src/tools/singlejar/libtest1.jar", "--resources",
+                res1_path, res2_path, "--nocompress_suffixes", ".foo", ".h"});
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    const char *entry_name_end = lh->file_name() + lh->file_name_length();
+    if (!strncmp(entry_name_end - 4, ".foo", 4) ||
+        !strncmp(entry_name_end - 2, ".h", 2)) {
+      EXPECT_EQ(Z_NO_COMPRESSION, lh->compression_method())
+          << "Expected " << lh->file_name_string() << " uncompressed";
+    } else if (!strncmp(entry_name_end - 3, ".cc", 3) ||
+               !strncmp(entry_name_end - 4, ".bar", 4)) {
+      EXPECT_EQ(Z_DEFLATED, lh->compression_method())
+          << "Expected " << lh->file_name_string() << " compressed";
+    }
+  }
+  input_jar.Close();
 }
 
 }  // namespace

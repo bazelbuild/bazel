@@ -37,7 +37,8 @@ void Options::ParseCommandLine(int argc, const char * const argv[]) {
         tokens.MatchAndSet("--no_duplicates", &no_duplicates) ||
         tokens.MatchAndSet("--verbose", &verbose) ||
         tokens.MatchAndSet("--warn_duplicate_resources",
-                           &warn_duplicate_resources)) {
+                           &warn_duplicate_resources) ||
+        tokens.MatchAndSet("--nocompress_suffixes", &nocompress_suffixes)) {
       continue;
     } else if (tokens.MatchAndSet("--build_info_file", &optarg)) {
       build_info_files.push_back(optarg);

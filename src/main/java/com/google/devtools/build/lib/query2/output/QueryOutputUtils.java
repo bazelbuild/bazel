@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.util.Set;
 
 /** Static utility methods for outputting a query. */
@@ -34,7 +34,7 @@ public class QueryOutputUtils {
   }
 
   public static void output(QueryOptions queryOptions, QueryEvalResult result,
-      Set<Target> targetsResult, OutputFormatter formatter, PrintStream outputStream,
+      Set<Target> targetsResult, OutputFormatter formatter, OutputStream outputStream,
       AspectResolver aspectResolver)
       throws IOException, InterruptedException {
     /*

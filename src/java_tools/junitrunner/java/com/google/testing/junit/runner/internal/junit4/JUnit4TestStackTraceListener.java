@@ -12,28 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.runner.junit4;
+package com.google.testing.junit.runner.internal.junit4;
 
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.internal.Stderr;
-
-import org.junit.runner.Description;
-import org.junit.runner.notification.RunListener;
-
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
-
 import java.io.PrintStream;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import org.junit.runner.Description;
+import org.junit.runner.notification.RunListener;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 /**
  * A listener than dumps all stack traces when the test receives a SIGTERM.
  */
 @Singleton
-class JUnit4TestStackTraceListener extends RunListener  {
+public class JUnit4TestStackTraceListener extends RunListener  {
   private final SignalHandlers signalHandlers;
   private final PrintStream errPrintStream;
 

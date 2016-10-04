@@ -9,6 +9,7 @@ filegroup(
         ":darwin": ["//src/main/native:libunix.dylib"],
         ":darwin_x86_64": ["//src/main/native:libunix.dylib"],
         ":windows": ["//src/main/native:windows_jni.dll"],
+        ":windows_msvc": ["//src/main/native:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
@@ -101,7 +102,7 @@ filegroup(
     srcs = [
         "//src/tools/xcode/actoolwrapper:actoolwrapper",
         "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper",
-        "//src/tools/xcode/libtool:libtool",
+        "//src/tools/xcode/libtool:libtool_srcs",
         "//src/tools/xcode/momcwrapper:momcwrapper",
         "//src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper",
         "//src/tools/xcode/environment:environment_plist",
@@ -141,6 +142,7 @@ genrule(
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
         "//src/main/protobuf:srcs",
         "//src/java_tools/buildjar:JavaBuilderDeploy",
@@ -270,6 +272,12 @@ config_setting(
 config_setting(
     name = "windows",
     values = {"cpu": "x64_windows"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_msvc",
+    values = {"cpu": "x64_windows_msvc"},
     visibility = ["//visibility:public"],
 )
 

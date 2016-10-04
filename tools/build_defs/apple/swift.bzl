@@ -62,6 +62,18 @@ def _clang_compilation_mode_flags(ctx):
 
   return [x for x in native_clang_flags if x != "-g"]
 
+def _swift_bitcode_flags(ctx):
+  """Returns bitcode flags based on selected mode."""
+  # TODO(dmishe): Remove this when bitcode_mode is available by default.
+  if hasattr(ctx.fragments.apple, "bitcode_mode"):
+    mode = str(ctx.fragments.apple.bitcode_mode)
+    if mode == "embedded":
+      return ["-embed-bitcode"]
+    elif mode == "embedded_markers":
+      return ["-embed-bitcode-marker"]
+
+  return []
+
 def _module_name(ctx):
   """Returns a module name for the given rule context."""
   return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
@@ -74,7 +86,12 @@ def _swift_library_impl(ctx):
   cpu = apple_fragment.single_arch_cpu
   platform = apple_fragment.single_arch_platform
 
-  target_os = ctx.fragments.objc.ios_minimum_os
+  # TODO(cparsons): Remove after blaze release.
+  if hasattr(ctx.fragments.apple, "minimum_os_for_platform_type"):
+    target_os = ctx.fragments.apple.minimum_os_for_platform_type(
+        apple_common.platform_type.ios)
+  else:
+    target_os = ctx.fragments.objc.ios_minimum_os
   target = _swift_target(cpu, platform, target_os)
   apple_toolchain = apple_common.apple_toolchain()
 
@@ -159,6 +176,9 @@ def _swift_library_impl(ctx):
   # Include the parent directory of the resulting module so LLDB can find it.
   include_dirs += set([output_module.dirname])
 
+  # Include the genfiles root so full-path imports can work for generated protos.
+  include_dirs += set([ctx.configuration.genfiles_dir.path])
+
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in ctx.attr.defines]
@@ -200,7 +220,7 @@ def _swift_library_impl(ctx):
       module_cache_path(ctx),
       "-output-file-map",
       swiftc_output_map_file.path,
-  ] + _swift_compilation_mode_flags(ctx)
+  ] + _swift_compilation_mode_flags(ctx) + _swift_bitcode_flags(ctx)
 
   args.extend(srcs_args)
   args.extend(include_args)

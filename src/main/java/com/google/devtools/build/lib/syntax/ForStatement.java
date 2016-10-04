@@ -84,19 +84,23 @@ public final class ForStatement extends Statement {
   void doExec(Environment env) throws EvalException, InterruptedException {
     Object o = collection.eval(env);
     Iterable<?> col = EvalUtils.toIterable(o, getLocation());
+    EvalUtils.lock(o, getLocation());
+    try {
+      for (Object it : col) {
+        variable.assign(env, getLocation(), it);
 
-    for (Object it : ImmutableList.copyOf(col)) {
-      variable.assign(env, getLocation(), it);
-
-      try {
-        for (Statement stmt : block) {
-          stmt.exec(env);
-        }
-      } catch (FlowException ex) {
-        if (ex.mustTerminateLoop()) {
-          return;
+        try {
+          for (Statement stmt : block) {
+            stmt.exec(env);
+          }
+        } catch (FlowException ex) {
+          if (ex.mustTerminateLoop()) {
+            return;
+          }
         }
       }
+    } finally {
+      EvalUtils.unlock(o, getLocation());
     }
   }
 

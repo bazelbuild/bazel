@@ -231,6 +231,9 @@ public final class ApplicationManifest {
         Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
             ruleContext.getRule().getName() + "_merged", "AndroidManifest.xml",
             ruleContext.getBinOrGenfilesDirectory());
+        Artifact mergeLog = ruleContext.getUniqueDirectoryArtifact(
+            ruleContext.getRule().getName() + "_merged", "manifest_merger_log.txt",
+            ruleContext.getBinOrGenfilesDirectory());
         new ManifestMergerActionBuilder(ruleContext)
             .setManifest(getManifest())
             .setMergeeManifests(mergeeManifests)
@@ -238,6 +241,7 @@ public final class ApplicationManifest {
             .setManifestValues(manifestValues)
             .setCustomPackage(AndroidCommon.getJavaPackage(ruleContext))
             .setManifestOutput(outputManifest)
+            .setLogOut(mergeLog)
             .build(ruleContext);
         return new ApplicationManifest(ruleContext, outputManifest);
       }

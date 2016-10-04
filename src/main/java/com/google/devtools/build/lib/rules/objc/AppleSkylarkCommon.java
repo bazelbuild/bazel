@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
@@ -40,7 +40,8 @@ import javax.annotation.Nullable;
 public class AppleSkylarkCommon {
  
   @VisibleForTesting
-  public static final String BAD_KEY_ERROR = "Argument %s not a recognized key or 'providers'.";
+  public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
+      + " or 'direct_dep_providers'.";
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
@@ -63,6 +64,8 @@ public class AppleSkylarkCommon {
 
   @Nullable
   private SkylarkClassObject platformType;
+  @Nullable
+  private SkylarkClassObject platform;
 
   @SkylarkCallable(
       name = "apple_toolchain",
@@ -86,6 +89,21 @@ public class AppleSkylarkCommon {
       platformType = PlatformType.getSkylarkStruct();
     }
     return platformType;
+  }
+
+  @SkylarkCallable(
+      name = "platform",
+      doc = "Returns a struct containing fields corresponding to Apple platforms. These values "
+          + "can be passed to methods that expect a platform, like the 'apple' configuration "
+          + "fragment's 'sdk_version_for_platform' method. Each platform_type except for macosx "
+          + "has two platform types -- one for device, and one for simulator.",
+      structField = true
+  )
+  public SkylarkClassObject getPlatformStruct() {
+    if (platform == null) {
+      platform = Platform.getSkylarkStruct();
+    }
+    return platform;
   }
 
   @SkylarkSignature(
@@ -128,6 +146,8 @@ public class AppleSkylarkCommon {
               resultBuilder.addElementsFromSkylark(key, entry.getValue());
             } else if (entry.getKey().equals("providers")) {
               resultBuilder.addProvidersFromSkylark(entry.getValue());
+            } else if (entry.getKey().equals("direct_dep_providers")) {
+              resultBuilder.addDirectDepProvidersFromSkylark(entry.getValue());
             } else {
               throw new IllegalArgumentException(String.format(BAD_KEY_ERROR, entry.getKey()));
             }

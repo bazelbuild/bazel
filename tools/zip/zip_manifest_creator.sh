@@ -27,5 +27,22 @@ REGEX="$1"
 INPUT_ZIP="$2"
 OUTPUT_MANIFEST="$3"
 
-zipinfo -1 "$INPUT_ZIP" -x "*/" | grep -x "$REGEX" > "$OUTPUT_MANIFEST"
+RUNFILES=${RUNFILES:-$0.runfiles}
+
+# For the sh_binary in BUILD.tools, zipper is here.
+ZIPPER=$RUNFILES/bazel_tools/tools/zip/zipper/zipper
+if [ ! -x $ZIPPER ]; then
+  # For the sh_test in BUILD.oss, zipper is here.
+  ZIPPER=$RUNFILES/third_party/ijar/zipper
+fi
+if [ ! -x $ZIPPER ]; then
+  echo "zip_manifest_creator could not find zipper executable"
+  exit 1
+fi
+
+$ZIPPER v "$INPUT_ZIP" \
+  | cut -d ' ' -f3 \
+  | grep -v \/$ \
+  | grep -x "$REGEX" \
+  > "$OUTPUT_MANIFEST"
 exit 0

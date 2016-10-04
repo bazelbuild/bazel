@@ -28,7 +28,7 @@ public class ThreadUtils {
   }
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
-  public static void warnAboutSlowInterrupt() {
+  public static synchronized void warnAboutSlowInterrupt() {
     LOG.warning("Interrupt took too long. Dumping thread state.");
     for (Map.Entry <Thread, StackTraceElement[]> e : Thread.getAllStackTraces().entrySet()) {
       Thread t = e.getKey();

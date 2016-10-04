@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
-
 import javax.annotation.Nullable;
 
 /**
@@ -67,7 +66,7 @@ public interface AndroidSemantics {
 
   /**
    * Returns the manifest to be used when compiling a given rule.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   ApplicationManifest getManifestForRule(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException;
@@ -102,12 +101,17 @@ public interface AndroidSemantics {
    * Returns the artifact for the debug key for signing the APK.
    */
   Artifact getApkDebugSigningKey(RuleContext ruleContext);
-  
+
   /**
    * Add coverage instrumentation to the Java compilation of an Android binary.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   void addCoverageSupport(RuleContext ruleContext, AndroidCommon common,
       JavaSemantics javaSemantics, boolean forAndroidTest, JavaTargetAttributes.Builder attributes,
       JavaCompilationArtifacts.Builder artifactsBuilder) throws InterruptedException;
+
+  /**
+   * Returns the list of attributes that may contribute Java runtime dependencies.
+   */
+  ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext);
 }

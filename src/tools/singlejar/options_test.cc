@@ -84,7 +84,8 @@ TEST(OptionsTest, MultiOptargs) {
                         "--resources", "res1", "res2",
                         "--classpath_resources", "cpres1", "cpres2",
                         "--sources", "jar3",
-                        "--include_prefixes", "prefix1", "prefix2"};
+                        "--include_prefixes", "prefix1", "prefix2",
+                        "--nocompress_suffixes", ".png", ".so"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -101,6 +102,9 @@ TEST(OptionsTest, MultiOptargs) {
   ASSERT_EQ(2, options.include_prefixes.size());
   EXPECT_EQ("prefix1", options.include_prefixes[0]);
   EXPECT_EQ("prefix2", options.include_prefixes[1]);
+  EXPECT_EQ(2, options.nocompress_suffixes.size());
+  EXPECT_EQ(".png", options.nocompress_suffixes[0]);
+  EXPECT_EQ(".so", options.nocompress_suffixes[1]);
 }
 
 TEST(OptionsTest, EmptyMultiOptargs) {

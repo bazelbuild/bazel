@@ -44,14 +44,14 @@ public final class EagerInvalidator {
   public static void delete(
       InMemoryGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       boolean traverseGraph,
       DirtyKeyTracker dirtyKeyTracker)
       throws InterruptedException {
     DeletingNodeVisitor visitor =
         createDeletingVisitorIfNeeded(
-            graph, diff, invalidationReceiver, state, traverseGraph, dirtyKeyTracker);
+            graph, diff, progressReceiver, state, traverseGraph, dirtyKeyTracker);
     if (visitor != null) {
       visitor.run();
     }
@@ -61,13 +61,13 @@ public final class EagerInvalidator {
   static DeletingNodeVisitor createDeletingVisitorIfNeeded(
       InMemoryGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       boolean traverseGraph,
       DirtyKeyTracker dirtyKeyTracker) {
     state.update(diff);
     return state.isEmpty() ? null
-        : new DeletingNodeVisitor(graph, invalidationReceiver, state, traverseGraph,
+        : new DeletingNodeVisitor(graph, progressReceiver, state, traverseGraph,
             dirtyKeyTracker);
   }
 
@@ -75,13 +75,13 @@ public final class EagerInvalidator {
   static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
     state.update(diff);
     return state.isEmpty() ? null
-        : new DirtyingNodeVisitor(graph, invalidationReceiver, state, dirtyKeyTracker,
+        : new DirtyingNodeVisitor(graph, progressReceiver, state, dirtyKeyTracker,
             executorFactory);
   }
 
@@ -89,7 +89,7 @@ public final class EagerInvalidator {
   private static DirtyingNodeVisitor createInvalidatingVisitorIfNeeded(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       ForkJoinPool forkJoinPool,
@@ -100,7 +100,7 @@ public final class EagerInvalidator {
         ? null
         : new DirtyingNodeVisitor(
             graph,
-            invalidationReceiver,
+            progressReceiver,
             state,
             dirtyKeyTracker,
             forkJoinPool,
@@ -114,14 +114,14 @@ public final class EagerInvalidator {
   public static void invalidate(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory)
       throws InterruptedException {
     DirtyingNodeVisitor visitor =
         createInvalidatingVisitorIfNeeded(
-            graph, diff, invalidationReceiver, state, dirtyKeyTracker, executorFactory);
+            graph, diff, progressReceiver, state, dirtyKeyTracker, executorFactory);
     if (visitor != null) {
       visitor.run();
     }
@@ -134,7 +134,7 @@ public final class EagerInvalidator {
   public static void invalidate(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       ForkJoinPool forkJoinPool,
@@ -144,7 +144,7 @@ public final class EagerInvalidator {
         createInvalidatingVisitorIfNeeded(
             graph,
             diff,
-            invalidationReceiver,
+            progressReceiver,
             state,
             dirtyKeyTracker,
             forkJoinPool,
@@ -159,11 +159,11 @@ public final class EagerInvalidator {
   public static void invalidate(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver,
+      EvaluationProgressReceiver progressReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker)
       throws InterruptedException {
-    invalidate(graph, diff, invalidationReceiver, state, dirtyKeyTracker,
+    invalidate(graph, diff, progressReceiver, state, dirtyKeyTracker,
         AbstractQueueVisitor.EXECUTOR_FACTORY);
   }
 

@@ -117,7 +117,7 @@ public class AarGeneratorBuilder {
         .setCommandLine(CommandLine.of(args, false))
         .setExecutable(
             ruleContext.getExecutablePrerequisite("$android_aar_generator", Mode.HOST))
-        .setProgressMessage("Building AAR package")
+        .setProgressMessage("Building AAR package for " + ruleContext.getLabel())
         .setMnemonic("AARGenerator")
         .build(context));
   }

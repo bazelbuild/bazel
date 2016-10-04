@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -53,13 +53,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       ImmutableList.of(
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
-  private final DottedVersion iosMinimumOs;
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  private final DottedVersion watchosMinimumOs;
   private final DottedVersion watchosSimulatorVersion;
   private final String watchosSimulatorDevice;
-  private final DottedVersion tvosMinimumOs;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
   private final DottedVersion macosxMinimumOs;
@@ -81,21 +78,18 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final boolean experimentalObjcLibrary;
+  private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
-    this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
-    this.watchosMinimumOs =
-        Preconditions.checkNotNull(objcOptions.watchosMinimumOs, "watchosMinimumOs");
     this.watchosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.watchosSimulatorDevice, "watchosSimulatorDevice");
     this.watchosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.watchosSimulatorVersion, "watchosSimulatorVersion");
-    this.tvosMinimumOs = Preconditions.checkNotNull(objcOptions.tvosMinimumOs, "tvosMinimumOs");
     this.tvosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
     this.tvosSimulatorVersion =
@@ -119,18 +113,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
-  }
-
-  /**
-   * Returns the minimum iOS version supported by binaries and libraries. Any dependencies on newer
-   * iOS version features or libraries will become weak dependencies which are only loaded if the
-   * runtime OS supports them.
-   */
-  @SkylarkCallable(name = "ios_minimum_os", structField = true,
-      doc = "The minimum compatible iOS version for target simulators and devices.")
-  public DottedVersion getMinimumOs() {
-    // TODO(bazel-team): Deprecate in favor of getMinimumOsForPlatformType(IOS).
-    return iosMinimumOs;
+    this.dotdPruningPlan =
+        objcOptions.useDotdPruning
+            ? HeaderDiscovery.DotdPruningMode.USE
+            : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
   }
 
   /**
@@ -151,25 +137,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   @SkylarkCallable(
-      name = "minimum_os_for_platform_type",
-      doc = "The minimum compatible OS version for target simulator and devices for a particular "
-          + "platform type.")
-  public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
-    switch (platformType) {
-      case IOS:
-        return iosMinimumOs;
-      case TVOS:
-        return tvosMinimumOs;
-      case WATCHOS:
-        return watchosMinimumOs;
       case MACOSX:
         return macosxMinimumOs;
-      default:
-        throw new IllegalArgumentException("Unhandled platform: " + platformType);
-    }
-  }
-
-  @SkylarkCallable(
       name = "simulator_device_for_platform_type",
       doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.")
   public String getSimulatorDeviceForPlatformType(PlatformType platformType) {
@@ -382,5 +351,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
+  }
+  
+  /** Returns the DotdPruningPlan for compiles in this build. */
+  public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
+    return dotdPruningPlan;
   }
 }

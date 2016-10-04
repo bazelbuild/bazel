@@ -170,6 +170,15 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   )
   public class IdlInfo {
     @SkylarkCallable(
+        name = "import_root",
+        structField = true,
+        allowReturnNones = true,
+        doc = "Returns the root of IDL packages if not the java root."
+    )
+    public String getImportRoot() {
+      return getIdeInfoProvider().getIdlImportRoot();
+    }
+    @SkylarkCallable(
         name = "sources",
         structField = true,
         doc = "Returns a list of IDL files."

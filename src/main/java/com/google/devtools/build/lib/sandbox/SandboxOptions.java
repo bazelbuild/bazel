@@ -49,4 +49,14 @@ public class SandboxOptions extends OptionsBase {
     help = "For sandboxed actions, disallow access to this path."
   )
   public List<String> sandboxBlockPath;
+
+  @Option(
+      name = "sandbox_tmpfs_path",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "config",
+      help = "For sandboxed actions, mount an empty, writable directory at this path"
+          + " (if supported by the sandboxing implementation, ignored otherwise)."
+  )
+  public List<String> sandboxTmpfsPath;
 }

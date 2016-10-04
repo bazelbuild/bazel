@@ -27,8 +27,9 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map;
 import java.util.SortedMap;
@@ -39,14 +40,26 @@ import java.util.SortedMap;
 @Immutable
 public final class CreateIncSymlinkAction extends AbstractAction {
   private final ImmutableSortedMap<Artifact, Artifact> symlinks;
+  private final Path includePath;
 
   /**
    * Creates a new instance. The symlinks map maps symlinks to their targets, i.e. the symlink paths
-   * must be unique, but several of them can point to the same target.
+   * must be unique, but several of them can point to the same target. All outputs must be under
+   * {@code includePath}.
    */
-  public CreateIncSymlinkAction(ActionOwner owner, Map<Artifact, Artifact> symlinks) {
+  public CreateIncSymlinkAction(
+      ActionOwner owner, Map<Artifact, Artifact> symlinks, Path includePath) {
     super(owner, ImmutableList.copyOf(symlinks.values()), ImmutableList.copyOf(symlinks.keySet()));
     this.symlinks = ImmutableSortedMap.copyOf(symlinks, Artifact.EXEC_PATH_COMPARATOR);
+    this.includePath = includePath;
+  }
+
+  @Override
+  public void prepare(Path execRoot) throws IOException {
+    if (includePath.isDirectory(Symlinks.NOFOLLOW)) {
+      FileSystemUtils.deleteTree(includePath);
+    }
+    super.prepare(execRoot);
   }
 
   @Override

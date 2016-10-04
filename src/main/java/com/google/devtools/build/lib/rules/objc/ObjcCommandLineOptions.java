@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -105,33 +104,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       category = "flags",
       help = "Additional options to pass to Swift compilation.")
   public List<String> swiftopts;
-
-  @Option(
-      name = "ios_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_IOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible iOS version for target simulators and devices."
-  )
-  public DottedVersion iosMinimumOs;
-
-  @Option(
-      name = "watchos_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_WATCHOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible watchOS version for target simulators and devices."
-  )
-  public DottedVersion watchosMinimumOs;
-
-  @Option(
-      name = "tvos_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_TVOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible tvOS version for target simulators and devices."
-  )
-  public DottedVersion tvosMinimumOs;
 
   @Option(
       name = "macosx_minimum_os",
@@ -266,10 +238,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean experimentalObjcLibrary;
 
-  @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
-  @VisibleForTesting static final String DEFAULT_MINIMUM_WATCHOS = "2.0";
-  @VisibleForTesting static final String DEFAULT_MINIMUM_TVOS = "9.0";
-  @VisibleForTesting static final String DEFAULT_MINIMUM_MACOSX = "10.11";
+  @Option(
+    name = "objc_use_dotd_pruning",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If set, .d files emited by clang will be used to prune the set of inputs passed into objc "
+            + "compiles."
+  )
+  public boolean useDotdPruning;
 
   @SuppressWarnings("unchecked")
   @Override

@@ -224,6 +224,24 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String FDO_INSTRUMENT_CONFIGURATION =
+      ""
+          + "feature { "
+          + "  name: 'fdo_instrument'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-link-interface-dynamic-library'"
+          + "    action: 'c++-link-dynamic-library'"
+          + "    action: 'c++-link-executable'"
+          + "    flag_group {"
+          + "      flag: 'fdo_instrument_option'"
+          + "      flag: 'path=%{fdo_instrument_path}'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
@@ -481,8 +499,10 @@ public abstract class MockCcSupport {
   protected static void createToolsCppPackage(MockToolsConfig config) throws IOException {
     config.create(
         "tools/cpp/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
         "cc_library(name = 'stl')",
-        "alias(name='toolchain', actual='//third_party/crosstool')");
+        "alias(name='toolchain', actual='//third_party/crosstool')",
+        "cc_library(name = 'malloc')");
   }
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)

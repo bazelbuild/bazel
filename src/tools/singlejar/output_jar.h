@@ -71,8 +71,8 @@ class OutputJar {
   off_t Position();
   // Write Jar entry.
   void WriteEntry(void *local_header_and_payload);
-  // Write a directory entry.
-  void AddDirectory(const char *path);
+  // Write META_INF/ entry (the first entry on output).
+  void WriteMetaInf();
   // Append given Central Directory Header to CEN (Central Directory) buffer.
   CDH *AppendToDirectoryBuffer(const CDH *cdh);
   // Reserve space in CEN buffer.

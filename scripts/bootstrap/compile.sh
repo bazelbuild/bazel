@@ -16,7 +16,7 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto)
+PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
 GRPC_JAVA_VERSION=0.15.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
@@ -180,7 +180,9 @@ function create_deploy_jar() {
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   log "Compiling Java stubs for protocol buffers..."
   for f in $PROTO_FILES ; do
-    run "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src \
+    run "${PROTOC}" -Isrc/main/protobuf/ \
+        -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+        --java_out=${OUTPUT_DIR}/src \
         --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
         --grpc_out=${OUTPUT_DIR}/src "$f"
   done
@@ -251,45 +253,6 @@ exit $?
 EOF
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 
-function build_jni() {
-  local output_dir=$1
-  local jni_lib_name="windows_jni.dll"
-  local output="${output_dir}/${jni_lib_name}"
-  local tmp_output="${NEW_TMPDIR}/jni/${jni_lib_name}"
-  mkdir -p "$(dirname "$tmp_output")"
-
-  case "${PLATFORM}" in
-  msys*|mingw*)
-    log "Building Windows JNI library..."
-
-    # We have to enable JNI on Windows because some filesystem operations are
-    # not (and cannot be) implemented in Java.
-    ENABLE_JNI=1
-
-    # Let the JVM know where to find the JNI library. This flag overrides the
-    # default value for java.library.path, but since JNI is disabled by default,
-    # that path would be ignored anyway.
-    JNI_PATH="$output_dir"
-
-    # Keep this `find` command in sync with the `srcs` of
-    # //src/main/native:windows_jni
-    local srcs=$(find src/main/native \
-        -name 'windows_*.cc' -o -name 'windows_*.h')
-    [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
-
-    # do not quote $srcs because we need to expand it to multiple args
-    src/main/native/build_windows_jni.sh "$tmp_output" ${srcs}
-
-    cp "$tmp_output" "$output"
-    chmod 0755 "$output"
-    ;;
-  esac
-}
-
-ENABLE_JNI=0
-JNI_PATH=""
-build_jni "${ARCHIVE_DIR}/_embedded_binaries"
-
 cp src/main/tools/build_interface_so ${ARCHIVE_DIR}/_embedded_binaries/build_interface_so
 cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
@@ -302,14 +265,14 @@ else
   cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 fi
 
-# bazel build using bootstrap version
-function bootstrap_build() {
+function run_bazel_jar() {
+  local command=$1
+  shift
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
-      -Dio.bazel.EnableJni=${ENABLE_JNI} \
-      -Djava.library.path="$JNI_PATH" \
+      -Dio.bazel.EnableJni=0 \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \
@@ -318,7 +281,8 @@ function bootstrap_build() {
       --workspace_directory=${PWD} \
       --nofatal_event_bus_exceptions \
       ${BAZEL_DIR_STARTUP_OPTIONS} \
-      build \
+      ${BAZEL_BOOTSTRAP_STARTUP_OPTIONS:-} \
+      $command \
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \

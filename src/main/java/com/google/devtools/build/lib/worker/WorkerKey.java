@@ -19,9 +19,10 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
@@ -30,7 +31,7 @@ import java.util.Map;
 final class WorkerKey {
   private final ImmutableList<String> args;
   private final ImmutableMap<String, String> env;
-  private final Path workDir;
+  private final Path execRoot;
   private final String mnemonic;
 
   /**
@@ -38,18 +39,27 @@ final class WorkerKey {
    * identify a kind of worker, thus it is not to be used by the .equals() / .hashCode() methods.
    */
   private final HashCode workerFilesHash;
+  private final Map<PathFragment, Path> inputFiles;
+  private final Set<PathFragment> outputFiles;
+  private final boolean mustBeSandboxed;
 
   WorkerKey(
       List<String> args,
       Map<String, String> env,
-      Path workDir,
+      Path execRoot,
       String mnemonic,
-      HashCode workerFilesHash) {
+      HashCode workerFilesHash,
+      Map<PathFragment, Path> inputFiles,
+      Set<PathFragment> outputFiles,
+      boolean mustBeSandboxed) {
     this.args = ImmutableList.copyOf(Preconditions.checkNotNull(args));
     this.env = ImmutableMap.copyOf(Preconditions.checkNotNull(env));
-    this.workDir = Preconditions.checkNotNull(workDir);
+    this.execRoot = Preconditions.checkNotNull(execRoot);
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesHash = Preconditions.checkNotNull(workerFilesHash);
+    this.inputFiles = Preconditions.checkNotNull(inputFiles);
+    this.outputFiles = Preconditions.checkNotNull(outputFiles);
+    this.mustBeSandboxed = mustBeSandboxed;
   }
 
   public ImmutableList<String> getArgs() {
@@ -60,8 +70,8 @@ final class WorkerKey {
     return env;
   }
 
-  public Path getWorkDir() {
-    return workDir;
+  public Path getExecRoot() {
+    return execRoot;
   }
 
   public String getMnemonic() {
@@ -70,6 +80,18 @@ final class WorkerKey {
 
   public HashCode getWorkerFilesHash() {
     return workerFilesHash;
+  }
+
+  public Map<PathFragment, Path> getInputFiles() {
+    return inputFiles;
+  }
+
+  public Set<PathFragment> getOutputFiles() {
+    return outputFiles;
+  }
+
+  public boolean mustBeSandboxed() {
+    return mustBeSandboxed;
   }
 
   @Override
@@ -89,7 +111,7 @@ final class WorkerKey {
     if (!env.equals(workerKey.env)) {
       return false;
     }
-    if (!workDir.equals(workerKey.workDir)) {
+    if (!execRoot.equals(workerKey.execRoot)) {
       return false;
     }
     return mnemonic.equals(workerKey.mnemonic);
@@ -100,13 +122,13 @@ final class WorkerKey {
   public int hashCode() {
     int result = args.hashCode();
     result = 31 * result + env.hashCode();
-    result = 31 * result + workDir.hashCode();
+    result = 31 * result + execRoot.hashCode();
     result = 31 * result + mnemonic.hashCode();
     return result;
   }
 
   @Override
   public String toString() {
-    return BaseSpawn.asShellCommand(args, workDir, env);
+    return BaseSpawn.asShellCommand(args, execRoot, env);
   }
 }

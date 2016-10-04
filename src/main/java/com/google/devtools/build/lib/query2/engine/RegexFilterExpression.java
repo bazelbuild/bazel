@@ -47,6 +47,8 @@ public abstract class RegexFilterExpression implements QueryFunction {
                                + e.getMessage());
     }
 
+    // Note that Patttern#matcher is thread-safe and so this Predicate can safely be used
+    // concurrently.
     final Predicate<T> matchFilter = new Predicate<T>() {
       @Override
       public boolean apply(T target) {
@@ -62,7 +64,7 @@ public abstract class RegexFilterExpression implements QueryFunction {
     env.eval(
         Iterables.getLast(args).getExpression(),
         context,
-        QueryUtil.filteredCallback(callback, matchFilter));
+        filteredCallback(callback, matchFilter));
   }
 
   @Override
@@ -101,4 +103,50 @@ public abstract class RegexFilterExpression implements QueryFunction {
   }
 
   protected abstract String getPattern(List<Argument> args);
+
+  /**
+   * Returns a new {@link Callback} that forwards values that satisfies the given {@link Predicate}
+   * to the given {@code parentCallback}.
+   *
+   * <p>The returned {@link Callback} will be a {@link ThreadSafeCallback} iff
+   * {@code parentCallback} is as well.
+   */
+  private static <T> Callback<T> filteredCallback(
+      final Callback<T> parentCallback,
+      final Predicate<T> retainIfTrue) {
+    return (parentCallback instanceof ThreadSafeCallback)
+        ? new ThreadSafeFilteredCallback<>((ThreadSafeCallback<T>) parentCallback, retainIfTrue)
+        : new FilteredCallback<>(parentCallback, retainIfTrue);
+  }
+
+  private static class FilteredCallback<T> implements Callback<T> {
+    private final Callback<T> parentCallback;
+    private final Predicate<T> retainIfTrue;
+
+    private FilteredCallback(Callback<T> parentCallback, Predicate<T> retainIfTrue) {
+      this.parentCallback = parentCallback;
+      this.retainIfTrue = retainIfTrue;
+    }
+
+    @Override
+    public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+      Iterable<T> filter = Iterables.filter(partialResult, retainIfTrue);
+      if (!Iterables.isEmpty(filter)) {
+        parentCallback.process(filter);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "filtered parentCallback of : " + retainIfTrue;
+    }
+  }
+
+  private static class ThreadSafeFilteredCallback<T>
+      extends FilteredCallback<T> implements ThreadSafeCallback<T> {
+    private ThreadSafeFilteredCallback(
+        ThreadSafeCallback<T> parentCallback, Predicate<T> retainIfTrue) {
+      super(parentCallback, retainIfTrue);
+    }
+  }
 }

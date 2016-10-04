@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
     + "The following functions are also available:")
 public class SkylarkNativeModule {
 
-  // TODO(bazel-team): shouldn't we return a SkylarkList instead?
   @SkylarkSignature(
     name = "glob",
     objectType = SkylarkNativeModule.class,

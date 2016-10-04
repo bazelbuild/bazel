@@ -276,7 +276,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
           String toolInfo =
               owner.aspect() == null
                   ? canonicalTargetName
-                  : String.format("%s with aspect %s", canonicalTargetName, owner.aspect());
+                  : String.format("%s wrapped in %s", canonicalTargetName, owner.aspect());
           if (strictJavaDepsMode == ERROR) {
             log.error(
                 node.pos,

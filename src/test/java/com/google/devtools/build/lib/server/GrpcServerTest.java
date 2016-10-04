@@ -15,10 +15,16 @@ package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
 import static junit.framework.TestCase.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
+import com.google.devtools.build.lib.server.GrpcServerImpl.StreamType;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -27,6 +33,7 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.ServerCallStreamObserver;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +44,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.InOrder;
 
 /**
  * Unit tests for the gRPC server.
@@ -259,5 +267,40 @@ public class GrpcServerTest {
     assertThat(sink.finish()).isFalse();
     sender.joinAndAssertState(1000);
     observer.waitForMessages(2, 100, TimeUnit.MILLISECONDS);
+  }
+
+  @Test
+  public void testRpcOutputStreamChunksLargeResponses() throws Exception {
+    GrpcServerImpl.GrpcSink mockSink = mock(GrpcServerImpl.GrpcSink.class);
+    @SuppressWarnings("resource")
+    GrpcServerImpl.RpcOutputStream underTest = new GrpcServerImpl.RpcOutputStream(
+        "command_id", "cookie", StreamType.STDOUT, mockSink);
+
+    when(mockSink.offer(any(RunResponse.class))).thenReturn(true);
+
+    String chunk1 = Strings.repeat("a", 8192);
+    String chunk2 = Strings.repeat("b", 8192);
+    String chunk3 = Strings.repeat("c", 1024);
+
+    underTest.write((chunk1 + chunk2 + chunk3).getBytes(StandardCharsets.ISO_8859_1));
+    InOrder inOrder = inOrder(mockSink);
+    inOrder.verify(mockSink).offer(
+        RunResponse.newBuilder()
+            .setCommandId("command_id")
+            .setCookie("cookie")
+            .setStandardOutput(ByteString.copyFrom(chunk1.getBytes(StandardCharsets.ISO_8859_1)))
+            .build());
+    inOrder.verify(mockSink).offer(
+        RunResponse.newBuilder()
+            .setCommandId("command_id")
+            .setCookie("cookie")
+            .setStandardOutput(ByteString.copyFrom(chunk2.getBytes(StandardCharsets.ISO_8859_1)))
+            .build());
+    inOrder.verify(mockSink).offer(
+        RunResponse.newBuilder()
+            .setCommandId("command_id")
+            .setCookie("cookie")
+            .setStandardOutput(ByteString.copyFrom(chunk3.getBytes(StandardCharsets.ISO_8859_1)))
+            .build());
   }
 }

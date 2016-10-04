@@ -12,31 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.runner.junit4;
+package com.google.testing.junit.runner.internal.junit4;
 
 import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.junit4.runner.RunNotifierWrapper;
-
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import org.junit.runner.Description;
 import org.junit.runner.Request;
 import org.junit.runner.Runner;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runner.notification.StoppedByUserException;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
 /**
  * Creates requests that can be cancelled.
  */
 @Singleton
-class CancellableRequestFactory {
+public class CancellableRequestFactory {
   private boolean requestCreated;
   private volatile ThreadSafeRunNotifier currentNotifier;
   private volatile boolean cancelRequested = false;
 
   @Inject
-  CancellableRequestFactory() {}
+  public CancellableRequestFactory() {}
 
   /**
    * Creates a request that can be cancelled. Can only be called once.

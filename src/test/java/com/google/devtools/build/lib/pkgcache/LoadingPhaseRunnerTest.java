@@ -614,11 +614,13 @@ public class LoadingPhaseRunnerTest {
               analysisMock.getProductName());
       PathPackageLocator pkgLocator = PathPackageLocator.create(
           null, options.packagePath, storedErrors, workspace, workspace);
+      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
+      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+      packageCacheOptions.showLoadingProgress = true;
+      packageCacheOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
-          ConstantRuleVisibility.PRIVATE,
-          true,
-          7,
+          packageCacheOptions,
           analysisMock.getDefaultsPackageContent(),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),

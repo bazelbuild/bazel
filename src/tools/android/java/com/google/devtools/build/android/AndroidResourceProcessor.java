@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.databinding.AndroidDataBinding;
 import android.databinding.cli.ProcessXmlOptions;
+import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.android.builder.core.DefaultManifestParser;
 import com.android.builder.core.VariantConfiguration;
@@ -39,6 +40,7 @@ import com.android.manifmerger.MergingReport;
 import com.android.manifmerger.PlaceholderHandler;
 import com.android.manifmerger.XmlDocument;
 import com.android.sdklib.repository.FullRevision;
+import com.android.utils.ILogger;
 import com.android.utils.Pair;
 import com.android.utils.StdLogger;
 import com.google.common.base.Function;
@@ -68,6 +70,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -901,6 +904,42 @@ public class AndroidResourceProcessor {
   }
 
   /**
+   * A logger that will print messages to a target OutputStream.
+   */
+  private static final class PrintStreamLogger implements ILogger {
+    private final PrintStream out;
+
+    public PrintStreamLogger(PrintStream stream) {
+      this.out = stream;
+    }
+
+    @Override
+    public void error(@Nullable Throwable t, @Nullable String msgFormat, Object... args) {
+      if (msgFormat != null) {
+        out.println(String.format("Error: " + msgFormat, args));
+      }
+      if (t != null) {
+        out.printf("Error: %s%n", t.getMessage());
+      }
+    }
+
+    @Override
+    public void warning(@NonNull String msgFormat, Object... args) {
+      out.println(String.format("Warning: " + msgFormat, args));
+    }
+
+    @Override
+    public void info(@NonNull String msgFormat, Object... args) {
+      out.println(String.format("Info: " + msgFormat, args));
+    }
+
+    @Override
+    public void verbose(@NonNull String msgFormat, Object... args) {
+      out.println(String.format(msgFormat, args));
+    }
+  }
+
+  /**
    * Merge several manifests into one and perform placeholder substitutions. This operation uses
    * Gradle semantics.
    *
@@ -910,6 +949,7 @@ public class AndroidResourceProcessor {
    * @param values A map of strings to be used as manifest placeholders and overrides. packageName
    *     is the only disallowed value and will be ignored.
    * @param output The path to write the resultant manifest to.
+   * @param logFile The path to write the merger log to.
    * @return The path of the resultant manifest, either {@code output}, or {@code manifest} if no
    *     merging was required.
    * @throws IOException if there was a problem writing the merged manifest.
@@ -919,7 +959,8 @@ public class AndroidResourceProcessor {
       Map<Path, String> mergeeManifests,
       MergeType mergeType,
       Map<String, String> values,
-      Path output)
+      Path output,
+      Path logFile)
       throws IOException {
     if (mergeeManifests.isEmpty() && values.isEmpty()) {
       return manifest;
@@ -961,6 +1002,13 @@ public class AndroidResourceProcessor {
 
     try {
       MergingReport mergingReport = manifestMerger.merge();
+
+      if (logFile != null) {
+        logFile.getParent().toFile().mkdirs();
+        try (PrintStream stream = new PrintStream(logFile.toFile())) {
+          mergingReport.log(new PrintStreamLogger(stream));
+        }
+      }
       switch (mergingReport.getResult()) {
         case WARNING:
           mergingReport.log(stdLogger);
@@ -1175,6 +1223,9 @@ public class AndroidResourceProcessor {
     return Files.createDirectories(out);
   }
 
+  /**
+   * A FileVisitor that will add all files to be stored in a zip archive.
+   */
   private static class ZipBuilderVisitor extends SimpleFileVisitor<Path> {
 
     // The earliest date representable in a zip file, 1-1-1980 (the DOS epoch).

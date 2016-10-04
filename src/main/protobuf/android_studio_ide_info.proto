@@ -67,6 +67,7 @@ message AndroidRuleIdeInfo {
   bool generate_resource_class = 10;
   string legacy_resources = 11;
   LibraryArtifact resource_jar = 12;
+  string idl_import_root = 13;
 }
 
 message CToolchainIdeInfo {

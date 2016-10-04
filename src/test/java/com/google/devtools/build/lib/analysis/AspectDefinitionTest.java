@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -121,8 +120,30 @@ public class AspectDefinitionTest {
         .attributeAspect("srcs", TEST_ASPECT_CLASS)
         .attributeAspect("deps", TEST_ASPECT_CLASS)
         .build();
-    assertThat(withAspects.getAttributeAspects()).containsEntry("srcs", TEST_ASPECT_CLASS);
-    assertThat(withAspects.getAttributeAspects()).containsEntry("deps", TEST_ASPECT_CLASS);
+
+    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("srcs")))
+        .containsExactly(TEST_ASPECT_CLASS);
+    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("deps")))
+        .containsExactly(TEST_ASPECT_CLASS);
+  }
+
+  @Test
+  public void testAttributeAspect_AllAttributes() throws Exception {
+    AspectDefinition withAspects = new AspectDefinition.Builder("attribute_aspect")
+        .allAttributesAspect(TEST_ASPECT_CLASS)
+        .build();
+
+    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("srcs")))
+        .containsExactly(TEST_ASPECT_CLASS);
+    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("deps")))
+        .containsExactly(TEST_ASPECT_CLASS);
+  }
+
+
+  private static Attribute createLabelListAttribute(String name) {
+    return Attribute.attr(name, BuildType.LABEL_LIST)
+        .allowedFileTypes(FileTypeSet.ANY_FILE)
+        .build();
   }
 
   @Test

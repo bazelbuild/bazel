@@ -83,6 +83,7 @@ public class RBuildFilesFunction implements QueryFunction {
             Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT), (Callback<Target>) callback);
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public <T> void parEval(
       QueryEnvironment<T> env,
@@ -91,6 +92,13 @@ public class RBuildFilesFunction implements QueryFunction {
       List<Argument> args,
       ThreadSafeCallback<T> callback,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
+    if (!(env instanceof SkyQueryEnvironment)) {
+      throw new QueryException("rbuildfiles can only be used with SkyQueryEnvironment");
+    }
+    ((SkyQueryEnvironment) env)
+        .getRBuildFilesParallel(
+            Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT),
+            (ThreadSafeCallback<Target>) callback,
+            forkJoinPool);
   }
 }
