@@ -48,7 +48,8 @@ public final class SelectorValue implements SkylarkValue {
   public SelectorValue(Map<?, ?> dictionary, String noMatchError) {
     // Put the dict through a sorting to avoid depending on insertion order.
     this.dictionary = ImmutableMap.copyOf(new TreeMap<>(dictionary));
-    this.type = dictionary.isEmpty() ? null : Iterables.get(dictionary.values(), 0).getClass();
+    this.type =
+        dictionary.isEmpty() ? Object.class : Iterables.get(dictionary.values(), 0).getClass();
     this.noMatchError = noMatchError;
   }
 
