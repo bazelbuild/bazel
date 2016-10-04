@@ -234,6 +234,12 @@ public final class BlazeRuntime {
     }
   }
 
+  /**
+   * Initializes a CommandEnvironment to execute a command in this server.
+   *
+   * <p>This method should be called from the "main" thread on which the command will execute;
+   * that thread will receive interruptions if a module requests an early exit.
+   */
   public CommandEnvironment initCommand() {
     return workspace.initCommand();
   }

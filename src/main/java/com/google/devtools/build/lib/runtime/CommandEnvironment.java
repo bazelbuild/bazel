@@ -64,6 +64,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
@@ -81,6 +82,7 @@ public final class CommandEnvironment {
   private final Map<String, String> clientEnv = new TreeMap<>();
   private final Set<String> visibleClientEnv = new TreeSet<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
+  private final Thread commandThread;
 
   private String[] crashData;
 
@@ -104,17 +106,29 @@ public final class CommandEnvironment {
 
     @Override
     public void exit(AbruptExitException exception) {
-      pendingException.compareAndSet(null, exception);
+      Preconditions.checkNotNull(exception);
+      Preconditions.checkNotNull(exception.getExitCode());
+      if (pendingException.compareAndSet(null, exception)) {
+        // There was no exception, so we're the first one to ask for an exit. Interrupt the command.
+        commandThread.interrupt();
+      }
     }
   }
 
-  CommandEnvironment(BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus) {
+  /**
+   * Creates a new command environment which can be used for executing commands for the given
+   * runtime in the given workspace, which will publish events on the given eventBus. The
+   * commandThread passed is interrupted when a module requests an early exit.
+   */
+  CommandEnvironment(
+      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
     this.commandId = null; // Will be set once we get the client environment
     this.reporter = new Reporter();
     this.eventBus = eventBus;
+    this.commandThread = commandThread;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -377,6 +391,29 @@ public final class CommandEnvironment {
   }
 
   /**
+   * Prevents any further interruption of this command by modules, and returns the final exit code
+   * from modules, or null if no modules requested an abrupt exit.
+   *
+   * <p>Always returns the same value on subsequent calls.
+   */
+  @Nullable
+  private ExitCode finalizeExitCode() {
+    // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
+    // unwanted thread interrupts.
+    if (pendingException.compareAndSet(null, new AbruptExitException(null))) {
+      return null;
+    }
+    if (Thread.currentThread() == commandThread) {
+      // We may have interrupted the thread in the process, so clear the interrupted bit.
+      // Whether the command was interrupted or not, it's about to be over, so don't interrupt later
+      // things happening on this thread.
+      Thread.interrupted();
+    }
+    // Extract the exit code (it can be null if someone has already called finalizeExitCode()).
+    return getPendingExitCode();
+  }
+
+  /**
    * Hook method called by the BlazeCommandDispatcher right before the dispatch
    * of each command ends (while its outcome can still be modified).
    */
@@ -384,11 +421,29 @@ public final class CommandEnvironment {
     eventBus.post(new CommandPrecompleteEvent(originalExit));
     // If Blaze did not suffer an infrastructure failure, check for errors in modules.
     ExitCode exitCode = originalExit;
-    AbruptExitException exception = pendingException.get();
-    if (!originalExit.isInfrastructureFailure() && exception != null) {
-      exitCode = exception.getExitCode();
+    ExitCode newExitCode = finalizeExitCode();
+    if (!originalExit.isInfrastructureFailure() && newExitCode != null) {
+      exitCode = newExitCode;
     }
     return exitCode;
+  }
+
+  /**
+   * Returns the current exit code requested by modules, or null if no exit has been requested.
+   */
+  @Nullable
+  public ExitCode getPendingExitCode() {
+    AbruptExitException exception = getPendingException();
+    return exception == null ? null : exception.getExitCode();
+  }
+
+  /**
+   * Retrieves the exception currently queued by a Blaze module.
+   *
+   * <p>Prefer getPendingExitCode or throwPendingException where appropriate.
+   */
+  public AbruptExitException getPendingException() {
+    return pendingException.get();
   }
 
   /**
@@ -399,8 +454,12 @@ public final class CommandEnvironment {
    * the exception this way.
    */
   public void throwPendingException() throws AbruptExitException {
-    AbruptExitException exception = pendingException.get();
+    AbruptExitException exception = getPendingException();
     if (exception != null) {
+      if (Thread.currentThread() == commandThread) {
+        // Throwing this exception counts as the requested interruption. Clear the interrupted bit.
+        Thread.interrupted();
+      }
       throw exception;
     }
   }

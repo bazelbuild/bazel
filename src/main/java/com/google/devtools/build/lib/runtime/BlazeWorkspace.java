@@ -184,9 +184,15 @@ public final class BlazeWorkspace {
     return lastExecutionRange;
   }
 
+  /**
+   * Initializes a CommandEnvironment to execute a command in this workspace.
+   *
+   * <p>This method should be called from the "main" thread on which the command will execute;
+   * that thread will receive interruptions if a module requests an early exit.
+   */
   public CommandEnvironment initCommand() {
-    CommandEnvironment env
-        = new CommandEnvironment(runtime, this, new EventBus(eventBusExceptionHandler));
+    CommandEnvironment env = new CommandEnvironment(
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread());
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }

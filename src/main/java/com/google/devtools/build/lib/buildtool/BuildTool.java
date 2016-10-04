@@ -342,9 +342,19 @@ public final class BuildTool {
       }
       exitCode = e.getExitCode() != null ? e.getExitCode() : ExitCode.BUILD_FAILURE;
     } catch (InterruptedException e) {
-      exitCode = ExitCode.INTERRUPTED;
-      env.getReporter().handle(Event.error("build interrupted"));
-      env.getEventBus().post(new BuildInterruptedEvent());
+      // We may have been interrupted by an error, or the user's interruption may have raced with
+      // an error, so check to see if we should report that error code instead.
+      exitCode = env.getPendingExitCode();
+      if (exitCode == null) {
+        exitCode = ExitCode.INTERRUPTED;
+        env.getReporter().handle(Event.error("build interrupted"));
+        env.getEventBus().post(new BuildInterruptedEvent());
+      } else {
+        // Report the exception from the environment - the exception we're handling here is just an
+        // interruption.
+        reportExceptionError(env.getPendingException());
+        result.setCatastrophe();
+      }
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       exitCode = ExitCode.PARSING_FAILURE;
       reportExceptionError(e);
