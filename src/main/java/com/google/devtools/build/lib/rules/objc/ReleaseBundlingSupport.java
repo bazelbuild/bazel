@@ -1058,21 +1058,13 @@ public final class ReleaseBundlingSupport {
       return;
     }
 
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    if (appleConfiguration.getXcodeToolchain() != null) {
-      commandLine.add("--toolchain").add(appleConfiguration.getXcodeToolchain());
-    }
-
-    commandLine
-        .add("--output_zip_path")
-        .addPath(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
-        .add("--bundle_path")
-        .add("Frameworks")
-        .add("--platform")
-        .add(platform.getLowerCaseNameInPlist())
-        .addExecPath("--scan-executable", combinedArchBinary);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .addPath(intermediateArtifacts.swiftFrameworksFileZip().getExecPath())
+            .add("Frameworks")
+            .add("--platform")
+            .add(platform.getLowerCaseNameInPlist())
+            .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)
@@ -1090,21 +1082,13 @@ public final class ReleaseBundlingSupport {
       return;
     }
 
-    AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
-
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    if (configuration.getXcodeToolchain() != null) {
-      commandLine.add("--toolchain").add(configuration.getXcodeToolchain());
-    }
-
-    commandLine
-        .add("--output_zip_path")
-        .addPath(intermediateArtifacts.swiftSupportZip().getExecPath())
-        .add("--bundle_path")
-        .add("SwiftSupport/" + platform.getLowerCaseNameInPlist())
-        .add("--platform")
-        .add(platform.getLowerCaseNameInPlist())
-        .addExecPath("--scan-executable", combinedArchBinary);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .addPath(intermediateArtifacts.swiftSupportZip().getExecPath())
+            .add("SwiftSupport/" + platform.getLowerCaseNameInPlist())
+            .add("--platform")
+            .add(platform.getLowerCaseNameInPlist())
+            .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)

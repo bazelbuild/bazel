@@ -78,39 +78,6 @@ def _module_name(ctx):
   """Returns a module name for the given rule context."""
   return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
 
-def _swift_lib_dir(ctx):
-  """Returns the location of swift runtime directory to link against."""
-  # TODO(dmishe): Expose this template from native code.
-  developer_dir = "__BAZEL_XCODE_DEVELOPER_DIR__"
-  platform_str = ctx.fragments.apple.single_arch_platform.name_in_plist.lower()
-
-  toolchain_name = "XcodeDefault"
-  if hasattr(ctx.fragments.apple, "xcode_toolchain"):
-    toolchain = ctx.fragments.apple.xcode_toolchain
-
-    # We cannot use non Xcode-packaged toolchains, and the only one non-default
-    # toolchain known to exist (as of Xcode 8.1) is this one.
-    # TODO(b/29338444): Write an integration test when Xcode 8 is available.
-    if toolchain == "com.apple.dt.toolchain.Swift_2_3":
-      toolchain_name = "Swift_2.3"
-
-  return "{0}/Toolchains/{1}.xctoolchain/usr/lib/swift/{2}".format(
-      developer_dir, toolchain_name, platform_str)
-
-def _swift_linkopts(ctx):
-  """Returns additional linker arguments for the given rule context."""
-  return set(["-L" + _swift_lib_dir(ctx)])
-
-def _swift_xcrun_args(ctx):
-  """Returns additional arguments that should be passed to xcrun."""
-  # TODO(dmishe): Remove this check when xcode_toolchain is available by default
-  args = []
-  if hasattr(ctx.fragments.apple, "xcode_toolchain"):
-    if ctx.fragments.apple.xcode_toolchain:
-      args += ["--toolchain", ctx.fragments.apple.xcode_toolchain]
-
-  return args
-
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
   # TODO(b/29772303): Assert xcode version.
@@ -235,7 +202,7 @@ def _swift_library_impl(ctx):
       # https://llvm.org/bugs/show_bug.cgi?id=19501
       + ["-fmodule-map-file=%s" % x.path for x in objc_module_maps])
 
-  args = _swift_xcrun_args(ctx) + [
+  args = [
       "swiftc",
       "-emit-object",
       "-emit-module-path",
@@ -286,8 +253,7 @@ def _swift_library_impl(ctx):
       library=set([output_lib] + dep_libs),
       header=set([output_header]),
       providers=objc_providers,
-      linkopt=_swift_linkopts(ctx),
-      uses_swift=True,)
+      uses_swift=True)
 
   return struct(
       swift=struct(

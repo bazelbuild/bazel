@@ -1445,22 +1445,9 @@ public final class CompilationSupport {
     }
 
     if (objcProvider.is(USES_SWIFT)) {
-      // Check if there's a swift library path already. If that's not the case - fall back to
-      // the default one. This is for backwards compatibility with Swift native rules.
-      // TODO(b/30281236): Remove when native Swift is deprecated.
-      boolean swiftLibDirSet = false;
-      for (String arg : objcProvider.get(ObjcProvider.LINKOPT)) {
-        if (arg.startsWith("-L") && arg.contains("usr/lib/swift")) {
-          swiftLibDirSet = true;
-          break;
-        }
-      }
-
-      if (!swiftLibDirSet) {
-        commandLine
-            .add("-L")
-            .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform()));
-      }
+      commandLine
+          .add("-L")
+          .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform()));
     }
 
     for (String linkopt : attributes.linkopts()) {

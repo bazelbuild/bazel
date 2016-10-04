@@ -84,7 +84,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> tvosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
-  @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean disableNativeSwiftRules;
 
@@ -128,7 +127,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
-    this.xcodeToolchain = appleOptions.xcodeToolchain;
     this.disableNativeSwiftRules = appleOptions.disableNativeSwiftRules;
   }
 
@@ -519,17 +517,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       return null;
     }
     return Joiner.on('-').join(components);
-  }
-
-  /** Returns the identifier for an Xcode toolchain to use with tools. */
-  @SkylarkCallable(
-    name = "xcode_toolchain",
-    doc = "Identifier for the custom Xcode toolchain to use in build or None if not specified",
-    allowReturnNones = true,
-    structField = true
-  )
-  public String getXcodeToolchain() {
-    return xcodeToolchain;
   }
 
   /**
