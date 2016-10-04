@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
+
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -36,9 +38,8 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
+import java.util.List;
 
 /**
  * Provides a way to access attributes that are common to all compilation rules.
@@ -321,7 +322,6 @@ final class CompilationAttributes {
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(new SdkFramework(explicit));
         }
-
         builder.addSdkFrameworks(frameworks.build());
       }
 

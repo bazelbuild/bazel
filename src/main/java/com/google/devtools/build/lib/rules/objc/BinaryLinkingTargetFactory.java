@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -33,9 +36,6 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
 /** Implementation for rules that link binaries. */
 abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory {

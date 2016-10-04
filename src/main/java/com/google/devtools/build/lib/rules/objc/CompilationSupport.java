@@ -14,7 +14,39 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SWIFT_MODULE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT_SOURCES;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -72,39 +104,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
-
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SWIFT_MODULE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -689,7 +688,7 @@ public final class CompilationSupport {
     }
 
     Optional<Artifact> moduleMapArtifact = moduleMap.transform(new Function<CppModuleMap, Artifact>() {
-      @Nullable @Override public Artifact apply(@Nullable CppModuleMap cppModuleMap) {
+      @Override public Artifact apply(CppModuleMap cppModuleMap) {
         return cppModuleMap.getArtifact();
       }
     });
@@ -887,7 +886,6 @@ public final class CompilationSupport {
     for (String option : getCompileRuleCopts()) {
       commandLine.add("-Xcc").add(option);
     }
-
 
     ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
         .addAll(attributes.hdrs())
@@ -1762,8 +1760,6 @@ public final class CompilationSupport {
 
     return this;
   }
-
-
 
   /**
    * Validates compilation-related attributes on this rule.

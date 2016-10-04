@@ -36,7 +36,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * Creates C++ module map artifact genfiles. These are then passed to Clang to
@@ -48,25 +47,23 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   private static final String GUID = "4f407081-1951-40c1-befc-d6b4daff5de3";
   private static final Function<? super CppModuleMap,? extends Artifact> GET_ARTIFACT_FN =
       new Function<CppModuleMap, Artifact>() {
-        @Nullable @Override public Artifact apply(@Nullable CppModuleMap cppModuleMap) {
+        @Override public Artifact apply(CppModuleMap cppModuleMap) {
           return cppModuleMap.getArtifact();
         }
       };
 
-
   // C++ module map of the current target
   private final CppModuleMap cppModuleMap;
 
-  private final boolean isUnextendedSwift;
   /**
    * If set, the paths in the module map are relative to the current working directory instead
    * of relative to the module map file's location.
    */
   private final boolean moduleMapHomeIsCwd;
+
   // Data required to build the actual module map.
   // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
   private final ImmutableList<Artifact> privateHeaders;
-
   private final ImmutableList<Artifact> publicHeaders;
   private final ImmutableList<Artifact> publicCcHeaders;
   private final ImmutableList<CppModuleMap> dependencies;
@@ -74,6 +71,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   private final boolean compiledModule;
   private final boolean generateSubmodules;
   private final boolean externDependencies;
+  private final boolean isUnextendedSwift;
   private final Optional<Artifact> swiftCompatibilityHeader;
 
   public CppModuleMapAction(

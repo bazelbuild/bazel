@@ -35,7 +35,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -78,7 +77,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
    * A builder for instances of {@link XcodeProvider}.
    */
   public static final class Builder {
-
     private Label label;
     // Propagated dependencies and search paths are seen by all transitive dependents of this
     // target. Non propagated dependencies are only seen by this target; none of the direct and

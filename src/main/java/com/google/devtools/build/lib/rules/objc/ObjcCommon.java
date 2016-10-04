@@ -14,32 +14,16 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.UnmodifiableIterator;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
@@ -82,6 +66,34 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
 import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.UnmodifiableIterator;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -552,8 +564,6 @@ public final class ObjcCommon {
         if (usesSwift) {
           objcProvider.add(FLAG, USES_SWIFT);
           objcProvider.add(SWIFT_MODULE, intermediateArtifacts.swiftModule());
-          objcProvider.add(LINKOPT, "-Xlinker");
-          objcProvider.add(LINKOPT, "-force_load_swift_libs");
           objcProvider.add(HEADER, intermediateArtifacts.swiftHeader());
         }
       }

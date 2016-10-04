@@ -84,7 +84,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           + "devicetypes' on the machine the simulator will be run on.")
   public String tvosSimulatorDevice;
 
-
   @Option(name = "objc_generate_linkmap",
       defaultValue = "false",
       category = "flags",

@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
+
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
@@ -36,15 +41,11 @@ import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 /**
  * Support for generating iOS bundles which contain metadata (a plist file), assets, resources and
@@ -309,6 +310,7 @@ final class BundleSupport {
     // Otherwise, just use target name, it doesn't matter.
     return ruleContext.getRule().getName();
   }
+
   private void registerMomczipActions(ObjcProvider objcProvider) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<Xcdatamodel> xcdatamodels = Xcdatamodels.xcdatamodels(

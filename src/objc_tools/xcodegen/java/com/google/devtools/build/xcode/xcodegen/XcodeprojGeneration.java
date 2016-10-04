@@ -14,26 +14,9 @@
 
 package com.google.devtools.build.xcode.xcodegen;
 
-import com.dd.plist.NSArray;
-import com.dd.plist.NSDictionary;
-import com.dd.plist.NSObject;
-import com.dd.plist.NSString;
-import com.facebook.buck.apple.xcode.GidGenerator;
-import com.facebook.buck.apple.xcode.XcodeprojSerializer;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXContainerItemProxy.ProxyType;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXCopyFilesBuildPhase;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXFileReference;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXFrameworksBuildPhase;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXNativeTarget;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXProject;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXResourcesBuildPhase;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXShellScriptBuildPhase;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXSourcesBuildPhase;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
-import com.facebook.buck.apple.xcode.xcodeproj.PBXTargetDependency;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -54,6 +37,28 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
+
+import com.dd.plist.NSArray;
+import com.dd.plist.NSDictionary;
+import com.dd.plist.NSObject;
+import com.dd.plist.NSString;
+import com.facebook.buck.apple.xcode.GidGenerator;
+import com.facebook.buck.apple.xcode.XcodeprojSerializer;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXContainerItemProxy.ProxyType;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXCopyFilesBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXFileReference;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXFrameworksBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXNativeTarget;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXProject;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXResourcesBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXShellScriptBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXSourcesBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXTargetDependency;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -72,9 +77,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Utility code for generating Xcode project files.
@@ -554,6 +556,7 @@ public class XcodeprojGeneration {
             targetControl.getSwiftoptList(), QUOTE_ESCAPER.asFunction());
         targetBuildConfigMap.put("OTHER_SWIFT_FLAGS", NSObject.wrap(escapedSwiftopts));
       }
+
       // Double-quotes in copt strings need to be escaped for XCode.
       if (targetControl.getCoptCount() > 0) {
         List<String> escapedCopts = Lists.transform(
