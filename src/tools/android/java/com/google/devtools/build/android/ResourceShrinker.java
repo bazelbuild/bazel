@@ -36,14 +36,6 @@ import static com.android.utils.SdkUtils.endsWith;
 import static com.android.utils.SdkUtils.endsWithIgnoreCase;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
-import com.google.common.io.Files;
-
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.android.annotations.VisibleForTesting;
@@ -57,19 +49,13 @@ import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
 import com.android.utils.Pair;
 import com.android.utils.XmlUtils;
-
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.w3c.dom.Attr;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
-
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
+import com.google.common.io.Files;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -88,8 +74,18 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
 import javax.xml.parsers.ParserConfigurationException;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  * Class responsible for searching through a Gradle built tree (after resource merging, compilation
@@ -1170,12 +1166,12 @@ public class ResourceShrinker {
         }
 
         @Override
-        public void visitMethodInsn(int opcode, String owner, String name, String desc) {
-          super.visitMethodInsn(opcode, owner, name, desc);
+        public void visitMethodInsn(
+            int opcode, String owner, String name, String desc, boolean isInterface) {
+          super.visitMethodInsn(opcode, owner, name, desc, isInterface);
           if (owner.equals("android/content/res/Resources")
               && name.equals("getIdentifier")
-              && desc.equals(
-              "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I")) {
+              && desc.equals("(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I")) {
             mFoundGetIdentifier = true;
             // TODO: Check previous instruction and see if we can find a literal
             // String; if so, we can more accurately dispatch the resource here
