@@ -20,6 +20,7 @@ package com.google.devtools.build.lib.rules.objc;
  */
 enum XcodeProductType {
   LIBRARY_STATIC("com.apple.product-type.library.static"),
+  LIBRARY_DYNAMIC("com.apple.product-type.library.dynamic"),
   BUNDLE("com.apple.product-type.bundle"),
   APPLICATION("com.apple.product-type.application"),
   UNIT_TEST("com.apple.product-type.bundle.unit-test"),

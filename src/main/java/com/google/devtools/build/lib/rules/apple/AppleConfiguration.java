@@ -65,6 +65,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
+  public static final String SWIFT_TOOLCHAINS_ENV_NAME = "TOOLCHAINS";
+
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
 
   private final DottedVersion iosSdkVersion;
@@ -74,14 +76,18 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion tvosSdkVersion;
   private final DottedVersion tvosMinimumOs;
   private final DottedVersion macosXSdkVersion;
+  private final DottedVersion macosXMinimumOs;
   private final String iosCpu;
   private final String appleSplitCpu;
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final Optional<DottedVersion> xcodeVersion;
+  private final Optional<String> swiftToolchain;
+  private final Optional<DottedVersion> swiftVersion;
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
+  private final ImmutableList<String> macosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
@@ -94,7 +100,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion watchosMinimumOs,
       DottedVersion tvosSdkVersion,
       DottedVersion tvosMinimumOs,
-      DottedVersion macosXSdkVersion) {
+      DottedVersion macosXSdkVersion,
+      DottedVersion macosXMinimumOs,
+      Optional<String> swiftToolchain,
+      Optional<DottedVersion> swiftVersion) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(appleOptions.iosMinimumOs, "iosMinimumOs");
     this.watchosSdkVersion =
@@ -105,6 +114,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(tvosSdkVersion, "tvOsSdkVersion");
     this.tvosMinimumOs =
         Preconditions.checkNotNull(tvosMinimumOs, "tvOsMinimumOs");
+    this.macosXMinimumOs =
+        Preconditions.checkNotNull(macosXMinimumOs, "macosXMinimumOs");
 
     this.macosXSdkVersion =
         Preconditions.checkNotNull(macosXSdkVersion, "macOsXSdkVersion");
@@ -123,11 +134,16 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.tvosCpus = (appleOptions.tvosCpus == null || appleOptions.tvosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
         : ImmutableList.copyOf(appleOptions.tvosCpus);
+    this.macosCpus = (appleOptions.macosCpus == null || appleOptions.macosCpus.isEmpty())
+        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
+        : ImmutableList.copyOf(appleOptions.macosCpus);
     this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
+    this.swiftToolchain = swiftToolchain;
     this.disableNativeSwiftRules = appleOptions.disableNativeSwiftRules;
+    this.swiftVersion = swiftVersion;
   }
 
   /**
@@ -154,6 +170,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return tvosMinimumOs;
       case WATCHOS:
         return watchosMinimumOs;
+      case MACOSX:
+        return macosXMinimumOs;
       default:
         throw new IllegalArgumentException("Unhandled platform: " + platformType);
     }
@@ -236,6 +254,30 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns swift version that should be used in the xcode SWIFT_VERSION configuration.
+   */
+  @SkylarkCallable(
+      name = "swift_version",
+      doc = "Returns swift version that should be used in the xcode SWIFT_VERSION configuration"  )
+  public Optional<DottedVersion> getSwiftVersion() {
+    return swiftVersion;
+  }
+
+  /**
+   * Returns a map of environment variables that should be propagated for actions that build on an
+   * to set the toolchain.
+   */
+  @SkylarkCallable(
+      name = "swift_toolchain_system_env",
+      doc =
+          " Returns a map of environment variables that should be propagated for actions "
+              + "that build on an to set the toolchain."
+  )
+  public Optional<String> getSwiftToolchainSystemEnv() {
+    return swiftToolchain;
+  }
+
+  /**
    * Returns a map of environment variables that should be propagated for actions that require
    * a version of xcode to be explicitly declared. Keys are variable names and values are their
    * corresponding values.
@@ -252,15 +294,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   public Map<String, String> appleTargetPlatformEnv(Platform platform) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-
     // TODO(cparsons): Avoid setting SDK version for macosx. Until SDK version is
     // evaluated for the current configuration xcode version, this would break users who build
     // cc_* rules without specifying both xcode_version and macosx_sdk_version build options.
-    if (platform != Platform.MACOS_X) {
+    //if (platform != Platform.MACOS_X) {
         String sdkVersion = getSdkVersionForPlatform(platform).toString();
         builder.put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, sdkVersion)
             .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, platform.getNameInPlist());
-    }
+    //}
+
     return builder.build();
   }
 
@@ -314,18 +356,19 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return watchosCpus.get(0);
       case TVOS:
         return tvosCpus.get(0);
-      // TODO(cparsons): Handle all platform types.
-      default: 
+      case MACOSX:
+        return macosCpus.get(0);
+      default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
   }
- 
+
   /**
    * Gets the "effective" architecture(s) for the given {@link PlatformType}. For example,
    * "i386" or "arm64". At least one architecture is always returned. Prefer this over
    * {@link #getSingleArchitecture} in rule logic which may support multiple architectures, such
    * as bundling rules.
-   * 
+   *
    * <p>Effective architecture(s) is determined using the following rules:
    * <ol>
    * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then
@@ -334,7 +377,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * all architectures from that flag.</li>
    * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.</li>
    * <li>Use the default.</li></ol>
-   * 
+   *
    * @throws IllegalArgumentException if {@code --apple_platform_type} is set (via prior
    *     configuration transition) yet does not match {@code platformType}
    */
@@ -358,7 +401,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return watchosCpus;
       case TVOS:
         return tvosCpus;
-      default: 
+      case MACOSX:
+        return macosCpus;
+      default:
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
   }
@@ -380,7 +425,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public Platform getSingleArchPlatform() {
     return Platform.forTarget(applePlatformType, getSingleArchitecture());
   }
-  
+
   /**
    * Gets the current configuration {@link Platform} for the given {@link PlatformType}. Platform
    * is determined via a combination between the given platform type and the "effective"
@@ -450,7 +495,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     }
     return getIosCpu();
   }
-  
+
   /**
    * List of all CPUs that this invocation is being built for. Different from {@link #getIosCpu()}
    * which is the specific CPU <b>this target</b> is being built for.
@@ -467,7 +512,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable public Label getDefaultProvisioningProfileLabel() {
     return defaultProvisioningProfileLabel;
   }
-  
+
   /**
    * Returns the bitcode mode to use for compilation steps. Users can control bitcode mode using the
    * {@code apple_bitcode} build flag.
@@ -550,10 +595,16 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           ? appleOptions.tvosMinimumOs : tvosSdkVersion;
       DottedVersion macosxSdkVersion = (appleOptions.macOsXSdkVersion != null)
           ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
+      DottedVersion macosMinimumOsVersion = (appleOptions.macosMinimumOs != null)
+          ? appleOptions.macosMinimumOs : macosxSdkVersion;
+
+      Optional<String> swiftToolchain = Optional.fromNullable(appleOptions.swiftToolchain);
+      Optional<DottedVersion> swiftVersion = Optional.fromNullable(appleOptions.swiftVersion);
       AppleConfiguration configuration =
           new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
               iosSdkVersion, watchosSdkVersion, watchosMinimumOsVersion,
-              tvosSdkVersion, tvosMinimumOsVersion, macosxSdkVersion);
+              tvosSdkVersion, tvosMinimumOsVersion, macosxSdkVersion, macosMinimumOsVersion,
+              swiftToolchain, swiftVersion);
 
       validate(configuration);
       return configuration;
@@ -580,7 +631,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
       return ImmutableSet.<Class<? extends FragmentOptions>>of(AppleCommandLineOptions.class);
     }
-    
+
     /**
      * Uses the {@link AppleCommandLineOptions#xcodeVersion} and {@link
      * AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and return the
@@ -595,7 +646,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     private static XcodeVersionProperties getXcodeVersionProperties(
         ConfigurationEnvironment env, AppleCommandLineOptions appleOptions)
         throws InvalidConfigurationException, InterruptedException {
-      Optional<DottedVersion> xcodeVersionCommandLineFlag = 
+      Optional<DottedVersion> xcodeVersionCommandLineFlag =
           Optional.fromNullable(appleOptions.xcodeVersion);
       Label xcodeVersionConfigLabel = appleOptions.xcodeVersionConfig;
 

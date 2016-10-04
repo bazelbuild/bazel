@@ -52,6 +52,25 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public DottedVersion xcodeVersion;
 
   @Option(
+      name = "swift_toolchain",
+      defaultValue = "null",
+      category = "build",
+      help =
+          "If specified, uses sets TOOLCHAINS environment variable when calling xcrun."
+  )
+  public String swiftToolchain;
+
+  @Option(
+      name = "swift_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      category = "build",
+      help =
+          "Sets SWIFT_VERSION in generated xcode projects."
+  )
+  public DottedVersion swiftVersion;
+
+  @Option(
     name = "ios_sdk_version",
     defaultValue = "null",
     converter = DottedVersionConverter.class,
@@ -114,6 +133,15 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public DottedVersion tvosMinimumOs;
 
+  @Option(
+      name = "macos_minimum_os",
+      defaultValue = "null",
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible macOS version."
+  )
+  public DottedVersion macosMinimumOs;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
@@ -129,6 +157,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
    * The default tvOS CPU value.
    */
   public static final String DEFAULT_TVOS_CPU = "x86_64";
+
+  /**
+   * The default macOS CPU value.
+   */
+  public static final String DEFAULT_MACOS_CPU = "x86_64";
 
   @Option(name = "ios_cpu",
       defaultValue = DEFAULT_IOS_CPU,
@@ -186,6 +219,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
       category = "flags",
       help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
   public List<String> tvosCpus;
+
+  @Option(name = "macos_cpus",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = DEFAULT_MACOS_CPU,
+      category = "flags",
+      help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
+  public List<String> macosCpus;
 
   @Option(name = "default_ios_provisioning_profile",
       defaultValue = "",

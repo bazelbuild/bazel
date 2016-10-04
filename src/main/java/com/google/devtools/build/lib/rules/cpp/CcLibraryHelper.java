@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -1161,8 +1163,11 @@ public final class CcLibraryHelper {
               cppModuleMap,
               privateHeaders,
               publicHeaders,
+              ImmutableList.of(),
               collectModuleMaps(),
               additionalExportedHeaders,
+              Optional.absent(),
+              false,
               featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
               featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
               featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),

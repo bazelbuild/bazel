@@ -55,7 +55,7 @@ public enum Platform {
   private static final Set<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
   private static final Set<String> MACOSX_TARGET_CPUS =
-      ImmutableSet.of("darwin_x86_64");
+      ImmutableSet.of("macosx_x86_64");
 
   private final String skylarkKey;
   private final String nameInPlist;
@@ -134,7 +134,7 @@ public enum Platform {
 
   /**
    * Returns the platform for the given target cpu and platform type.
-   * 
+   *
    * @param platformType platform type that the given cpu value is implied for
    * @param arch architecture representation, such as 'arm64'
    * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
@@ -145,20 +145,20 @@ public enum Platform {
 
  /**
   * Returns the platform for the given target cpu.
-  * 
+  *
   * @param targetCpu cpu value with platform type prefix, such as 'ios_arm64'
   * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
   */
   public static Platform forTargetCpu(String targetCpu) {
     Platform platform = forTargetCpuNullable(targetCpu);
     if (platform != null) {
-      return platform; 
+      return platform;
     } else {
       throw new IllegalArgumentException(
           "No supported apple platform registered for target cpu " + targetCpu);
     }
   }
-  
+
   /**
    * Returns true if the given target cpu is an apple platform.
    */
@@ -207,10 +207,10 @@ public enum Platform {
     public String toString() {
       return name().toLowerCase();
     }
-    
+
     /**
      * Returns the {@link PlatformType} with given name (case insensitive).
-     * 
+     *
      * @throws IllegalArgumentException if the name does not match a valid platform type.
      */
     public static PlatformType fromString(String name) {

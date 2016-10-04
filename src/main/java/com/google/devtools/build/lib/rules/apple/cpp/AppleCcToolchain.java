@@ -41,6 +41,7 @@ public class AppleCcToolchain extends CcToolchain {
   private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
   private static final String TVOS_SDK_VERSION_KEY = "appletvos_sdk_version";
   private static final String WATCHOS_SDK_VERSION_KEY = "watchos_sdk_version";
+  private static final String SWIFT_TOOLCHAIN = "swift_toolchain";
   public static final String SDK_DIR_KEY = "sdk_dir";
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
   public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
@@ -50,7 +51,7 @@ public class AppleCcToolchain extends CcToolchain {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Platform platform = appleConfiguration.getSingleArchPlatform();
 
-    return ImmutableMap.<String, String>builder()
+    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder()
         .put(
             XCODE_VERSION_KEY,
             appleConfiguration.getXcodeVersion().or(DEFAULT_XCODE_VERSION).toString())
@@ -70,10 +71,16 @@ public class AppleCcToolchain extends CcToolchain {
         .put(SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
         .put(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
-            AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+            AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration));
+
+    if (appleConfiguration.getSwiftToolchainSystemEnv().isPresent()) {
+      result.put(SWIFT_TOOLCHAIN, appleConfiguration.getSwiftToolchainSystemEnv().get());
+    }
+
+    return result
         .build();
   }
-  
+
   @Override
   protected NestedSet<Artifact> fullInputsForLink(
       RuleContext ruleContext, NestedSet<Artifact> link) {

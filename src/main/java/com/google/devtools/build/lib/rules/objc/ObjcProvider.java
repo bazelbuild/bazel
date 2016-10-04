@@ -206,6 +206,12 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
+   * .swiftmodule file
+   */
+  public static final Key<Artifact> SWIFT_MODULE =
+      new Key<>(STABLE_ORDER, "swiftmodule", Artifact.class);
+
+  /**
    * Clang module maps, used to enforce proper use of private header files.
    */
   public static final Key<Artifact> MODULE_MAP =
@@ -385,6 +391,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           SDK_DYLIB,
           XCDATAMODEL,
           MODULE_MAP,
+          SWIFT_MODULE,
           MERGE_ZIP,
           STATIC_FRAMEWORK_FILE,
           DYNAMIC_FRAMEWORK_FILE,

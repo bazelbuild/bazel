@@ -32,6 +32,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SWIFT_MODULE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
@@ -47,6 +48,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT_SOU
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -92,12 +94,14 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -112,7 +116,7 @@ public final class CompilationSupport {
 
   @VisibleForTesting
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  
+
   @VisibleForTesting
   static final String MODULES_CACHE_PATH_WARNING =
       "setting '-fmodules-cache-path' manually in copts is unsupported";
@@ -415,10 +419,10 @@ public final class CompilationSupport {
       ExtraCompileArgs extraCompileArgs,
       Iterable<PathFragment> priorityHeaders) {
     if (common.getCompilationArtifacts().isPresent()) {
-      registerGenerateModuleMapAction(common.getCompilationArtifacts());
+      registerGenerateModuleMapActions(common.getCompilationArtifacts());
       Optional<CppModuleMap> moduleMap;
       if (objcConfiguration.moduleMapsEnabled()) {
-        moduleMap = Optional.of(intermediateArtifacts.moduleMap());
+        moduleMap = Optional.of(intermediateArtifacts.unextendedModuleMap());
       } else {
         moduleMap = Optional.absent();
       }
@@ -542,13 +546,13 @@ public final class CompilationSupport {
 
     if (isCPlusPlusSource) {
       commandLine.add("-stdlib=libc++");
-      commandLine.add("-std=gnu++11");
+      commandLine.add("-std=gnu++14");
     }
 
     if (hasSwiftSources) {
       // Add the directory that contains merged TargetName-Swift.h header to search path, in case
       // any of ObjC files use it.
-      commandLine.add("-I");
+      commandLine.add("-iquote");
       commandLine.addPath(intermediateArtifacts.swiftHeader().getExecPath().getParentDirectory());
     }
 
@@ -632,14 +636,8 @@ public final class CompilationSupport {
       // to the include path instead.
       // TODO(bazel-team): Use -fmodule-map-file when Xcode 6 support is dropped.
       commandLine
-          .add("-iquote")
-          .add(
-              moduleMap
-                  .get()
-                  .getArtifact()
-                  .getExecPath()
-                  .getParentDirectory()
-                  .toString())
+          .add("-fmodule-map-file=" +
+              moduleMap.get().getArtifact().getExecPath().toString())
           .add("-fmodule-name=" + moduleMap.get().getName());
     }
 
@@ -689,6 +687,12 @@ public final class CompilationSupport {
       moduleMapInputs = objcProvider.get(MODULE_MAP);
     }
 
+    Optional<Artifact> moduleMapArtifact = moduleMap.transform(new Function<CppModuleMap, Artifact>() {
+      @Override public Artifact apply(CppModuleMap cppModuleMap) {
+        return cppModuleMap.getArtifact();
+      }
+    });
+
     // TODO(bazel-team): Remove private headers from inputs once they're added to the provider.
     ruleContext.registerAction(
         ObjcCompileAction.Builder.createObjcCompileActionBuilderWithAppleEnv(
@@ -705,6 +709,7 @@ public final class CompilationSupport {
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine)
+            .addInputs(moduleMapArtifact.asSet())
             .addOutput(objFile)
             .addOutputs(gcnoFile.asSet())
             .addOutput(dotdFile.artifact())
@@ -832,22 +837,30 @@ public final class CompilationSupport {
     }
     ImmutableSet<Artifact> otherSwiftSources = otherSwiftSourcesBuilder.build();
 
+    Iterable<String> swiftopts = Iterables.concat(objcConfiguration.getSwiftopts(), attributes.swiftopts());
+
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder()
         .add(SWIFT)
         .add("-frontend")
         .add("-emit-object")
-        .add("-target").add(swiftTarget(appleConfiguration))
+        .add("-target").add(swiftTarget(appleConfiguration, objcConfiguration))
         .add("-sdk").add(AppleToolchain.sdkDir())
         .add("-enable-objc-interop")
-        .add(objcConfiguration.getSwiftCoptsForCompilationMode());
+        .add(objcConfiguration.getSwiftCoptsForCompilationMode())
+        .add(swiftopts);
 
     if (objcConfiguration.generateDsym()) {
       commandLine.add("-g");
     }
 
     commandLine
-      .add("-module-name").add(getModuleName())
-      .add("-parse-as-library");
+      .add("-module-name").add(getModuleName());
+
+    // Hack, but not better way to do this.
+
+    if (!sourceFile.getFilename().equals("main.swift")) {
+      commandLine.add("-parse-as-library");
+    }
     addSource("-primary-file", commandLine, sourceFile)
       .addExecPaths(otherSwiftSources)
       .addExecPath("-o", objFile)
@@ -864,8 +877,19 @@ public final class CompilationSupport {
       commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
     }
 
+    // Make it so swift gets our command line options
+    for (String option : commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration,
+        appleConfiguration)) {
+      commandLine.add("-Xcc").add(option);
+    }
+
+    for (String option : getCompileRuleCopts()) {
+      commandLine.add("-Xcc").add(option);
+    }
+
     ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
         .addAll(attributes.hdrs())
+        .addAll(attributes.ccHdrs())
         .addAll(attributes.textualHdrs());
 
     Optional<Artifact> bridgingHeader = attributes.bridgingHeader();
@@ -878,14 +902,36 @@ public final class CompilationSupport {
     // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
     // directory?
     if (objcConfiguration.moduleMapsEnabled()) {
-      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
-      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+      CppModuleMap unextendedModuleMap = intermediateArtifacts.unextendedModuleMap();
+      PathFragment moduleMapPath = unextendedModuleMap.getArtifact().getExecPath();
+
+      commandLine.add("-I").add(moduleMapPath.getParentDirectory().getPathString());
       commandLine.add("-import-underlying-module");
 
-      inputHeaders.addAll(objcProvider.get(MODULE_MAP));
+      inputHeaders.add(unextendedModuleMap.getArtifact());
+    }
+
+    inputHeaders.addAll(Iterables.filter(
+        objcProvider.get(MODULE_MAP).toList(),
+        Predicates.not(Predicates.equalTo(intermediateArtifacts.moduleMap().getArtifact()))));
+
+    Set<String> seenSwiftModulePaths = new HashSet<>();
+    // For any dependency we have we need to make sure we are visible
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE)) {
+      String path = swiftModule.getExecPath().getParentDirectory().toString();
+      if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
+        inputHeaders.add(swiftModule);
+
+        if (!seenSwiftModulePaths.contains(path)) {
+          seenSwiftModulePaths.add(path);
+          commandLine.add("-I").add(path);
+        }
+      }
     }
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
+
+    Artifact swiftHeader = intermediateArtifacts.swiftHeader();
 
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
@@ -896,7 +942,9 @@ public final class CompilationSupport {
             .addInput(sourceFile)
             .addInputs(otherSwiftSources)
             .addInputs(inputHeaders.build())
-            .addTransitiveInputs(objcProvider.get(HEADER))
+            .addInputs(Iterables.filter(
+                objcProvider.get(HEADER).toList(),
+                Predicates.not(Predicates.equalTo(swiftHeader))))
             .addOutput(objFile)
             .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
             .build(ruleContext));
@@ -921,19 +969,22 @@ public final class CompilationSupport {
         .add("-frontend")
         .add("-emit-module")
         .add("-sdk").add(AppleToolchain.sdkDir())
-        .add("-target").add(swiftTarget(appleConfiguration))
+        .add("-target").add(swiftTarget(appleConfiguration, objcConfiguration))
         .add(objcConfiguration.getSwiftCoptsForCompilationMode());
 
     if (objcConfiguration.generateDsym()) {
       commandLine.add("-g");
     }
 
+    Artifact swiftHeader = intermediateArtifacts.swiftHeader();
+    Artifact swiftModule = intermediateArtifacts.swiftModule();
+
     commandLine
         .add("-module-name").add(getModuleName())
         .add("-parse-as-library")
         .addExecPaths(moduleFiles.build())
-        .addExecPath("-o", intermediateArtifacts.swiftModule())
-        .addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader())
+        .addExecPath("-emit-module-path", swiftModule)
+        .addExecPath("-emit-objc-header-path", swiftHeader)
         // The swift compiler will invoke clang itself when compiling module maps. This invocation
         // does not include the current working directory, causing cwd-relative imports to fail.
         // Including the current working directory to the header search paths ensures that these
@@ -947,15 +998,34 @@ public final class CompilationSupport {
       commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
     }
 
+    for (String option : getCompileRuleCopts()) {
+      commandLine.add("-Xcc").add(option);
+    }
+
     // Import the Objective-C module map.
-    // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
-    // directory?
     if (objcConfiguration.moduleMapsEnabled()) {
-      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
-      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+      PathFragment moduleMapPath = intermediateArtifacts.unextendedModuleMap().getArtifact().getExecPath().getParentDirectory();
+      commandLine.add("-I").add(moduleMapPath.toString());
+    }
+
+    Set<String> seenSwiftModulePaths = new HashSet<>();
+    // For any dependency we have we need to make sure we are visible
+    for (Artifact depSwiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+      String path = depSwiftModule.getExecPath().getParentDirectory().getPathString();
+
+      if (!depSwiftModule.equals(swiftModule)) {
+        moduleFiles.add(depSwiftModule);
+
+        if (!seenSwiftModulePaths.contains(path)) {
+          seenSwiftModulePaths.add(path);
+          commandLine.add("-I").add(path);
+        }
+      }
     }
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
+
+    Artifact moduleMap = intermediateArtifacts.moduleMap().getArtifact();
 
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             appleConfiguration, appleConfiguration.getSingleArchPlatform())
@@ -963,10 +1033,15 @@ public final class CompilationSupport {
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
         .addInputs(moduleFiles.build())
-        .addTransitiveInputs(objcProvider.get(HEADER))
-        .addTransitiveInputs(objcProvider.get(MODULE_MAP))
-        .addOutput(intermediateArtifacts.swiftModule())
-        .addOutput(intermediateArtifacts.swiftHeader())
+        .addInputs(Iterables.filter(
+            objcProvider.get(HEADER).toList(),
+            Predicates.not(Predicates.equalTo(swiftHeader))))
+        .addInput(intermediateArtifacts.unextendedModuleMap().getArtifact())
+        .addInputs(Iterables.filter(
+            objcProvider.get(MODULE_MAP).toList(),
+            Predicates.not(Predicates.equalTo(moduleMap))))
+        .addOutput(swiftModule)
+        .addOutput(swiftHeader)
         .build(ruleContext));
   }
 
@@ -1061,7 +1136,7 @@ public final class CompilationSupport {
         .addAll(objcProvider.getCcLibraries()).build();
     return registerFullyLinkAction(inputArtifacts, outputArchive);
   }
-  
+
   /**
    * Registers an action to create an archive artifact by fully (statically) linking all
    * transitive dependencies of this rule *except* for dependencies given in {@code avoidsDeps}.
@@ -1084,7 +1159,7 @@ public final class CompilationSupport {
         .addAll(objcProvider.getObjcLibraries())
         .addAll(objcProvider.get(IMPORTED_LIBRARY))
         .addAll(objcProvider.getCcLibraries()).build();
-    
+
     Iterable<Artifact> inputArtifacts = Iterables.filter(depsArtifacts,
         Predicates.not(Predicates.in(avoidsDepsArtifacts.build())));
     return registerFullyLinkAction(inputArtifacts, outputArchive);
@@ -1199,19 +1274,32 @@ public final class CompilationSupport {
    * Registers an action that will generate a clang module map for this target, using the hdrs
    * attribute of this rule.
    */
-  CompilationSupport registerGenerateModuleMapAction(
+  CompilationSupport registerGenerateModuleMapActions(
       Optional<CompilationArtifacts> compilationArtifacts) {
     // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
     // dropped.
     Iterable<Artifact> publicHeaders = attributes.hdrs();
+    Iterable<Artifact> publicCcHeaders = attributes.ccHdrs();
     Iterable<Artifact> privateHeaders = ImmutableList.of();
+    Optional<Artifact> swiftCompatibilityHeader = Optional.absent();
+
     if (compilationArtifacts.isPresent()) {
       CompilationArtifacts artifacts = compilationArtifacts.get();
       publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
       privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
+      swiftCompatibilityHeader = artifacts.getSwiftCompatabilityHeader();
     }
-    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-    registerGenerateModuleMapAction(moduleMap, publicHeaders, privateHeaders);
+
+    registerGenerateModuleMapAction(intermediateArtifacts.moduleMap(), publicHeaders, publicCcHeaders,
+        privateHeaders,
+        swiftCompatibilityHeader,
+        false);
+
+    registerGenerateModuleMapAction(intermediateArtifacts.unextendedModuleMap(), publicHeaders,
+        publicCcHeaders,
+        privateHeaders,
+        swiftCompatibilityHeader,
+        true);
 
     return this;
   }
@@ -1221,23 +1309,32 @@ public final class CompilationSupport {
    *
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
+   * @param publicCcHeaders the headers that should be directly accessible by dependers that are c++ or objc++
    * @param privateHeaders the headers that should only be directly accessible by this module
+   * @param swiftCompatibilityHeader
+   * @param isUnextendedSwift
    */
   private void registerGenerateModuleMapAction(
-      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders) {
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders,
+      Iterable<Artifact> publicCcHeaders, Iterable<Artifact> privateHeaders,
+      Optional<Artifact> swiftCompatibilityHeader, boolean isUnextendedSwift) {
     publicHeaders = Iterables.filter(publicHeaders, MODULE_MAP_HEADER);
     privateHeaders = Iterables.filter(privateHeaders, MODULE_MAP_HEADER);
     ruleContext.registerAction(
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            privateHeaders,
+            //privateHeaders,
+            ImmutableList.<Artifact>of(),
             publicHeaders,
+            publicCcHeaders,
             attributes.moduleMapsForDirectDeps(),
             ImmutableList.<PathFragment>of(),
+            swiftCompatibilityHeader,
+            /*isUnextendedSwift=*/ isUnextendedSwift,
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
-            /*generateSubModules=*/ false,
+            /*generateSubModules=*/ true,
             /*externDependencies=*/ true));
   }
 
@@ -1376,7 +1473,7 @@ public final class CompilationSupport {
       commandLine
           .add(CLANG_PLUSPLUS)
           .add("-stdlib=libc++")
-          .add("-std=gnu++11");
+          .add("-std=gnu++14");
     } else {
       commandLine.add(CLANG);
     }
@@ -1406,6 +1503,14 @@ public final class CompilationSupport {
 
     if (objcConfiguration.shouldPrioritizeStaticLibs()) {
       commandLine.add("-filelist").add(inputFileList.getExecPathString());
+    }
+
+    // For any dependency we have we need to make sure we are visible
+    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+      commandLine.add("-Xlinker")
+          .add("-add_ast_path")
+          .add("-Xlinker")
+          .add(swiftModule.getExecPath().getPathString());
     }
 
     commandLine
@@ -1445,9 +1550,13 @@ public final class CompilationSupport {
     }
 
     if (objcProvider.is(USES_SWIFT)) {
+      // TODO: Add option in objc_binary or determine based on type of target
+      //boolean useStaticSwiftLibs = objcConfiguration.shouldPrioritizeStaticLibs();
+
       commandLine
           .add("-L")
-          .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform()));
+          .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform(),
+              false));
     }
 
     for (String linkopt : attributes.linkopts()) {
@@ -1618,6 +1727,8 @@ public final class CompilationSupport {
       nonPropagatedHeaderSearchPaths.add(new PathFragment(includeDirOption.substring(2)));
     }
 
+    Iterable<String> swiftopts = Iterables.concat(objcConfiguration.getSwiftopts(), attributes.swiftopts());
+
     // We also need to add the -isystem directories from the CC header providers. ObjCommon
     // adds these to the objcProvider, so let's just get them from there.
     Iterable<PathFragment> includeSystemPaths = common.getObjcProvider().get(INCLUDE_SYSTEM);
@@ -1625,6 +1736,7 @@ public final class CompilationSupport {
     xcodeProviderBuilder
         .addHeaders(attributes.hdrs())
         .addHeaders(attributes.textualHdrs())
+        .addHeaders(attributes.ccHdrs())
         .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(buildConfiguration))
         .addHeaderSearchPaths("$(WORKSPACE_ROOT)",
             attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
@@ -1633,7 +1745,18 @@ public final class CompilationSupport {
         .addNonPropagatedHeaderSearchPaths(
             "$(WORKSPACE_ROOT)", nonPropagatedHeaderSearchPaths.build())
         .addCompilationModeCopts(objcConfiguration.getCoptsForCompilationMode())
-        .addCopts(coptsWithoutIncludeDirs);
+        .addCopts(coptsWithoutIncludeDirs)
+        .addSwiftopts(swiftopts);
+
+    if (objcConfiguration.moduleMapsEnabled()) {
+      xcodeProviderBuilder.setModulemap(
+          Optional.of(intermediateArtifacts.unextendedModuleMap().getArtifact()))
+      .setEnableModules();
+    }
+
+    if (appleConfiguration.getSwiftVersion().isPresent()) {
+      xcodeProviderBuilder.setSwiftVersion(appleConfiguration.getSwiftVersion());
+    }
 
     return this;
   }
@@ -1652,7 +1775,7 @@ public final class CompilationSupport {
     }
 
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(attributes.hdrs());
+      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(Iterables.concat(attributes.hdrs(), attributes.ccHdrs()));
       ImmutableSet<Artifact> srcsSet =
           ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
 
@@ -1746,8 +1869,13 @@ public final class CompilationSupport {
     if (objcConfiguration.moduleMapsEnabled()) {
       return intermediateArtifacts.moduleMap().getName();
     }
+
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      return ruleContext.attributes().get("clang_module_name", Type.STRING);
+    }
+
     // Otherwise, just use target name, it doesn't matter.
-    return ruleContext.getLabel().getName();
+    return ruleContext.getRule().getName();
   }
 
   /**
@@ -1769,7 +1897,7 @@ public final class CompilationSupport {
       }
     }
   }
-  
+
   private static Iterable<PathFragment> uniqueParentDirectories(Iterable<PathFragment> paths) {
     ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
     for (PathFragment path : paths) {
@@ -1782,12 +1910,14 @@ public final class CompilationSupport {
    * Returns the target string for swift compiler. For example, "x86_64-apple-ios8.2"
    */
   @VisibleForTesting
-  static String swiftTarget(AppleConfiguration configuration) {
+  static String swiftTarget(AppleConfiguration configuration, ObjcConfiguration objcConfiguration) {
     // TODO(bazel-team): Assert the configuration is for an apple platform, or support
     // other platform types.
-    return configuration.getSingleArchitecture() + "-apple-ios" + configuration.getIosSdkVersion();
+    Platform platform = configuration.getSingleArchPlatform();
+    return configuration.getSingleArchitecture() + "-apple-" + platform.getType().toString() + configuration
+        .getMinimumOsForPlatformType(platform.getType());
   }
-  
+
   /**
    * Returns a list of clang flags used for all link and compile actions executed through clang.
    */
@@ -1819,6 +1949,10 @@ public final class CompilationSupport {
         break;
       case TVOS_SIMULATOR:
         builder.add("-mtvos-simulator-version-min="
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
+        break;
+      case MACOS_X:
+        builder.add("-mmacosx-version-min="
             + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case TVOS_DEVICE:
@@ -1884,6 +2018,8 @@ public final class CompilationSupport {
   private static List<String> platformSpecificCompileFlagsForClang(
       AppleConfiguration configuration) {
     switch (configuration.getSingleArchPlatform()) {
+      case MACOS_X:
+        return ImmutableList.of();
       case IOS_DEVICE:
       case WATCHOS_DEVICE:
       case TVOS_DEVICE:

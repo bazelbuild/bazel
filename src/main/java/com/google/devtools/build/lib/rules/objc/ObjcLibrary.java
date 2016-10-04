@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_DYNAMIC;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -97,7 +97,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getFragment(ObjcConfiguration.class).useExperimentalObjcLibrary()) {
       return ExperimentalObjcLibrary.configureExperimentalObjcLibrary(ruleContext);
     }
-    
+
     ObjcCommon common = common(ruleContext);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
@@ -118,7 +118,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
+        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_DYNAMIC)
         .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
         .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
         .addNonPropagatedDependencies(

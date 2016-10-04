@@ -22,13 +22,17 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
@@ -45,10 +49,12 @@ import java.util.List;
 final class CompilationAttributes {
   static class Builder {
     private final NestedSetBuilder<Artifact> hdrs = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Artifact> ccHdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> textualHdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<String> swiftopts = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> linkopts = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<CppModuleMap> moduleMapsForDirectDeps =
         NestedSetBuilder.stableOrder();
@@ -58,6 +64,7 @@ final class CompilationAttributes {
     private Optional<Artifact> bridgingHeader = Optional.absent();
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
+    private Optional<String> clangModuleName = Optional.absent();
 
     /**
      * Adds the default values available through the rule's context.
@@ -79,6 +86,14 @@ final class CompilationAttributes {
      */
     public Builder addHdrs(NestedSet<Artifact> hdrs) {
       this.hdrs.addTransitive(hdrs);
+      return this;
+    }
+
+    /**
+     * Adds headers to be made available for c++/objc++ dependents.
+     */
+    public Builder addCcHdrs(NestedSet<Artifact> hdrs) {
+      this.ccHdrs.addTransitive(hdrs);
       return this;
     }
 
@@ -111,6 +126,14 @@ final class CompilationAttributes {
      */
     public Builder addCopts(NestedSet<String> copts) {
       this.copts.addTransitive(copts);
+      return this;
+    }
+
+    /**
+     * Adds compile-time options.
+     */
+    public Builder addSwiftopts(NestedSet<String> swiftopts) {
+      this.swiftopts.addTransitive(swiftopts);
       return this;
     }
 
@@ -188,11 +211,24 @@ final class CompilationAttributes {
     }
 
     /**
+     * Sets module name for clang module and swift module.
+     */
+    public Builder setClangModuleName(String clangModuleName) {
+      Preconditions.checkState(
+          !this.clangModuleName.isPresent(),
+          "clangModuleName is already set to %s",
+          this.clangModuleName);
+      this.clangModuleName = Optional.of(clangModuleName);
+      return this;
+    }
+
+    /**
      * Builds a {@code CompilationAttributes} object.
      */
     public CompilationAttributes build() {
       return new CompilationAttributes(
           this.hdrs.build(),
+          this.ccHdrs.build(),
           this.textualHdrs.build(),
           this.bridgingHeader,
           this.includes.build(),
@@ -202,9 +238,11 @@ final class CompilationAttributes {
           this.sdkDylibs.build(),
           this.packageFragment,
           this.copts.build(),
+          this.swiftopts.build(),
           this.linkopts.build(),
           this.moduleMapsForDirectDeps.build(),
-          this.enableModules);
+          this.enableModules,
+          this.clangModuleName);
     }
 
     private static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
@@ -214,6 +252,19 @@ final class CompilationAttributes {
           headers.add(header.first);
         }
         builder.addHdrs(headers.build());
+      }
+
+      if (ruleContext.attributes().has("cc_hdrs", BuildType.LABEL_LIST)) {
+        NestedSetBuilder<Artifact> headers = NestedSetBuilder.stableOrder();
+        for (TransitiveInfoCollection target :
+            ruleContext.getPrerequisitesIf("cc_hdrs", Mode.TARGET, FileProvider.class)) {
+          FileProvider provider = target.getProvider(FileProvider.class);
+          for (Artifact artifact : provider.getFilesToBuild()) {
+            headers.add(artifact);
+          }
+        }
+
+        builder.addCcHdrs(headers.build());
       }
 
       if (ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
@@ -253,7 +304,21 @@ final class CompilationAttributes {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
         NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
         // TODO(bazel-team): Move the inclusion of the default frameworks to CompilationSupport.
-        frameworks.addAll(ObjcRuleClasses.AUTOMATIC_SDK_FRAMEWORKS);
+        AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+        Platform platform = appleConfiguration.getSingleArchPlatform();
+
+        switch (platform) {
+          case IOS_DEVICE:
+          case IOS_SIMULATOR:
+            frameworks.addAll(ObjcRuleClasses.AUTOMATIC_IOS_SDK_FRAMEWORKS);
+            break;
+          case MACOS_X:
+            frameworks.addAll(ObjcRuleClasses.AUTOMATIC_MACOSX_SDK_FRAMEWORKS);
+            break;
+            default:
+              break;
+        }
+
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(new SdkFramework(explicit));
         }
@@ -281,6 +346,12 @@ final class CompilationAttributes {
         NestedSetBuilder<String> copts = NestedSetBuilder.stableOrder();
         copts.addAll(ruleContext.getTokenizedStringListAttr("copts"));
         builder.addCopts(copts.build());
+      }
+
+      if (ruleContext.attributes().has("swiftopts", Type.STRING_LIST)) {
+        NestedSetBuilder<String> swiftopts = NestedSetBuilder.stableOrder();
+        swiftopts.addAll(ruleContext.getTokenizedStringListAttr("swiftopts"));
+        builder.addSwiftopts(swiftopts.build());
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
@@ -324,10 +395,15 @@ final class CompilationAttributes {
           && ruleContext.attributes().get("enable_modules", Type.BOOLEAN)) {
         builder.enableModules();
       }
+
+      if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+        builder.setClangModuleName(ruleContext.attributes().get("clang_module_name", Type.STRING));
+      }
     }
   }
 
   private final NestedSet<Artifact> hdrs;
+  private final NestedSet<Artifact> ccHdrs;
   private final NestedSet<Artifact> textualHdrs;
   private final Optional<Artifact> bridgingHeader;
   private final NestedSet<PathFragment> includes;
@@ -337,12 +413,15 @@ final class CompilationAttributes {
   private final NestedSet<String> sdkDylibs;
   private final Optional<PathFragment> packageFragment;
   private final NestedSet<String> copts;
+  private final NestedSet<String> swiftopts;
   private final NestedSet<String> linkopts;
   private final NestedSet<CppModuleMap> moduleMapsForDirectDeps;
   private final boolean enableModules;
+  private final Optional<String> clangModuleName;
 
   private CompilationAttributes(
       NestedSet<Artifact> hdrs,
+      NestedSet<Artifact> ccHdrs,
       NestedSet<Artifact> textualHdrs,
       Optional<Artifact> bridgingHeader,
       NestedSet<PathFragment> includes,
@@ -352,10 +431,13 @@ final class CompilationAttributes {
       NestedSet<String> sdkDylibs,
       Optional<PathFragment> packageFragment,
       NestedSet<String> copts,
+      NestedSet<String> swiftopts,
       NestedSet<String> linkopts,
       NestedSet<CppModuleMap> moduleMapsForDirectDeps,
-      boolean enableModules) {
+      boolean enableModules,
+      Optional<String> clangModuleName) {
     this.hdrs = hdrs;
+    this.ccHdrs = ccHdrs;
     this.textualHdrs = textualHdrs;
     this.bridgingHeader = bridgingHeader;
     this.includes = includes;
@@ -365,9 +447,11 @@ final class CompilationAttributes {
     this.sdkDylibs = sdkDylibs;
     this.packageFragment = packageFragment;
     this.copts = copts;
+    this.swiftopts = swiftopts;
     this.linkopts = linkopts;
     this.moduleMapsForDirectDeps = moduleMapsForDirectDeps;
     this.enableModules = enableModules;
+    this.clangModuleName = clangModuleName;
   }
 
   /**
@@ -375,6 +459,13 @@ final class CompilationAttributes {
    */
   public NestedSet<Artifact> hdrs() {
     return this.hdrs;
+  }
+
+  /**
+   * Returns the headers to be made available for dependents.
+   */
+  public NestedSet<Artifact> ccHdrs() {
+    return this.ccHdrs;
   }
 
   /**
@@ -455,6 +546,10 @@ final class CompilationAttributes {
     return this.copts;
   }
 
+  public NestedSet<String> swiftopts() {
+    return swiftopts;
+  }
+
   /**
    * Returns the link-time options.
    */
@@ -476,5 +571,13 @@ final class CompilationAttributes {
    */
   public boolean enableModules() {
     return this.enableModules;
+  }
+
+  /**
+   * Name of clang module used when creating a modulemap or swift module
+   * {@literal @}import.
+   */
+  public Optional<String> clangModuleName() {
+    return this.clangModuleName;
   }
 }

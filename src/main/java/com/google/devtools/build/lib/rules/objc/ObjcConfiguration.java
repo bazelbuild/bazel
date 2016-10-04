@@ -63,6 +63,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
   private final ImmutableList<String> copts;
+  private final ImmutableList<String> swiftopts;
   private final CompilationMode compilationMode;
   private final ImmutableList<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
@@ -96,6 +97,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
+    this.swiftopts = ImmutableList.copyOf(objcOptions.swiftopts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
@@ -222,11 +224,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public ImmutableList<String> getSwiftCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
-        return ImmutableList.of("-Onone", "-DDEBUG=1", "-g");
+        return ImmutableList.of("-Onone", "-DDEBUG", "-g");
       case FASTBUILD:
-        return ImmutableList.of("-Onone", "-DDEBUG=1");
+        return ImmutableList.of("-Onone", "-DDEBUG");
       case OPT:
-        return ImmutableList.of("-O", "-DNDEBUG=1");
+        return ImmutableList.of("-O", "-DNDEBUG");
       default:
         throw new AssertionError();
     }
@@ -242,6 +244,19 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       + "attributes of the rule.")
   public ImmutableList<String> getCopts() {
     return copts;
+  }
+
+
+  /**
+   * Returns options passed to (Apple) clang when compiling Objective C. These options should be
+   * applied after any default options but before options specified in the attributes of the rule.
+   */
+  @SkylarkCallable(name = "swiftopts", structField = true,
+      doc = "Returns a list of options to use for compiling Swift."
+      + "These options are applied after any default options but before options specified in the "
+      + "attributes of the rule.")
+  public ImmutableList<String> getSwiftopts() {
+    return swiftopts;
   }
 
   /**
@@ -325,7 +340,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
   }
-  
+
   /**
    * Returns true if all objc_library targets should be configured as if they were
    * experimental_objc_library targets.
@@ -333,7 +348,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
   }
-  
+
   /** Returns the DotdPruningPlan for compiles in this build. */
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;

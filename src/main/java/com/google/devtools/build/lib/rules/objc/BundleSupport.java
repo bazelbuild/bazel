@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -220,7 +221,7 @@ final class BundleSupport {
   ImmutableSet<TargetDeviceFamily> targetDeviceFamilies() {
     return bundling.getTargetDeviceFamilies();
   }
- 
+
   /**
    * Returns true if this bundle is targeted to {@link TargetDeviceFamily#WATCH}, false otherwise.
    */
@@ -290,7 +291,7 @@ final class BundleSupport {
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString())
             .add("--module")
-            .add(ruleContext.getLabel().getName());
+            .add(getModuleName());
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
@@ -299,6 +300,15 @@ final class BundleSupport {
     return commandLine
         .addPath(storyboardInput.getExecPath())
         .build();
+  }
+
+  private String getModuleName() {
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      return ruleContext.attributes().get("clang_module_name", Type.STRING);
+    }
+
+    // Otherwise, just use target name, it doesn't matter.
+    return ruleContext.getRule().getName();
   }
 
   private void registerMomczipActions(ObjcProvider objcProvider) {

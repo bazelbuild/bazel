@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,7 +55,7 @@ public final class IntermediateArtifacts {
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
     this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration());
   }
- 
+
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
       String outputPrefix, BuildConfiguration buildConfiguration) {
     this.ruleContext = ruleContext;
@@ -245,7 +246,7 @@ public final class IntermediateArtifacts {
     PathFragment uniqueDir =
         new PathFragment("_objs").getRelative(ruleContext.getLabel().getName());
     PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
-    PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
+    PathFragment scopeRelativePath = FileSystemUtils.appendExtension(sourceFile, extension);
     return scopedArtifact(scopeRelativePath);
   }
 
@@ -269,12 +270,7 @@ public final class IntermediateArtifacts {
     return inUniqueObjsDir(source, ".partial_swiftmodule");
   }
 
-  /**
-   * Integrated swift module for this target.
-   */
-  public Artifact swiftModule() {
-    return appendExtension(".swiftmodule");
-  }
+
 
   /**
    * Integrated swift header for this target.
@@ -422,16 +418,47 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    String moduleName =
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("/", "_")
-            .replace(":", "_");
+
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
     // parent directory in the module map search paths.
-    return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+    return new CppModuleMap(appendExtensionInGenfiles("_modulemaps/foo/bar/baz/module.modulemap"),
+        clangModuleName());
+  }
+
+  /**
+   * {@link CppModuleMap} that provides the unextended clang module map for this target. This is for compiling the current module
+   */
+  public CppModuleMap unextendedModuleMap() {
+
+    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
+    // parent directory in the module map search paths.
+    return new CppModuleMap(appendExtensionInGenfiles("_modulemaps_unextended/foo/bar/baz/module.modulemap"),
+        clangModuleName());
+  }
+
+  /**
+   * Integrated swift module for this target.
+   */
+  public Artifact swiftModule() {
+    // To get Swift to pick up swiftmodules, and only the ones they depend on we have to put it in an isolated directory
+    return
+        appendExtensionInGenfiles("_swiftmodules/foo/bar/baz/" + clangModuleName() + ".swiftmodule");
+  }
+
+  private String clangModuleName() {
+    String moduleName;
+    if (ruleContext.attributes().has("clang_module_name", Type.STRING)) {
+      moduleName = ruleContext.attributes().get("clang_module_name", Type.STRING);
+    } else {
+      moduleName =
+          ruleContext
+              .getLabel()
+              .toString()
+              .replace("//", "")
+              .replace("/", "_")
+              .replace(":", "_");
+    }
+    return moduleName;
   }
 
   /**

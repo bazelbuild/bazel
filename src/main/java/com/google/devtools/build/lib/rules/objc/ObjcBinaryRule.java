@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 /**
  * Rule definition for objc_binary.
  */
-// TODO(bazel-team): Remove bundling functionality (dependency on ApplicationRule, IPA output).
 public class ObjcBinaryRule implements RuleDefinition {
 
   @Override
@@ -47,7 +46,7 @@ public class ObjcBinaryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+            ImplicitOutputsFunction.fromFunctions(XcodeSupport.PBXPROJ))
         // TODO(bazel-team): Remove these when this rule no longer produces a bundle.
         .add(attr("$runner_script_template", LABEL).cfg(HOST)
             .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
@@ -62,7 +61,7 @@ public class ObjcBinaryRule implements RuleDefinition {
         .name("objc_binary")
         .factoryClass(ObjcBinary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class, ObjcRuleClasses.ReleaseBundlingRule.class,
+            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.SimulatorRule.class)
         .build();
   }

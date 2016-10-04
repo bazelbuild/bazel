@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.rules.apple.AppleConfiguration.SWIFT_TOOLCHAINS_ENV_NAME;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -132,8 +133,12 @@ public class ObjcRuleClasses {
   }
 
   @VisibleForTesting
-  static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
+  static final Iterable<SdkFramework> AUTOMATIC_IOS_SDK_FRAMEWORKS = ImmutableList.of(
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
+
+  @VisibleForTesting
+  static final Iterable<SdkFramework> AUTOMATIC_MACOSX_SDK_FRAMEWORKS = ImmutableList.of(
+      new SdkFramework("Foundation"));
 
   /**
    * Label of a filegroup that contains all crosstool and grte files for all configurations,
@@ -172,8 +177,8 @@ public class ObjcRuleClasses {
           return null;
         }
       };
-      
-      
+
+
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
@@ -181,7 +186,7 @@ public class ObjcRuleClasses {
    * which contain information about the target and host architectures. This implicitly
    * assumes that this action is targeting ios platforms, and that
    * {@link AppleConfiguration#getIosCpu()} is the source of truth for their target architecture.
-   * 
+   *
    * @deprecated use {@link #spawnAppleEnvActionBuilder(RuleContext, Platform)} instead
    */
   // TODO(cparsons): Refactor callers to use the alternate method. Callers should be aware
@@ -207,7 +212,7 @@ public class ObjcRuleClasses {
     return spawnAppleEnvActionBuilder(
         ruleContext.getFragment(AppleConfiguration.class), targetPlatform);
   }
-  
+
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
@@ -225,10 +230,16 @@ public class ObjcRuleClasses {
    */
   static ImmutableMap<String, String> appleToolchainEnvironment(
       AppleConfiguration appleConfiguration, Platform targetPlatform) {
-    return ImmutableMap.<String, String>builder()
-        .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
-        .putAll(appleConfiguration.getAppleHostSystemEnv())
-        .build();
+    ImmutableMap.Builder<String, String> result =
+        ImmutableMap.<String, String>builder()
+            .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
+            .putAll(appleConfiguration.getAppleHostSystemEnv());
+
+    if (appleConfiguration.getSwiftToolchainSystemEnv().isPresent()) {
+      result.put(SWIFT_TOOLCHAINS_ENV_NAME, appleConfiguration.getSwiftToolchainSystemEnv().get());
+    }
+
+    return result.build();
   }
 
   /**
@@ -300,6 +311,15 @@ public class ObjcRuleClasses {
           added to the header search paths for the associated Xcode target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("copts", STRING_LIST))
+          /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(swiftopts) -->
+          Extra flags to pass to the compiler.
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+          These flags will only apply to this target, and not those upon which
+          it depends, or those which depend on it.
+          <p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("swiftopts", STRING_LIST))
           .build();
     }
 
@@ -371,13 +391,13 @@ public class ObjcRuleClasses {
   static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
   static final FileType OBJECT_FILE_SOURCES = FileType.of(".o");
-  
+
   static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
   /**
    * Header files, which are not compiled directly, but may be included/imported from source files.
    */
-  static final FileType HEADERS = FileType.of(".h", ".inc");
+  static final FileType HEADERS = FileType.of(".h", ".hpp", ".hh", ".inc");
 
   /**
    * Files allowed in the srcs attribute. This includes private headers.
@@ -401,7 +421,7 @@ public class ObjcRuleClasses {
    * Files that are already compiled.
    */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
-  
+
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
@@ -624,6 +644,15 @@ public class ObjcRuleClasses {
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(HDRS_TYPE))
+          /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(cc_hdrs) -->
+          The list of C++, Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library. These will be compiled separately from the source if modules
+          are enabled. These will be given special treatment when generating a modulemap
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("cc_hdrs", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(textual_hdrs) -->
           The list of C, C++, Objective-C, and Objective-C++ files that are
           included as headers by source files in this rule or by users of this
@@ -680,7 +709,7 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
-    
+
     /**
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
@@ -688,7 +717,7 @@ public class ObjcRuleClasses {
     static final Iterable<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of(
             "cc_library",
-            "cc_inc_library"); 
+            "cc_inc_library");
     /**
      * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
      */
@@ -696,7 +725,7 @@ public class ObjcRuleClasses {
         Iterables.<String>concat(
             ALLOWED_CC_DEPS_RULE_CLASSES,
             ImmutableList.of("experimental_objc_library"));
-        
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -780,9 +809,15 @@ public class ObjcRuleClasses {
           Enables clang module support (via -fmodules).
           Setting this to 1 will allow you to @import system headers and other targets:
           @import UIKit;
-          @import path_to_package_target;
+          @import clang_module_name;
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("enable_modules", BOOLEAN))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(clang_module_name) -->
+          Controls clang module name. In swift it will apply -module-name.
+          Setting this to 1 will allow you to @import system headers and other targets.
+          The default for this is path_to_package_target
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("clang_module_name", STRING))
           .build();
     }
     @Override

@@ -134,7 +134,7 @@ public final class CppModel {
     this.context = context;
     return this;
   }
-  
+
   /**
    * Sets the compilation context, i.e. include directories and allowed header files inclusions, for
    * the compilation of this model's interface, e.g. header module.
@@ -211,7 +211,7 @@ public final class CppModel {
     this.variablesExtensions.addAll(variablesExtensions);
     return this;
   }
-  
+
   /**
    * Sets the link type used for the link actions. Note that only static links are supported at this
    * time.
@@ -225,7 +225,7 @@ public final class CppModel {
     this.neverLink = neverLink;
     return this;
   }
-  
+
   /**
    * Adds an artifact to the inputs of any link actions created by this CppModel.
    */
@@ -253,15 +253,15 @@ public final class CppModel {
     this.soImplArtifact = soImplFilename;
     return this;
   }
-  
+
   /**
-   * Sets the feature configuration to be used for C/C++ actions. 
+   * Sets the feature configuration to be used for C/C++ actions.
    */
   public CppModel setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
     this.featureConfiguration = featureConfiguration;
     return this;
   }
-  
+
   /**
    * @returns whether we want to provide header modules for the current target.
    */
@@ -336,7 +336,7 @@ public final class CppModel {
     }
 
     builder.setFeatureConfiguration(featureConfiguration);
-    
+
     return builder;
   }
 
@@ -377,7 +377,7 @@ public final class CppModel {
       Map<String, String> sourceSpecificBuildVariables) {
     CcToolchainFeatures.Variables.Builder buildVariables =
         new CcToolchainFeatures.Variables.Builder();
-    
+
     // TODO(bazel-team): Pull out string constants for all build variables.
 
     CppCompilationContext builderContext = builder.getContext();
@@ -474,17 +474,17 @@ public final class CppModel {
     }
 
     buildVariables.addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables());
-    
+
     buildVariables.addAllVariables(sourceSpecificBuildVariables);
 
     for (VariablesExtension extension : variablesExtensions) {
       extension.addVariables(buildVariables);
     }
-    
+
     CcToolchainFeatures.Variables variables = buildVariables.build();
     builder.setVariables(variables);
   }
-  
+
   /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
    * file. It takes into account LIPO, fake-ness, coverage, and PIC, in addition to using the
@@ -502,7 +502,7 @@ public final class CppModel {
           initializeCompileAction(moduleMapArtifact, moduleMapLabel, /*forInterface=*/ true);
 
       builder.setSemantics(semantics);
-      
+
       // A header module compile action is just like a normal compile action, but:
       // - the compiled source file is the module map
       // - it creates a header module (.pcm file).
@@ -530,7 +530,7 @@ public final class CppModel {
           initializeCompileAction(sourceArtifact, sourceLabel, /*forInterface=*/ false);
 
       builder.setSemantics(semantics);
-      
+
       if (CppFileTypes.CPP_HEADER.matches(source.getSource().getExecPath())) {
         createHeaderAction(outputName, result, env, builder,
             CppFileTypes.mustProduceDotdFile(sourceArtifact.getFilename()));
@@ -703,7 +703,7 @@ public final class CppModel {
         Artifact noPicDwoFile = generateDwo ? getDwoFile(noPicOutputFile) : null;
 
         setupCompileBuildVariables(
-            builder, 
+            builder,
             /*usePic=*/ false,
             ccRelativeName,
             sourceArtifact.getExecPath(),
@@ -965,7 +965,7 @@ public final class CppModel {
       sonameLinkopts = ImmutableList.of("-Wl,-soname=" +
           SolibSymlinkAction.getDynamicLibrarySoname(soImpl.getRootRelativePath(), false));
     }
-    
+
     // Should we also link in any libraries that this library depends on?
     // That is required on some systems...
     CppLinkActionBuilder linkActionBuilder =

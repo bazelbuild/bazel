@@ -689,6 +689,7 @@ public final class ReleaseBundlingSupport {
         new ObjcProvider.Builder()
             .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
+            .addTransitiveAndPropagate(ObjcProvider.SWIFT_MODULE, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.DEFINE, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
             .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)

@@ -206,6 +206,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
 
+
     ObjcCommon.Builder builder =
         new ObjcCommon.Builder(ruleContext)
             .setCompilationAttributes(
@@ -231,6 +232,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateLinkmap()) {
       builder.setLinkmapFile(intermediateArtifacts.linkmap());
+    }
+
+    if (compilationArtifacts.hasSwiftSources()) {
+      builder.setSwiftModule(intermediateArtifacts.swiftModule());
     }
 
     return builder.build();

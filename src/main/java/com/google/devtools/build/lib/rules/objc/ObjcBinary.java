@@ -20,9 +20,8 @@ package com.google.devtools.build.lib.rules.objc;
 public class ObjcBinary extends BinaryLinkingTargetFactory {
   public ObjcBinary() {
     super(
-        // TODO(bazel-team): Remove the enum and delete all code depending on YES case once all
         // bundle users are migrated to ios_application.
-        HasReleaseBundlingSupport.YES,
+        HasReleaseBundlingSupport.NO,
 
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
         // no longer creates an application bundle

@@ -97,6 +97,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to Objective C compilation.")
   public List<String> copts;
 
+  @Option(name = "swiftopt",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "flags",
+      help = "Additional options to pass to Swift compilation.")
+  public List<String> swiftopts;
+
   @Option(name = "ios_memleaks",
       defaultValue =  "false",
       category = "misc",

@@ -253,7 +253,8 @@ def _swift_library_impl(ctx):
       library=set([output_lib] + dep_libs),
       header=set([output_header]),
       providers=objc_providers,
-      uses_swift=True)
+      uses_swift=True
+  )
 
   return struct(
       swift=struct(
