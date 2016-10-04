@@ -903,14 +903,13 @@ public final class CompilationSupport {
     }
 
     inputHeaders.addAll(Iterables.filter(
-        objcProvider.get(MODULE_MAP),
+        objcProvider.get(MODULE_MAP).toList(),
         Predicates.not(Predicates.equalTo(intermediateArtifacts.moduleMap().getArtifact()))));
 
     Set<String> seenSwiftModulePaths = new HashSet<>();
     // For any dependency we have we need to make sure we are visible
     for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE)) {
       String path = swiftModule.getExecPath().getParentDirectory().toString();
-
       if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
         inputHeaders.add(swiftModule);
 
@@ -935,7 +934,7 @@ public final class CompilationSupport {
             .addInputs(otherSwiftSources)
             .addInputs(inputHeaders.build())
             .addInputs(Iterables.filter(
-                objcProvider.get(HEADER),
+                objcProvider.get(HEADER).toList(),
                 Predicates.not(Predicates.equalTo(swiftHeader))))
             .addOutput(objFile)
             .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
@@ -969,11 +968,13 @@ public final class CompilationSupport {
     }
 
     Artifact swiftHeader = intermediateArtifacts.swiftHeader();
+    Artifact swiftModule = intermediateArtifacts.swiftModule();
+
     commandLine
         .add("-module-name").add(getModuleName())
         .add("-parse-as-library")
         .addExecPaths(moduleFiles.build())
-        .addExecPath("-emit-module-path", intermediateArtifacts.swiftModule())
+        .addExecPath("-emit-module-path", swiftModule)
         .addExecPath("-emit-objc-header-path", swiftHeader)
         // The swift compiler will invoke clang itself when compiling module maps. This invocation
         // does not include the current working directory, causing cwd-relative imports to fail.
@@ -996,11 +997,11 @@ public final class CompilationSupport {
 
     Set<String> seenSwiftModulePaths = new HashSet<>();
     // For any dependency we have we need to make sure we are visible
-    for (Artifact swiftModule : objcProvider.get(SWIFT_MODULE)) {
-      String path = swiftModule.getExecPath().getParentDirectory().getPathString();
+    for (Artifact depSwiftModule : objcProvider.get(SWIFT_MODULE).toList()) {
+      String path = depSwiftModule.getExecPath().getParentDirectory().getPathString();
 
-      if (!swiftModule.equals(intermediateArtifacts.swiftModule())) {
-        moduleFiles.add(swiftModule);
+      if (!depSwiftModule.equals(swiftModule)) {
+        moduleFiles.add(depSwiftModule);
 
         if (!seenSwiftModulePaths.contains(path)) {
           seenSwiftModulePaths.add(path);
@@ -1011,6 +1012,8 @@ public final class CompilationSupport {
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
+    Artifact moduleMap = intermediateArtifacts.moduleMap().getArtifact();
+
     ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
             appleConfiguration, appleConfiguration.getSingleArchPlatform())
         .setMnemonic("SwiftModuleMerge")
@@ -1018,13 +1021,13 @@ public final class CompilationSupport {
         .setCommandLine(commandLine.build())
         .addInputs(moduleFiles.build())
         .addInputs(Iterables.filter(
-            objcProvider.get(HEADER),
+            objcProvider.get(HEADER).toList(),
             Predicates.not(Predicates.equalTo(swiftHeader))))
         .addInput(intermediateArtifacts.unextendedModuleMap().getArtifact())
         .addInputs(Iterables.filter(
-            objcProvider.get(MODULE_MAP),
-            Predicates.not(Predicates.equalTo(intermediateArtifacts.moduleMap().getArtifact()))))
-        .addOutput(intermediateArtifacts.swiftModule())
+            objcProvider.get(MODULE_MAP).toList(),
+            Predicates.not(Predicates.equalTo(moduleMap))))
+        .addOutput(swiftModule)
         .addOutput(swiftHeader)
         .build(ruleContext));
   }

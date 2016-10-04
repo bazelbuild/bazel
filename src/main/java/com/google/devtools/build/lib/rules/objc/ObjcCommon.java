@@ -417,6 +417,7 @@ public final class ObjcCommon {
               .addAll(DEFINE, defines)
               .addAllForDirectDependents(SWIFT_MODULE, swiftModule.asSet())
               .addAll(SWIFT_MODULE, swiftModule.asSet())
+              .add(MODULE_MAP, intermediateArtifacts.moduleMap().getArtifact())
               .addTransitiveAndPropagate(depObjcProviders)
               .addTransitiveWithoutPropagating(directDepObjcProviders);
 
