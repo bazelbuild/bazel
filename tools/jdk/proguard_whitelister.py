@@ -37,7 +37,7 @@ class ProguardConfigValidator(object):
   """Validates a proguard config."""
 
   # Must be a tuple for str.startswith()
-  _VALID_ARGS = ('keep', 'assumenosideeffects')
+  _VALID_ARGS = ('keep', 'assumenosideeffects', 'adaptresourcefilecontents')
 
   def __init__(self, config_path, outconfig_path):
     self._config_path = config_path
@@ -58,7 +58,10 @@ class ProguardConfigValidator(object):
   def _Validate(self, config):
     """Checks the config for illegal arguments."""
     config = re.sub(PROGUARD_COMMENTS_PATTERN, '', config)
-    args = config.split('-')
+    args = re.compile('(?:^-|\n-)').split(config)
+
+    print args
+
     invalid_configs = []
     for arg in args:
       arg = arg.strip()
