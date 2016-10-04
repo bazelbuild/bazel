@@ -353,9 +353,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         .setType(SerializeFormat.DataValueXml.XmlType.ATTR)
         .putAllNamespace(namespaces.asMap());
     for (Entry<String, ResourceXmlAttrValue> entry : formats.entrySet()) {
-      xmlValueBuilder
-          .getMutableMappedXmlValue()
-          .put(entry.getKey(), entry.getValue().appendTo(builder.getXmlValueBuilder()));
+      xmlValueBuilder.putMappedXmlValue(
+          entry.getKey(), entry.getValue().appendTo(builder.getXmlValueBuilder()));
     }
     builder.setXmlValue(xmlValueBuilder);
     return XmlResourceValues.serializeProtoDataValue(output, builder);
