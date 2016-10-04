@@ -997,7 +997,7 @@ public final class CompilationSupport {
     for (String option : getCompileRuleCopts()) {
       commandLine.add("-Xcc").add(option);
     }
-    
+
     // Import the Objective-C module map.
     if (objcConfiguration.moduleMapsEnabled()) {
       PathFragment moduleMapPath = intermediateArtifacts.unextendedModuleMap().getArtifact().getExecPath().getParentDirectory();
