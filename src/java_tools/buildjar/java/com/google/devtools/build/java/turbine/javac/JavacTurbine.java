@@ -162,7 +162,9 @@ public class JavacTurbine implements AutoCloseable {
     if (sources.isEmpty()) {
       // accept compilations with an empty source list for compatibility with JavaBuilder
       emitClassJar(
-          Paths.get(turbineOptions.outputFile()), ImmutableMap.<String, OutputFileObject>of());
+          Paths.get(turbineOptions.outputFile()),
+          ImmutableMap.<String, OutputFileObject>of(),
+          turbineOptions);
       dependencyModule.emitDependencyInformation(/*classpath=*/ "", /*successful=*/ true);
       return Result.OK_WITH_REDUCED_CLASSPATH;
     }
@@ -203,7 +205,7 @@ public class JavacTurbine implements AutoCloseable {
     }
 
     if (result.ok()) {
-      emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult.files());
+      emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult.files(), turbineOptions);
       dependencyModule.emitDependencyInformation(
           CLASSPATH_JOINER.join(actualClasspath), compileResult.success());
     }
@@ -231,7 +233,8 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   /** Write the class output from a successful compilation to the output jar. */
-  private static void emitClassJar(Path outputJar, ImmutableMap<String, OutputFileObject> files)
+  private static void emitClassJar(
+      Path outputJar, ImmutableMap<String, OutputFileObject> files, TurbineOptions turbineOptions)
       throws IOException {
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
@@ -247,7 +250,7 @@ public class JavacTurbine implements AutoCloseable {
           continue;
         }
         if (name.endsWith(".class")) {
-          bytes = processBytecode(bytes);
+          bytes = processBytecode(bytes, turbineOptions);
         }
         ZipUtil.storeEntry(name, bytes, zipOut);
         hasEntries = true;
@@ -265,11 +268,11 @@ public class JavacTurbine implements AutoCloseable {
    * <p>Most code will already have been removed after parsing, but the bytecode will still contain
    * e.g. lowered class and instance initializers.
    */
-  private static byte[] processBytecode(byte[] bytes) {
+  private static byte[] processBytecode(byte[] bytes, TurbineOptions turbineOptions) {
     ClassWriter cw = new ClassWriter(0);
     new ClassReader(bytes)
         .accept(
-            new PrivateMemberPruner(cw),
+            new PrivateMemberPruner(cw, turbineOptions),
             ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
     return cw.toByteArray();
   }
@@ -289,8 +292,12 @@ public class JavacTurbine implements AutoCloseable {
    * detect private members at that point (e.g. with implicit modifiers).
    */
   static class PrivateMemberPruner extends ClassVisitor {
-    public PrivateMemberPruner(ClassVisitor cv) {
+
+    private final boolean dropBridges;
+
+    public PrivateMemberPruner(ClassVisitor cv, TurbineOptions turbineOptions) {
       super(Opcodes.ASM5, cv);
+      this.dropBridges = turbineOptions.javacOpts().contains("-XDdropBridgesInTurbine=true");
     }
 
     @Override
@@ -312,9 +319,11 @@ public class JavacTurbine implements AutoCloseable {
         // drop class initializers, which are going to be empty after tree pruning
         return null;
       }
-      if ((access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0) {
-        // drop bridges (see b/31653210)
-        return null;
+      // drop synthetic methods, possibly including bridges (see b/31653210)
+      if ((access & Opcodes.ACC_SYNTHETIC) == Opcodes.ACC_SYNTHETIC) {
+        if (((access & Opcodes.ACC_BRIDGE) == 0) || dropBridges) {
+          return null;
+        }
       }
       return super.visitMethod(access, name, desc, signature, exceptions);
     }
