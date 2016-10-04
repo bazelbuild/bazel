@@ -83,6 +83,13 @@ VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
 
 def _darwin_build_file(repository_ctx):
   """Evaluates local system state to create xcode_config and xcode_version targets."""
+  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version"])
+  # "xcodebuild -version" failing may be indicative of no versions of xcode
+  # installed, which is an acceptable machine configuration to have for using
+  # bazel. Thus no warning should be emitted here.
+  if (xcodebuild_result.return_code != 0):
+    return VERSION_CONFIG_STUB
+
   xcodeloc_src_path = str(repository_ctx.path(Label(repository_ctx.attr.xcode_locator)))
   repository_ctx.execute(["xcrun", "clang", "-fobjc-arc", "-framework", "CoreServices", "-framework", "Foundation", "-o", "xcode-locator-bin", xcodeloc_src_path])
 
@@ -92,13 +99,6 @@ def _darwin_build_file(repository_ctx):
         "Invoking xcode-locator failed, return code {code}, stderr: {err}".format(
             code=xcode_locator_result.return_code,
             err=xcode_locator_result.stderr))
-    return VERSION_CONFIG_STUB
-  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version"])
-  if (xcodebuild_result.return_code != 0):
-    print(
-        "Invoking xcodebuild failed, return code {code}, stderr: {err}".format(
-            code=xcodebuild_result.return_code,
-            err=xcodebuild_result.stderr))
     return VERSION_CONFIG_STUB
 
   default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
