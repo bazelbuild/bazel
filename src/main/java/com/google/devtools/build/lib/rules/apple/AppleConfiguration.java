@@ -76,6 +76,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion tvosSdkVersion;
   private final DottedVersion tvosMinimumOs;
   private final DottedVersion macosXSdkVersion;
+  private final DottedVersion macosXMinimumOs;
   private final String iosCpu;
   private final String appleSplitCpu;
   private final PlatformType applePlatformType;
@@ -100,6 +101,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion tvosSdkVersion,
       DottedVersion tvosMinimumOs,
       DottedVersion macosXSdkVersion,
+      DottedVersion macosXMinimumOs,
       Optional<String> swiftToolchain,
       Optional<DottedVersion> swiftVersion) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
@@ -112,6 +114,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(tvosSdkVersion, "tvOsSdkVersion");
     this.tvosMinimumOs =
         Preconditions.checkNotNull(tvosMinimumOs, "tvOsMinimumOs");
+    this.macosXMinimumOs =
+        Preconditions.checkNotNull(macosXMinimumOs, "macosXMinimumOs");
 
     this.macosXSdkVersion =
         Preconditions.checkNotNull(macosXSdkVersion, "macOsXSdkVersion");
@@ -166,6 +170,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return tvosMinimumOs;
       case WATCHOS:
         return watchosMinimumOs;
+      case MACOSX:
+        return macosXMinimumOs;
       default:
         throw new IllegalArgumentException("Unhandled platform: " + platformType);
     }
@@ -589,13 +595,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           ? appleOptions.tvosMinimumOs : tvosSdkVersion;
       DottedVersion macosxSdkVersion = (appleOptions.macOsXSdkVersion != null)
           ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
+      DottedVersion macosMinimumOsVersion = (appleOptions.macosMinimumOs != null)
+          ? appleOptions.macosMinimumOs : macosxSdkVersion;
 
       Optional<String> swiftToolchain = Optional.fromNullable(appleOptions.swiftToolchain);
       Optional<DottedVersion> swiftVersion = Optional.fromNullable(appleOptions.swiftVersion);
       AppleConfiguration configuration =
           new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
               iosSdkVersion, watchosSdkVersion, watchosMinimumOsVersion,
-              tvosSdkVersion, tvosMinimumOsVersion, macosxSdkVersion,
+              tvosSdkVersion, tvosMinimumOsVersion, macosxSdkVersion, macosMinimumOsVersion,
               swiftToolchain, swiftVersion);
 
       validate(configuration);

@@ -59,7 +59,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String watchosSimulatorDevice;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
-  private final DottedVersion macosxMinimumOs;
   private final boolean generateDsym;
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
@@ -94,7 +93,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
     this.tvosSimulatorVersion =
         Preconditions.checkNotNull(objcOptions.tvosSimulatorVersion, "tvosSimulatorVersion");
-    this.macosxMinimumOs = Preconditions.checkNotNull(objcOptions.macosxMinimumOs, "macosxMinimumOs");
     this.generateDsym = objcOptions.appleGenerateDsym;
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
@@ -137,8 +135,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   @SkylarkCallable(
-      case MACOSX:
-        return macosxMinimumOs;
       name = "simulator_device_for_platform_type",
       doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.")
   public String getSimulatorDeviceForPlatformType(PlatformType platformType) {
@@ -352,7 +348,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
   }
-  
+
   /** Returns the DotdPruningPlan for compiles in this build. */
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;

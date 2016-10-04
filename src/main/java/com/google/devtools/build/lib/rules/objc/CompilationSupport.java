@@ -1138,7 +1138,7 @@ public final class CompilationSupport {
         .addAll(objcProvider.getCcLibraries()).build();
     return registerFullyLinkAction(inputArtifacts, outputArchive);
   }
-  
+
   /**
    * Registers an action to create an archive artifact by fully (statically) linking all
    * transitive dependencies of this rule *except* for dependencies given in {@code avoidsDeps}.
@@ -1161,7 +1161,7 @@ public final class CompilationSupport {
         .addAll(objcProvider.getObjcLibraries())
         .addAll(objcProvider.get(IMPORTED_LIBRARY))
         .addAll(objcProvider.getCcLibraries()).build();
-    
+
     Iterable<Artifact> inputArtifacts = Iterables.filter(depsArtifacts,
         Predicates.not(Predicates.in(avoidsDepsArtifacts.build())));
     return registerFullyLinkAction(inputArtifacts, outputArchive);
@@ -1918,7 +1918,7 @@ public final class CompilationSupport {
     // TODO(bazel-team): Assert the configuration is for an apple platform, or support
     // other platform types.
     Platform platform = configuration.getSingleArchPlatform();
-    return configuration.getSingleArchitecture() + "-apple-" + platform.getType().toString() + objcConfiguration
+    return configuration.getSingleArchitecture() + "-apple-" + platform.getType().toString() + configuration
         .getMinimumOsForPlatformType(platform.getType());
   }
 
@@ -1957,7 +1957,7 @@ public final class CompilationSupport {
         break;
       case MACOS_X:
         builder.add("-mmacosx-version-min="
-            + objcConfiguration.getMinimumOsForPlatformType(platform.getType()));
+            + appleConfiguration.getMinimumOsForPlatformType(platform.getType()));
         break;
       case TVOS_DEVICE:
         builder.add("-mtvos-version-min="

@@ -105,15 +105,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to Swift compilation.")
   public List<String> swiftopts;
 
-  @Option(
-      name = "macosx_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_MACOSX,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible macOS version for target."
-  )
-  public DottedVersion macosxMinimumOs;
-
   @Option(name = "ios_memleaks",
       defaultValue =  "false",
       category = "misc",

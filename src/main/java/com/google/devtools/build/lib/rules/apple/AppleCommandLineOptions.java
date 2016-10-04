@@ -133,6 +133,15 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public DottedVersion tvosMinimumOs;
 
+  @Option(
+      name = "macos_minimum_os",
+      defaultValue = "null",
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible macOS version."
+  )
+  public DottedVersion macosMinimumOs;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
