@@ -517,7 +517,10 @@ public final class SkyframeBuildView {
     // trims a host configuration to the same scope as a target configuration. Since their options
     // are different, the host instance may actually be able to produce the fragment. So it's
     // wrong and potentially dangerous to unilaterally exclude it.
-    Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses = config.fragmentClasses();
+    Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses =
+        config.trimConfigurations()
+            ? config.fragmentClasses()
+            : ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments();
     BuildConfiguration hostConfig = hostConfigurationCache.get(fragmentClasses);
     if (hostConfig != null) {
       return hostConfig;

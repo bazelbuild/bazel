@@ -1247,7 +1247,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Check: if !Configuration.useDynamicConfigs then just return the original configs.
     Set<Class<? extends BuildConfiguration.Fragment>> allFragments = null;
     if (useUntrimmedDynamicConfigs(fromOptions)) {
-      allFragments = getAllFragments();
+      allFragments = ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments();
     }
 
     // Get the fragments needed for dynamic configuration nodes.
@@ -1320,20 +1320,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static boolean useUntrimmedDynamicConfigs(BuildOptions options) {
     return options.get(BuildConfiguration.Options.class).useDynamicConfigurations
         == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM;
-  }
-
-  /**
-   * Returns all configuration fragments registered with Blaze.
-   */
-  private Set<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
-    ImmutableSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =
-        ImmutableSet.builder();
-    for (ConfigurationFragmentFactory factory :
-        ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationFragments()) {
-      fragmentsBuilder.add(factory.creates());
-    }
-    fragmentsBuilder.add(((ConfiguredRuleClassProvider) ruleClassProvider).getUniversalFragment());
-    return fragmentsBuilder.build();
   }
 
   /**

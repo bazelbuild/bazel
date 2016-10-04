@@ -17,6 +17,7 @@ import com.google.common.base.Supplier;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -116,13 +117,17 @@ public class ConfigurationCollectionFunction implements SkyFunction {
   }
 
   /** Returns the host configuration, or null on missing Skyframe deps. */
-  private static BuildConfiguration getHostConfiguration(
+  private BuildConfiguration getHostConfiguration(
       Environment env, BuildConfiguration targetConfiguration)
       throws InvalidConfigurationException, InterruptedException {
     if (targetConfiguration.useDynamicConfigurations()) {
       BuildOptions hostOptions = HostTransition.INSTANCE.apply(targetConfiguration.getOptions());
       SkyKey hostConfigKey =
-          BuildConfigurationValue.key(targetConfiguration.fragmentClasses(), hostOptions);
+          BuildConfigurationValue.key(
+              targetConfiguration.trimConfigurations()
+                  ? targetConfiguration.fragmentClasses()
+                  : ((ConfiguredRuleClassProvider) ruleClassProvider).getAllFragments(),
+              hostOptions);
       BuildConfigurationValue skyValHost = (BuildConfigurationValue)
           env.getValueOrThrow(hostConfigKey, InvalidConfigurationException.class);
 
