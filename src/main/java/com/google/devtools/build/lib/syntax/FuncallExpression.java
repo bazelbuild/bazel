@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -105,7 +106,7 @@ public final class FuncallExpression extends Expression {
                     if (method.isSynthetic()) {
                       continue;
                     }
-                    SkylarkCallable callable = getAnnotationFromParentClass(method);
+                    SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
                     if (callable == null) {
                       continue;
                     }
@@ -154,62 +155,13 @@ public final class FuncallExpression extends Expression {
     for (Method method : classObj.getMethods()) {
       // Synthetic methods lead to false multiple matches
       if (!method.isSynthetic()) {
-        SkylarkCallable annotation = getAnnotationFromParentClass(classObj, method);
+        SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(classObj, method);
         if (annotation != null) {
           methodMap.put(method, annotation);
         }
       }
     }
     return methodMap.build();
-  }
-
-  /**
-   * Returns the {@link SkylarkCallable} annotation for the given method, if it exists, and
-   * null otherwise. The method must be declared in {@code classObj} or one of its base classes
-   * or interfaces. The first annotation of an overridden version of the method that is found
-   * will be returned, starting with {@code classObj} and following its base classes and
-   * interfaces recursively.
-   */
-  @Nullable
-  public static SkylarkCallable getAnnotationFromParentClass(Class<?> classObj, Method method) {
-    boolean keepLooking = false;
-    try {
-      Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
-      if (classObj.isAnnotationPresent(SkylarkModule.class)
-          && superMethod.isAnnotationPresent(SkylarkCallable.class)) {
-        return superMethod.getAnnotation(SkylarkCallable.class);
-      } else {
-        keepLooking = true;
-      }
-    } catch (NoSuchMethodException e) {
-      // The class might not have the specified method, so an exceptions is OK.
-      keepLooking = true;
-    }
-    if (keepLooking) {
-      if (classObj.getSuperclass() != null) {
-        SkylarkCallable annotation =
-            getAnnotationFromParentClass(classObj.getSuperclass(), method);
-        if (annotation != null) {
-          return annotation;
-        }
-      }
-      for (Class<?> interfaceObj : classObj.getInterfaces()) {
-        SkylarkCallable annotation = getAnnotationFromParentClass(interfaceObj, method);
-        if (annotation != null) {
-          return annotation;
-        }
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Convenience version of {@code getAnnotationsFromParentClass(Class, Method)} that uses
-   * the declaring class of the method.
-   */
-  @Nullable
-  public static SkylarkCallable getAnnotationFromParentClass(Method method) {
-    return getAnnotationFromParentClass(method.getDeclaringClass(), method);
   }
 
   private static class ArgumentListConversionResult {

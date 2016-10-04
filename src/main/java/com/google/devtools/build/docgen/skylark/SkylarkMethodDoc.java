@@ -17,8 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +53,7 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
   }
 
   private String getParameterString(Method method) {
-    SkylarkCallable annotation = FuncallExpression.getAnnotationFromParentClass(method);
+    SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(method);
     int nbPositional = annotation.mandatoryPositionals();
     if (annotation.parameters().length > 0 && nbPositional < 0) {
       nbPositional = 0;
@@ -76,7 +76,7 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
   }
 
   protected String getSignature(String objectName, String methodName, Method method) {
-    String args = FuncallExpression.getAnnotationFromParentClass(method).structField()
+    String args = SkylarkInterfaceUtils.getSkylarkCallable(method).structField()
         ? "" : "(" + getParameterString(method) + ")";
 
     return String.format("%s %s.%s%s",

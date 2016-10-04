@@ -109,8 +109,8 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   /** MockClassA */
-  @SkylarkModule(name = "MockClassA", doc = "")
-  public static class MockClassA {
+  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  private static class MockClassA {
     @SkylarkCallable(doc = "MockClassA#get")
     public Integer get() {
       return 0;
@@ -118,18 +118,18 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   /** MockClassB */
-  @SkylarkModule(name = "MockClassB", doc = "")
-  public static class MockClassB {
-    @SkylarkCallable(doc = "")
+  @SkylarkModule(name = "MockClassB", doc = "MockClassB")
+  private static class MockClassB {
+    @SkylarkCallable(doc = "MockClassB#get")
     public MockClassA get() {
       return new MockClassA();
     }
   }
 
   /** MockClassC */
-  @SkylarkModule(name = "MockClassC", doc = "")
-  public static class MockClassC extends MockClassA {
-    @SkylarkCallable(doc = "")
+  @SkylarkModule(name = "MockClassC", doc = "MockClassC")
+  private static class MockClassC extends MockClassA {
+    @SkylarkCallable(doc = "MockClassC#get2")
     public Integer get2() {
       return 0;
     }
@@ -137,7 +137,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
   /** MockClassD */
   @SkylarkModule(name = "MockClassD", doc = "MockClassD")
-  public static class MockClassD {
+  private static class MockClassD {
     @SkylarkCallable(
       doc = "MockClassD#test",
       mandatoryPositionals = 1,
@@ -154,7 +154,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
   /** MockClassE */
   @SkylarkModule(name = "MockClassE", doc = "MockClassE")
-  public static class MockClassE extends MockClassA {
+  private static class MockClassE extends MockClassA {
     @Override
     public Integer get() {
       return 1;
