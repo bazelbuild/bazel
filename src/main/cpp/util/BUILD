@@ -21,9 +21,9 @@ cc_library(
 )
 
 cc_library(
-    name = "file_linux",
-    srcs = ["file_linux.cc"],
-    hdrs = ["file_linux.h"],
+    name = "file_posix",
+    srcs = ["file_posix.cc"],
+    hdrs = ["file_posix.h"],
     visibility = ["//src/main/cpp:__pkg__"],
     deps = [
         ":blaze_exit_code",

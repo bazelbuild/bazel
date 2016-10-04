@@ -30,7 +30,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_linux.h"
+#include "src/main/cpp/util/file_posix.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 

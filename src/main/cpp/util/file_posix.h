@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This header file defines file utilities we only need under Linux.
-
-#ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_LINUX_H_
-#define BAZEL_SRC_MAIN_CPP_UTIL_FILE_LINUX_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_POSIX_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_FILE_POSIX_H_
 
 #include <string>
 
@@ -30,4 +28,4 @@ string Which(const string &executable);
 
 }  // namespace blaze_util
 
-#endif  // BAZEL_SRC_MAIN_CPP_UTIL_FILE_LINUX_H_
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_FILE_POSIX_H_

@@ -58,7 +58,7 @@ cc_library(
         "//src:freebsd": [],
         "//src:windows": [],
         "//src:windows_msvc": [],
-        "//conditions:default": ["//src/main/cpp/util:file_linux"],
+        "//conditions:default": ["//src/main/cpp/util:file_posix"],
     }),
 )
 

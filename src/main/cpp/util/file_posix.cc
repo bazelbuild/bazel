@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/file_linux.h"
+#include "src/main/cpp/util/file_posix.h"
 
 #include <sys/stat.h>
 #include <stdlib.h>  // getenv
