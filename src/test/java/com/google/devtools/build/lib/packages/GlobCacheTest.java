@@ -24,18 +24,16 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link GlobCache}
@@ -89,20 +87,26 @@ public class GlobCacheTest {
     scratch.file("isolated/sub/sub.js",
         "# this is sub/sub.js");
 
-    cache = new GlobCache(packageDirectory, PackageIdentifier.createInMainRepo("isolated"),
-        new CachingPackageLocator() {
-      @Override
-      public Path getBuildFileForPackage(PackageIdentifier packageId) {
-        String packageName = packageId.getPackageFragment().getPathString();
-        if (packageName.equals("isolated")) {
-          return scratch.resolve("isolated/BUILD");
-        } else if (packageName.equals("isolated/sub")) {
-          return scratch.resolve("isolated/sub/BUILD");
-        } else {
-          return null;
-        }
-      }
-    }, null, TestUtils.getPool());
+    cache =
+        new GlobCache(
+            packageDirectory,
+            PackageIdentifier.createInMainRepo("isolated"),
+            new CachingPackageLocator() {
+              @Override
+              public Path getBuildFileForPackage(PackageIdentifier packageId) {
+                String packageName = packageId.getPackageFragment().getPathString();
+                if (packageName.equals("isolated")) {
+                  return scratch.resolve("isolated/BUILD");
+                } else if (packageName.equals("isolated/sub")) {
+                  return scratch.resolve("isolated/sub/BUILD");
+                } else {
+                  return null;
+                }
+              }
+            },
+            null,
+            TestUtils.getPool(),
+            -1);
   }
 
   @After

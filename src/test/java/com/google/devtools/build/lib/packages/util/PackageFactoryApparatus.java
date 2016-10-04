@@ -120,7 +120,8 @@ public class PackageFactoryApparatus {
             packageId,
             getPackageLocator(),
             null,
-            TestUtils.getPool());
+            TestUtils.getPool(),
+            -1);
     LegacyGlobber globber = PackageFactory.createLegacyGlobber(globCache);
     Package externalPkg =
         factory.newExternalPackageBuilder(

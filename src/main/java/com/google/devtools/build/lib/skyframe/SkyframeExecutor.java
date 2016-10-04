@@ -920,6 +920,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     syscalls.set(newPerBuildSyscallCache(packageCacheOptions.globbingThreads));
     this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
+    this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
+        packageCacheOptions.maxDirectoriesToEagerlyVisitInGlobbing);
     checkPreprocessorFactory();
     emittedEventState.clear();
 

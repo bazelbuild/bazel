@@ -110,6 +110,17 @@ public class PackageCacheOptions extends OptionsBase {
       help = "Number of threads to use for glob evaluation.")
   public int globbingThreads;
 
+  @Option(
+    name = "experimental_max_directories_to_eagerly_visit_in_globbing",
+    defaultValue = "-1",
+    category = "undocumented",
+    help =
+        "If non-negative, the first time a glob is evaluated in a package, the subdirectories of "
+            + "the package will be traversed in order to warm filesystem caches and compensate for "
+            + "lack of parallelism in globbing. At most this many directories will be visited."
+  )
+  public int maxDirectoriesToEagerlyVisitInGlobbing;
+
   @Option(name = "fetch",
       defaultValue = "true",
       category = "undocumented",

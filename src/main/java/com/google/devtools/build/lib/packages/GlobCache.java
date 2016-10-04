@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +38,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -76,29 +76,37 @@ public class GlobCache {
    * System call caching layer.
    */
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+  private final int maxDirectoriesToEagerlyVisit;
 
   /**
    * The thread pool for glob evaluation.
    */
   private final ThreadPoolExecutor globExecutor;
+  private final AtomicBoolean globalStarted = new AtomicBoolean(false);
 
   /**
    * Create a glob expansion cache.
-   * @param packageDirectory globs will be expanded relatively to this
-   *                         directory.
+   *
+   * @param packageDirectory globs will be expanded relatively to this directory.
    * @param packageId the name of the package this cache belongs to.
    * @param locator the package locator.
    * @param globExecutor thread pool for glob evaluation.
+   * @param maxDirectoriesToEagerlyVisit the number of directories to eagerly traverse on the first
+   *     glob for a given package, in order to warm the filesystem. -1 means do no eager traversal.
+   *     See {@code PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
    */
-  public GlobCache(final Path packageDirectory,
-                   final PackageIdentifier packageId,
-                   final CachingPackageLocator locator,
-                   AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
-                   ThreadPoolExecutor globExecutor) {
+  public GlobCache(
+      final Path packageDirectory,
+      final PackageIdentifier packageId,
+      final CachingPackageLocator locator,
+      AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
+      ThreadPoolExecutor globExecutor,
+      int maxDirectoriesToEagerlyVisit) {
     this.packageDirectory = Preconditions.checkNotNull(packageDirectory);
     this.packageId = Preconditions.checkNotNull(packageId);
     this.globExecutor = Preconditions.checkNotNull(globExecutor);
     this.syscalls = syscalls == null ? new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS) : syscalls;
+    this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
 
     Preconditions.checkNotNull(locator);
     childDirectoryPredicate = new Predicate<Path>() {
@@ -129,6 +137,18 @@ public class GlobCache {
       throws BadGlobException {
     Future<List<Path>> cached = globCache.get(Pair.of(pattern, excludeDirs));
     if (cached == null) {
+      if (maxDirectoriesToEagerlyVisit > -1
+          && !globalStarted.getAndSet(true)
+          && !pattern.startsWith("**")) {
+        UnixGlob.forPath(packageDirectory)
+            .setMaxDirectoriesToEagerlyVisit(maxDirectoriesToEagerlyVisit)
+            .addPattern("**")
+            .setExcludeDirectories(true)
+            .setDirectoryFilter(childDirectoryPredicate)
+            .setThreadPool(globExecutor)
+            .setFilesystemCalls(syscalls)
+            .globAsync(true);
+      }
       cached = safeGlobUnsorted(pattern, excludeDirs);
       setGlobPaths(pattern, excludeDirs, cached);
     }

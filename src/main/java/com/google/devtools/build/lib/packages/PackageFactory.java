@@ -334,6 +334,8 @@ public final class PackageFactory {
   private final ThreadPoolExecutor threadPool;
   private Map<String, String> platformSetRegexps;
 
+  private int maxDirectoriesToEagerlyVisitInGlobbing;
+
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final ImmutableMap<String, PackageArgument<?>> packageArguments;
 
@@ -429,6 +431,10 @@ public final class PackageFactory {
     threadPool.setMaximumPoolSize(globbingThreads);
   }
 
+  public void setMaxDirectoriesToEagerlyVisitInGlobbing(
+      int maxDirectoriesToEagerlyVisitInGlobbing) {
+    this.maxDirectoriesToEagerlyVisitInGlobbing = maxDirectoriesToEagerlyVisitInGlobbing;
+  }
 
   /**
    * Returns the immutable, unordered set of names of all the known rule
@@ -1422,8 +1428,14 @@ public final class PackageFactory {
       Path packageDirectory,
       PackageIdentifier packageId,
       CachingPackageLocator locator) {
-    return createLegacyGlobber(new GlobCache(packageDirectory, packageId, locator, syscalls,
-        threadPool));
+    return createLegacyGlobber(
+        new GlobCache(
+            packageDirectory,
+            packageId,
+            locator,
+            syscalls,
+            threadPool,
+            maxDirectoriesToEagerlyVisitInGlobbing));
   }
 
   /** Returns a new {@link LegacyGlobber}. */
@@ -1440,8 +1452,15 @@ public final class PackageFactory {
       Path packageDirectory,
       PackageIdentifier packageId,
       CachingPackageLocator locator) {
-    return new LegacyGlobber(new GlobCache(packageDirectory, packageId, locator, syscalls,
-        threadPool), /*sort=*/ false);
+    return new LegacyGlobber(
+        new GlobCache(
+            packageDirectory,
+            packageId,
+            locator,
+            syscalls,
+            threadPool,
+            maxDirectoriesToEagerlyVisitInGlobbing),
+        /*sort=*/ false);
   }
 
   @Nullable
