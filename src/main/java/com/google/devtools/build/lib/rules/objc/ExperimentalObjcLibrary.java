@@ -14,44 +14,20 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 
 /** Implementation for experimental_objc_library. */
 public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
-
-  private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
-  private static final Iterable<String> ACTIVATED_ACTIONS =
-      ImmutableList.of("objc-compile", "objc++-compile", "objc-archive", "objc-fully-link",
-          "assemble", "preprocess-assemble", "c-compile", "c++-compile");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) 
@@ -71,64 +47,21 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
-    CompilationAttributes compilationAttributes =
-        CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
-    PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
     CompilationSupport compilationSupport = new CompilationSupport(ruleContext);
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
     ObjcCommon common = common(ruleContext);
-    ObjcVariablesExtension variablesExtension =
-        new ObjcVariablesExtension(
-            ruleContext,
-            common.getObjcProvider(),
-            compilationArtifacts,
-            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB),
-            intermediateArtifacts,
-            ruleContext.getConfiguration());
 
-    FeatureConfiguration featureConfiguration = getFeatureConfiguration(ruleContext);
+    CrosstoolSupport crosstoolSupport = new CrosstoolSupport(ruleContext, common.getObjcProvider());
 
-    Collection<Artifact> arcSources = Sets.newHashSet(compilationArtifacts.getSrcs());
-    Collection<Artifact> nonArcSources = Sets.newHashSet(compilationArtifacts.getNonArcSrcs());
-    Collection<Artifact> privateHdrs = Sets.newHashSet(compilationArtifacts.getPrivateHdrs());
-    Collection<Artifact> publicHdrs = Sets.newHashSet(compilationAttributes.hdrs());
-    Artifact pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);
-    ImmutableList<Artifact> pchHdrList = (pchHdr != null)
-        ? ImmutableList.<Artifact>of(pchHdr)
-        : ImmutableList.<Artifact>of();
-
-    CcLibraryHelper helper =
-        new CcLibraryHelper(
-                ruleContext,
-                new ObjcCppSemantics(common.getObjcProvider()),
-                featureConfiguration,
-                CcLibraryHelper.SourceCategory.CC_AND_OBJC)
-            .addSources(arcSources, ImmutableMap.of("objc_arc", ""))
-            .addSources(nonArcSources, ImmutableMap.of("no_objc_arc", ""))
-            .addSources(privateHdrs)
-            .addDefines(common.getObjcProvider().get(DEFINE))
-            .enableCompileProviders()
-            .addPublicHeaders(publicHdrs)
-            .addPublicHeaders(pchHdrList)
-            .addPrecompiledFiles(precompiledFiles)
-            .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
-            .addCopts(compilationSupport.getCompileRuleCopts())
-            .addIncludeDirs(common.getObjcProvider().get(INCLUDE))
-            .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
-            .addSystemIncludeDirs(common.getObjcProvider().get(INCLUDE_SYSTEM))
-            .addVariableExtension(variablesExtension)
-            .setCppModuleMap(ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap());
-
+    TransitiveInfoProviderMap compilationProviders;
     if (compilationArtifacts.getArchive().isPresent()) {
-      registerArchiveAction(
-          intermediateArtifacts, compilationSupport, compilationArtifacts, helper);
+      compilationProviders = crosstoolSupport.registerCompileAndArchiveActions(common);
+    } else {
+      compilationProviders = crosstoolSupport.registerCompileActions(common);
     }
-    registerFullyLinkAction(ruleContext, common, variablesExtension, featureConfiguration);
-
-    CcLibraryHelper.Info info = helper.build();
-
+    
+    crosstoolSupport.registerFullyLinkAction(common);
+    
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().addAll(common.getCompiledArchive().asSet());
 
@@ -150,78 +83,10 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addProviders(info.getProviders())
+        .addProviders(compilationProviders)
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();
-  }
-
-  private static FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext) {
-    CcToolchainProvider toolchain =
-        ruleContext
-            .getPrerequisite(":cc_toolchain", Mode.TARGET)
-            .getProvider(CcToolchainProvider.class);
-
-    ImmutableList.Builder<String> activatedCrosstoolSelectables =
-        ImmutableList.<String>builder().addAll(ACTIVATED_ACTIONS);
-
-    if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
-      activatedCrosstoolSelectables.add("pch");
-    }
-
-    activatedCrosstoolSelectables.addAll(
-        ruleContext.getFragment(AppleConfiguration.class).getBitcodeMode().getFeatureNames());
-
-    // We create a module map by default to allow for swift interop.
-    activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
-    activatedCrosstoolSelectables.add(CppRuleClasses.MODULE_MAPS);
-    activatedCrosstoolSelectables.add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET);
-    activatedCrosstoolSelectables.add(CppRuleClasses.DEPENDENCY_FILE);
-    activatedCrosstoolSelectables.add(CppRuleClasses.INCLUDE_PATHS);
-
-    return toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
-  }
-
-  private static void registerArchiveAction(
-      IntermediateArtifacts intermediateArtifacts,
-      CompilationSupport compilationSupport,
-      CompilationArtifacts compilationArtifacts,
-      CcLibraryHelper helper) {
-    Artifact objList = intermediateArtifacts.archiveObjList();
-
-    // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
-    compilationSupport.registerObjFilelistAction(
-        getObjFiles(compilationArtifacts, intermediateArtifacts), objList);
-
-    helper.setLinkType(LinkTargetType.OBJC_ARCHIVE).addLinkActionInput(objList);
-  }
-
-  private static void registerFullyLinkAction(
-      RuleContext ruleContext,
-      ObjcCommon common,
-      VariablesExtension variablesExtension,
-      FeatureConfiguration featureConfiguration)
-      throws InterruptedException {
-    Artifact fullyLinkedArchive =
-        ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB);
-    PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
-    String libraryIdentifier =
-        ruleContext
-            .getPackageDirectory()
-            .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
-            .getPathString();
-    CppLinkAction fullyLinkAction =
-        new CppLinkActionBuilder(ruleContext, fullyLinkedArchive)
-            .addActionInputs(common.getObjcProvider().getObjcLibraries())
-            .addActionInputs(common.getObjcProvider().getCcLibraries())
-            .addActionInputs(common.getObjcProvider().get(IMPORTED_LIBRARY).toSet())
-            .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-            .setLibraryIdentifier(libraryIdentifier)
-            .addVariablesExtension(variablesExtension)
-            .setFeatureConfiguration(featureConfiguration)
-            .build();
-    ruleContext.registerAction(fullyLinkAction);
   }
 
   /** Throws errors or warnings for bad attribute state. */
@@ -253,19 +118,5 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
         .build();
-  }
-  
-  private static ImmutableList<Artifact> getObjFiles(
-      CompilationArtifacts compilationArtifacts, IntermediateArtifacts intermediateArtifacts) {
-    ImmutableList.Builder<Artifact> result = new ImmutableList.Builder<>();
-    for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
-      Artifact objFile = intermediateArtifacts.objFile(sourceFile);
-      result.add(objFile);
-    }
-    for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
-      Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
-      result.add(objFile);
-    }
-    return result.build();
   }
 }
