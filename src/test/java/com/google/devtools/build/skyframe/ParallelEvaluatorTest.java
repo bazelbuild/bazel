@@ -49,7 +49,6 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,7 +76,8 @@ public class ParallelEvaluatorTest {
 
   private EventCollector eventCollector;
 
-  private EvaluationProgressReceiver revalidationReceiver;
+  private DirtyTrackingProgressReceiver revalidationReceiver =
+      new DirtyTrackingProgressReceiver(null);
 
   @Before
   public void initializeReporter() {
@@ -104,14 +104,7 @@ public class ParallelEvaluatorTest {
         storedEventFilter,
         keepGoing,
         150,
-        revalidationReceiver,
-        new DirtyKeyTrackerImpl(),
-        new ParallelEvaluator.Receiver<Collection<SkyKey>>() {
-          @Override
-          public void accept(Collection<SkyKey> object) {
-            // ignore
-          }
-        });
+        revalidationReceiver);
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
@@ -259,7 +252,7 @@ public class ParallelEvaluatorTest {
       eval(/*keepGoing=*/false, fastKey);
     }
     final Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
-    revalidationReceiver = new EvaluationProgressReceiver() {
+    revalidationReceiver = new DirtyTrackingProgressReceiver(new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyKey skyKey, InvalidationState state) {}
 
@@ -274,7 +267,7 @@ public class ParallelEvaluatorTest {
           EvaluationState state) {
         receivedValues.add(skyKey);
       }
-    };
+    });
     TestThread evalThread = new TestThread() {
       @Override
       public void runTest() throws Exception {

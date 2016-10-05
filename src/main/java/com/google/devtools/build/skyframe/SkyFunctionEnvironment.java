@@ -565,27 +565,25 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         "%s should be at most %s in the version partial ordering",
         valueVersion,
         evaluatorContext.getGraphVersion());
-    if (evaluatorContext.getProgressReceiver() != null) {
-      // Tell the receiver that this value was built. If valueVersion.equals(graphVersion), it
-      // was evaluated this run, and so was changed. Otherwise, it is less than graphVersion,
-      // by the Preconditions check above, and was not actually changed this run -- when it was
-      // written above, its version stayed below this update's version, so its value remains the
-      // same as before.
-      // We use a SkyValueSupplier here because it keeps a reference to the entry, allowing for
-      // the receiver to be confident that the entry is readily accessible in memory.
-      evaluatorContext
-          .getProgressReceiver()
-          .evaluated(
-              skyKey,
-              new SkyValueSupplier(primaryEntry),
-              valueVersion.equals(evaluatorContext.getGraphVersion())
-                  ? EvaluationState.BUILT
-                  : EvaluationState.CLEAN);
-    }
+
+    // Tell the receiver that this value was built. If valueVersion.equals(graphVersion), it was
+    // evaluated this run, and so was changed. Otherwise, it is less than graphVersion, by the
+    // Preconditions check above, and was not actually changed this run -- when it was written
+    // above, its version stayed below this update's version, so its value remains the same.
+    // We use a SkyValueSupplier here because it keeps a reference to the entry, allowing for
+    // the receiver to be confident that the entry is readily accessible in memory.
+    evaluatorContext
+        .getProgressReceiver()
+        .evaluated(
+            skyKey,
+            new SkyValueSupplier(primaryEntry),
+            valueVersion.equals(evaluatorContext.getGraphVersion())
+                ? EvaluationState.BUILT
+                : EvaluationState.CLEAN);
+
     evaluatorContext.signalValuesAndEnqueueIfReady(
         skyKey, reverseDeps, valueVersion, enqueueParents);
 
-    evaluatorContext.getVisitor().notifyDone(skyKey);
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
   }
 

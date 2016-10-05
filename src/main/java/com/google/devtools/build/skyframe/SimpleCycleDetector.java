@@ -107,19 +107,19 @@ class SimpleCycleDetector implements CycleDetector {
 
     toVisit.push(root);
 
-    // The procedure for this check is as follows: we visit a node, push it onto the graph stack,
+    // The procedure for this check is as follows: we visit a node, push it onto the graph path,
     // push a marker value onto the toVisit stack, and then push all of its children onto the
     // toVisit stack. Thus, when the marker node comes to the top of the toVisit stack, we have
     // visited the downward transitive closure of the value. At that point, all of its children must
     // be finished, and so we can build the definitive error info for the node, popping it off the
-    // graph stack.
+    // graph path.
     while (!toVisit.isEmpty()) {
       SkyKey key = toVisit.pop();
 
       NodeEntry entry;
       if (key == CHILDREN_FINISHED) {
-        // A marker node means we are done with all children of a node. Since all nodes have
-        // errors, we must have found errors in the children when that happens.
+        // We have reached the marker node - that means all children of a node have been visited.
+        // Since all nodes have errors, we must have found errors in the children at this point.
         key = graphPath.remove(graphPath.size() - 1);
         entry =
             Preconditions.checkNotNull(
@@ -131,8 +131,7 @@ class SimpleCycleDetector implements CycleDetector {
         }
         if (!evaluatorContext.keepGoing()) {
           // in the --nokeep_going mode, we would have already returned if we'd found a cycle below
-          // this node. The fact that we haven't means that there were no cycles below this node
-          // -- it just hadn't finished evaluating. So skip it.
+          // this node. We haven't, so there are no cycles below this node; skip further evaluation
           continue;
         }
         Set<SkyKey> removedDeps = ImmutableSet.of();

@@ -90,9 +90,6 @@ public final class ParallelEvaluator implements Evaluator {
     void accept(T object);
   }
 
-  private final DirtyKeyTracker dirtyKeyTracker;
-  private final Receiver<Collection<SkyKey>> inflightKeysReceiver;
-
   private final ParallelEvaluatorContext evaluatorContext;
   private final CycleDetector cycleDetector;
 
@@ -105,12 +102,8 @@ public final class ParallelEvaluator implements Evaluator {
       EventFilter storedEventFilter,
       boolean keepGoing,
       int threadCount,
-      @Nullable EvaluationProgressReceiver progressReceiver,
-      DirtyKeyTracker dirtyKeyTracker,
-      Receiver<Collection<SkyKey>> inflightKeysReceiver) {
+      DirtyTrackingProgressReceiver progressReceiver) {
     this.graph = graph;
-    this.inflightKeysReceiver = inflightKeysReceiver;
-    this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
     evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
@@ -122,7 +115,6 @@ public final class ParallelEvaluator implements Evaluator {
             /*storeErrorsAlongsideValues=*/ true,
             progressReceiver,
             storedEventFilter,
-            dirtyKeyTracker,
             createEvaluateRunnable(),
             threadCount);
     cycleDetector = new SimpleCycleDetector();
@@ -137,16 +129,12 @@ public final class ParallelEvaluator implements Evaluator {
       EventFilter storedEventFilter,
       boolean keepGoing,
       boolean storeErrorsAlongsideValues,
-      @Nullable EvaluationProgressReceiver progressReceiver,
-      DirtyKeyTracker dirtyKeyTracker,
-      Receiver<Collection<SkyKey>> inflightKeysReceiver,
+      DirtyTrackingProgressReceiver progressReceiver,
       ForkJoinPool forkJoinPool,
       CycleDetector cycleDetector) {
     this.graph = graph;
-    this.inflightKeysReceiver = inflightKeysReceiver;
     this.cycleDetector = cycleDetector;
     Preconditions.checkState(storeErrorsAlongsideValues || keepGoing);
-    this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
     evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
@@ -158,7 +146,6 @@ public final class ParallelEvaluator implements Evaluator {
             storeErrorsAlongsideValues,
             progressReceiver,
             storedEventFilter,
-            dirtyKeyTracker,
             createEvaluateRunnable(),
             Preconditions.checkNotNull(forkJoinPool));
   }
@@ -331,14 +318,10 @@ public final class ParallelEvaluator implements Evaluator {
         case VERIFIED_CLEAN:
           // No child has a changed value. This node can be marked done and its parents signaled
           // without any re-evaluation.
-          evaluatorContext.getVisitor().notifyDone(skyKey);
           Set<SkyKey> reverseDeps = state.markClean();
-          if (evaluatorContext.getProgressReceiver() != null) {
-            // Tell the receiver that the value was not actually changed this run.
-            evaluatorContext
-                .getProgressReceiver()
+          // Tell the receiver that the value was not actually changed this run.
+          evaluatorContext.getProgressReceiver()
                 .evaluated(skyKey, new SkyValueSupplier(state), EvaluationState.CLEAN);
-          }
           if (!evaluatorContext.keepGoing() && state.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;
@@ -370,9 +353,9 @@ public final class ParallelEvaluator implements Evaluator {
       }
 
       Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
-        SkyFunctionEnvironment env =
-            new SkyFunctionEnvironment(
-                skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
+      SkyFunctionEnvironment env =
+          new SkyFunctionEnvironment(
+              skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
       SkyFunctionName functionName = skyKey.functionName();
       SkyFunction factory =
           Preconditions.checkNotNull(
@@ -451,9 +434,7 @@ public final class ParallelEvaluator implements Evaluator {
         env.doneBuilding();
         long elapsedTimeNanos =  BlazeClock.instance().nanoTime() - startTime;
         if (elapsedTimeNanos > 0)  {
-          if (evaluatorContext.getProgressReceiver() != null) {
-            evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
-          }
+          evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
           Profiler.instance().logSimpleTaskDuration(startTime, elapsedTimeNanos,
               ProfilerTask.SKYFUNCTION, skyKey);
         }
@@ -546,8 +527,8 @@ public final class ParallelEvaluator implements Evaluator {
         return;
       }
 
-        for (Entry<SkyKey, ? extends NodeEntry> e :
-            graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, newDirectDeps).entrySet()) {
+      for (Entry<SkyKey, ? extends NodeEntry> e :
+          graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, newDirectDeps).entrySet()) {
         SkyKey newDirectDep = e.getKey();
         NodeEntry newDirectDepEntry = e.getValue();
         enqueueChild(
@@ -592,7 +573,7 @@ public final class ParallelEvaluator implements Evaluator {
   /**
    * Add any additional deps that were registered during the run of a builder that finished by
    * creating a node or throwing an error. Builders may throw errors even if all their deps were not
-   * provided -- we trust that a SkyFunction may be know it should throw an error even if not all of
+   * provided -- we trust that a SkyFunction might know it should throw an error even if not all of
    * its requested deps are done. However, that means we're assuming the SkyFunction would throw
    * that same error if all of its requested deps were done. Unfortunately, there is no way to
    * enforce that condition.
@@ -739,7 +720,7 @@ public final class ParallelEvaluator implements Evaluator {
           ImmutableMap.of(ErrorTransienceValue.KEY, (SkyValue) ErrorTransienceValue.INSTANCE),
           evaluatorContext.getGraphVersion(),
           graph,
-          dirtyKeyTracker);
+          evaluatorContext.getProgressReceiver());
     }
     for (Entry<SkyKey, ? extends NodeEntry> e :
         graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
@@ -759,11 +740,7 @@ public final class ParallelEvaluator implements Evaluator {
           throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
       }
     }
-    try {
-      return waitForCompletionAndConstructResult(skyKeys);
-    } finally {
-      inflightKeysReceiver.accept(evaluatorContext.getVisitor().getInflightNodes());
-    }
+    return waitForCompletionAndConstructResult(skyKeys);
   }
 
   private <T extends SkyValue> EvaluationResult<T> waitForCompletionAndConstructResult(
@@ -926,7 +903,7 @@ public final class ParallelEvaluator implements Evaluator {
               evaluatorContext.getGraphVersion());
           continue;
         }
-        if (evaluatorContext.getVisitor().isInflight(bubbleParent)
+        if (evaluatorContext.getProgressReceiver().isInflight(bubbleParent)
             && bubbleParentEntry.getTemporaryDirectDeps().expensiveContains(errorKey)) {
           // Only bubble up to parent if it's part of this build. If this node was dirtied and
           // re-evaluated, but in a build without this parent, we may try to bubble up to that
@@ -1130,7 +1107,7 @@ public final class ParallelEvaluator implements Evaluator {
       Map<SkyKey, SkyValue> injectionMap,
       Version version,
       EvaluableGraph graph,
-      DirtyKeyTracker dirtyKeyTracker)
+      DirtyTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> prevNodeEntries =
         graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());
@@ -1157,7 +1134,7 @@ public final class ParallelEvaluator implements Evaluator {
       }
       prevEntry.setValue(value, version);
       // Now that this key's injected value is set, it is no longer dirty.
-      dirtyKeyTracker.notDirty(key);
+      progressReceiver.injected(key);
     }
   }
 }

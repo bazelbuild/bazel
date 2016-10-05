@@ -49,7 +49,7 @@ class ParallelEvaluatorContext {
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
   private final boolean storeErrorsAlongsideValues;
-  @Nullable private final EvaluationProgressReceiver progressReceiver;
+  private final DirtyTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -67,9 +67,8 @@ class ParallelEvaluatorContext {
       EmittedEventState emittedEventState,
       boolean keepGoing,
       boolean storeErrorsAlongsideValues,
-      final EvaluationProgressReceiver progressReceiver,
+      final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
-      final DirtyKeyTracker dirtyKeyTracker,
       final Function<SkyKey, Runnable> runnableMaker,
       final int threadCount) {
     this.graph = graph;
@@ -80,7 +79,7 @@ class ParallelEvaluatorContext {
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.keepGoing = keepGoing;
     this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
-    this.progressReceiver = progressReceiver;
+    this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
     visitorSupplier =
         Suppliers.memoize(
@@ -88,7 +87,7 @@ class ParallelEvaluatorContext {
               @Override
               public NodeEntryVisitor get() {
                 return new NodeEntryVisitor(
-                    threadCount, dirtyKeyTracker, progressReceiver, runnableMaker);
+                    threadCount, progressReceiver, runnableMaker);
               }
             });
   }
@@ -101,9 +100,8 @@ class ParallelEvaluatorContext {
       EmittedEventState emittedEventState,
       boolean keepGoing,
       boolean storeErrorsAlongsideValues,
-      final EvaluationProgressReceiver progressReceiver,
+      final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
-      final DirtyKeyTracker dirtyKeyTracker,
       final Function<SkyKey, Runnable> runnableMaker,
       final ForkJoinPool forkJoinPool) {
     this.graph = graph;
@@ -114,7 +112,7 @@ class ParallelEvaluatorContext {
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.keepGoing = keepGoing;
     this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
-    this.progressReceiver = progressReceiver;
+    this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
     visitorSupplier =
         Suppliers.memoize(
@@ -122,7 +120,7 @@ class ParallelEvaluatorContext {
               @Override
               public NodeEntryVisitor get() {
                 return new NodeEntryVisitor(
-                    forkJoinPool, dirtyKeyTracker, progressReceiver, runnableMaker);
+                    forkJoinPool, progressReceiver, runnableMaker);
               }
             });
   }
@@ -186,8 +184,7 @@ class ParallelEvaluatorContext {
     return visitorSupplier.get();
   }
 
-  @Nullable
-  EvaluationProgressReceiver getProgressReceiver() {
+  DirtyTrackingProgressReceiver getProgressReceiver() {
     return progressReceiver;
   }
 
