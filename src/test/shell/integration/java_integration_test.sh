@@ -753,61 +753,6 @@ EOF
   bazel run //$pkg/java/foo:foo | grep -q "Success!" || fail "Expected success"
 }
 
-# Regression tests for b/18183921: broken java_library as data dependency won't
-# break the build.
-function test_java_library_fails_when_dependency_with_only_xmb_file_fails() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir -p $pkg/java/test || fail "mkdir"
-  cat > $pkg/java/test/BUILD <<EOF
-genrule(
-    name = 'failure',
-    outs = ['failure.xmb'],
-    cmd = 'false',
-)
-
-java_library(name = 'javalib-a',
-            srcs = ['Hello.java', ':failure'])
-java_library(name = 'javalib-b',
-            srcs = [':failure'])
-
-# Tests for dependencies on java_library
-sh_test(name = 'test-a',
-        srcs = ['buildtest.sh'],
-        data = [':javalib-a'],
-)
-sh_test(name = 'test-b',
-        srcs = ['buildtest.sh'],
-        data = [':javalib-b'],
-)
-EOF
-
-  cat >$pkg/java/test/Hello.java <<EOF
-package test;
-public class Hello {
-  public void hello() {
-    System.out.println("Hello, World!");
-  }
-}
-EOF
-
-  cat >$pkg/java/test/buildtest.sh <<EOF
-#!/bin/bash
-exit 0
-EOF
-  chmod +x $pkg/java/test/buildtest.sh
-
-  bazel build //$pkg/java/test:libjavalib-a.jar && fail "build succeeded"
-  bazel build //$pkg/java/test:libjavalib-b.jar && fail "build succeeded"
-
-  bazel build //$pkg/java/test:test-a && fail "build test succeeded"
-  bazel build //$pkg/java/test:test-b && fail "build test succeeded"
-
-  bazel test //$pkg/java/test:test-a && fail "test succeeded"
-  bazel test //$pkg/java/test:test-b && fail "test succeeded"
-
-  true  # reset the last exit code so the test won't be considered failed
-}
-
 function test_header_compilation() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
