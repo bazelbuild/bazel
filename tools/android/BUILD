@@ -65,14 +65,14 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/ziputils:mapper",
 )
 
-alias(
+sh_binary(
     name = "dexbuilder",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
+    srcs = ["fail.sh"],
 )
 
-alias(
+sh_binary(
     name = "dexmerger",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
+    srcs = ["fail.sh"],
 )
 
 sh_binary(

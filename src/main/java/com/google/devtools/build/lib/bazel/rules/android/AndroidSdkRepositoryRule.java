@@ -62,8 +62,6 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
           builder.put("android/palette_v7", Label.parseAbsoluteUnchecked(prefix + "palette_v7"));
           builder.put(
               "android/recyclerview_v7", Label.parseAbsoluteUnchecked(prefix + "recyclerview_v7"));
-          builder.put(
-              "android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
           return builder.build();
         }
       };
