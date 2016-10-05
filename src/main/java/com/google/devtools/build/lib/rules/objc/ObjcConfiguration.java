@@ -76,6 +76,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final boolean experimentalObjcLibrary;
+  private final boolean experimentalUseCrosstoolForBinary;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
@@ -109,6 +110,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
+    this.experimentalUseCrosstoolForBinary = objcOptions.experimentalUseCrosstoolForBinary;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
@@ -332,6 +334,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
+  }
+  
+  /** Returns true if objc_binary targets should use the crosstool for compiling and archiving. */
+  public boolean useCrosstoolForBinary() {
+    return experimentalUseCrosstoolForBinary;
   }
   
   /** Returns the DotdPruningPlan for compiles in this build. */

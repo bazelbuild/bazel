@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-/**
- * Implementation for the "objc_binary" rule.
- */
+/** Implementation for the "objc_binary" rule. */
 public class ObjcBinary extends BinaryLinkingTargetFactory {
   public ObjcBinary() {
     super(
@@ -26,6 +24,9 @@ public class ObjcBinary extends BinaryLinkingTargetFactory {
 
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
         // no longer creates an application bundle
-        XcodeProductType.APPLICATION);
+        XcodeProductType.APPLICATION,
+
+        // If --experimental_objc_binary is set
+        UsesCrosstool.EXPERIMENTAL);
   }
 }

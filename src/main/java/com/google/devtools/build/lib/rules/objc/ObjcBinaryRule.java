@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * Rule definition for objc_binary.
@@ -36,8 +37,11 @@ public class ObjcBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(ObjcConfiguration.class, J2ObjcConfiguration.class,
-            AppleConfiguration.class)
+        .requiresConfigurationFragments(
+            ObjcConfiguration.class,
+            J2ObjcConfiguration.class,
+            AppleConfiguration.class,
+            CppConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
@@ -49,10 +53,14 @@ public class ObjcBinaryRule implements RuleDefinition {
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         // TODO(bazel-team): Remove these when this rule no longer produces a bundle.
-        .add(attr("$runner_script_template", LABEL).cfg(HOST)
-            .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
-        .add(attr("$is_executable", BOOLEAN).value(true)
-            .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+        .add(
+            attr("$runner_script_template", LABEL)
+                .cfg(HOST)
+                .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
+        .add(
+            attr("$is_executable", BOOLEAN)
+                .value(true)
+                .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();
   }
 
@@ -61,9 +69,13 @@ public class ObjcBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("objc_binary")
         .factoryClass(ObjcBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class, ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.SimulatorRule.class)
+        .ancestors(
+            BaseRuleClasses.BaseRule.class,
+            ObjcRuleClasses.LinkingRule.class,
+            ObjcRuleClasses.XcodegenRule.class,
+            ObjcRuleClasses.ReleaseBundlingRule.class,
+            ObjcRuleClasses.SimulatorRule.class,
+            ObjcRuleClasses.CrosstoolRule.class)
         .build();
   }
 }

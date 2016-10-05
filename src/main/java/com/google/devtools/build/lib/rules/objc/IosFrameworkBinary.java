@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
  */
 public class IosFrameworkBinary extends BinaryLinkingTargetFactory {
   public IosFrameworkBinary() {
-    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC);
+    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC, UsesCrosstool.NO);
   }
 
   @Override

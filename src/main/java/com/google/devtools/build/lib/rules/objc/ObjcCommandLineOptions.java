@@ -222,6 +222,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean experimentalObjcLibrary;
 
   @Option(
+    name = "experimental_objc_use_crosstool_for_binary",
+    defaultValue = "false",
+    category = "undocumented"
+  )
+  public boolean experimentalUseCrosstoolForBinary;
+  
+  @Option(
     name = "objc_use_dotd_pruning",
     defaultValue = "false",
     category = "flags",

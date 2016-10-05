@@ -130,6 +130,7 @@ public class CrosstoolSupport {
    *
    * @param common the common instance that hsould be queried in the construction of a fully link
    *     action
+   * @return providers that should be exported by the calling rule implementation
    */
   public void registerFullyLinkAction(ObjcCommon common) throws InterruptedException {
     Artifact fullyLinkedArchive =
@@ -178,7 +179,7 @@ public class CrosstoolSupport {
     if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       activatedCrosstoolSelectables.add("pch");
     }
- 
+
     return toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
   }
 

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -47,13 +48,23 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     YES, NO;
   }
 
+  /** Indicates whether this binary uses the c++ rules backend, including the crosstool. */
+  enum UsesCrosstool {
+    EXPERIMENTAL, // use the crosstool if --experimental_use_crosstool_for_binary is given
+    NO;
+  }
+  
   private final HasReleaseBundlingSupport hasReleaseBundlingSupport;
   private final XcodeProductType productType;
+  private final UsesCrosstool usesCrosstool;
 
-  protected BinaryLinkingTargetFactory(HasReleaseBundlingSupport hasReleaseBundlingSupport,
-      XcodeProductType productType) {
+  protected BinaryLinkingTargetFactory(
+      HasReleaseBundlingSupport hasReleaseBundlingSupport,
+      XcodeProductType productType,
+      UsesCrosstool usesCrosstool) {
     this.hasReleaseBundlingSupport = hasReleaseBundlingSupport;
     this.productType = productType;
+    this.usesCrosstool = usesCrosstool;
   }
 
   /**
@@ -107,9 +118,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     CompilationSupport compilationSupport =
         new CompilationSupport(ruleContext)
-            .registerCompileAndArchiveActions(common)
-            .registerFullyLinkAction(common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
             .addXcodeSettings(xcodeProviderBuilder, common)
             .registerLinkActions(
                 objcProvider,
@@ -119,6 +127,27 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 ImmutableList.<Artifact>of(),
                 DsymOutputType.APP)
             .validateAttributes();
+
+    TransitiveInfoProviderMap compilationProviders;
+    if (usesCrosstool == UsesCrosstool.EXPERIMENTAL
+        && ruleContext.getFragment(ObjcConfiguration.class).useCrosstoolForBinary()) {
+      CrosstoolSupport crosstoolSupport = new CrosstoolSupport(ruleContext, objcProvider);
+      CompilationArtifacts compilationArtifacts =
+          CompilationSupport.compilationArtifacts(ruleContext);
+      if (compilationArtifacts.getArchive().isPresent()) {
+        compilationProviders = crosstoolSupport.registerCompileAndArchiveActions(common);
+      } else {
+        compilationProviders = crosstoolSupport.registerCompileActions(common);
+      }
+      crosstoolSupport.registerFullyLinkAction(common);
+    } else {
+      compilationProviders = null;
+      compilationSupport
+          .registerCompileAndArchiveActions(common)
+          .registerFullyLinkAction(
+              common.getObjcProvider(),
+              ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+    }
 
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
@@ -187,6 +216,9 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     if (maybeRunfilesSupport.isPresent()) {
       RunfilesSupport runfilesSupport = maybeRunfilesSupport.get();
       targetBuilder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+    }
+    if (compilationProviders != null) {
+      targetBuilder.addProviders(compilationProviders);
     }
     configureTarget(targetBuilder, ruleContext);
     return targetBuilder.build();
