@@ -57,6 +57,7 @@ sh_test(
         "//src/test/shell:shell_utils",
     ],
     shard_count = 5,
+    tags = ["jdk8"],
 )
 
 sh_test(
