@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -111,6 +110,11 @@ public final class FileWriteAction extends AbstractFileWriteAction {
 
   public String getFileContents() {
     return fileContents.toString();
+  }
+
+  @Override
+  public String getSkylarkContent() {
+    return getFileContents();
   }
 
   /**
