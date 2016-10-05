@@ -64,7 +64,8 @@ public class BuildEventStreamerTest {
     // build clears the pending progress-update event.
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
 
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -89,12 +90,14 @@ public class BuildEventStreamerTest {
     // a correctly formed initial event.
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
 
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
-    BuildEvent unexpectedEvent = new GenericBuildEvent(testId("unexpected"), ImmutableSet.of());
+    BuildEvent unexpectedEvent =
+        new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
 
     streamer.buildEvent(startEvent);
     streamer.buildEvent(unexpectedEvent);
@@ -117,10 +120,11 @@ public class BuildEventStreamerTest {
     // progress updates can always be chained in.
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
 
     BuildEvent unexpectedStartEvent =
-        new GenericBuildEvent(testId("unexpected start"), ImmutableSet.of());
+        new GenericBuildEvent(testId("unexpected start"), ImmutableSet.<BuildEventId>of());
 
     streamer.buildEvent(unexpectedStartEvent);
 
@@ -136,7 +140,8 @@ public class BuildEventStreamerTest {
     // The initial event should also announce a new progress event; we test this
     // by streaming another unannounced event.
 
-    BuildEvent unexpectedEvent = new GenericBuildEvent(testId("unexpected"), ImmutableSet.of());
+    BuildEvent unexpectedEvent =
+        new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
 
     streamer.buildEvent(unexpectedEvent);
     List<BuildEvent> allEventsSeen = transport.getEvents();
@@ -156,12 +161,15 @@ public class BuildEventStreamerTest {
     // Verify that, if an event is refers to a previously done event, that duplicated
     // late-referenced event is not expected again.
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
-    BuildEventStreamer streamer = new BuildEventStreamer(ImmutableSet.of(transport));
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
 
     BuildEvent startEvent =
         new GenericBuildEvent(
-            testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
-    BuildEvent earlyEvent = new GenericBuildEvent(testId("unexpected"), ImmutableSet.of());
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildEvent earlyEvent =
+        new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
     BuildEvent lateReference =
         new GenericBuildEvent(testId("late reference"), ImmutableSet.of(earlyEvent.getEventId()));
 
