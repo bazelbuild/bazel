@@ -227,6 +227,17 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
   }
 
+  @Option(
+    name = "xcode_toolchain",
+    defaultValue = "null",
+    category = "flags",
+    help = "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
+           + "that ship with Xcode are supported. For example, in addition to the default toolchain"
+           + " Xcode 8 has 'com.apple.dt.toolchain.Swift_2_3' which can be used for building legacy"
+           + " Swift code."
+  )
+  public String xcodeToolchain;
+
   @Option(name = "apple_bitcode",
       converter = AppleBitcodeMode.Converter.class,
       // TODO(blaze-team): Default to embedded_markers when fully implemented.
