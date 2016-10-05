@@ -45,7 +45,10 @@ sh_test(
         "//tools/jdk:langtools",
     ],
     shard_count = 5,
-    tags = ["zip"],
+    tags = [
+        "jdk8",
+        "zip",
+    ],
 )
 
 sh_test(
