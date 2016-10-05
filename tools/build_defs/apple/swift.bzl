@@ -111,8 +111,41 @@ def _swift_xcrun_args(ctx):
 
   return args
 
+
+def _is_valid_swift_module_name(string):
+  """Returns True if the string is a valid Swift module name."""
+  if not string:
+    return False
+
+  for char in string:
+    # Check that the character is in [a-zA-Z0-9_]
+    if not (char.isalnum() or char == "_"):
+      return False
+
+  return True
+
+
+def _validate_rule_and_deps(ctx):
+  """Validates the target and its dependencies."""
+
+  name_error_str = ("Error in target '%s', Swift target and its dependencies' "+
+                    "names can only contain characters in [a-zA-Z0-9_].")
+
+  # Validate the name of the target
+  if not _is_valid_swift_module_name(ctx.label.name):
+    fail(name_error_str % ctx.label)
+
+  # Validate names of the dependencies
+  for dep in ctx.attr.deps:
+    if not _is_valid_swift_module_name(dep.label.name):
+      fail(name_error_str % dep.label)
+
+
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
+
+  _validate_rule_and_deps(ctx)
+
   # TODO(b/29772303): Assert xcode version.
   apple_fragment = ctx.fragments.apple
 

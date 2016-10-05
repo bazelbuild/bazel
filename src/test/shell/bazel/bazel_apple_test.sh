@@ -695,4 +695,38 @@ EOF
       || fail "expected a.o to contain bitcode"
 }
 
+function test_swift_name_validation() {
+  rm -rf ios
+  mkdir -p ios
+
+  touch ios/main.swift
+  touch ios/main.m
+
+cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift-lib",
+              srcs = ["main.swift"])
+EOF
+
+  ! bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION \
+      //ios:swift-lib >$TEST_log 2>&1 || fail "should fail"
+  expect_log "Error in target '//ios:swift-lib'"
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+objc_library(name = "bad-dep", srcs = ["main.m"])
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"], deps=[":bad-dep"])
+EOF
+
+  ! bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should fail"
+  expect_log "Error in target '//ios:bad-dep'"
+}
+
 run_suite "apple_tests"
