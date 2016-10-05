@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -114,11 +115,15 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       try {
         OrderedSetMultimap<Attribute, ConfiguredTarget> depMap =
             ConfiguredTargetFunction.computeDependencies(
-                env, new SkyframeDependencyResolver(env),
-                (TargetAndConfiguration) skyKey.argument(), null,
+                env,
+                new SkyframeDependencyResolver(env),
+                (TargetAndConfiguration) skyKey.argument(),
+                null,
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),
-                stateProvider.lateBoundRuleClassProvider(), stateProvider.lateBoundHostConfig(),
-                NestedSetBuilder.stableOrder(), NestedSetBuilder.stableOrder());
+                stateProvider.lateBoundRuleClassProvider(),
+                stateProvider.lateBoundHostConfig(),
+                NestedSetBuilder.<Package>stableOrder(),
+                NestedSetBuilder.<Label>stableOrder());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (Exception e) {
         throw new EvalException(e);
@@ -216,7 +221,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void putOnlyEntryCorrectWithSetMultimap() throws Exception {
-    internalTestPutOnlyEntry(HashMultimap.create());
+    internalTestPutOnlyEntry(HashMultimap.<String, String>create());
   }
 
   /**
@@ -225,7 +230,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   @Test
   public void putOnlyEntryCorrectWithListMultimap() throws Exception {
-    internalTestPutOnlyEntry(ArrayListMultimap.create());
+    internalTestPutOnlyEntry(ArrayListMultimap.<String, String>create());
   }
 
   private void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
