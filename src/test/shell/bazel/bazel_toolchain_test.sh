@@ -21,6 +21,11 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
+if [ "${PLATFORM-}" = "darwin" ]; then
+  echo "Skipping test: linaro toolchain is not supported on darwin host."
+  exit 0
+fi
+
 # Copy the project package here
 cp -r ${testdata_path}/bazel_toolchain_test_data/* .
 

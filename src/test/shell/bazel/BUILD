@@ -159,10 +159,7 @@ sh_test(
 sh_test(
     name = "bazel_toolchain_test",
     size = "medium",
-    srcs = select({
-        ":darwin": [],
-        "//conditions:default": ["bazel_toolchain_test.sh"],
-    }),
+    srcs = ["bazel_toolchain_test.sh"],
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg",
