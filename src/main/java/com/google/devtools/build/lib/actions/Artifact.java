@@ -120,6 +120,15 @@ public class Artifact
     }
   };
 
+  /** Compares artifacts according to their root relative paths. */
+  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
+      new Comparator<Artifact>() {
+        @Override
+        public int compare(Artifact lhs, Artifact rhs) {
+          return lhs.getRootRelativePath().compareTo(rhs.getRootRelativePath());
+        }
+      };
+
   @Override
   public int compareTo(Object o) {
     if (o instanceof Artifact) {
