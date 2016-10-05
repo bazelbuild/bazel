@@ -350,7 +350,18 @@ public class GrpcServerImpl extends RPCServer {
     }
   }
 
-  // TODO(lberki): Maybe we should implement line buffering?
+  /**
+   * An output stream that forwards the data written to it over the gRPC command stream.
+   *
+   * <p>Note that wraping this class with a {@code Channel} can cause a deadlock if there is an
+   * {@link OutputStream} in between that synchronizes both on {@code #close()} and {@code #write()}
+   * because then if an interrupt happens in {@link GrpcSink#exchange(SinkThreadItem, boolean)},
+   * the thread on which {@code interrupt()} was called will wait until the {@code Channel} closes
+   * itself while holding a lock for interrupting the thread on which {@code #exchange()} is
+   * being executed and that thread will hold a lock that is needed for the {@code Channel} to be
+   * closed and call {@code interrupt()} in {@code #exchange()}, which will in turn try to acquire
+   * the interrupt lock.
+   */
   @VisibleForTesting
   static class RpcOutputStream extends OutputStream {
     private static final int CHUNK_SIZE = 8192;
@@ -646,10 +657,9 @@ public class GrpcServerImpl extends RPCServer {
             "The client cancelled the command before receiving the command id: " + e.getMessage());
       }
 
-      OutErr rpcOutErr =
-          OutErr.create(
-              new RpcOutputStream(command.id, responseCookie, StreamType.STDOUT, sink),
-              new RpcOutputStream(command.id, responseCookie, StreamType.STDERR, sink));
+      OutErr rpcOutErr = OutErr.create(
+          new RpcOutputStream(command.id, responseCookie, StreamType.STDOUT, sink),
+          new RpcOutputStream(command.id, responseCookie, StreamType.STDERR, sink));
 
       exitCode =
           commandExecutor.exec(

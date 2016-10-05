@@ -419,6 +419,7 @@ public class BlazeCommandDispatcher {
     BlazeCommandEventHandler.Options eventHandlerOptions =
         optionsParser.getOptions(BlazeCommandEventHandler.Options.class);
     OutErr colorfulOutErr = outErr;
+
     if (!eventHandlerOptions.useColor()) {
       outErr = ansiStripOut(ansiStripErr(outErr));
       if (!commandAnnotation.binaryStdOut()) {
@@ -427,6 +428,14 @@ public class BlazeCommandDispatcher {
       if (!commandAnnotation.binaryStdErr()) {
         colorfulOutErr = ansiStripErr(colorfulOutErr);
       }
+    }
+
+    if (!commandAnnotation.binaryStdOut()) {
+      outErr = lineBufferOut(outErr);
+    }
+
+    if (!commandAnnotation.binaryStdErr()) {
+      outErr = lineBufferErr(outErr);
     }
 
     CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
@@ -625,6 +634,16 @@ public class BlazeCommandDispatcher {
       getCommandNamesToParseHelper(base.getAnnotation(Command.class), accumulator);
     }
     accumulator.add(commandAnnotation.name());
+  }
+
+  private OutErr lineBufferOut(OutErr outErr) {
+    OutputStream wrappedOut = new LineBufferedOutputStream(outErr.getOutputStream());
+    return OutErr.create(wrappedOut, outErr.getErrorStream());
+  }
+
+  private OutErr lineBufferErr(OutErr outErr) {
+    OutputStream wrappedErr = new LineBufferedOutputStream(outErr.getErrorStream());
+    return OutErr.create(outErr.getOutputStream(), wrappedErr);
   }
 
   private OutErr ansiStripOut(OutErr outErr) {
