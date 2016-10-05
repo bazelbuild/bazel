@@ -1591,13 +1591,15 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public abstract static class LateBoundLabelList<T> implements LateBoundDefault<T> {
     private final ImmutableList<Label> labels;
+    private final ImmutableSet<Class<?>> requiredConfigurationFragments;
 
     public LateBoundLabelList() {
-      this.labels = ImmutableList.of();
+      this(ImmutableList.<Label>of());
     }
 
-    public LateBoundLabelList(List<Label> labels) {
+    public LateBoundLabelList(List<Label> labels, Class<?>... requiredConfigurationFragments) {
       this.labels = ImmutableList.copyOf(labels);
+      this.requiredConfigurationFragments = ImmutableSet.copyOf(requiredConfigurationFragments);
     }
 
     @Override
@@ -1607,7 +1609,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     @Override
     public ImmutableSet<Class<?>> getRequiredConfigurationFragments() {
-      return ImmutableSet.of();
+      return requiredConfigurationFragments;
     }
 
     @Override

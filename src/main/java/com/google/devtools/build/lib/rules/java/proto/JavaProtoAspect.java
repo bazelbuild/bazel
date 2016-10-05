@@ -17,18 +17,16 @@ package com.google.devtools.build.lib.rules.java.proto;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.cmdline.Label.PARSE_ABSOLUTE_UNCHECKED;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider.GET_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -37,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -45,7 +44,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
@@ -72,25 +74,36 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
    * The attribute name for holding a list of protos for which no code should be generated because
    * the proto-runtime already contains them.
    */
-  private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$proto_source_file_blacklist";
+  private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = ":proto_source_file_blacklist";
+
+  private static final Attribute.LateBoundLabelList<BuildConfiguration> BLACKLISTED_PROTOS =
+      new Attribute.LateBoundLabelList<BuildConfiguration>(
+          ImmutableList.<Label>of(), ProtoConfiguration.class) {
+        @Override
+        public List<Label> resolve(
+            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration
+              .getFragment(ProtoConfiguration.class)
+              .protoCompilerJavaBlacklistedProtos();
+        }
+
+        @Override
+        public boolean useHostConfiguration() {
+          return true;
+        }
+      };
 
   private final JavaSemantics javaSemantics;
-  private final ImmutableList<String> protoSourceFileBlacklistLabels;
 
   @Nullable private final String jacocoLabel;
-  private final ImmutableList<String> protoCompilerPluginOptions;
   private final RpcSupport rpcSupport;
 
   protected JavaProtoAspect(
       JavaSemantics javaSemantics,
-      ImmutableList<String> protoSourceFileBlacklistLabels,
       @Nullable String jacocoLabel,
-      ImmutableList<String> protoCompilerPluginOptions,
       RpcSupport rpcSupport) {
     this.javaSemantics = javaSemantics;
-    this.protoSourceFileBlacklistLabels = protoSourceFileBlacklistLabels;
     this.jacocoLabel = jacocoLabel;
-    this.protoCompilerPluginOptions = protoCompilerPluginOptions;
     this.rpcSupport = rpcSupport;
   }
 
@@ -113,9 +126,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         new Impl(
                 ruleContext,
                 supportData,
-                protoCompilerPluginOptions,
+                ruleContext
+                    .getFragment(ProtoConfiguration.class, ConfigurationTransition.HOST)
+                    .protoCompilerJavaFlags(),
                 javaSemantics,
-            rpcSupport)
+                rpcSupport)
             .createProviders());
 
     return aspect.build();
@@ -132,9 +147,10 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 attr(SPEED_PROTO_RUNTIME_ATTR, LABEL)
                     .legacyAllowAnyFileType()
                     .value(parseAbsoluteUnchecked(SPEED_PROTO_RUNTIME_LABEL)))
-            .add(ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
-                    PROTO_SOURCE_FILE_BLACKLIST_ATTR,
-                    transformToList(protoSourceFileBlacklistLabels, PARSE_ABSOLUTE_UNCHECKED)))
+            .add(
+                attr(PROTO_SOURCE_FILE_BLACKLIST_ATTR, LABEL_LIST)
+                    .cfg(HOST)
+                    .value(BLACKLISTED_PROTOS))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
@@ -151,12 +167,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     return result.add(jacocoAttr).build();
   }
 
-  /** Like Iterables.transform(), except it returns a List<> instead of an Iterable<>. */
-  private static <F, T> List<T> transformToList(
-      Iterable<F> fromIterable, Function<? super F, ? extends T> function) {
-    return Lists.<T>newArrayList(transform(fromIterable, function));
-  }
-
   private static class Impl {
 
     private final RuleContext ruleContext;
@@ -170,12 +180,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      * Java compilation action.
      */
     private final JavaCompilationArgsProvider dependencyCompilationArgs;
-    private final ImmutableList<String> protoCompilerPluginOptions;
+    private final String protoCompilerPluginOptions;
 
     Impl(
         final RuleContext ruleContext,
         final SupportData supportData,
-        ImmutableList<String> protoCompilerPluginOptions,
+        String protoCompilerPluginOptions,
         JavaSemantics javaSemantics,
         RpcSupport rpcSupport) {
       this.ruleContext = ruleContext;
@@ -255,10 +265,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                   ruleContext, supportData, "Java", "java", ImmutableList.of(sourceJar))
               .allowServices(true)
               .setLangParameter(
-                  ProtoCompileActionBuilder.buildProtoArg(
-                      "java_out", sourceJar.getExecPathString(), protoCompilerPluginOptions));
-      rpcSupport.mutateProtoCompileAction(
-          ruleContext, sourceJar, actionBuilder);
+                  String.format(protoCompilerPluginOptions, sourceJar.getExecPathString()));
+      rpcSupport.mutateProtoCompileAction(ruleContext, sourceJar, actionBuilder);
       ruleContext.registerAction(actionBuilder.build());
     }
 

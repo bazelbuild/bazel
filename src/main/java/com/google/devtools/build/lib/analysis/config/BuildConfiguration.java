@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ClassToInstanceMap;
@@ -209,6 +210,23 @@ public final class BuildConfiguration {
     @Override
     public Label convert(String input) throws OptionsParsingException {
       return convertLabel(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a build target label";
+    }
+  }
+
+  /** A converter from comma-separated strings to Label lists. */
+  public static class LabelListConverter implements Converter<List<Label>> {
+    @Override
+    public List<Label> convert(String input) throws OptionsParsingException {
+      ImmutableList.Builder result = ImmutableList.builder();
+      for (String label : Splitter.on(",").omitEmptyStrings().split(input)) {
+        result.add(convertLabel(label));
+      }
+      return result.build();
     }
 
     @Override

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
@@ -31,9 +30,7 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
   public BazelJavaProtoAspect() {
     super(
         BazelJavaSemantics.INSTANCE,
-        ImmutableList.<String>of(),
         null, /* jacocoAttr */
-        ImmutableList.of("shared", "immutable"),
         new NoopRpcSupport());
   }
 

@@ -30,10 +30,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -42,7 +44,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -63,6 +67,21 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   public static final String LITE_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
   public static final String LITE_PROTO_RUNTIME_LABEL = "//external:protobuf/javalite_runtime";
+
+  private static final Attribute.LateBoundLabel<BuildConfiguration> JAVA_LITE_PLUGIN =
+      new Attribute.LateBoundLabel<BuildConfiguration>((Label) null, ProtoConfiguration.class) {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(ProtoConfiguration.class).protoCompilerJavaLitePlugin();
+        }
+
+        @Override
+        public boolean useHostConfiguration() {
+          return true;
+        }
+      };
+  private static final String PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR =
+      ":proto_compiler_java_lite_plugin";
 
   private final JavaSemantics javaSemantics;
 
@@ -104,7 +123,12 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .add(
                 attr(":java_toolchain", LABEL)
                     .allowedRuleClasses("java_toolchain")
-                    .value(JavaSemantics.JAVA_TOOLCHAIN));
+                    .value(JavaSemantics.JAVA_TOOLCHAIN))
+            .add(
+                attr(PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR, LABEL)
+                    .cfg(HOST)
+                    .exec()
+                    .value(JAVA_LITE_PLUGIN));
 
     Attribute.Builder<Label> jacocoAttr = attr("$jacoco_instrumentation", LABEL).cfg(HOST);
 
@@ -191,10 +215,18 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   ruleContext, supportData, "Java", "java", ImmutableList.of(sourceJar))
               .allowServices(true)
               .setLangParameter(
-                  ProtoCompileActionBuilder.buildProtoArg(
-                      "java_out",
-                      sourceJar.getExecPathString(),
-                      ImmutableList.of("lite", "immutable", "no_enforce_api_compatibility")));
+                  String.format(
+                      ruleContext
+                          .getFragment(ProtoConfiguration.class, HOST)
+                          .protoCompilerJavaLiteFlags(),
+                      sourceJar.getExecPathString()));
+
+      FilesToRunProvider plugin =
+          ruleContext.getExecutablePrerequisite(PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR, Mode.HOST);
+      if (plugin != null) {
+        actionBuilder.setAdditionalTools(ImmutableList.of(plugin));
+      }
+
       ruleContext.registerAction(actionBuilder.build());
     }
 
