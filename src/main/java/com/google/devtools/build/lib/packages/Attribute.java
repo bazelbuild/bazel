@@ -1166,7 +1166,7 @@ public final class Attribute implements Comparable<Attribute> {
       List<Map<String, Object>> depMaps = mapper.visitAttributes(dependencies, limiter);
       // For each combination, call compute() on a specialized AttributeMap providing those
       // values.
-      Map<List<Object>, T> valueMap = new HashMap<>();
+      Map<List<Object>, T> valueMap = new HashMap<>(depMaps.size());
       for (Map<String, Object> depMap : depMaps) {
         AttributeMap attrMap = mapper.createMapBackedAttributeMap(depMap);
         Object value = compute(attrMap);
@@ -2077,7 +2077,7 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public <TYPE> Attribute.Builder<TYPE> cloneBuilder(Type<TYPE> tp) {
     Preconditions.checkArgument(tp == this.type);
-    Builder<TYPE> builder = new Builder<TYPE>(name, tp);
+    Builder<TYPE> builder = new Builder<>(name, tp);
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;

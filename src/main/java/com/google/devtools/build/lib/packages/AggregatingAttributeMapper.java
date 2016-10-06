@@ -36,7 +36,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -477,19 +476,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     List<Map<String, Object>> depMaps = new LinkedList<>();
     AtomicInteger combinationsSoFar = new AtomicInteger(0);
     visitAttributesInner(
-        attributes, depMaps, ImmutableMap.<String, Object>of(), combinationsSoFar, limiter);
+        attributes,
+        depMaps,
+        new HashMap<String, Object>(attributes.size()),
+        combinationsSoFar,
+        limiter);
     return depMaps;
   }
 
   /**
    * A recursive function used in the implementation of {@link #visitAttributes}.
    *
-   * @param attributes a list of attributes that are not yet assigned values in the {@code
-   *     currentMap} parameter.
+   * @param attributes a list of attributes that are yet to be visited.
    * @param mappings a mutable list of {attrName --> attrValue} maps collected so far. This method
    *     will add newly discovered maps to the list.
-   * @param currentMap a (possibly non-empty) map holding {attrName --> attrValue} assignments for
-   *     attributes not in the {@code attributes} list.
+   * @param currentMap {attrName --> attrValue} assignments accumulated so far, not including those
+   *     in {@code attributes}. This map may be mutated and as such must be copied if we wish to
+   *     preserve its state, such as in the base case.
    * @param combinationsSoFar a counter for all previously processed combinations of possible
    *     values.
    * @param limiter a strategy to limit the work done by invocations of this method.
@@ -505,24 +508,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       // Because this method uses exponential time/space on the number of inputs, we may limit
       // the total number of method calls.
       limiter.onComputationCount(combinationsSoFar.incrementAndGet());
-      // Recursive base case: store whatever's already been populated in currentMap.
-      mappings.add(currentMap);
+      // Recursive base case: snapshot and store whatever's already been populated in currentMap.
+      mappings.add(new HashMap<>(currentMap));
       return;
     }
 
     // Take the first attribute in the dependency list and iterate over all its values. For each
-    // value x, copy currentMap with the additional entry { firstAttrName: x }, then feed
+    // value x, update currentMap with the additional entry { firstAttrName: x }, then feed
     // this recursively into a subcall over all remaining dependencies. This recursively
     // continues until we run out of values.
-    String firstAttribute = attributes.get(0);
+    String currentAttribute = attributes.get(0);
     Iterable<?> firstAttributePossibleValues =
-        visitAttribute(firstAttribute, getAttributeType(firstAttribute));
+        visitAttribute(currentAttribute, getAttributeType(currentAttribute));
+    List<String> restOfAttrs = attributes.subList(1, attributes.size());
     for (Object value : firstAttributePossibleValues) {
-      Map<String, Object> newMap = new HashMap<>();
-      newMap.putAll(currentMap);
-      newMap.put(firstAttribute, value);
-      visitAttributesInner(
-          attributes.subList(1, attributes.size()), mappings, newMap, combinationsSoFar, limiter);
+      // Overwrite each time.
+      currentMap.put(currentAttribute, value);
+      visitAttributesInner(restOfAttrs, mappings, currentMap, combinationsSoFar, limiter);
     }
   }
 
