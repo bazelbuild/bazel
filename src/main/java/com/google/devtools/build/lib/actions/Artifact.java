@@ -319,7 +319,7 @@ public class Artifact
   }
 
   @SkylarkCallable(name = "owner", structField = true, allowReturnNones = true,
-    doc = "A label of a target that produces this File. Can be None."
+    doc = "A label of a target that produces this File."
   )
   public Label getOwnerLabel() {
     return owner.getLabel();
