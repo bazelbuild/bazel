@@ -208,6 +208,7 @@ function do_new_local_repository_test() {
   outside_dir=$TEST_TMPDIR/outside
   mkdir -p $outside_dir
   package_dir=$project_dir/carnivore
+  rm -rf $package_dir
   mkdir $package_dir
   # Be tricky with absolute symlinks to make sure that Bazel still acts as
   # though external repositories are immutable.
