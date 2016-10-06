@@ -428,6 +428,12 @@ def _find_env_vars(repository_ctx, vs_path):
   return env_map
 
 
+def _is_support_whole_archive(repository_ctx, vs_dir):
+  """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
+  result = _execute(repository_ctx, [vs_dir + "/VC/BIN/amd64/link"])
+  return result.find("/WHOLEARCHIVE") != -1
+
+
 def _tpl(repository_ctx, tpl, substitutions={}, out=None):
   if not out:
     out = tpl
@@ -488,12 +494,22 @@ def _impl(repository_ctx):
     for path in include_paths.split(";"):
       if path:
         cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
+
+    if _is_support_whole_archive(repository_ctx, vs_path):
+      whole_archive_linker_params = "flag: '/WHOLEARCHIVE:%{whole_archive_linker_params}'"
+      whole_archive_object_files_params = ""
+    else:
+      whole_archive_linker_params = ""
+      whole_archive_object_files_params = "flag: '%{whole_archive_object_files_params}'"
+
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
         "%{content}": _get_windows_crosstool_content(repository_ctx),
         "%{opt_content}": "",
         "%{dbg_content}": "",
-        "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories)
+        "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories),
+        "%{whole_archive_linker_params}": whole_archive_linker_params,
+        "%{whole_archive_object_files_params}": whole_archive_object_files_params,
     })
   else:
     darwin = cpu_value == "darwin"
@@ -518,7 +534,9 @@ def _impl(repository_ctx):
                       _build_tool_path(tool_paths),
         "%{opt_content}": _build_crosstool(opt_content, "    "),
         "%{dbg_content}": _build_crosstool(dbg_content, "    "),
-        "%{cxx_builtin_include_directory}": ""
+        "%{cxx_builtin_include_directory}": "",
+        "%{whole_archive_linker_params}": "",
+        "%{whole_archive_object_files_params}": "",
     })
 
 
