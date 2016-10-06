@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -227,8 +226,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         transitiveOutputJars.add(outputJar);
 
         result.add(
-            new JavaRuntimeJarAspectProvider(
-                new JavaRuntimeJarProvider(ImmutableList.of(outputJar))),
             new JavaSourceJarsAspectProvider(
                 JavaSourceJarsProvider.create(
                     NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars)));

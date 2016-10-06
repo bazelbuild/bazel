@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
@@ -80,12 +79,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-        .add(
-            JavaRuntimeJarProvider.class,
-            JavaRuntimeJarProvider.merge(
-                transform(
-                    getDeps(ruleContext, JavaRuntimeJarAspectProvider.class),
-                    JavaRuntimeJarAspectProvider.GET_PROVIDER)))
         .add(JavaCompilationArgsProvider.class, dependencyArgsProviders)
         .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .add(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
