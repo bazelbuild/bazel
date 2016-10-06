@@ -500,7 +500,7 @@ public abstract class InfoItem {
       for (Map.Entry<String, String> entry : env.getWhitelistedClientEnv().entrySet()) {
         // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in
         // values, we produce syntax errors if the value of the entry contains a newline character.
-        result += "common --action_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
+        result += "build --action_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
       }
       return print(result);
     }
