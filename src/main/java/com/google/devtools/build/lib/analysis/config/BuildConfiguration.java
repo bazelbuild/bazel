@@ -382,6 +382,8 @@ public final class BuildConfiguration {
                 return "ppc";
               case ARM:
                 return "arm";
+              case S390X:
+                return "s390x";
               default:
                 return "unknown";
             }
