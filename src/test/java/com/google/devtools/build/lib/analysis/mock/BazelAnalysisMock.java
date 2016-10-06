@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
-import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -212,7 +211,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new CppConfigurationLoader(Functions.<String>identity()),
         new PythonConfigurationLoader(),
         new BazelPythonConfiguration.Loader(),
-        new JvmConfigurationLoader(BazelRuleClassProvider.JAVA_CPU_SUPPLIER),
+        new JvmConfigurationLoader(),
         new JavaConfigurationLoader(),
         new ObjcConfigurationLoader(),
         new AppleConfiguration.Loader(),

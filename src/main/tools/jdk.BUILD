@@ -90,6 +90,11 @@ filegroup(
 )
 
 filegroup(
+    name = "jre",
+    srcs = [":jre-default"],
+)
+
+filegroup(
     name = "jre-default",
     srcs = [
         ":jre-bin",
@@ -119,6 +124,14 @@ filegroup(
             "lib/missioncontrol/**",
             "lib/visualvm/**",
         ]),
+)
+
+# Bazel looks for a label ending in -<cpu>, or -default if it can't find one.
+filegroup(
+    name = "jdk",
+    srcs = [
+        ":jdk-default",
+    ],
 )
 
 filegroup(

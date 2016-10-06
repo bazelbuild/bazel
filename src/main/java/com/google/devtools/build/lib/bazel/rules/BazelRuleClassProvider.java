@@ -25,10 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Prereq
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.android.AarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -103,7 +100,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
-import com.google.devtools.build.lib.rules.java.JavaCpuSupplier;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
@@ -169,14 +165,6 @@ public class BazelRuleClassProvider {
     setup(builder);
     return builder.build();
   }
-
-  public static final JavaCpuSupplier JAVA_CPU_SUPPLIER = new JavaCpuSupplier() {
-    @Override
-    public String getJavaCpu(BuildOptions buildOptions, ConfigurationEnvironment env)
-        throws InvalidConfigurationException {
-      return "default";
-    }
-  };
 
   private static class BazelPrerequisiteValidator implements PrerequisiteValidator {
     @Override
@@ -309,7 +297,7 @@ public class BazelRuleClassProvider {
 
   private static void initJava(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationOptions(JavaOptions.class);
-    builder.addConfigurationFragment(new JvmConfigurationLoader(JAVA_CPU_SUPPLIER));
+    builder.addConfigurationFragment(new JvmConfigurationLoader());
     builder.addConfigurationFragment(new JavaConfigurationLoader());
 
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());

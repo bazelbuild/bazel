@@ -50,11 +50,24 @@ bind(
 )
 
 bind(
+    name = "jre",
+    actual = "@local_jdk//:jre",
+)
+
+bind(
+    name = "jdk",
+    actual = "@local_jdk//:jdk",
+)
+
+# TODO: Remove these two rules after we've migrated. In order to properly look
+# up Jdks/Jres for cross-platform builds, the lookup needs to happen in the Jdk
+# repository. For now, use an alias rule that redirects to //external:{jre,jdk}.
+bind(
     name = "jre-default",
-    actual = "@local_jdk//:jre-default",
+    actual = "@local_jdk//:jre",
 )
 
 bind(
     name = "jdk-default",
-    actual = "@local_jdk//:jdk-default",
+    actual = "@local_jdk//:jdk",
 )

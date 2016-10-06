@@ -742,7 +742,6 @@ java_library(
         "rules/java/JavaBinary.java",
         "rules/java/JavaCcLinkParamsProvider.java",
         "rules/java/JavaConfigurationLoader.java",
-        "rules/java/JavaCpuSupplier.java",
         "rules/java/JavaImport.java",
         "rules/java/JavaImportBaseRule.java",
         "rules/java/JavaLibrary.java",
