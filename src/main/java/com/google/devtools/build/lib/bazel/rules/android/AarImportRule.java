@@ -43,6 +43,11 @@ public class AarImportRule implements RuleDefinition {
             .allowedRuleClasses("aar_import", "java_import")
             .allowedFileTypes()
             .validityPredicate(ANY_EDGE))
+        .add(attr("$embedded_jar_extractor", LABEL)
+            .cfg(HOST)
+            .exec()
+            .value(Label.parseAbsoluteUnchecked(
+                environment.getToolsRepository() + "//tools/zip:embedded_jar_extractor")))
         .add(attr("$zip_manifest_creator", LABEL)
             .cfg(HOST)
             .exec()

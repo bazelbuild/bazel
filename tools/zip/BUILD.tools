@@ -10,3 +10,9 @@ sh_binary(
     srcs = ["zip_manifest_creator.sh"],
     data = [":zipper"],
 )
+
+py_binary(
+    name = "embedded_jar_extractor",
+    srcs = ["embedded_jar_extractor.py"],
+    deps = ["//third_party/py/gflags"],
+)
