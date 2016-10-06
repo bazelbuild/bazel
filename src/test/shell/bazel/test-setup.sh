@@ -106,7 +106,8 @@ EOF
 
 function setup_javatest_support() {
   setup_javatest_common
-  cat <<EOF >>third_party/BUILD
+  grep -q 'name = "junit4"' third_party/BUILD \
+    || cat <<EOF >>third_party/BUILD
 java_import(
     name = "junit4",
     jars = [
@@ -119,7 +120,8 @@ EOF
 
 function setup_skylark_javatest_support() {
   setup_javatest_common
-  cat <<EOF >>third_party/BUILD
+  grep -q "name = \"junit4-jars\"" third_party/BUILD \
+    || cat <<EOF >>third_party/BUILD
 filegroup(
     name = "junit4-jars",
     srcs = [
