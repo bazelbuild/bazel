@@ -129,8 +129,6 @@ final class DarwinSandboxRunner extends SandboxRunner {
 
       out.println("(allow network* (local ip \"localhost:*\"))");
       out.println("(allow network* (remote ip \"localhost:*\"))");
-      out.println("(allow network* (remote unix-socket (subpath \"/\")))");
-      out.println("(allow network* (local unix-socket (subpath \"/\")))");
 
       for (Path inaccessiblePath : inaccessiblePaths) {
         out.println("(deny file-read* (subpath \"" + inaccessiblePath + "\"))");
