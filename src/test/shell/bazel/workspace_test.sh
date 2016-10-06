@@ -172,4 +172,34 @@ EOF
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
 }
 
+function test_workspace_name() {
+  mkdir -p foo
+  mkdir -p bar
+  cat > foo/WORKSPACE <<EOF
+workspace(name = "foo")
+
+local_repository(
+    name = "bar",
+    path = "$PWD/bar",
+)
+EOF
+  cat > foo/BUILD <<EOF
+exports_files(glob(["*"]))
+EOF
+  touch foo/baz
+  cat > bar/WORKSPACE <<EOF
+workspace(name = "bar")
+EOF
+  cat > bar/BUILD <<EOF
+genrule(
+    name = "depend-on-foo",
+    srcs = ["@foo//:baz"],
+    cmd = "cat \$(SRCS) > \$@",
+    outs = ["baz.out"],
+)
+EOF
+  cd foo
+  bazel build @bar//:depend-on-foo || fail "Expected build to succeed"
+}
+
 run_suite "workspace tests"
