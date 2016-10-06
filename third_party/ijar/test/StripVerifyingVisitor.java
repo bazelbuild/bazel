@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import java.util.ArrayList;
+import java.util.List;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
@@ -19,9 +21,6 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A {@code ClassVisitor} that checks that ijar did its job.
@@ -31,7 +30,7 @@ final class StripVerifyingVisitor extends ClassVisitor {
   private String className;
 
   public StripVerifyingVisitor() {
-    super(Opcodes.ASM4);
+    super(Opcodes.ASM5);
   }
 
   @Override public void visit(
@@ -110,7 +109,7 @@ final class StripVerifyingVisitor extends ClassVisitor {
     private final String fieldName;
 
     StripVerifyingFieldVisitor(List<String> errors, String className, String fieldName) {
-      super(Opcodes.ASM4);
+      super(Opcodes.ASM5);
       this.errors = errors;
       this.className = className;
       this.fieldName = fieldName;
@@ -136,7 +135,7 @@ final class StripVerifyingVisitor extends ClassVisitor {
     private final String methodName;
 
     StripVerifyingMethodVisitor(List<String> errors, String className, String methodName) {
-      super(Opcodes.ASM4);
+      super(Opcodes.ASM5);
       this.errors = errors;
       this.className = className;
       this.methodName = methodName;
@@ -190,7 +189,9 @@ final class StripVerifyingVisitor extends ClassVisitor {
 
     @Override public void visitFieldInsn(int opcode, String owner, String name, String desc) {}
 
-    @Override public void visitMethodInsn(int opcode, String owner, String name, String desc) {}
+    @Override
+    public void visitMethodInsn(
+        int opcode, String owner, String name, String desc, boolean isInterface) {}
 
     @Override public void visitJumpInsn(int opcode, Label label) {}
 
