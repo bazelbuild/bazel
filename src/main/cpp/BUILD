@@ -80,7 +80,8 @@ cc_binary(
     srcs = [
         "blaze.cc",
         "blaze.h",
-        "blaze_globals.h",
+        "global_variables.cc",
+        "global_variables.h",
         "main.cc",
         "option_processor.cc",
         "option_processor.h",

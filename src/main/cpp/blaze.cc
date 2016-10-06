@@ -67,9 +67,9 @@
 
 
 #include "src/main/cpp/blaze_abrupt_exit.h"
-#include "src/main/cpp/blaze_globals.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -225,19 +225,6 @@ class BlazeServer {
 // Global Variables
 static GlobalVariables *globals;
 static BlazeServer *blaze_server;
-
-static void InitGlobals(OptionProcessor *option_processor) {
-  globals = new GlobalVariables;
-  globals->server_pid = -1;
-  globals->sigint_count = 0;
-  globals->received_signal = 0;
-  globals->startup_time = 0;
-  globals->extract_data_time = 0;
-  globals->command_wait_time = 0;
-  globals->restart_reason = NO_RESTART;
-  globals->option_processor = option_processor;
-  globals->options = NULL;  // Initialized after parsing with option_processor.
-}
 
 uint64_t BlazeServer::AcquireLock() {
   return blaze::AcquireLock(
@@ -1826,7 +1813,7 @@ static void CreateSecureOutputRoot() {
 // unexpectedly (in a way that isn't already handled), we can observe the file,
 // if it exists. (If it doesn't, then we know something went horribly wrong.)
 int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
-  InitGlobals(option_processor);
+  globals = new GlobalVariables(option_processor);
   SetupStreams();
 
   // Must be done before command line parsing.

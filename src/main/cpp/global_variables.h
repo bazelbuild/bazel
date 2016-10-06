@@ -12,51 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// blaze_globals.h: The global state in the blaze.cc Blaze client.
+// global_variables.h: The global state in the blaze.cc Blaze client.
 //
 
-#ifndef BAZEL_SRC_MAIN_CPP_BLAZE_GLOBALS_H_
-#define BAZEL_SRC_MAIN_CPP_BLAZE_GLOBALS_H_
+#ifndef BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
+#define BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
 
 #include <signal.h>
 #include <sys/types.h>
 #include <string>
 #include <vector>
 
-#include "src/main/cpp/option_processor.h"
-#include "src/main/cpp/startup_options.h"
-
-using std::vector;
-
 namespace blaze {
+
+class OptionProcessor;
+class StartupOptions;
 
 // The reason for a blaze server restart.
 // Keep in sync with logging.proto.
-enum RestartReason {
-  NO_RESTART = 0,
-  NO_DAEMON,
-  NEW_VERSION,
-  NEW_OPTIONS
-};
+enum RestartReason { NO_RESTART = 0, NO_DAEMON, NEW_VERSION, NEW_OPTIONS };
 
 struct GlobalVariables {
+  GlobalVariables(OptionProcessor *option_processor);
+
   // Used to make concurrent invocations of this program safe.
-  string lockfile;  // = <output_base>/lock
+  std::string lockfile;  // = <output_base>/lock
 
-  string jvm_log_file;  // = <output_base>/server/jvm.out
+  std::string jvm_log_file;  // = <output_base>/server/jvm.out
 
-  string cwd;
+  std::string cwd;
 
   // The nearest enclosing workspace directory, starting from cwd.
   // If not under a workspace directory, this is equal to cwd.
-  string workspace;
+  std::string workspace;
 
   // Option processor responsible for parsing RC files and converting them into
   // the argument list passed on to the server.
   OptionProcessor *option_processor;
 
   // The path of the JVM executable that should be used to launch Blaze.
-  string jvm_path;
+  std::string jvm_path;
 
   pid_t server_pid;
 
@@ -69,7 +64,7 @@ struct GlobalVariables {
 
   // Contains the relative paths of all the files in the attached zip, and is
   // populated during GetInstallBase().
-  vector<string> extracted_binaries;
+  std::vector<std::string> extracted_binaries;
 
   // Parsed startup options.
   StartupOptions *options;  // TODO(jmmv): This should really be const.
@@ -90,13 +85,13 @@ struct GlobalVariables {
   RestartReason restart_reason;
 
   // The absolute path of the blaze binary.
-  string binary_path;
+  std::string binary_path;
 
   // MD5 hash of the Blaze binary (includes deploy.jar, extracted binaries, and
   // anything else that ends up under the install_base).
-  string install_md5;
+  std::string install_md5;
 };
 
 }  // namespace blaze
 
-#endif  // BAZEL_SRC_MAIN_CPP_BLAZE_GLOBALS_H_
+#endif  // BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
