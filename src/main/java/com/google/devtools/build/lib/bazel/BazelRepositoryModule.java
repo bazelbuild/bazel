@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunct
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -69,7 +70,7 @@ import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -83,12 +84,13 @@ public class BazelRepositoryModule extends BlazeModule {
   private final SkylarkRepositoryFunction skylarkRepositoryFunction =
       new SkylarkRepositoryFunction();
   private final RepositoryDelegatorFunction delegator;
+  private final AtomicReference<RepositoryCache> repositoryCache = new AtomicReference<>();
 
   public BazelRepositoryModule() {
     this.repositoryHandlers =
         ImmutableMap.<String, RepositoryFunction>builder()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(HttpArchiveRule.NAME, new HttpArchiveFunction())
+            .put(HttpArchiveRule.NAME, new HttpArchiveFunction(repositoryCache))
             .put(GitRepositoryRule.NAME, new GitRepositoryFunction())
             .put(HttpJarRule.NAME, new HttpJarFunction())
             .put(HttpFileRule.NAME, new HttpFileFunction())
@@ -166,6 +168,11 @@ public class BazelRepositoryModule extends BlazeModule {
   public void handleOptions(OptionsProvider optionsProvider) {
     PackageCacheOptions pkgOptions = optionsProvider.getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
+
+    RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
+    if (repoOptions != null && repoOptions.experimentalRepositoryCache != null) {
+      repositoryCache.set(new RepositoryCache(repoOptions.experimentalRepositoryCache));
+    }
   }
 
   @Override

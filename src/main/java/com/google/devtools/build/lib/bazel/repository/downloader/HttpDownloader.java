@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Rule;
@@ -95,6 +96,22 @@ public class HttpDownloader {
           + url + " to " + outputDirectory + ": " + e.getMessage()),
           SkyFunctionException.Transience.TRANSIENT);
     }
+  }
+
+  @SuppressWarnings("unused")
+  @Nullable
+  public static Path download(
+      Rule rule, Path outputDirectory, EventHandler eventHandler, Map<String, String> clientEnv,
+      RepositoryCache repositoryCache)
+      throws RepositoryFunctionException, InterruptedException {
+
+    /* TODO(jingwen): No-op with the cache controller for now.
+     * This will be the place where we detect cache hits with the sha256 value
+     * and copy the values accordingly.
+     * 
+     * For now, delegating operation to the original download method.
+     */
+    return download(rule, outputDirectory, eventHandler, clientEnv);
   }
 
   @Nullable
