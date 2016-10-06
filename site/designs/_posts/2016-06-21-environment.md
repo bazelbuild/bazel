@@ -5,8 +5,9 @@ title: Specifying environment variables
 
 # Specifying environment variables for actions
 
-This doc was written by [aehlig@google.com](mailto:aehlig@google.com).
-Status: unimplemented.
+**Status**: Implemented.
+
+**Author**: [Klaus Aehlig](mailto:aehlig@google.com)
 
 ## Current shortcomings
 
@@ -140,18 +141,12 @@ following.
   traditional layout) can fix the environment by adding `--action_env`
   options with specific values to the user-project local `.bazelrc`.
 
-  To simplify this use case, Bazel might provide a script
-  `bazel_freeze_environment` that reads the
-  `tools/bazel.rc` and looks for `--action_env` options with
-  unspecified values and writes corresponding ones with specified values to the
-  user-project local `.bazelrc` file; the specified values are taken from the
-  environment of
-  the invocation of that script.
-
-  To simplify "freeze on first use" approaches, there will be separate way of
-  invoking the `bazel_freeze_environment` script so that it only adds
-  `--action_env` options with specified values for variables not already
-  mentioned in the user-project local `.bazelrc` file.
+  To simplify this use case, and other "freeze on first use" approaches,
+  Bazel's `info` command will provide a new key `client-env` that will show
+  the environment variables, together with their values. More precisely,
+  each variable-value pair will be prefixed with `build --action_env=`, so
+  that `bazel info client-env >> .bazelrc` can be used to freeze the
+  environment.
 
 ## Transition plan
 
@@ -223,14 +218,6 @@ enough mechanisms to control the build behaviour and avoid special casing.
 * Building on the already existing mechanism to specify, inherit, and override
   command-line options reduces the amount newly introduced concepts. The main
   addition is a command-line option.
-
-A corner case from that perspective is the `bazel_freeze_environment` script.
-While it solves a valid use case, its only purpose is the management
-of environment variables. At least it is strictly a user tool, in the sense
-that Bazel itself does not depend on it: Bazel will happily read any
-syntactically valid rc-file, regardless how it was created; so a user can
-hand-code the user-project local `.bazelrc` file, use the help of
-`bazel_freeze_environment`, or use a third-party tool to generate it.
 
 ### Source of Knowledge for Needed Environment Variables
 
