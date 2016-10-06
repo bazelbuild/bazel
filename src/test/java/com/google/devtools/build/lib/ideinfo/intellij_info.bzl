@@ -390,20 +390,21 @@ def build_android_rule_ide_info(target, ctx, legacy_resource_label):
   if not hasattr(target, "android"):
     return (None, set())
 
+  android = target.android
   android_rule_ide_info = struct_omit_none(
-      java_package = target.android.java_package,
-      idl_import_root = target.android.idl.import_root,
-      manifest = artifact_location(target.android.manifest),
-      apk = artifact_location(target.android.apk),
-      dependency_apk = [artifact_location(apk) for apk in target.android.apks_under_test],
-      has_idl_sources = target.android.idl.output != None,
-      idl_jar = library_artifact(target.android.idl.output),
-      generate_resource_class = target.android.defines_resources,
-      resources = all_unique_source_directories(target.android.resources),
-      resource_jar = library_artifact(target.android.resource_jar),
+      java_package = android.java_package,
+      idl_import_root = android.idl.import_root if hasattr(android.idl, "import_root") else None,
+      manifest = artifact_location(android.manifest),
+      apk = artifact_location(android.apk),
+      dependency_apk = [artifact_location(apk) for apk in android.apks_under_test],
+      has_idl_sources = android.idl.output != None,
+      idl_jar = library_artifact(android.idl.output),
+      generate_resource_class = android.defines_resources,
+      resources = all_unique_source_directories(android.resources),
+      resource_jar = library_artifact(android.resource_jar),
       legacy_resources = legacy_resource_label,
   )
-  ide_resolve_files = set(jars_from_output(target.android.idl.output))
+  ide_resolve_files = set(jars_from_output(android.idl.output))
   return (android_rule_ide_info, ide_resolve_files)
 
 def build_test_info(target, ctx):
