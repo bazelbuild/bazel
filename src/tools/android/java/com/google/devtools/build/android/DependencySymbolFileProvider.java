@@ -49,6 +49,11 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
   }
 
   @Override
+  public boolean isOptional() {
+    return false;
+  }
+
+  @Override
   public File getManifest() {
     return manifest;
   }

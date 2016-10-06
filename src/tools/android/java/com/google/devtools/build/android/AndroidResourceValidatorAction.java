@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantConfiguration.Type;
+import com.android.builder.core.VariantType;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -105,7 +104,7 @@ public class AndroidResourceValidatorAction {
     Options options = optionsParser.getOptions(Options.class);
 
     final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
-    VariantConfiguration.Type packageType = Type.LIBRARY;
+    VariantType packageType = VariantType.LIBRARY;
 
     Preconditions.checkNotNull(options.rOutput);
     Preconditions.checkNotNull(options.srcJarOutput);
@@ -145,10 +144,10 @@ public class AndroidResourceValidatorAction {
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       resourceProcessor.copyRToOutput(
-          generatedSources, options.rOutput, VariantConfiguration.Type.LIBRARY == packageType);
+          generatedSources, options.rOutput, VariantType.LIBRARY == packageType);
 
       resourceProcessor.createSrcJar(
-          generatedSources, options.srcJarOutput, VariantConfiguration.Type.LIBRARY == packageType);
+          generatedSources, options.srcJarOutput, VariantType.LIBRARY == packageType);
     } catch (Exception e) {
       logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);
       throw e;

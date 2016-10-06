@@ -19,8 +19,8 @@ import android.databinding.AndroidDataBinding;
 import android.databinding.cli.ProcessXmlOptions;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
-import com.android.builder.core.DefaultManifestParser;
 import com.android.builder.core.VariantConfiguration;
+import com.android.builder.core.VariantType;
 import com.android.builder.dependency.SymbolFileProvider;
 import com.android.builder.internal.SymbolLoader;
 import com.android.builder.internal.SymbolWriter;
@@ -30,6 +30,8 @@ import com.android.ide.common.internal.ExecutorSingleton;
 import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.res2.MergingException;
+import com.android.io.FileWrapper;
+import com.android.io.StreamException;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.Invoker;
 import com.android.manifmerger.ManifestMerger2.Invoker.Feature;
@@ -37,12 +39,13 @@ import com.android.manifmerger.ManifestMerger2.MergeFailureException;
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.manifmerger.ManifestMerger2.SystemProperty;
 import com.android.manifmerger.MergingReport;
+import com.android.manifmerger.MergingReport.MergedManifestKind;
 import com.android.manifmerger.PlaceholderHandler;
-import com.android.manifmerger.XmlDocument;
-import com.android.sdklib.repository.FullRevision;
+import com.android.repository.Revision;
 import com.android.utils.ILogger;
 import com.android.utils.Pair;
 import com.android.utils.StdLogger;
+import com.android.xml.AndroidManifest;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -58,7 +61,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.FullRevisionConverter;
+import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -113,6 +116,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import javax.xml.xpath.XPathExpressionException;
 import org.xml.sax.SAXException;
 
 /**
@@ -127,10 +131,10 @@ public class AndroidResourceProcessor {
   public static final class AaptConfigOptions extends OptionsBase {
     @Option(name = "buildToolsVersion",
         defaultValue = "null",
-        converter = FullRevisionConverter.class,
+        converter = RevisionConverter.class,
         category = "config",
         help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
-    public FullRevision buildToolsVersion;
+    public Revision buildToolsVersion;
 
     @Option(name = "aapt",
         defaultValue = "null",
@@ -226,11 +230,6 @@ public class AndroidResourceProcessor {
     }
 
     @Override
-    public boolean getUseAaptPngCruncher() {
-      return options.useAaptCruncher != TriState.NO;
-    }
-
-    @Override
     public Collection<String> getNoCompress() {
       if (!options.uncompressedExtensions.isEmpty()) {
         return options.uncompressedExtensions;
@@ -249,6 +248,11 @@ public class AndroidResourceProcessor {
     @Override
     public boolean getFailOnMissingConfigEntry() {
       return false;
+    }
+
+    @Override
+    public List<String> getAdditionalParameters() {
+      return ImmutableList.of();
     }
   }
 
@@ -412,8 +416,8 @@ public class AndroidResourceProcessor {
   public void processResources(
       Path aapt,
       Path androidJar,
-      @Nullable FullRevision buildToolsVersion,
-      VariantConfiguration.Type variantType,
+      @Nullable Revision buildToolsVersion,
+      VariantType variantType,
       boolean debug,
       String customPackageForR,
       AaptOptions aaptOptions,
@@ -455,7 +459,7 @@ public class AndroidResourceProcessor {
         publicResourcesOut);
     // The R needs to be created for each library in the dependencies,
     // but only if the current project is not a library.
-    if (sourceOut != null && variantType != VariantConfiguration.Type.LIBRARY) {
+    if (sourceOut != null && variantType != VariantType.LIBRARY) {
       writeDependencyPackageRJavaFiles(
           dependencyData, customPackageForR, androidManifest, sourceOut);
     }
@@ -483,8 +487,8 @@ public class AndroidResourceProcessor {
   public void runAapt(
       Path aapt,
       Path androidJar,
-      @Nullable FullRevision buildToolsVersion,
-      VariantConfiguration.Type variantType,
+      @Nullable Revision buildToolsVersion,
+      VariantType variantType,
       boolean debug,
       String customPackageForR,
       AaptOptions aaptOptions,
@@ -512,7 +516,7 @@ public class AndroidResourceProcessor {
         // Resources are precrunched in the merge process.
         .add("--no-crunch")
         // Do not automatically generate versioned copies of vector XML resources.
-        .whenVersionIsAtLeast(new FullRevision(23)).thenAdd("--no-version-vectors")
+        .whenVersionIsAtLeast(new Revision(23)).thenAdd("--no-version-vectors")
         // Add the android.jar as a base input.
         .add("-I", androidJar)
         // Add the manifest for validation.
@@ -527,12 +531,12 @@ public class AndroidResourceProcessor {
         .add("--output-text-symbols", prepareOutputPath(sourceOut))
         .add("-F", packageOut)
         .add("-G", proguardOut)
-        .whenVersionIsAtLeast(new FullRevision(24)).thenAdd("-D", mainDexProguardOut)
+        .whenVersionIsAtLeast(new Revision(24)).thenAdd("-D", mainDexProguardOut)
         .add("-P", publicResourcesOut)
         .when(debug).thenAdd("--debug-mode")
         .add("--custom-package", customPackageForR)
         // If it is a library, do not generate final java ids.
-        .whenVariantIs(VariantConfiguration.Type.LIBRARY).thenAdd("--non-constant-id")
+        .whenVariantIs(VariantType.LIBRARY).thenAdd("--non-constant-id")
         .add("--ignore-assets", aaptOptions.getIgnoreAssets())
         .when(aaptOptions.getFailOnMissingConfigEntry()).thenAdd("--error-on-missing-config-entry")
         // Never compress apks.
@@ -542,7 +546,7 @@ public class AndroidResourceProcessor {
         // Filter by resource configuration type.
         .add("-c", Joiner.on(',').join(resourceConfigs))
         // Split APKs if any splits were specified.
-        .whenVersionIsAtLeast(new FullRevision(23)).thenAddRepeated("--split", splits);
+        .whenVersionIsAtLeast(new Revision(23)).thenAddRepeated("--split", splits);
     try {
       new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
     } catch (LoggedErrorException e) {
@@ -601,7 +605,7 @@ public class AndroidResourceProcessor {
    * <p>Returns the resources directory that aapt should read.
    */
   private Path processDataBindings(Path resourceDir, Path dataBindingInfoOut,
-      VariantConfiguration.Type variantType, String packagePath, Path androidManifest)
+      VariantType variantType, String packagePath, Path androidManifest)
       throws IOException {
 
     if (dataBindingInfoOut == null) {
@@ -626,16 +630,21 @@ public class AndroidResourceProcessor {
 
     ProcessXmlOptions options = new ProcessXmlOptions();
     options.setAppId(packagePath);
-    options.setLibrary(variantType == VariantConfiguration.Type.LIBRARY);
+    options.setLibrary(variantType == VariantType.LIBRARY);
     options.setResInput(resourceDir.toFile());
     options.setResOutput(processedResourceDir.toFile());
     options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
     options.setZipLayoutInfo(true); // Aggregate data-bound .xml files into a single .zip.
 
-    Object minSdk = new DefaultManifestParser().getMinSdkVersion(androidManifest.toFile());
-    if (minSdk instanceof Integer) {
-      options.setMinSdk(((Integer) minSdk).intValue());
-    } else {
+    try {
+      Object minSdk = AndroidManifest.getMinSdkVersion(new FileWrapper(androidManifest.toFile()));
+      if (minSdk instanceof Integer) {
+        options.setMinSdk(((Integer) minSdk).intValue());
+      } else {
+        // TODO(bazel-team): Enforce the minimum SDK check.
+        options.setMinSdk(15);
+      }
+    } catch (XPathExpressionException | StreamException e) {
       // TODO(bazel-team): Enforce the minimum SDK check.
       options.setMinSdk(15);
     }
@@ -835,7 +844,7 @@ public class AndroidResourceProcessor {
   }
 
   public MergedAndroidData processManifest(
-      VariantConfiguration.Type variantType,
+      VariantType variantType,
       String customPackageForR,
       String applicationId,
       int versionCode,
@@ -845,12 +854,12 @@ public class AndroidResourceProcessor {
       throws IOException {
 
     ManifestMerger2.MergeType mergeType =
-        variantType == VariantConfiguration.Type.DEFAULT
+        variantType == VariantType.DEFAULT
             ? ManifestMerger2.MergeType.APPLICATION
             : ManifestMerger2.MergeType.LIBRARY;
 
     String newManifestPackage =
-        variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR;
+        variantType == VariantType.DEFAULT ? applicationId : customPackageForR;
 
     if (versionCode != -1 || versionName != null || newManifestPackage != null) {
       Files.createDirectories(processedManifest.getParent());
@@ -871,6 +880,7 @@ public class AndroidResourceProcessor {
         manifestMergerInvoker.setOverride(SystemProperty.VERSION_NAME, versionName);
       }
 
+      MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
       if (mergeType == ManifestMerger2.MergeType.APPLICATION) {
         manifestMergerInvoker.withFeatures(Invoker.Feature.REMOVE_TOOLS_DECLARATIONS);
       }
@@ -880,10 +890,10 @@ public class AndroidResourceProcessor {
         switch (mergingReport.getResult()) {
           case WARNING:
             mergingReport.log(stdLogger);
-            writeMergedManifest(mergingReport, processedManifest);
+            writeMergedManifest(mergedManifestKind, mergingReport, processedManifest);
             break;
           case SUCCESS:
-            writeMergedManifest(mergingReport, processedManifest);
+            writeMergedManifest(mergedManifestKind, mergingReport, processedManifest);
             break;
           case ERROR:
             mergingReport.log(stdLogger);
@@ -967,6 +977,7 @@ public class AndroidResourceProcessor {
     }
 
     Invoker<?> manifestMerger = ManifestMerger2.newMerger(manifest.toFile(), stdLogger, mergeType);
+    MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
     if (mergeType == MergeType.APPLICATION) {
       manifestMerger.withFeatures(Feature.REMOVE_TOOLS_DECLARATIONS);
     }
@@ -979,7 +990,8 @@ public class AndroidResourceProcessor {
     manifestMerger.addLibraryManifests(libraryManifests);
 
     // Extract SystemProperties from the provided values.
-    Map<String, String> placeholders = new HashMap<>(values);
+    Map<String, Object> placeholders = new HashMap<>();
+    placeholders.putAll(values);
     for (SystemProperty property : SystemProperty.values()) {
       if (values.containsKey(SYSTEM_PROPERTY_NAMES.get(property))) {
         manifestMerger.setOverride(property, values.get(SYSTEM_PROPERTY_NAMES.get(property)));
@@ -1013,11 +1025,11 @@ public class AndroidResourceProcessor {
         case WARNING:
           mergingReport.log(stdLogger);
           Files.createDirectories(output.getParent());
-          writeMergedManifest(mergingReport, output);
+          writeMergedManifest(mergedManifestKind, mergingReport, output);
           break;
         case SUCCESS:
           Files.createDirectories(output.getParent());
-          writeMergedManifest(mergingReport, output);
+          writeMergedManifest(mergedManifestKind, mergingReport, output);
           break;
         case ERROR:
           mergingReport.log(stdLogger);
@@ -1032,12 +1044,15 @@ public class AndroidResourceProcessor {
     return output;
   }
 
-  private void writeMergedManifest(MergingReport mergingReport, Path manifestOut)
+  private void writeMergedManifest(
+      MergedManifestKind mergedManifestKind,
+      MergingReport mergingReport,
+      Path manifestOut)
       throws IOException, SAXException, ParserConfigurationException {
-    XmlDocument xmlDocument = mergingReport.getMergedDocument().get();
-    String annotatedDocument = mergingReport.getActions().blame(xmlDocument);
+    String manifestContents = mergingReport.getMergedDocument(mergedManifestKind);
+    String annotatedDocument = mergingReport.getMergedDocument(MergedManifestKind.BLAME);
     stdLogger.verbose(annotatedDocument);
-    Files.write(manifestOut, xmlDocument.prettyPrint().getBytes(UTF_8));
+    Files.write(manifestOut, manifestContents.getBytes(UTF_8));
   }
 
   public void writeDummyManifestForAapt(Path dummyManifest, String packageForR) throws IOException {
@@ -1115,7 +1130,7 @@ public class AndroidResourceProcessor {
       final Path resourcesOut,
       final Path assetsOut,
       @Nullable final PngCruncher cruncher,
-      final VariantConfiguration.Type type,
+      final VariantType type,
       @Nullable final Path symbolsOut)
       throws MergingException {
     try {
@@ -1123,7 +1138,7 @@ public class AndroidResourceProcessor {
       return mergeData(parsedPrimary, primary.getManifest(), direct, transitive,
           resourcesOut, assetsOut, cruncher, type, symbolsOut, null /* rclassWriter */);
     } catch (IOException e) {
-      throw new MergingException(e);
+      throw MergingException.wrapException(e).build();
     }
   }
 
@@ -1139,7 +1154,7 @@ public class AndroidResourceProcessor {
       final Path resourcesOut,
       final Path assetsOut,
       @Nullable final PngCruncher cruncher,
-      final VariantConfiguration.Type type,
+      final VariantType type,
       @Nullable AndroidResourceClassWriter rclassWriter)
       throws MergingException {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
@@ -1161,7 +1176,7 @@ public class AndroidResourceProcessor {
       final Path resourcesOut,
       final Path assetsOut,
       @Nullable final PngCruncher cruncher,
-      final VariantConfiguration.Type type,
+      final VariantType type,
       @Nullable final Path symbolsOut,
       @Nullable AndroidResourceClassWriter rclassWriter)
       throws MergingException {
@@ -1176,7 +1191,7 @@ public class AndroidResourceProcessor {
               direct,
               primary,
               primaryManifest,
-              type != VariantConfiguration.Type.LIBRARY);
+              type != VariantType.LIBRARY);
       logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
       if (symbolsOut != null) {
@@ -1199,7 +1214,7 @@ public class AndroidResourceProcessor {
               resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
       return merged.write(writer);
     } catch (IOException e) {
-      throw new MergingException(e);
+      throw MergingException.wrapException(e).build();
     } finally {
       logger.fine(
           String.format("write merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

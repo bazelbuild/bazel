@@ -49,7 +49,7 @@ class FailedFutureAggregator<T extends Throwable> {
         new ExceptionFactory<MergingException>() {
           @Override
           public MergingException create() {
-            return new MergingException(message);
+            return MergingException.withMessage(message).build();
           }
         });
   }

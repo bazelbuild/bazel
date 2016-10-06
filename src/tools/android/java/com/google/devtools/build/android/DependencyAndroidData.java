@@ -87,6 +87,11 @@ class DependencyAndroidData extends SerializedAndroidData {
       public File getSymbolFile() {
         return rTxt == null ? null : rTxt.toFile();
       }
+
+      @Override
+      public boolean isOptional() {
+        return false;
+      }
     };
   }
 

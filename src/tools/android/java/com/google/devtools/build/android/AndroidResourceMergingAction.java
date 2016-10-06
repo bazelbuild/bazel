@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantConfiguration.Type;
-import com.android.ide.common.internal.LoggedErrorException;
+import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.internal.PngException;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
@@ -162,7 +161,7 @@ public class AndroidResourceMergingAction {
 
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      VariantConfiguration.Type packageType = Type.LIBRARY;
+      VariantType packageType = VariantType.LIBRARY;
       String packageName = options.packageForR;
       AndroidResourceClassWriter resourceClassWriter =
           new AndroidResourceClassWriter(
@@ -242,9 +241,22 @@ public class AndroidResourceMergingAction {
   private static final class StubPngCruncher implements PngCruncher {
 
     @Override
-    public void crunchPng(File from, File to)
-        throws InterruptedException, LoggedErrorException, IOException {
-      Files.touch(to);
+    public void crunchPng(int key, File from, File to) throws PngException {
+      try {
+        Files.touch(to);
+      } catch (IOException e) {
+        throw new PngException(e);
+      }
     }
+
+    @Override
+    public int start() {
+      return 0;
+    }
+
+    @Override
+    public void end(int key) {
+    }
+
   }
 }

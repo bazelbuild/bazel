@@ -92,7 +92,7 @@ java_library(
         "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
-        "//third_party:android_common",
+        "//third_party:android_common_25_0_0",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",

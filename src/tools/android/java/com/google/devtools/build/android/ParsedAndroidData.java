@@ -85,7 +85,8 @@ public class ParsedAndroidData {
     private void checkForErrors() throws MergingException {
       if (!errors.isEmpty()) {
         MergingException mergingException =
-            new MergingException(String.format("%s Parse Error(s)", errors.size()));
+             MergingException
+                 .withMessage(String.format("%s Parse Error(s)", errors.size())).build();
         for (Exception e : errors) {
           mergingException.addSuppressed(e);
         }
@@ -271,7 +272,8 @@ public class ParsedAndroidData {
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
-      final String[] dirNameAndQualifiers = dir.getFileName().toString().split("-");
+      final String[] dirNameAndQualifiers = dir.getFileName().toString().split(
+          SdkConstants.RES_QUALIFIER_SEP);
       folderType = ResourceFolderType.getTypeByName(dirNameAndQualifiers[0]);
       if (folderType == null) {
         return FileVisitResult.CONTINUE;

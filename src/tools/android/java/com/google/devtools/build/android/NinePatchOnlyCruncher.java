@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.io.Files;
-
 import com.android.SdkConstants;
 import com.android.ide.common.internal.AaptCruncher;
-import com.android.ide.common.internal.CommandLineRunner;
-import com.android.ide.common.internal.LoggedErrorException;
-
+import com.android.ide.common.internal.PngException;
+import com.android.ide.common.process.ProcessExecutor;
+import com.android.ide.common.process.ProcessOutputHandler;
+import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 
@@ -28,8 +27,11 @@ import java.io.IOException;
  */
 public class NinePatchOnlyCruncher extends AaptCruncher {
 
-  public NinePatchOnlyCruncher(String aaptLocation, CommandLineRunner commandLineRunner) {
-    super(aaptLocation, commandLineRunner);
+  public NinePatchOnlyCruncher(
+      String aaptLocation,
+      ProcessExecutor processExecutor,
+      ProcessOutputHandler processOutputHandler) {
+    super(aaptLocation, processExecutor, processOutputHandler);
   }
 
   /**
@@ -39,12 +41,15 @@ public class NinePatchOnlyCruncher extends AaptCruncher {
    * @param to the output file
    */
   @Override
-  public void crunchPng(File from, File to)
-      throws InterruptedException, LoggedErrorException, IOException {
+  public void crunchPng(int key, File from, File to) throws PngException {
     if (from.getPath().endsWith(SdkConstants.DOT_9PNG)) {
-      super.crunchPng(from, to);
+      super.crunchPng(0, from, to);
     } else {
-      Files.copy(from, to);
+      try {
+        Files.copy(from, to);
+      } catch (IOException e) {
+        throw new PngException(e);
+      }
     }
   }
 }

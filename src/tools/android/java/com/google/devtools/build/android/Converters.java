@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantConfiguration.Type;
+import com.android.builder.core.VariantType;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.MergeType;
-import com.android.sdklib.repository.FullRevision;
+import com.android.repository.Revision;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
@@ -209,15 +208,15 @@ public final class Converters {
   }
 
   /**
-   * Converter for {@link FullRevision}. Relies on {@code FullRevision#parseRevision(String)} to
+   * Converter for {@link Revision}. Relies on {@code Revision#parseRevision(String)} to
    * perform conversion and validation.
    */
-  public static class FullRevisionConverter implements Converter<FullRevision> {
+  public static class RevisionConverter implements Converter<Revision> {
 
     @Override
-    public FullRevision convert(String input) throws OptionsParsingException {
+    public Revision convert(String input) throws OptionsParsingException {
       try {
-        return FullRevision.parseRevision(input);
+        return Revision.parseRevision(input);
       } catch (NumberFormatException e) {
         throw new OptionsParsingException(e.getMessage());
       }
@@ -272,11 +271,10 @@ public final class Converters {
     }
   }
 
-  /** Converter for {@link VariantConfiguration}.{@link Type}. */
-  public static class VariantConfigurationTypeConverter
-      extends EnumConverter<VariantConfiguration.Type> {
-    public VariantConfigurationTypeConverter() {
-      super(VariantConfiguration.Type.class, "variant configuration type");
+  /** Converter for {@link VariantType}. */
+  public static class VariantTypeConverter extends EnumConverter<VariantType> {
+    public VariantTypeConverter() {
+      super(VariantType.class, "variant type");
     }
   }
 

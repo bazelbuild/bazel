@@ -41,8 +41,8 @@ import java.security.cert.CertificateException;
 public class DebugKeyProvider {
 
     public interface IKeyGenOutput {
-        public void out(String message);
-        public void err(String message);
+        void out(String message);
+        void err(String message);
     }
 
     private static final String PASSWORD_STRING = "android";

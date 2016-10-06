@@ -70,7 +70,7 @@ public class AndroidDataMerger {
         dependency.deserialize(serializer, parsedDataBuilder.consumers());
       } catch (DeserializationException e) {
         if (!e.isLegacy()) {
-          throw new MergingException(e);
+          throw MergingException.wrapException(e).build();
         }
         logger.fine(
             String.format(
@@ -307,7 +307,7 @@ public class AndroidDataMerger {
       return doMerge(
           transitive, direct, parsedPrimary, primaryData.getManifest(), allowPrimaryOverrideAll);
     } catch (IOException e) {
-      throw new MergingException(e);
+      throw MergingException.wrapException(e).build();
     }
   }
 
@@ -441,7 +441,7 @@ public class AndroidDataMerger {
           primaryBuilder.build(),
           transitiveBuilder.build());
     } catch (IOException e) {
-      throw new MergingException(e);
+      throw MergingException.wrapException(e).build();
     }
   }
 }

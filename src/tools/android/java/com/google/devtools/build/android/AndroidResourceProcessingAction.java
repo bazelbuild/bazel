@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantConfiguration.Type;
+import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.AaptCruncher;
-import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.process.DefaultProcessExecutor;
+import com.android.ide.common.process.LoggedProcessOutputHandler;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
@@ -28,7 +28,7 @@ import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOption
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
-import com.google.devtools.build.android.Converters.VariantConfigurationTypeConverter;
+import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -165,11 +165,11 @@ public class AndroidResourceProcessingAction {
 
     @Option(name = "packageType",
         defaultValue = "DEFAULT",
-        converter = VariantConfigurationTypeConverter.class,
+        converter = VariantTypeConverter.class,
         category = "config",
         help = "Variant configuration type for packaging the resources."
-            + " Acceptible values DEFAULT, LIBRARY, TEST")
-    public VariantConfiguration.Type packageType;
+            + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    public VariantType packageType;
 
     @Option(name = "densities",
         defaultValue = "",
@@ -279,7 +279,7 @@ public class AndroidResourceProcessingAction {
         resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
-      if (options.packageType == Type.LIBRARY) {
+      if (options.packageType == VariantType.LIBRARY) {
         resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
         processedData = new MergedAndroidData(
             processedData.getResourceDir(),
@@ -313,13 +313,13 @@ public class AndroidResourceProcessingAction {
         resourceProcessor.createSrcJar(
             generatedSources,
             options.srcJarOutput,
-            VariantConfiguration.Type.LIBRARY == options.packageType);
+            VariantType.LIBRARY == options.packageType);
       }
       if (options.rOutput != null) {
         resourceProcessor.copyRToOutput(
             generatedSources,
             options.rOutput,
-            VariantConfiguration.Type.LIBRARY == options.packageType);
+            VariantType.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
         resourceProcessor.createResourcesZip(
@@ -354,18 +354,23 @@ public class AndroidResourceProcessingAction {
       return aaptConfigOptions.useAaptCruncher == TriState.YES;
     }
     // By default png cruncher shouldn't be invoked on a library -- the work is just thrown away.
-    return options.packageType != VariantConfiguration.Type.LIBRARY;
+    return options.packageType != VariantType.LIBRARY;
   }
 
   private static PngCruncher selectPngCruncher() {
     // Use the full cruncher if asked to do so.
     if (usePngCruncher()) {
-      return new AaptCruncher(aaptConfigOptions.aapt.toString(), new CommandLineRunner(STD_LOGGER));
+      return new AaptCruncher(
+          aaptConfigOptions.aapt.toString(),
+          new DefaultProcessExecutor(STD_LOGGER),
+          new LoggedProcessOutputHandler(STD_LOGGER));
     }
     // Otherwise, if this is a binary, we need to at least process nine-patch PNGs.
-    if (options.packageType != VariantConfiguration.Type.LIBRARY) {
+    if (options.packageType != VariantType.LIBRARY) {
       return new NinePatchOnlyCruncher(
-          aaptConfigOptions.aapt.toString(), new CommandLineRunner(STD_LOGGER));
+          aaptConfigOptions.aapt.toString(),
+          new DefaultProcessExecutor(STD_LOGGER),
+          new LoggedProcessOutputHandler(STD_LOGGER));
     }
     return null;
   }

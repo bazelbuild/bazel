@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
+import com.android.builder.core.VariantType;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.annotations.VisibleForTesting;
@@ -136,7 +136,7 @@ public class AarGeneratorAction {
               resourcesOut,
               assetsOut,
               null,
-              VariantConfiguration.Type.LIBRARY,
+              VariantType.LIBRARY,
               null);
       logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

@@ -69,24 +69,20 @@ java_import(
 )
 
 java_import(
-    name = "android_sdklib",
+    name = "android_common_25_0_0",
     jars = [
-        "android_common/com.android.tools_sdklib_23.1.3.jar",
-    ],
-)
-
-java_import(
-    name = "android_common",
-    jars = [
-        "android_common/com.android.tools.build_builder_0.13.3.jar",
-        "android_common/com.android.tools.build_builder-model_0.13.3.jar",
-        "android_common/com.android.tools.build_manifest-merger_23.1.3.jar",
-        "android_common/com.android.tools_common_23.1.3.jar",
-        "android_common/com.android.tools_sdk-common_23.1.3.jar",
-        "android_common/com.android.tools.layoutlib_layoutlib_23.1.3.jar",
-    ],
-    exports = [
-        ":android_sdklib",
+        "android_common/com.android_annotations_25.0.0.jar",
+        "android_common/com.android.tools.build_builder_2.0.0.jar",
+        "android_common/com.android.tools.build_builder-model_2.0.0.jar",
+        "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
+        "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
+        "android_common/com.android.tools_common_25.0.0.jar",
+        "android_common/com.android.tools_ddmlib_25.0.0.jar",
+        "android_common/com.android.tools_dvlib_25.0.0.jar",
+        "android_common/com.android.tools_repository_25.0.0.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_sdklib_25.0.0.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
     ],
 )
 

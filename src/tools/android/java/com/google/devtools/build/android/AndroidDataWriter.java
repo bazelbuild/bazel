@@ -15,8 +15,8 @@ package com.google.devtools.build.android;
 
 import com.android.SdkConstants;
 import com.android.annotations.NonNull;
-import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.internal.PngException;
 import com.android.ide.common.res2.MergingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -70,9 +70,9 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     public Boolean call() throws Exception {
       try {
         Files.createDirectories(destinationPath.getParent());
-        cruncher.crunchPng(source.toFile(), destinationPath.toFile());
-      } catch (InterruptedException | LoggedErrorException e) {
-        throw new MergingException(e);
+        cruncher.crunchPng(0, source.toFile(), destinationPath.toFile());
+      } catch (PngException e) {
+        throw MergingException.wrapException(e).build();
       }
       return Boolean.TRUE;
     }
@@ -105,10 +105,23 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
   private static final PngCruncher NOOP_CRUNCHER =
       new PngCruncher() {
         @Override
-        public void crunchPng(@NonNull File source, @NonNull File destination)
-            throws InterruptedException, LoggedErrorException, IOException {
-          Files.createDirectories(destination.toPath().getParent());
-          Files.copy(source.toPath(), destination.toPath());
+        public int start() {
+          return 0;
+        }
+
+        @Override
+        public void end(int key) throws InterruptedException {
+        }
+
+        @Override
+        public void crunchPng(int key, @NonNull File source, @NonNull File destination)
+            throws PngException {
+          try {
+            Files.createDirectories(destination.toPath().getParent());
+            Files.copy(source.toPath(), destination.toPath());
+          } catch (IOException e) {
+            throw new PngException(e);
+          }
         }
       };
 

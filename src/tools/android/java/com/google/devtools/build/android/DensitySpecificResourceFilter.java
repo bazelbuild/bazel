@@ -179,7 +179,7 @@ public class DensitySpecificResourceFilter {
 
     for (String density : densities) {
       if (!DENSITY_MAP.containsKey(density)) {
-        throw new MergingException(density + " is not a known density qualifier.");
+        throw MergingException.withMessage(density + " is not a known density qualifier.").build();
       }
     }
   }

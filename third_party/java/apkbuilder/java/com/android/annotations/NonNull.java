@@ -32,7 +32,7 @@ import java.lang.annotation.Target;
  * This is a marker annotation and it has no specific attributes.
  */
 @Documented
-@Retention(RetentionPolicy.CLASS)
+@Retention(RetentionPolicy.SOURCE)
 @Target({METHOD,PARAMETER,LOCAL_VARIABLE,FIELD})
 public @interface NonNull {
 }

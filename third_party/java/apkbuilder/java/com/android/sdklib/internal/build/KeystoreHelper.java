@@ -77,7 +77,7 @@ public final class KeystoreHelper {
 
         String javaHome = System.getProperty("java.home");
 
-        if (javaHome != null && javaHome.length() > 0) {
+        if (javaHome != null && !javaHome.isEmpty()) {
             keytoolCommand = javaHome + File.separator + "bin" + File.separator + keytoolCommand;
         }
 

@@ -13,17 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.builder.core.VariantType;
+import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-
-import com.android.builder.core.VariantConfiguration.Type;
-import com.android.sdklib.repository.FullRevision;
-
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -32,15 +29,15 @@ import javax.annotation.Nullable;
  */
 class AaptCommandBuilder {
   private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
-  private FullRevision buildToolsVersion;
-  private Type variantType;
+  private Revision buildToolsVersion;
+  private VariantType variantType;
 
   public AaptCommandBuilder(Path aapt) {
     flags.add(aapt.toString());
   }
 
   /** Sets the build tools version to be used for {@link #whenVersionIsAtLeast}. */
-  AaptCommandBuilder forBuildToolsVersion(@Nullable FullRevision buildToolsVersion) {
+  AaptCommandBuilder forBuildToolsVersion(@Nullable Revision buildToolsVersion) {
     Preconditions.checkState(
         this.buildToolsVersion == null, "A build tools version was already specified.");
     this.buildToolsVersion = buildToolsVersion;
@@ -48,7 +45,7 @@ class AaptCommandBuilder {
   }
 
   /** Sets the variant type to be used for {@link #whenVariantIs}. */
-  AaptCommandBuilder forVariantType(Type variantType) {
+  AaptCommandBuilder forVariantType(VariantType variantType) {
     Preconditions.checkNotNull(variantType);
     Preconditions.checkState(this.variantType == null, "A variant type was already specified.");
     this.variantType = variantType;
@@ -117,16 +114,16 @@ class AaptCommandBuilder {
   }
 
   /** Adds the next flag to the builder only if the variant type is the passed-in type. */
-  public ConditionalAaptCommandBuilder whenVariantIs(Type type) {
-    Preconditions.checkNotNull(type);
-    return when(variantType == type);
+  public ConditionalAaptCommandBuilder whenVariantIs(VariantType variantType) {
+    Preconditions.checkNotNull(variantType);
+    return when(this.variantType == variantType);
   }
 
   /**
    * Adds the next flag to the builder only if the build tools version is unspecified or is
    * greater than or equal to the given version.
    */
-  public ConditionalAaptCommandBuilder whenVersionIsAtLeast(FullRevision requiredVersion) {
+  public ConditionalAaptCommandBuilder whenVersionIsAtLeast(Revision requiredVersion) {
     Preconditions.checkNotNull(requiredVersion);
     return when(buildToolsVersion == null || buildToolsVersion.compareTo(requiredVersion) >= 0);
   }

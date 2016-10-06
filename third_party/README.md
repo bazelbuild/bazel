@@ -11,7 +11,7 @@ a minimal set of extra dependencies.
 
 ## [android_common](http://mvnrepository.com/artifact/com.android.tools/sdk-common)
 
-* Version: 22.8.4
+* Version: 25.0.0
 * License: Apache License 2.0.
 
 
@@ -64,16 +64,10 @@ a minimal set of extra dependencies.
 
 ## apkbuilder
 
-* [apkbuilder](http://search.maven.org/remotecontent?filepath=com/android/tools/sdklib/22.8.4/sdklib-22.8.4-sources.jar)
-* [android common](http://search.maven.org/remotecontent?filepath=com/android/tools/sdk-common/22.8.4/sdk-common-22.8.4-sources.jar)
-* Version: 22.8.4
+* [apkbuilder](http://search.maven.org/remotecontent?filepath=com/android/tools/sdklib/25.0.0/sdklib-25.0.0-sources.jar)
+* [android common](http://search.maven.org/remotecontent?filepath=com/android/tools/sdk-common/25.0.0/sdk-common-25.0.0-sources.jar)
+* Version: 25.0.0
 * License: Apache License 2.0.
-
-
-## apksigner
-
-* [apksig](https://android.googlesource.com/platform/tools/apksig)
-* License: Apache License 2.0
 
 
 ## [asm](https://asm.ow2.org)

@@ -120,7 +120,7 @@ public class SignedJarBuilder {
          * This is typically thrown by implementations of
          * {@link IZipEntryFilter#checkEntry(String)}.
          */
-        public static class ZipAbortException extends Exception {
+        class ZipAbortException extends Exception {
             private static final long serialVersionUID = 1L;
 
             public ZipAbortException() {
@@ -147,7 +147,7 @@ public class SignedJarBuilder {
          * @return <code>true</code> if the file should be included.
          * @throws ZipAbortException if writing the file should be aborted.
          */
-        public boolean checkEntry(String archivePath) throws ZipAbortException;
+        boolean checkEntry(String archivePath) throws ZipAbortException;
     }
 
     /**
