@@ -72,7 +72,8 @@ public interface OutputService {
    * @param buildSuccessful iff build was successful
    * @throws BuildFailedException on failure
    */
-  void finalizeBuild(boolean buildSuccessful) throws BuildFailedException, AbruptExitException;
+  void finalizeBuild(boolean buildSuccessful)
+      throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, MetadataHandler metadataHandler)
