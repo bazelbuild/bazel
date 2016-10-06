@@ -221,10 +221,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--command_port")) != NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
-        command_port < -1 || command_port > 65535) {
+        command_port < 0 || command_port > 65535) {
       blaze_util::StringPrintf(error,
-          "Invalid argument to --command_port: '%s'. "
-          "Must be a valid port number or -1 to disable the gRPC server.\n",
+          "Invalid argument to --command_port: '%s'.\n"
+          "Must be a valid port number or 0.\n",
           value);
       return blaze_exit_code::BAD_ARGV;
     }

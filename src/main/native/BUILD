@@ -36,7 +36,6 @@ filegroup(
 cc_binary(
     name = "libunix.so",
     srcs = [
-        "localsocket.cc",
         "macros.h",
         "process.cc",
         "unix_jni.cc",

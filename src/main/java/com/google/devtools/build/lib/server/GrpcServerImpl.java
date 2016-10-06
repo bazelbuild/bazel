@@ -46,6 +46,8 @@ import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
@@ -96,7 +98,7 @@ import javax.annotation.concurrent.GuardedBy;
  * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
  * which results in the main thread of the command being interrupted.
  */
-public class GrpcServerImpl extends RPCServer {
+public class GrpcServerImpl implements RPCServer {
   private static final Logger log = Logger.getLogger(GrpcServerImpl.class.getName());
 
   // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
@@ -421,6 +423,8 @@ public class GrpcServerImpl extends RPCServer {
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
 
+  private static final AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
+
   @GuardedBy("runningCommands")
   private final Map<String, RunningCommand> runningCommands = new HashMap<>();
   private final CommandExecutor commandExecutor;
@@ -439,7 +443,14 @@ public class GrpcServerImpl extends RPCServer {
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
       Path serverDirectory, int maxIdleSeconds) throws IOException {
-    super(serverDirectory);
+    // server.pid was written in the C++ launcher after fork() but before exec() .
+    // The client only accesses the pid file after connecting to the socket
+    // which ensures that it gets the correct pid value.
+    Path pidFile = serverDirectory.getRelative("server.pid.txt");
+    Path pidSymlink = serverDirectory.getRelative("server.pid");
+    deleteAtExit(pidFile, /*deleteParent=*/ false);
+    deleteAtExit(pidSymlink, /*deleteParent=*/ false);
+
     this.commandExecutor = commandExecutor;
     this.clock = clock;
     this.serverDirectory = serverDirectory;
@@ -608,6 +619,46 @@ public class GrpcServerImpl extends RPCServer {
     Path file = serverDirectory.getChild(name);
     FileSystemUtils.writeContentAsLatin1(file, contents);
     deleteAtExit(file, false);
+  }
+
+  protected void disableShutdownHooks() {
+    runShutdownHooks.set(false);
+  }
+
+  /**
+   * Schedule the specified file for (attempted) deletion at JVM exit.
+   */
+  protected static void deleteAtExit(final Path path, final boolean deleteParent) {
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+        @Override
+        public void run() {
+          if (!runShutdownHooks.get()) {
+            return;
+          }
+
+          try {
+            path.delete();
+            if (deleteParent) {
+              path.getParentDirectory().delete();
+            }
+          } catch (IOException e) {
+            printStack(e);
+          }
+        }
+      });
+  }
+
+  static void printStack(IOException e) {
+    /*
+     * Hopefully this never happens. It's not very nice to just write this
+     * to the user's console, but I'm not sure what better choice we have.
+     */
+    StringWriter err = new StringWriter();
+    PrintWriter printErr = new PrintWriter(err);
+    printErr.println("=======[BLAZE SERVER: ENCOUNTERED IO EXCEPTION]=======");
+    e.printStackTrace(printErr);
+    printErr.println("=====================================================");
+    log.severe(err.toString());
   }
 
   private void executeCommand(
