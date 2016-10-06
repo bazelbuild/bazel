@@ -86,6 +86,14 @@ public class CppLinkActionBuilder {
   public static final String WHOLE_ARCHIVE_LINKER_INPUT_PARAMS_VARIABLE =
       "whole_archive_linker_params";
 
+  /**
+   * A build variable for flags providing object files from libraries that were supposed to go in a
+   * -whole_archive block. Old MSVC linker doesn't support /WHOLEARCHIVE:[LIB] option, so we link
+   * object files directly as a workaround.
+   */
+  public static final String WHOLE_ARCHIVE_OBJECT_FILES_PARAMS_VARIABLE =
+      "whole_archive_object_files_params";
+
   /** A build variable whose presence indicates that whole archive flags should be applied. */
   public static final String GLOBAL_WHOLE_ARCHIVE_VARIABLE = "global_whole_archive";
 
@@ -1120,6 +1128,7 @@ public class CppLinkActionBuilder {
     Set<String> libopts;
     List<String> linkerInputParams;
     List<String> wholeArchiveLinkerInputParams;
+    List<String> wholeArchiveObjectFilesParams;
     List<String> noWholeArchiveInputs;
 
     public void setRpathRoot(String rPathRoot) {
@@ -1140,6 +1149,10 @@ public class CppLinkActionBuilder {
 
     public void setWholeArchiveLinkerInputParams(List<String> wholeArchiveInputParams) {
       this.wholeArchiveLinkerInputParams = wholeArchiveInputParams;
+    }
+
+    public void setWholeArchiveObjectFilesParams(List<String> wholeArchiveObjectFilesParams) {
+      this.wholeArchiveObjectFilesParams = wholeArchiveObjectFilesParams;
     }
 
     public void setNoWholeArchiveInputs(List<String> noWholeArchiveInputs) {
@@ -1164,6 +1177,10 @@ public class CppLinkActionBuilder {
 
     public List<String> getWholeArchiveLinkerInputParams() {
       return wholeArchiveLinkerInputParams;
+    }
+
+    public List<String> getWholeArchiveObjectFilesParams() {
+      return wholeArchiveObjectFilesParams;
     }
 
     public List<String> getNoWholeArchiveInputs() {
@@ -1253,6 +1270,9 @@ public class CppLinkActionBuilder {
       buildVariables.addSequenceVariable(
           WHOLE_ARCHIVE_LINKER_INPUT_PARAMS_VARIABLE,
           linkArgCollector.getWholeArchiveLinkerInputParams());
+      buildVariables.addSequenceVariable(
+          WHOLE_ARCHIVE_OBJECT_FILES_PARAMS_VARIABLE,
+          linkArgCollector.getWholeArchiveObjectFilesParams());
 
       // global archive
       if (needWholeArchive) {
@@ -1417,6 +1437,7 @@ public class CppLinkActionBuilder {
       }
 
       List<String> wholeArchiveInputParams = new ArrayList<>();
+      List<String> wholeArchiveObjectFilesParams = new ArrayList<>();
       List<String> standardArchiveInputParams = new ArrayList<>();
 
       for (LinkerInput input : linkerInputs) {
@@ -1434,7 +1455,11 @@ public class CppLinkActionBuilder {
               input, standardArchiveInputParams, libOpts, solibDir, rpathRoot);
         } else {
           addStaticInputLinkOptions(
-              input, wholeArchiveInputParams, standardArchiveInputParams, ltoMap);
+              input,
+              wholeArchiveInputParams,
+              wholeArchiveObjectFilesParams,
+              standardArchiveInputParams,
+              ltoMap);
         }
       }
 
@@ -1454,8 +1479,10 @@ public class CppLinkActionBuilder {
           includeRuntimeSolibDir = true;
           addDynamicInputLinkOptions(input, optionsList, libOpts, solibDir, rpathRoot);
         } else {
-          addStaticInputLinkOptions(input,
+          addStaticInputLinkOptions(
+              input,
               needWholeArchive ? noWholeArchiveInputs : wholeArchiveInputParams,
+              needWholeArchive ? null : wholeArchiveObjectFilesParams,
               needWholeArchive ? noWholeArchiveInputs : standardArchiveInputParams,
               ltoMap);
         }
@@ -1476,6 +1503,7 @@ public class CppLinkActionBuilder {
 
       linkArgCollector.setLinkerInputParams(standardArchiveInputParams);
       linkArgCollector.setWholeArchiveLinkerInputParams(wholeArchiveInputParams);
+      linkArgCollector.setWholeArchiveObjectFilesParams(wholeArchiveObjectFilesParams);
       linkArgCollector.setNoWholeArchiveInputs(noWholeArchiveInputs);
 
       if (ltoMap != null) {
@@ -1530,7 +1558,10 @@ public class CppLinkActionBuilder {
      *     be supplied for LTO final links.
      */
     private void addStaticInputLinkOptions(
-        LinkerInput input, List<String> wholeArchiveOptions, List<String> standardOptions,
+        LinkerInput input,
+        List<String> wholeArchiveOptions,
+        List<String> wholeArchiveObjectFilesOptions,
+        List<String> standardOptions,
         @Nullable Map<Artifact, Artifact> ltoMap) {
       Preconditions.checkState(!(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY));
       // If we had any LTO artifacts, ltoMap whould be non-null. In that case,
@@ -1575,10 +1606,19 @@ public class CppLinkActionBuilder {
           return;
         }
 
-        if (input.isFake()) {
-          options.add(Link.FAKE_OBJECT_PREFIX + inputArtifact.getExecPathString());
-        } else {
-          options.add(inputArtifact.getExecPathString());
+        final String fakePrefix = input.isFake() ? Link.FAKE_OBJECT_PREFIX : "";
+
+        options.add(fakePrefix + inputArtifact.getExecPathString());
+
+        if (input.containsObjectFiles() && inputNeedsWholeArchive(input)) {
+          for (Artifact objectFile : input.getObjectFiles()) {
+            if (ltoMap != null && ltoMap.remove(objectFile) != null) {
+              // The LTO artifacts that should be included in the final link
+              // are listed in the linkerParamsFile.
+              continue;
+            }
+            wholeArchiveObjectFilesOptions.add(fakePrefix + objectFile.getExecPathString());
+          }
         }
       }
     }

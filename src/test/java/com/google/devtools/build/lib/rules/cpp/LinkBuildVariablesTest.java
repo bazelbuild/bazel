@@ -160,4 +160,9 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     assertThat(wholeArchiveInputVariableValue).isEmpty();
     ;
   }
+
+  /**
+   * TODO(pcloudy): Add test for testing that necessary build variables are populated
+   * when alwayslink=1.
+   */
 }
