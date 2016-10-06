@@ -288,37 +288,31 @@ def build_java_rule_ide_info(target, ctx):
 
   jdeps = artifact_location(target.java.outputs.jdeps)
 
-  java_sources, gen_java_sources = java_sources_for_package_manifest(ctx)
+  java_sources = java_sources_for_package_manifest(ctx)
 
   package_manifest = None
+  filtered_gen_jar = None
   if java_sources:
     package_manifest = build_java_package_manifest(ctx, target, java_sources, ".manifest")
     ide_info_files = ide_info_files | set([package_manifest])
 
-  filtered_gen_jar = None
-  if java_sources and gen_java_sources:
-    gen_package_manifest = build_java_package_manifest(
-        ctx,
-        target,
-        gen_java_sources,
-        "-filtered-gen.manifest"
-    )
-    jar_artifacts = []
-    for jar in target.java.outputs.jars:
-      if jar.ijar:
-        jar_artifacts.append(jar.ijar)
-      elif jar.class_jar:
-        jar_artifacts.append(jar.class_jar)
-    filtered_gen_jar_artifact = build_filtered_gen_jar(
-        ctx,
-        target,
-        jar_artifacts,
-        gen_package_manifest
-    )
-    ide_resolve_files = ide_resolve_files | set([filtered_gen_jar_artifact])
-    filtered_gen_jar = struct(
-        jar=artifact_location(filtered_gen_jar_artifact),
-    )
+    if has_generated_sources(ctx):
+      jar_artifacts = []
+      for jar in target.java.outputs.jars:
+        if jar.ijar:
+          jar_artifacts.append(jar.ijar)
+        elif jar.class_jar:
+          jar_artifacts.append(jar.class_jar)
+      filtered_gen_jar_artifact = build_filtered_gen_jar(
+          ctx,
+          target,
+          jar_artifacts,
+          package_manifest
+      )
+      ide_resolve_files = ide_resolve_files | set([filtered_gen_jar_artifact])
+      filtered_gen_jar = struct(
+          jar=artifact_location(filtered_gen_jar_artifact),
+      )
 
   java_rule_ide_info = struct_omit_none(
       sources = sources,
@@ -353,13 +347,14 @@ def build_java_package_manifest(ctx, target, source_files, suffix):
   return output
 
 def build_filtered_gen_jar(ctx, target, jars, manifest):
-  """Filters the passed jar to contain only classes from the given manifest."""
+  """Filters the passed jar to contain classes that are not in the given manifest."""
   output = ctx.new_file(target.label.name + "-filtered-gen.jar")
   args = []
   args += ["--jars"]
   args += [":".join([jar.path for jar in jars])]
   args += ["--manifest", manifest.path]
   args += ["--output", output.path]
+  args += ["--mode", "keep_all_except"]
   ctx.action(
       inputs = jars + [manifest],
       outputs = [output],
@@ -376,10 +371,20 @@ def java_sources_for_package_manifest(ctx):
   if hasattr(ctx.rule.attr, "srcs"):
     srcs = ctx.rule.attr.srcs
     all_java_sources = [f for src in srcs for f in src.files if f.basename.endswith(".java")]
-    java_sources = [f for f in all_java_sources if f.is_source]
-    gen_java_sources = [f for f in all_java_sources if not f.is_source]
-    return java_sources, gen_java_sources
-  return [], []
+    return [f for f in all_java_sources if f.is_source]
+  return []
+
+def has_generated_sources(ctx):
+  """Checks whether there are any generated sources."""
+  if hasattr(ctx.rule.attr, "srcs"):
+    srcs = ctx.rule.attr.srcs
+    files = [f for src in srcs for f in src.files]
+    for f in files:
+      if f.basename.endswith(".java") and not f.is_source:
+        return True
+      if f.basename.endswith(".srcjar"):
+        return True
+  return False
 
 def build_android_rule_ide_info(target, ctx, legacy_resource_label):
   """Build AndroidRuleIdeInfo.

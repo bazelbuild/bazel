@@ -42,34 +42,53 @@ import java.util.zip.ZipOutputStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/**
- * Filters a jar, keeping only the classes that are contained
- * in the supplied package manifest.
- */
+/** Filters a jar, using the supplied package manifest to keep or exclude classes. */
 public final class JarFilter {
 
   /** The options for a {@JarFilter} action. */
   public static final class JarFilterOptions extends OptionsBase {
-    @Option(name = "jars",
-        defaultValue = "null",
-        converter = PathListConverter.class,
-        category = "input",
-        help = "A list of the paths to jars to filter for generated sources.")
+    @Option(
+      name = "jars",
+      defaultValue = "null",
+      converter = PathListConverter.class,
+      category = "input",
+      help = "A list of the paths to jars to filter for generated sources."
+    )
     public List<Path> jars;
 
-    @Option(name = "manifest",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "input",
-        help = "The path to a package manifest generated only from generated sources.")
+    @Option(
+      name = "manifest",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      help = "The path to a package manifest containing sources to filter (see mode)."
+    )
     public Path manifest;
 
-    @Option(name = "output",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "The path to the jar to output.")
+    @Option(
+      name = "mode",
+      defaultValue = "",
+      category = "input",
+      help =
+          "How the filter will operate. "
+              + "'keep_only': Keep only classes that appear in the package manifest. "
+              + "'keep_all_except': Keep all classes except those in the package manifest."
+    )
+    public String mode;
+
+    @Option(
+      name = "output",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      help = "The path to the jar to output."
+    )
     public Path output;
+  }
+
+  enum Mode {
+    KEEP_ONLY,
+    KEEP_ALL_EXCEPT,
   }
 
   private static final Logger logger = Logger.getLogger(JarFilter.class.getName());
@@ -80,9 +99,11 @@ public final class JarFilter {
     Preconditions.checkNotNull(options.manifest);
     Preconditions.checkNotNull(options.output);
 
+    Mode mode = parseMode(options.mode);
+
     try {
       List<String> archiveFileNamePrefixes = parsePackageManifest(options.manifest);
-      filterJars(options.jars, options.output, archiveFileNamePrefixes);
+      filterJars(options.jars, options.output, archiveFileNamePrefixes, mode);
     } catch (Throwable e) {
       logger.log(Level.SEVERE, "Error parsing package strings", e);
       System.exit(1);
@@ -110,19 +131,37 @@ public final class JarFilter {
     }
   }
 
-  private static void filterJars(List<Path> jars, Path output,
-      List<String> archiveFileNamePrefixes) throws IOException {
+  private static Mode parseMode(String mode) {
+    switch (mode) {
+      case "keep_only":
+        return Mode.KEEP_ONLY;
+      case "keep_all_except":
+        return Mode.KEEP_ALL_EXCEPT;
+      case "":
+        return Mode.KEEP_ONLY;
+      default:
+        String message = String.format("No such mode '%s'", mode);
+        System.err.println("Error parsing command line: " + message);
+        System.err.println("Try --help.");
+        System.exit(2);
+        return null;
+    }
+  }
+
+  private static void filterJars(
+      List<Path> jars, Path output, List<String> archiveFileNamePrefixes, Mode mode)
+      throws IOException {
     final int bufferSize = 8 * 1024;
     byte[] buffer = new byte[bufferSize];
 
-    try (ZipOutputStream outputStream = new ZipOutputStream(
-        new FileOutputStream(output.toFile()))) {
+    try (ZipOutputStream outputStream =
+        new ZipOutputStream(new FileOutputStream(output.toFile()))) {
       for (Path jar : jars) {
         try (ZipFile sourceZipFile = new ZipFile(jar.toFile())) {
           Enumeration<? extends ZipEntry> entries = sourceZipFile.entries();
           while (entries.hasMoreElements()) {
             ZipEntry entry = entries.nextElement();
-            if (!shouldKeep(archiveFileNamePrefixes, entry.getName())) {
+            if (!shouldKeep(archiveFileNamePrefixes, entry.getName(), mode)) {
               continue;
             }
 
@@ -141,7 +180,13 @@ public final class JarFilter {
   }
 
   @VisibleForTesting
-  static boolean shouldKeep(List<String> archiveFileNamePrefixes, String name) {
+  static boolean shouldKeep(List<String> archiveFileNamePrefixes, String name, Mode mode) {
+    return name.endsWith(".class")
+        && (nameInManifest(archiveFileNamePrefixes, name) ^ (mode == Mode.KEEP_ALL_EXCEPT));
+  }
+
+  @VisibleForTesting
+  static boolean nameInManifest(List<String> archiveFileNamePrefixes, String name) {
     for (String archiveFileNamePrefix : archiveFileNamePrefixes) {
       if (name.startsWith(archiveFileNamePrefix)
           && name.length() > archiveFileNamePrefix.length()) {
@@ -163,12 +208,9 @@ public final class JarFilter {
   }
 
   /**
-   * Reads the package manifest and computes a list of the expected jar archive
-   * file names.
+   * Reads the package manifest and computes a list of the expected jar archive file names.
    *
-   * Eg.:
-   * file java/com/google/foo/Foo.java, package com.google.foo ->
-   * com/google/foo/Foo
+   * <p>Eg.: file java/com/google/foo/Foo.java, package com.google.foo -> com/google/foo/Foo
    */
   @VisibleForTesting
   static List<String> parsePackageManifest(PackageManifest packageManifest) {
@@ -183,12 +225,12 @@ public final class JarFilter {
   }
 
   @Nullable
-  private static String getArchiveFileNamePrefix(ArtifactLocation artifactLocation,
-      String packageString) {
+  private static String getArchiveFileNamePrefix(
+      ArtifactLocation artifactLocation, String packageString) {
     String relativePath = artifactLocation.getRelativePath();
     int lastSlashIndex = relativePath.lastIndexOf('/');
-    String fileName = lastSlashIndex != -1
-        ? relativePath.substring(lastSlashIndex + 1) : relativePath;
+    String fileName =
+        lastSlashIndex != -1 ? relativePath.substring(lastSlashIndex + 1) : relativePath;
     String className = fileName.substring(0, fileName.length() - ".java".length());
     return packageString.replace('.', '/') + '/' + className;
   }
