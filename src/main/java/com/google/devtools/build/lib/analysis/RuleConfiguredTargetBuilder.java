@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
@@ -293,6 +292,13 @@ public final class RuleConfiguredTargetBuilder {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
     }
+    skylarkDeclaredProviders.put(constructor.getKey(), provider);
+    return this;
+  }
+
+  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(SkylarkClassObject provider) {
+    SkylarkClassObjectConstructor constructor = provider.getConstructor();
+    Preconditions.checkState(constructor.isExported());
     skylarkDeclaredProviders.put(constructor.getKey(), provider);
     return this;
   }

@@ -41,7 +41,7 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
    * "struct" function.
    */
   public static final SkylarkClassObjectConstructor STRUCT =
-      createNative("struct");
+      createNativeConstructable("struct");
 
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -50,21 +50,38 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   @Nullable
   private Key key;
 
+  /**
+   * Some native declared providers are not constructable from Skylark.
+   */
+  private final boolean isConstructable;
+
   private SkylarkClassObjectConstructor(String name, Location location) {
     super(name, SIGNATURE, location);
+    // All Skylark-defined declared providers are constructable.
+    this.isConstructable = true;
   }
 
-  private SkylarkClassObjectConstructor(String name) {
-    this(name, Location.BUILTIN);
-    key = new NativeKey();
+  private SkylarkClassObjectConstructor(String name, boolean isConstructable) {
+    super(name, SIGNATURE, Location.BUILTIN);
+    this.key = new NativeKey();
+    this.isConstructable = isConstructable;
   }
 
   /**
    * Create a native Declared Provider ({@link SkylarkClassObject} constructor)
    */
   public static SkylarkClassObjectConstructor createNative(String name) {
-    return new SkylarkClassObjectConstructor(name);
+    return new SkylarkClassObjectConstructor(name, false);
   }
+
+  /**
+   * Create a native Declared Provider ({@link SkylarkClassObject} constructor)
+   * that can be constructed from Skylark.
+   */
+  public static SkylarkClassObjectConstructor createNativeConstructable(String name) {
+    return new SkylarkClassObjectConstructor(name, true);
+  }
+
 
   /**
    * Create a Skylark-defined Declared Provider ({@link SkylarkClassObject} constructor)
@@ -78,6 +95,11 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   @Override
   protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
       throws EvalException, InterruptedException {
+    if (!isConstructable) {
+      Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
+      throw new EvalException(loc,
+          String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
+    }
     @SuppressWarnings("unchecked")
     Map<String, Object> kwargs = (Map<String, Object>) args[0];
     return new SkylarkClassObject(this, kwargs, ast != null ? ast.getLocation() : Location.BUILTIN);

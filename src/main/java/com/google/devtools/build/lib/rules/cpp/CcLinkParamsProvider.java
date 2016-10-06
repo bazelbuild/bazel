@@ -15,16 +15,20 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
 
-/**
- * A target that provides C linker parameters.
- */
+/** A target that provides C linker parameters. */
 @Immutable
-public final class CcLinkParamsProvider implements TransitiveInfoProvider {
+public final class CcLinkParamsProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider {
+  public static final SkylarkClassObjectConstructor CC_LINK_PARAMS =
+      SkylarkClassObjectConstructor.createNative("link_params");
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
       new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
         @Override
@@ -38,6 +42,7 @@ public final class CcLinkParamsProvider implements TransitiveInfoProvider {
   private final CcLinkParamsStoreImpl store;
 
   public CcLinkParamsProvider(CcLinkParamsStore store) {
+    super(CC_LINK_PARAMS, ImmutableMap.<String, Object>of());
     this.store = new CcLinkParamsStoreImpl(store);
   }
 
