@@ -602,13 +602,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Action getGeneratingAction(ConfiguredTarget target, String outputName) {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
+    return getGeneratingAction(outputName, filesToBuild, "filesToBuild");
+  }
+
+  private Action getGeneratingAction(
+      String outputName, NestedSet<Artifact> filesToBuild, String providerName) {
     Artifact artifact = Iterables.find(filesToBuild, artifactNamed(outputName), null);
     if (artifact == null) {
       fail(
           String.format(
-              "Artifact named '%s' not found in filesToBuild (%s)", outputName, filesToBuild));
+              "Artifact named '%s' not found in %s (%s)", outputName, providerName, filesToBuild));
     }
     return getGeneratingAction(artifact);
+  }
+
+  protected Action getGeneratingActionInOutputGroup(
+      ConfiguredTarget target, String outputName, String outputGroupName) {
+    NestedSet<Artifact> outputGroup =
+        target.getProvider(OutputGroupProvider.class).getOutputGroup(outputGroupName);
+    return getGeneratingAction(outputName, outputGroup, "outputGroup/" + outputGroupName);
   }
 
   /**
