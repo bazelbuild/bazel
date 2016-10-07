@@ -934,7 +934,7 @@ public final class Environment implements Freezable {
       valid.validateAst(result.statements, eventHandler);
       statements = result.statements;
     } else {
-      statements = Parser.parseFile(input, eventHandler, /*parsePython=*/false).statements;
+      statements = Parser.parseFile(input, eventHandler).statements;
     }
     // Force the validation of imports
     BuildFileAST.fetchLoads(statements, eventHandler);

@@ -253,12 +253,12 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseBuildFile(ParserInputSource input,
                                             List<Statement> preludeStatements,
                                             EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler, false);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(preludeStatements, result, /*contentHashCode=*/ null, eventHandler);
   }
 
   public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler, false);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(ImmutableList.<Statement>of(), result, /*contentHashCode=*/ null, eventHandler);
   }
 
@@ -322,7 +322,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
     ParserInputSource input = ParserInputSource.create(str, null);
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler, false);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(ImmutableList.<Statement>of(), result, null, eventHandler);
   }
 
@@ -339,9 +339,8 @@ public class BuildFileAST extends ASTNode {
    *
    * @return true if the input file is syntactically valid
    */
-  public static boolean checkSyntax(
-      ParserInputSource input, EventHandler eventHandler, boolean parsePython) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler, parsePython);
+  public static boolean checkSyntax(ParserInputSource input, EventHandler eventHandler) {
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return !result.containsErrors;
   }
 

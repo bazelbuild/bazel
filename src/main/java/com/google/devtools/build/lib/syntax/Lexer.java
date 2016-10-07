@@ -91,19 +91,16 @@ public final class Lexer {
 
   private boolean containsErrors;
 
-  private boolean parsePython;
-
   /**
-   * Constructs a lexer which tokenizes the contents of the specified
-   * InputBuffer. Any errors during lexing are reported on "handler".
+   * Constructs a lexer which tokenizes the contents of the specified InputBuffer. Any errors during
+   * lexing are reported on "handler".
    */
-  public Lexer(ParserInputSource input, EventHandler eventHandler, boolean parsePython,
-      LineNumberTable lineNumberTable) {
+  public Lexer(
+      ParserInputSource input, EventHandler eventHandler, LineNumberTable lineNumberTable) {
     this.buffer = input.getContent();
     // Empirical measurements show roughly 1 token per 8 characters in buffer.
     this.tokens = Lists.newArrayListWithExpectedSize(buffer.length / 8);
     this.pos = 0;
-    this.parsePython = parsePython;
     this.eventHandler = eventHandler;
     this.locationInfo = new LocationInfo(input.getPath(), lineNumberTable);
 
@@ -114,13 +111,7 @@ public final class Lexer {
   }
 
   public Lexer(ParserInputSource input, EventHandler eventHandler) {
-    this(input, eventHandler, /*parsePython=*/false,
-        LineNumberTable.create(input.getContent(), input.getPath()));
-  }
-
-  public Lexer(ParserInputSource input, EventHandler eventHandler, boolean parsePython) {
-    this(input, eventHandler, parsePython,
-        LineNumberTable.create(input.getContent(), input.getPath()));
+    this(input, eventHandler, LineNumberTable.create(input.getContent(), input.getPath()));
   }
 
   /**
@@ -822,12 +813,7 @@ public final class Lexer {
         } else if (Character.isJavaIdentifierStart(c) && c != '$') {
           addToken(identifierOrKeyword());
         } else {
-          // Some characters in Python are not recognized in Blaze syntax (e.g. '!')
-          if (parsePython) {
-            addToken(new Token(TokenKind.ILLEGAL, pos - 1, pos, Character.toString(c)));
-          } else {
-            error("invalid character: '" + c + "'");
-          }
+          error("invalid character: '" + c + "'");
         }
         break;
       } // default

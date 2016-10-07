@@ -20,7 +20,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
@@ -56,14 +55,6 @@ public class ParserTest extends EvaluationTestCase {
   @Override
   protected List<Statement> parseFile(String... input) {
     return parseFileWithComments(input).getStatements();
-  }
-
-  /** Parses a build code (not Skylark) with PythonProcessing enabled */
-  private List<Statement> parseFileWithPython(String... input) {
-    return Parser.parseFile(
-        ParserInputSource.create(Joiner.on("\n").join(input), null),
-        getEventHandler(),
-        /*parsePython=*/true).statements;
   }
 
   /** Parses Skylark code */
@@ -902,82 +893,11 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testFunctionDefinitionIgnoredEvenWithUnsupportedKeyword() throws Exception {
-    // Parser skips over entire function definitions without reporting error,
-    // when parsePython is set to true.
-    List<Statement> stmts = parseFileWithPython(
-        "x = 1;",
-        "def foo(x, y, **z):",
-        "  try:",
-        "    x = 2",
-        "  with: pass",
-        "  return 2",
-        "x = 3");
-    assertThat(stmts).hasSize(2);
-  }
-
-  @Test
-  public void testFunctionDefinitionIgnored() throws Exception {
-    // Parser skips over entire function definitions without reporting error,
-    // when parsePython is set to true.
-    List<Statement> stmts = parseFileWithPython(
-        "x = 1;",
-        "def foo(x, y, **z):",
-        "  # a comment",
-        "  if true:",
-        "    x = 2",
-        "  foo(bar)",
-        "  return z",
-        "x = 3");
-    assertThat(stmts).hasSize(2);
-
-    stmts = parseFileWithPython(
-        "x = 1;",
-        "def foo(x, y, **z): return x",
-        "x = 3");
-    assertThat(stmts).hasSize(2);
-  }
-
-  @Test
-  public void testMissingBlock() throws Exception {
-    setFailFast(false);
-    List<Statement> stmts = parseFileWithPython(
-        "x = 1;",
-        "def foo(x):",
-        "x = 2;\n");
-    assertThat(stmts).hasSize(2);
-    assertContainsError("expected an indented block");
-  }
-
-  @Test
-  public void testInvalidDef() throws Exception {
-    setFailFast(false);
-    parseFileWithPython(
-        "x = 1;",
-        "def foo(x)",
-        "x = 2;\n");
-    assertContainsError("syntax error at 'EOF'");
-  }
-
-  @Test
   public void testDefSingleLine() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "def foo(): x = 1; y = 2\n");
     FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
     assertThat(stmt.getStatements()).hasSize(2);
-  }
-
-  @Test
-  public void testSkipIfBlock() throws Exception {
-    // Skip over 'if' blocks, when parsePython is set
-    List<Statement> stmts = parseFileWithPython(
-        "x = 1;",
-        "if x == 1:",
-        "  foo(x)",
-        "else:",
-        "  bar(x)",
-        "x = 3;\n");
-    assertThat(stmts).hasSize(2);
   }
 
   @Test

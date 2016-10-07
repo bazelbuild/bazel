@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.devtools.build.lib.syntax.Parser.ParsingMode.BUILD;
-import static com.google.devtools.build.lib.syntax.Parser.ParsingMode.PYTHON;
 import static com.google.devtools.build.lib.syntax.Parser.ParsingMode.SKYLARK;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -82,8 +81,6 @@ public class Parser {
     BUILD,
     /** Used for parsing .bzl files */
     SKYLARK,
-    /** Used for syntax checking, ignoring all Python blocks (e.g. def, class, try) */
-    PYTHON,
   }
 
   private static final EnumSet<TokenKind> STATEMENT_TERMINATOR_SET =
@@ -212,14 +209,12 @@ public class Parser {
   }
 
   /**
-   * Entry-point to parser that parses a build file with comments.  All errors
-   * encountered during parsing are reported via "reporter".
+   * Entry-point to parser that parses a build file with comments. All errors encountered during
+   * parsing are reported via "reporter".
    */
-  public static ParseResult parseFile(
-      ParserInputSource input, EventHandler eventHandler, boolean parsePython) {
-    Lexer lexer = new Lexer(input, eventHandler, parsePython);
-    ParsingMode parsingMode = parsePython ? PYTHON : BUILD;
-    Parser parser = new Parser(lexer, eventHandler, parsingMode);
+  public static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
+    Lexer lexer = new Lexer(input, eventHandler);
+    Parser parser = new Parser(lexer, eventHandler, BUILD);
     List<Statement> statements = parser.parseFileInput();
     return new ParseResult(statements, parser.comments, locationFromStatements(lexer, statements),
         parser.errorsCount > 0 || lexer.containsErrors());
@@ -232,7 +227,7 @@ public class Parser {
    */
   public static ParseResult parseFileForSkylark(
       ParserInputSource input, EventHandler eventHandler) {
-    Lexer lexer = new Lexer(input, eventHandler, false);
+    Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler, SKYLARK);
     List<Statement> statements = parser.parseFileInput();
     return new ParseResult(
@@ -249,7 +244,7 @@ public class Parser {
    */
   @VisibleForTesting
   public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
-    Lexer lexer = new Lexer(input, eventHandler, false);
+    Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler, null);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {
@@ -345,7 +340,7 @@ public class Parser {
           TokenKind.TRY, TokenKind.WITH, TokenKind.WHILE, TokenKind.YIELD);
 
   private void checkForbiddenKeywords(Token token) {
-    if (parsingMode == PYTHON || !FORBIDDEN_KEYWORDS.contains(token.kind)) {
+    if (!FORBIDDEN_KEYWORDS.contains(token.kind)) {
       return;
     }
     String error;
@@ -1435,7 +1430,7 @@ public class Parser {
       reportError(
           lexer.createLocation(blockToken.left, blockToken.right),
           "syntax error at 'else': not allowed here.");
-    } else if (parsingMode != PYTHON) {
+    } else {
       String msg =
           ILLEGAL_BLOCK_KEYWORDS.containsKey(blockToken.kind)
               ? String.format("%ss are not supported.", ILLEGAL_BLOCK_KEYWORDS.get(blockToken.kind))
