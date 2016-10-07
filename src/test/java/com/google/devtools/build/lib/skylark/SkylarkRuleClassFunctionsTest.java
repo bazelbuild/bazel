@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
@@ -229,7 +230,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Attribute attr =
         evalAttributeDefinition("attr.label_list(allow_files = True, providers = ['a', 'b'])")
             .build("a1");
-    assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"));
+    assertThat(attr.getMandatoryProvidersList())
+        .containsExactly(ImmutableSet.of(legacy("a"), legacy("b")));
+  }
+
+  private static SkylarkProviderIdentifier legacy(String legacyId) {
+    return SkylarkProviderIdentifier.forLegacy(legacyId);
   }
 
   @Test
@@ -238,8 +244,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         evalAttributeDefinition("attr.label_list(allow_files = True,"
             + " providers = [['a', 'b'], ['c']])")
             .build("a1");
-    assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"),
-        ImmutableSet.of("c"));
+    assertThat(attr.getMandatoryProvidersList()).containsExactly(
+        ImmutableSet.of(legacy("a"), legacy("b")),
+        ImmutableSet.of(legacy("c")));
   }
 
   @Test

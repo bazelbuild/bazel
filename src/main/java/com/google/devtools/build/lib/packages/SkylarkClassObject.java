@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** An implementation class of ClassObject for structs created in Skylark code. */
 @SkylarkModule(
@@ -126,6 +127,11 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   
   public SkylarkClassObjectConstructor getConstructor() {
     return constructor;
+  }
+
+  @Nullable
+  public Location getCreationLocOrNull() {
+    return creationLoc;
   }
 
   private static class StructConcatter implements Concatter {

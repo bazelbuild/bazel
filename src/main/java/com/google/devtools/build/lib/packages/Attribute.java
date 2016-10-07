@@ -434,8 +434,8 @@ public final class Attribute implements Comparable<Attribute> {
     private Predicate<AttributeMap> condition;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
-    private ImmutableList<ImmutableSet<String>> mandatoryProvidersList =
-        ImmutableList.<ImmutableSet<String>>of();
+    private ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList =
+        ImmutableList.<ImmutableSet<SkylarkProviderIdentifier>>of();
     private ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
         mandatoryNativeProvidersList = ImmutableList.of();
     private HashMap<String, RuleAspect<?>> aspects = new LinkedHashMap<>();
@@ -905,20 +905,35 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Sets a list of sets of mandatory Skylark providers. Every configured target occurring in
      * this label type attribute has to provide all the providers from one of those sets,
-     * otherwise an error is produced during the analysis phase.
+     * or be one of {@link #allowedRuleClasses}, otherwise an error is produced during
+     * the analysis phase.
      */
-    public Builder<TYPE> mandatoryProvidersList(Iterable<? extends Iterable<String>> providersList){
+    public Builder<TYPE> mandatoryProvidersList(
+        Iterable<? extends Iterable<SkylarkProviderIdentifier>> providersList){
       Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
-      ImmutableList.Builder<ImmutableSet<String>> listBuilder = ImmutableList.builder();
-      for (Iterable<String> providers : providersList) {
+      ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> listBuilder
+          = ImmutableList.builder();
+      for (Iterable<SkylarkProviderIdentifier> providers : providersList) {
         listBuilder.add(ImmutableSet.copyOf(providers));
       }
       this.mandatoryProvidersList = listBuilder.build();
       return this;
     }
 
-    public Builder<TYPE> mandatoryProviders(Iterable<String> providers) {
+    public Builder<TYPE> legacyMandatoryProviders(String... ids) {
+      return mandatoryProviders(
+          Iterables.transform(Arrays.asList(ids),
+              new Function<String, SkylarkProviderIdentifier>() {
+        @Override
+        public SkylarkProviderIdentifier apply(String s) {
+          Preconditions.checkNotNull(s);
+          return SkylarkProviderIdentifier.forLegacy(s);
+        }
+      }));
+    }
+
+    public Builder<TYPE> mandatoryProviders(Iterable<SkylarkProviderIdentifier> providers) {
       if (providers.iterator().hasNext()) {
         mandatoryProvidersList(ImmutableList.of(providers));
       }
@@ -1674,7 +1689,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final PredicateWithMessage<Object> allowedValues;
 
-  private final ImmutableList<ImmutableSet<String>> mandatoryProvidersList;
+  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList;
 
   private final ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
       mandatoryNativeProvidersList;
@@ -1710,7 +1725,7 @@ public final class Attribute implements Comparable<Attribute> {
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
-      ImmutableList<ImmutableSet<String>> mandatoryProvidersList,
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList,
       ImmutableList<ImmutableList<Class<? extends TransitiveInfoProvider>>>
           mandatoryNativeProvidersList,
       ImmutableList<RuleAspect<?>> aspects) {
@@ -1943,7 +1958,7 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns the list of sets of mandatory Skylark providers.
    */
-  public ImmutableList<ImmutableSet<String>> getMandatoryProvidersList() {
+  public ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> getMandatoryProvidersList() {
     return mandatoryProvidersList;
   }
 

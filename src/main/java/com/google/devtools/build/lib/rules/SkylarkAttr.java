@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -258,7 +260,7 @@ public final class SkylarkAttr {
         }
       }
       if (isSingleListOfStr) {
-        builder.mandatoryProviders(((SkylarkList<?>) obj).getContents(String.class, PROVIDERS_ARG));
+        builder.mandatoryProviders(getSkylarkProviderIdentifiers((SkylarkList<?>) obj));
       } else {
         builder.mandatoryProvidersList(getProvidersList((SkylarkList) obj));
       }
@@ -283,8 +285,20 @@ public final class SkylarkAttr {
     return builder;
   }
 
-  private static List<List<String>> getProvidersList(SkylarkList skylarkList) throws EvalException {
-    List<List<String>> providersList = new ArrayList<>();
+  private static Iterable<SkylarkProviderIdentifier> getSkylarkProviderIdentifiers(
+      SkylarkList<?> obj) throws EvalException {
+    return Iterables.transform(obj.getContents(String.class, PROVIDERS_ARG),
+        new Function<String, SkylarkProviderIdentifier>() {
+          @Override
+          public SkylarkProviderIdentifier apply(String s) {
+            return SkylarkProviderIdentifier.forLegacy(s);
+          }
+        });
+  }
+
+  private static List<Iterable<SkylarkProviderIdentifier>> getProvidersList(
+      SkylarkList<?> skylarkList) throws EvalException {
+    List<Iterable<SkylarkProviderIdentifier>> providersList = new ArrayList<>();
     String errorMsg = "Illegal argument: element in '%s' is of unexpected type. "
         + "Should be list of string, but got %s. "
         + "Notice: one single list of string as 'providers' is still supported.";
@@ -300,7 +314,7 @@ public final class SkylarkAttr {
                   + EvalUtils.getDataTypeNameFromClass(value.getClass())));
         }
       }
-      providersList.add(((SkylarkList<?>) o).getContents(String.class, PROVIDERS_ARG));
+      providersList.add(getSkylarkProviderIdentifiers((SkylarkList<?>) o));
     }
     return providersList;
   }

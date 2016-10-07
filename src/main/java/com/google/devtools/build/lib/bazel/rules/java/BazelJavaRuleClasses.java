@@ -41,7 +41,9 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -150,6 +152,8 @@ public class BazelJavaRuleClasses {
           .override(builder.copy("deps")
               .allowedFileTypes(JavaSemantics.JAR)
               .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
+              .mandatoryProviders(ImmutableList.of(
+                  SkylarkProviderIdentifier.forKey(CcLinkParamsProvider.CC_LINK_PARAMS.getKey())))
               .skipAnalysisTimeFileTypeCheck())
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(runtime_deps) -->
           Libraries to make available to the final binary or test at runtime only.

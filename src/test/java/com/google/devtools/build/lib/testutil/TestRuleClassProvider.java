@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.lang.reflect.Method;
 
 /**
@@ -97,8 +97,12 @@ public class TestRuleClassProvider {
       return builder
           .setUndocumented()
           .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-          .override(builder.copy("deps").mandatoryProvidersList(ImmutableList.of(
-              ImmutableList.of("a"), ImmutableList.of("b", "c"))))
+          .override(builder.copy("deps").mandatoryProvidersList(
+              ImmutableList.of(
+                ImmutableList.of(SkylarkProviderIdentifier.forLegacy("a")),
+                ImmutableList.of(
+                    SkylarkProviderIdentifier.forLegacy("b"),
+                    SkylarkProviderIdentifier.forLegacy("c")))))
           .build();
     }
 

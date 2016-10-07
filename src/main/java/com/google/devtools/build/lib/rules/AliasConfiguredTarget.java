@@ -27,6 +27,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -73,6 +76,18 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @Override
   public Object get(String providerKey) {
     return actual == null ? null : actual.get(providerKey);
+  }
+
+  @Nullable
+  @Override
+  public SkylarkClassObject get(Key providerKey) {
+    return actual == null ? null : actual.get(providerKey);
+  }
+
+  @Nullable
+  @Override
+  public Object get(SkylarkProviderIdentifier id) {
+    return actual == null ? null : actual.get(id);
   }
 
   @Override

@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -78,4 +81,20 @@ public interface TransitiveInfoCollection extends SkylarkIndexable {
    * The transitive information has to have been added using the Skylark framework.
    */
   @Nullable Object get(String providerKey);
+
+  /**
+   * Returns the declared provider requested, or null, if the information is not found.
+   * The transitive information has to have been added using the Skylark framework.
+   */
+  @Nullable SkylarkClassObject get(SkylarkClassObjectConstructor.Key providerKey);
+
+  /**
+   * Returns the provider defined in Skylark, or null, if the information is not found.
+   * The transitive information has to have been added using the Skylark framework.
+   *
+   * This method dispatches to either {@link #get(SkylarkClassObjectConstructor.Key)} or
+   * {@link #get(String)} depending on whether {@link SkylarkProviderIdentifier} is for
+   * legacy or for declared provider.
+   */
+  @Nullable Object get(SkylarkProviderIdentifier id);
 }

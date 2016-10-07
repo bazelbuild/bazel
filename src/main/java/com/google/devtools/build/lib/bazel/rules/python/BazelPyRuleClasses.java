@@ -59,7 +59,7 @@ public final class BazelPyRuleClasses {
           <a href="${link cc_library}"><code>cc_library</code></a> rules,
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
-              .mandatoryProviders(ImmutableList.of(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME))
+              .legacyMandatoryProviders(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)
               .allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
