@@ -21,10 +21,6 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -32,6 +28,8 @@ import java.util.EnumSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 /**
  * BlazeCommandEventHandler: an event handler established for the duration of a
@@ -169,6 +167,15 @@ public class BlazeCommandEventHandler implements EventHandler {
               + "This option has no effect unless --experimental_ui is set."
     )
     public int experimentalUiActionsShown;
+
+
+    @Option(
+      name = "experimental_build_event_text_file",
+      defaultValue = "",
+      category = "hidden",
+      help = "If non-empty, write a textual representation of the build event protocol to that file"
+    )
+    public String buildEventTextFile;
 
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
