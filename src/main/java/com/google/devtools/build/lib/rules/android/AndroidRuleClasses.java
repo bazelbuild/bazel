@@ -233,6 +233,7 @@ public final class AndroidRuleClasses {
             // getSplitPrerequisites() will complain if cpu is null after this transition,
             // so default to android_cpu.
             splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
+            splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
             setCrosstoolToAndroid(splitOptions, buildOptions);
             return ImmutableList.of(splitOptions);
           }
@@ -248,6 +249,7 @@ public final class AndroidRuleClasses {
             splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
             splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
             splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+            splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
             setCrosstoolToAndroid(splitOptions, buildOptions);
             result.add(splitOptions);
           }

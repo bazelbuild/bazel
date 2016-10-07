@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
+import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeFlag;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -262,6 +264,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       help = "The Android target compiler."
     )
     public String cppCompiler;
+
+    @Option(
+      name = "android_dynamic_mode",
+      defaultValue = "default",
+      converter = DynamicModeConverter.class,
+      category = "undocumented",
+      help =
+        "Determines whether C++ deps of Android rules will be linked dynamically when a cc_binary "
+            + "does not explicitly create a shared library. 'default' means blaze will choose "
+            + "whether to link dynamically.  'fully' means all libraries will be linked "
+            + "dynamically. 'off' means that all libraries will be linked in mostly static mode."
+    )
+    public DynamicModeFlag dynamicMode;
 
     @Option(name = "strict_android_deps",
         allowMultiple = false,
