@@ -147,10 +147,15 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Nullable
-  private FileArtifactValue getInputFileArtifactValue(ActionInput input) {
-    if (outputs.contains(input) || !(input instanceof Artifact)) {
+  private FileArtifactValue getInputFileArtifactValue(Artifact input) {
+    if (outputs.contains(input)) {
       return null;
     }
+
+    if (input.hasParent() && outputs.contains(input.getParent())) {
+      return null;
+    }
+
     return Preconditions.checkNotNull(inputArtifactData.get(input), input);
   }
 
@@ -396,6 +401,11 @@ public class ActionMetadataHandler implements MetadataHandler {
   public void addExpandedTreeOutput(TreeFileArtifact output) {
     Set<TreeFileArtifact> values = getTreeArtifactContents(output.getParent());
     values.add(output);
+  }
+
+  @Override
+  public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
+    return ImmutableSet.copyOf(getTreeArtifactContents(artifact));
   }
 
   @Override
