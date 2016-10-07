@@ -32,6 +32,7 @@ filegroup(
         "//third_party:arm": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
         "//third_party:freebsd": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
         "//third_party:s390x": ["protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe"],
+        "//third_party:ppc": ["protoc-gen-grpc-java-0.15.0-linux-ppc64le.exe"],
     }),
 )
 

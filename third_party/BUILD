@@ -530,3 +530,8 @@ config_setting(
     name = "s390x",
     values = {"host_cpu": "s390x"},
 )
+
+config_setting(
+    name = "ppc",
+    values = {"host_cpu": "ppc"},
+)

@@ -54,6 +54,10 @@ if [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_Z='yes'
 fi
 
+if [ "${MACHINE_TYPE}" = 'ppc64' -o "${MACHINE_TYPE}" = 'ppc64le' ]; then
+  MACHINE_IS_64BIT='yes'
+fi
+
 # Extension for executables.
 EXE_EXT=""
 case "${PLATFORM}" in
