@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
@@ -131,10 +132,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels();
   }
 
-  /**
-   * Converts a logical {@link Target} object into a {@link Build.Target} protobuffer.
-   */
-  protected Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
+  /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
+  @VisibleForTesting
+  public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
     String location = getLocation(target, relativeLocations);
