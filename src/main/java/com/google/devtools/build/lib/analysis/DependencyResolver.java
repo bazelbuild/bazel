@@ -65,12 +65,11 @@ public abstract class DependencyResolver {
   /**
    * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
    * dependencies do not have a corresponding attribute here, and we use the null attribute to
-   * represent those edges. Visibility attributes are only visited if {@code visitVisibility} is
-   * {@code true}.
+   * represent those edges.
    *
-   * <p>If {@code aspect} is null, returns the dependent nodes of the configured
-   * target node representing the given target and configuration, otherwise that of the aspect
-   * node accompanying the aforementioned configured target node for the specified aspect.
+   * <p>If {@code aspect} is null, returns the dependent nodes of the configured target node
+   * representing the given target and configuration, otherwise that of the aspect node accompanying
+   * the aforementioned configured target node for the specified aspect.
    *
    * <p>The values are not simply labels because this also implements the first step of applying
    * configuration transitions, namely, split transitions. This needs to be done before the labels
@@ -82,11 +81,10 @@ public abstract class DependencyResolver {
    * dependency.
    *
    * @param node the target/configuration being evaluated
-   * @param hostConfig the configuration this target would use if it was evaluated as a host
-   *     tool. This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
+   * @param hostConfig the configuration this target would use if it was evaluated as a host tool.
+   *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   *
    * @return a mapping of each attribute in this rule or aspect to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
@@ -107,12 +105,11 @@ public abstract class DependencyResolver {
   /**
    * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
    * dependencies do not have a corresponding attribute here, and we use the null attribute to
-   * represent those edges. Visibility attributes are only visited if {@code visitVisibility} is
-   * {@code true}.
+   * represent those edges.
    *
-   * <p>If {@code aspect} is null, returns the dependent nodes of the configured
-   * target node representing the given target and configuration, otherwise that of the aspect
-   * node accompanying the aforementioned configured target node for the specified aspect.
+   * <p>If {@code aspect} is null, returns the dependent nodes of the configured target node
+   * representing the given target and configuration, otherwise that of the aspect node accompanying
+   * the aforementioned configured target node for the specified aspect.
    *
    * <p>The values are not simply labels because this also implements the first step of applying
    * configuration transitions, namely, split transitions. This needs to be done before the labels
@@ -124,12 +121,11 @@ public abstract class DependencyResolver {
    * dependency.
    *
    * @param node the target/configuration being evaluated
-   * @param hostConfig the configuration this target would use if it was evaluated as a host
-   *     tool. This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
+   * @param hostConfig the configuration this target would use if it was evaluated as a host tool.
+   *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
-   *
    * @return a mapping of each attribute in this rule or aspect to its dependent nodes
    */
   public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
