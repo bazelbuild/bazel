@@ -3,14 +3,39 @@ layout: documentation
 title: Windows
 ---
 
-Building Bazel on Windows
-=========================
 
 Windows support is highly experimental. Known issues are [marked with
 label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
 on github issues.
 
 We currently support only 64 bit Windows 7 or higher and we compile Bazel as a msys2 binary.
+
+Using the release binary
+=========================
+
+Release binaries are available on our [GitHub release page](https://github.com/bazelbuild/bazel/releases).
+
+To run the binary you will need:
+
+*    Java JDK 8 or later
+*    [msys2](https://msys2.github.io/) (need to be installed at
+     ``C:\tools\msys64\``).
+
+Before you run the binary, you will need to set some environment
+variables:
+
+```bash
+export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
+export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
+```
+
+If you run outside of `bash`, ensure that ``msys-2.0.dll`` is in your ``PATH``
+(if you install msys2 to ``c:\tools\msys64``, just add
+``c:\tools\msys64\usr\bin`` to ``PATH``).
+
+
+Building Bazel on Windows
+=========================
 
 To bootstrap Bazel on Windows, you will need:
 
