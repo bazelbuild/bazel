@@ -1790,8 +1790,8 @@ public final class RuleContext extends TargetContext
     }
 
     private String getMissingMandatoryProviders(ConfiguredTarget prerequisite, Attribute attribute){
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList
-          = attribute.getMandatoryProvidersList();
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> mandatoryProvidersList =
+          attribute.getMandatoryProvidersList();
       if (mandatoryProvidersList.isEmpty()) {
         return null;
       }
