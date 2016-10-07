@@ -732,18 +732,6 @@ java_test(
     ],
 )
 
-java_binary(
-    name = "skylarkshell",
-    srcs = ["syntax/SkylarkShell.java"],
-    main_class = "com.google.devtools.build.lib.syntax.SkylarkShell",
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages",
-    ],
-)
-
 java_test(
     name = "syntax_test",
     srcs = glob([
