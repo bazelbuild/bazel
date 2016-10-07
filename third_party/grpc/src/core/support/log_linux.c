@@ -51,7 +51,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
-#include <linux/unistd.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 

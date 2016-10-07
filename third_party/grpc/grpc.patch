@@ -120,6 +120,18 @@ index 5e07f82..44b970d 100644
    }
  
    GPR_ASSERT(addr_len < ~(socklen_t)0);
+diff --git a/third_party/grpc/src/core/support/log_linux.c b/third_party/grpc/src/core/support/log_linux.c
+index d66b7a3..93a0c1b 100644
+--- a/third_party/grpc/src/core/support/log_linux.c
++++ b/third_party/grpc/src/core/support/log_linux.c
+@@ -51,7 +51,6 @@
+ #include <stdarg.h>
+ #include <string.h>
+ #include <time.h>
+-#include <linux/unistd.h>
+ #include <sys/syscall.h>
+ #include <unistd.h>
+ 
 diff --git a/tools/build_rules/genproto.bzl b/tools/build_rules/genproto.bzl
 index 62284a3..bc76cd1 100644
 --- a/tools/build_rules/genproto.bzl
