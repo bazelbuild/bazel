@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 
@@ -72,5 +73,21 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.ProgressId.newBuilder().setOpaqueCount(count).build();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setProgress(id).build());
+  }
+
+  public static BuildEventId buildStartedId() {
+    BuildEventStreamProtos.BuildEventId.BuildStartedId startedId =
+        BuildEventStreamProtos.BuildEventId.BuildStartedId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setStarted(startedId).build());
+  }
+
+  public static BuildEventId targetPatternExpanded(List<String> targetPattern) {
+    BuildEventStreamProtos.BuildEventId.PatternExpandedId patternId =
+        BuildEventStreamProtos.BuildEventId.PatternExpandedId.newBuilder()
+            .addAllPattern(targetPattern)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setPattern(patternId).build());
   }
 }

@@ -44,9 +44,22 @@ message BuildEventId {
     int32 opaque_count = 1;
   }
 
+  // Identifier of an event indicating the beginning of a build; this will
+  // normally be the first event.
+  message BuildStartedId {
+  }
+
+  // Identifier of an event indicating that a target pattern has been expanded
+  // further.
+  message PatternExpandedId {
+    repeated string pattern = 1;
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
+    BuildStartedId started = 3;
+    PatternExpandedId pattern = 4;
   }
 }
 
@@ -83,6 +96,33 @@ message Aborted {
   string description = 2;
 }
 
+// Payload of an event indicating the beginning of a new build. Usually, events
+// of those type start a new build-event stream. The target pattern requested
+// to be build is contained in one of the announced child events; it is an
+// invariant that precisely one of the announced child events has a non-empty
+// target pattern.
+message BuildStarted {
+  string uuid = 1;
+
+  // Start of the build in ms since the epoche.
+  int64 start_time_milis = 2;
+
+  // Version of the build tool that is running.
+  string build_tool_version = 3;
+
+  // A human-readable description of all the non-default option settings
+  string options_description = 4;
+
+  // The name of the command that the user invoked.
+  string command = 5;
+
+  // The working directory from which the build tool was invoked.
+  string working_directory = 6;
+
+  // The directory of the workspace.
+  string workspace_directory = 7;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -94,5 +134,6 @@ message BuildEvent {
   oneof payload {
     Progress progress = 3;
     Aborted aborted = 4;
+    BuildStarted started = 5;
   };
 }

@@ -14,24 +14,48 @@
 
 package com.google.devtools.build.lib.buildtool.buildevent;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import java.util.Collection;
 
 /**
- * This event is fired from BuildTool#startRequest().
- * At this point, the set of target patters are known, but have
- * yet to be parsed.
+ * This event is fired from BuildTool#startRequest(). At this point, the set of target patters are
+ * known, but have yet to be parsed.
  */
-public class BuildStartingEvent {
+public final class BuildStartingEvent implements BuildEvent {
   private final String outputFileSystem;
   private final BuildRequest request;
+  private final String workspace;
+  private final String pwd;
 
   /**
-   * Construct the BuildStartingEvent.
+   * Construct the BuildStartingEvent
+   *
    * @param request the build request.
+   * @param env the environment of the request invocation.
    */
-  public BuildStartingEvent(String outputFileSystem, BuildRequest request) {
-    this.outputFileSystem = outputFileSystem;
+  public BuildStartingEvent(CommandEnvironment env, BuildRequest request) {
     this.request = request;
+    if (env != null) {
+      this.outputFileSystem = env.determineOutputFileSystem();
+      if (env.getDirectories().getWorkspace() != null) {
+        this.workspace = env.getDirectories().getWorkspace().toString();
+      } else {
+        this.workspace = null;
+      }
+      this.pwd = env.getWorkingDirectory().toString();
+    } else {
+      this.workspace = null;
+      this.pwd = null;
+      this.outputFileSystem = null;
+    }
   }
 
   /**
@@ -46,5 +70,35 @@ public class BuildStartingEvent {
    */
   public BuildRequest getRequest() {
     return request;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.buildStartedId();
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of(
+        ProgressEvent.INITIAL_PROGRESS_UPDATE,
+        BuildEventId.targetPatternExpanded(request.getTargets()));
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+    BuildEventStreamProtos.BuildStarted.Builder started =
+        BuildEventStreamProtos.BuildStarted.newBuilder()
+            .setUuid(request.getId().toString())
+            .setStartTimeMilis(request.getStartTime())
+            .setBuildToolVersion(BlazeVersionInfo.instance().getVersion())
+            .setOptionsDescription(request.getOptionsDescription())
+            .setCommand(request.getCommandName());
+    if (pwd != null) {
+      started.setWorkingDirectory(pwd);
+    }
+    if (workspace != null) {
+      started.setWorkspaceDirectory(workspace);
+    }
+    return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
   }
 }
