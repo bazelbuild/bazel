@@ -266,8 +266,8 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
                 runtimeJar.getRoot());
 
     JavaTargetAttributes attributes = getAttributes();
-    JavaHeaderCompileActionBuilder builder =
-        new JavaHeaderCompileActionBuilder(getRuleContext(), implicitAttributesSuffix);
+    JavaHeaderCompileAction.Builder builder =
+        new JavaHeaderCompileAction.Builder(getRuleContext(), implicitAttributesSuffix);
     builder.addSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());

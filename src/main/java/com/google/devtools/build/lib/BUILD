@@ -827,7 +827,7 @@ java_library(
         "rules/java/JavaConstraintProvider.java",
         "rules/java/JavaExportsProvider.java",
         "rules/java/JavaGenJarsProvider.java",
-        "rules/java/JavaHeaderCompileActionBuilder.java",
+        "rules/java/JavaHeaderCompileAction.java",
         "rules/java/JavaHelper.java",
         "rules/java/JavaLibraryHelper.java",
         "rules/java/JavaNativeLibraryProvider.java",
