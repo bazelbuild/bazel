@@ -28,8 +28,16 @@ std::string ErrorMessage(int error_number) {
   // In its infinite wisdom, GNU libc defines strerror_r with extended
   // functionality which is not compatible with not the
   // SUSv3-conformant one which returns an error code; see DESCRIPTION
-  // at strerror(1).
+// at strerror(3).
+#if !__GLIBC__ || (_POSIX_C_SOURCE >= 200112L && !_GNU_SOURCE)
+  if (strerror_r(error_number, buf, sizeof buf) == -1) {
+    return std::string("");
+  } else {
+    return std::string(buf);
+  }
+#else
   return std::string(strerror_r(error_number, buf, sizeof buf));
+#endif
 }
 
 int portable_fstatat(

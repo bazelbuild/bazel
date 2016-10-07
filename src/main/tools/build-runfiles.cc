@@ -357,7 +357,7 @@ class RunfilesCreator {
     struct stat st;
     LStatOrDie(path, &st);
     if ((st.st_mode & kMode) != kMode) {
-      int new_mode = (st.st_mode | kMode) & ALLPERMS;
+      int new_mode = st.st_mode | kMode;
       if (chmod(path.c_str(), new_mode) != 0) {
         PDIE("chmod '%s'", path.c_str());
       }
