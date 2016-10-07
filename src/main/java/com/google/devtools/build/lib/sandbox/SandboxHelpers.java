@@ -68,18 +68,9 @@ public final class SandboxHelpers {
   }
 
   static boolean shouldAllowNetwork(BuildRequest buildRequest, Spawn spawn) {
-    // If we don't run tests, allow network access.
-    if (!buildRequest.shouldRunTests()) {
-      return true;
-    }
-
-    // If the Spawn specifically requests network access, allow it.
-    if (spawn.getExecutionInfo().containsKey("requires-network")) {
-      return true;
-    }
-
     // Allow network access, when --java_debug is specified, otherwise we can't connect to the
-    // remote debug server of the test.
+    // remote debug server of the test. This intentionally overrides the "block-network" execution
+    // tag.
     if (buildRequest
         .getOptions(BuildConfiguration.Options.class)
         .testArguments
@@ -87,7 +78,13 @@ public final class SandboxHelpers {
       return true;
     }
 
-    return false;
+    // If the Spawn requests to block network access, do so.
+    if (spawn.getExecutionInfo().containsKey("block-network")) {
+      return false;
+    }
+
+    // Network access is allowed by default.
+    return true;
   }
 
   static void postActionStatusMessage(Executor executor, Spawn spawn) {

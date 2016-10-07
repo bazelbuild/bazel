@@ -328,17 +328,15 @@ function test_sandbox_network_access() {
   cat << EOF >> examples/genrule/BUILD
 
 genrule(
-  name = "breaks4",
-  outs = [ "breaks4.txt" ],
+  name = "sandbox_network_access",
+  outs = [ "sandbox_network_access.txt" ],
   cmd = "curl -o \$@ localhost:${nc_port}",
 )
 EOF
-  bazel build examples/genrule:breaks1 &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks4" || true
-  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt" ] || {
-    output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt")
-    fail "Non-hermetic genrule breaks1 succeeded with following output: $output"
-  }
+  bazel build examples/genrule:sandbox_network_access &> $TEST_log \
+    || fail "genrule 'sandbox_network_access' trying to use network failed, but should have succeeded"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access.txt" ] \
+    || fail "genrule 'sandbox_network_access' did not produce output"
   kill_nc
 }
 
@@ -347,34 +345,34 @@ function test_sandbox_network_access_with_local() {
   cat << EOF >> examples/genrule/BUILD
 
 genrule(
-  name = "breaks4_works_with_local",
-  outs = [ "breaks4_works_with_local.txt" ],
+  name = "sandbox_network_access_with_local",
+  outs = [ "sandbox_network_access_with_local.txt" ],
   cmd = "curl -o \$@ localhost:${nc_port}",
   tags = [ "local" ],
 )
 EOF
-  bazel build examples/genrule:breaks4_works_with_local &> $TEST_log \
-    || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:breaks4_works_with_local"
-  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4_works_with_local.txt" ] \
-    || fail "Genrule did not produce output: examples/genrule:breaks4_works_with_local"
+  bazel build examples/genrule:sandbox_network_access_with_local &> $TEST_log \
+    || fail "genrule 'sandbox_network_access_with_local' trying to use network failed, but should have succeeded"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_local.txt" ] \
+    || fail "genrule 'sandbox_network_access_with_local' did not produce output"
   kill_nc
 }
 
-function test_sandbox_network_access_with_requires_network() {
+function test_sandbox_network_access_with_block_network() {
   serve_file file_to_serve
   cat << EOF >> examples/genrule/BUILD
 
 genrule(
-  name = "breaks4_works_with_requires_network",
-  outs = [ "breaks4_works_with_requires_network.txt" ],
+  name = "sandbox_network_access_with_block_network",
+  outs = [ "sandbox_network_access_with_block_network.txt" ],
   cmd = "curl -o \$@ localhost:${nc_port}",
-  tags = [ "requires-network" ],
+  tags = [ "block-network" ],
 )
 EOF
-  bazel build examples/genrule:breaks4_works_with_requires_network &> $TEST_log \
-    || fail "Non-hermetic genrule failed even though tags=['requires-network']: examples/genrule:breaks4_works_with_requires_network"
-  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4_works_with_requires_network.txt" ] \
-    || fail "Genrule did not produce output: examples/genrule:breaks4_works_with_requires_network"
+  bazel build examples/genrule:sandbox_network_access_with_block_network &> $TEST_log \
+    && fail "genrule 'sandbox_network_access_with_block_network' trying to use network succeeded, but should have failed" || true
+  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4_works_with_requires_network.txt" ] \
+    || fail "genrule 'sandbox_network_access_with_block_network' produced output, but was expected to fail"
   kill_nc
 }
 
