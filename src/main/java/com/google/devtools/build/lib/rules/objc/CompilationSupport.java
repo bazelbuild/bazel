@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -1288,6 +1289,7 @@ public final class CompilationSupport {
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .addTransitiveInputs(objcProvider.get(LINK_INPUTS))
             .addInputs(ccLibraries)
             .addInputs(extraLinkInputs)
             .addInputs(prunedJ2ObjcArchives)
