@@ -136,6 +136,16 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     return list.get(index);
   }
 
+  @Override
+  public final boolean containsKey(Object key, Location loc) throws EvalException {
+    for (Object obj : this) {
+      if (obj.equals(key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Retrieve a sublist from a SkylarkList.
    * @param start start value

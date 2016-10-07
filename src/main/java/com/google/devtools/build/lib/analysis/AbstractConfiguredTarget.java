@@ -150,6 +150,24 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
+  public boolean containsKey(Object key, Location loc) throws EvalException {
+    if (!(key instanceof SkylarkClassObjectConstructor)) {
+      throw new EvalException(loc, String.format(
+          "Type Target only supports querying by object constructors, got %s instead",
+          EvalUtils.getDataTypeName(key)));
+    }
+    SkylarkClassObjectConstructor constructor = (SkylarkClassObjectConstructor) key;
+    SkylarkProviders provider = getProvider(SkylarkProviders.class);
+    if (provider != null) {
+      Object declaredProvider = provider.getDeclaredProvider(constructor.getKey());
+      if (declaredProvider != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
   public String errorMessage(String name) {
     return null;
   }

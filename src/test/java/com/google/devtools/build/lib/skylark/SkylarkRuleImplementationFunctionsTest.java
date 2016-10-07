@@ -1041,6 +1041,87 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testDeclaredProvidersInOperator() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "foo_provider = provider()",
+        "bar_provider = provider()",
+        "",
+        "def _inner_impl(ctx):",
+        "    foo = foo_provider()",
+        "    return [foo]",
+        "inner_rule = rule(",
+        "    implementation = _inner_impl,",
+        ")",
+        "",
+        "def _outer_impl(ctx):",
+        "    dep = ctx.attr.deps[0]",
+        "    return struct(",
+        "        foo = (foo_provider in dep),",  // Should be true
+        "        bar = (bar_provider in dep),",  // Should be false
+        "    )",
+        "outer_rule = rule(",
+        "    implementation = _outer_impl,",
+        "    attrs = {",
+        "       'deps': attr.label_list(),",
+        "    }",
+        ")"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'inner_rule', 'outer_rule')",
+        "inner_rule(name = 'dep_rule')",
+        "outer_rule(name = 'my_rule', deps = [':dep_rule'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
+    Object foo = configuredTarget.getProvider(SkylarkProviders.class).getValue("foo");
+    assertThat(foo).isInstanceOf(Boolean.class);
+    assertThat((Boolean) foo).isTrue();
+    Object bar = configuredTarget.getProvider(SkylarkProviders.class).getValue("bar");
+    assertThat(bar).isInstanceOf(Boolean.class);
+    assertThat((Boolean) bar).isFalse();
+  }
+
+  @Test
+  public void testDeclaredProvidersInOperatorInvalidKey() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "foo_provider = provider()",
+        "bar_provider = provider()",
+        "",
+        "def _inner_impl(ctx):",
+        "    foo = foo_provider()",
+        "    return [foo]",
+        "inner_rule = rule(",
+        "    implementation = _inner_impl,",
+        ")",
+        "",
+        "def _outer_impl(ctx):",
+        "    dep = ctx.attr.deps[0]",
+        "    'foo_provider' in dep",  // Should throw an error here
+        "outer_rule = rule(",
+        "    implementation = _outer_impl,",
+        "    attrs = {",
+        "       'deps': attr.label_list(),",
+        "    }",
+        ")"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'inner_rule', 'outer_rule')",
+        "inner_rule(name = 'dep_rule')",
+        "outer_rule(name = 'my_rule', deps = [':dep_rule'])");
+
+    try {
+      getConfiguredTarget("//test:my_rule");
+      fail();
+    } catch (AssertionError expected) {
+      assertThat(expected.getMessage()).contains("Type Target only supports querying by object "
+          + "constructors, got string instead");
+    }
+  }
+
+  @Test
   public void testFilesForFileConfiguredTarget() throws Exception {
     Object result =
         evalRuleContextCode(createRuleContext("//foo:bar"), "ruleContext.attr.srcs[0].files");

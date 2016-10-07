@@ -96,6 +96,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
+  public boolean containsKey(Object key, Location loc) throws EvalException {
+    return actual != null && actual.containsKey(key, loc);
+  }
+
+  @Override
   public Target getTarget() {
     return actual == null ? null : actual.getTarget();
   }

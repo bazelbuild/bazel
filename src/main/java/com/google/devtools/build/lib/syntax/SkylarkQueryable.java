@@ -17,12 +17,13 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 
 /**
- * Skylark values that support index access, i.e. `object[key]`
+ * Skylark values that support querying by other objects, i.e. `foo in object`.
+ * Semantics of the operation may differ, i.e. dicts check for keys and lists for values.
  */
-public interface SkylarkIndexable extends SkylarkQueryable {
+public interface SkylarkQueryable {
 
   /**
-   * Returns the value associated with the given key.
+   * Returns whether the key is in the object.
    */
-  Object getIndex(Object key, Location loc) throws EvalException;
+  boolean containsKey(Object key, Location loc) throws EvalException;
 }

@@ -223,6 +223,11 @@ public final class SkylarkDict<K, V>
     return this.get(key);
   }
 
+  @Override
+  public final boolean containsKey(Object key, Location loc) throws EvalException {
+    return this.containsKey(key);
+  }
+
   public static <K, V> SkylarkDict<K, V> plus(
       SkylarkDict<? extends K, ? extends V> left,
       SkylarkDict<? extends K, ? extends V> right,
