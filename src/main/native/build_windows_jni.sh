@@ -62,7 +62,7 @@ done
 cat > "${VSTEMP}/windows_jni.bat" <<EOF
 call "${VSVARS}" amd64
 set TMP=$(cygpath -a -w "${VSTEMP}")
-CL /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
+CL /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
 EOF
 
 # Invoke the file and hopefully generate the .DLL .
