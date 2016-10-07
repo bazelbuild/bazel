@@ -1,5 +1,5 @@
 param(
-  [string] $version = "0.3.1"
+  [string] $version = "0.3.2"
 )
 
 choco uninstall bazel --force -y
