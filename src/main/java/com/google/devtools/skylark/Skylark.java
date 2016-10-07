@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.skylark;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Printer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -22,13 +25,11 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 
 /**
- * SkylarkShell is a standalone shell executing Skylark. This is intended for
- * testing purposes and not for end-users. This is very limited (environment is
- * almost empty), but it can be used to play with the language and reproduce
- * bugs. Imports and includes are not supported.
+ * Skylark is a standalone skylark intepreter. The environment doesn't
+ * contain Bazel-specific functions and variables. Load statements are
+ * forbidden for the moment.
  */
-class SkylarkShell {
-
+class Skylark {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
@@ -41,11 +42,11 @@ class SkylarkShell {
 
   private final BufferedReader reader = new BufferedReader(
       new InputStreamReader(System.in, Charset.defaultCharset()));
-  private final Mutability mutability = Mutability.create("shell");
+  private final Mutability mutability = Mutability.create("interpreter");
   private final Environment env = Environment.builder(mutability)
       .setSkylark().setGlobals(Environment.SKYLARK).setEventHandler(PRINT_HANDLER).build();
 
-  public String read() {
+  public String prompt() {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
     try {
@@ -68,7 +69,7 @@ class SkylarkShell {
 
   public void readEvalPrintLoop() {
     String input;
-    while ((input = read()) != null) {
+    while ((input = prompt()) != null) {
       try {
         Object result = env.eval(input);
         if (result != null) {
@@ -81,11 +82,11 @@ class SkylarkShell {
   }
 
   public static void main(String[] args) {
-    if (args.length > 0 && args[0].equals("--compiler-debug")) {
-      UserDefinedFunction.enableCompiler = true;
-      UserDefinedFunction.debugCompiler = true;
-      UserDefinedFunction.debugCompilerPrintByteCode = true;
+    if (args.length == 0) {
+       new Skylark().readEvalPrintLoop();
+    } else {
+      System.err.println("no argument expected");
+      System.exit(1);
     }
-    new SkylarkShell().readEvalPrintLoop();
   }
 }
