@@ -115,7 +115,8 @@ In a build, there are many "evaluation contexts": each `.bzl` file and each
 `BUILD` file is loaded in a different context. Each rule is also analyzed in a
 separate context. We allow side-effects (e.g. appending a value to a list or
 deleting an entry in a dictionary) only on objects created during the current
-evaluation context.
+evaluation context. Once the code in that context is done executing, all of its
+values are frozen.
 
 For example, here is the content of the file `foo.bzl`:
 
@@ -160,6 +161,9 @@ Python:
 * Recursion is not allowed.
 
 * Sets have reference equality semantics and can be stored in other sets.
+
+* Lists and other mutable values may be stored in sets and in dictionary
+  keys once they are frozen.
 
 * Modifying a collection during iteration is an error. You can avoid the error
   by iterating over a copy of the collection, e.g.
