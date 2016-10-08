@@ -184,9 +184,8 @@ public final class CompileOneDependencyTransformer {
         }
       }
     }
-
-    throw new TargetParsingException(
-        "Couldn't find dependency on target '" + target.getLabel() + "'");
+    
+    return result;
   }
 
   /** Returns all labels that are contained in direct compile time inputs of {@code rule}. */

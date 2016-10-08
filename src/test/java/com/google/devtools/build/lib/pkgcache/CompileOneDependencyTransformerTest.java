@@ -342,4 +342,12 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     assertThat(parseListCompileOneDep("a/a.cc"))
         .containsExactlyElementsIn(labels("//a:foo_select"));
   }
+
+  @Test
+  public void testFallBackToHeaderOnlyLibrary() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
+    assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h"));
+  }
 }
