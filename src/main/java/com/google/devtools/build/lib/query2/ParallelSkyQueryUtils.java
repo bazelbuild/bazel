@@ -170,8 +170,13 @@ class ParallelSkyQueryUtils {
     protected Visit getVisitResult(Iterable<SkyKey> keys) throws InterruptedException {
       // TODO(bazel-team): Defer some of this work to the next recursive visitation. Instead, have
       // this visitation merely get the Skyframe-land rdeps.
+
+      // Note that this does more than merely get the Skyframe-land rdeps:
+      // (i)  It only returns rdeps that have corresponding Targets.
+      // (ii) It only returns rdeps whose corresponding Targets have a valid dependency edge to
+      //      their direct dep.
       Iterable<SkyKey> keysToVisit = SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(
-          env.getReverseDeps(env.makeTargetsFromSkyKeys(keys).values()));
+          env.getReverseDepsOfTransitiveTraversalKeys(keys));
       return new Visit(
           /*keysToUseForResult=*/ keys,
           /*keysToVisit=*/ keysToVisit);

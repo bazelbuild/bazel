@@ -345,15 +345,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return super.evaluateQuery(expr, batchCallback);
   }
 
-  private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input)
+  private Map<SkyKey, Collection<Target>> targetifyValues(Map<SkyKey, Iterable<SkyKey>> input)
       throws InterruptedException {
-    ImmutableMap.Builder<Target, Collection<Target>> result = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, Collection<Target>> result = ImmutableMap.builder();
 
     Map<SkyKey, Target> allTargets =
         makeTargetsFromSkyKeys(Sets.newHashSet(Iterables.concat(input.values())));
 
-    for (Map.Entry<SkyKey, Target> entry : makeTargetsFromSkyKeys(input.keySet()).entrySet()) {
-      Iterable<SkyKey> skyKeys = input.get(entry.getKey());
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : input.entrySet()) {
+      Iterable<SkyKey> skyKeys = entry.getValue();
       Set<Target> targets = CompactHashSet.createWithExpectedSize(Iterables.size(skyKeys));
       for (SkyKey key : skyKeys) {
         Target target = allTargets.get(key);
@@ -361,19 +361,38 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           targets.add(target);
         }
       }
-      result.put(entry.getValue(), targets);
+      result.put(entry.getKey(), targets);
     }
     return result.build();
   }
 
-  private Map<Target, Collection<Target>> getRawFwdDeps(Iterable<Target> targets)
+  private Map<Target, Collection<Target>> targetifyKeys(Map<SkyKey, Collection<Target>> input)
       throws InterruptedException {
-    return makeTargetsMap(graph.getDirectDeps(makeTransitiveTraversalKeys(targets)));
+    Map<SkyKey, Target> targets = makeTargetsFromSkyKeys(input.keySet());
+    ImmutableMap.Builder<Target, Collection<Target>> resultBuilder = ImmutableMap.builder();
+    for (Map.Entry<SkyKey, Collection<Target>> entry : input.entrySet()) {
+      SkyKey key = entry.getKey();
+      Target target = targets.get(key);
+      if (target != null) {
+        resultBuilder.put(target, entry.getValue());
+      }
+    }
+    return resultBuilder.build();
   }
 
-  private Map<Target, Collection<Target>> getRawReverseDeps(Iterable<Target> targets)
+  private Map<Target, Collection<Target>> targetifyKeysAndValues(
+      Map<SkyKey, Iterable<SkyKey>> input) throws InterruptedException {
+    return targetifyKeys(targetifyValues(input));
+  }
+
+  private Map<Target, Collection<Target>> getRawFwdDeps(Iterable<Target> targets)
       throws InterruptedException {
-    return makeTargetsMap(graph.getReverseDeps(makeTransitiveTraversalKeys(targets)));
+    return targetifyKeysAndValues(graph.getDirectDeps(makeTransitiveTraversalKeys(targets)));
+  }
+
+  private Map<SkyKey, Collection<Target>> getRawReverseDeps(
+      Iterable<SkyKey> transitiveTraversalKeys) throws InterruptedException {
+    return targetifyValues(graph.getReverseDeps(transitiveTraversalKeys));
   }
 
   private Set<Label> getAllowedDeps(Rule rule) throws InterruptedException {
@@ -421,20 +440,23 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public Collection<Target> getReverseDeps(Iterable<Target> targets) throws InterruptedException {
-    Map<Target, Collection<Target>> rawReverseDeps = getRawReverseDeps(targets);
-    warnIfMissingTargets(targets, rawReverseDeps.keySet());
+    return getReverseDepsOfTransitiveTraversalKeys(Iterables.transform(targets, TARGET_TO_SKY_KEY));
+  }
 
+  Collection<Target> getReverseDepsOfTransitiveTraversalKeys(
+      Iterable<SkyKey> transitiveTraversalKeys) throws InterruptedException {
+    Map<SkyKey, Collection<Target>> rawReverseDeps = getRawReverseDeps(transitiveTraversalKeys);
     return processRawReverseDeps(rawReverseDeps);
   }
 
-  private Collection<Target> processRawReverseDeps(Map<Target, Collection<Target>> rawReverseDeps)
+  private Collection<Target> processRawReverseDeps(Map<SkyKey, Collection<Target>> rawReverseDeps)
       throws InterruptedException {
     Set<Target> result = CompactHashSet.create();
     CompactHashSet<Target> visited =
         CompactHashSet.createWithExpectedSize(totalSizeOfCollections(rawReverseDeps.values()));
 
     Set<Label> keys = CompactHashSet.create(Collections2.transform(rawReverseDeps.keySet(),
-        TARGET_LABEL_FUNCTION));
+        SKYKEY_TO_LABEL));
     for (Collection<Target> parentCollection : rawReverseDeps.values()) {
       for (Target parent : parentCollection) {
         if (visited.add(parent)) {
@@ -1211,7 +1233,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Callback<Target> callback,
         Queue<Map.Entry<SkyKey, Iterable<SkyKey>>> reverseDepsQueue)
         throws QueryException, InterruptedException {
-      Collection<Target> children = processRawReverseDeps(makeTargetsMap(reverseDepsMap));
+      Collection<Target> children = processRawReverseDeps(targetifyValues(reverseDepsMap));
       Iterable<Target> currentInUniverse = Iterables.filter(children, universe);
       ImmutableList<Target> uniqueChildren = uniquifier.unique(currentInUniverse);
       reverseDepsMap.clear();
