@@ -774,7 +774,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return result.build();
   }
 
-  private static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
+  static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
       new Function<Target, SkyKey>() {
         @Override
         public SkyKey apply(Target target) {

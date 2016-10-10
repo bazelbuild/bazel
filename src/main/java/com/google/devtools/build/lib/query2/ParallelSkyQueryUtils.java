@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
@@ -175,8 +177,21 @@ class ParallelSkyQueryUtils {
       // (i)  It only returns rdeps that have corresponding Targets.
       // (ii) It only returns rdeps whose corresponding Targets have a valid dependency edge to
       //      their direct dep.
-      Iterable<SkyKey> keysToVisit = SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(
-          env.getReverseDepsOfTransitiveTraversalKeys(keys));
+      Iterable<Target> rdepTargets = env.getReverseDepsOfTransitiveTraversalKeys(keys);
+      // Group the targets by package - this way when computeImpl splits these targets into batches,
+      // targets in the same package are likely to be in the same batch.
+      ArrayListMultimap<PackageIdentifier, SkyKey> rdepKeysByPackage = ArrayListMultimap.create();
+      for (Target rdepTarget : rdepTargets) {
+        rdepKeysByPackage.put(
+            rdepTarget.getLabel().getPackageIdentifier(),
+            SkyQueryEnvironment.TARGET_TO_SKY_KEY.apply(rdepTarget));
+      }
+      // A couple notes here:
+      // (i)  ArrayListMultimap#values returns the values grouped by key, which is exactly what we
+      //      want.
+      // (ii) ArrayListMultimap#values returns a Collection view, so we make a copy to avoid
+      //      accidentally retaining the entire ArrayListMultimap object.
+      Iterable<SkyKey> keysToVisit = ImmutableList.copyOf(rdepKeysByPackage.values());
       return new Visit(
           /*keysToUseForResult=*/ keys,
           /*keysToVisit=*/ keysToVisit);
