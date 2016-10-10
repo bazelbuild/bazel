@@ -491,6 +491,7 @@ EOF
 function test_swift_defines() {
   rm -rf ios
   mkdir -p ios
+  touch ios/dummy.swift
 
   cat >ios/main.swift <<EOF
 import Foundation
@@ -500,6 +501,10 @@ public class SwiftClass {
     #if !FLAG
     let x: String = 1 // Invalid statement, should throw compiler error when FLAG is not set
     #endif
+
+    #if !DEP_FLAG
+    let x: String = 2 // Invalid statement, should throw compiler error when DEP_FLAG is not set
+    #endif
   }
 }
 EOF
@@ -507,9 +512,14 @@ EOF
   cat >ios/BUILD <<EOF
 load("//tools/build_defs/apple:swift.bzl", "swift_library")
 
+swift_library(name = "dep_lib",
+              srcs = ["dummy.swift"],
+              defines = ["DEP_FLAG"])
+
 swift_library(name = "swift_lib",
               srcs = ["main.swift"],
-              defines = ["FLAG"])
+              defines = ["FLAG"],
+              deps = [":dep_lib"])
 EOF
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \

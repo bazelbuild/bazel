@@ -170,6 +170,7 @@ def _swift_library_impl(ctx):
   # Collect transitive dependecies.
   dep_modules = []
   dep_libs = []
+  swiftc_defines = ctx.attr.defines
 
   swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
   objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
@@ -177,6 +178,7 @@ def _swift_library_impl(ctx):
   for swift in swift_providers:
     dep_libs += swift.transitive_libs
     dep_modules += swift.transitive_modules
+    swiftc_defines += swift.transitive_defines
 
   objc_includes = set()     # Everything that needs to be included with -I
   objc_files = set()        # All inputs required for the compile action
@@ -247,7 +249,7 @@ def _swift_library_impl(ctx):
 
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
-  define_args = ["-D%s" % x for x in ctx.attr.defines]
+  define_args = ["-D%s" % x for x in swiftc_defines]
 
   clang_args = _intersperse(
       "-Xcc",
@@ -325,7 +327,8 @@ def _swift_library_impl(ctx):
   return struct(
       swift=struct(
           transitive_libs=[output_lib] + dep_libs,
-          transitive_modules=[output_module] + dep_modules),
+          transitive_modules=[output_module] + dep_modules,
+          transitive_defines=swiftc_defines),
       objc=objc_provider,
       files=set([output_lib, output_module, output_header]))
 
@@ -357,15 +360,6 @@ Args:
       the module name is the target path with all special symbols replaced
       by "_", e.g. //foo:bar can be imported as "foo_bar".
   copts: A list of flags passed to swiftc command line.
-  defines: A list of values for build configuration options (-D). These values
-      can be then used for conditional compilation blocks in code. For example:
-
-      BUILD:
-        swift_library(
-          defines = ["VALUE"]
-        )
-
-      Code:
-        #if VALUE
-        #endif
+  defines: Each VALUE in this attribute is passed as -DVALUE to the compiler for
+      this and dependent targets.
 """
