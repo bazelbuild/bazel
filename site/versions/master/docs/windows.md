@@ -20,6 +20,11 @@ To run the binary you will need:
 *    Java JDK 8 or later
 *    [msys2](https://msys2.github.io/) (need to be installed at
      ``C:\tools\msys64\``).
+    * We build against version
+     [20160205](https://sourceforge.net/projects/msys2/files/Base/x86_64/msys2-x86_64-20160205.exe/download),
+     the [newer versions](https://sourceforge.net/projects/msys2/files/latest/download?source=files)
+     should also work. Older versions are known to have
+     [issues](https://github.com/bazelbuild/bazel/issues/1919).
 
 Before you run the binary, you will need to set some environment
 variables:
