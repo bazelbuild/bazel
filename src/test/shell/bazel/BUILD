@@ -71,6 +71,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_tools_test",
+    size = "large",
+    srcs = ["bazel_tools_test.sh"],
+    data = [
+        ":test-deps",
+        "//:workspace-file",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     size = "large",
     srcs = ["bazel_java_test.sh"],
