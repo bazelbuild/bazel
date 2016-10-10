@@ -47,6 +47,7 @@ public class ObjcProviderSkylarkConverters {
           .put(Artifact.class, new DirectConverter())
           .put(String.class, new DirectConverter())
           .put(PathFragment.class, new PathFragmentToStringConverter())
+          .put(SdkFramework.class, new SdkFrameworkToStringConverter())
           .put(BundleableFile.class, new BundleableFileToStructConverter())
           .build();
 
@@ -119,6 +120,33 @@ public class ObjcProviderSkylarkConverters {
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
       for (String path : (Iterable<String>) skylarkValue) {
         result.add(new PathFragment(path));
+      }
+      return result.build();
+    }
+  }
+  
+  /**
+   * A converter that that translates between a java {@link SdkFramework} and a skylark string.
+   */
+  private static class SdkFrameworkToStringConverter implements Converter {
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
+      NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
+      for (SdkFramework framework : (Iterable<SdkFramework>) javaValue) {
+        result.add(framework.getName());
+      }
+      return SkylarkNestedSet.of(String.class, result.build());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
+      validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
+      NestedSetBuilder<SdkFramework> result = NestedSetBuilder.stableOrder();
+      for (String path : (Iterable<String>) skylarkValue) {
+        result.add(new SdkFramework(path));
       }
       return result.build();
     }

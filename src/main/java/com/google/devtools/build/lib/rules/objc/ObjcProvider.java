@@ -388,6 +388,8 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           DEFINE,
           ASSET_CATALOG,
           SDK_DYLIB,
+          SDK_FRAMEWORK,
+          WEAK_SDK_FRAMEWORK,
           XCDATAMODEL,
           MODULE_MAP,
           MERGE_ZIP,
