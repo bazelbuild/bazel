@@ -14,7 +14,7 @@ filegroup(
     name = "workspace-file",
     srcs = [":WORKSPACE"],
     visibility = [
-        "//src/test/shell/bazel:__pkg__",
+        "//src/test/shell/bazel:__subpackages__",
         "//tools/cpp/test:__pkg__",
     ],
 )

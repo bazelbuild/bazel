@@ -1,0 +1,62 @@
+package(default_visibility = ["//visibility:private"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
+config_setting(
+    name = "darwin",
+    values = {"host_cpu": "darwin"},
+)
+
+filegroup(
+    name = "objc-deps",
+    testonly = 1,
+    srcs = select({
+        ":darwin": [
+            "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
+            "//src/objc_tools/plmerge:plmerge_deploy.jar",
+            "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
+            "//src/tools/xcode/actoolwrapper",
+            "//src/tools/xcode/environment:environment_plist",
+            "//src/tools/xcode/ibtoolwrapper",
+            "//src/tools/xcode/libtool",
+            "//src/tools/xcode/momcwrapper",
+            "//src/tools/xcode/realpath",
+            "//src/tools/xcode/stdredirect:StdRedirect.dylib",
+            "//src/tools/xcode/swiftstdlibtoolwrapper",
+            "//src/tools/xcode/xcrunwrapper",
+            "//tools/osx:xcode-locator",
+            "//third_party/iossim",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = [
+        "//src/test/shell/bazel:__pkg__",
+    ],
+)
+
+sh_test(
+    name = "bazel_apple_test",
+    size = "large",
+    srcs = ["bazel_apple_test.sh"],
+    data = [
+        ":objc-deps",
+        "//:workspace-file",
+        "//src/test/shell/bazel:test-deps",
+        "//tools/build_defs/apple/test:srcs",
+    ],
+    shard_count = 3,
+)
+
+sh_test(
+    name = "bazel_objc_test",
+    size = "large",
+    srcs = ["bazel_objc_test.sh"],
+    data = [
+        ":objc-deps",
+        "//src/test/shell/bazel:test-deps",
+    ],
+)

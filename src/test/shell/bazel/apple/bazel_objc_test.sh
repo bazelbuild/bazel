@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
 if [ "${PLATFORM}" != "darwin" ]; then

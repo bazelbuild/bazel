@@ -4,6 +4,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/test/shell/bazel/android:srcs",
+        "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/testdata:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
@@ -15,35 +16,6 @@ genrule(
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["langtools.jar"],
     cmd = "cp $< $@",
-)
-
-config_setting(
-    name = "darwin",
-    values = {"host_cpu": "darwin"},
-)
-
-filegroup(
-    name = "objc-deps",
-    testonly = 1,
-    srcs = select({
-        ":darwin": [
-            "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
-            "//src/objc_tools/plmerge:plmerge_deploy.jar",
-            "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
-            "//src/tools/xcode/actoolwrapper",
-            "//src/tools/xcode/environment:environment_plist",
-            "//src/tools/xcode/ibtoolwrapper",
-            "//src/tools/xcode/libtool",
-            "//src/tools/xcode/momcwrapper",
-            "//src/tools/xcode/realpath",
-            "//src/tools/xcode/stdredirect:StdRedirect.dylib",
-            "//src/tools/xcode/swiftstdlibtoolwrapper",
-            "//src/tools/xcode/xcrunwrapper",
-            "//tools/osx:xcode-locator",
-            "//third_party/iossim",
-        ],
-        "//conditions:default": [],
-    }),
 )
 
 filegroup(
@@ -83,8 +55,8 @@ sh_test(
     size = "large",
     srcs = ["bazel_example_test.sh"],
     data = [
-        ":objc-deps",
         ":test-deps",
+        "//src/test/shell/bazel/apple:objc-deps",
     ],
     shard_count = 3,
 )
@@ -96,19 +68,6 @@ sh_test(
     data = [
         ":test-deps",
     ],
-)
-
-sh_test(
-    name = "bazel_apple_test",
-    size = "large",
-    srcs = ["bazel_apple_test.sh"],
-    data = [
-        ":objc-deps",
-        ":test-deps",
-        "//:workspace-file",
-        "//tools/build_defs/apple/test:srcs",
-    ],
-    shard_count = 3,
 )
 
 sh_test(
@@ -138,16 +97,6 @@ sh_test(
     srcs = ["bazel_localtest_test.sh"],
     data = [":test-deps"],
     tags = ["local"],
-)
-
-sh_test(
-    name = "bazel_objc_test",
-    size = "large",
-    srcs = ["bazel_objc_test.sh"],
-    data = [
-        ":objc-deps",
-        ":test-deps",
-    ],
 )
 
 sh_test(
@@ -390,9 +339,9 @@ sh_test(
     size = "large",
     srcs = ["bound_targets_test.sh"],
     data = [
-        ":objc-deps",
         ":test-deps",
         "//:workspace-file",
+        "//src/test/shell/bazel/apple:objc-deps",
     ],
 )
 
