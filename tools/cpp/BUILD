@@ -38,6 +38,7 @@ cc_toolchain_suite(
         "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
+        "ppc|compiler": ":cc-compiler-ppc",
     },
 )
 
@@ -46,6 +47,20 @@ cc_toolchain(
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+cc_toolchain(
+    name = "cc-compiler-ppc",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "ppc",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",

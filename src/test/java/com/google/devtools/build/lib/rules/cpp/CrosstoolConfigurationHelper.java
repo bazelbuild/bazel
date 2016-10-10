@@ -59,6 +59,8 @@ public class CrosstoolConfigurationHelper {
   public static String defaultCpu() {
     if (OS.getCurrent() == OS.WINDOWS) {
       return "x64_windows";
+    } else if (OS.getCurrent() == OS.PPC) {
+      return "ppc";
     }
     return OS.getCurrent() == OS.DARWIN ? "darwin" : "k8";
   }
