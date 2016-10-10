@@ -1142,7 +1142,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testBinDirPath() throws Exception {
     SkylarkRuleContext ctx = createRuleContext("//foo:bar");
-    Object result = evalRuleContextCode(ctx, "ruleContext.configuration.bin_dir.path");
+    Object result = evalRuleContextCode(ctx, "ruleContext.bin_dir.path");
     assertEquals(ctx.getConfiguration().getBinFragment().getPathString(), result);
   }
 

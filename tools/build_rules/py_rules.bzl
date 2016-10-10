@@ -38,8 +38,7 @@ def py_binary_impl(ctx):
   transitive_sources = collect_transitive_sources(ctx)
   deploy_zip = ctx.outputs.deploy_zip
 
-  deploy_zip_nomain = ctx.new_file(
-      ctx.configuration.bin_dir, deploy_zip, ".nomain.zip")
+  deploy_zip_nomain = ctx.new_file(ctx.bin_dir, deploy_zip, ".nomain.zip")
 
   # This is not very scalable, because we just construct a huge string instead
   # of using a nested set. We need to do it this way because Skylark currently

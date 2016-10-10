@@ -511,6 +511,18 @@ public final class SkylarkRuleContext {
     return ImmutableList.copyOf(ruleContext.getFeatures());
   }
 
+  @SkylarkCallable(name = "bin_dir", structField = true,
+      doc = "The root corresponding to bin directory.")
+  public Root getBinDirectory() {
+    return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
+  }
+
+  @SkylarkCallable(name = "genfiles_dir", structField = true,
+      doc = "The root corresponding to genfiles directory.")
+  public Root getGenfilesDirectory() {
+    return getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+  }
+
   @SkylarkCallable(structField = true, doc = OUTPUTS_DOC)
   public SkylarkClassObject outputs() throws EvalException {
     if (outputsObject == null) {

@@ -739,7 +739,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ruleContext.new_file(ruleContext.configuration.genfiles_dir," + "  'a/b.txt')");
+            "ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertEquals("foo/a/b.txt", fragment.getPathString());
   }
@@ -758,7 +758,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ruleContext.new_file(ruleContext.configuration.bin_dir,"
+            "ruleContext.new_file(ruleContext.bin_dir,"
                 + "ruleContext.files.tools[0], '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertEquals("foo/t.exe.params", fragment.getPathString());

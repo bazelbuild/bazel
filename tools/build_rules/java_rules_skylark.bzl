@@ -39,8 +39,7 @@ def java_library_impl(ctx):
   javalist_output = class_jar.path + ".build_java_list"
   sources = ctx.files.srcs
 
-  sources_param_file = ctx.new_file(
-      ctx.configuration.bin_dir, class_jar, "-2.params")
+  sources_param_file = ctx.new_file(ctx.bin_dir, class_jar, "-2.params")
   ctx.file_action(
       output = sources_param_file,
       content = cmd_helper.join_paths("\n", set(sources)),

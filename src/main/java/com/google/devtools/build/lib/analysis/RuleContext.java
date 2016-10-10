@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -522,25 +521,9 @@ public final class RuleContext extends TargetContext
    * which this target (which must be an OutputFile or a Rule) is associated.
    */
   public Root getBinOrGenfilesDirectory() {
-    return rule.hasBinaryOutput() ? getBinDirectory() : getGenfilesDirectory();
-  }
-
-  /**
-   * Returns the bin directory for this build configuration.
-   */
-  @SkylarkCallable(name = "bin_dir", structField = true,
-      doc = "The root corresponding to bin directory.")
-  public Root getBinDirectory() {
-    return getConfiguration().getBinDirectory(rule.getRepository());
-  }
-
-  /**
-   * Returns the genfiles directory for this build configuration.
-   */
-  @SkylarkCallable(name = "genfiles_dir", structField = true,
-      doc = "The root corresponding to genfiles directory.")
-  public Root getGenfilesDirectory() {
-    return getConfiguration().getGenfilesDirectory(rule.getRepository());
+    return rule.hasBinaryOutput()
+        ? getConfiguration().getBinDirectory(rule.getRepository())
+        : getConfiguration().getGenfilesDirectory(rule.getRepository());
   }
 
   /**
