@@ -3,7 +3,7 @@ layout: contribute
 title: bazel init a.k.a ./configure for Bazel
 ---
 
-__This design document has be replaced by
+__This design document has been replaced by
 [Skylark Remote Repositories](/designs/2015/07/02/skylark-remote-repositories.html)
 and is maintained here just for reference__
 
