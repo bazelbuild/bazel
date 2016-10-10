@@ -208,13 +208,17 @@ public class JavaOptions extends FragmentOptions {
       )
   public Void javaTestDebug;
 
-  @Option(name = "strict_java_deps",
-      allowMultiple = false,
-      defaultValue = "default",
-      converter = StrictDepsConverter.class,
-      category = "semantics",
-      help = "If true, checks that a Java target explicitly declares all directly used "
-          + "targets as dependencies.")
+  @Option(
+    name = "strict_java_deps",
+    allowMultiple = false,
+    defaultValue = "default",
+    converter = StrictDepsConverter.class,
+    category = "semantics",
+    help =
+        "If true, checks that a Java target explicitly declares all directly used "
+            + "targets as dependencies.",
+    oldName = "strict_android_deps"
+  )
   public StrictDepsMode strictJavaDeps;
 
   @Option(
@@ -381,6 +385,8 @@ public class JavaOptions extends FragmentOptions {
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
+
+    host.strictJavaDeps = strictJavaDeps;
 
     return host;
   }

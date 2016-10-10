@@ -13,10 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.DEFAULT;
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.ERROR;
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.STRICT;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +31,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -605,7 +600,6 @@ public class AndroidCommon {
         ruleContext, semantics, javaCommon.getJavacOpts(), attributes);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    attributes.setStrictJavaDeps(getStrictAndroidDeps());
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
 
@@ -613,13 +607,6 @@ public class AndroidCommon {
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH));
     ruleContext.checkSrcsSamePackage(true);
     return helper;
-  }
-
-  private StrictDepsMode getStrictAndroidDeps() {
-    // Get command line strict_android_deps option
-    StrictDepsMode strict = ruleContext.getFragment(AndroidConfiguration.class).getStrictDeps();
-    // Use option if anything but DEFAULT, which is now equivalent to ERROR.
-    return (strict != DEFAULT && strict != STRICT) ? strict : ERROR;
   }
 
   JackCompilationHelper initJack(JavaTargetAttributes attributes) throws InterruptedException {
