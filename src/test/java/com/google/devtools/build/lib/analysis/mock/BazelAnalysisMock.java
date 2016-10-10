@@ -111,6 +111,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/BUILD",
         androidBuildContents.toArray(new String[androidBuildContents.size()]));
+    config.create(
+        "/bazel_tools_workspace/tools/android/android_sdk_repository_template.bzl",
+        "def create_android_sdk_rules("
+            + "name, build_tools_version, build_tools_directory, api_level):",
+        "    pass");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
@@ -139,7 +144,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",
-        "cc_binary(name='zipper', srcs=['zip_main.cc'])");
+        "cc_binary(name='zipper', srcs=['zip_main.cc'])",
+        "sh_binary(name='zip_manifest_creator', srcs=['zip_manifest_creator.sh'])",
+        "py_binary(name = 'embedded_jar_extractor', srcs=['embedded_jar_extractor.py'])");
     ccSupport().setup(config);
   }
 
