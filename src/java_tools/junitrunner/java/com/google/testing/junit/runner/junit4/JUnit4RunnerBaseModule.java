@@ -16,8 +16,8 @@ package com.google.testing.junit.runner.junit4;
 
 import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_SHARDING_STRATEGY;
 
-import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.runner.internal.Stdout;
+import com.google.testing.junit.runner.internal.junit4.MemoizingRequest;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.util.MemoizingSupplier;
@@ -72,6 +72,10 @@ public abstract class JUnit4RunnerBaseModule {
      * JUnit4Runner requests the Runner twice, once to build the model (before
      * filtering) and once to run the tests (after filtering). Constructing the
      * Runner can be expensive, so Memoize the Runner.
+     *
+     * <p>Note that as of JUnit 4.11, Request.aClass() will memoize the runner,
+     * but users of Bazel might use an earlier version of JUnit, so to be safe
+     * we keep the memoization here.
      */
     Request request = Request.aClass(suiteClass);
     return new MemoizingRequest(request);

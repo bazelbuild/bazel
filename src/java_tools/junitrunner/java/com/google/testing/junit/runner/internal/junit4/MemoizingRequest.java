@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.testing.junit.junit4.runner;
+package com.google.testing.junit.runner.internal.junit4;
 
 import org.junit.runner.Request;
 import org.junit.runner.Runner;
 
 /**
  * A {@link Request} that memoizies another {@code Request}.
- * This class is meant to be overridden to modify some behaviors.
  */
-@Deprecated
 public class MemoizingRequest extends Request {
   private final Request requestDelegate;
   private Runner runnerDelegate;
@@ -46,7 +44,7 @@ public class MemoizingRequest extends Request {
    * @param delegate request to delegate to
    * @return runner
    */
-  protected Runner createRunner(Request delegate) {
+  Runner createRunner(Request delegate) {
     return delegate.getRunner();
   }
 }

@@ -14,7 +14,6 @@
 
 package com.google.testing.junit.runner.internal.junit4;
 
-import com.google.testing.junit.junit4.runner.MemoizingRequest;
 import com.google.testing.junit.junit4.runner.RunNotifierWrapper;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -45,9 +44,11 @@ public class CancellableRequestFactory {
     if (requestCreated) {
       throw new IllegalStateException("a request was already created");
     }
+    requestCreated = true;
+
     return new MemoizingRequest(delegate) {
       @Override
-      protected Runner createRunner(Request delegate) {
+      Runner createRunner(Request delegate) {
         return new CancellableRunner(delegate.getRunner());
       }
     };
