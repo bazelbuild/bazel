@@ -1839,9 +1839,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       long time = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
       TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-      eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getOriginalTargets(),
-          patternParsingValue.getFilteredTargets(), patternParsingValue.getTestFilteredTargets(),
-          time));
+      eventBus.post(
+          new TargetParsingCompleteEvent(
+              patternParsingValue.getOriginalTargets(),
+              patternParsingValue.getFilteredTargets(),
+              patternParsingValue.getTestFilteredTargets(),
+              time,
+              targetPatterns));
       if (callback != null) {
         callback.notifyTargets(patternParsingValue.getTargets());
       }
