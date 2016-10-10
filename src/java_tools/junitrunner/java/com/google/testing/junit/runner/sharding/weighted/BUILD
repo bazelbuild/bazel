@@ -12,6 +12,7 @@ java_library(
     name = "weighted",
     srcs = glob(["*.java"]),
     deps = [
+        "//java/com/google/testing/util",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
         "//third_party:junit4",
     ],

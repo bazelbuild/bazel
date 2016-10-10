@@ -14,7 +14,6 @@ java_library(
     # Disable sunapi warnings about sun.misc.Signal.
     # There are no non-Sun APIs for doing this.
     javacopts = ["-Xlint:-sunapi"],
-    runtime_deps = ["//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/weighted"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",

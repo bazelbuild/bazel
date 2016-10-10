@@ -16,6 +16,7 @@ package com.google.testing.junit.runner.sharding.weighted;
 
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.api.WeightStrategy;
+import com.google.testing.util.RuntimeCost;
 import java.util.Collection;
 import org.junit.Ignore;
 import org.junit.runner.Description;
