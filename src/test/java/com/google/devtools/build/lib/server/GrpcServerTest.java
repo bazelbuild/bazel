@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.server.GrpcServerImpl.StreamType;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
@@ -267,6 +268,36 @@ public class GrpcServerTest {
     assertThat(sink.finish()).isFalse();
     sender.joinAndAssertState(1000);
     observer.waitForMessages(2, 100, TimeUnit.MILLISECONDS);
+  }
+
+  @Test
+  public void testDeadlockWhenDisconnectedWithQueueFull() throws Exception {
+    MockObserver observer = new MockObserver();
+    final GrpcServerImpl.GrpcSink sink = new GrpcServerImpl.GrpcSink(observer, executor);
+
+    observer.ready.set(false);
+    TestThread sender = new TestThread() {
+      @Override
+      public void runTest() {
+        // Should return false due to the disconnect
+        assertThat(sink.offer(runResponse())).isFalse();
+      }
+    };
+
+    sender.setDaemon(true);
+    sender.start();
+
+    // Wait until the sink thread has processed the SEND message from #offer()
+    while (sink.getReceivedEventCount() < 1) {
+      Thread.sleep(200);
+    }
+
+    // Disconnect while there is an item pending
+    observer.onCancelHandler.run();
+
+    // Make sure that both the sink and the sender thread finish
+    assertThat(sink.finish()).isTrue();
+    sender.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 
   @Test

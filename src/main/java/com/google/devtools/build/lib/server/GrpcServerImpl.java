@@ -198,6 +198,7 @@ public class GrpcServerImpl implements RPCServer {
     private final Future<?> future;
     private final AtomicReference<Thread> commandThread = new AtomicReference<>();
     private final AtomicBoolean disconnected = new AtomicBoolean(false);
+    private final AtomicLong receivedEventCount = new AtomicLong(0);
 
     @VisibleForTesting
     GrpcSink(ServerCallStreamObserver<RunResponse> observer, ExecutorService executor) {
@@ -237,6 +238,11 @@ public class GrpcServerImpl implements RPCServer {
                   GrpcSink.this.call();
                 }
               });
+    }
+
+    @VisibleForTesting
+    long getReceivedEventCount() {
+      return receivedEventCount.get();
     }
 
     @VisibleForTesting
@@ -320,8 +326,14 @@ public class GrpcServerImpl implements RPCServer {
       while (true) {
         SinkThreadAction action;
         action = Uninterruptibles.takeUninterruptibly(actionQueue);
+        receivedEventCount.incrementAndGet();
         switch (action) {
           case FINISH:
+            if (itemPending) {
+              exchange(new SinkThreadItem(false, null), true);
+              itemPending = false;
+            }
+
             // Reset the interrupted bit so that it doesn't stay set for the next command that is
             // handled by this thread
             Thread.interrupted();
@@ -337,6 +349,10 @@ public class GrpcServerImpl implements RPCServer {
           case DISCONNECT:
             log.info("Client disconnected for stream thread " + Thread.currentThread().getName());
             disconnected.set(true);
+            if (itemPending) {
+              exchange(new SinkThreadItem(false, null), true);
+              itemPending = false;
+            }
             break;
 
           case SEND:
