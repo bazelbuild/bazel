@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -1140,7 +1141,7 @@ public class CppCompileAction extends AbstractAction
     NestedSet<Artifact> discoveredInputs =
         discoverInputsFromDotdFiles(execRoot, scanningContext.getArtifactResolver(), reply);
     reply = null; // Clear in-memory .d files early.
-
+    
     // Post-execute "include scanning", which modifies the action inputs to match what the compile
     // action actually used by incorporating the results of .d file parsing.
     //
@@ -1165,8 +1166,8 @@ public class CppCompileAction extends AbstractAction
   public NestedSet<Artifact> discoverInputsFromDotdFiles(
       Path execRoot, ArtifactResolver artifactResolver, Reply reply)
       throws ActionExecutionException {
-    if (getDotdFile() == null) {
-      return NestedSetBuilder.<Artifact>stableOrder().build();
+    if (!cppSemantics.needsDotdInputPruning() || getDotdFile() == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     HeaderDiscovery.Builder discoveryBuilder =
         new HeaderDiscovery.Builder()

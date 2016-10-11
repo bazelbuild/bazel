@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -35,15 +36,18 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public class ObjcCppSemantics implements CppSemantics {
 
   private final ObjcProvider objcProvider;
+  private final ObjcConfiguration config;
 
   /**
    * Creates an instance of ObjcCppSemantics
-   * 
-   * @param objcProvider  the provider that should be used in determining objc-specific inputs
-   *    to actions
+   *
+   * @param objcProvider the provider that should be used in determining objc-specific inputs to
+   *     actions
+   * @param config the ObjcConfiguration for this build
    */
-  public ObjcCppSemantics(ObjcProvider objcProvider) {
+  public ObjcCppSemantics(ObjcProvider objcProvider, ObjcConfiguration config) {
     this.objcProvider = objcProvider;
+    this.config = config;
   }
   
   @Override
@@ -83,6 +87,11 @@ public class ObjcCppSemantics implements CppSemantics {
     return false;
   }
 
+  @Override
+  public boolean needsDotdInputPruning() {
+    return config.getDotdPruningPlan() == DotdPruningMode.USE;
+  }
+  
   @Override
   public void validateAttributes(RuleContext ruleContext) {
   }

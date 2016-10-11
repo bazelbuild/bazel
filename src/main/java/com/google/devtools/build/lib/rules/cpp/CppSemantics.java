@@ -58,6 +58,9 @@ public interface CppSemantics {
    * in the action graph.
    */
   boolean needsIncludeScanning(RuleContext ruleContext);
+  
+  /** Returns true iff this build should perform .d input pruning. */
+  boolean needsDotdInputPruning();
 
   void validateAttributes(RuleContext ruleContext);
 

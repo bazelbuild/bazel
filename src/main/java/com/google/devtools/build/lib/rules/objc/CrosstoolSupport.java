@@ -196,7 +196,8 @@ public class CrosstoolSupport {
         (pchHdr != null) ? ImmutableList.<Artifact>of(pchHdr) : ImmutableList.<Artifact>of();
     return new CcLibraryHelper(
             ruleContext,
-            new ObjcCppSemantics(common.getObjcProvider()),
+            new ObjcCppSemantics(
+                common.getObjcProvider(), ruleContext.getFragment(ObjcConfiguration.class)),
             featureConfiguration,
             CcLibraryHelper.SourceCategory.CC_AND_OBJC)
         .addSources(arcSources, ImmutableMap.of("objc_arc", ""))
