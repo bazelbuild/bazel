@@ -103,12 +103,9 @@ public class ASTFileLookupFunction implements SkyFunction {
     //
     BuildFileAST ast = null;
     Path path = rootedPath.asPath();
-    // Skylark files end with bzl
-    boolean parseAsSkylark = filePathFragment.getPathString().endsWith(".bzl");
     try {
       long astFileSize = fileValue.getSize();
-      if (parseAsSkylark) {
-        try (Mutability mutability = Mutability.create("validate")) {
+      try (Mutability mutability = Mutability.create("validate")) {
           ValidationEnvironment validationEnv =
               new ValidationEnvironment(
                   ruleClassProvider
@@ -124,9 +121,6 @@ public class ASTFileLookupFunction implements SkyFunction {
           ast = BuildFileAST.parseSkylarkFile(path, astFileSize, env.getListener());
           ast = ast.validate(validationEnv, env.getListener());
         }
-      } else {
-        ast = BuildFileAST.parseBuildFile(path, astFileSize, env.getListener());
-      }
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
           Transience.TRANSIENT);

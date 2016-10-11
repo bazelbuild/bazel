@@ -234,11 +234,6 @@ public class BuildFileAST extends ASTNode {
    *
    * @throws IOException if the file cannot not be read.
    */
-  public static BuildFileAST parseBuildFile(Path buildFile, EventHandler eventHandler)
-      throws IOException {
-    return parseBuildFile(buildFile, buildFile.getFileSize(), eventHandler);
-  }
-
   public static BuildFileAST parseBuildFile(Path buildFile, long fileSize,
                                             EventHandler eventHandler)
       throws IOException {
