@@ -1390,18 +1390,20 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testSimpleCCLibraryWithDeps() throws Exception {
+    // Specify '-fPIC' so that compilation output filenames are consistent for mac and linux.
     scratch.file(
         "com/google/example/BUILD",
         "cc_library(",
-        "   name = 'lib',",
-        "   srcs = ['lib/lib.cc'],",
-        "   hdrs = ['lib/lib.h'],",
+        "    name = 'lib',",
+        "    srcs = ['lib/lib.cc'],",
+        "    hdrs = ['lib/lib.h'],",
         ")",
         "cc_library(",
         "    name = 'simple',",
         "    srcs = ['simple/simple.cc'],",
         "    hdrs = ['simple/simple.h'],",
         "    deps = [':lib'],",
+        "    nocopts = '-fPIC',",
         ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
     assertThat(ruleIdeInfos).hasSize(3);
@@ -1412,8 +1414,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleIdeInfo.getDependenciesList()).hasSize(2);
 
     assertThat(getIdeCompileFiles()).containsExactly(
-        "com/google/example/liblib.a",
-        "com/google/example/libsimple.a");
+        "com/google/example/_objs/simple/com/google/example/simple/simple.o");
   }
 
   @Test

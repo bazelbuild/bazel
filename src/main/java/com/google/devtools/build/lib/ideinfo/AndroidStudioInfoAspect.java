@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -67,11 +68,9 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -197,11 +196,19 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         dependenciesResult,
         providerBuilder);
 
+    NestedSetBuilder<Artifact> ideCompileArtifacts = NestedSetBuilder.stableOrder();
+    // Add artifacts required for compilation
+    OutputGroupProvider outputGroupProvider = base.getProvider(OutputGroupProvider.class);
+    if (outputGroupProvider != null) {
+      ideCompileArtifacts.addTransitive(
+          outputGroupProvider.getOutputGroup(OutputGroupProvider.FILES_TO_COMPILE));
+    }
+
     builder
         .addOutputGroup(IDE_INFO, provider.getIdeInfoFiles())
         .addOutputGroup(IDE_INFO_TEXT, provider.getIdeInfoTextFiles())
         .addOutputGroup(IDE_RESOLVE, provider.getIdeResolveFiles())
-        .addOutputGroup(IDE_COMPILE, provider.getIdeCompileFiles())
+        .addOutputGroup(IDE_COMPILE, ideCompileArtifacts.build())
         .addProvider(provider);
 
     return builder.build();
@@ -296,9 +303,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       providerBuilder.ideInfoFilesBuilder().addTransitive(depProvider.getIdeInfoFiles());
       providerBuilder.ideInfoTextFilesBuilder().addTransitive(depProvider.getIdeInfoTextFiles());
       providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
-      providerBuilder.ideCompileFilesBuilder().addTransitive(depProvider.getIdeCompileFiles());
     }
-
 
     return new DependenciesResult(
         dependencies,
@@ -318,7 +323,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     providerBuilder.ideInfoFilesBuilder().add(ideInfoFile);
     providerBuilder.ideInfoTextFilesBuilder().add(ideInfoTextFile);
     NestedSetBuilder<Artifact> ideResolveArtifacts = providerBuilder.ideResolveFilesBuilder();
-    NestedSetBuilder<Artifact> ideCompileArtifacts = providerBuilder.ideCompileFilesBuilder();
 
     RuleIdeInfo.Builder outputBuilder = RuleIdeInfo.newBuilder();
 
@@ -345,8 +349,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     if (isCppRule(base)) {
       CppCompilationContext cppCompilationContext = base.getProvider(CppCompilationContext.class);
       if (cppCompilationContext != null) {
-        CRuleIdeInfo cRuleIdeInfo = makeCRuleIdeInfo(base, ruleContext,
-            cppCompilationContext, ideResolveArtifacts, ideCompileArtifacts);
+        CRuleIdeInfo cRuleIdeInfo = makeCRuleIdeInfo(base, ruleContext, cppCompilationContext,
+            ideResolveArtifacts);
         outputBuilder.setCRuleIdeInfo(cRuleIdeInfo);
       }
     }
@@ -679,8 +683,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       ConfiguredTarget base,
       RuleContext ruleContext,
       CppCompilationContext cppCompilationContext,
-      NestedSetBuilder<Artifact> ideResolveArtifacts,
-      NestedSetBuilder<Artifact> ideCompileArtifacts) {
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
     CRuleIdeInfo.Builder builder = CRuleIdeInfo.newBuilder();
 
     Collection<Artifact> sourceFiles = getSources(ruleContext);
@@ -713,14 +716,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         cppCompilationContext.getSystemIncludeDirs();
     for (PathFragment pathFragment : transitiveSystemIncludeDirectories) {
       builder.addTransitiveSystemIncludeDirectory(pathFragment.getSafePathString());
-    }
-
-    // Add libs to ide-compile
-    CcLinkParamsProvider ccLinkParams = base.getProvider(CcLinkParamsProvider.class);
-    if (ccLinkParams != null) {
-      for (LinkerInput lib : ccLinkParams.getCcLinkParams(true, false).getLibraries()) {
-        ideCompileArtifacts.add(lib.getArtifact());
-      }
     }
 
     androidStudioInfoSemantics.augmentCppRuleInfo(
