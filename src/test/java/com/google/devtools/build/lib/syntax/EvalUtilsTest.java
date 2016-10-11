@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -52,6 +53,15 @@ public class EvalUtilsTest extends EvaluationTestCase {
     assertThat(EvalUtils.toIterable("abc", null)).hasSize(3);
   }
 
+  /** MockClassA */
+  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  public static class MockClassA {
+  }
+
+  /** MockClassB */
+  public static class MockClassB extends MockClassA {
+  }
+
   @Test
   public void testDataTypeNames() throws Exception {
     assertEquals("string", EvalUtils.getDataTypeName("foo"));
@@ -60,6 +70,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
     assertEquals("list",  EvalUtils.getDataTypeName(makeList(null)));
     assertEquals("dict",  EvalUtils.getDataTypeName(makeDict(null)));
     assertEquals("NoneType", EvalUtils.getDataTypeName(Runtime.NONE));
+    assertEquals("MockClassA", EvalUtils.getDataTypeName(new MockClassA()));
+    assertEquals("MockClassA", EvalUtils.getDataTypeName(new MockClassB()));
   }
 
   @Test
