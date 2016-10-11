@@ -285,10 +285,7 @@ public class SkylarkRuleClassFunctions {
             doc = "<i>(Experimental)</i> "
                 + "If true, this rule will expose its actions for inspection by rules that depend "
                 + "on it via an <a href=\"ActionsSkylarkApiProvider.html\">actions</a> provider."
-                + "The provider is also available to the rule itself by calling "
-                + "<code>ctx.created_actions()</code>."
-                + ""
-                + "<p>This should only be used for testing the analysis-time behavior of Skylark "
+                + "This should only be used for testing the analysis-time behavior of Skylark "
                 + "rules. This flag may be removed in the future.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {

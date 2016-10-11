@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -165,8 +164,8 @@ public final class SkylarkRuleContext {
   public SkylarkRuleContext(RuleContext ruleContext, Kind kind)
       throws EvalException, InterruptedException {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
-    this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
-    this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
+    fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
+    hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
 
     if (kind == Kind.RULE) {
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
@@ -418,24 +417,6 @@ public final class SkylarkRuleContext {
    */
   public RuleContext getRuleContext() {
     return ruleContext;
-  }
-
-  @SkylarkCallable(name = "created_actions",
-      doc = "For rules marked <code>_skylark_testable=True</code>, this returns an "
-          + "<a href=\"ActionsSkylarkApiProvider.html\">actions</a> provider representing all "
-          + "actions created so far for the current rule. For all other rules, returns None. "
-          + "Note that the provider is not updated when subsequent actions are created, so you "
-          + "will have to call this function again if you wish to inspect them. "
-          + ""
-          + "<p>This is intended to help test rule-implementation helper functions that take in a "
-          + "<a href=\"ctx.html\">ctx</a> object and create actions for it.")
-  public Object createdActions() {
-    if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
-      return ActionsProvider.create(
-          ruleContext.getAnalysisEnvironment().getRegisteredActions());
-    } else {
-      return Runtime.NONE;
-    }
   }
 
   @SkylarkCallable(name = "attr", structField = true, doc = ATTR_DOC)
