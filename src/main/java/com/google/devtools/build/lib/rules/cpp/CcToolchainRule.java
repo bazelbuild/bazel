@@ -75,12 +75,16 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HOST))
         .add(attr("supports_param_files", BOOLEAN).value(true))
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
+        .add(
+            attr("$link_dynamic_library_tool", LABEL)
+                .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         // TODO(bazel-team): Should be using the TARGET configuration.
         .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))
-        .add(attr(":lipo_context_collector", LABEL)
-            .cfg(LipoTransition.LIPO_COLLECTOR)
-            .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
-            .skipPrereqValidatorCheck())
+        .add(
+            attr(":lipo_context_collector", LABEL)
+                .cfg(LipoTransition.LIPO_COLLECTOR)
+                .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
+                .skipPrereqValidatorCheck())
         .build();
   }
 

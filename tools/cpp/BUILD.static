@@ -94,3 +94,8 @@ filegroup(
         "wrapper/bin/pydir/msvc*",
     ]),
 )
+
+filegroup(
+    name = "link_dynamic_library",
+    srcs = ["link_dynamic_library.sh"],
+)

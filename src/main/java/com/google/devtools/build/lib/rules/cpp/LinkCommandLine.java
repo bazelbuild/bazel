@@ -53,14 +53,13 @@ import javax.annotation.Nullable;
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
-  private final BuildConfiguration configuration;
+  private final String toolPath;
   private final CppConfiguration cppConfiguration;
   private final ActionOwner owner;
   private final CcToolchainFeatures.Variables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
   @Nullable private final Artifact output;
-  @Nullable private final Artifact interfaceOutput;
   private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
   private final Iterable<? extends LinkerInput> linkerInputs;
   private final Iterable<? extends LinkerInput> runtimeInputs;
@@ -77,14 +76,13 @@ public final class LinkCommandLine extends CommandLine {
   private final List<String> noWholeArchiveFlags;
 
   @Nullable private final Artifact paramFile;
-  @Nullable private final Artifact interfaceSoBuilder;
 
   private LinkCommandLine(
       String actionName,
+      String toolPath,
       BuildConfiguration configuration,
       ActionOwner owner,
       Artifact output,
-      @Nullable Artifact interfaceOutput,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       Iterable<? extends LinkerInput> linkerInputs,
       Iterable<? extends LinkerInput> runtimeInputs,
@@ -100,23 +98,17 @@ public final class LinkCommandLine extends CommandLine {
       boolean useTestOnlyFlags,
       boolean needWholeArchive,
       @Nullable Artifact paramFile,
-      Artifact interfaceSoBuilder,
       List<String> noWholeArchiveFlags,
       CcToolchainFeatures.Variables variables,
       @Nullable FeatureConfiguration featureConfiguration) {
 
     this.actionName = actionName;
-    this.configuration = Preconditions.checkNotNull(configuration);
+    this.toolPath = toolPath;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
     this.owner = Preconditions.checkNotNull(owner);
     this.output = output;
-    this.interfaceOutput = interfaceOutput;
-    if (interfaceOutput != null) {
-      Preconditions.checkNotNull(this.output);
-    }
-
     this.buildInfoHeaderArtifacts = Preconditions.checkNotNull(buildInfoHeaderArtifacts);
     this.linkerInputs = Preconditions.checkNotNull(linkerInputs);
     this.runtimeInputs = Preconditions.checkNotNull(runtimeInputs);
@@ -135,23 +127,6 @@ public final class LinkCommandLine extends CommandLine {
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.paramFile = paramFile;
     this.noWholeArchiveFlags = noWholeArchiveFlags;
-
-    // For now, silently ignore interfaceSoBuilder if we don't build an interface dynamic library.
-    this.interfaceSoBuilder =
-        ((linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) && (interfaceOutput != null))
-            ? Preconditions.checkNotNull(
-                interfaceSoBuilder, "cannot build interface dynamic library without builder")
-            : null;
-  }
-
-  /**
-   * Returns an interface shared object output artifact produced during linking. This only returns
-   * non-null if {@link #getLinkTargetType} is {@code DYNAMIC_LIBRARY} and an interface shared
-   * object was requested.
-   */
-  @Nullable
-  public Artifact getInterfaceOutput() {
-    return interfaceOutput;
   }
 
   @Nullable
@@ -410,17 +385,7 @@ public final class LinkCommandLine extends CommandLine {
         break;
 
       case DYNAMIC_LIBRARY:
-        if (interfaceOutput != null) {
-          argv.add(configuration.getShellExecutable().getPathString());
-          argv.add("-c");
-          argv.add(
-              "build_iface_so=\"$0\"; impl=\"$1\"; iface=\"$2\"; cmd=\"$3\"; shift 3; "
-                  + "\"$cmd\" \"$@\" && \"$build_iface_so\" \"$impl\" \"$iface\"");
-          argv.add(interfaceSoBuilder.getExecPathString());
-          argv.add(output.getExecPathString());
-          argv.add(interfaceOutput.getExecPathString());
-        }
-        argv.add(cppConfiguration.getCppExecutable().getPathString());
+        argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         argv.addAll(noWholeArchiveFlags);
         addToolchainFlags(argv);
@@ -443,11 +408,7 @@ public final class LinkCommandLine extends CommandLine {
         // TODO(b/30109612): make this pattern the case for all link variants.
       case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
-        argv.add(
-            featureConfiguration
-                .getToolForAction(actionName)
-                .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
-                .getPathString());
+        argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         break;
 
@@ -664,8 +625,8 @@ public final class LinkCommandLine extends CommandLine {
     private final ActionOwner owner;
     @Nullable private final RuleContext ruleContext;
 
+    @Nullable private String toolPath;
     @Nullable private Artifact output;
-    @Nullable private Artifact interfaceOutput;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
     private Iterable<? extends LinkerInput> linkerInputs = ImmutableList.of();
     private Iterable<? extends LinkerInput> runtimeInputs = ImmutableList.of();
@@ -680,7 +641,6 @@ public final class LinkCommandLine extends CommandLine {
     private boolean useTestOnlyFlags;
     private boolean needWholeArchive;
     @Nullable private Artifact paramFile;
-    @Nullable private Artifact interfaceSoBuilder;
     @Nullable private CcToolchainProvider toolchain;
     private Variables variables;
     private FeatureConfiguration featureConfiguration;
@@ -740,10 +700,10 @@ public final class LinkCommandLine extends CommandLine {
 
       return new LinkCommandLine(
           actionName,
+          toolPath,
           configuration,
           owner,
           output,
-          interfaceOutput,
           buildInfoHeaderArtifacts,
           linkerInputs,
           runtimeInputs,
@@ -759,7 +719,6 @@ public final class LinkCommandLine extends CommandLine {
           useTestOnlyFlags,
           needWholeArchive,
           paramFile,
-          interfaceSoBuilder,
           noWholeArchiveFlags,
           variables,
           featureConfiguration);
@@ -774,9 +733,13 @@ public final class LinkCommandLine extends CommandLine {
       return this;
     }
 
-    /**
-     * Sets the feature configuration for this link action.
-     */
+    /** Sets the tool path, with tool being the first thing on the command line */
+    public Builder setToolPath(String toolPath) {
+      this.toolPath = toolPath;
+      return this;
+    }
+
+    /** Sets the feature configuration for this link action. */
     public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
       this.featureConfiguration = featureConfiguration;
       return this;
@@ -818,16 +781,6 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets the additional interface output artifact, which is only used for dynamic libraries. The
-     * {@link #build} method throws an exception if the target type is not {@link
-     * LinkTargetType#DYNAMIC_LIBRARY}.
-     */
-    public Builder setInterfaceOutput(Artifact interfaceOutput) {
-      this.interfaceOutput = interfaceOutput;
-      return this;
-    }
-
-    /**
      * Sets the linker options. These are passed to the linker in addition to the other linker
      * options like linker inputs, symbol count options, etc. The {@link #build} method throws an
      * exception if the linker options are non-empty for a static link (see {@link
@@ -846,16 +799,6 @@ public final class LinkCommandLine extends CommandLine {
      */
     public Builder setLinkStaticness(LinkStaticness linkStaticness) {
       this.linkStaticness = linkStaticness;
-      return this;
-    }
-
-    /**
-     * Sets the binary that should be used to create the interface output for a dynamic library.
-     * This is ignored unless the target type is {@link LinkTargetType#DYNAMIC_LIBRARY} and an
-     * interface output artifact is specified.
-     */
-    public Builder setInterfaceSoBuilder(Artifact interfaceSoBuilder) {
-      this.interfaceSoBuilder = interfaceSoBuilder;
       return this;
     }
 

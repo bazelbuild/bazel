@@ -21,12 +21,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.List;
 
 /**
  * Test for shared library linking {@link CppLinkAction}.
@@ -35,8 +33,9 @@ import java.util.List;
 public final class LibraryLinkingTest extends BuildViewTestCase {
   private List<String> getLinkOpts(CppLinkAction linkAction, String... optionPatterns)
       throws Exception {
-    // Strip the first parameter from the argv, which is the gcc command.
-    return linkAction.getRawLinkArgv().subList(1, optionPatterns.length + 3);
+    // Strip the first parameters from the argv, which are the dynamic library script
+    // (usually tools/cpp/link_dynamic_library.sh), and its arguments.
+    return linkAction.getRawLinkArgv().subList(6, optionPatterns.length + 6);
   }
 
   private void assertLinkopts(CppLinkAction linkAction, String... optionPatterns) throws Exception {

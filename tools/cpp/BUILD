@@ -158,3 +158,8 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//tools/cpp/test:srcs"],
 )
+
+filegroup(
+    name = "link_dynamic_library",
+    srcs = ["link_dynamic_library.sh"],
+)

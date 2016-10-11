@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -162,7 +163,60 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
   }
 
   /**
-   * TODO(pcloudy): Add test for testing that necessary build variables are populated
-   * when alwayslink=1.
+   * TODO(pcloudy): Add test for testing that necessary build variables are populated when
+   * alwayslink=1.
    */
+  @Test
+  public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
+    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
+
+    String interfaceLibraryBuilder =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE));
+    String interfaceLibraryInput =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE));
+    String interfaceLibraryOutput =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE));
+    String generateInterfaceLibrary =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE));
+
+    assertThat(generateInterfaceLibrary).isEqualTo("yes");
+    assertThat(interfaceLibraryInput).endsWith("libfoo.so");
+    assertThat(interfaceLibraryOutput).endsWith("libfoo.ifso");
+    assertThat(interfaceLibraryBuilder).endsWith("build_interface_so");
+  }
+
+  @Test
+  public void testInterfaceLibraryBuildingVariablesWhenGenerationNotAllowed() throws Exception {
+    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.STATIC_LIBRARY);
+
+    String interfaceLibraryBuilder =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_BUILDER_VARIABLE));
+    String interfaceLibraryInput =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_INPUT_VARIABLE));
+    String interfaceLibraryOutput =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARY_OUTPUT_VARIABLE));
+    String generateInterfaceLibrary =
+        Iterables.getOnlyElement(
+            getVariableValue(variables, CppLinkActionBuilder.GENERATE_INTERFACE_LIBRARY_VARIABLE));
+
+    assertThat(generateInterfaceLibrary).isEqualTo("no");
+    assertThat(interfaceLibraryInput).endsWith("ignored");
+    assertThat(interfaceLibraryOutput).endsWith("ignored");
+    assertThat(interfaceLibraryBuilder).endsWith("ignored");
+  }
 }

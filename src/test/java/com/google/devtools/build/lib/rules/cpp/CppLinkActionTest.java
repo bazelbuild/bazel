@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -54,10 +55,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CppLinkActionTest extends BuildViewTestCase {
   private RuleContext createDummyRuleContext() throws Exception {
-    return view.getRuleContextForTesting(reporter, scratchConfiguredTarget(
-        "dummyRuleContext", "dummyRuleContext",
-        // CppLinkAction creation requires a CcToolchainProvider.
-        "cc_library(name = 'dummyRuleContext')"),
+    return view.getRuleContextForTesting(
+        reporter,
+        scratchConfiguredTarget(
+            "dummyRuleContext",
+            "dummyRuleContext",
+            // CppLinkAction creation requires a CcToolchainProvider.
+            "cc_library(name = 'dummyRuleContext')"),
         new StubAnalysisEnvironment() {
           @Override
           public void registerAction(ActionAnalysisMetadata... action) {
@@ -65,16 +69,23 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
+          public Artifact getEmbeddedToolArtifact(String embeddedPath) {
+            return scratchArtifact("tools/interface_so_builder");
+          }
+
+          @Override
           public Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
           }
-        }, masterConfig);
+        },
+        masterConfig);
   }
   
   private final FeatureConfiguration getMockFeatureConfiguration() throws Exception {
     return CcToolchainFeaturesTest.buildFeatures(
-            CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.LINUX))
+            CppLinkActionConfigs.getCppLinkActionConfigs(
+                CppLinkPlatform.LINUX, ImmutableSet.<String>of(), "dynamic_library_linker_tool"))
         .getFeatureConfiguration(
             Link.LinkTargetType.EXECUTABLE.getActionName(),
             Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
@@ -107,11 +118,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkAction linkAction =
         createLinkBuilder(
                 Link.LinkTargetType.EXECUTABLE,
-                "out",
+                "dummyRuleContext/out",
                 ImmutableList.<Artifact>of(),
                 ImmutableList.<LibraryToLink>of(),
-                featureConfiguration,
-                false)
+                featureConfiguration)
             .build();
     assertThat(linkAction.getArgv()).contains("some_flag");
   }
@@ -160,11 +170,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkAction linkAction =
         createLinkBuilder(
                 Link.LinkTargetType.EXECUTABLE,
-                "out",
+                "dummyRuleContext/out",
                 ImmutableList.<Artifact>of(),
                 ImmutableList.<LibraryToLink>of(),
-                featureConfiguration,
-                false)
+                featureConfiguration)
             .build();
     assertThat(linkAction.getEnvironment()).containsEntry("foo", "bar");
   }
@@ -315,11 +324,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkAction linkAction =
         createLinkBuilder(
                 Link.LinkTargetType.EXECUTABLE,
-                "binary2",
+                "dummyRuleContext/binary2",
                 objects.build(),
                 ImmutableList.<LibraryToLink>of(),
-                new FeatureConfiguration(),
-                false)
+                new FeatureConfiguration())
             .setFake(true)
             .build();
 
@@ -350,8 +358,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
       String outputPath,
       Iterable<Artifact> nonLibraryInputs,
       ImmutableList<LibraryToLink> libraryInputs,
-      FeatureConfiguration featureConfiguration,
-      boolean shouldIncludeToolchain)
+      FeatureConfiguration featureConfiguration)
       throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
     CppLinkActionBuilder builder =
@@ -359,10 +366,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ruleContext,
                 new Artifact(
                     new PathFragment(outputPath),
-                    getTargetConfiguration().getBinDirectory(
-                        ruleContext.getRule().getRepository())),
+                    getTargetConfiguration()
+                        .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
-                shouldIncludeToolchain ? CppHelper.getToolchain(ruleContext) : null)
+                CppHelper.getToolchain(ruleContext))
             .addObjectFiles(nonLibraryInputs)
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
@@ -382,8 +389,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         output.getPathString(),
         ImmutableList.<Artifact>of(),
         ImmutableList.<LibraryToLink>of(),
-        new FeatureConfiguration(),
-        true);
+        new FeatureConfiguration());
   }
 
   public Artifact getOutputArtifact(String relpath) {
@@ -421,6 +427,68 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput"));
 
     assertError("Interface output can only be used with non-fake DYNAMIC_LIBRARY targets", builder);
+  }
+
+  @Test
+  public void testInterfaceOutputForDynamicLibrary() throws Exception {
+    FeatureConfiguration featureConfiguration =
+        CcToolchainFeaturesTest.buildFeatures(
+                "feature {",
+                "   name: 'build_interface_libraries'",
+                "   flag_set {",
+                "       action: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "',",
+                "       flag_group {",
+                "           flag: '%{generate_interface_library}'",
+                "           flag: '%{interface_library_builder_path}'",
+                "           flag: '%{interface_library_input_path}'",
+                "           flag: '%{interface_library_output_path}'",
+                "       }",
+                "   }",
+                "}",
+                "feature {",
+                "   name: 'dynamic_library_linker_tool'",
+                "   flag_set {",
+                "       action: 'c++-link-dynamic-library'",
+                "       flag_group {",
+                "           flag: 'dynamic_library_linker_tool'",
+                "       }",
+                "   }",
+                "}",
+                "feature {",
+                "    name: 'has_configured_linker_path'",
+                "}",
+                "action_config {",
+                "   config_name: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "'",
+                "   action_name: '" + LinkTargetType.DYNAMIC_LIBRARY.getActionName() + "'",
+                "   tool {",
+                "       tool_path: 'custom/crosstool/scripts/link_dynamic_library.sh'",
+                "   }",
+                "   implies: 'has_configured_linker_path'",
+                "   implies: 'build_interface_libraries'",
+                "   implies: 'dynamic_library_linker_tool'",
+                "}")
+            .getFeatureConfiguration(
+                "build_interface_libraries",
+                "dynamic_library_linker_tool",
+                LinkTargetType.DYNAMIC_LIBRARY.getActionName());
+    CppLinkActionBuilder builder =
+        createLinkBuilder(
+                LinkTargetType.DYNAMIC_LIBRARY,
+                "foo.so",
+                ImmutableList.<Artifact>of(),
+                ImmutableList.<LibraryToLink>of(),
+                featureConfiguration)
+            .setLibraryIdentifier("foo")
+            .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput.ifso"));
+
+    List<String> commandLine = builder.build().getCommandLine();
+    assertThat(commandLine.size()).isGreaterThan(6);
+    assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
+    assertThat(commandLine.get(1)).isEqualTo("yes");
+    assertThat(commandLine.get(2)).isEqualTo("tools/interface_so_builder");
+    assertThat(commandLine.get(3)).endsWith("foo.so");
+    assertThat(commandLine.get(4)).isEqualTo("FakeInterfaceOutput.ifso");
+    assertThat(commandLine.get(5)).isEqualTo("dynamic_library_linker_tool");
   }
 
   @Test

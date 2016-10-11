@@ -35,10 +35,7 @@ import java.io.IOException;
  */
 public abstract class MockCcSupport {
 
-  /**
-   * Filter to remove implicit crosstool artifact and module map inputs
-   * of C/C++ rules.
-   */
+  /** Filter to remove implicit crosstool artifact and module map inputs of C/C++ rules. */
   public static final Predicate<Artifact> CC_ARTIFACT_FILTER =
       new Predicate<Artifact>() {
         @Override
@@ -46,6 +43,7 @@ public abstract class MockCcSupport {
           String basename = artifact.getExecPath().getBaseName();
           String pathString = artifact.getExecPathString();
           return !pathString.startsWith("third_party/crosstool/")
+              && !pathString.startsWith("tools/cpp/link_dynamic_library")
               && !(pathString.contains("/internal/_middlemen") && basename.contains("crosstool"))
               && !pathString.startsWith("_bin/build_interface_so")
               && !pathString.endsWith(".cppmap");
@@ -502,7 +500,16 @@ public abstract class MockCcSupport {
         "package(default_visibility = ['//visibility:public'])",
         "cc_library(name = 'stl')",
         "alias(name='toolchain', actual='//third_party/crosstool')",
-        "cc_library(name = 'malloc')");
+        "cc_library(name = 'malloc')",
+        "filegroup(",
+        "    name = 'link_dynamic_library',",
+        "    srcs = ['link_dynamic_library.sh'],",
+        ")");
+    if (config.isRealFileSystem()) {
+      config.linkTool("tools/cpp/link_dynamic_library.sh");
+    } else {
+      config.create("tools/cpp/link_dynamic_library.sh", "");
+    }
   }
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)

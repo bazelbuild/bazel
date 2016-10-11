@@ -32,7 +32,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
       new Predicate<String>() {
         @Override
         public boolean apply(String label) {
-          return !label.startsWith("@blaze_tools//tools/cpp/stl");
+          return !label.startsWith("@blaze_tools//tools/cpp/stl")
+              && !label.startsWith("@blaze_tools//tools/cpp/link_dynamic_library");
         }
       };
 
@@ -75,6 +76,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   public void setup(MockToolsConfig config) throws IOException {
     config.create(
         "/bazel_tools_workspace/tools/cpp/BUILD",
+        "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'stl')",
         "cc_library(name = 'malloc')",
         "cc_toolchain_suite(",
@@ -119,11 +121,20 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        ")",
+        "filegroup(",
+        "    name = 'link_dynamic_library',",
+        "    srcs = ['link_dynamic_library.sh'],",
         ")");
 
     config.create(
         "/bazel_tools_workspace/tools/cpp/CROSSTOOL",
         readCrosstoolFile());
+    if (config.isRealFileSystem()) {
+      config.linkTool("tools/cpp/link_dynamic_library.sh");
+    } else {
+      config.create("tools/cpp/link_dynamic_library.sh", "");
+    }
     config.create(
         "/bazel_tools_workspace/tools/objc/BUILD",
         "xcode_config(name = 'host_xcodes')");

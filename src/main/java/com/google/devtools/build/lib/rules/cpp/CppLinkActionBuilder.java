@@ -100,6 +100,18 @@ public class CppLinkActionBuilder {
   /** A build variable for the execpath of the output of the linker. */
   public static final String OUTPUT_EXECPATH_VARIABLE = "output_execpath";
 
+  /** A build variable setting if interface library should be generated. */
+  public static final String GENERATE_INTERFACE_LIBRARY_VARIABLE = "generate_interface_library";
+
+  /** A build variable for the path to the interface library builder tool. */
+  public static final String INTERFACE_LIBRARY_BUILDER_VARIABLE = "interface_library_builder_path";
+
+  /** A build variable for the input for the interface library builder tool. */
+  public static final String INTERFACE_LIBRARY_INPUT_VARIABLE = "interface_library_input_path";
+
+  /** A build variable for the path where to generate interface library using the builder tool. */
+  public static final String INTERFACE_LIBRARY_OUTPUT_VARIABLE = "interface_library_output_path";
+
   /**
    * A build variable that is set to indicate a mostly static linking for which the linked binary
    * should be piped to /dev/null.
@@ -319,6 +331,10 @@ public class CppLinkActionBuilder {
    */
   public List<String> getLinkstampOptions() {
     return this.linkstampOptions;
+  }
+
+  protected Artifact getInterfaceSoBuilder() {
+    return analysisEnvironment.getEmbeddedToolArtifact(CppRuleClasses.BUILD_INTERFACE_SO);
   }
   
   /**
@@ -552,7 +568,9 @@ public class CppLinkActionBuilder {
                 runtimeLinkerInputs,
                 null,
                 linkerParamsFile,
-                ltoOutputRootPrefix)
+                ltoOutputRootPrefix,
+                null,
+                null)
             : new CppLinkVariablesExtension(
                 configuration,
                 linkstampMap,
@@ -561,7 +579,9 @@ public class CppLinkActionBuilder {
                 runtimeLinkerInputs,
                 output,
                 linkerParamsFile,
-                PathFragment.EMPTY_FRAGMENT);
+                PathFragment.EMPTY_FRAGMENT,
+                getInterfaceSoBuilder(),
+                interfaceOutput);
     variablesExtension.addVariables(buildVariablesBuilder);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
@@ -612,6 +632,7 @@ public class CppLinkActionBuilder {
             .setParamFile(paramFile)
             .setToolchain(toolchain)
             .setBuildVariables(buildVariables)
+            .setToolPath(getToolPath())
             .setFeatureConfiguration(featureConfiguration);
 
     // TODO(b/30228443): Refactor noWholeArchiveInputs into action_configs, and remove this.
@@ -622,9 +643,7 @@ public class CppLinkActionBuilder {
     if (!isLTOIndexing) {
       linkCommandLineBuilder
           .setOutput(output)
-          .setInterfaceOutput(interfaceOutput)
           .setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts)
-          .setInterfaceSoBuilder(getInterfaceSoBuilder())
           .setLinkstamps(linkstampMap)
           .setLinkopts(ImmutableList.copyOf(linkopts))
           .addLinkstampCompileOptions(linkstampOptions);
@@ -639,6 +658,7 @@ public class CppLinkActionBuilder {
     // Compute the set of inputs - we only need stable order here.
     NestedSetBuilder<Artifact> dependencyInputsBuilder = NestedSetBuilder.stableOrder();
     dependencyInputsBuilder.addTransitive(crosstoolInputs);
+    dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
     dependencyInputsBuilder.addAll(linkActionInputs);
     if (runtimeMiddleman != null) {
       dependencyInputsBuilder.add(runtimeMiddleman);
@@ -739,6 +759,26 @@ public class CppLinkActionBuilder {
         executionRequirements.build());
   }
 
+  /**
+   * Returns the tool path from feature configuration, if the tool in the configuration is sane, or
+   * builtin tool, if configuration has a dummy value.
+   */
+  private String getToolPath() {
+    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
+      return null;
+    }
+    String toolPath =
+        featureConfiguration
+            .getToolForAction(linkType.getActionName())
+            .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+            .getPathString();
+    if (linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
+        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig()) {
+      toolPath = toolchain.getLinkDynamicLibraryTool().getExecPathString();
+    }
+    return toolPath;
+  }
+
   /** The default heuristic on whether we need to use whole-archive for the link. */
   private static boolean needWholeArchive(
       LinkStaticness staticness,
@@ -807,10 +847,6 @@ public class CppLinkActionBuilder {
 
   protected ActionOwner getOwner() {
     return ruleContext.getActionOwner();
-  }
-
-  protected Artifact getInterfaceSoBuilder() {
-    return analysisEnvironment.getEmbeddedToolArtifact(CppRuleClasses.BUILD_INTERFACE_SO);
   }
 
   /** Set the crosstool inputs required for the action. */
@@ -1196,6 +1232,8 @@ public class CppLinkActionBuilder {
     private final Iterable<LinkerInput> linkerInputs;
     private final ImmutableList<LinkerInput> runtimeLinkerInputs;
     private final Artifact outputArtifact;
+    private final Artifact interfaceLibraryBuilder;
+    private final Artifact interfaceLibraryOutput;
     private final Artifact linkerParamsFile;
     private final PathFragment ltoOutputRootPrefix;
 
@@ -1209,13 +1247,17 @@ public class CppLinkActionBuilder {
         ImmutableList<LinkerInput> runtimeLinkerInputs,
         Artifact output,
         Artifact linkerParamsFile,
-        PathFragment ltoOutputRootPrefix) {
+        PathFragment ltoOutputRootPrefix,
+        Artifact interfaceLibraryBuilder,
+        Artifact interfaceLibraryOutput) {
       this.configuration = configuration;
       this.linkstampMap = linkstampMap;
       this.needWholeArchive = needWholeArchive;
       this.linkerInputs = linkerInputs;
       this.runtimeLinkerInputs = runtimeLinkerInputs;
       this.outputArtifact = output;
+      this.interfaceLibraryBuilder = interfaceLibraryBuilder;
+      this.interfaceLibraryOutput = interfaceLibraryOutput;
       this.linkerParamsFile = linkerParamsFile;
       this.ltoOutputRootPrefix = ltoOutputRootPrefix;
 
@@ -1285,9 +1327,8 @@ public class CppLinkActionBuilder {
       }
 
       // output exec path
-      if (this.outputArtifact != null) {
-        buildVariables.addVariable(
-            OUTPUT_EXECPATH_VARIABLE, this.outputArtifact.getExecPathString());
+      if (outputArtifact != null) {
+        buildVariables.addVariable(OUTPUT_EXECPATH_VARIABLE, outputArtifact.getExecPathString());
       }
 
       if (!ltoOutputRootPrefix.equals(PathFragment.EMPTY_FRAGMENT)) {
@@ -1303,6 +1344,21 @@ public class CppLinkActionBuilder {
                 + ";"
                 + configuration.getBinDirectory().getExecPath().getRelative(ltoOutputRootPrefix));
       }
+      boolean shouldGenerateInterfaceLibrary =
+          outputArtifact != null
+              && interfaceLibraryBuilder != null
+              && interfaceLibraryOutput != null;
+      buildVariables.addVariable(
+          GENERATE_INTERFACE_LIBRARY_VARIABLE, shouldGenerateInterfaceLibrary ? "yes" : "no");
+      buildVariables.addVariable(
+          INTERFACE_LIBRARY_BUILDER_VARIABLE,
+          shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder.getExecPathString() : "ignored");
+      buildVariables.addVariable(
+          INTERFACE_LIBRARY_INPUT_VARIABLE,
+          shouldGenerateInterfaceLibrary ? outputArtifact.getExecPathString() : "ignored");
+      buildVariables.addVariable(
+          INTERFACE_LIBRARY_OUTPUT_VARIABLE,
+          shouldGenerateInterfaceLibrary ? interfaceLibraryOutput.getExecPathString() : "ignored");
 
       // Variables arising from the toolchain
       buildVariables

@@ -262,8 +262,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         LinkerInputs.toLibraryArtifacts(action.getLinkCommandLine().getLinkerInputs()));
     assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
     assertEquals(action.getPrimaryOutput().getExecPathString(), cppLinkInfo.getOutputFile());
-    Artifact interfaceOutput = action.getLinkCommandLine().getInterfaceOutput();
-    assertEquals(interfaceOutput.getExecPathString(), cppLinkInfo.getInterfaceOutputFile());
     assertEquals(action.getLinkCommandLine().getLinkTargetType().name(),
         cppLinkInfo.getLinkTargetType());
     assertEquals(action.getLinkCommandLine().getLinkStaticness().name(),

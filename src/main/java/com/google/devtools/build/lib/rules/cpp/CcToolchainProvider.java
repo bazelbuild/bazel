@@ -25,9 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -35,9 +33,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class CcToolchainProvider implements TransitiveInfoProvider {
-  /**
-   * An empty toolchain to be returned in the error case (instead of null).
-   */
+  /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
           null,
@@ -60,6 +56,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           ImmutableMap.<String, String>of(),
           ImmutableList.<Artifact>of(),
           NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+          null,
           ImmutableMap.<String, String>of());
 
   @Nullable private final CppConfiguration cppConfiguration;
@@ -82,6 +79,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final ImmutableMap<String, String> buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
+  @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableMap<String, String> environment;
 
   public CcToolchainProvider(
@@ -105,6 +103,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       Map<String, String> buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
+      Artifact linkDynamicLibraryTool,
       ImmutableMap<String, String> environment) {
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
@@ -126,6 +125,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.buildVariables = ImmutableMap.copyOf(buildVariables);
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.coverageEnvironment = coverageEnvironment;
+    this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.environment = environment;
   }
 
@@ -282,5 +282,13 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
 
   public ImmutableMap<String, String> getEnvironment() {
     return environment;
+  }
+
+  /**
+   * Returns the tool which should be used for linking dynamic libraries, or in case it's not
+   * specified by the crosstool this will be @tools_repository/tools/cpp:link_dynamic_library
+   */
+  public Artifact getLinkDynamicLibraryTool() {
+    return linkDynamicLibraryTool;
   }
 }

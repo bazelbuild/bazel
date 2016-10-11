@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ArtifactNamePattern;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
@@ -693,7 +694,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   // feature configuration, and all crosstools have been converted.
   private CToolchain addLegacyFeatures(CToolchain toolchain) {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    toolchainBuilder.mergeFrom(toolchain);
 
     Set<ArtifactCategory> definedCategories = new HashSet<>();
     for (ArtifactNamePattern pattern : toolchainBuilder.getArtifactNamePatternList()) {
@@ -719,292 +719,302 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       featuresBuilder.add(feature.getName());
     }
     Set<String> features = featuresBuilder.build();
-    if (features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      // The toolchain requested to not get any legacy features enabled.
-      return toolchainBuilder.build();
-    }
+    if (!features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
+      try {
+        if (!linkActionsAreConfigured(toolchain)) {
+          String linkerToolPath = "DUMMY_LINKER_TOOL";
+          for (ToolPath tool : toolchain.getToolPathList()) {
+            if (tool.getName().equals(Tool.GCC.getNamePart())) {
+              linkerToolPath =
+                  crosstoolTopPathFragment
+                      .getRelative(new PathFragment(tool.getPath()))
+                      .getPathString();
+            }
+          }
+          if (getTargetLibc().equals("macosx")) {
+            TextFormat.merge(
+                CppLinkActionConfigs.getCppLinkActionConfigs(
+                    CppLinkPlatform.MAC, features, linkerToolPath),
+                toolchainBuilder);
+          } else {
+            TextFormat.merge(
+                CppLinkActionConfigs.getCppLinkActionConfigs(
+                    CppLinkPlatform.LINUX, features, linkerToolPath),
+                toolchainBuilder);
+          }
+        }
 
-    try {
-      
-      if (!linkActionsAreConfigured(toolchain)) {
-        if (getTargetLibc().equals("macosx")) {
+        if (!features.contains("dependency_file")) {
+          // Gcc options:
+          //  -MD turns on .d file output as a side-effect (doesn't imply -E)
+          //  -MM[D] enables user includes only, not system includes
+          //  -MF <name> specifies the dotd file name
+          // Issues:
+          //  -M[M] alone subverts actual .o output (implies -E)
+          //  -M[M]D alone breaks some of the .d naming assumptions
+          // This combination gets user and system includes with specified name:
+          //  -MD -MF <name>
           TextFormat.merge(
-              CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.MAC), toolchainBuilder);
-        } else {
-          TextFormat.merge(
-              CppLinkActionConfigs.getCppLinkActionConfigs(CppLinkPlatform.LINUX),
+              ""
+                  + "feature {"
+                  + "  name: 'dependency_file'"
+                  + "  flag_set {"
+                  + "    action: 'assemble'"
+                  + "    action: 'preprocess-assemble'"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-module-compile'"
+                  + "    action: 'objc-compile'"
+                  + "    action: 'objc++-compile'"
+                  + "    action: 'c++-header-preprocessing'"
+                  + "    action: 'c++-header-parsing'"
+                  + "    expand_if_all_available: 'dependency_file'"
+                  + "    flag_group {"
+                  + "      flag: '-MD'"
+                  + "      flag: '-MF'"
+                  + "      flag: '%{dependency_file}'"
+                  + "    }"
+                  + "  }"
+                  + "}",
               toolchainBuilder);
         }
-      }
-      if (!features.contains("dependency_file")) {
-        // Gcc options:
-        //  -MD turns on .d file output as a side-effect (doesn't imply -E)
-        //  -MM[D] enables user includes only, not system includes
-        //  -MF <name> specifies the dotd file name
-        // Issues:
-        //  -M[M] alone subverts actual .o output (implies -E)
-        //  -M[M]D alone breaks some of the .d naming assumptions
-        // This combination gets user and system includes with specified name:
-        //  -MD -MF <name>
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'dependency_file'"
-            + "  flag_set {"
-            + "    action: 'assemble'"
-            + "    action: 'preprocess-assemble'"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    action: 'c++-module-compile'"
-            + "    action: 'objc-compile'"
-            + "    action: 'objc++-compile'"
-            + "    action: 'c++-header-preprocessing'"
-            + "    action: 'c++-header-parsing'"
-            + "    expand_if_all_available: 'dependency_file'"
-            + "    flag_group {"
-            + "      flag: '-MD'"
-            + "      flag: '-MF'"
-            + "      flag: '%{dependency_file}'"
-            + "    }"
-            + "  }"
-            + "}",
-            toolchainBuilder);
-      }
 
-      if (!features.contains("random_seed")) {
-        // GCC and Clang give randomized names to symbols which are defined in
-        // an anonymous namespace but have external linkage.  To make
-        // computation of these deterministic, we want to override the
-        // default seed for the random number generator.  It's safe to use
-        // any value which differs for all translation units; we use the
-        // path to the object file.
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'random_seed'"
-            + "  flag_set {"
-            + "    action: 'c++-compile'"
-            + "    action: 'c++-module-compile'"
-            + "    flag_group {"
-            + "      flag: '-frandom-seed=%{output_file}'"
-            + "    }"
-            + "  }"
-            + "}",
-            toolchainBuilder);
-      }
-
-      if (!features.contains("pic")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'pic'"
-            + "  flag_set {"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    action: 'c++-module-compile'"
-            + "    action: 'preprocess-assemble'"
-            + "    expand_if_all_available: 'pic'"
-            + "    flag_group {"
-            + "      flag: '-fPIC'"
-            + "    }"
-            + "  }"
-            + "}",
-            toolchainBuilder);
-      }
-
-      if (!features.contains("per_object_debug_info")) {
-        TextFormat.merge(""
-            + "feature {"
-            + "  name: 'per_object_debug_info'"
-            + "  flag_set {"
-            + "    action: 'c-compile'"
-            + "    action: 'c++-compile'"
-            + "    action: 'assemble'"
-            + "    action: 'preprocess-assemble'"
-            + "    expand_if_all_available: 'per_object_debug_info_file'"
-            + "    flag_group {"
-            + "      flag: '-gsplit-dwarf'"
-            + "    }"
-            + "  }"
-            + "}",
-            toolchainBuilder);
-      }
-
-      if (!features.contains("preprocessor_defines")) {
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'preprocessor_defines'"
-                + "  flag_set {"
-                + "    action: 'preprocess-assemble'"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    action: 'c++-header-parsing'"
-                + "    action: 'c++-header-preprocessing'"
-                + "    action: 'c++-module-compile'"
-                + "    action: 'clif-match'"
-                + "    flag_group {"
-                + "      flag: '-D%{preprocessor_defines}'"
-                + "    }"
-                + "  }"
-                + "}",
-            toolchainBuilder);
-      }
-      if (!features.contains("include_paths")) {
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'include_paths'"
-                + "  flag_set {"
-                + "    action: 'preprocess-assemble'"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    action: 'c++-header-parsing'"
-                + "    action: 'c++-header-preprocessing'"
-                + "    action: 'c++-module-compile'"
-                + "    action: 'clif-match'"
-                + "    action: 'objc-compile'"
-                + "    action: 'objc++-compile'"
-                + "    flag_group {"
-                + "      flag: '-iquote'"
-                + "      flag: '%{quote_include_paths}'"
-                + "    }"
-                + "    flag_group {"
-                + "      flag: '-I%{include_paths}'"
-                + "    }"
-                + "    flag_group {"
-                + "      flag: '-isystem'"
-                + "      flag: '%{system_include_paths}'"
-                + "    }"
-                + "  }"
-                + "}",
-            toolchainBuilder);
-      }
-      if (!features.contains("fdo_instrument")) {
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'fdo_instrument'"
-                + "  provides: 'profile'"
-                + "  flag_set {"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    action: 'c++-link-interface-dynamic-library'"
-                + "    action: 'c++-link-dynamic-library'"
-                + "    action: 'c++-link-executable'"
-                + "    flag_group {"
-                + "      flag: '-fprofile-generate=%{fdo_instrument_path}'"
-                + "      flag: '-fno-data-sections'"
-                + "    }"
-                + "  }"
-                + "}",
-            toolchainBuilder);
-      }
-      if (!features.contains("fdo_optimize")) {
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'fdo_optimize'"
-                + "  provides: 'profile'"
-                + "  flag_set {"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    expand_if_all_available: 'fdo_profile_path'"
-                + "    flag_group {"
-                + "      flag: '-fprofile-use=%{fdo_profile_path}'"
-                + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
-                + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
-                + "      flag: '-fprofile-correction'"
-                + "    }"
-                + "  }"
-                + "}",
-            toolchainBuilder);
-      }
-      if (!features.contains("autofdo")) {
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'autofdo'"
-                + "  provides: 'profile'"
-                + "  flag_set {"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    expand_if_all_available: 'fdo_profile_path'"
-                + "    flag_group {"
-                + "      flag: '-fauto-profile=%{fdo_profile_path}'"
-                + "      flag: '-fprofile-correction'"
-                + "    }"
-                + "  }"
-                + "}",
-            toolchainBuilder);
-      }
-      if (!features.contains("lipo")) {
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'lipo'"
-                + "  requires { feature: 'autofdo' }"
-                + "  requires { feature: 'fdo_optimize' }"
-                + "  requires { feature: 'fdo_instrument' }"
-                + "  flag_set {"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    flag_group {"
-                + "      flag: '-fripa'"
-                + "    }"
-                + "  }"
-                + "}",
-            toolchainBuilder);
-      }
-      if (!features.contains("coverage")) {
-        String compileFlags;
-        String linkerFlags;
-        if (useLLVMCoverageMap) {
-          compileFlags =
-              "flag_group {"
-              + " flag: '-fprofile-instr-generate'"
-              + " flag: '-fcoverage-mapping'"
-              + "}";
-          linkerFlags =
-              "  flag_group {"
-              + "  flag: '-fprofile-instr-generate'"
-              + "}";
-        } else {
-          compileFlags =
-              "  expand_if_all_available: 'gcov_gcno_file'"
-              + "flag_group {"
-              + "  flag: '-fprofile-arcs'"
-              + "  flag: '-ftest-coverage'"
-              + "}";
-          linkerFlags =
-              "  flag_group {"
-              + "  flag: '-lgcov'"
-              + "}";
+        if (!features.contains("random_seed")) {
+          // GCC and Clang give randomized names to symbols which are defined in
+          // an anonymous namespace but have external linkage.  To make
+          // computation of these deterministic, we want to override the
+          // default seed for the random number generator.  It's safe to use
+          // any value which differs for all translation units; we use the
+          // path to the object file.
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'random_seed'"
+                  + "  flag_set {"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-module-compile'"
+                  + "    flag_group {"
+                  + "      flag: '-frandom-seed=%{output_file}'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
         }
-        TextFormat.merge(
-            ""
-                + "feature {"
-                + "  name: 'coverage'"
-                + "  provides: 'profile'"
-                + "  flag_set {"
-                + "    action: 'preprocess-assemble'"
-                + "    action: 'c-compile'"
-                + "    action: 'c++-compile'"
-                + "    action: 'c++-header-parsing'"
-                + "    action: 'c++-header-preprocessing'"
-                + "    action: 'c++-module-compile'"
-                + compileFlags
-                + "  }"
-                + "  flag_set {"
-                + "    action: 'c++-link-interface-dynamic-library'"
-                + "    action: 'c++-link-dynamic-library'"
-                + "    action: 'c++-link-executable'"
-                + linkerFlags
-                + "  }"
-                + "}",
-            toolchainBuilder);
+
+        if (!features.contains("pic")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'pic'"
+                  + "  flag_set {"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-module-compile'"
+                  + "    action: 'preprocess-assemble'"
+                  + "    expand_if_all_available: 'pic'"
+                  + "    flag_group {"
+                  + "      flag: '-fPIC'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+
+        if (!features.contains("per_object_debug_info")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'per_object_debug_info'"
+                  + "  flag_set {"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'assemble'"
+                  + "    action: 'preprocess-assemble'"
+                  + "    expand_if_all_available: 'per_object_debug_info_file'"
+                  + "    flag_group {"
+                  + "      flag: '-gsplit-dwarf'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+
+        if (!features.contains("preprocessor_defines")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'preprocessor_defines'"
+                  + "  flag_set {"
+                  + "    action: 'preprocess-assemble'"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-header-parsing'"
+                  + "    action: 'c++-header-preprocessing'"
+                  + "    action: 'c++-module-compile'"
+                  + "    action: 'clif-match'"
+                  + "    flag_group {"
+                  + "      flag: '-D%{preprocessor_defines}'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+        if (!features.contains("include_paths")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'include_paths'"
+                  + "  flag_set {"
+                  + "    action: 'preprocess-assemble'"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-header-parsing'"
+                  + "    action: 'c++-header-preprocessing'"
+                  + "    action: 'c++-module-compile'"
+                  + "    action: 'clif-match'"
+                  + "    action: 'objc-compile'"
+                  + "    action: 'objc++-compile'"
+                  + "    flag_group {"
+                  + "      flag: '-iquote'"
+                  + "      flag: '%{quote_include_paths}'"
+                  + "    }"
+                  + "    flag_group {"
+                  + "      flag: '-I%{include_paths}'"
+                  + "    }"
+                  + "    flag_group {"
+                  + "      flag: '-isystem'"
+                  + "      flag: '%{system_include_paths}'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+        if (!features.contains("fdo_instrument")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'fdo_instrument'"
+                  + "  provides: 'profile'"
+                  + "  flag_set {"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-link-interface-dynamic-library'"
+                  + "    action: 'c++-link-dynamic-library'"
+                  + "    action: 'c++-link-executable'"
+                  + "    flag_group {"
+                  + "      flag: '-fprofile-generate=%{fdo_instrument_path}'"
+                  + "      flag: '-fno-data-sections'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+        if (!features.contains("fdo_optimize")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'fdo_optimize'"
+                  + "  provides: 'profile'"
+                  + "  flag_set {"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    expand_if_all_available: 'fdo_profile_path'"
+                  + "    flag_group {"
+                  + "      flag: '-fprofile-use=%{fdo_profile_path}'"
+                  + "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'"
+                  + "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'"
+                  + "      flag: '-fprofile-correction'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+        if (!features.contains("autofdo")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'autofdo'"
+                  + "  provides: 'profile'"
+                  + "  flag_set {"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    expand_if_all_available: 'fdo_profile_path'"
+                  + "    flag_group {"
+                  + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+                  + "      flag: '-fprofile-correction'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+        if (!features.contains("lipo")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'lipo'"
+                  + "  requires { feature: 'autofdo' }"
+                  + "  requires { feature: 'fdo_optimize' }"
+                  + "  requires { feature: 'fdo_instrument' }"
+                  + "  flag_set {"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    flag_group {"
+                  + "      flag: '-fripa'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+        if (!features.contains("coverage")) {
+          String compileFlags;
+          String linkerFlags;
+          if (useLLVMCoverageMap) {
+            compileFlags =
+                "flag_group {"
+                    + " flag: '-fprofile-instr-generate'"
+                    + " flag: '-fcoverage-mapping'"
+                    + "}";
+            linkerFlags = "  flag_group {" + "  flag: '-fprofile-instr-generate'" + "}";
+          } else {
+            compileFlags =
+                "  expand_if_all_available: 'gcov_gcno_file'"
+                    + "flag_group {"
+                    + "  flag: '-fprofile-arcs'"
+                    + "  flag: '-ftest-coverage'"
+                    + "}";
+            linkerFlags = "  flag_group {" + "  flag: '-lgcov'" + "}";
+          }
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'coverage'"
+                  + "  provides: 'profile'"
+                  + "  flag_set {"
+                  + "    action: 'preprocess-assemble'"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-header-parsing'"
+                  + "    action: 'c++-header-preprocessing'"
+                  + "    action: 'c++-module-compile'"
+                  + compileFlags
+                  + "  }"
+                  + "  flag_set {"
+                  + "    action: 'c++-link-interface-dynamic-library'"
+                  + "    action: 'c++-link-dynamic-library'"
+                  + "    action: 'c++-link-executable'"
+                  + linkerFlags
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
+      } catch (ParseException e) {
+        // Can only happen if we change the proto definition without changing our
+        // configuration above.
+        throw new RuntimeException(e);
       }
-    } catch (ParseException e) {
-      // Can only happen if we change the proto definition without changing our configuration above.
-      throw new RuntimeException(e);
     }
+
+    toolchainBuilder.mergeFrom(toolchain);
     return toolchainBuilder.build();
   }
 
@@ -1026,7 +1036,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private static final String SYSROOT_START = "%sysroot%/";
   private static final String WORKSPACE_START = "%workspace%/";
   private static final String CROSSTOOL_START = "%crosstool_top%/";
-  private static final String PACKAGE_START = "%package(", PACKAGE_END = ")%";
+  private static final String PACKAGE_START = "%package(";
+  private static final String PACKAGE_END = ")%";
 
   /**
    * Resolve the given include directory.

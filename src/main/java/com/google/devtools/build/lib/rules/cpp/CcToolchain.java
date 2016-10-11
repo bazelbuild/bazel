@@ -56,6 +56,7 @@ import java.util.Map;
  * Implementation for the cc_toolchain rule.
  */
 public class CcToolchain implements RuleConfiguredTargetFactory {
+
   /**
    * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
    */
@@ -198,6 +199,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
           "FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
     }
 
+    Artifact linkDynamicLibraryTool = getLinkDynamicLibraryTool(ruleContext);
+
     CcToolchainProvider provider =
         new CcToolchainProvider(
             cppConfiguration,
@@ -220,6 +223,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             getBuildVariables(ruleContext),
             getBuiltinIncludes(ruleContext),
             coverageEnvironment.build(),
+            linkDynamicLibraryTool,
             getEnvironment(ruleContext));
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
@@ -248,6 +252,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  private Artifact getLinkDynamicLibraryTool(RuleContext ruleContext) {
+    return ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.TARGET);
   }
 
   private ImmutableList<Artifact> getBuiltinIncludes(RuleContext ruleContext) {
@@ -285,6 +293,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
         .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
+        .add(getLinkDynamicLibraryTool(ruleContext))
         .add(
             ruleContext
                 .getAnalysisEnvironment()
