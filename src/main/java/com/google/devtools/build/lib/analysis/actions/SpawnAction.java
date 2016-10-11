@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -66,7 +65,7 @@ import javax.annotation.Nullable;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier, CommandAction {
-
+  
   /** Sets extensions on ExtraActionInfo **/
   protected static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
@@ -204,11 +203,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @VisibleForTesting
   public List<String> getArguments() {
     return ImmutableList.copyOf(argv.arguments());
-  }
-
-  @Override
-  public SkylarkList<String> getSkylarkArgv() {
-    return SkylarkList.createImmutable(getArguments());
   }
 
   /**

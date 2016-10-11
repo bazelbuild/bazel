@@ -21,19 +21,12 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,10 +42,6 @@ import javax.annotation.Nullable;
  * immutable - see the documentation on {@link Action}.
  */
 @Immutable @ThreadSafe
-@SkylarkModule(
-    name = "Action",
-    doc = "Base class for actions.",
-    documented = false)
 public abstract class AbstractAction implements Action, SkylarkValue {
 
   /**
@@ -466,52 +455,4 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return getInputs();
   }
 
-  @SkylarkCallable(
-      name = "inputs",
-      doc = "A set of the input files of this action.",
-      structField = true)
-  public SkylarkNestedSet getSkylarkInputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getInputs()));
-  }
-
-  @SkylarkCallable(
-      name = "outputs",
-      doc = "A set of the output files of this action.",
-      structField = true)
-  public SkylarkNestedSet getSkylarkOutputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getOutputs()));
-  }
-
-  @SkylarkCallable(
-      name = "argv",
-      doc = "For actions created by <a href=\"ctx.html#action\">ctx.action()</a>, an immutable "
-          + "list of the command line arguments. For all other actions, None.",
-      structField = true,
-      allowReturnNones = true)
-  public SkylarkList<String> getSkylarkArgv() {
-    return null;
-  }
-
-  @SkylarkCallable(
-      name = "content",
-      doc = "For actions created by <a href=\"ctx.html#file_action\">ctx.file_action()</a> or "
-          + "<a href=\"ctx.html#template_action\">ctx.template_action()</a>, the contents of the "
-          + "file to be written. For all other actions, None.",
-      structField = true,
-      allowReturnNones = true)
-  public String getSkylarkContent() throws IOException {
-    return null;
-  }
-
-  @SkylarkCallable(
-      name = "substitutions",
-      doc = "For actions created by <a href=\"ctx#template_action\">ctx.template_action()</a>, "
-          + "an immutable dict holding the substitution mapping. For all other actions, None.",
-      structField = true,
-      allowReturnNones = true)
-  public SkylarkDict<String, String> getSkylarkSubstitutions() {
-    return null;
-  }
 }
