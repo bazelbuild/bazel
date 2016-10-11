@@ -65,9 +65,7 @@ function setup_android_support() {
   done
 
   for i in $SDK_SRCDIR/*; do
-    if [[ "$(basename $i)" != "BUILD" ]]; then
-      ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-    fi
+    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
   done
 
 

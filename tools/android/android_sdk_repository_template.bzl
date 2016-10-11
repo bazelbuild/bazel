@@ -28,9 +28,25 @@ def create_android_sdk_rules(
     api_level: int, the API level from which to get android.jar et al.
   """
 
+  # This filegroup is used to pass the contents of the SDK to the Android
+  # integration tests. We need to glob because not all of these folders ship
+  # with the Android SDK, some need to be installed through the SDK Manager.
+  # Since android_sdk_repository function generates BUILD files, we do not want
+  # to include those because the integration test would fail when it tries to
+  # regenerate those BUILD files because the Bazel Sandbox does not allow
+  # overwriting existing files.
   native.filegroup(
       name = "files",
-      srcs = ["."],
+      srcs = native.glob([
+          "add-ons",
+          "build-tools",
+          "extras",
+          "platforms",
+          "platform-tools",
+          "sources",
+          "system-images",
+          "tools",
+      ]),
   )
 
   native.java_import(
