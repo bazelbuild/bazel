@@ -309,6 +309,11 @@ function release_to_gcs() {
   fi
 }
 
+function ensure_gpg_secret_key_imported() {
+  (gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null) || \
+  gpg --allow-secret-key-import --import "${APT_GPG_KEY_PATH}"
+}
+
 function create_apt_repository() {
   mkdir conf
   cat > conf/distributions <<EOF
@@ -342,8 +347,7 @@ EOF
   touch conf/override.stable
   touch conf/override.testing
 
-  (gpg --list-keys | grep "${APT_GPG_KEY_ID}" > /dev/null) || \
-  gpg --allow-secret-key-import --import "${APT_GPG_KEY_PATH}"
+  ensure_gpg_secret_key_imported
 
   local distribution="$1"
   local deb_pkg_name_jdk8="$2"
@@ -416,6 +420,7 @@ function deploy_release() {
 
 # A wrapper for the whole release phase:
 #   Compute the SHA-256, and arrange the input
+#   Sign every binary using gpg and generating .sig files
 #   Deploy the release
 #   Generate the email
 # Input: $1 $2 [$3 $4 [$5 $6 ...]]
@@ -430,6 +435,8 @@ function bazel_release() {
   local README=$2/README.md
   tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
   trap 'rm -fr ${tmpdir}' EXIT
+  ensure_gpg_secret_key_imported
+
   while (( $# > 1 )); do
     local platform=$1
     local folder=$2
@@ -446,6 +453,7 @@ function bazel_release() {
         fi
         mv $file $destfile
         checksum $destfile > $destfile.sha256
+        gpg --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
       fi
     done
   done
