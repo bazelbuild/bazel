@@ -58,11 +58,6 @@ public class RecursivePkgFunction implements SkyFunction {
     }
 
     @Override
-    protected RecursivePkgValue getEmptyReturn() {
-      return RecursivePkgValue.EMPTY;
-    }
-
-    @Override
     protected MyVisitor getInitialVisitor() {
       return new MyVisitor();
     }

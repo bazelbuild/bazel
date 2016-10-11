@@ -40,8 +40,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName AST_FILE_LOOKUP = SkyFunctionName.create("AST_FILE_LOOKUP");
   public static final SkyFunctionName SKYLARK_IMPORTS_LOOKUP =
       SkyFunctionName.create("SKYLARK_IMPORTS_LOOKUP");
-  public static final SkyFunctionName SKYLARK_IMPORT_CYCLE =
-      SkyFunctionName.create("SKYLARK_IMPORT_CYCLE");
   public static final SkyFunctionName GLOB = SkyFunctionName.create("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.create("PACKAGE");
   public static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.create("PACKAGE_ERROR");
@@ -53,6 +51,8 @@ public final class SkyFunctions {
       SkyFunctionName.create("PREPARE_DEPS_OF_PATTERN");
   public static final SkyFunctionName PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY =
       SkyFunctionName.create("PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY");
+  public static final SkyFunctionName COLLECT_TARGETS_IN_PACKAGE =
+      SkyFunctionName.create("COLLECT_TARGETS_IN_PACKAGE");
   public static final SkyFunctionName COLLECT_PACKAGES_UNDER_DIRECTORY =
       SkyFunctionName.create("COLLECT_PACKAGES_UNDER_DIRECTORY");
   public static final SkyFunctionName BLACKLISTED_PACKAGE_PREFIXES =

@@ -168,10 +168,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         ImmutableList<Label> cycle =
             CycleUtils.splitIntoPathAndChain(Predicates.equalTo(fileLabel), alreadyVisited.keySet())
                 .second;
-        if (env.getValue(SkylarkImportUniqueCycleFunction.key(cycle)) == null) {
-          return null;
-        }
-        throw new SkylarkImportFailedException("Skylark import cycle");
+        throw new SkylarkImportFailedException("Skylark import cycle: " + cycle);
       }
       alreadyVisited.put(fileLabel, null);
       skylarkImportMap = Maps.newHashMapWithExpectedSize(imports.size());

@@ -1116,12 +1116,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       } catch (BuildFileContainsErrorsException e) {
         // This is expected
       }
-      assertContainsEvent("cycle in referenced extension files");
       assertContainsEvent("test/skylark:ext1.bzl");
       assertContainsEvent("test/skylark:ext2.bzl");
       assertContainsEvent("Skylark import cycle");
       assertContainsEvent("Loading of target '//test/skylark:rule' failed; build aborted");
-      assertThat(eventCollector).hasSize(2);
+      assertThat(eventCollector).hasSize(1);
     }
   }
 }

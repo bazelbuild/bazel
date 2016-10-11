@@ -54,11 +54,6 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
     }
 
     @Override
-    protected CollectPackagesUnderDirectoryValue getEmptyReturn() {
-      return CollectPackagesUnderDirectoryValue.EMPTY;
-    }
-
-    @Override
     protected MyVisitor getInitialVisitor() {
       return new MyVisitor();
     }
