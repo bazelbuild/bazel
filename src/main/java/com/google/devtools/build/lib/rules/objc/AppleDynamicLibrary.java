@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_DYNAMIC_LIBRARIES;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,9 +36,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Implementation for the "apple_binary" rule.
+ * Implementation for the "apple_dynamic_library" rule.
  */
-public class AppleBinary implements RuleConfiguredTargetFactory {
+public class AppleDynamicLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
@@ -54,17 +54,18 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
     Artifact outputArtifact =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
+        ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureDylib();
 
     MultiArchBinarySupport multiArchBinarySupport = new MultiArchBinarySupport(ruleContext);
     Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration =
         multiArchBinarySupport.objcCommonByDepConfiguration(childConfigurations,
             configToDepsCollectionMap, configurationToNonPropagatedObjcMap);
-    multiArchBinarySupport.registerActions(platform, new ExtraLinkArgs(),
+    multiArchBinarySupport.registerActions(platform, new ExtraLinkArgs("-dynamiclib"),
         objcCommonByDepConfiguration, configToDepsCollectionMap, outputArtifact);
 
     NestedSetBuilder<Artifact> filesToBuild =
-        NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
+        NestedSetBuilder.<Artifact>stableOrder()
+            .add(outputArtifact);
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
 
@@ -72,7 +73,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     for (ObjcCommon objcCommon : objcCommonByDepConfiguration.values()) {
       objcProviderBuilder.addTransitiveAndPropagate(objcCommon.getObjcProvider());
     }
-    objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
+    objcProviderBuilder.add(MULTI_ARCH_DYNAMIC_LIBRARIES, outputArtifact);
 
     targetBuilder.addProvider(ObjcProvider.class, objcProviderBuilder.build());
     return targetBuilder.build();

@@ -111,6 +111,9 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   public static final Key<Artifact> MULTI_ARCH_LINKED_BINARIES =
       new Key<>(STABLE_ORDER, "combined_arch_linked_binary", Artifact.class);
 
+  /** Combined-architecture dynamic libraries to include in the final bundle. */
+  public static final Key<Artifact> MULTI_ARCH_DYNAMIC_LIBRARIES =
+      new Key<>(STABLE_ORDER, "combined_arch_dynamic_library", Artifact.class);
   /** Combined-architecture archives to include in the final bundle. */
   public static final Key<Artifact> MULTI_ARCH_LINKED_ARCHIVES =
       new Key<>(STABLE_ORDER, "combined_arch_linked_archive", Artifact.class);
