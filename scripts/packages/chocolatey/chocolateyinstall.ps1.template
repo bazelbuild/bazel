@@ -54,11 +54,12 @@ if (ps_var_packageParameters)
 }
 Install-ChocolateyPath -PathToInstall "ps_var_msys2Path\usr\bin" -PathType "Machine"
 
+ps_var_addToMsysPath = (ps_var_packageDir -replace 'c:\\','/c/') -replace '\\','/'
 write-host @"
 bazel installed to ps_var_packageDir
 
 To use it in msys2, you should add that to your msys2 PATH:
-  export PATH=ps_var_(ps_var_packageDir):escape_charps_var_PATH
+  export PATH=ps_var_(ps_var_addToMsysPath):escape_charps_var_PATH
 
 You also need, in your msys2 environment:
   export JAVA_HOME="escape_charps_var_(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)escape_char"

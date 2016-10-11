@@ -1,10 +1,10 @@
 param(
-  [string] $version = "0.3.1",
+  [string] $version = "0.3.2",
   [switch] $isRelease
 )
 
 $tvVersion = $version
-$tvFilename = "bazel_$($version)_windows_x86_64.zip"
+$tvFilename = "bazel-$($version)-windows-x86_64.zip"
 if ($isRelease) {
   $tvUri = "https://github.com/bazelbuild/bazel/releases/download/$($version)/$($tvFilename)"
 } else {
@@ -17,14 +17,19 @@ rm -force -ErrorAction SilentlyContinue ./*.zip
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
 rm -force -ErrorAction SilentlyContinue ./tools/chocolateyinstall.ps1
 
-Add-Type -A System.IO.Compression.FileSystem
-$outputDir = "$pwd/../../../output"
-$zipFile = "$pwd/$($tvFilename)"
-write-host "Creating zip package with $outputDir/bazel.exe: $zipFile"
-Compress-Archive -Path "$outputDir/bazel.exe" -DestinationPath $zipFile
-$tvChecksum = (get-filehash $zipFile -algorithm sha256).Hash
-write-host "zip sha256: $tvChecksum"
-
+if ($isRelease) {
+  Invoke-WebRequest "$($tvUri).sha256" -UseBasicParsing -passthru -outfile sha256.txt
+  $tvChecksum = (gc sha256.txt).split(' ')[0]
+  rm sha256.txt
+} else {
+  Add-Type -A System.IO.Compression.FileSystem
+  $outputDir = "$pwd/../../../output"
+  $zipFile = "$pwd/$($tvFilename)"
+  write-host "Creating zip package with $outputDir/bazel.exe: $zipFile"
+  Compress-Archive -Path "$outputDir/bazel.exe" -DestinationPath $zipFile
+  $tvChecksum = (get-filehash $zipFile -algorithm sha256).Hash
+  write-host "zip sha256: $tvChecksum"
+}
 $nuspecTemplate = get-content "bazel.nuspec.template" | out-string
 $nuspecExpanded = $ExecutionContext.InvokeCommand.ExpandString($nuspecTemplate)
 add-content -value $nuspecExpanded -path bazel.nuspec
