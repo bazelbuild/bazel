@@ -525,3 +525,8 @@ config_setting(
     name = "freebsd",
     values = {"host_cpu": "freebsd"},
 )
+
+config_setting(
+    name = "s390x",
+    values = {"host_cpu": "s390x"},
+)

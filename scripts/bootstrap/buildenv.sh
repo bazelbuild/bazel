@@ -40,13 +40,18 @@ PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
 MACHINE_IS_ARM='no'
 if [ "${MACHINE_TYPE}" = 'arm' -o "${MACHINE_TYPE}" = 'armv7l' -o "${MACHINE_TYPE}" = 'aarch64' ]; then
   MACHINE_IS_ARM='yes'
+fi
+
+MACHINE_IS_Z='no'
+if [ "${MACHINE_TYPE}" = 's390x' ]; then
+  MACHINE_IS_Z='yes'
 fi
 
 # Extension for executables.
