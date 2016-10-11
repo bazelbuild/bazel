@@ -21,13 +21,11 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,7 +112,8 @@ public abstract class LineNumberTable implements Serializable {
       if (offset < 0) {
         throw new IllegalStateException("Illegal position: " + offset);
       }
-      int lowBoundary = 1, highBoundary = linestart.length - 1;
+      int lowBoundary = 1;
+      int highBoundary = linestart.length - 1;
       while (true) {
         if ((highBoundary - lowBoundary) <= 1) {
           if (linestart[highBoundary] > offset) {
@@ -194,13 +193,14 @@ public abstract class LineNumberTable implements Serializable {
       }
     }
 
-    private static Ordering<SingleHashLine> hashOrdering = Ordering.from(
-        new Comparator<SingleHashLine>() {
+    private static final Ordering<SingleHashLine> hashOrdering =
+        new Ordering<SingleHashLine>() {
+
           @Override
           public int compare(SingleHashLine o1, SingleHashLine o2) {
             return Integer.compare(o1.offset, o2.offset);
           }
-        });
+        };
 
     private static final Pattern pattern = Pattern.compile("\n#line ([0-9]+) \"([^\"\\n]+)\"");
 

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.syntax.compiler.Jump;
 import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
@@ -30,7 +29,7 @@ public final class FlowStatement extends Statement {
     BREAK("break"),
     CONTINUE("continue");
 
-    private String name;
+    private final String name;
 
     private Kind(String name) {
       this.name = name;

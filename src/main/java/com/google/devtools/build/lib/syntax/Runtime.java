@@ -21,13 +21,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
-
-import net.bytebuddy.implementation.bytecode.StackManipulation;
-
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * Global constants and support for global namespaces of runtime functions.
@@ -182,7 +180,8 @@ public final class Runtime {
     try {
       if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
         env.setup(
-            moduleClass.getAnnotation(SkylarkModule.class).name(), moduleClass.newInstance());
+            moduleClass.getAnnotation(SkylarkModule.class).name(),
+            moduleClass.getConstructor().newInstance());
       }
       for (Field field : moduleClass.getDeclaredFields()) {
         if (field.isAnnotationPresent(SkylarkSignature.class)) {
@@ -199,7 +198,7 @@ public final class Runtime {
           }
         }
       }
-    } catch (IllegalAccessException | InstantiationException e) {
+    } catch (ReflectiveOperationException e) {
       throw new AssertionError(e);
     }
   }

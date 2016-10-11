@@ -22,18 +22,14 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
-
-import net.bytebuddy.implementation.bytecode.StackManipulation;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
+import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * A base class for Skylark functions, whether builtin or user-defined.
@@ -444,8 +440,7 @@ public abstract class BaseFunction implements SkylarkValue {
   }
 
   /**
-   * Inner call to a BaseFunction
-   * subclasses need to @Override this method.
+   * Inner call to a BaseFunction subclasses need to @Override this method.
    *
    * @param args an array of argument values sorted as per the signature.
    * @param ast the source code for the function if user-defined
@@ -453,9 +448,8 @@ public abstract class BaseFunction implements SkylarkValue {
    * @throws InterruptedException may be thrown in the function implementations.
    */
   // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
-  protected Object call(Object[] args,
-      @Nullable FuncallExpression ast, @Nullable Environment env)
-      throws EvalException, ConversionException, InterruptedException {
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
+      throws EvalException, InterruptedException {
     throw new EvalException(
         (ast == null) ? Location.BUILTIN : ast.getLocation(),
         String.format("function %s not implemented", getName()));

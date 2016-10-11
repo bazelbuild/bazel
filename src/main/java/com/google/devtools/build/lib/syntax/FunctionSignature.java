@@ -21,14 +21,13 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -142,9 +141,7 @@ public abstract class FunctionSignature implements Serializable {
     public List<Class<?>> toClasses() {
       List<Class<?>> parameters = new ArrayList<>();
 
-      for (int i = 0; i < getAllNamed(); i++) {
-        parameters.add(Object.class);
-      }
+      parameters.addAll(Collections.nCopies(getAllNamed(), Object.class));
       if (hasStarArg()) {
         parameters.add(Tuple.class);
       }
@@ -156,10 +153,8 @@ public abstract class FunctionSignature implements Serializable {
     }
   }
 
-  /**
-   * Names of a FunctionSignature
-   */
-  private static Interner<ImmutableList<String>> namesInterner = Interners.newWeakInterner();
+  /** Names of a FunctionSignature */
+  private static final Interner<ImmutableList<String>> namesInterner = Interners.newWeakInterner();
 
   /** Intern a list of names */
   public static ImmutableList<String> names(List<String> names) {
@@ -173,7 +168,7 @@ public abstract class FunctionSignature implements Serializable {
   }
 
   // Interner
-  private static Interner<FunctionSignature> signatureInterner = Interners.newWeakInterner();
+  private static final Interner<FunctionSignature> signatureInterner = Interners.newWeakInterner();
 
   /**
    * Signatures proper.

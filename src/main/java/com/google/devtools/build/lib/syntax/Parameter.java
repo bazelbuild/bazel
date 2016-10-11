@@ -47,9 +47,11 @@ public abstract class Parameter<V, T> extends Argument {
   public boolean isOptional() {
     return false;
   }
+  @Override
   public boolean isStar() {
     return false;
   }
+  @Override
   public boolean isStarStar() {
     return false;
   }
@@ -83,7 +85,7 @@ public abstract class Parameter<V, T> extends Argument {
 
     @Override
     public String toString() {
-      return name.toString();
+      return name;
     }
   }
 

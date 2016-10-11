@@ -46,9 +46,9 @@ import javax.annotation.Nullable;
 public final class SkylarkDict<K, V>
     extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
 
-  private TreeMap<K, V> contents = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
+  private final TreeMap<K, V> contents = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
 
-  private Mutability mutability;
+  private final Mutability mutability;
 
   @Override
   public Mutability mutability() {

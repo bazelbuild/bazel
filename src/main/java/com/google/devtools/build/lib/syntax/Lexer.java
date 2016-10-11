@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -59,7 +60,7 @@ public final class Lexer {
   private final EventHandler eventHandler;
 
   // Input buffer and position
-  private char[] buffer;
+  private final char[] buffer;
   private int pos;
 
   /**
@@ -829,7 +830,7 @@ public final class Lexer {
     }
 
     // Like Python, always end with a NEWLINE token, even if no '\n' in input:
-    if (tokens.isEmpty() || tokens.get(tokens.size() - 1).kind != TokenKind.NEWLINE) {
+    if (tokens.isEmpty() || Iterables.getLast(tokens).kind != TokenKind.NEWLINE) {
       addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
     }
 

@@ -805,8 +805,7 @@ public final class FuncallExpression extends Expression {
         String name = arg.getName();
         if (name != null && name.equals("name")) {
           Expression expr = arg.getValue();
-          return (expr != null && expr instanceof StringLiteral)
-              ? ((StringLiteral) expr).getValue() : null;
+          return (expr instanceof StringLiteral) ? ((StringLiteral) expr).getValue() : null;
         }
       }
     }

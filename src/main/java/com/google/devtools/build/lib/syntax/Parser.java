@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -185,7 +186,7 @@ public class Parser {
       EnumSet.of(Operator.MINUS, Operator.PLUS),
       EnumSet.of(Operator.DIVIDE, Operator.MULT, Operator.PERCENT));
 
-  private Iterator<Token> tokens = null;
+  private final Iterator<Token> tokens;
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
 
@@ -202,7 +203,7 @@ public class Parser {
     if (!statements.isEmpty()) {
       return lexer.createLocation(
           statements.get(0).getLocation().getStartOffset(),
-          statements.get(statements.size() - 1).getLocation().getEndOffset());
+          Iterables.getLast(statements).getLocation().getEndOffset());
     } else {
       return Location.fromPathFragment(lexer.getFilename());
     }

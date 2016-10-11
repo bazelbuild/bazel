@@ -56,7 +56,7 @@ public class SkylarkImports {
   }
 
   private static final class AbsolutePathImport extends SkylarkImportImpl {
-    private PathFragment importPath;
+    private final PathFragment importPath;
 
     private AbsolutePathImport(String importString, PathFragment importPath) {
       this.importString = importString;
@@ -85,7 +85,7 @@ public class SkylarkImports {
   }
 
   private static final class RelativePathImport extends SkylarkImportImpl {
-    private String importFile;
+    private final String importFile;
 
     private RelativePathImport(String importString, String importFile) {
       this.importString = importString;
@@ -116,7 +116,7 @@ public class SkylarkImports {
   }
 
   private static final class AbsoluteLabelImport extends SkylarkImportImpl {
-    private Label importLabel;
+    private final Label importLabel;
 
     private AbsoluteLabelImport(String importString, Label importLabel) {
       this.importString = importString;
@@ -137,7 +137,7 @@ public class SkylarkImports {
   }
 
   private static final class RelativeLabelImport extends SkylarkImportImpl {
-    private String importTarget;
+    private final String importTarget;
 
     private RelativeLabelImport(String importString, String importTarget) {
       this.importString = importString;

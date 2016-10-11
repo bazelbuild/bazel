@@ -139,7 +139,7 @@ public abstract class SkylarkType implements Serializable {
     return TOP;
   }
 
-  private final class Empty { }; // Empty type, used as basis for Bottom
+  private static final class Empty {}; // Empty type, used as basis for Bottom
 
   // Notable types
 
@@ -256,13 +256,15 @@ public abstract class SkylarkType implements Serializable {
       return this.type == type || super.canBeCastTo(type);
     }
 
-    private static LoadingCache<Class<?>, Simple> simpleCache = CacheBuilder.newBuilder()
-      .build(new CacheLoader<Class<?>, Simple>() {
-          @Override
-          public Simple load(Class<?> type) {
-            return create(type);
-          }
-        });
+    private static final LoadingCache<Class<?>, Simple> simpleCache =
+        CacheBuilder.newBuilder()
+            .build(
+                new CacheLoader<Class<?>, Simple>() {
+                  @Override
+                  public Simple load(Class<?> type) {
+                    return create(type);
+                  }
+                });
 
     private static Simple create(Class<?> type) {
       Simple simple;
@@ -374,7 +376,7 @@ public abstract class SkylarkType implements Serializable {
       return genericType + " of " + argType + "s";
     }
 
-    private static Interner<Combination> combinationInterner =
+    private static final Interner<Combination> combinationInterner =
         Interners.<Combination>newWeakInterner();
 
     public static SkylarkType of(SkylarkType generic, SkylarkType argument) {
@@ -520,7 +522,7 @@ public abstract class SkylarkType implements Serializable {
    */
   public static final class SkylarkFunctionType extends SkylarkType {
     private final String name;
-    @Nullable private SkylarkType returnType;
+    @Nullable private final SkylarkType returnType;
 
     @Override public SkylarkType intersectWith(SkylarkType other) {
       // This gives the wrong result if both return types are incompatibly updated later!

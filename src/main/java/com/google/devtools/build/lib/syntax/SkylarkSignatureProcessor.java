@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
@@ -191,8 +192,9 @@ public class SkylarkSignatureProcessor {
 
   /** Extract additional signature information for BuiltinFunction-s */
   public static ExtraArgKind[] getExtraArgs(SkylarkSignature annotation) {
-    final int numExtraArgs = (annotation.useLocation() ? 1 : 0)
-        + (annotation.useAst() ? 1 : 0) + (annotation.useEnvironment() ? 1 : 0);
+    final int numExtraArgs =
+        Booleans.countTrue(
+            annotation.useLocation(), annotation.useAst(), annotation.useEnvironment());
     if (numExtraArgs == 0) {
       return null;
     }

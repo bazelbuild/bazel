@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.syntax.compiler;
 import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
 import com.google.devtools.build.lib.syntax.compiler.Variable.SkylarkVariable;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.implementation.Implementation.Context;
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.StackManipulation.Size;
 import net.bytebuddy.implementation.bytecode.StackSize;
-
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -61,7 +59,7 @@ enum VariableStore {
   // TODO(klaasb) javadoc
   class VariableIndexStore implements ByteCodeAppender {
 
-    private int operandIndex;
+    private final int operandIndex;
 
     private VariableIndexStore(int operandIndex) {
       this.operandIndex = operandIndex;

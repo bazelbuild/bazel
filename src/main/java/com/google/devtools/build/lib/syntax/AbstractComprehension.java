@@ -27,18 +27,15 @@ import com.google.devtools.build.lib.syntax.compiler.Jump.PrimitiveComparison;
 import com.google.devtools.build.lib.syntax.compiler.LabelAdder;
 import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.description.type.TypeDescription;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-
 import javax.annotation.Nullable;
+import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * Base class for list and dict comprehension expressions.
@@ -284,7 +281,7 @@ public abstract class AbstractComprehension extends Expression {
     StringBuilder sb = new StringBuilder();
     sb.append(openingBracket).append(printExpressions());
     for (Clause clause : clauses) {
-      sb.append(' ').append(clause.toString());
+      sb.append(' ').append(clause);
     }
     sb.append(closingBracket);
     return sb.toString();

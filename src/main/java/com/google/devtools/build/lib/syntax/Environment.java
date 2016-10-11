@@ -328,11 +328,11 @@ public final class Environment implements Freezable {
   private boolean isSkylark;
 
   /**
-   * Is this Environment being executed during the loading phase?
-   * Many builtin functions are only enabled during the loading phase, and check this flag.
+   * Is this Environment being executed during the loading phase? Many builtin functions are only
+   * enabled during the loading phase, and check this flag.
    * TODO(laurentlb): Remove from Environment
    */
-  private Phase phase;
+  private final Phase phase;
 
   /**
    * When in a lexical (Skylark) Frame, this set contains the variable names that are global,

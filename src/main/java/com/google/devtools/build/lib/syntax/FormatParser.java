@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
-
 import java.util.List;
 import java.util.Map;
 
@@ -200,11 +199,10 @@ public final class FormatParser {
    *
    * @param key Key to be converted
    * @param history Helper object that tracks information about previously seen positional
-   *    replacement fields
+   *     replacement fields
    * @return The integer equivalent of the key
    */
-  protected int parsePositional(String key, History history)
-      throws NumberFormatException, EvalException {
+  protected int parsePositional(String key, History history) throws EvalException {
     int result = -1;
 
     try {
