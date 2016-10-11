@@ -594,9 +594,10 @@ public final class AndroidRuleClasses {
           <p>This rule currently forces source and class compatibility with Java 6.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.SOURCE_JAR))
+          .add(
+              attr("srcs", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.SOURCE_JAR))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           Permitted library types are: <code>android_library</code>,
@@ -604,38 +605,77 @@ public final class AndroidRuleClasses {
           <code>cc_library</code> wrapping or producing <code>.so</code> native libraries for the
           Android target platform.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .override(builder.copy("deps")
-              .cfg(ANDROID_SPLIT_TRANSITION)
-              .allowedRuleClasses(ALLOWED_DEPENDENCIES)
-              .allowedFileTypes()
-              .aspect(androidNeverlinkAspect)
-              .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
-              .aspect(jackAspect))
+          .override(
+              builder
+                  .copy("deps")
+                  .cfg(ANDROID_SPLIT_TRANSITION)
+                  .allowedRuleClasses(ALLOWED_DEPENDENCIES)
+                  .allowedFileTypes()
+                  .aspect(androidNeverlinkAspect)
+                  .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
+                  .aspect(jackAspect))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
-          .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
-          .add(attr("$stubify_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
-          .add(attr("$shuffle_jars", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/android:shuffle_jars")))
-          .add(attr("$dexbuilder", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/android:dexbuilder")))
-          .add(attr("$dexmerger", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/android:dexmerger")))
-          .add(attr("$merge_dexzips", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/android:merge_dexzips")))
-          .add(attr("$incremental_install", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
-          .add(attr("$build_split_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
-          .add(attr("$strip_resources", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
-          .add(attr("$incremental_stub_application", LABEL)
-              .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
-          .add(attr("$incremental_split_stub_application", LABEL)
-              .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
-          .add(attr("$desugar", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/android:desugar_java8")))
+          .add(
+              attr("$build_incremental_dexmanifest", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
+          .add(
+              attr("$stubify_manifest", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
+          .add(
+              attr("$shuffle_jars", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:shuffle_jars")))
+          .add(
+              attr("$dexbuilder", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:dexbuilder")))
+          .add(
+              attr("$dexmerger", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:dexmerger")))
+          .add(
+              attr("$merge_dexzips", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:merge_dexzips")))
+          .add(
+              attr("$incremental_install", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
+          .add(
+              attr("$build_split_manifest", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
+          .add(
+              attr("$strip_resources", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
+          .add(
+              attr("$incremental_stub_application", LABEL)
+                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
+          .add(
+              attr("$incremental_split_stub_application", LABEL)
+                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
+          .add(
+              attr("$desugar", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:desugar_java8")))
+          .add(
+              attr("$rex_wrapper", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:rex_wrapper")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
@@ -661,9 +701,10 @@ public final class AndroidRuleClasses {
           android_test rules with binary_under_test set. We are working on addressing these
           shortcomings so please check with us if you run into these limitations.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("incremental_dexing", TRISTATE)
-              // Read by DexArchiveAspect's attribute extractor
-              .nonconfigurable("AspectParameters don't support configurations."))
+          .add(
+              attr("incremental_dexing", TRISTATE)
+                  // Read by DexArchiveAspect's attribute extractor
+                  .nonconfigurable("AspectParameters don't support configurations."))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(multidex) -->
           Whether to split code into multiple dex files.<br/>
           Possible values:
@@ -682,9 +723,10 @@ public final class AndroidRuleClasses {
               index limit.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("multidex", STRING)
-              .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
-              .value(MultidexMode.OFF.getAttributeValue()))
+          .add(
+              attr("multidex", STRING)
+                  .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
+                  .value(MultidexMode.OFF.getAttributeValue()))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
           Use this option to affect the classes included in the main dex list.
@@ -694,13 +736,13 @@ public final class AndroidRuleClasses {
 
           A text file contains a list of class file names. Classes defined by those class files are
           put in the primary classes.dex. e.g.:<pre class="code">
-android/support/multidex/MultiDex$V19.class
-android/support/multidex/MultiDex.class
-android/support/multidex/MultiDexApplication.class
-com/google/common/base/Objects.class
-          </pre>
-          Must be used with <code>multidex="manual_main_dex"</code>.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          android/support/multidex/MultiDex$V19.class
+          android/support/multidex/MultiDex.class
+          android/support/multidex/MultiDexApplication.class
+          com/google/common/base/Objects.class
+                    </pre>
+                    Must be used with <code>multidex="manual_main_dex"</code>.
+                    <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_list", LABEL).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_proguard_specs) -->
           Files to be used as the Proguard specifications to determine classes that must be kept in
@@ -722,8 +764,10 @@ com/google/common/base/Objects.class
           specification should contain neither <code>-dontobfuscate</code> nor
           <code>-printmapping</code>.</em></p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("proguard_generate_mapping", BOOLEAN).value(false)
-              .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+          .add(
+              attr("proguard_generate_mapping", BOOLEAN)
+                  .value(false)
+                  .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_apply_mapping) -->
           File to be used as a mapping for proguard.
           A mapping file generated by <code>proguard_generate_mapping</code> to be
@@ -731,10 +775,12 @@ com/google/common/base/Objects.class
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_apply_mapping", LABEL).legacyAllowAnyFileType())
           // TODO(mstaib): Remove this attribute and the matching flag after some cleanup of users
-          .add(attr("legacy_native_support", TRISTATE)
-              .value(TriState.AUTO)
-              .undocumented("No-op, soon to be removed"))
+          .add(
+              attr("legacy_native_support", TRISTATE)
+                  .value(TriState.AUTO)
+                  .undocumented("No-op, soon to be removed"))
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
+          .add(attr("rewrite_dexes_with_rex", BOOLEAN).value(false).undocumented("experimental"))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

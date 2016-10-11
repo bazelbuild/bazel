@@ -431,16 +431,46 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 resourceApk.getMainDexProguardConfig(),
                 resourceClasses);
 
+    Artifact finalDexes;
+    Artifact finalProguardMap;
+
+    if (ruleContext.getFragment(AndroidConfiguration.class).useRexToCompressDexFiles()
+        || (ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN))) {
+      finalDexes = getDxArtifact(ruleContext, "rexed_dexes.zip");
+      Builder rexActionBuilder = new SpawnAction.Builder();
+      rexActionBuilder
+          .setExecutable(ruleContext.getExecutablePrerequisite("$rex_wrapper", Mode.HOST))
+          .setMnemonic("Rex")
+          .setProgressMessage("Rexing dex files")
+          .addArgument("--dex_input")
+          .addInputArgument(dexingOutput.classesDexZip)
+          .addArgument("--dex_output")
+          .addOutputArgument(finalDexes);
+      if (proguardOutput.getMapping() != null) {
+        finalProguardMap = getDxArtifact(ruleContext, "rexed_proguard.map");
+        rexActionBuilder
+            .addArgument("--proguard_input_map")
+            .addInputArgument(proguardOutput.getMapping())
+            .addArgument("--proguard_output_map")
+            .addOutputArgument(finalProguardMap);
+      } else {
+        finalProguardMap = proguardOutput.getMapping();
+      }
+      ruleContext.registerAction(rexActionBuilder.build(ruleContext));
+    } else {
+      finalDexes = dexingOutput.classesDexZip;
+      finalProguardMap = proguardOutput.getMapping();
+    }
+
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
-
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK);
 
     ApkActionsBuilder.create("apk", signingMethod)
-        .setClassesDex(dexingOutput.classesDexZip)
+        .setClassesDex(finalDexes)
         .setResourceApk(resourceApk.getArtifact())
         .setJavaResourceZip(dexingOutput.javaResourceJar)
         .setNativeLibs(nativeLibs)
@@ -675,9 +705,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         builder, ruleContext, javaCommon, androidCommon, jarToDex);
 
     if (proguardOutput.getMapping() != null) {
-      builder.add(ProguardMappingProvider.class,
-          ProguardMappingProvider.create(
-              proguardOutput.getMapping(), proguardOutput.getProtoMapping()));
+      builder.add(
+          ProguardMappingProvider.class,
+          ProguardMappingProvider.create(finalProguardMap, proguardOutput.getProtoMapping()));
     }
 
     return builder
