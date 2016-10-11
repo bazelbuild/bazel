@@ -56,6 +56,15 @@ a Windows machine.
    ```
 
 * * *
+### Updating the Linux s390x 64-bit proto compiler
+To add 64-bit Linux s390x version of the statically linked proto compiler, use below steps:
+
+1. Build Protobuf compiler (v3.0.0-beta-2) from https://github.com/google/protobuf.
+2. `cp src/protoc <Bazel tree>/third_party/protobuf/protoc-linux-s390x_64.exe`
+3. `cp src/protoc <Bazel tree>/third_party/protobuf/<version>/protoc-linux-s390x_64.exe`
+
+
+* * *
 ### Updating `protobuf.bzl` and the `src/` directory:
 
 1. `git clone http://github.com/google/protobuf.git`

@@ -30,6 +30,7 @@ filegroup(
         "//third_party:k8": ["protoc-3.0.0-linux-x86_64.exe"],
         "//third_party:piii": ["protoc-3.0.0-linux-x86_32.exe"],
         "//third_party:freebsd": ["protoc-3.0.0-linux-x86_32.exe"],
+        "//third_party:s390x": ["protoc-linux-s390x_64.exe"],
     }),
 )
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 
 import com.google.common.collect.ImmutableSet;
-
 import java.util.Set;
 
 /**
@@ -27,6 +26,7 @@ public enum CPU {
   X86_64("x86_64", ImmutableSet.of("amd64", "x86_64", "x64")),
   PPC("ppc", ImmutableSet.of("ppc", "ppc64", "ppc64le")),
   ARM("arm", ImmutableSet.of("arm", "armv7l")),
+  S390X("s390x", ImmutableSet.of("s390x", "s390")),
   UNKNOWN("unknown", ImmutableSet.<String>of());
 
   private final String canonicalName;

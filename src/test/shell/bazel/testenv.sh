@@ -99,9 +99,15 @@ python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 # Third-party
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_64BIT='yes'
 fi
+
+MACHINE_IS_Z='no'
+if [ "${MACHINE_TYPE}" = 's390x' ]; then
+  MACHINE_IS_Z='yes'
+fi
+
 case "${PLATFORM}" in
   darwin)
     if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
@@ -112,9 +118,13 @@ case "${PLATFORM}" in
     ;;
   *)
     if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_64.exe"
+      if [ "${MACHINE_IS_Z}" = 'yes' ]; then
+        protoc_compiler="${BAZEL_RUNFILES}//third_party/protobuf/protoc-linux-s390x_64.exe"
+      else
+        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_64.exe"
+      fi
     else
-      protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"
+        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"
     fi
     ;;
 esac
