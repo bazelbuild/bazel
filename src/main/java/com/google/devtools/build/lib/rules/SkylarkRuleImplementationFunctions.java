@@ -292,9 +292,9 @@ public class SkylarkRuleImplementationFunctions {
             }
           }
 
-          if (mnemonicUnchecked != Runtime.NONE) {
-            builder.setMnemonic((String) mnemonicUnchecked);
-          }
+          String mnemonic = mnemonicUnchecked == Runtime.NONE
+              ? "Generating" : (String) mnemonicUnchecked;
+          builder.setMnemonic(mnemonic);
           if (envUnchecked != Runtime.NONE) {
             builder.setEnvironment(
                 ImmutableMap.copyOf(
