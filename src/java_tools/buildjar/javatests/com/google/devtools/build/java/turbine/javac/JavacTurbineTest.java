@@ -1272,7 +1272,6 @@ public class JavacTurbineTest {
         "  public String call() { return \"\"; }",
         "}");
 
-    optionsBuilder.addAllJavacOpts(ImmutableList.of("-XDdropBridgesInTurbine=true"));
     compile();
 
     Map<String, byte[]> outputs = collectOutputs();
@@ -1293,44 +1292,6 @@ public class JavacTurbineTest {
       "",
       "  // access flags 0x1",
       "  public call()Ljava/lang/String;",
-      "}",
-      ""
-    };
-    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
-  }
-
-  @Test
-  public void preserveBridge() throws Exception {
-    addSourceLines(
-        "Bridge.java",
-        "import java.util.concurrent.Callable;",
-        "class Bridge implements Callable<String> {",
-        "  public String call() { return \"\"; }",
-        "}");
-
-    compile();
-
-    Map<String, byte[]> outputs = collectOutputs();
-
-    assertThat(outputs.keySet()).containsExactly("Bridge.class");
-
-    String text = textify(outputs.get("Bridge.class"));
-    String[] expected = {
-      "// class version 52.0 (52)",
-      "// access flags 0x20",
-      "// signature Ljava/lang/Object;Ljava/util/concurrent/Callable<Ljava/lang/String;>;",
-      "// declaration: Bridge implements java.util.concurrent.Callable<java.lang.String>",
-      "class Bridge implements java/util/concurrent/Callable  {",
-      "",
-      "",
-      "  // access flags 0x0",
-      "  <init>()V",
-      "",
-      "  // access flags 0x1",
-      "  public call()Ljava/lang/String;",
-      "",
-      "  // access flags 0x1041",
-      "  public synthetic bridge call()Ljava/lang/Object; throws java/lang/Exception ",
       "}",
       ""
     };
