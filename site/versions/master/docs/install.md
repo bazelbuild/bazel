@@ -31,7 +31,7 @@ started](getting-started.html).
 
 Install Bazel on Ubuntu using one of the following methods:
 
-  * [Using our custom APT repostiory](#install-on-ubuntu)
+  * [Using our custom APT repository](#install-on-ubuntu)
   * [Using binary installer](#install-with-installer-ubuntu)
   * [Compiling Bazel from source](#compiling-from-source)
 
@@ -54,7 +54,7 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 
 ```
 $ echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-$ curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
+$ curl https://bazel.io/bazel-release.pub.gpg | sudo apt-key add -
 ```
 
 If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you want to install the testing version of Bazel, replace `stable` with `testing`.

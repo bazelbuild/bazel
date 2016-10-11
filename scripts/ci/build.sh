@@ -221,7 +221,11 @@ function release_to_github() {
 
 _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
-the source code."
+the source code.
+
+_Security_: All our binaries are signed with our
+[public key](https://bazel.io/bazel-release.pub.gpg).
+"
 
   if [ ! -x "${release_tool}" ]; then
     echo "Please set GITHUB_RELEASE to the path to the github-release binary." >&2
@@ -248,9 +252,13 @@ function create_index_md() {
   echo
   echo "## Index of files"
   echo
+  # Security notice
+  echo "_Security_: All our binaries are signed with our"
+  echo "[public key](https://bazel.io/bazel-release.pub.gpg)."
+  echo
   for f in $1/*.sha256; do  # just list the sha256 ones
     local filename=$(basename $f .sha256);
-    echo " - [${filename}](${filename}) [[SHA-256](${filename}.sha256)]"
+    echo " - [${filename}](${filename}) [[SHA-256](${filename}.sha256)] [[SIG](${filename}.sig)]"
   done
 }
 
