@@ -778,7 +778,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockSubClass())
         .testIfExactError(
-            "Type Mock has no function is_empty_class_not_annotated(string)",
+            "Type MockSubClass has no function is_empty_class_not_annotated(string)",
             "b = mock.is_empty_class_not_annotated('a')");
   }
 

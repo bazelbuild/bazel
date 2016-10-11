@@ -23,59 +23,40 @@ import javax.annotation.Nullable;
 public class SkylarkInterfaceUtils {
 
   /**
-   * Returns the {@link SkylarkModule} annotation for the given class, if it exists, and
-   * null otherwise. The first annotation found will be returned, starting with {@code classObj}
-   * and following its base classes and interfaces recursively.
-   */
-  @Nullable
-  public static SkylarkModule getSkylarkModule(Class<?> classObj) {
-    if (classObj.isAnnotationPresent(SkylarkModule.class)) {
-      return classObj.getAnnotation(SkylarkModule.class);
-    }
-    Class<?> superclass = classObj.getSuperclass();
-    if (superclass != null) {
-      SkylarkModule annotation = getSkylarkModule(superclass);
-      if (annotation != null) {
-        return annotation;
-      }
-    }
-    for (Class<?> interfaceObj : classObj.getInterfaces()) {
-      SkylarkModule annotation = getSkylarkModule(interfaceObj);
-      if (annotation != null) {
-        return annotation;
-      }
-    }
-    return null;
-  }
-
-  /**
    * Returns the {@link SkylarkCallable} annotation for the given method, if it exists, and
-   * null otherwise. The first annotation of an overridden version of the method that is found
+   * null otherwise. The method must be declared in {@code classObj} or one of its base classes
+   * or interfaces. The first annotation of an overridden version of the method that is found
    * will be returned, starting with {@code classObj} and following its base classes and
-   * interfaces recursively, skipping any annotation inside a class not marked
-   * {@link SkylarkModule}.
+   * interfaces recursively.
    */
   @Nullable
   public static SkylarkCallable getSkylarkCallable(Class<?> classObj, Method method) {
+    boolean keepLooking = false;
     try {
       Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
       if (classObj.isAnnotationPresent(SkylarkModule.class)
           && superMethod.isAnnotationPresent(SkylarkCallable.class)) {
         return superMethod.getAnnotation(SkylarkCallable.class);
+      } else {
+        keepLooking = true;
       }
     } catch (NoSuchMethodException e) {
-      // The class might not have the specified method, so an exception is OK.
+      // The class might not have the specified method, so an exceptions is OK.
+      keepLooking = true;
     }
-    if (classObj.getSuperclass() != null) {
-      SkylarkCallable annotation = getSkylarkCallable(classObj.getSuperclass(), method);
-      if (annotation != null) {
-        return annotation;
+    if (keepLooking) {
+      if (classObj.getSuperclass() != null) {
+        SkylarkCallable annotation =
+            getSkylarkCallable(classObj.getSuperclass(), method);
+        if (annotation != null) {
+          return annotation;
+        }
       }
-    }
-    for (Class<?> interfaceObj : classObj.getInterfaces()) {
-      SkylarkCallable annotation = getSkylarkCallable(interfaceObj, method);
-      if (annotation != null) {
-        return annotation;
+      for (Class<?> interfaceObj : classObj.getInterfaces()) {
+        SkylarkCallable annotation = getSkylarkCallable(interfaceObj, method);
+        if (annotation != null) {
+          return annotation;
+        }
       }
     }
     return null;

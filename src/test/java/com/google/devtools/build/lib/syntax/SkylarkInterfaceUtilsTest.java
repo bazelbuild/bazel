@@ -81,41 +81,6 @@ public class SkylarkInterfaceUtilsTest {
     public void foo() {}
   }
 
-  /** MockClassZ */
-  public static class MockClassZ {
-  }
-
-  @Test
-  public void testGetSkylarkModuleBasic() throws Exception {
-    // Normal case.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassA.class);
-    assertThat(ann).isNotNull();
-    assertThat(ann.doc()).isEqualTo("MockClassA");
-  }
-
-  @Test
-  public void testGetSkylarkModuleSubclass() throws Exception {
-    // Subclass's annotation is used.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassC.class);
-    assertThat(ann).isNotNull();
-    assertThat(ann.doc()).isEqualTo("MockClassC");
-  }
-
-  @Test
-  public void testGetSkylarkModuleSubclassNoSubannotation() throws Exception {
-    // Falls back on superclass's annotation.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassD.class);
-    assertThat(ann).isNotNull();
-    assertThat(ann.doc()).isEqualTo("MockClassC");
-  }
-
-  @Test
-  public void testGetSkylarkModuleNotFound() throws Exception {
-    // Doesn't exist.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassZ.class);
-    assertThat(ann).isNull();
-  }
-
   @Test
   public void testGetSkylarkCallableBasic() throws Exception {
     // Normal case. Ensure two-arg form is consistent with one-arg form.
@@ -162,13 +127,8 @@ public class SkylarkInterfaceUtilsTest {
     SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNull();
 
-    // ... including when it's only present in a subclass that was bypassed...
+    // ... including when it's only present in a subclass that was bypassed.
     method = MockClassC.class.getMethod("baz");
-    ann = SkylarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
-    assertThat(ann).isNull();
-
-    // ... or when the method itself is only in the subclass that was bypassed.
-    method = MockClassC.class.getMethod("qux");
     ann = SkylarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
     assertThat(ann).isNull();
   }

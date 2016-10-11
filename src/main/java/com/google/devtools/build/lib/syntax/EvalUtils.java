@@ -21,7 +21,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
@@ -256,9 +255,9 @@ public final class EvalUtils {
    * when the given class identifies a Skylark name space.
    */
   public static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
-    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
-    if (module != null) {
-      return module.name()
+    if (c.isAnnotationPresent(SkylarkModule.class)) {
+      SkylarkModule module = c.getAnnotation(SkylarkModule.class);
+      return c.getAnnotation(SkylarkModule.class).name()
           + ((module.namespace() && highlightNameSpaces) ? " (a language module)" : "");
     } else if (c.equals(Object.class)) {
       return "unknown";
