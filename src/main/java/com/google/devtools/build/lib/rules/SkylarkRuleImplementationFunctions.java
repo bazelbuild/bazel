@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.PseudoAction;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -38,9 +37,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -233,7 +229,8 @@ public class SkylarkRuleImplementationFunctions {
           SpawnAction.Builder builder = new SpawnAction.Builder();
           // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
           boolean hasCommand = commandUnchecked != Runtime.NONE;
-          builder.addInputs(inputs.getContents(Artifact.class, "inputs"));
+          Iterable<Artifact> inputArtifacts = inputs.getContents(Artifact.class, "inputs");
+          builder.addInputs(inputArtifacts);
           builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
           if (hasCommand && arguments.size() > 0) {
             // When we use a shell command, add an empty argument before other arguments.
@@ -286,10 +283,14 @@ public class SkylarkRuleImplementationFunctions {
             }
           }
 
-          // The actual command can refer to an executable from the inputs, which could
-          // require some runfiles. Consequently, we add the runfiles of every executable
-          // input file that is in HOST configuration to the action as a precaution.
-          addRequiredIndirectRunfiles(ctx, builder);
+          // The actual command can refer to an executable from the inputs, which could require
+          // some runfiles. Consequently, we add the runfiles of all inputs of this action manually.
+          for (Artifact current : inputArtifacts) {
+            FilesToRunProvider provider = ctx.getExecutableRunfiles(current);
+            if (provider != null) {
+              builder.addTool(provider);
+            }
+          }
 
           String mnemonic = mnemonicUnchecked == Runtime.NONE
               ? "Generating" : (String) mnemonicUnchecked;
@@ -331,27 +332,6 @@ public class SkylarkRuleImplementationFunctions {
           return Runtime.NONE;
         }
       };
-
-  /**
-   * Adds the runfiles of the given input files to the action builder when they are executable and
-   * in HOST configuration.
-   */
-  private static void addRequiredIndirectRunfiles(
-      SkylarkRuleContext ctx, SpawnAction.Builder builder) {
-    RuleContext ruleContext = ctx.getRuleContext();
-    AttributeMap attrMap = ruleContext.attributes();
-
-    for (String attrName : attrMap.getAttributeNames()) {
-      Attribute attr = attrMap.getAttributeDefinition(attrName);
-      if (attr.isExecutable()
-          && (attr.getConfigurationTransition() == ConfigurationTransition.HOST)) {
-        FilesToRunProvider prov = ruleContext.getExecutablePrerequisite(attrName, Mode.HOST);
-        if (prov != null) {
-          builder.addTool(prov);
-        }
-      }
-    }
-  }
 
   @SkylarkSignature(name = "expand_location",
       doc =

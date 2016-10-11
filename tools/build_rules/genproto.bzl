@@ -31,7 +31,8 @@ def gensrcjar_impl(ctx):
         ctx.executable._gensrcjar.path,
     ]),
     inputs=([ctx.file.src] + ctx.files._gensrcjar + ctx.files._jar +
-            ctx.files._jdk + ctx.files._proto_compiler),
+            ctx.files._jdk + ctx.files._proto_compiler +
+            ctx.files.grpc_java_plugin),
     outputs=[out],
     mnemonic="GenProtoSrcJar",
     use_default_shell_env=True)
@@ -51,7 +52,7 @@ gensrcjar = rule(
             single_file = True,
         ),
         "_gensrcjar": attr.label(
-            default = Label(str(Label("//tools/build_rules:gensrcjar"))),
+            default = Label("//tools/build_rules:gensrcjar"),
             cfg = "host",
             executable = True,
         ),
