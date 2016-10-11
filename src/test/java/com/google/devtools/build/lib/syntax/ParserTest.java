@@ -401,6 +401,13 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDel() {
+    setFailFast(false);
+    parseExpression("del d['a']");
+    assertContainsError("'del' not supported, use '.pop()' to delete");
+  }
+
+  @Test
   public void testTupleAssign() {
     List<Statement> statements = parseFile("list[0] = 5; dict['key'] = value\n");
     assertThat(statements).hasSize(2);
