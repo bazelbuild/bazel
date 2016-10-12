@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkinterface;
 
+import com.google.devtools.build.lib.util.Pair;
 import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 
@@ -22,6 +23,28 @@ import javax.annotation.Nullable;
  */
 public class SkylarkInterfaceUtils {
 
+  @Nullable
+  private static Pair<Class<?>, SkylarkModule> searchForSkylarkModule(Class<?> classObj) {
+    if (classObj.isAnnotationPresent(SkylarkModule.class)) {
+      return new Pair<Class<?>, SkylarkModule>(
+          classObj, classObj.getAnnotation(SkylarkModule.class));
+    }
+    Class<?> superclass = classObj.getSuperclass();
+    if (superclass != null) {
+      Pair<Class<?>, SkylarkModule> result = searchForSkylarkModule(superclass);
+      if (result != null) {
+        return result;
+      }
+    }
+    for (Class<?> interfaceObj : classObj.getInterfaces()) {
+      Pair<Class<?>, SkylarkModule> result = searchForSkylarkModule(interfaceObj);
+      if (result != null) {
+        return result;
+      }
+    }
+    return null;
+  }
+
   /**
    * Returns the {@link SkylarkModule} annotation for the given class, if it exists, and
    * null otherwise. The first annotation found will be returned, starting with {@code classObj}
@@ -29,23 +52,19 @@ public class SkylarkInterfaceUtils {
    */
   @Nullable
   public static SkylarkModule getSkylarkModule(Class<?> classObj) {
-    if (classObj.isAnnotationPresent(SkylarkModule.class)) {
-      return classObj.getAnnotation(SkylarkModule.class);
-    }
-    Class<?> superclass = classObj.getSuperclass();
-    if (superclass != null) {
-      SkylarkModule annotation = getSkylarkModule(superclass);
-      if (annotation != null) {
-        return annotation;
-      }
-    }
-    for (Class<?> interfaceObj : classObj.getInterfaces()) {
-      SkylarkModule annotation = getSkylarkModule(interfaceObj);
-      if (annotation != null) {
-        return annotation;
-      }
-    }
-    return null;
+    Pair<Class<?>, SkylarkModule> result = searchForSkylarkModule(classObj);
+    return result == null ? null : result.second;
+  }
+
+  /**
+   * Searches {@code classObj}'s class hierarchy and returns the first superclass or interface that
+   * is annotated with {@link SkylarkModule} (including possibly {@code classObj} itself), or null
+   * if none is found.
+   */
+  @Nullable
+  public static Class<?> getParentWithSkylarkModule(Class<?> classObj) {
+    Pair<Class<?>, SkylarkModule> result = searchForSkylarkModule(classObj);
+    return result == null ? null : result.first;
   }
 
   /**

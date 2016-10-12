@@ -353,6 +353,7 @@ java_library(
         "skylarkinterface/*.java",
     ]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:jsr305",
     ],
 )
