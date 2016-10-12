@@ -283,7 +283,10 @@ public final class TestActionBuilder {
     }
     // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
     Artifact reportGenerator = null;
-    if (collectCodeCoverage) {
+    if (config.isCodeCoverageEnabled()) {
+      // It's not enough to add this if the rule has coverage enabled because the command line may
+      // contain rules with baseline coverage but no test rules that have coverage enabled, and in
+      // that case, we still need the report generator.
       reportGenerator = ruleContext.getPrerequisiteArtifact(
           "$coverage_report_generator", Mode.HOST);
     }
