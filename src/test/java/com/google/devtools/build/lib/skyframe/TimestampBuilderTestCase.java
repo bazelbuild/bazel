@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -161,6 +163,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
         new ActionLogBufferPathGenerator(actionOutputBase));
+
+    ActionInputFileCache cache = new SingleBuildFileCache(
+        rootDirectory.getPathString(), scratch.getFileSystem());
+    skyframeActionExecutor.setFileCache(cache);
 
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -283,7 +289,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
   }
 
-  Artifact createSourceArtifact(String name) {
+  protected Artifact createSourceArtifact(String name) {
     return createSourceArtifact(scratch.getFileSystem(), name);
   }
 
@@ -344,6 +350,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
+    buildArtifacts(builder, new DummyExecutor(rootDirectory), artifacts);
+  }
+
+  protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)
+      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
 
     tsgm.setCommandStartTime();
     Set<Artifact> artifactsToBuild = Sets.newHashSet(artifacts);
@@ -356,7 +367,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           null,
           null,
           null,
-          new DummyExecutor(rootDirectory),
+          executor,
           builtArtifacts, /*explain=*/
           false,
           null,
