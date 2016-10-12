@@ -11,9 +11,6 @@ java_library(
     name = "test_runner",
     srcs = glob(["*.java"]),
     data = ["//tools:test_sharding_compliant"],
-    # Disable sunapi warnings about sun.misc.Signal.
-    # There are no non-Sun APIs for doing this.
-    javacopts = ["-Xlint:-sunapi"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
