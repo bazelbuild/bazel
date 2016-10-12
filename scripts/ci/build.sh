@@ -492,7 +492,10 @@ function build_and_publish_site() {
   fi
   tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
   jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
-  "${gs}" rsync -r "${tmpdir}/production" "gs://${bucket}"
+  # Rsync:
+  #   -r: recursive
+  #   -c: compute checksum even though the input is from the filesystem
+  "${gs}" rsync -r -c "${tmpdir}/production" "gs://${bucket}"
   "${gs}" web set -m index.html -e 404.html "gs://${bucket}"
   "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
 }
