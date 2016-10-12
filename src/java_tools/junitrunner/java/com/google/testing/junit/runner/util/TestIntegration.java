@@ -59,7 +59,7 @@ public abstract class TestIntegration {
   // Optional: Background color.
   abstract String backgroundColor();
 
-  static Builder builder() {
+  public static Builder builder() {
     return new AutoValue_TestIntegration.Builder()
         .setIconName("")
         .setIconUrl("")
@@ -68,27 +68,86 @@ public abstract class TestIntegration {
         .setBackgroundColor("");
   }
 
+  /** Builder is the builder class for TestIntegration */
   @AutoValue.Builder
-  abstract static class Builder {
+  public abstract static class Builder {
+    /**
+     * Sets the Contact Email value. The contact email is used for users to identify how to contact
+     * the TestIntegration owner. This is optional.
+     * @param email Email of the team responsible for this TestIntegration.
+     * @return Builder
+     */
     public abstract Builder setContactEmail(String email);
 
+    /**
+     * Sets the component ID value, used to identify the tool that this TestIntegration belongs to.
+     * This is optional.
+     * @param id ID of the component.
+     * @return Builder
+     */
     public abstract Builder setComponentId(String id);
 
+    /**
+     * Sets the name for the tool for this TestIntegration.
+     * @param name Name of this TestIntegration.
+     * @return Builder
+     */
     public abstract Builder setName(String name);
 
+    /**
+     * Sets the URL of this TestIntegration. It should be a FQDN, with optional url
+     * encoded parameters.
+     * @param url The location of the TestIntegration.
+     * @return Builder
+     */
     public abstract Builder setUrl(String url);
 
+    /**
+     * Sets the url of the icon. The icon should look good even if scaled down to 16x16.
+     * This is optional; if not set, it will instead use the value passed to
+     * {@link #setIconName(String)}.
+     * @param  iconUrl Location of the icon.
+     * @return Builder
+     */
     public abstract Builder setIconUrl(String iconUrl);
 
+    /**
+     * Sets the name of the icon. This is optional; if not set it will instead use the value
+     * pased to {@link #setIconUrl(String)}.
+     * @param  iconName name of the icon.
+     * @return Builder
+     */
     public abstract Builder setIconName(String iconName);
 
+    /**
+     * Sets the description. The description is used to describe the TestIntegration object's
+     * purpose. This is optional; if it isn't set, it will have a default value of {@code ""}.
+     * @param  description The description for this TestIntegration.
+     * @return Builder
+     */
     public abstract Builder setDescription(String description);
 
+    /**
+     * Sets the foreground color of the TestIntegration link. This is optional; if it isn't set,
+     * the link created will use the default foreground color per the tool's CSS.
+     * @param foregroundColor The foreground color of the link, e.g. {@code "#000000"}.
+     * @return Builder
+     */
     public abstract Builder setForegroundColor(String foregroundColor);
 
+    /**
+     * Sets the background color of the TestIntegration link. This is optional; if it isn't set,
+     * the link created will use the default background color per the tool's CSS.
+     * @param backgroundColor The background color of the link, e.g. {@code "#ffffff"}.
+     * @return Builder
+     */
     public abstract Builder setBackgroundColor(String backgroundColor);
 
-    abstract TestIntegration build();
+    /**
+     * Builds a TestIntegration object.
+     * @return Builder
+     */
+    public abstract TestIntegration build();
   }
 
   /*
