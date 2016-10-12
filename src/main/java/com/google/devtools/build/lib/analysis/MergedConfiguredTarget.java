@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,14 +27,6 @@ import javax.annotation.Nullable;
  * <p>This is an ephemeral object created only for the analysis of a single configured target. After
  * that configured target is analyzed, this is thrown away.
  */
-// TODO(bazel-team): This annotation is needed for compatibility with Skylark code that expects
-// type() of this class to be "MergedConfiguredTarget" instead of "Target". The dependent code
-// should be refactored, possibly by adding a field to this class that it could read instead.
-@SkylarkModule(
-    name = "MergedConfiguredTarget",
-    doc = "",
-    documented = false
-)
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
   private final TransitiveInfoProviderMap providers;
