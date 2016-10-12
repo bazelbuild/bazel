@@ -58,6 +58,12 @@ ps_var_addToMsysPath = (ps_var_packageDir -replace 'c:\\','/c/') -replace '\\','
 write-host @"
 bazel installed to ps_var_packageDir
 
+To use it in powershell or cmd, you should ensure your PATH environment variable contains
+  ps_var_(ps_var_msys2Path)\usr\bin
+BEFORE both
+  c:\windows\system32 (because bash-on-windows' bash.exe will be found here, if it's installed)
+  any references to msysgit (like c:\program files (x86)\git\bin or c:\program files (x86)\git\cmd) (because git's vendored version of msys2 will interfere with the real msys2)
+
 To use it in msys2, you should add that to your msys2 PATH:
   export PATH=ps_var_(ps_var_addToMsysPath):escape_charps_var_PATH
 
