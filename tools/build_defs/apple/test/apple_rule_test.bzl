@@ -28,7 +28,8 @@ def apple_rule_test():
   """Issue simple tests on apple rules."""
   swift_library(
       name = "test_lib",
-      module_name = "test_lib"
+      module_name = "test_lib",
+      srcs = ["source.swift"]
   )
 
   rule_test(

@@ -335,7 +335,7 @@ def _swift_library_impl(ctx):
 swift_library = rule(
     _swift_library_impl,
     attrs = {
-        "srcs": attr.label_list(allow_files = [".swift"]),
+        "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),
         "deps": attr.label_list(providers=[["swift"], ["objc"]]),
         "module_name": attr.string(mandatory=False),
         "defines": attr.string_list(mandatory=False, allow_empty=True),
