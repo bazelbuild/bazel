@@ -497,9 +497,11 @@ def _impl(repository_ctx):
 
     if _is_support_whole_archive(repository_ctx, vs_path):
       whole_archive_linker_params = "flag: '/WHOLEARCHIVE:%{whole_archive_linker_params}'"
+      global_whole_archive = "flag: '/WHOLEARCHIVE'"
       whole_archive_object_files_params = ""
     else:
       whole_archive_linker_params = ""
+      global_whole_archive = ""
       whole_archive_object_files_params = "flag: '%{whole_archive_object_files_params}'"
 
     _tpl(repository_ctx, "CROSSTOOL", {
@@ -510,6 +512,7 @@ def _impl(repository_ctx):
         "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories),
         "%{whole_archive_linker_params}": whole_archive_linker_params,
         "%{whole_archive_object_files_params}": whole_archive_object_files_params,
+        "%{global_whole_archive}": global_whole_archive,
     })
   else:
     darwin = cpu_value == "darwin"
@@ -537,6 +540,7 @@ def _impl(repository_ctx):
         "%{cxx_builtin_include_directory}": "",
         "%{whole_archive_linker_params}": "",
         "%{whole_archive_object_files_params}": "",
+        "%{global_whole_archive}": "",
     })
 
 

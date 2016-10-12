@@ -302,6 +302,7 @@ toolchain {
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
+     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -314,6 +315,7 @@ toolchain {
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
+     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -323,6 +325,7 @@ toolchain {
          tool_path: 'DUMMY_TOOL'
      }
      implies: 'input_param_flags'
+     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -332,6 +335,7 @@ toolchain {
          tool_path: 'DUMMY_TOOL'
      }
      implies: 'input_param_flags'
+     implies: 'global_whole_archive'
   }
 
   # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
@@ -343,6 +347,7 @@ toolchain {
          tool_path: 'DUMMY_TOOL'
      }
      implies: 'input_param_flags'
+     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -352,6 +357,7 @@ toolchain {
          tool_path: 'DUMMY_TOOL'
      }
      implies: 'input_param_flags'
+     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -449,6 +455,23 @@ toolchain {
          }
      }
   }
+
+  feature {
+   name: 'global_whole_archive'
+   flag_set {
+       expand_if_all_available: 'global_whole_archive'
+       action: 'c++-link-executable'
+       action: 'c++-link-dynamic-library'
+       action: 'c++-link-static-library'
+       action: 'c++-link-alwayslink-static-library'
+       action: 'c++-link-pic-static-library'
+       action: 'c++-link-alwayslink-pic-static-library'
+       flag_group {
+           # If MSVC linker supports /WHOLEARCHIVE, this field will be enabled
+           %{global_whole_archive}
+       }
+   }
+}
 
   compilation_mode_flags {
     mode: DBG
