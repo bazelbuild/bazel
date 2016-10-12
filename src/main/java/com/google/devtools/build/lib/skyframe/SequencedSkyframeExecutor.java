@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffD
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -108,7 +109,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       PathFragment blacklistedPackagePrefixesFile,
-      String productName) {
+      String productName,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -122,7 +124,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         extraPrecomputedValues,
         false,
         blacklistedPackagePrefixesFile,
-        productName);
+        productName,
+        crossRepositoryLabelViolationStrategy);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -139,7 +142,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      String productName) {
+      String productName,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
     return create(
         pkgFactory,
         directories,
@@ -153,7 +157,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         extraPrecomputedValues,
         customDirtinessCheckers,
         /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT,
-        productName);
+        productName,
+        crossRepositoryLabelViolationStrategy);
   }
 
   private static SequencedSkyframeExecutor create(
@@ -169,7 +174,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       PathFragment blacklistedPackagePrefixesFile,
-      String productName) {
+      String productName,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -185,7 +191,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             extraPrecomputedValues,
             customDirtinessCheckers,
             blacklistedPackagePrefixesFile,
-            productName);
+            productName,
+            crossRepositoryLabelViolationStrategy);
     skyframeExecutor.init();
     return skyframeExecutor;
   }
@@ -211,7 +218,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         ImmutableList.<PrecomputedValue.Injected>of(),
         ImmutableList.<SkyValueDirtinessChecker>of(),
         blacklistedPackagePrefixesFile,
-        productName);
+        productName,
+        CrossRepositoryLabelViolationStrategy.ERROR);
   }
 
   @Override

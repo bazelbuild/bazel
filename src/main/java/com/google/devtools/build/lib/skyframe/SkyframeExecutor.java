@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlobDeps;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -271,6 +272,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final RuleClassProvider ruleClassProvider;
 
+  private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
+
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
@@ -286,7 +289,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       boolean errorOnExternalFiles,
       PathFragment blacklistedPackagePrefixesFile,
-      String productName) {
+      String productName,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -319,6 +323,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.externalFilesHelper = new ExternalFilesHelper(
         pkgLocator, this.errorOnExternalFiles, directories);
     this.productName = productName;
+    this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -340,7 +345,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new FileSymlinkInfiniteExpansionUniquenessFunction());
     map.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
-    map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));
+    map.put(
+        SkyFunctions.PACKAGE_LOOKUP,
+        new PackageLookupFunction(deletedPackages, crossRepositoryLabelViolationStrategy));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider));
     map.put(

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -52,15 +53,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link PackageLookupFunction}.
- */
-@RunWith(JUnit4.class)
-public class PackageLookupFunctionTest extends FoundationTestCase {
+/** Tests for {@link PackageLookupFunction}. */
+public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
+
+  protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
   @Before
   public final void setUp() throws Exception {
@@ -78,8 +78,9 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
         pkgLocator, false, directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
-    skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP,
-        new PackageLookupFunction(deletedPackages));
+    skyFunctions.put(
+        SkyFunctions.PACKAGE_LOOKUP,
+        new PackageLookupFunction(deletedPackages, crossRepositoryLabelViolationStrategy()));
     skyFunctions.put(
         SkyFunctions.PACKAGE,
         new PackageFunction(null, null, null, null, null, null, null));
@@ -252,5 +253,37 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
             PackageLookupValue.invalidPackageName("nope2"),
             PackageLookupValue.invalidPackageName("nope2"))
         .testEquals();
+  }
+
+  /**
+   * Runs all tests in the base {@link PackageLookupFunctionTest} class with the
+   * {@link CrossRepositoryLabelViolationStrategy#IGNORE} enum set, and also additional tests
+   * specific to that setting.
+   */
+  @RunWith(JUnit4.class)
+  public static class IgnoreLabelViolationsTest
+      extends PackageLookupFunctionTest {
+    @Override
+    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
+      return CrossRepositoryLabelViolationStrategy.IGNORE;
+    }
+
+    // Add any ignore-specific tests here.
+  }
+
+  /**
+   * Runs all tests in the base {@link PackageLookupFunctionTest} class with the
+   * {@link CrossRepositoryLabelViolationStrategy#ERROR} enum set, and also additional tests
+   * specific to that setting.
+   */
+  @RunWith(JUnit4.class)
+  public static class ErrorLabelViolationsTest
+      extends PackageLookupFunctionTest {
+    @Override
+    protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
+      return CrossRepositoryLabelViolationStrategy.ERROR;
+    }
+
+    // Add any error-specific tests here.
   }
 }

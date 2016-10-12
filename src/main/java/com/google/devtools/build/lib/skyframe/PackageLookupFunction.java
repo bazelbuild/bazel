@@ -39,11 +39,22 @@ import javax.annotation.Nullable;
  * SkyFunction for {@link PackageLookupValue}s.
  */
 public class PackageLookupFunction implements SkyFunction {
+  /** Lists possible ways to handle a package label which crosses into a new repository. */
+  public enum CrossRepositoryLabelViolationStrategy {
+    /** Ignore the violation. */
+    IGNORE,
+    /** Generate an error. */
+    ERROR;
+  }
 
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
+  private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
 
-  public PackageLookupFunction(AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages) {
+  public PackageLookupFunction(
+      AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
     this.deletedPackages = deletedPackages;
+    this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
   }
 
   @Override
@@ -123,7 +134,7 @@ public class PackageLookupFunction implements SkyFunction {
     return fileValue;
   }
 
-  private static PackageLookupValue getPackageLookupValue(
+  private PackageLookupValue getPackageLookupValue(
       Environment env,
       ImmutableList<Path> packagePathEntries,
       PackageIdentifier packageIdentifier,
@@ -137,6 +148,11 @@ public class PackageLookupFunction implements SkyFunction {
       PathFragment buildFileFragment = buildFileName.getBuildFileFragment(packageIdentifier);
       RootedPath buildFileRootedPath = RootedPath.toRootedPath(packagePathEntry,
           buildFileFragment);
+
+      if (crossRepositoryLabelViolationStrategy != CrossRepositoryLabelViolationStrategy.IGNORE) {
+        // TODO(jcater): Check for cross repository package label violations.
+      }
+
       FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
       if (fileValue == null) {
         return null;
@@ -148,7 +164,7 @@ public class PackageLookupFunction implements SkyFunction {
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
-  private static PackageLookupValue computeWorkspacePackageLookupValue(
+  private PackageLookupValue computeWorkspacePackageLookupValue(
       Environment env, ImmutableList<Path> packagePathEntries)
       throws PackageLookupFunctionException, InterruptedException {
     PackageLookupValue result =

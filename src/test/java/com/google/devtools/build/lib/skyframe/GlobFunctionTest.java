@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -52,19 +53,16 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link GlobFunction}.
@@ -133,7 +131,9 @@ public abstract class GlobFunctionTest {
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
-    skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));
+    skyFunctions.put(
+        SkyFunctions.PACKAGE_LOOKUP,
+        new PackageLookupFunction(deletedPackages, CrossRepositoryLabelViolationStrategy.ERROR));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());
     skyFunctions.put(

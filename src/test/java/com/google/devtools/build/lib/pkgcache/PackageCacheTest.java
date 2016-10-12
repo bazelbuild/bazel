@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -97,7 +98,8 @@ public class PackageCacheTest extends FoundationTestCase {
             AnalysisMock.get().getSkyFunctions(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            analysisMock.getProductName());
+            analysisMock.getProductName(),
+            CrossRepositoryLabelViolationStrategy.ERROR);
     setUpSkyframe(parsePackageCacheOptions());
   }
 

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -142,7 +143,8 @@ public class FileFunctionTest {
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
-                        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of())))
+                        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
+                        CrossRepositoryLabelViolationStrategy.ERROR))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))

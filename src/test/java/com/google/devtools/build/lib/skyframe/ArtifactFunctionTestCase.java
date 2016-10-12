@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -38,14 +39,12 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Before;
 
 abstract class ArtifactFunctionTestCase {
   protected static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, "OWNER");
@@ -79,17 +78,19 @@ abstract class ArtifactFunctionTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE_STATE,
+                .put(
+                    SkyFunctions.FILE_STATE,
                     new FileStateFunction(
                         new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper))
                 .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
-                .put(SkyFunctions.ARTIFACT,
-                    new ArtifactFunction(allowedMissingInputsPredicate))
+                .put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputsPredicate))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
-                .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
+                .put(
+                    SkyFunctions.PACKAGE_LOOKUP,
+                    new PackageLookupFunction(null, CrossRepositoryLabelViolationStrategy.ERROR))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -98,12 +99,10 @@ abstract class ArtifactFunctionTestCase {
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
-                            TestRuleClassProvider.getRuleClassProvider(),
-                            root.getFileSystem()),
+                            TestRuleClassProvider.getRuleClassProvider(), root.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                     new ActionTemplateExpansionFunction())
+                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION, new ActionTemplateExpansionFunction())
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);

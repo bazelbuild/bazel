@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -175,7 +176,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
-                .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
+                .put(
+                    SkyFunctions.PACKAGE_LOOKUP,
+                    new PackageLookupFunction(null, CrossRepositoryLabelViolationStrategy.ERROR))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -184,12 +187,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
-                            TestRuleClassProvider.getRuleClassProvider(),
-                            scratch.getFileSystem()),
+                            TestRuleClassProvider.getRuleClassProvider(), scratch.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                     new DelegatingActionTemplateExpansionFunction())
+                .put(
+                    SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+                    new DelegatingActionTemplateExpansionFunction())
                 .build(),
             differencer,
             evaluationProgressReceiver);
@@ -440,6 +443,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public String extractTag(SkyKey skyKey) {
       return actionTemplateExpansionFunction.extractTag(skyKey);
-    }   
+    }
   }
 }
