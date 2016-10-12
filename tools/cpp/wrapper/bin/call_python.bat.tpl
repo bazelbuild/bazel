@@ -21,5 +21,5 @@ for /F %%i in ("%arg0%") do set TOOLNAME=%%~ni
 
 set PYDIR="%DRIVER_BIN%pydir"
 
-if not defined MSVCPYTHON set MSVCPYTHON=%{python_binary}
+if not defined MSVCPYTHON set MSVCPYTHON="%{python_binary}"
 %MSVCPYTHON% -B "%PYDIR%\%TOOLNAME%.py" %*

@@ -175,7 +175,7 @@ class ArgParser(object):
           self.options.append(entry)
         else:
           # Substitute special tokens.
-          for g in xrange(0, len(groups)):
+          for g in range(0, len(groups)):
             value = groups[g]
 
             # Check for special tokens.
@@ -193,8 +193,8 @@ class ArgParser(object):
                 # Because we have no write permission to orginal params file,
                 # create a new params file with addtional suffix
                 self.params_file = value + '.msvc'
-              except IOError, e:
-                print 'Could not open', value, 'for reading:', str(e)
+              except (IOError, e):
+                print('Could not open', value, 'for reading:', str(e))
                 exit(-1)
               continue
 
@@ -215,7 +215,7 @@ class ArgParser(object):
             self.options.append(result)
       i += num_matched
     if unmatched:
-      print 'Warning: Unmatched arguments: ' + ' '.join(unmatched)
+      print('Warning: Unmatched arguments: ' + ' '.join(unmatched))
 
     # Use the proper runtime flag depending on compilation mode. If the
     # compilation is happening in debug mode, this flag already exists. If not,
@@ -272,9 +272,9 @@ class WindowsRunner(object):
       return long_path
     else:
       # TODO(pcloudy):
-      # Find a new way to deal with long path in real windows
-      print 'Error: path is too long:' + long_path
-      raise Error('path is too long: ' + long_path)
+      # This still doesn't solve all the problems, because the compiler
+      # doesn't seem to support long path.
+      return "\\\\?\\" + long_path
     return None
 
   def SetupEnvironment(self):
@@ -345,15 +345,15 @@ class WindowsRunner(object):
         for arg in args:
           params_file.write(arg + '\n')
         params_file.close()
-      except IOError, e:
-        print 'Could not open', parser.params_file, 'for writing:', str(e)
+      except (IOError, e):
+        print('Could not open', parser.params_file, 'for writing:', str(e))
         exit(-1)
       cmd = [binary] + [('@' + os.path.normpath(parser.params_file))]
     else:
       cmd = [binary] + args
     # Save stderr output to a temporary in case we need it.
     # Unconmment the following line to see what exact command is executed.
-    # print "Running: " + " ".join(cmd)
+    # print("Running: " + " ".join(cmd))
     proc = subprocess.Popen(cmd,
                             env=build_env,
                             stdout=subprocess.PIPE,
@@ -361,13 +361,14 @@ class WindowsRunner(object):
                             shell=True)
     deps = []
     for line in proc.stdout:
+      line = line.decode('utf-8')
       if not output_filter.match(line):
         includes = includes_filter.match(line)
         if includes:
           filename = includes.group(1).rstrip()
           deps += [filename]
         else:
-          print line.rstrip()
+          print(line.rstrip())
     proc.wait()
 
     # Generate deps file if requested.
