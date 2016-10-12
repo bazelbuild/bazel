@@ -67,13 +67,15 @@ def _proto_gen_impl(ctx):
   if ctx.attr.gen_py:
     args += ["--python_out=" + ctx.var["GENDIR"] + "/" + gen_dir]
 
+  inputs = srcs + deps
   if ctx.executable.grpc_cpp_plugin:
+    inputs += [ctx.executable.grpc_cpp_plugin]
     args += ["--plugin=protoc-gen-grpc=" + ctx.executable.grpc_cpp_plugin.path]
     args += ["--grpc_out=" + ctx.var["GENDIR"] + "/" + gen_dir]
 
   if args:
     ctx.action(
-        inputs=srcs + deps,
+        inputs=inputs,
         outputs=ctx.outputs.outs,
         arguments=args + import_flags + [s.path for s in srcs],
         executable=ctx.executable.protoc,
