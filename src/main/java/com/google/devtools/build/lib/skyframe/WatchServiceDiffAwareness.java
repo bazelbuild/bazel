@@ -17,9 +17,10 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -39,7 +40,6 @@ import java.util.Set;
  * two consecutive calls. Uses the standard Java WatchService, which uses 'inotify' on Linux.
  */
 public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
-
   /**
    * Bijection from WatchKey to the (absolute) Path being watched. WatchKeys don't have this
    * functionality built-in so we do it ourselves.
@@ -49,13 +49,52 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
-  WatchServiceDiffAwareness(String watchRoot, WatchService watchService) {
+  WatchServiceDiffAwareness(String watchRoot) {
     super(watchRoot);
-    this.watchService = watchService;
+  }
+
+  private void init() {
+    Preconditions.checkState(watchService == null);
+    try {
+      watchService = FileSystems.getDefault().newWatchService();
+    } catch (IOException ignored) {
+      // According to the docs, this can never happen with the default file system provider.
+    }
   }
 
   @Override
-  public View getCurrentView() throws BrokenDiffAwarenessException {
+  public View getCurrentView(OptionsClassProvider options) throws BrokenDiffAwarenessException {
+    // We need to consider 4 cases for watchFs:
+    // previous view    current view
+    //  disabled         disabled  -> EVERYTHING_MODIFIED
+    //  disabled         enabled   -> valid View (1)
+    //  enabled          disabled  -> throw BrokenDiffAwarenessException
+    //  enabled          enabled   -> valid View
+    //
+    // (1) When watchFs gets enabled, we need to consider both the delta from the previous view
+    //     to the current view (1a), and from the current view to the next view (1b).
+    // (1a) If watchFs was previously disabled, then previous view was either EVERYTHING_MODIFIED,
+    //      or we threw a BrokenDiffAwarenessException. The first is safe because comparing it to
+    //      any view results in ModifiedFileSet.EVERYTHING_MODIFIED. The second is safe because
+    //      the previous diff awareness gets closed and we're now in a new instance; comparisons
+    //      between views with different owners always results in
+    //      ModifiedFileSet.EVERYTHING_MODIFIED.
+    // (1b) On the next run, we want to see the files that were modified between the current and the
+    //      next run. For that, the view we return needs to be valid; however, it's ok for it to
+    //      contain files that are modified between init() and poll() below, because those are
+    //      already taken into account for the current build, as we ended up with
+    //      ModifiedFileSet.EVERYTHING_MODIFIED in the current build.
+    boolean watchFs = options.getOptions(Options.class).watchFS;
+    if (watchFs && watchService == null) {
+      init();
+    } else if (!watchFs && (watchService != null)) {
+      close();
+      throw new BrokenDiffAwarenessException("Switched off --watchfs again");
+    }
+    // If init() failed, then this if also applies.
+    if (watchService == null) {
+      return EVERYTHING_MODIFIED;
+    }
     Set<Path> modifiedAbsolutePaths;
     if (isFirstCall()) {
       try {
@@ -86,10 +125,12 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
 
   @Override
   public void close() {
-    try {
-      watchService.close();
-    } catch (IOException ignored) {
-      // Nothing we can do here.
+    if (watchService != null) {
+      try {
+        watchService.close();
+      } catch (IOException ignored) {
+        // Nothing we can do here.
+      }
     }
   }
 

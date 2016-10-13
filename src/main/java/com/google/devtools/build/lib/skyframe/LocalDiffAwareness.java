@@ -14,18 +14,20 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.nio.file.WatchService;
 import java.util.Set;
 
 /**
@@ -38,6 +40,19 @@ import java.util.Set;
  * {@link WatchServiceDiffAwareness}.
  */
 public abstract class LocalDiffAwareness implements DiffAwareness {
+  /**
+   * Option to enable / disable local diff awareness.
+   */
+  public static final class Options extends OptionsBase {
+    @Option(
+        name = "watchfs",
+        defaultValue = "false",
+        category = "server startup",
+        help = "If true, %{product} tries to use the operating system's file watch service for "
+            + "local changes instead of scanning every file for a change."
+    )
+    public boolean watchFS;
+  }
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */
   public static class Factory implements DiffAwareness.Factory {
@@ -73,14 +88,24 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         return new MacOSXFsEventsDiffAwareness(resolvedPathEntryFragment.toString());
       }
 
-      WatchService watchService;
-      try {
-        watchService = FileSystems.getDefault().newWatchService();
-      } catch (IOException e) {
-        return null;
-      }
-      return new WatchServiceDiffAwareness(resolvedPathEntryFragment.toString(), watchService);
+      return new WatchServiceDiffAwareness(resolvedPathEntryFragment.toString());
     }
+  }
+
+  /**
+   * A view that results in any subsequent getDiff calls returning
+   * {@link ModifiedFileSet#EVERYTHING_MODIFIED}. Use this if --watchFs is disabled.
+   *
+   * <p>The position is set to -2 in order for {@link #areInSequence} below to always return false
+   * if this view is passed to it. Any negative number would work; we don't use -1 as the other
+   * view may have a position of 0.
+   */
+  protected static final View EVERYTHING_MODIFIED =
+      new SequentialView(/*owner=*/null, /*position=*/-2, ImmutableSet.<Path>of());
+
+  public static boolean areInSequence(SequentialView oldView, SequentialView newView) {
+    // Keep this in sync with the EVERYTHING_MODIFIED View above.
+    return oldView.owner == newView.owner && (oldView.position + 1) == newView.position;
   }
 
   private int numGetCurrentViewCalls = 0;
@@ -96,7 +121,8 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
    * The WatchService is inherently sequential and side-effectful, so we enforce this by only
    * supporting {@link #getDiff} calls that happen to be sequential.
    */
-  private static class SequentialView implements DiffAwareness.View {
+  @VisibleForTesting
+  static class SequentialView implements DiffAwareness.View {
     private final LocalDiffAwareness owner;
     private final int position;
     private final Set<Path> modifiedAbsolutePaths;
@@ -107,10 +133,6 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       this.modifiedAbsolutePaths = modifiedAbsolutePaths;
     }
 
-    public static boolean areInSequence(SequentialView oldView, SequentialView newView) {
-      return oldView.owner == newView.owner && (oldView.position + 1) == newView.position;
-    }
-
     @Override
     public String toString() {
       return String.format("SequentialView[owner=%s, position=%d, modifiedAbsolutePaths=%s]", owner,
@@ -119,7 +141,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   }
 
   /**
-   * Returns true on any call before first call to {@link #newView(Set<Path>)}.
+   * Returns true on any call before first call to {@link #newView}.
    */
   protected boolean isFirstCall() {
     return numGetCurrentViewCalls == 0;
@@ -129,8 +151,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
    * Create a new views using a list of modified absolute paths. This will increase the view
    * counter.
    */
-  protected SequentialView newView(Set<Path> modifiedAbsolutePaths)
-      throws BrokenDiffAwarenessException {
+  protected SequentialView newView(Set<Path> modifiedAbsolutePaths) {
     numGetCurrentViewCalls++;
     return new SequentialView(this, numGetCurrentViewCalls, modifiedAbsolutePaths);
   }
@@ -146,7 +167,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     } catch (ClassCastException e) {
       throw new IncompatibleViewException("Given views are not from LocalDiffAwareness");
     }
-    if (!SequentialView.areInSequence(oldSequentialView, newSequentialView)) {
+    if (!areInSequence(oldSequentialView, newSequentialView)) {
       return ModifiedFileSet.EVERYTHING_MODIFIED;
     }
     return ModifiedFileSet.builder()

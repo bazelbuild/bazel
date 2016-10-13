@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -411,7 +412,7 @@ public class IncrementalLoadingTest {
       private View currentView;
 
       @Override
-      public View getCurrentView() {
+      public View getCurrentView(OptionsClassProvider options) {
         lastView = currentView;
         currentView = new View() {};
         return currentView;
