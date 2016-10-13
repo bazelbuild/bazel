@@ -26,7 +26,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.PopulateTreeArtifactAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -195,13 +193,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           j2ObjcSource,
           genSrcJar);
 
-      boolean zipTreeArtifact = ruleContext.getFragment(J2ObjcConfiguration.class)
-          .zipTreeArtifact();
-      if (genSrcJar.isPresent() && zipTreeArtifact) {
-        for (Action action : genJarTreeArtifactCreationActions(ruleContext)) {
-          ruleContext.registerAction(action);
-        }
-      }
       common = common(
           ruleContext,
           j2ObjcSource.getObjcSrcs(),
@@ -274,59 +265,17 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private List<Artifact> genJarOutputs(RuleContext ruleContext) {
-    boolean zipTreeArtifact = ruleContext
-        .getFragment(J2ObjcConfiguration.class)
-        .zipTreeArtifact();
-
-    if (zipTreeArtifact) {
-      return ImmutableList.of(
-          j2ObjcGenJarSourceZip(ruleContext),
-          j2ObjcGenJarSourceZipManifest(ruleContext),
-          j2ObjcGenJarHeaderZip(ruleContext),
-          j2ObjcGenJarHeaderZipManifest(ruleContext));
-    } else {
-      return ImmutableList.of(
-          j2ObjcGenJarTranslatedSourceFiles(ruleContext),
-          j2objcGenJarTranslatedHeaderFiles(ruleContext));
-    }
+    return ImmutableList.of(
+        j2ObjcGenJarTranslatedSourceFiles(ruleContext),
+        j2objcGenJarTranslatedHeaderFiles(ruleContext));
   }
 
   private List<String> genJarFlags(RuleContext ruleContext) {
-    boolean zipTreeArtifact = ruleContext.getFragment(J2ObjcConfiguration.class).zipTreeArtifact();
-
-    if (zipTreeArtifact) {
-      return ImmutableList.of(
-          "--output_gen_source_zip", j2ObjcGenJarSourceZip(ruleContext).getExecPathString(),
-          "--output_gen_header_zip", j2ObjcGenJarHeaderZip(ruleContext).getExecPathString());
-    } else {
-      return ImmutableList.of(
-          "--output_gen_source_dir",
-          j2ObjcGenJarTranslatedSourceFiles(ruleContext).getExecPathString(),
-          "--output_gen_header_dir",
-          j2objcGenJarTranslatedHeaderFiles(ruleContext).getExecPathString());
-    }
-  }
-
-  private List<Action> genJarTreeArtifactCreationActions(RuleContext ruleContext) {
-    Artifact sourceFiles = j2ObjcGenJarTranslatedSourceFiles(ruleContext);
-    Artifact headerFiles = j2objcGenJarTranslatedHeaderFiles(ruleContext);
-
-    ImmutableList.Builder<Action> actions = ImmutableList.builder();
-    actions.add(new PopulateTreeArtifactAction(
-        ruleContext.getActionOwner(),
-        j2ObjcGenJarSourceZip(ruleContext),
-        j2ObjcGenJarSourceZipManifest(ruleContext),
-        sourceFiles,
-        ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST)));
-
-    actions.add(new PopulateTreeArtifactAction(
-        ruleContext.getActionOwner(),
-        j2ObjcGenJarHeaderZip(ruleContext),
-        j2ObjcGenJarHeaderZipManifest(ruleContext),
-        headerFiles,
-        ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST)));
-
-    return actions.build();
+    return ImmutableList.of(
+        "--output_gen_source_dir",
+        j2ObjcGenJarTranslatedSourceFiles(ruleContext).getExecPathString(),
+        "--output_gen_header_dir",
+        j2objcGenJarTranslatedHeaderFiles(ruleContext).getExecPathString());
   }
 
   private void createJ2ObjcTranspilationAction(

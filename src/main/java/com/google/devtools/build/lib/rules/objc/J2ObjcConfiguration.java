@@ -78,7 +78,6 @@ public class J2ObjcConfiguration extends Fragment {
   private final boolean removeDeadCode;
   private final boolean explicitJreDeps;
   private final boolean annotationProcessingEnabled;
-  private final boolean zipTreeArtifact;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
     this.removeDeadCode = j2ObjcOptions.removeDeadCode;
@@ -88,7 +87,6 @@ public class J2ObjcConfiguration extends Fragment {
         .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
         .build();
     this.annotationProcessingEnabled = j2ObjcOptions.annotationProcessingEnabled;
-    this.zipTreeArtifact = j2ObjcOptions.zipTreeArtifact;
   }
 
   /**
@@ -124,13 +122,6 @@ public class J2ObjcConfiguration extends Fragment {
    */
   public boolean annotationProcessingEnabled() {
     return annotationProcessingEnabled;
-  }
-
-  /**
-   * Returns whether to enable the zipping/unzipping implementation of tree artifact creation.
-   */
-  public boolean zipTreeArtifact() {
-    return zipTreeArtifact;
   }
 
   @Override
