@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsClassProvider;
+
 import java.util.Map;
 import java.util.logging.Logger;
+
 import javax.annotation.Nullable;
 
 /**
@@ -33,13 +34,11 @@ public final class DiffAwarenessManager {
 
   private static final Logger LOG = Logger.getLogger(DiffAwarenessManager.class.getName());
 
-  // The manager attempts to instantiate these in the order in which they are passed to the
-  // constructor; this is critical in the case where a factory always succeeds.
-  private final ImmutableList<? extends DiffAwareness.Factory> diffAwarenessFactories;
+  private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
   private Map<Path, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
 
   public DiffAwarenessManager(Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
-    this.diffAwarenessFactories = ImmutableList.copyOf(diffAwarenessFactories);
+    this.diffAwarenessFactories = ImmutableSet.copyOf(diffAwarenessFactories);
   }
 
   private static class DiffAwarenessState {
@@ -80,8 +79,7 @@ public final class DiffAwarenessManager {
    * Gets the set of changed files since the last call with this path entry, or
    * {@code ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
-  public ProcessableModifiedFileSet getDiff(
-      EventHandler eventHandler, Path pathEntry, OptionsClassProvider options) {
+  public ProcessableModifiedFileSet getDiff(EventHandler eventHandler, Path pathEntry) {
     DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
@@ -89,7 +87,7 @@ public final class DiffAwarenessManager {
     DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
     View newView;
     try {
-      newView = diffAwareness.getCurrentView(options);
+      newView = diffAwareness.getCurrentView();
     } catch (BrokenDiffAwarenessException e) {
       handleBrokenDiffAwareness(eventHandler, pathEntry, e);
       return BrokenProcessableModifiedFileSet.INSTANCE;

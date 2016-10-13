@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority;
-import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -471,7 +470,7 @@ public final class CommandEnvironment {
    *
    * @see DefaultsPackage
    */
-  public void setupPackageCache(OptionsClassProvider options,
+  public void setupPackageCache(PackageCacheOptions packageCacheOptions,
       String defaultsPackageContents) throws InterruptedException, AbruptExitException {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     if (!skyframeExecutor.hasIncrementalState()) {
@@ -479,7 +478,7 @@ public final class CommandEnvironment {
     }
     skyframeExecutor.sync(
         reporter,
-        options.getOptions(PackageCacheOptions.class),
+        packageCacheOptions,
         getOutputBase(),
         getWorkingDirectory(),
         defaultsPackageContents,
@@ -487,8 +486,7 @@ public final class CommandEnvironment {
         // TODO(bazel-team): this optimization disallows rule-specified additional dependencies
         // on the client environment!
         getWhitelistedClientEnv(),
-        timestampGranularityMonitor,
-        options);
+        timestampGranularityMonitor);
   }
 
   public void recordLastExecutionTime() {
@@ -518,15 +516,6 @@ public final class CommandEnvironment {
       CommonCommandOptions options, long execStartTimeNanos, long waitTimeInMs)
       throws AbruptExitException {
     commandStartTime -= options.startupTime;
-    if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
-      try {
-        // TODO(ulfjack): Get rid of the startup option and drop this code.
-        optionsParser.parse("--watchfs");
-      } catch (OptionsParsingException e) {
-        // This should never happen.
-        throw new IllegalStateException(e);
-      }
-    }
 
     eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
     throwPendingException();

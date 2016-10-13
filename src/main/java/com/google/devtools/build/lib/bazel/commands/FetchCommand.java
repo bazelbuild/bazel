@@ -71,7 +71,9 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     try {
-      env.setupPackageCache(options, runtime.getDefaultsPackageContent());
+      env.setupPackageCache(
+          options.getOptions(PackageCacheOptions.class),
+          runtime.getDefaultsPackageContent());
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("fetch interrupted"));
       return ExitCode.INTERRUPTED;

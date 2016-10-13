@@ -67,7 +67,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -267,12 +266,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm,
-      OptionsClassProvider options)
+      TimestampGranularityMonitor tsgm)
       throws InterruptedException, AbruptExitException {
     super.sync(eventHandler, packageCacheOptions, outputBase, workingDirectory,
-        defaultsPackageContents, commandId, clientEnv, tsgm, options);
-    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
+        defaultsPackageContents, commandId, clientEnv, tsgm);
+    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles);
   }
 
   /**
@@ -327,12 +325,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @VisibleForTesting
   public void handleDiffs(EventHandler eventHandler) throws InterruptedException {
-    handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsClassProvider.EMPTY);
+    handleDiffs(eventHandler, /*checkOutputFiles=*/ false);
   }
 
-  private void handleDiffs(
-      EventHandler eventHandler, boolean checkOutputFiles, OptionsClassProvider options)
-          throws InterruptedException {
+  private void handleDiffs(EventHandler eventHandler, boolean checkOutputFiles)
+      throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
@@ -347,7 +344,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pathEntriesWithoutDiffInformation = Sets.newHashSet();
     for (Path pathEntry : pkgLocator.get().getPathEntries()) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
+          diffAwarenessManager.getDiff(eventHandler, pathEntry);
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {

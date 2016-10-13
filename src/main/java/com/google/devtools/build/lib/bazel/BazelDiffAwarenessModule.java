@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness;
-import com.google.devtools.common.options.OptionsBase;
 
 /**
  * Provides the {@link DiffAwareness} implementation that uses the Java watch service.
@@ -27,12 +26,8 @@ import com.google.devtools.common.options.OptionsBase;
 public class BazelDiffAwarenessModule extends BlazeModule {
   @Override
   public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
-    // Order here is important - LocalDiffAwareness creation always succeeds, so it must be last.
-    builder.addDiffAwarenessFactory(new LocalDiffAwareness.Factory(ImmutableList.<String>of()));
-  }
-
-  @Override
-  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
-    return ImmutableList.<Class<? extends OptionsBase>>of(LocalDiffAwareness.Options.class);
+    if (builder.enableWatchFs()) {
+      builder.addDiffAwarenessFactory(new LocalDiffAwareness.Factory(ImmutableList.<String>of()));
+    }
   }
 }

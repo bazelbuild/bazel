@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+
 import java.util.Map;
 
 /**
@@ -45,6 +46,7 @@ import java.util.Map;
 public final class WorkspaceBuilder {
   private final BlazeDirectories directories;
   private final BinTools binTools;
+  private final boolean watchFs;
 
   private SkyframeExecutorFactory skyframeExecutorFactory;
   private WorkspaceStatusAction.Factory workspaceStatusActionFactory;
@@ -61,9 +63,10 @@ public final class WorkspaceBuilder {
   private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
       ImmutableList.builder();
 
-  WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
+  WorkspaceBuilder(BlazeDirectories directories, BinTools binTools, boolean watchFs) {
     this.directories = directories;
     this.binTools = binTools;
+    this.watchFs = watchFs;
   }
 
   BlazeWorkspace build(
@@ -101,6 +104,10 @@ public final class WorkspaceBuilder {
         workspaceStatusActionFactory, binTools);
   }
 
+  public boolean enableWatchFs() {
+    return watchFs;
+  }
+
   /**
    * Sets a factory for creating {@link SkyframeExecutor} objects. Note that only one factory per
    * workspace is allowed.
@@ -129,9 +136,7 @@ public final class WorkspaceBuilder {
 
   /**
    * Add a {@link DiffAwareness} factory. These will be used to determine which files, if any,
-   * changed between Blaze commands. Note that these factories are attempted in the order in which
-   * they are added to this class, so order matters - in order to guarantee a specific order, only
-   * a single module should add such factories.
+   * changed between Blaze commands.
    */
   public WorkspaceBuilder addDiffAwarenessFactory(DiffAwareness.Factory factory) {
     this.diffAwarenessFactories.add(Preconditions.checkNotNull(factory));

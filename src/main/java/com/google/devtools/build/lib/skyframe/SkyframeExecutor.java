@@ -1673,8 +1673,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm,
-      OptionsClassProvider options)
+      TimestampGranularityMonitor tsgm)
       throws InterruptedException, AbruptExitException {
     preparePackageLoading(
         createPackageLocator(

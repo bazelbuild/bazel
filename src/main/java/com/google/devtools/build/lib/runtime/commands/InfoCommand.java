@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -113,7 +114,8 @@ public class InfoCommand implements BlazeCommand {
           // package path. Since info inherits all the build options, all the necessary information
           // is available here.
           env.setupPackageCache(
-              optionsProvider, runtime.getDefaultsPackageContent(optionsProvider));
+              optionsProvider.getOptions(PackageCacheOptions.class),
+              runtime.getDefaultsPackageContent(optionsProvider));
           // TODO(bazel-team): What if there are multiple configurations? [multi-config]
           configuration = env
               .getConfigurations(optionsProvider)

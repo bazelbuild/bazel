@@ -189,7 +189,9 @@ public final class BlazeRuntime {
   public void initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
     Preconditions.checkState(this.workspace == null);
-    WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools);
+    boolean watchFS = startupOptionsProvider != null
+        && startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).watchFS;
+    WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools, watchFS);
     for (BlazeModule module : blazeModules) {
       module.workspaceInit(directories, builder);
     }
