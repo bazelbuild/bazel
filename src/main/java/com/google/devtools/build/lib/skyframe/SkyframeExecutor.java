@@ -105,6 +105,7 @@ import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlobDeps;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
@@ -254,7 +255,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected int outputDirtyFiles;
   protected int modifiedFilesDuringPreviousBuild;
   private final Predicate<PathFragment> allowedMissingInputs;
-  private final boolean errorOnExternalFiles;
+  private final ExternalFileAction externalFileAction;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   private final ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues;
@@ -287,7 +288,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
-      boolean errorOnExternalFiles,
+      ExternalFileAction externalFileAction,
       PathFragment blacklistedPackagePrefixesFile,
       String productName,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
@@ -309,7 +310,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.preprocessorFactorySupplier = preprocessorFactorySupplier;
     this.extraSkyFunctions = extraSkyFunctions;
     this.extraPrecomputedValues = extraPrecomputedValues;
-    this.errorOnExternalFiles = errorOnExternalFiles;
+    this.externalFileAction = externalFileAction;
     this.blacklistedPackagePrefixesFile = blacklistedPackagePrefixesFile;
     this.binTools = binTools;
 
@@ -321,7 +322,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         (ConfiguredRuleClassProvider) ruleClassProvider);
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     this.externalFilesHelper = new ExternalFilesHelper(
-        pkgLocator, this.errorOnExternalFiles, directories);
+        pkgLocator, this.externalFileAction, directories);
     this.productName = productName;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
   }

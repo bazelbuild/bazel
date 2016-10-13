@@ -221,8 +221,7 @@ public class PackageFunction implements SkyFunction {
       Iterable<SkyKey> depKeys,
       Environment env,
       boolean packageWasInError)
-      throws InternalInconsistentFilesystemException, FileOutsidePackageRootsException,
-          SymlinkOutsidePackageRootsException, InterruptedException {
+      throws InternalInconsistentFilesystemException, InterruptedException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.FILE)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -231,8 +230,6 @@ public class PackageFunction implements SkyFunction {
             FileSymlinkException.class, InconsistentFilesystemException.class).entrySet()) {
       try {
         entry.getValue().get();
-      } catch (FileOutsidePackageRootsException | SymlinkOutsidePackageRootsException e) {
-        throw e;
       } catch (IOException e) {
         maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       } catch (FileSymlinkException e) {
@@ -254,8 +251,7 @@ public class PackageFunction implements SkyFunction {
       Iterable<SkyKey> depKeys,
       Environment env,
       boolean packageWasInError)
-      throws InternalInconsistentFilesystemException, FileOutsidePackageRootsException,
-          SymlinkOutsidePackageRootsException, InterruptedException {
+      throws InternalInconsistentFilesystemException, InterruptedException {
     Preconditions.checkState(
         Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     boolean packageShouldBeInError = packageWasInError;
@@ -265,8 +261,6 @@ public class PackageFunction implements SkyFunction {
             FileSymlinkException.class, InconsistentFilesystemException.class).entrySet()) {
       try {
         entry.getValue().get();
-      } catch (FileOutsidePackageRootsException | SymlinkOutsidePackageRootsException e) {
-        throw e;
       } catch (IOException | BuildFileNotFoundException e) {
         maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
       } catch (FileSymlinkException e) {
@@ -294,8 +288,7 @@ public class PackageFunction implements SkyFunction {
       Map<Label, Path> subincludes,
       PackageIdentifier packageIdentifier,
       boolean containsErrors)
-      throws InternalInconsistentFilesystemException, FileOutsidePackageRootsException,
-          SymlinkOutsidePackageRootsException, InterruptedException {
+      throws InternalInconsistentFilesystemException, InterruptedException {
     boolean packageShouldBeInError = containsErrors;
 
     // TODO(bazel-team): This means that many packages will have to be preprocessed twice. Ouch!
@@ -550,11 +543,6 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(
           e.toNoSuchPackageException(),
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
-    } catch (FileOutsidePackageRootsException | SymlinkOutsidePackageRootsException e) {
-      packageFunctionCache.invalidate(packageId);
-      throw new PackageFunctionException(
-          new NoSuchPackageException(packageId, "Encountered file outside package roots", e),
-          Transience.PERSISTENT);
     }
     if (env.valuesMissing()) {
       return null;

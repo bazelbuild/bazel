@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
@@ -89,7 +90,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new BlazeDirectories(
             rootDirectory, outputBase, rootDirectory, analysisMock.getProductName());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
-        pkgLocator, false, directories);
+        pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
 
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
