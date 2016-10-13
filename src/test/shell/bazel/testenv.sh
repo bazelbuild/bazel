@@ -99,7 +99,7 @@ python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 # Third-party
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' -o "${MACHINE_TYPE}" = 'ppc64le' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
@@ -121,7 +121,7 @@ case "${PLATFORM}" in
       if [ "${MACHINE_IS_Z}" = 'yes' ]; then
         protoc_compiler="${BAZEL_RUNFILES}//third_party/protobuf/protoc-linux-s390x_64.exe"
       else
-        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_64.exe"
+        protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-${MACHINE_TYPE}.exe"
       fi
     else
         protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/protoc-linux-x86_32.exe"

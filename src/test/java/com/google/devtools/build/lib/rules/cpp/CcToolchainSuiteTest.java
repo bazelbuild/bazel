@@ -196,7 +196,22 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "    static_runtime_libs = ['windows-static-runtime-libs'])",
         "filegroup(",
         "    name = 'windows-files',",
-        "    srcs = ['windows-marker', 'everything'])");
+        "    srcs = ['windows-marker', 'everything'])",
+        "cc_toolchain(",
+        "    name = 'local_linux',",
+        "    module_map = 'map',",
+        "    cpu = 'cpu',",
+        "    compiler_files = 'compile',",
+        "    dwp_files = 'dwp',",
+        "    linker_files = 'link',",
+        "    strip_files = ':strip',",
+        "    objcopy_files = 'objcopy',",
+        "    all_files = ':linux-files',",
+        "    dynamic_runtime_libs = ['linux-dynamic-runtime-libs'],",
+        "    static_runtime_libs = ['linux-static-runtime-libs'])",
+        "filegroup(",
+        "    name = 'linux-files',",
+        "    srcs = ['linux-marker', 'everything'])");
 
     scratch.file("a/BUILD",
         "genrule(name='a', srcs=[], outs=['ao'], tools=['//tools/defaults:crosstool'], cmd='x')");
@@ -204,10 +219,10 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
     useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8");
     Action action = getGeneratingAction(getConfiguredTarget("//a:a"), "a/ao");
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAllOf("k8-marker", "darwin-marker", "windows-marker");
+        .containsAllOf("k8-marker", "darwin-marker", "windows-marker", "linux-marker");
 
     NestedSet<Artifact> suiteFiles = getFilesToBuild(getConfiguredTarget("//cc:suite"));
     assertThat(ActionsTestUtil.baseArtifactNames(suiteFiles))
-        .containsAllOf("k8-marker", "darwin-marker", "windows-marker");
+        .containsAllOf("k8-marker", "darwin-marker", "windows-marker", "linux-marker");
   }
 }
