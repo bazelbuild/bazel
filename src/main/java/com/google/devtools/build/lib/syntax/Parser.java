@@ -1055,8 +1055,7 @@ public class Parser {
     }
     expect(TokenKind.RPAREN);
 
-    LoadStatement stmt = new LoadStatement(
-        importString.getValue(), importString.getLocation(), symbols);
+    LoadStatement stmt = new LoadStatement(importString, symbols);
     list.add(setLocation(stmt, start, token.left));
   }
 

@@ -98,7 +98,7 @@ public class BuildFileAST extends ASTNode {
     ImmutableMap.Builder<String, SkylarkImport> imports = ImmutableBiMap.builder();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
-        String str = ((LoadStatement) stmt).getImport();
+        String str = ((LoadStatement) stmt).getImport().getValue();
         imports.put(
             str,
             Preconditions.checkNotNull(
@@ -125,7 +125,7 @@ public class BuildFileAST extends ASTNode {
     boolean error = false;
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
-        String importString = ((LoadStatement) stmt).getImport();
+        String importString = ((LoadStatement) stmt).getImport().getValue();
         try {
           SkylarkImport imp = SkylarkImports.create(importString);
           imports.put(importString, imp);
@@ -168,9 +168,8 @@ public class BuildFileAST extends ASTNode {
   }
 
   /** Returns a list of loads as strings in this BUILD file. */
-  public synchronized ImmutableList<String> getRawImports() {
-    ImmutableList.Builder<String> imports = ImmutableList.builder();
-
+  public ImmutableList<StringLiteral> getRawImports() {
+    ImmutableList.Builder<StringLiteral> imports = ImmutableList.builder();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
         imports.add(((LoadStatement) stmt).getImport());
