@@ -16,25 +16,17 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
-import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -49,7 +41,6 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * Module implementing the rule set of Bazel.
@@ -92,54 +83,6 @@ public class BazelRulesModule extends BlazeModule {
     public List<Map.Entry<String, String>> strategy;
   }
 
-  /**
-   * An object describing the {@link ActionContext} implementation that some actions require in
-   * Bazel.
-   */
-  protected static class BazelActionContextConsumer implements ActionContextConsumer {
-    private final BazelExecutionOptions options;
-
-    protected BazelActionContextConsumer(BazelExecutionOptions options) {
-      this.options = options;
-    }
-    @Override
-    public ImmutableMap<String, String> getSpawnActionContexts() {
-      Map<String, String> contexts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-
-      // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
-      contexts.put("Javac", "worker");
-
-      contexts.put("Genrule", options.genruleStrategy);
-
-      for (Map.Entry<String, String> strategy : options.strategy) {
-        String strategyName = strategy.getValue();
-        // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
-        // Some flag expansions use "local" as the strategy name, but the strategy is now called
-        // "standalone", so we'll translate it here.
-        if (strategyName.equals("local")) {
-          strategyName = "standalone";
-        }
-        contexts.put(strategy.getKey(), strategyName);
-      }
-
-      // TODO(bazel-team): put this in getActionContexts (key=SpawnActionContext.class) instead
-      contexts.put("", options.spawnStrategy);
-
-      return ImmutableMap.copyOf(contexts);
-    }
-
-    @Override
-    public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
-      return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
-          .put(CppCompileActionContext.class, "")
-          .put(CppLinkActionContext.class, "")
-          .put(IncludeScanningContext.class, "")
-          .put(FileWriteActionContext.class, "")
-          .put(WriteAdbArgsActionContext.class, "")
-          .build();
-    }
-  }
-
   private CommandEnvironment env;
   protected BazelExecutionOptions options;
 
@@ -170,8 +113,7 @@ public class BazelRulesModule extends BlazeModule {
 
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.<ActionContextConsumer>of(
-        new BazelActionContextConsumer(options));
+    return ImmutableList.<ActionContextConsumer>of(new BazelActionContextConsumer(options));
   }
 
   @Subscribe
