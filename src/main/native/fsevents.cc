@@ -89,7 +89,7 @@ Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_create(
   info->stream = FSEventStreamCreate(
       NULL, &FsEventsDiffAwarenessCallback, &context, pathsToWatch,
       kFSEventStreamEventIdSinceNow, static_cast<CFAbsoluteTime>(latency),
-      kFSEventStreamCreateFlagFileEvents);
+      kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagFileEvents);
 
   // Save the info pointer to FSEventsDiffAwareness#nativePointer
   jbyteArray array = env->NewByteArray(sizeof(info));
