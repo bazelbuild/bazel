@@ -35,14 +35,12 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Integration test for skylark repository not as heavyweight than shell integration tests.
@@ -360,5 +358,30 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       assertThat(e.getMessage()).contains("There is already a built-in attribute 'name' "
           + "which cannot be overridden");
     }
+  }
+
+  @Test
+  public void testMultipleLoadSameExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        "load('//:def.bzl', 'f1')",
+        "f1()",
+        "load('//:def.bzl', 'f2')",
+        "f2()",
+        "load('//:def.bzl', 'f1')",
+        "f1()",
+        "local_repository(name = 'foo', path = '')");
+    scratch.file(
+        rootDirectory.getRelative("BUILD").getPathString(), "filegroup(name = 'bar', srcs = [])");
+    scratch.file(
+        rootDirectory.getRelative("def.bzl").getPathString(),
+        "def f1():",
+        "  print('f1')",
+        "",
+        "def f2():",
+        "  print('f2')");
+    invalidatePackages();
+    // Just request the last external repository to force the whole loading.
+    getConfiguredTarget("@foo//:bar");
   }
 }

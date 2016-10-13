@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -181,11 +182,9 @@ public class WorkspaceFactory {
         .setGlobals(Environment.BUILD)
         .setEventHandler(localReporter);
     if (importedExtensions != null) {
-      importMap =
-          ImmutableMap.<String, Extension>builder()
-              .putAll(parentImportMap)
-              .putAll(importedExtensions)
-              .build();
+      Map<String, Extension> map = new HashMap<String, Extension>(parentImportMap);
+      map.putAll(importedExtensions);
+      importMap = ImmutableMap.<String, Extension>copyOf(importedExtensions);
     } else {
       importMap = parentImportMap;
     }
