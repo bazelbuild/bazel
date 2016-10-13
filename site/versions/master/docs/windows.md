@@ -38,6 +38,10 @@ If you run outside of `bash`, ensure that ``msys-2.0.dll`` is in your ``PATH``
 (if you install msys2 to ``c:\tools\msys64``, just add
 ``c:\tools\msys64\usr\bin`` to ``PATH``).
 
+If you have another tool that vendors msys2 (such as msysgit), then ``c:\tools\msys64\usr\bin`` must appear in your ``PATH`` *before* entries for those tools.
+
+Similarly, if you have [bash on Ubuntu on Windows](https://msdn.microsoft.com/en-gb/commandline/wsl/about) installed, you should make sure ``c:\tools\msys64\usr\bin`` appears in ``PATH`` *before* ``c:\windows\system32``, because otherwise windows' ``bash.exe`` is used before msys2's.
+
 
 Building Bazel on Windows
 =========================
