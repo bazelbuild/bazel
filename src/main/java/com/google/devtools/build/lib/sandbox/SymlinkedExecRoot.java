@@ -101,8 +101,10 @@ public final class SymlinkedExecRoot implements SandboxExecRoot {
     // All input files are relative to the execroot.
     for (Entry<PathFragment, Path> entry : inputs.entrySet()) {
       Path key = sandboxExecRoot.getRelative(entry.getKey());
-      if (key.exists(Symlinks.NOFOLLOW)) {
-        if (key.readSymbolicLink().equals(entry.getValue().asFragment())) {
+      FileStatus keyStat = key.statNullable(Symlinks.NOFOLLOW);
+      if (keyStat != null) {
+        if (keyStat.isSymbolicLink()
+            && key.readSymbolicLink().equals(entry.getValue().asFragment())) {
           continue;
         }
         key.delete();
