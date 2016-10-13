@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.PopulateTreeArtifactAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -75,7 +74,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     Artifact resources = createResourcesTreeArtifact(ruleContext);
     ruleContext.registerAction(
-        createTreePopulaterActions(ruleContext, aar, resourcesManifest, resources));
+        createManifestFileEntriesExtractorActions(ruleContext, aar, resourcesManifest, resources));
 
     ApplicationManifest androidManifest =
         ApplicationManifest.fromExplicitManifest(ruleContext, androidManifestArtifact);
@@ -130,6 +129,20 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .build(ruleContext);
   }
 
+  private static Action[] createManifestFileEntriesExtractorActions(RuleContext ruleContext,
+      Artifact aar, Artifact manifest, Artifact outputTree) {
+    return new SpawnAction.Builder()
+        .setExecutable(ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST))
+        .setMnemonic("AarManifestFileEntriesExtractor")
+        .addArgument("x")
+        .addInputArgument(aar)
+        .addArgument("-d")
+        .addOutputArgument(outputTree)
+        .addArgument("@" + manifest.getExecPathString())
+        .addInput(manifest)
+        .build(ruleContext);
+  }
+
   // Extracts a jar file from the aar if it exists, otherwise outputs an empty jar file.
   private static Action[] createEmbeddedJarExtractorActions(RuleContext ruleContext, Artifact aar,
       String filename, Artifact outputArtifact) {
@@ -145,16 +158,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addOutput(outputArtifact)
         .addArgument(outputArtifact.getExecPath().getParentDirectory().getPathString())
         .build(ruleContext);
-  }
-
-  private static Action createTreePopulaterActions(RuleContext ruleContext, Artifact aar,
-      Artifact manifest, Artifact outputTree) {
-    return new PopulateTreeArtifactAction(
-        ruleContext.getActionOwner(),
-        aar,
-        manifest,
-        outputTree,
-        ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST));
   }
 
   private static Action[] createManifestExtractorActions(RuleContext ruleContext, Artifact aar,
