@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -28,9 +26,7 @@ import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxEx
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -42,7 +38,7 @@ public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Comment> comments;
 
-  @Nullable private final Map<String, SkylarkImport> imports;
+  @Nullable private final ImmutableList<SkylarkImport> imports;
 
   /**
    * Whether any errors were encountered during scanning or parsing.
@@ -57,7 +53,7 @@ public class BuildFileAST extends ASTNode {
       String contentHashCode,
       Location location,
       ImmutableList<Comment> comments,
-      @Nullable Map<String, SkylarkImport> imports) {
+      @Nullable ImmutableList<SkylarkImport> imports) {
     this.stmts = stmts;
     this.containsErrors = containsErrors;
     this.contentHashCode = contentHashCode;
@@ -78,7 +74,7 @@ public class BuildFileAST extends ASTNode {
             .build();
 
     boolean containsErrors = result.containsErrors;
-    Pair<Boolean, Map<String, SkylarkImport>> skylarkImports = fetchLoads(stmts, eventHandler);
+    Pair<Boolean, ImmutableList<SkylarkImport>> skylarkImports = fetchLoads(stmts, eventHandler);
     containsErrors |= skylarkImports.first;
     return new BuildFileAST(
         stmts,
@@ -95,14 +91,16 @@ public class BuildFileAST extends ASTNode {
    */
   public BuildFileAST subTree(int firstStatement, int lastStatement) {
     ImmutableList<Statement> stmts = this.stmts.subList(firstStatement, lastStatement);
-    ImmutableMap.Builder<String, SkylarkImport> imports = ImmutableBiMap.builder();
+    ImmutableList.Builder<SkylarkImport> imports = ImmutableList.builder();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
         String str = ((LoadStatement) stmt).getImport().getValue();
-        imports.put(
-            str,
-            Preconditions.checkNotNull(
-                this.imports.get(str), "%s cannot be found. This is an internal error.", str));
+        try {
+          imports.add(SkylarkImports.create(str));
+        } catch (SkylarkImportSyntaxException e) {
+          throw new IllegalStateException(
+              "Cannot create SkylarImport for '" + str + "'. This is an internal error.");
+        }
       }
     }
     return new BuildFileAST(
@@ -119,23 +117,22 @@ public class BuildFileAST extends ASTNode {
    * imports that could be resolved.
    */
   @VisibleForTesting
-  static Pair<Boolean, Map<String, SkylarkImport>> fetchLoads(
+  static Pair<Boolean, ImmutableList<SkylarkImport>> fetchLoads(
       List<Statement> stmts, EventHandler eventHandler) {
-    Map<String, SkylarkImport> imports = new HashMap<>();
+    ImmutableList.Builder<SkylarkImport> imports = ImmutableList.builder();
     boolean error = false;
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
         String importString = ((LoadStatement) stmt).getImport().getValue();
         try {
-          SkylarkImport imp = SkylarkImports.create(importString);
-          imports.put(importString, imp);
+          imports.add(SkylarkImports.create(importString));
         } catch (SkylarkImportSyntaxException e) {
           eventHandler.handle(Event.error(stmt.getLocation(), e.getMessage()));
           error = true;
         }
       }
     }
-    return Pair.of(error, imports);
+    return Pair.of(error, imports.build());
   }
 
   /**
@@ -164,7 +161,7 @@ public class BuildFileAST extends ASTNode {
   /** Returns a list of loads in this BUILD file. */
   public ImmutableList<SkylarkImport> getImports() {
     Preconditions.checkNotNull(imports, "computeImports Should be called in parse* methods");
-    return ImmutableList.copyOf(imports.values());
+    return imports;
   }
 
   /** Returns a list of loads as strings in this BUILD file. */
