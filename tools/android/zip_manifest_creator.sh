@@ -30,7 +30,7 @@ OUTPUT_MANIFEST="$3"
 RUNFILES=${RUNFILES:-$0.runfiles}
 
 # For the sh_binary in BUILD.tools, zipper is here.
-ZIPPER=$RUNFILES/bazel_tools/tools/zip/zipper/zipper
+ZIPPER=$RUNFILES/*/tools/zip/zipper/zipper
 if [ ! -x $ZIPPER ]; then
   # For the sh_test in BUILD.oss, zipper is here.
   ZIPPER=$RUNFILES/third_party/ijar/zipper

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.bazel.rules.android;
+package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
@@ -27,12 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider;
-import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
-import com.google.devtools.build.lib.rules.android.ApplicationManifest;
-import com.google.devtools.build.lib.rules.android.LocalResourceContainer;
-import com.google.devtools.build.lib.rules.android.ResourceApk;
-import com.google.devtools.build.lib.rules.android.ResourceDependencies;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
@@ -147,7 +141,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static Action[] createEmbeddedJarExtractorActions(RuleContext ruleContext, Artifact aar,
       String filename, Artifact outputArtifact) {
     return new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$embedded_jar_extractor", Mode.HOST))
+        .setExecutable(ruleContext.getExecutablePrerequisite("$aar_embedded_jars_extractor", Mode.HOST))
         .setMnemonic("AarJarExtractor")
         .setProgressMessage("Extracting " + filename + " from " + aar.getFilename())
         .addArgument("--input_archive")

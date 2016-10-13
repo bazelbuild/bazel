@@ -192,6 +192,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("java_binary(name = 'IdlClass',")
         .add("            runtime_deps = [ ':idlclass_import' ],")
         .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")
+        .add("sh_binary(name = 'zip_manifest_creator', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'aar_embedded_jars_extractor', srcs = ['empty.sh'])")
         .add("java_import(name = 'idlclass_import',")
         .add("            jars = [ 'idlclass.jar' ])");
 

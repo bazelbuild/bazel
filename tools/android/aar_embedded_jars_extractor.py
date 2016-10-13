@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A tool for extracting a jar file from an archive and failing gracefully.
+"""A tool for extracting jar files from an AAR and failing gracefully.
 
 If the jar file is present within the archive, it is extracted into the output
 directory. If not, an empty jar is created in the output directory.

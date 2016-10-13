@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.bazel.rules.android;
+package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.ANY_EDGE;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
@@ -19,18 +19,18 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidAaptBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.util.FileType;
 
 /** Rule definition for the aar_import rule. */
-public class AarImportRule implements RuleDefinition {
+public class AarImportBaseRule implements RuleDefinition {
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
@@ -43,16 +43,16 @@ public class AarImportRule implements RuleDefinition {
             .allowedRuleClasses("aar_import", "java_import")
             .allowedFileTypes()
             .validityPredicate(ANY_EDGE))
-        .add(attr("$embedded_jar_extractor", LABEL)
+        .add(attr("$aar_embedded_jars_extractor", LABEL)
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/zip:embedded_jar_extractor")))
+                environment.getToolsRepository() + "//tools/android:aar_embedded_jars_extractor")))
         .add(attr("$zip_manifest_creator", LABEL)
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                environment.getToolsRepository() + "//tools/zip:zip_manifest_creator")))
+                environment.getToolsRepository() + "//tools/android:zip_manifest_creator")))
         .add(attr("$zipper", LABEL)
             .cfg(HOST)
             .exec()
@@ -65,11 +65,11 @@ public class AarImportRule implements RuleDefinition {
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("aar_import")
+        .name("$aar_import_base")
+        .type(RuleClassType.ABSTRACT)
         // AndroidAaptBaseRule is needed for $android_manifest_merger which is used by the
         // ApplicationManifest class.
-        .ancestors(BaseRuleClasses.RuleBase.class, AndroidAaptBaseRule.class)
-        .factoryClass(AarImport.class)
+        .ancestors(AndroidAaptBaseRule.class)
         .build();
   }
 }

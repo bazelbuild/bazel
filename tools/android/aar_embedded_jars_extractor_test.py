@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for embedded_jar_extractor."""
+"""Tests for aar_embedded_jars_extractor."""
 
 import filecmp
 import os
 import unittest
 import zipfile
 
-from tools.zip import embedded_jar_extractor
+from tools.android import aar_embedded_jars_extractor
 
 
 class EmbeddedJarExtractorTest(unittest.TestCase):
-  """Unit tests for embedded_jar_extractor.py."""
+  """Unit tests for aar_embedded_jars_extractor.py."""
 
   def testPassingJarFile(self):
     bjar = zipfile.ZipFile("b.jar", "w")
@@ -33,7 +33,7 @@ class EmbeddedJarExtractorTest(unittest.TestCase):
     azip.close()
     if not os.path.exists("output"):
       os.mkdir("output")
-    embedded_jar_extractor.ExtractEmbeddedJar("a.zip", "b.jar", "output")
+    aar_embedded_jars_extractor.ExtractEmbeddedJar("a.zip", "b.jar", "output")
     self.assertTrue(filecmp.cmp("b.jar", "output/b.jar"))
 
   def testMissingJarFile(self):
@@ -41,7 +41,7 @@ class EmbeddedJarExtractorTest(unittest.TestCase):
     azip.close()
     if not os.path.exists("output"):
       os.mkdir("output")
-    embedded_jar_extractor.ExtractEmbeddedJar("a.zip", "b.jar", "output")
+    aar_embedded_jars_extractor.ExtractEmbeddedJar("a.zip", "b.jar", "output")
     bjar = zipfile.ZipFile("output/b.jar", "r")
     self.assertEqual(["META-INF/MANIFEST.MF"], bjar.namelist())
 
