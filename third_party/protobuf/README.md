@@ -19,6 +19,9 @@ the following steps on an x86_64 machine:
 6. `make`
 7. `cp src/protoc <Bazel tree>/third_party/protobuf/<version>/protoc-<version>-linux-x86_64.exe` .
 
+Steps to build proto compiler for ppc64le linux are same as above except the name of the executable
+to be protoc-<version>-linux-ppc64le.exe.
+
 * * *
 ### Updating the MinGW proto compiler (64-bit)
 Do this from a MinGW shell ([https://sourceforge.net/projects/msys2/files/]) on

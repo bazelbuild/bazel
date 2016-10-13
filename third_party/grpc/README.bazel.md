@@ -25,3 +25,12 @@ How to update the Linux s390x 64-bit Java plugin:
 
 1. Build Java plugin version `0.15.0` from https://github.com/grpc/grpc-java .
 2. `cp <gRPC git tree>/compiler/build/artifacts/java_plugin/protoc-gen-grpc-java.exe <Bazel tree>/third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe`
+
+How to update the Java plugin for ppc64le:
+1. `git clone https://github.com/grpc/grpc-java.git`
+2. `cd grpc-java && git checkout <tag>` (current is 15.0)
+3. `Refer the pull request https://github.com/grpc/grpc-java/pull/2325 and make changes accordingly in <grpc-java git tree>/compiler/build.gradle`
+4. `Build using <grpc-java git tree>/gradlew as mentioned in <grpc-java git tree>/COMPILING.md`
+5. `protoc-gen-grpc-java gets generated in <grpc-java git tree>/compiler/build/exe/java_plugin`
+6. `cp <grpc-java git tree>/compiler/build/exe/java_plugin/protoc-gen-grpc-java to <Bazel git tree>/thirdparty/grpc/protoc-gen-grpc-java-0.15.0-linux-ppc64le.exe`
+
