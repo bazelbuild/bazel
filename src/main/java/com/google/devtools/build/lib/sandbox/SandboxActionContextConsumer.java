@@ -43,11 +43,9 @@ final class SandboxActionContextConsumer implements ActionContextConsumer {
         || (OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported())) {
       contexts.put(SpawnActionContext.class, "sandboxed");
 
-      // This makes the "sandboxed" strategy the default Spawn strategy on Linux, unless it is
+      // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
       // overridden by a later BlazeModule.
-      if (OS.getCurrent() == OS.LINUX) {
-        spawnContexts.put("", "sandboxed");
-      }
+      spawnContexts.put("", "sandboxed");
     }
 
     this.contexts = contexts.build();
