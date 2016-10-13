@@ -287,7 +287,13 @@ def build_java_rule_ide_info(target, ctx):
 
   jdeps = artifact_location(target.java.outputs.jdeps)
 
-  java_sources, gen_java_sources = java_sources_for_package_manifest(ctx)
+  java_sources, gen_java_sources, srcjars = divide_java_sources(ctx)
+
+  # HACK -- android_library rules with the resources attribute do not support srcjar inputs
+  # to the filtered gen jar generation, because we don't want all resource classes in this jar.
+  # This can be removed once android_resources is deleted
+  if hasattr(ctx.rule.attr, LEGACY_RESOURCE_ATTR) and ctx.rule.kind.startswith("android_"):
+    srcjars = []
 
   package_manifest = None
   if java_sources:
@@ -295,29 +301,14 @@ def build_java_rule_ide_info(target, ctx):
     ide_info_files = ide_info_files | set([package_manifest])
 
   filtered_gen_jar = None
-  if java_sources and gen_java_sources:
-    gen_package_manifest = build_java_package_manifest(
+  if java_sources and (gen_java_sources or srcjars):
+    filtered_gen_jar, filtered_gen_resolve_files = build_filtered_gen_jar(
         ctx,
         target,
         gen_java_sources,
-        "-filtered-gen.manifest"
+        srcjars
     )
-    jar_artifacts = []
-    for jar in target.java.outputs.jars:
-      if jar.ijar:
-        jar_artifacts.append(jar.ijar)
-      elif jar.class_jar:
-        jar_artifacts.append(jar.class_jar)
-    filtered_gen_jar_artifact = build_filtered_gen_jar(
-        ctx,
-        target,
-        jar_artifacts,
-        gen_package_manifest
-    )
-    ide_resolve_files = ide_resolve_files | set([filtered_gen_jar_artifact])
-    filtered_gen_jar = struct(
-        jar=artifact_location(filtered_gen_jar_artifact),
-    )
+    ide_resolve_files = ide_resolve_files | filtered_gen_resolve_files
 
   java_rule_ide_info = struct_omit_none(
       sources = sources,
@@ -351,34 +342,67 @@ def build_java_package_manifest(ctx, target, source_files, suffix):
   )
   return output
 
-def build_filtered_gen_jar(ctx, target, jars, manifest):
+def build_filtered_gen_jar(ctx, target, gen_java_sources, srcjars):
   """Filters the passed jar to contain only classes from the given manifest."""
-  output = ctx.new_file(target.label.name + "-filtered-gen.jar")
+  jar_artifacts = []
+  source_jar_artifacts = []
+  for jar in target.java.outputs.jars:
+    if jar.ijar:
+      jar_artifacts.append(jar.ijar)
+    elif jar.class_jar:
+      jar_artifacts.append(jar.class_jar)
+    if jar.source_jar:
+      source_jar_artifacts.append(jar.source_jar)
+
+  filtered_jar = ctx.new_file(target.label.name + "-filtered-gen.jar")
+  filtered_source_jar = ctx.new_file(target.label.name + "-filtered-gen-src.jar")
   args = []
-  args += ["--jars"]
-  args += [":".join([jar.path for jar in jars])]
-  args += ["--manifest", manifest.path]
-  args += ["--output", output.path]
+  args += ["--filter_jars"]
+  args += [":".join([jar.path for jar in jar_artifacts])]
+  args += ["--filter_source_jars"]
+  args += [":".join([jar.path for jar in source_jar_artifacts])]
+  args += ["--filtered_jar", filtered_jar.path]
+  args += ["--filtered_source_jar", filtered_source_jar.path]
+  if gen_java_sources:
+    args += ["--keep_java_files"]
+    args += [":".join([java_file.path for java_file in gen_java_sources])]
+  if srcjars:
+    args += ["--keep_source_jars"]
+    args += [":".join([source_jar.path for source_jar in srcjars])]
   ctx.action(
-      inputs = jars + [manifest],
-      outputs = [output],
+      inputs = jar_artifacts + source_jar_artifacts + gen_java_sources + srcjars,
+      outputs = [filtered_jar, filtered_source_jar],
       executable = ctx.executable._jar_filter,
       arguments = args,
       mnemonic = "JarFilter",
       progress_message = "Filtering generated code for " + str(target.label),
   )
-  return output
+  output_jar = struct(
+      jar=artifact_location(filtered_jar),
+      source_jar=artifact_location(filtered_source_jar),
+  )
+  ide_resolve_files = set([filtered_jar, filtered_source_jar])
+  return output_jar, ide_resolve_files
 
-def java_sources_for_package_manifest(ctx):
-  """Get the list of non-generated java sources to go in the package manifest."""
+def divide_java_sources(ctx):
+  """Divide sources into plain java, generated java, and srcjars."""
 
+  java_sources = []
+  gen_java_sources = []
+  srcjars = []
   if hasattr(ctx.rule.attr, "srcs"):
     srcs = ctx.rule.attr.srcs
-    all_java_sources = [f for src in srcs for f in src.files if f.basename.endswith(".java")]
-    java_sources = [f for f in all_java_sources if f.is_source]
-    gen_java_sources = [f for f in all_java_sources if not f.is_source]
-    return java_sources, gen_java_sources
-  return [], []
+    for src in srcs:
+      for f in src.files:
+        if f.basename.endswith(".java"):
+          if f.is_source:
+            java_sources.append(f)
+          else:
+            gen_java_sources.append(f)
+        elif f.basename.endswith(".srcjar"):
+          srcjars.append(f)
+
+  return java_sources, gen_java_sources, srcjars
 
 def build_android_rule_ide_info(target, ctx, legacy_resource_label):
   """Build AndroidRuleIdeInfo.
