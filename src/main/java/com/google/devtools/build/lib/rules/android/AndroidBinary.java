@@ -338,6 +338,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.assertNoErrors();
     }
 
+    boolean shrinkResources = shouldShrinkResources(ruleContext);
+
     JavaTargetAttributes resourceClasses = androidCommon.init(
         javaSemantics,
         androidSemantics,
@@ -371,7 +373,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         incrementalResourceApk,
         instantRunResourceApk,
         splitResourceApk,
-        /* shrinkResources */ true,
+        shrinkResources,
         resourceClasses,
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
@@ -1029,14 +1031,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return new ProguardOutput(deployJarArtifact, null, null, null, null, null);
   }
 
+  /** Returns {@code true} if resource shrinking should be performed. */
+  private static boolean shouldShrinkResources(RuleContext ruleContext) {
+    TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
+    if (state == TriState.AUTO) {
+      boolean globalShrinkResources =
+          ruleContext.getFragment(AndroidConfiguration.class).useAndroidResourceShrinking();
+      state = (globalShrinkResources) ? TriState.YES : TriState.NO;
+    }
+
+    return (state == TriState.YES);
+  }
+
   private static ResourceApk shrinkResources(
       RuleContext ruleContext,
       ResourceApk resourceApk,
       ImmutableList<Artifact> proguardSpecs,
       ProguardOutput proguardOutput) throws InterruptedException {
 
-    if (ruleContext.getFragment(AndroidConfiguration.class).useAndroidResourceShrinking()
-        && LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
+    if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
         && !proguardSpecs.isEmpty()) {
 
       Artifact apk = new ResourceShrinkerActionBuilder(ruleContext)
