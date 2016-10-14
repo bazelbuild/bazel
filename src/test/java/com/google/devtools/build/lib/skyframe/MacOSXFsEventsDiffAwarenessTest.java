@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
+import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -57,11 +60,15 @@ public class MacOSXFsEventsDiffAwarenessTest {
 
   private MacOSXFsEventsDiffAwareness underTest;
   private Path watchedPath;
+  private OptionsClassProvider watchFsEnabledProvider;
 
   @Before
   public void setUp() throws Exception {
     watchedPath = com.google.common.io.Files.createTempDir().getCanonicalFile().toPath();
     underTest = new MacOSXFsEventsDiffAwareness(watchedPath.toString());
+    LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
+    localDiffOptions.watchFS = true;
+    watchFsEnabledProvider = new LocalDiffAwarenessOptionsProvider(localDiffOptions);
   }
 
   @After
@@ -100,16 +107,35 @@ public class MacOSXFsEventsDiffAwarenessTest {
 
   @Test
   public void testSimple() throws Exception {
-    View view1 = underTest.getCurrentView();
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
     scratchFile("a/b/c");
     scratchFile("b/c/d");
     Thread.sleep(200); // Wait until the events propagate
-    View view2 = underTest.getCurrentView();
+    View view2 = underTest.getCurrentView(watchFsEnabledProvider);
     assertDiff(view1, view2, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
     rmdirs(watchedPath.resolve("a"));
     rmdirs(watchedPath.resolve("b"));
     Thread.sleep(200); // Wait until the events propagate
-    View view3 = underTest.getCurrentView();
+    View view3 = underTest.getCurrentView(watchFsEnabledProvider);
     assertDiff(view2, view3, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+  }
+
+  /**
+   * Only returns a fixed options class for {@link LocalDiffAwareness.Options}.
+   */
+  private static final class LocalDiffAwarenessOptionsProvider implements OptionsClassProvider {
+    private final Options localDiffOptions;
+
+    private LocalDiffAwarenessOptionsProvider(Options localDiffOptions) {
+      this.localDiffOptions = localDiffOptions;
+    }
+
+    @Override
+    public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
+      if (optionsClass.equals(LocalDiffAwareness.Options.class)) {
+        return optionsClass.cast(localDiffOptions);
+      }
+      return null;
+    }
   }
 }
