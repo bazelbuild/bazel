@@ -273,4 +273,13 @@ public class SandboxOptions extends OptionsBase {
               + "This might be required by your build, but it might also result in reduced "
               + "hermeticity.")
   public boolean dockerPrivileged;
+
+  @Option(
+    name = "experimental_sandbox_default_allow_network",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Allow network access by default for actions."
+  )
+  public boolean defaultSandboxAllowNetwork;
 }

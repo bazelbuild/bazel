@@ -240,7 +240,9 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
         .setKillDelay(timeoutKillDelay)
-        .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
+        .setCreateNetworkNamespace(
+            !(allowNetwork
+                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the
