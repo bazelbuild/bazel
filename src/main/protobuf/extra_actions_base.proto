@@ -109,6 +109,7 @@ message CppLinkInfo {
   optional string link_staticness = 5;
   repeated string link_stamp = 6;
   repeated string build_info_header_artifact = 7;
+  // The list of command line options used for running the linking tool.
   repeated string link_opt = 8;
 }
 

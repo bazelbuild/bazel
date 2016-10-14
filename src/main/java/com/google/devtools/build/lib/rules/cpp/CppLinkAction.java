@@ -177,6 +177,7 @@ public final class CppLinkAction extends AbstractAction
     return getCppConfiguration().getHostSystemName();
   }
 
+  @Override
   public ImmutableMap<String, String> getEnvironment() {
     ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
 
@@ -403,7 +404,7 @@ public final class CppLinkAction extends AbstractAction
     info.addAllLinkStamp(Artifact.toExecPaths(getLinkCommandLine().getLinkstamps().values()));
     info.addAllBuildInfoHeaderArtifact(
         Artifact.toExecPaths(getLinkCommandLine().getBuildInfoHeaderArtifacts()));
-    info.addAllLinkOpt(getLinkCommandLine().getLinkopts());
+    info.addAllLinkOpt(getLinkCommandLine().getRawLinkArgv());
 
     return super.getExtraActionInfo()
         .setExtension(CppLinkInfo.cppLinkInfo, info.build());

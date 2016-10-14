@@ -240,7 +240,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList())
-        .containsExactlyElementsIn(action.getLinkCommandLine().getLinkopts());
+        .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
   }
 
   @Test
@@ -274,7 +274,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList())
-        .containsExactlyElementsIn(action.getLinkCommandLine().getLinkopts());
+        .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
   }
 
   /**
