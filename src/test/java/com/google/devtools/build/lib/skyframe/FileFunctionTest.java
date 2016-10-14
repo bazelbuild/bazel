@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -114,15 +113,15 @@ public class FileFunctionTest {
   }
 
   private SequentialBuildDriver makeDriver() {
-    return makeDriver(ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
+    return makeDriver(/*errorOnExternalFiles=*/ false);
   }
 
-  private SequentialBuildDriver makeDriver(ExternalFileAction externalFileAction) {
+  private SequentialBuildDriver makeDriver(boolean errorOnExternalFiles) {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
     BlazeDirectories directories =
         new BlazeDirectories(pkgRoot, outputBase, pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
-        new ExternalFilesHelper(pkgLocatorRef, externalFileAction, directories);
+        new ExternalFilesHelper(pkgLocatorRef, errorOnExternalFiles, directories);
     differencer = new RecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -658,76 +657,99 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable() throws Exception {
+  public void testFilesOutsideRootWhenExternalDisallowed() throws Exception {
     file("/outsideroot");
 
-    SequentialBuildDriver driver =
-        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
+    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
     SkyKey key = skyKey("/outsideroot");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertThatEvaluationResult(result).hasNoError();
-    FileValue value = (FileValue) result.get(key);
-    assertThat(value).isNotNull();
-    assertFalse(value.exists());
+    assertTrue(result.hasError());
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(FileOutsidePackageRootsException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessage("Encountered reference to external mutable [/]/[outsideroot]");
   }
 
   @Test
-  public void testAbsoluteSymlinksToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
-      throws Exception {
+  public void testAbsoluteSymlinksToFilesOutsideRootWhenExternalDisallowed() throws Exception {
     file("/outsideroot");
     symlink("a", "/outsideroot");
 
-    SequentialBuildDriver driver =
-        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
+    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertThatEvaluationResult(result).hasNoError();
-    FileValue value = (FileValue) result.get(key);
-    assertThat(value).isNotNull();
-    assertFalse(value.exists());
+    assertTrue(result.hasError());
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(SymlinkOutsidePackageRootsException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessage(
+            "Encountered symlink [/root]/[a] linking to external mutable [/]/[outsideroot]");
   }
 
+  /**
+   * A slightly more complicated negative test to ensure that the error message contains the real
+   * symlink and external path instead of the path of the top-level skyframe file node. In other
+   * words, the error is bubbled up to the top-level node, but the error message stops getting
+   * updated once it enters the internal path boundary.
+   */
   @Test
-  public void testAbsoluteSymlinksReferredByInternalFilesToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
+  public void testAbsoluteSymlinksReferredByInternalFilesToFilesOutsideRootWhenExternalDisallowed()
       throws Exception {
     file("/outsideroot/src/foo/bar");
     symlink("/root/src", "/outsideroot/src");
 
-    SequentialBuildDriver driver =
-        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
+    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
     SkyKey key = skyKey("/root/src/foo/bar");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertThatEvaluationResult(result).hasNoError();
-    FileValue value = (FileValue) result.get(key);
-    assertThat(value).isNotNull();
-    assertFalse(value.exists());
+    assertTrue(result.hasError());
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(SymlinkOutsidePackageRootsException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessage(
+            "Encountered symlink [/root]/[src] linking to external mutable [/]/[outsideroot/src]");
   }
 
   @Test
-  public void testRelativeSymlinksToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
-      throws Exception {
+  public void testRelativeSymlinksToFilesOutsideRootWhenExternalDisallowed() throws Exception {
     file("../outsideroot");
     symlink("a", "../outsideroot");
-    SequentialBuildDriver driver = 
-        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
+    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertThatEvaluationResult(result).hasNoError();
-    FileValue value = (FileValue) result.get(key);
-    assertThat(value).isNotNull();
-    assertFalse(value.exists());
+    assertTrue(result.hasError());
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(SymlinkOutsidePackageRootsException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessage(
+            "Encountered symlink [/root]/[a] linking to external mutable [/]/[outsideroot]");
   }
 
   @Test
@@ -735,18 +757,13 @@ public class FileFunctionTest {
     Path file = file("insideroot");
     symlink("a", file.getPathString());
 
-    SequentialBuildDriver driver =
-        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
+    SequentialBuildDriver driver = makeDriver(/*allowExternalReferences=*/ false);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertThatEvaluationResult(result).hasNoError();
-    FileValue value = (FileValue) result.get(key);
-    assertThat(value).isNotNull();
-    assertTrue(value.exists());
-    assertThat(value.realRootedPath().getRelativePath().getPathString()).isEqualTo("insideroot");
+    assertFalse(result.hasError());
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})

@@ -62,7 +62,19 @@ public class FileFunction implements SkyFunction {
     // symlink cycle, we want to detect that quickly as it gives a more informative error message
     // than we'd get doing bogus filesystem operations.
     if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
-      Pair<RootedPath, FileStateValue> resolvedState = resolveFromAncestors(rootedPath, env);
+      Pair<RootedPath, FileStateValue> resolvedState = null;
+
+      try {
+        resolvedState = resolveFromAncestors(rootedPath, env);
+      } catch (FileOutsidePackageRootsException e) {
+        // When getting a FileOutsidePackageRootsException caused by an external file symlink
+        // somewhere in this file's path, rethrow an exception with this file's path, so the error
+        // message mentions this file instead of the first ancestor path where the external file
+        // error is observed
+        throw new FileFunctionException(
+            new FileOutsidePackageRootsException(rootedPath), Transience.PERSISTENT);
+      }
+
       if (resolvedState == null) {
         return null;
       }
@@ -70,7 +82,18 @@ public class FileFunction implements SkyFunction {
       realFileStateValue = resolvedState.getSecond();
     }
 
-    FileStateValue fileStateValue = (FileStateValue) env.getValue(FileStateValue.key(rootedPath));
+    FileStateValue fileStateValue = null;
+
+    try {
+      fileStateValue =
+          (FileStateValue)
+              env.getValueOrThrow(
+                  FileStateValue.key(rootedPath), FileOutsidePackageRootsException.class);
+    } catch (FileOutsidePackageRootsException e) {
+      throw new FileFunctionException(
+          new FileOutsidePackageRootsException(rootedPath), Transience.PERSISTENT);
+    }
+
     if (fileStateValue == null) {
       return null;
     }
@@ -110,7 +133,7 @@ public class FileFunction implements SkyFunction {
   @Nullable
   private static Pair<RootedPath, FileStateValue> resolveFromAncestors(
       RootedPath rootedPath, Environment env)
-      throws FileFunctionException, InterruptedException {
+      throws FileFunctionException, FileOutsidePackageRootsException, InterruptedException {
     PathFragment relativePath = rootedPath.getRelativePath();
     RootedPath realRootedPath = rootedPath;
     FileValue parentFileValue = null;
@@ -118,7 +141,11 @@ public class FileFunction implements SkyFunction {
       RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
           relativePath.getParentDirectory());
 
-      parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
+      parentFileValue =
+          (FileValue)
+              env.getValueOrThrow(
+                  FileValue.key(parentRootedPath), FileOutsidePackageRootsException.class);
+
       if (parentFileValue == null) {
         return null;
       }
@@ -134,7 +161,8 @@ public class FileFunction implements SkyFunction {
     }
     FileStateValue realFileStateValue =
         (FileStateValue)
-            env.getValue(FileStateValue.key(realRootedPath));
+            env.getValueOrThrow(
+                FileStateValue.key(realRootedPath), FileOutsidePackageRootsException.class);
 
     if (realFileStateValue == null) {
       return null;
@@ -250,7 +278,17 @@ public class FileFunction implements SkyFunction {
       throw new FileFunctionException(Preconditions.checkNotNull(fse, rootedPath));
     }
 
-    return resolveFromAncestors(symlinkTargetRootedPath, env);
+    try {
+      return resolveFromAncestors(symlinkTargetRootedPath, env);
+    } catch (FileOutsidePackageRootsException e) {
+      // At this point we know this file node is a symlink leading to an external file. Mark the
+      // exception to be a specific SymlinkOutsidePackageRootsException. The error will be bubbled
+      // up further but no path information will be updated again. This allows preserving the
+      // information about the symlink crossing the internal/external boundary.
+      throw new FileFunctionException(
+          new SymlinkOutsidePackageRootsException(rootedPath, symlinkTargetRootedPath),
+          Transience.PERSISTENT);
+    }
   }
 
   private static final Predicate<RootedPath> isPathPredicate(final Path path) {
