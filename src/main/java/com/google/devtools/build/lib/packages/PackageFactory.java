@@ -1415,7 +1415,6 @@ public final class PackageFactory {
           buildFileBytes,
           packageId.toString(),
           globber,
-          Environment.BUILD,
           ruleFactory.getRuleClassNames());
     } catch (InterruptedException e) {
       globber.onInterrupt();
@@ -1629,13 +1628,14 @@ public final class PackageFactory {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
-      Environment pkgEnv = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(eventHandler)
-          .setImportedExtensions(imports)
-          .setToolsRepository(ruleClassProvider.getToolsRepository())
-          .setPhase(Phase.LOADING)
-          .build();
+      Environment pkgEnv =
+          Environment.builder(mutability)
+              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .setEventHandler(eventHandler)
+              .setImportedExtensions(imports)
+              .setToolsRepository(ruleClassProvider.getToolsRepository())
+              .setPhase(Phase.LOADING)
+              .build();
 
       pkgBuilder.setFilename(buildFilePath)
           .setMakeEnv(pkgMakeEnv)
@@ -1705,12 +1705,13 @@ public final class PackageFactory {
     // strategy would be to crawl the ast and tag statements whose execution cannot involve globs -
     // these can be executed and their impact on the resulting package can be saved.
     try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
-      Environment pkgEnv = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(NullEventHandler.INSTANCE)
-          .setToolsRepository(ruleClassProvider.getToolsRepository())
-          .setPhase(Phase.LOADING)
-          .build();
+      Environment pkgEnv =
+          Environment.builder(mutability)
+              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .setEventHandler(NullEventHandler.INSTANCE)
+              .setToolsRepository(ruleClassProvider.getToolsRepository())
+              .setPhase(Phase.LOADING)
+              .build();
 
       Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
           packageId, ruleClassProvider.getRunfilesPrefix()));

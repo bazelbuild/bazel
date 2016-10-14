@@ -27,7 +27,8 @@ public abstract class TestMode {
         @Override
         public Environment createEnvironment(EventHandler eventHandler, Environment environment) {
           return Environment.builder(Mutability.create("build test"))
-              .setGlobals(environment == null ? Environment.BUILD : environment.getGlobals())
+              .setGlobals(
+                  environment == null ? Environment.DEFAULT_GLOBALS : environment.getGlobals())
               .setEventHandler(eventHandler)
               .build();
         }
@@ -39,7 +40,8 @@ public abstract class TestMode {
         public Environment createEnvironment(EventHandler eventHandler, Environment environment) {
           return Environment.builder(Mutability.create("skylark test"))
               .setSkylark()
-              .setGlobals(environment == null ? Environment.SKYLARK : environment.getGlobals())
+              .setGlobals(
+                  environment == null ? Environment.DEFAULT_GLOBALS : environment.getGlobals())
               .setEventHandler(eventHandler)
               .build();
         }

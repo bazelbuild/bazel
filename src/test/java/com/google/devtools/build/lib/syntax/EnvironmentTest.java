@@ -100,10 +100,12 @@ public class EnvironmentTest extends EvaluationTestCase {
     Environment outerEnv;
     Environment innerEnv;
     try (Mutability mut = Mutability.create("outer")) {
-      outerEnv = Environment.builder(mut)
-          .setGlobals(Environment.BUILD).build()
-          .update("foo", "bar")
-          .update("wiz", 3);
+      outerEnv =
+          Environment.builder(mut)
+              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .build()
+              .update("foo", "bar")
+              .update("wiz", 3);
     }
     try (Mutability mut = Mutability.create("inner")) {
       innerEnv = Environment.builder(mut)
@@ -112,15 +114,74 @@ public class EnvironmentTest extends EvaluationTestCase {
           .update("quux", 42);
     }
 
-    assertEquals(Sets.newHashSet("foo", "wiz",
-            "False", "None", "True",
-            "-", "all", "any", "bool", "dict", "enumerate", "fail", "int", "len", "list", "max",
-            "min", "print", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
+    assertEquals(
+        Sets.newHashSet(
+            "foo",
+            "wiz",
+            "False",
+            "None",
+            "True",
+            "-",
+            "all",
+            "any",
+            "bool",
+            "dict",
+            "dir",
+            "enumerate",
+            "fail",
+            "getattr",
+            "hasattr",
+            "hash",
+            "int",
+            "len",
+            "list",
+            "max",
+            "min",
+            "print",
+            "range",
+            "repr",
+            "reversed",
+            "select",
+            "set",
+            "sorted",
+            "str",
+            "type",
+            "zip"),
         outerEnv.getVariableNames());
-    assertEquals(Sets.newHashSet("foo", "wiz", "quux",
-            "False", "None", "True",
-            "-", "all", "any", "bool", "dict", "enumerate", "fail", "int", "len", "list", "max",
-            "min", "print", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
+    assertEquals(
+        Sets.newHashSet(
+            "foo",
+            "wiz",
+            "quux",
+            "False",
+            "None",
+            "True",
+            "-",
+            "all",
+            "any",
+            "bool",
+            "dict",
+            "dir",
+            "enumerate",
+            "fail",
+            "getattr",
+            "hasattr",
+            "hash",
+            "int",
+            "len",
+            "list",
+            "max",
+            "min",
+            "print",
+            "range",
+            "repr",
+            "reversed",
+            "select",
+            "set",
+            "sorted",
+            "str",
+            "type",
+            "zip"),
         innerEnv.getVariableNames());
   }
 
@@ -145,8 +206,11 @@ public class EnvironmentTest extends EvaluationTestCase {
   public void testFrozen() throws Exception {
     Environment env;
     try (Mutability mutability = Mutability.create("testFrozen")) {
-      env = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD).setEventHandler(Environment.FAIL_FAST_HANDLER).build();
+      env =
+          Environment.builder(mutability)
+              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .setEventHandler(Environment.FAIL_FAST_HANDLER)
+              .build();
       env.update("x", 1);
       assertEquals(env.lookup("x"), 1);
       env.update("y", 2);

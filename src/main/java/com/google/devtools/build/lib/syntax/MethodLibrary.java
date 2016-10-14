@@ -2304,22 +2304,16 @@ public class MethodLibrary {
   static final class StringModule {}
 
 
-  static final List<BaseFunction> buildGlobalFunctions =
+  static final List<BaseFunction> defaultGlobalFunctions =
       ImmutableList.<BaseFunction>of(
-          all, any, bool, dict, fail, enumerate, int_, len, list, max, min, minus, print, range,
-          repr, reversed, select, set, sorted, str, zip);
-
-  static final List<BaseFunction> skylarkGlobalFunctions =
-      ImmutableList.<BaseFunction>builder()
-          .addAll(buildGlobalFunctions)
-          .add(dir, getattr, hasattr, hash, type)
-          .build();
+          all, any, bool, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len, list, max,
+          min, minus, print, range, repr, reversed, select, set, sorted, str, type, zip);
 
   /**
    * Collect global functions for the validation environment.
    */
   public static void setupValidationEnvironment(Set<String> builtIn) {
-    for (BaseFunction function : skylarkGlobalFunctions) {
+    for (BaseFunction function : defaultGlobalFunctions) {
       builtIn.add(function.getName());
     }
   }

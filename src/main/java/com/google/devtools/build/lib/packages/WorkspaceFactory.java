@@ -178,9 +178,10 @@ public class WorkspaceFactory {
   private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
       StoredEventHandler localReporter)
       throws InterruptedException {
-    Environment.Builder environmentBuilder = Environment.builder(mutability)
-        .setGlobals(Environment.BUILD)
-        .setEventHandler(localReporter);
+    Environment.Builder environmentBuilder =
+        Environment.builder(mutability)
+            .setGlobals(Environment.DEFAULT_GLOBALS)
+            .setEventHandler(localReporter);
     if (importedExtensions != null) {
       Map<String, Extension> map = new HashMap<String, Extension>(parentImportMap);
       map.putAll(importedExtensions);
