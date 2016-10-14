@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -563,7 +562,7 @@ public class BazelCppRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("cc_binary")
-          .ancestors(CcBinaryBaseRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+          .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.BinaryBaseRule.class)
           .factoryClass(BazelCcBinary.class)
           .build();
     }

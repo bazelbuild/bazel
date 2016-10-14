@@ -29,6 +29,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.List;
 
 /**
@@ -254,6 +254,49 @@ public class BaseRuleClasses {
           .name("$rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  public static final ImmutableSet<String> ALLOWED_RULE_CLASSES =
+      ImmutableSet.of("filegroup", "genrule", "Fileset");
+
+  /** A base rule for all binary rules. */
+  public static final class BinaryBaseRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("args", STRING_LIST))
+          .add(attr("output_licenses", LICENSE))
+          .add(
+              attr("$is_executable", BOOLEAN)
+                  .value(true)
+                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$binary_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /** Rule class for rules in error. */
+  public static final class ErrorRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder.publicByDefault().build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$error_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
   }
