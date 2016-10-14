@@ -315,7 +315,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(name = "experimental_desugar_for_android",
         defaultValue = "false",
         category = "undocumented",
-        implicitRequirements = "--noexperimental_android_use_jack_for_dexing",
         help = "Whether to desugar Java 8 bytecode before dexing.")
     public boolean desugarJava8;
 
