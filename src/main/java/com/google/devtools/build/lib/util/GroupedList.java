@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.CompactHashSet;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -56,15 +55,48 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     this.elements = new ArrayList<>(elements);
   }
 
-  /** Appends the list constructed in helper to this list. */
-  public void append(GroupedListHelper<T> helper) {
+  /**
+   * Appends the list constructed in {@code helper} to this list. Returns the elements of {@code
+   * helper}, uniquified.
+   */
+  @SuppressWarnings("unchecked") // Cast to T and List<T>.
+  public Set<T> append(GroupedListHelper<T> helper) {
     Preconditions.checkState(helper.currentGroup == null, "%s %s", this, helper);
     // Do a check to make sure we don't have lists here. Note that if helper.elements is empty,
     // Iterables.getFirst will return null, and null is not instanceof List.
     Preconditions.checkState(!(Iterables.getFirst(helper.elements, null) instanceof List),
         "Cannot make grouped list of lists: %s", helper);
-    elements.addAll(helper.groupedList);
-    size += helper.size();
+    Set<T> uniquifier = CompactHashSet.createWithExpectedSize(helper.groupedList.size());
+    for (Object item : helper.groupedList) {
+      if (item instanceof List) {
+        // Optimize for the case that elements in this list are unique.
+        ImmutableList.Builder<T> dedupedList = null;
+        List<T> list = (List<T>) item;
+        for (int i = 0; i < list.size(); i++) {
+          T elt = list.get(i);
+          if (!uniquifier.add(elt)) {
+            if (dedupedList == null) {
+              dedupedList = ImmutableList.builder();
+              dedupedList.addAll(list.subList(0, i));
+            }
+          } else if (dedupedList != null) {
+            dedupedList.add(elt);
+          }
+        }
+        if (dedupedList == null) {
+          elements.add(list);
+        } else {
+          List<T> filteredList = dedupedList.build();
+          if (!filteredList.isEmpty()) {
+            elements.add(filteredList);
+          }
+        }
+      } else if (uniquifier.add((T) item)) {
+        elements.add(item);
+      }
+    }
+    size += uniquifier.size();
+    return uniquifier;
   }
 
   public void appendGroup(Collection<T> group) {
@@ -343,25 +375,28 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   /**
    * Builder-like object for GroupedLists. An already-existing grouped list is appended to by
    * constructing a helper, mutating it, and then appending that helper to the grouped list.
+   *
+   * <p>Duplicate elements may be encountered while iterating through this object.
    */
   public static class GroupedListHelper<E> implements Iterable<E> {
     // Non-final only for removal.
     private List<Object> groupedList;
     private List<E> currentGroup = null;
-    private final CompactHashSet<E> elements;
+    private final List<E> elements;
 
     public GroupedListHelper() {
       // Optimize for short lists.
       groupedList = new ArrayList<>(1);
-      elements = CompactHashSet.create();
+      elements = new ArrayList<>(1);
     }
 
     /** Create with a copy of the contents of {@param elements} as the initial group. */
-    private GroupedListHelper(Collection<E> elements) {
+    private GroupedListHelper(E element) {
       // Optimize for short lists.
       groupedList = new ArrayList<>(1);
-      addItem(elements, groupedList);
-      this.elements = CompactHashSet.create(elements);
+      groupedList.add(element);
+      this.elements = new ArrayList<>(1);
+      this.elements.add(element);
     }
 
     /**
@@ -369,7 +404,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
      * goes in a group of its own.
      */
     public void add(E elt) {
-      Preconditions.checkState(elements.add(Preconditions.checkNotNull(elt)), "%s %s", elt, this);
+      elements.add(Preconditions.checkNotNull(elt, "%s %s", elt, this));
       if (currentGroup == null) {
         groupedList.add(elt);
       } else {
@@ -384,9 +419,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
      */
     public void remove(Set<E> toRemove) {
       groupedList = GroupedList.remove(groupedList, toRemove);
-      int oldSize = size();
       elements.removeAll(toRemove);
-      Preconditions.checkState(oldSize == size() + toRemove.size(), "%s %s", toRemove, this);
     }
 
     /**
@@ -406,18 +439,12 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
       currentGroup = null;
     }
 
-    /** Returns true if elt is present in the list. */
+    /**
+     * Returns true if elt is present in the list. Takes time proportional to the list size, so
+     * should not be called routinely.
+     */
     public boolean contains(E elt) {
       return elements.contains(elt);
-    }
-
-    private int size() {
-      return elements.size();
-    }
-
-    /** Returns true if list is empty. */
-    public boolean isEmpty() {
-      return elements.isEmpty();
     }
 
     @Override
@@ -425,12 +452,9 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
       return elements.iterator();
     }
 
-    /** Create a GroupedListHelper from a collection of elements, all put in the same group.*/
-    public static <F> GroupedListHelper<F> create(Collection<F> elements) {
-      GroupedListHelper<F> helper = new GroupedListHelper<>(elements);
-      Preconditions.checkState(helper.elements.size() == elements.size(),
-          "%s %s", helper, elements);
-      return helper;
+    /** Create a GroupedListHelper from a single element. */
+    public static <F> GroupedListHelper<F> create(F element) {
+      return new GroupedListHelper<>(element);
     }
 
     @Override

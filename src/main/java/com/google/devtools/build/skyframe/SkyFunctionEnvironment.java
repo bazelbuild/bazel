@@ -191,7 +191,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
                 + skyKey
                 + ". Present values: "
                 + deps
-                + "requested from: "
+                + " requested from: "
                 + depKeys
                 + ", "
                 + entry);
@@ -262,8 +262,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
       Preconditions.checkState(
           triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
-      state.addTemporaryDirectDeps(
-          GroupedListHelper.create(ImmutableList.of(ErrorTransienceValue.KEY)));
+      state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
       state.signalDep();
     }
 
@@ -467,10 +466,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   private void addDep(SkyKey key) {
-    if (!newlyRequestedDeps.contains(key)) {
-      // dep may have been requested already this evaluation. If not, add it.
-      newlyRequestedDeps.add(key);
-    }
+    newlyRequestedDeps.add(key);
   }
 
   /**

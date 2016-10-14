@@ -473,9 +473,9 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized void addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
+  public synchronized Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
     Preconditions.checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
-    getTemporaryDirectDeps().append(helper);
+    return getTemporaryDirectDeps().append(helper);
   }
 
   @Override
