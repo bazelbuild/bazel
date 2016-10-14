@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -56,6 +58,7 @@ public class DeployArchiveBuilder {
   @Nullable private String javaStartClass;
   private ImmutableList<String> deployManifestLines = ImmutableList.of();
   @Nullable private Artifact launcher;
+  private Function<Artifact, Artifact> derivedJars = Functions.identity();
 
   /**
    * Type of compression to apply to output archive.
@@ -151,6 +154,11 @@ public class DeployArchiveBuilder {
     return this;
   }
 
+  public DeployArchiveBuilder setDerivedJarFunction(Function<Artifact, Artifact> derivedJars) {
+    this.derivedJars = derivedJars;
+    return this;
+  }
+
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(Artifact outputJar,
       String javaMainClass,
       ImmutableList<String> deployManifestLines, Iterable<Artifact> buildInfoFiles,
@@ -192,6 +200,23 @@ public class DeployArchiveBuilder {
     return args;
   }
 
+  /** Computes input artifacts for a deploy archive based on the given attributes. */
+  public static IterablesChain<Artifact> getArchiveInputs(JavaTargetAttributes attributes) {
+    return getArchiveInputs(attributes, Functions.<Artifact>identity());
+  }
+
+  private static IterablesChain<Artifact> getArchiveInputs(JavaTargetAttributes attributes,
+      Function<Artifact, Artifact> derivedJarFunction) {
+    IterablesChain.Builder<Artifact> inputs = IterablesChain.builder();
+    inputs.add(
+        ImmutableList.copyOf(
+            Iterables.transform(attributes.getRuntimeClassPathForArchive(), derivedJarFunction)));
+    // TODO(bazel-team): Remove?  Resources not used as input to singlejar action
+    inputs.add(ImmutableList.copyOf(attributes.getResources().values()));
+    inputs.add(attributes.getClassPathResources());
+    return inputs.build();
+  }
+
   /** Builds the action as configured. */
   public void build() throws InterruptedException {
     ImmutableList<Artifact> classpathResources = attributes.getClassPathResources();
@@ -207,10 +232,12 @@ public class DeployArchiveBuilder {
 
     IterablesChain<Artifact> runtimeJars = runtimeJarsBuilder.build();
 
+    // TODO(kmb): Consider not using getArchiveInputs, specifically because we don't want/need to
+    // transform anything but the runtimeClasspath and b/c we currently do it twice here and below
     IterablesChain.Builder<Artifact> inputs = IterablesChain.builder();
-    inputs.add(attributes.getArchiveInputs(true));
+    inputs.add(getArchiveInputs(attributes, derivedJars));
 
-    inputs.add(ImmutableList.copyOf(runtimeJars));
+    inputs.add(ImmutableList.copyOf(Iterables.transform(runtimeJars, derivedJars)));
     if (runfilesMiddleman != null) {
       inputs.addElement(runfilesMiddleman);
     }
@@ -218,9 +245,10 @@ public class DeployArchiveBuilder {
     ImmutableList<Artifact> buildInfoArtifacts = ruleContext.getBuildInfo(JavaBuildInfoFactory.KEY);
     inputs.add(buildInfoArtifacts);
 
-    Iterable<Artifact> runtimeClasspath = Iterables.concat(
-        runtimeJars,
-        attributes.getRuntimeClassPathForArchive());
+    Iterable<Artifact> runtimeClasspath =
+        Iterables.transform(
+            Iterables.concat(runtimeJars, attributes.getRuntimeClassPathForArchive()),
+            derivedJars);
 
     if (launcher != null) {
       inputs.addElement(launcher);

@@ -662,10 +662,12 @@ public final class AndroidRuleClasses {
                   .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
           .add(
               attr("$incremental_stub_application", LABEL)
-                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
+                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION))
+                  .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$incremental_split_stub_application", LABEL)
-                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
+                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION))
+                  .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$desugar", LABEL)
                   .cfg(HOST)

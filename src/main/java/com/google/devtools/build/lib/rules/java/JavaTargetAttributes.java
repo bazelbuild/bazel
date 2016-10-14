@@ -21,13 +21,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -73,7 +71,7 @@ public class JavaTargetAttributes {
 
     private final Set<Artifact> processorPath = new LinkedHashSet<>();
     private final Set<String> processorNames = new LinkedHashSet<>();
-    
+
     private final Set<Artifact> apiGeneratingProcessorPath = new LinkedHashSet<>();
     private final Set<String> apiGeneratingProcessorNames = new LinkedHashSet<>();
 
@@ -303,7 +301,7 @@ public class JavaTargetAttributes {
       Iterables.addAll(processorPath, jars);
       return this;
     }
-    
+
     public Builder addApiGeneratingProcessorName(String processor) {
       Preconditions.checkArgument(!built);
       apiGeneratingProcessorNames.add(processor);
@@ -390,7 +388,7 @@ public class JavaTargetAttributes {
 
   private final ImmutableSet<Artifact> processorPath;
   private final ImmutableSet<String> processorNames;
-  
+
   private final ImmutableSet<Artifact> apiGeneratingProcessorPath;
   private final ImmutableSet<String> apiGeneratingProcessorNames;
 
@@ -521,7 +519,7 @@ public class JavaTargetAttributes {
   public ImmutableSet<Artifact> getProcessorPath() {
     return processorPath;
   }
-  
+
   public Collection<Artifact> getApiGeneratingProcessorPath() {
     return apiGeneratingProcessorPath;
   }
@@ -564,16 +562,6 @@ public class JavaTargetAttributes {
 
   public boolean hasClassPathResources() {
     return !classPathResources.isEmpty();
-  }
-
-  public Iterable<Artifact> getArchiveInputs(boolean includeClasspath) {
-    IterablesChain.Builder<Artifact> inputs = IterablesChain.builder();
-    if (includeClasspath) {
-      inputs.add(ImmutableList.copyOf(getRuntimeClassPathForArchive()));
-    }
-    inputs.add(ImmutableList.copyOf(getResources().values()));
-    inputs.add(getClassPathResources());
-    return inputs.build();
   }
 
   public String getRuleKind() {

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -38,10 +37,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -54,7 +55,8 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -65,7 +67,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   public static final String NAME = "DexArchiveAspect";
   /**
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
-   * aspect. Must be provided when attaching this aspect to a rule.
+   * aspect. Must be provided when attaching this aspect to a target.
    */
   public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
       new Function<Rule, AspectParameters>() {
@@ -78,6 +80,21 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           return result.build();
         }
       };
+  /**
+   * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
+   * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
+   * for {@code blaze mobile-install}.
+   */
+  static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
+      new Function<Rule, AspectParameters>() {
+        @Override
+        public AspectParameters apply(Rule rule) {
+          return new AspectParameters.Builder()
+              .addAttribute("incremental_dexing", TriState.NO.name())
+              .build();
+        }
+      };
+
   /** Aspect-only label for dexbuidler executable, to avoid name clashes with labels on rules. */
   private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
   /** Aspect-only label for desugaring executable, to avoid name clashes with labels on rules. */
@@ -97,11 +114,14 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         // Actually we care about JavaRuntimeJarProvider, but rules don't advertise that provider.
         .requireProvider(JavaCompilationArgsProvider.class)
         // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
-        .add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
-            .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")))
         .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))
         .requiresConfigurationFragments(AndroidConfiguration.class);
+    if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
+      // Marginally improves "query2" precision for targets that disable incremental dexing
+      result.add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
+          .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
+    }
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       result.attributeAspect(attr, this);
     }
@@ -111,28 +131,27 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   @Override
   public ConfiguredAspect create(ConfiguredTarget base, RuleContext ruleContext,
       AspectParameters params) throws InterruptedException {
+    ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(NAME, ruleContext);
+    Function<Artifact, Artifact> desugaredJars =
+        desugarJarsIfRequested(base, ruleContext, result);
+
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
     if (incrementalAttr == TriState.NO
         || (getAndroidConfig(ruleContext).getIncrementalDexingBinaries().isEmpty()
             && incrementalAttr != TriState.YES)) {
       // Dex archives will never be used, so don't bother setting them up.
-      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
+      return result.build();
     }
-    checkState(base.getProvider(DexArchiveProvider.class) == null,
-        "dex archive natively generated: %s", ruleContext.getLabel());
 
     if (JavaCommon.isNeverLink(ruleContext)) {
-      return new ConfiguredAspect.Builder(NAME, ruleContext)
-          .addProvider(DexArchiveProvider.NEVERLINK)
-          .build();
+      return result.addProvider(DexArchiveProvider.NEVERLINK).build();
     }
 
-    DexArchiveProvider.Builder result = createArchiveProviderBuilderFromDeps(ruleContext);
+    DexArchiveProvider.Builder dexArchives = new DexArchiveProvider.Builder()
+        .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
     JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
     if (jarProvider != null) {
-      Function<Artifact, Artifact> desugaredJars =
-          desugarJarsIfRequested(base, ruleContext, jarProvider);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
       for (Artifact jar : jarProvider.getRuntimeJars()) {
         for (Set<String> incrementalDexopts : aspectDexopts) {
@@ -148,49 +167,59 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                   desugaredJars.apply(jar),
                   incrementalDexopts,
                   AndroidBinary.getDxArtifact(ruleContext, filename));
-          result.addDexArchive(incrementalDexopts, dexArchive, jar);
+          dexArchives.addDexArchive(incrementalDexopts, dexArchive, jar);
         }
       }
     }
-    return new ConfiguredAspect.Builder(NAME, ruleContext).addProvider(result.build()).build();
+    return result.addProvider(dexArchives.build()).build();
   }
 
   /**
-   * Runs Jars in {@code jarProvider} through desugaring action if flag is set.  Note that this
-   * cannot happen in a separate aspect because aspects don't see providers added by other aspects
-   * executed on the same target.
+   * Runs Jars in {@link JavaRuntimeJarProvider} through desugaring action if flag is set and adds
+   * the result to {@code result}. Note that this cannot happen in a separate aspect because aspects
+   * don't see providers added by other aspects executed on the same target.
    */
   private Function<Artifact, Artifact> desugarJarsIfRequested(
-      ConfiguredTarget base, RuleContext ruleContext, JavaRuntimeJarProvider jarProvider) {
+      ConfiguredTarget base, RuleContext ruleContext, ConfiguredAspect.Builder result) {
     if (!getAndroidConfig(ruleContext).desugarJava8()) {
       return Functions.identity();
     }
-    // These are all transitive hjars of dependencies and hjar of the jar itself
-    NestedSet<Artifact> compileTimeClasspath = base
-        .getProvider(JavaCompilationArgsProvider.class) // aspect definition requires this
-        .getRecursiveJavaCompilationArgs()
-        .getCompileTimeJars();
-    // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
-    ImmutableList<Artifact> bootclasspath = getBootclasspath(base);
-    LinkedHashMap<Artifact, Artifact> desugaredJars = new LinkedHashMap<>();
-    for (Artifact jar : jarProvider.getRuntimeJars()) {
-      Artifact desugared = createDesugarAction(ruleContext, jar, bootclasspath,
-          compileTimeClasspath);
-      desugaredJars.put(jar, desugared);
+    Map<Artifact, Artifact> newlyDesugared = new HashMap<>();
+    if (JavaCommon.isNeverLink(ruleContext)) {
+      result.addProvider(AndroidRuntimeJarProvider.NEVERLINK);
+      return Functions.forMap(newlyDesugared);
     }
-    return Functions.forMap(desugaredJars);
-  }
-
-  private static DexArchiveProvider.Builder createArchiveProviderBuilderFromDeps(
-      RuleContext ruleContext) {
-    DexArchiveProvider.Builder result = new DexArchiveProvider.Builder();
-    for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (ruleContext.getRule().getRuleClassObject().hasAttr(attr, LABEL_LIST)) {
-        result.addTransitiveProviders(
-            ruleContext.getPrerequisites(attr, Mode.TARGET, DexArchiveProvider.class));
+    AndroidRuntimeJarProvider.Builder desugaredJars = new AndroidRuntimeJarProvider.Builder()
+        .addTransitiveProviders(collectPrerequisites(ruleContext, AndroidRuntimeJarProvider.class));
+    JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
+    if (jarProvider != null) {
+      // These are all transitive hjars of dependencies and hjar of the jar itself
+      NestedSet<Artifact> compileTimeClasspath = base
+          .getProvider(JavaCompilationArgsProvider.class) // aspect definition requires this
+          .getRecursiveJavaCompilationArgs()
+          .getCompileTimeJars();
+      // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
+      ImmutableList<Artifact> bootclasspath = getBootclasspath(base);
+      for (Artifact jar : jarProvider.getRuntimeJars()) {
+        Artifact desugared = createDesugarAction(ruleContext, jar, bootclasspath,
+            compileTimeClasspath);
+        newlyDesugared.put(jar, desugared);
+        desugaredJars.addDesugaredJar(jar, desugared);
       }
     }
-    return result;
+    result.addProvider(desugaredJars.build());
+    return Functions.forMap(newlyDesugared);
+  }
+
+  private static <T extends TransitiveInfoProvider> IterablesChain<T> collectPrerequisites(
+      RuleContext ruleContext, Class<T> classType) {
+    IterablesChain.Builder<T> result = IterablesChain.builder();
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
+      if (ruleContext.getRule().getRuleClassObject().hasAttr(attr, LABEL_LIST)) {
+        result.add(ruleContext.getPrerequisites(attr, Mode.TARGET, classType));
+      }
+    }
+    return result.build();
   }
 
   private static ImmutableList<Artifact> getBootclasspath(ConfiguredTarget base) {
