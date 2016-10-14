@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -335,7 +334,7 @@ public class LocationExpander {
       PathFragment execPath =
           takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
       if (execPath != null) {  // omit middlemen etc
-        paths.add(execPath.getPathString());
+        paths.add(execPath.getCallablePathString());
       }
     }
     return paths;

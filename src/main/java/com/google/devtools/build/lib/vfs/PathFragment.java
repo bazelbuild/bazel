@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-
 import java.io.File;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
@@ -268,6 +267,26 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   // TODO(bazel-team): Change getPathString to do this - this behavior makes more sense.
   public String getSafePathString() {
     return (!isAbsolute && (segmentCount() == 0)) ? "." : getPathString();
+  }
+
+  /**
+   * Returns the path string using '/' as the name-separator character, but do so in a way
+   * unambiguously recognizable as path. In other words, return "." for relative and empty paths,
+   * and prefix relative paths with one segment by "./".
+   *
+   * <p>In this way, a shell will always interpret such a string as path (absolute or relative to
+   * the working directory) and not as command to be searched for in the search path.
+   */
+  public String getCallablePathString() {
+    if (isAbsolute) {
+      return getPathString();
+    } else if (segmentCount() == 0) {
+      return ".";
+    } else if (segmentCount() == 1) {
+      return "." + SEPARATOR_CHAR + getPathString();
+    } else {
+      return getPathString();
+    }
   }
 
   /**
