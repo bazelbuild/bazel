@@ -31,8 +31,10 @@ public final class BazelTestSuiteRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .override(attr("testonly", BOOLEAN).value(true)
-            .nonconfigurable("policy decision: should be consistent across configurations"))
+        .override(
+            attr("testonly", BOOLEAN)
+                .value(true)
+                .nonconfigurable("policy decision: should be consistent across configurations"))
         /* <!-- #BLAZE_RULE(test_suite).ATTRIBUTE(tags) -->
         List of text tags such as "small" or "database" or "-flaky". Tags may be any valid string.
         <p>
@@ -50,7 +52,7 @@ public final class BazelTestSuiteRule implements RuleDefinition {
           Only test rules that match <b>all</b> of the positive tags and <b>none</b> of the negative
           tags will be included in the test suite. Note that this does not mean that error checking
           for dependencies on tests that are filtered out is skipped; the dependencies on skipped
-          tests still need to be legal (e.g. not blocked by visibility or obsoleteness constraints).
+          tests still need to be legal (e.g. not blocked by visibility constraints).
         </p>
         <p>
           The <code>manual</code> tag keyword is treated specially. It marks the
@@ -60,7 +62,7 @@ public final class BazelTestSuiteRule implements RuleDefinition {
           rules do not have to be tagged as <code>manual</code> to be included in the test suite.
         </p>
         <p>
-          Note that a test's <code>size</code> is treated as a tag for the purpose of filtering.
+          Note that a test's <code>size</code> is considered a tag for the purpose of filtering.
         </p>
         <p>
           If you need a <code>test_suite</code> that contains tests with mutually exclusive tags
@@ -69,8 +71,6 @@ public final class BazelTestSuiteRule implements RuleDefinition {
           previous two.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-
-        // TODO(bazel-team): we should have a boolean attribute instead of the "manual" hack
 
         /* <!-- #BLAZE_RULE(test_suite).ATTRIBUTE(tests) -->
         A list of test suites and test targets of any language.
@@ -85,16 +85,20 @@ public final class BazelTestSuiteRule implements RuleDefinition {
         <p>
           If the <code>tests</code> attribute is unspecified or empty, the rule will default to
           including all test rules in the current BUILD file that are not tagged as
-          <code>manual</code> or marked as <code>obsolete</code>. These rules are still subject
-          to <code>tag</code> filtering.
+          <code>manual</code>. These rules are still subject to <code>tag</code> filtering.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("tests", LABEL_LIST).orderIndependent().allowedFileTypes()
-            .nonconfigurable("policy decision: should be consistent across configurations"))
+        .add(
+            attr("tests", LABEL_LIST)
+                .orderIndependent()
+                .allowedFileTypes()
+                .nonconfigurable("policy decision: should be consistent across configurations"))
         // This magic attribute contains all *test rules in the package, iff
-        // tests=[] and suites=[]:
-        .add(attr("$implicit_tests", LABEL_LIST)
-            .nonconfigurable("Accessed in TestTargetUtils without config context"))
+        // tests=[].
+        .add(
+            attr("$implicit_tests", LABEL_LIST)
+                .orderIndependent()
+                .nonconfigurable("Accessed in TestTargetUtils without config context"))
         .build();
   }
 
@@ -111,7 +115,7 @@ public final class BazelTestSuiteRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = test_suite, TYPE = TEST, FAMILY = General)[GENERIC_RULE] -->
 
 <p>
-A <code>test_suite</code> defines a set of tests that are considered "useful" to humans.  This
+A <code>test_suite</code> defines a set of tests that are considered "useful" to humans. This
 allows projects to define sets of tests, such as "tests you must run before checkin", "our
 project's stress tests" or "all small tests."
 </p>
