@@ -14,7 +14,7 @@ filegroup(
         ":cc-compiler-armeabi-v7a",
         ":cc-compiler-k8",
         ":linaro_linux_all_files",
-        "@linaroLinuxGcc49Repo//:compiler_components",
+        "@org_linaro_components_toolchain_gcc_5_3_1//:compiler_components",
     ],
 )
 
@@ -39,7 +39,7 @@ filegroup(
     name = "linaro_linux_all_files",
     srcs = [
         "//tools/arm_compiler/linaro_linux_gcc:tool-wrappers",
-        "@linaroLinuxGcc49Repo//:compiler_pieces",
+        "@org_linaro_components_toolchain_gcc_5_3_1//:compiler_pieces",
     ],
 )
 
@@ -49,7 +49,7 @@ filegroup(
         "//tools/arm_compiler/linaro_linux_gcc:ar",
         "//tools/arm_compiler/linaro_linux_gcc:gcc",
         "//tools/arm_compiler/linaro_linux_gcc:ld",
-        "@linaroLinuxGcc49Repo//:compiler_pieces",
+        "@org_linaro_components_toolchain_gcc_5_3_1//:compiler_pieces",
     ],
 )
 

@@ -123,6 +123,9 @@ sh_test(
         ":test-deps",
         "//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg",
     ],
+    tags = [
+        "requires-network",
+    ],
 )
 
 # TODO(bazel-team): zip is non-deterministic because of file timestamp,
