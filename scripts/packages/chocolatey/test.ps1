@@ -18,6 +18,6 @@ The package should have installed without errors.
 Now:
 * open a new shell (this should work in msys2, cmd, powershell)
 * Make sure your environment is accurate (see ``./tools/chocolateyinstall.ps1`` output)
-* run ``bazel version`` in that msys2 shell
+* run ``bazel version`` in that shell
 * ... and you should get a version number back
 "@
