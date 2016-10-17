@@ -9,10 +9,6 @@ ps_var_checksumType64 = ps_var_checksumType
 ps_var_toolsDir = Split-Path -parent ps_var_MyInvocation.MyCommand.Definition
 ps_var_packageDir = Split-Path -parent ps_var_toolsDir
 ps_var_binRoot = (Get-ToolsLocation) -replace "\\", "/"
-write-host "package directory: ps_var_packageDir"
-write-host "destination directory: ps_var_packageDir"
-write-host "url: ps_var_url"
-write-host "url64bit: ps_var_url64bit"
 
 Install-ChocolateyZipPackage -PackageName "ps_var_packageName" escape_char
   -Url "ps_var_url" escape_char
