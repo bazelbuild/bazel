@@ -34,6 +34,11 @@ cp -r ${testdata_path}/bazel_toolchain_test_data/* .
 # directories that contain this file is not parsed)
 mv WORKSPACE.linaro WORKSPACE
 
+# Rename BUILD.linaro files
+for i in $(find . -name BUILD.linaro); do
+  mv "$i" "$(dirname "$i")/BUILD"
+done
+
 # Make sure that the wrapper scripts have the execution permission
 chmod +x tools/arm_compiler/linaro_linux_gcc/arm-linux-gnueabihf-*
 
