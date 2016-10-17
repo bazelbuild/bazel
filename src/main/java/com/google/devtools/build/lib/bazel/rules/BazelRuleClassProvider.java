@@ -39,6 +39,10 @@ import com.google.devtools.build.lib.bazel.rules.common.BazelActionListenerRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelExtraActionRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelTestSuiteRule;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcIncLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcTestRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.genrule.BazelGenRuleRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
@@ -344,11 +348,11 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcTestRule());
+          builder.addRuleDefinition(new BazelCcBinaryRule());
+          builder.addRuleDefinition(new BazelCcTestRule());
           builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryRule());
-          builder.addRuleDefinition(new BazelCppRuleClasses.BazelCcIncLibraryRule());
+          builder.addRuleDefinition(new BazelCcLibraryRule());
+          builder.addRuleDefinition(new BazelCcIncLibraryRule());
 
           builder.addConfigurationFragment(
               new CppConfigurationLoader(Functions.<String>identity()));

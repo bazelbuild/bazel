@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -72,61 +71,41 @@ public class BazelCppRuleClasses {
   static final SafeImplicitOutputsFunction CC_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(CppRuleClasses.CC_BINARY_STRIPPED, CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
 
-  static final FileTypeSet ALLOWED_SRC_FILES = FileTypeSet.of(
-      CPP_SOURCE,
-      C_SOURCE,
-      CPP_HEADER,
-      ASSEMBLER_WITH_C_PREPROCESSOR,
-      ASSEMBLER,
-      ARCHIVE,
-      PIC_ARCHIVE,
-      ALWAYS_LINK_LIBRARY,
-      ALWAYS_LINK_PIC_LIBRARY,
-      SHARED_LIBRARY,
-      VERSIONED_SHARED_LIBRARY,
-      OBJECT_FILE,
-      PIC_OBJECT_FILE);
-
-  static final String[] DEPS_ALLOWED_RULES =
-      new String[] {
-        "cc_inc_library",
-        "cc_library",
-        "objc_library",
-        "experimental_objc_library",
-      };
-
-  private static final RuleClass.Configurator<BuildConfiguration, Rule> LIPO_ON_DEMAND =
+  static final RuleClass.Configurator<BuildConfiguration, Rule> LIPO_ON_DEMAND =
       new RuleClass.Configurator<BuildConfiguration, Rule>() {
-    @Override
-    public BuildConfiguration apply(Rule rule, BuildConfiguration configuration) {
-      if (configuration.useDynamicConfigurations()) {
-        // Dynamic configurations don't currently work with LIPO. partially because of lack of
-        // support for TARGET_CONFIG_FOR_LIPO. We can't check for LIPO here because we have
-        // to apply TARGET_CONFIG_FOR_LIPO to determine it, So we just assume LIPO is disabled.
-        // This is safe because Bazel errors out if the two options are combined.
-        return configuration;
-      }
-      BuildConfiguration toplevelConfig =
-          configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
-      // If LIPO is enabled, override the default configuration.
-      if (toplevelConfig != null
-          && toplevelConfig.getFragment(CppConfiguration.class).isLipoOptimization()
-          && !configuration.isHostConfiguration()
-          && !configuration.getFragment(CppConfiguration.class).isLipoContextCollector()) {
-        // Switch back to data when the cc_binary is not the LIPO context.
-        return (rule.getLabel().equals(
-            toplevelConfig.getFragment(CppConfiguration.class).getLipoContextLabel()))
-            ? toplevelConfig
-            : configuration.getTransitions().getStaticConfiguration(ConfigurationTransition.DATA);
-      }
-      return configuration;
-    }
+        @Override
+        public BuildConfiguration apply(Rule rule, BuildConfiguration configuration) {
+          if (configuration.useDynamicConfigurations()) {
+            // Dynamic configurations don't currently work with LIPO. partially because of lack of
+            // support for TARGET_CONFIG_FOR_LIPO. We can't check for LIPO here because we have
+            // to apply TARGET_CONFIG_FOR_LIPO to determine it, So we just assume LIPO is disabled.
+            // This is safe because Bazel errors out if the two options are combined.
+            return configuration;
+          }
+          BuildConfiguration toplevelConfig =
+              configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
+          // If LIPO is enabled, override the default configuration.
+          if (toplevelConfig != null
+              && toplevelConfig.getFragment(CppConfiguration.class).isLipoOptimization()
+              && !configuration.isHostConfiguration()
+              && !configuration.getFragment(CppConfiguration.class).isLipoContextCollector()) {
+            // Switch back to data when the cc_binary is not the LIPO context.
+            return (rule.getLabel()
+                    .equals(
+                        toplevelConfig.getFragment(CppConfiguration.class).getLipoContextLabel()))
+                ? toplevelConfig
+                : configuration
+                    .getTransitions()
+                    .getStaticConfiguration(ConfigurationTransition.DATA);
+          }
+          return configuration;
+        }
 
-    @Override
-    public String getCategory() {
-      return "lipo";
-    }
-  };
+        @Override
+        public String getCategory() {
+          return "lipo";
+        }
+      };
 
   /**
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for
@@ -134,21 +113,19 @@ public class BazelCppRuleClasses {
    */
   public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
 
-  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-        }
-      };
-
   public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).customMalloc();
+        }
+      };
+
+  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
+      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
         }
       };
 
@@ -183,6 +160,27 @@ public class BazelCppRuleClasses {
     return stl;
   }
 
+  static final FileTypeSet ALLOWED_SRC_FILES =
+      FileTypeSet.of(
+          CPP_SOURCE,
+          C_SOURCE,
+          CPP_HEADER,
+          ASSEMBLER_WITH_C_PREPROCESSOR,
+          ASSEMBLER,
+          ARCHIVE,
+          PIC_ARCHIVE,
+          ALWAYS_LINK_LIBRARY,
+          ALWAYS_LINK_PIC_LIBRARY,
+          SHARED_LIBRARY,
+          VERSIONED_SHARED_LIBRARY,
+          OBJECT_FILE,
+          PIC_OBJECT_FILE);
+
+  static final String[] DEPS_ALLOWED_RULES =
+      new String[] {
+        "cc_inc_library", "cc_library", "objc_library", "experimental_objc_library",
+      };
+
   /**
    * Common attributes for all rules that create C++ links. This may
    * include non-cc_* rules (e.g. py_binary).
@@ -215,18 +213,21 @@ public class BazelCppRuleClasses {
       return builder
           /*<!-- #BLAZE_RULE($cc_base_rule).ATTRIBUTE(copts) -->
           Add these options to the C++ compilation command.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
-          <a href="common-definitions.html#sh-tokenization">
-          Bourne shell tokenization</a>.
-          <p>Each string in this attribute is added in the given order to <code>COPTS</code>
-          before compiling the binary target.
-          The flags take effect only for compiling this target, not its dependencies,
-          so be careful about header files included elsewhere.</p>
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+          <p>
+            Each string in this attribute is added in the given order to <code>COPTS</code> before
+            compiling the binary target. The flags take effect only for compiling this target, not
+            its dependencies, so be careful about header files included elsewhere.
+          </p>
+          <p>
+            If the package declares the <a href="${link package.features}">feature</a>
+            <code>no_copts_tokenization</code>, Bourne shell tokenization applies only to strings
+            that consist of a single "Make" variable.
+          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("copts", STRING_LIST))
-          .add(
-              attr("$stl_default", LABEL)
-                  .value(env.getToolsLabel("//tools/cpp:stl")))
+          .add(attr("$stl_default", LABEL).value(env.getToolsLabel("//tools/cpp:stl")))
           .add(attr(":stl", LABEL).value(STL))
           .build();
     }
@@ -250,9 +251,8 @@ public class BazelCppRuleClasses {
       return builder
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(defines) -->
           List of defines to add to the compile line.
-          Subject to <a href="make-variables.html">"Make" variable</a> substitution and
-          <a href="common-definitions.html#sh-tokenization">
-          Bourne shell tokenization</a>.
+          Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
+          <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
           is prepended with <code>-D</code> and added to
           <code>COPTS</code>.
@@ -264,19 +264,21 @@ public class BazelCppRuleClasses {
           .add(attr("defines", STRING_LIST))
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(includes) -->
           List of include dirs to be added to the compile line.
-          <p>Subject to <a href="make-variables.html">"Make variable"</a> substitution.
-             Each string is prepended with <code>-isystem</code> and added to <code>COPTS</code>.
-             Unlike <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
-             and every rule that depends on it. (Note: not the rules it depends upon!) Be
-             very careful, since this may have far-reaching effects.  When in doubt, add
-             "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
+          <p>
+          Subject to <a href="${link make-variables}">"Make variable"</a> substitution.
+          Each string is prepended with <code>-isystem</code> and added to <code>COPTS</code>.
+          Unlike <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
-          .add(attr(":lipo_context_collector", LABEL)
-              .cfg(LipoTransition.LIPO_COLLECTOR)
-              .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
-              .skipPrereqValidatorCheck())
+          .add(
+              attr(":lipo_context_collector", LABEL)
+                  .cfg(LipoTransition.LIPO_COLLECTOR)
+                  .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
+                  .skipPrereqValidatorCheck())
           .build();
     }
 
@@ -381,7 +383,7 @@ public class BazelCppRuleClasses {
           .add(attr("linkopts", STRING_LIST))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(nocopts) -->
           Remove matching options from the C++ compilation command.
-          Subject to <a href="make-variables.html">"Make" variable</a> substitution.
+          Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
           (not including values explicitly specified in the rule's <a
@@ -401,22 +403,22 @@ public class BazelCppRuleClasses {
              If enabled and this is a binary or test, this option tells the build tool to link in
              <code>.a</code>'s instead of <code>.so</code>'s for user libraries whenever possible.
              Some system libraries may still be linked dynamically, as are libraries for which
-             there's no static library. So the resulting binary will be dynamically linked, hence
-             only <i>mostly</i> static.
+             there is no static library. So the resulting executable will still be dynamically
+             linked, hence only <i>mostly</i> static.
            </p>
            <p>There are really three different ways to link an executable:</p>
            <ul>
            <li> FULLY STATIC, in which everything is linked statically; e.g. "<code>gcc -static
-             foo.o libbar.a libbaz.a -lm</code>".<br/>This mode is enabled by specifying
-             <code>-static</code> in the <a href="#cc_binary.linkopts"><code>linkopts</code></a>
-             attribute.</li>
+             foo.o libbar.a libbaz.a -lm</code>".<br/>
+             This mode is enabled by specifying <code>-static</code> in the
+             <a href="#cc_binary.linkopts"><code>linkopts</code></a> attribute.</li>
            <li> MOSTLY STATIC, in which all user libraries are linked statically (if a static
              version is available), but where system libraries are linked dynamically, e.g.
-             "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>This mode is enabled by specifying
-             <code>linkstatic=1</code>.</li>
+             "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>
+             This mode is enabled by specifying <code>linkstatic=1</code>.</li>
            <li> DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is
-             available), e.g. "<code>gcc foo.o libfoo.so libbaz.so -lm</code>".<br/> This mode is
-             enabled by specifying <code>linkstatic=0</code>.</li>
+             available), e.g. "<code>gcc foo.o libfoo.so libbaz.so -lm</code>".<br/>
+             This mode is enabled by specifying <code>linkstatic=0</code>.</li>
            </ul>
            <p>
            The <code>linkstatic</code> attribute has a different meaning if used on a
@@ -456,154 +458,15 @@ public class BazelCppRuleClasses {
     }
   }
 
-  /**
-   * Helper rule class.
-   */
-  public static final class CcBinaryBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
-          Override the default dependency on malloc.
-          <p>
-            By default, C++ binaries are linked against <code>//tools/cpp:malloc</code>,
-            which is an empty library so the binary ends up using libc malloc.
-            This label must refer to a <code>cc_library</code>. If compilation is for a non-C++
-            rule, this option has no effect. The value of this attribute is ignored if
-            <code>linkshared=1</code> is specified.
-          </p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("malloc", LABEL)
-              .value(env.getToolsLabel("//tools/cpp:malloc"))
-              .allowedFileTypes()
-              .allowedRuleClasses("cc_library"))
-          .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))
-          /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
-          Enable link stamping.
-          Whether to encode build information into the binary. Possible values:
-          <ul>
-            <li><code>stamp = 1</code>: Stamp the build information into the
-              binary. Stamped binaries are only rebuilt when their dependencies
-              change. Use this if there are tests that depend on the build
-              information.</li>
-            <li><code>stamp = 0</code>: Always replace build information by constant
-              values. This gives good build result caching.</li>
-            <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
-          </ul>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          // TODO(bazel-team): document this. Figure out a standard way to access stamp data at
-          // runtime.
-          .add(attr("stamp", TRISTATE).value(TriState.AUTO))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$cc_binary_base")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(CcRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Rule definition for cc_binary rules.
-   */
-  public static final class CcBinaryRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .requiresConfigurationFragments(CppConfiguration.class)
-          /*<!-- #BLAZE_RULE(cc_binary).IMPLICIT_OUTPUTS -->
-          <ul>
-          <li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
-            version of the binary. <code>strip -g</code> is run on the binary to remove debug
-            symbols.  Additional strip options can be provided on the command line using
-            <code>--stripopt=-foo</code>. This output is only built if explicitly requested.</li>
-          <li><code><var>name</var>.dwp</code> (only built if explicitly requested): If
-            <a href="https://gcc.gnu.org/wiki/DebugFission">Fission</a> is enabled: a debug
-            information package file suitable for debugging remotely deployed binaries. Else: an
-            empty file.</li>
-          </ul>
-          <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-          .setImplicitOutputsFunction(CC_BINARY_IMPLICIT_OUTPUTS)
-          /*<!-- #BLAZE_RULE(cc_binary).ATTRIBUTE(linkshared) -->
-          Create a shared library.
-          To enable this attribute, include <code>linkshared=1</code> in your rule. By default
-          this option is off. If you enable it, you must name your binary
-          <code>lib<i>foo</i>.so</code> (or whatever is the naming convention of libraries on the
-          target platform) for some sensible value of <i>foo</i>.
-          <p>
-            The presence of this flag means that linking occurs with the <code>-shared</code> flag
-            to <code>gcc</code>, and the resulting shared library is suitable for loading into for
-            example a Java program. However, for build purposes it will never be linked into the
-            dependent binary, as it is assumed that shared libraries built with a
-            <a href="#cc_binary">cc_binary</a> rule are only loaded manually by other programs, so
-            it should not be considered a substitute for the <a href="#cc_library">cc_library</a>
-            rule. For sake of scalability we recommend avoiding this approach altogether and
-            simply letting <code>java_library</code> depend on <code>cc_library</code> rules
-            instead.
-          </p>
-          <p>
-            If you specify both <code>linkopts=['-static']</code> and <code>linkshared=1</code>,
-            you get a single completely self-contained unit. If you specify both
-            <code>linkstatic=1</code> and <code>linkshared=1</code>, you get a single, mostly
-            self-contained unit.
-          </p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("linkshared", BOOLEAN).value(false)
-              .nonconfigurable("used to *determine* the rule's configuration"))
-          .cfg(LIPO_ON_DEMAND)
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("cc_binary")
-          .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.BinaryBaseRule.class)
-          .factoryClass(BazelCcBinary.class)
-          .build();
-    }
-  }
-
-  /**
-   * Implementation for the :lipo_context attribute.
-   */
-  private static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT =
+  /** Implementation for the :lipo_context attribute. */
+  static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT =
       new LateBoundLabel<BuildConfiguration>() {
-    @Override
-    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-      Label result = configuration.getFragment(CppConfiguration.class).getLipoContextLabel();
-      return (rule == null || rule.getLabel().equals(result)) ? null : result;
-    }
-  };
-
-  /**
-   * Rule definition for cc_test rules.
-   */
-  public static final class CcTestRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .requiresConfigurationFragments(CppConfiguration.class)
-          .setImplicitOutputsFunction(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE)
-          .override(attr("linkstatic", BOOLEAN).value(false))
-          .override(attr("stamp", TRISTATE).value(TriState.NO))
-          .add(attr(":lipo_context", LABEL).value(LIPO_CONTEXT))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("cc_test")
-          .type(RuleClassType.TEST)
-          .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class)
-          .factoryClass(BazelCcTest.class)
-          .build();
-    }
-  }
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          Label result = configuration.getFragment(CppConfiguration.class).getLipoContextLabel();
+          return (rule == null || rule.getLabel().equals(result)) ? null : result;
+        }
+      };
 
   /**
    * Helper rule class.
@@ -649,233 +512,52 @@ public class BazelCppRuleClasses {
     }
   }
 
-  /**
-   * Rule definition for the cc_library rule.
-   */
-  public static final class CcLibraryRule implements RuleDefinition {
+  /** Helper rule class. */
+  public static final class CcBinaryBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          // TODO: Google cc_library overrides documentation for:
-          // deps, data, linkopts, defines, srcs; override here too?
-
-          .requiresConfigurationFragments(CppConfiguration.class)
-          /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(alwayslink) -->
-          If 1, any binary that depends (directly or indirectly) on this C++
-          library will link in all the object files for the files listed in
-          <code>srcs</code>, even if some contain no symbols referenced by the binary.
-          This is useful if your code isn't explicitly called by code in
-          the binary, e.g., if your code registers to receive some callback
-          provided by some service.
+          /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
+          Override the default dependency on malloc.
+          <p>
+            By default, C++ binaries are linked against <code>//tools/cpp:malloc</code>,
+            which is an empty library so the binary ends up using libc malloc.
+            This label must refer to a <code>cc_library</code>. If compilation is for a non-C++
+            rule, this option has no effect. The value of this attribute is ignored if
+            <code>linkshared=1</code> is specified.
+          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("alwayslink", BOOLEAN).
-              nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
-          .override(attr("linkstatic", BOOLEAN).value(false)
-              .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+          .add(
+              attr("malloc", LABEL)
+                  .value(env.getToolsLabel("//tools/cpp:malloc"))
+                  .allowedFileTypes()
+                  .allowedRuleClasses("cc_library"))
+          .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))
+          /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
+          Enable link stamping.
+          Whether to encode build information into the binary. Possible values:
+          <ul>
+            <li><code>stamp = 1</code>: Stamp the build information into the
+              binary. Stamped binaries are only rebuilt when their dependencies
+              change. Use this if there are tests that depend on the build
+              information.</li>
+            <li><code>stamp = 0</code>: Always replace build information by constant
+              values. This gives good build result caching.</li>
+            <li><code>stamp = -1</code>: Embedding of build information is controlled
+              by the <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("stamp", TRISTATE).value(TriState.AUTO))
           .build();
     }
 
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("cc_library")
-          .ancestors(CcLibraryBaseRule.class)
-          .factoryClass(BazelCcLibrary.class)
+          .name("$cc_binary_base")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(CcRule.class)
           .build();
     }
   }
-  
-  /**
-   * Rule definition for the cc_inc_library class.
-   */
-  public static final class BazelCcIncLibraryRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-        .requiresConfigurationFragments(CppConfiguration.class)
-        .add(attr(":cc_toolchain", LABEL).value(BazelCppRuleClasses.CC_TOOLCHAIN))
-        .add(attr(":stl", LABEL).value(BazelCppRuleClasses.STL))
-        .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("cc_inc_library")
-          .ancestors(BaseRuleClasses.RuleBase.class, CcIncLibraryRule.class)
-          .factoryClass(BazelCcIncLibrary.class)
-          .build();
-    }
-  }  
 }
-
-/*<!-- #BLAZE_RULE (NAME = cc_binary, TYPE = BINARY, FAMILY = C / C++) -->
-
-${IMPLICIT_OUTPUTS}
-
-<!-- #END_BLAZE_RULE -->*/
-
-
-/*<!-- #BLAZE_RULE (NAME = cc_library, TYPE = LIBRARY, FAMILY = C / C++) -->
-
-<h4 id="hdrs">Header inclusion checking</h4>
-
-<p>
-  All header files that are used in the build must be declared in the <code>hdrs</code> or
-  <code>srcs</code> of <code>cc_*</code> rules. This is enforced.
-</p>
-
-<p>
-  For <code>cc_library</code> rules, headers in <code>hdrs</code> comprise the public interface of
-  the library and can be directly included both from the files in <code>hdrs</code> and
-  <code>srcs</code> of the library itself as well as from files in <code>hdrs</code> and
-  <code>srcs</code> of <code>cc_*</code> rules that list the library in their <code>deps</code>.
-  Headers in <code>srcs</code> must only be directly included from the files in <code>hdrs</code>
-  and <code>srcs</code> of the library itself. When deciding whether to put a header into
-  <code>hdrs</code> or <code>srcs</code>, you should ask whether you want consumers of this library
-  to be able to directly include it. This is roughly the same decision as between
-  <code>public</code> and <code>private</code> visibility in programming languages.
-</p>
-
-<p>
-  <code>cc_binary</code> and <code>cc_test</code> rules do not have an exported interface, so they
-  also do not have a <code>hdrs</code> attribute. All headers that belong to the binary or test
-  directly should be listed in the <code>srcs</code>.
-</p>
-
-<p>
-  To illustrate these rules, look at the following example.
-</p>
-
-<pre class="code">
-cc_binary(
-    name = "foo",
-    srcs = [
-        "foo.cc",
-        "foo.h",
-    ],
-    deps = [":bar"],
-)
-
-cc_library(
-    name = "bar",
-    srcs = [
-        "bar.cc",
-        "bar-impl.h",
-    ],
-    hdrs = ["bar.h"],
-    deps = [":baz"],
-)
-
-cc_library(
-    name = "baz",
-    srcs = [
-        "baz.cc",
-        "baz-impl.h",
-    ],
-    hdrs = ["baz.h"],
-)
-</pre>
-
-<p>
-  The allowed direct inclusions in this example are listed in the table below. For example
-  <code>foo.cc</code> is allowed to directly include <code>foo.h</code> and <code>bar.h</code>, but
-  not <code>baz.h</code>.
-</p>
-
-<table class="table table-striped table-bordered table-condensed">
-  <thead>
-    <tr><th>Including file</th><th>Allowed inclusions</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>foo.h</td><td>bar.h</td></tr>
-    <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
-    <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
-    <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
-    <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
-    <tr><td>baz.h</td><td>baz-impl.h</td></tr>
-    <tr><td>baz-impl.h</td><td>baz.h</td></tr>
-    <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
-  </tbody>
-</table>
-
-<p>
-  The inclusion checking rules only apply to <em>direct</em>
-  inclusions. In the example above <code>foo.cc</code> is allowed to
-  include <code>bar.h</code>, which may include <code>baz.h</code>, which in
-  turn is allowed to include <code>baz-impl.h</code>. Technically, the
-  compilation of a <code>.cc</code> file may transitively include any header
-  file in the <code>hdrs</code> or <code>srcs</code> in
-  any <code>cc_library</code> in the transitive <code>deps</code> closure. In
-  this case the compiler may read <code>baz.h</code> and <code>baz-impl.h</code>
-  when compiling <code>foo.cc</code>, but <code>foo.cc</code> must not
-  contain <code>#include "baz.h"</code>. For that to be
-  allowed, <code>baz</code> must be added to the <code>deps</code>
-  of <code>foo</code>.
-</p>
-
-<p>
-  Unfortunately Bazel currently cannot distinguish between direct and transitive
-  inclusions, so it cannot detect error cases where a file illegally includes a
-  header directly that is only allowed to be included transitively. For example,
-  Bazel would not complain if in the example above <code>foo.cc</code> directly
-  includes <code>baz.h</code>. This would be illegal, because <code>foo</code>
-  does not directly depend on <code>baz</code>. Currently, no error is produced
-  in that case, but such error checking may be added in the future.
-</p>
-
-<!-- #END_BLAZE_RULE -->*/
-
-/*<!-- #BLAZE_RULE (NAME = cc_test, TYPE = TEST, FAMILY = C / C++) -->
-
-<!-- #END_BLAZE_RULE -->*/
-
-/*<!-- #BLAZE_RULE (NAME = cc_inc_library, TYPE = LIBRARY, FAMILY = C / C++) -->
-
-<p>
-Bazel creates a subdirectory below
-<code>includes</code> (relative to WORKSPACE) for each such rule, and makes sure that all
-dependent rules have a corresponding <code>-I</code> directive to add this
-directory into the compiler's header file search path for all compilations. Note
-that if a rule has multiple <code>cc_inc_library</code> rules from the same
-package in its dependencies, the first such rule will take precedence.
-</p>
-
-<p>
-One use case for the <code>cc_inc_library</code> rule is to allow C++
-<code>#include</code> directives to work with external
-libraries that are placed in a version-specific subdirectory, without the
-version number. For example, it allows including a header file in
-<code>/library/v1/a.h</code> using the path
-<code>/library/a.h</code>. This is useful to avoid changing a lot of
-code when upgrading to a newer version. In this case, there should be one
-<code>cc_inc_library</code> rule per public target. Note that only files that are declared in the
-hdrs attribute are available with the rewritten path.
-</p>
-
-<p>
-In this case, the <code>cc_inc_library</code> represents the interface of the package, and should be
-the public top-level rule so that strict header inclusion checks can be performed.
-</p>
-
-<pre class="code">
-# This rule makes the header file v1/library.h available for inclusion via the
-# path /library/library.h.
-cc_inc_library(
-    name = "library",
-    hdrs = ["v1/library.h"],
-    prefix = "v1",
-    deps = [":library_impl"],
-)
-
-cc_library(
-    name = "library_impl",
-    srcs = [
-        "v1/library.c",
-        "v1/library.h",
-    ],
-    visibility = ["//visibility:private"],
-)
-</pre>
-
-<!-- #END_BLAZE_RULE -->*/
