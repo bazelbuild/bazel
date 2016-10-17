@@ -17,7 +17,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.io.File;
@@ -31,7 +30,6 @@ import java.io.Serializable;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -52,6 +50,28 @@ import java.util.Objects;
  */
 @ThreadSafe
 public class Path implements Comparable<Path>, Serializable {
+
+  /** Filesystem-specific factory for {@link Path} objects. */
+  public static interface PathFactory {
+    /**
+     * Creates the root of all paths used by a filesystem.
+     *
+     * <p>All other paths are instantiated via {@link Path#createChildPath(String)} which calls
+     * {@link #createChildPath(Path, String)}.
+     *
+     * <p>Beware: this is called during the FileSystem constructor which may occur before subclasses
+     * are completely initialized.
+     */
+    Path createRootPath(FileSystem filesystem);
+
+    /**
+     * Create a child path of the given parent.
+     *
+     * <p>All {@link Path} objects are instantiated via this method, with the sole exception of the
+     * filesystem root, which is created by {@link #createRootPath(FileSystem)}.
+     */
+    Path createChildPath(Path parent, String childName);
+  }
 
   private static FileSystem fileSystemForSerialization;
 
@@ -151,10 +171,12 @@ public class Path implements Comparable<Path>, Serializable {
   private volatile IdentityHashMap<String, Reference<Path>> children;
 
   /**
-   * Create a path instance.  Should only be called by {@link #createChildPath}.
+   * Create a path instance.
+   *
+   * <p>Should only be called by {@link PathFactory#createChildPath(Path, String)}.
    *
    * @param name the name of this path; it must be canonicalized with {@link
-   *             StringCanonicalizer#intern}
+   *     StringCanonicalizer#intern}
    * @param parent this path's parent
    */
   protected Path(FileSystem fileSystem, String name, Path parent) {
@@ -162,6 +184,9 @@ public class Path implements Comparable<Path>, Serializable {
     this.name = name;
     this.parent = parent;
     this.depth = parent == null ? 0 : parent.depth + 1;
+
+    // No need to include the drive letter in the hash code, because it's derived from the parent
+    // and/or the name.
     if (fileSystem == null || fileSystem.isFilePathCaseSensitive()) {
       this.hashCode = Objects.hash(parent, name);
     } else {
@@ -170,8 +195,9 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
-   * Create the root path.  Should only be called by
-   * {@link FileSystem#createRootPath()}.
+   * Create the root path.
+   *
+   * <p>Should only be called by {@link PathFactory#createRootPath(FileSystem)}.
    */
   protected Path(FileSystem fileSystem) {
     this(fileSystem, StringCanonicalizer.intern("/"), null);
@@ -197,6 +223,7 @@ public class Path implements Comparable<Path>, Serializable {
       this.depth = this.parent.depth + 1;
     }
     this.hashCode = Objects.hash(parent, name);
+    reinitializeAfterDeserialization();
   }
 
   /**
@@ -211,7 +238,45 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   protected Path createChildPath(String childName) {
-    return new Path(fileSystem, childName, this);
+    return fileSystem.getPathFactory().createChildPath(this, childName);
+  }
+
+  /**
+   * Reinitializes this object after deserialization.
+   *
+   * <p>Derived classes should use this hook to initialize additional state.
+   */
+  protected void reinitializeAfterDeserialization() {}
+
+  /**
+   * Returns true if {@code ancestorPath} may be an ancestor of {@code path}.
+   *
+   * <p>The return value may be a false positive, but it cannot be a false negative. This means that
+   * a true return value doesn't mean the ancestor candidate is really an ancestor, however a false
+   * return value means it's guaranteed that {@code ancestorCandidate} is not an ancestor of this
+   * path.
+   *
+   * <p>Subclasses may override this method with filesystem-specific logic, e.g. a Windows
+   * filesystem may return false if the ancestor path is on a different drive than this one, because
+   * it is then guaranteed that the ancestor candidate cannot be an ancestor of this path.
+   *
+   * @param ancestorCandidate the path that may or may not be an ancestor of this one
+   */
+  protected boolean isMaybeRelativeTo(Path ancestorCandidate) {
+    return true;
+  }
+
+  /**
+   * Returns true if this directory is top-level, i.e. it is its own parent.
+   *
+   * <p>When canonicalizing paths the ".." segment of a top-level directory always resolves to the
+   * directory itself.
+   *
+   * <p>On Unix, a top-level directory would be just the filesystem root ("/), on Windows it would
+   * be the filesystem root and the volume roots.
+   */
+  protected boolean isTopLevelDirectory() {
+    return isRootDirectory();
   }
 
   /**
@@ -237,7 +302,7 @@ public class Path implements Comparable<Path>, Serializable {
       Reference<Path> childRef = children.get(childName);
       Path child;
       if (childRef == null || (child = childRef.get()) == null) {
-        child = createChildPath(childName);
+        child = fileSystem.getPathFactory().createChildPath(this, childName);
         children.put(childName, new PathWeakReferenceForCleanup(child, REFERENCE_QUEUE));
       }
       return child;
@@ -284,34 +349,19 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
-   * Computes a string representation of this path, and writes it to the
-   * given string builder. Only called locally with a new instance.
+   * Computes a string representation of this path, and writes it to the given string builder. Only
+   * called locally with a new instance.
    */
-  private void buildPathString(StringBuilder result) {
+  protected void buildPathString(StringBuilder result) {
     if (isRootDirectory()) {
-      result.append('/');
+      result.append(PathFragment.ROOT_DIR);
     } else {
-      if (parent.isWindowsVolumeName()) {
-        result.append(parent.name);
-      } else {
-        parent.buildPathString(result);
-      }
+      parent.buildPathString(result);
       if (!parent.isRootDirectory()) {
-        result.append('/');
+        result.append(PathFragment.SEPARATOR_CHAR);
       }
       result.append(name);
     }
-  }
-
-  /**
-   * Returns true if the current path represents a Windows volume name (such as "c:" or "d:").
-   *
-   * <p>Paths such as '\\\\vol\\foo' are not supported.
-   */
-  private boolean isWindowsVolumeName() {
-    return OS.getCurrent() == OS.WINDOWS
-        && parent != null && parent.isRootDirectory() && name.length() == 2
-        && PathFragment.getWindowsDriveLetter(name) != '\0';
   }
 
   /**
@@ -597,8 +647,8 @@ public class Path implements Comparable<Path>, Serializable {
     if (segment.equals(".") || segment.isEmpty()) {
       return this; // that's a noop
     } else if (segment.equals("..")) {
-      // root's parent is root, when canonicalising:
-      return parent == null || isWindowsVolumeName() ? this : parent;
+      // top-level directory's parent is root, when canonicalising:
+      return isTopLevelDirectory() ? this : parent;
     } else {
       return getCachedChildPath(segment);
     }
@@ -620,6 +670,10 @@ public class Path implements Comparable<Path>, Serializable {
     return getCachedChildPath(baseName);
   }
 
+  protected Path getRootForRelativePathComputation(PathFragment suffix) {
+    return suffix.isAbsolute() ? fileSystem.getRootDirectory() : this;
+  }
+
   /**
    * Returns the path formed by appending the relative or absolute path fragment
    * {@code suffix} to this path.
@@ -630,10 +684,7 @@ public class Path implements Comparable<Path>, Serializable {
    * is canonical.
    */
   public Path getRelative(PathFragment suffix) {
-    Path result = suffix.isAbsolute() ? fileSystem.getRootDirectory() : this;
-    if (!suffix.windowsVolume().isEmpty()) {
-      result = result.getCanonicalPath(suffix.windowsVolume());
-    }
+    Path result = getRootForRelativePathComputation(suffix);
     for (String segment : suffix.segments()) {
       result = result.getCanonicalPath(segment);
     }
@@ -656,7 +707,7 @@ public class Path implements Comparable<Path>, Serializable {
     if ((path.length() == 0) || (path.equals("."))) {
       return this;
     } else if (path.equals("..")) {
-      return parent == null ? this : parent;
+      return isTopLevelDirectory() ? this : parent;
     } else if (path.indexOf('/') != -1) {
       return getRelative(new PathFragment(path));
     } else if (path.indexOf(PathFragment.EXTRA_SEPARATOR_CHAR) != -1) {
@@ -666,29 +717,20 @@ public class Path implements Comparable<Path>, Serializable {
     }
   }
 
-  /**
-   * Returns an absolute PathFragment representing this path.
-   */
-  public PathFragment asFragment() {
+  protected final String[] getSegments() {
     String[] resultSegments = new String[depth];
     Path currentPath = this;
     for (int pos = depth - 1; pos >= 0; pos--) {
       resultSegments[pos] = currentPath.getBaseName();
       currentPath = currentPath.getParentDirectory();
     }
-
-    char driveLetter = '\0';
-    if (resultSegments.length > 0) {
-      driveLetter = PathFragment.getWindowsDriveLetter(resultSegments[0]);
-      if (driveLetter != '\0') {
-        // Strip off the first segment that contains the volume name.
-        resultSegments = Arrays.copyOfRange(resultSegments, 1, resultSegments.length);
-      }
-    }
-
-    return new PathFragment(driveLetter, true, resultSegments);
+    return resultSegments;
   }
 
+  /** Returns an absolute PathFragment representing this path. */
+  public PathFragment asFragment() {
+    return new PathFragment('\0', true, getSegments());
+  }
 
   /**
    * Returns a relative path fragment to this path, relative to {@code
@@ -708,17 +750,19 @@ public class Path implements Comparable<Path>, Serializable {
   public PathFragment relativeTo(Path ancestorPath) {
     checkSameFilesystem(ancestorPath);
 
-    // Fast path: when otherPath is the ancestor of this path
-    int resultSegmentCount = depth - ancestorPath.depth;
-    if (resultSegmentCount >= 0) {
-      String[] resultSegments = new String[resultSegmentCount];
-      Path currentPath = this;
-      for (int pos = resultSegmentCount - 1; pos >= 0; pos--) {
-        resultSegments[pos] = currentPath.getBaseName();
-        currentPath = currentPath.getParentDirectory();
-      }
-      if (ancestorPath.equals(currentPath)) {
-        return new PathFragment('\0', false, resultSegments);
+    if (isMaybeRelativeTo(ancestorPath)) {
+      // Fast path: when otherPath is the ancestor of this path
+      int resultSegmentCount = depth - ancestorPath.depth;
+      if (resultSegmentCount >= 0) {
+        String[] resultSegments = new String[resultSegmentCount];
+        Path currentPath = this;
+        for (int pos = resultSegmentCount - 1; pos >= 0; pos--) {
+          resultSegments[pos] = currentPath.getBaseName();
+          currentPath = currentPath.getParentDirectory();
+        }
+        if (ancestorPath.equals(currentPath)) {
+          return new PathFragment('\0', false, resultSegments);
+        }
       }
     }
 

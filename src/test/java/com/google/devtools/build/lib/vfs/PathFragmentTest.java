@@ -26,14 +26,12 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * This class tests the functionality of the PathFragment.
@@ -69,15 +67,16 @@ public class PathFragmentTest {
     InMemoryFileSystem filesystem = new InMemoryFileSystem();
 
     new EqualsTester()
-        .addEqualityGroup(new PathFragment("../relative/path"),
-                          new PathFragment("../relative/path"),
-                          new PathFragment(new File("../relative/path")))
+        .addEqualityGroup(
+            new PathFragment("../relative/path"),
+            new PathFragment("..").getRelative("relative").getRelative("path"),
+            new PathFragment('\0', false, new String[] {"..", "relative", "path"}),
+            new PathFragment(new File("../relative/path")))
         .addEqualityGroup(new PathFragment("something/else"))
         .addEqualityGroup(new PathFragment("/something/else"))
-        .addEqualityGroup(new PathFragment("/"),
-                          new PathFragment("//////"))
-        .addEqualityGroup(new PathFragment(""))
-        .addEqualityGroup(filesystem.getRootDirectory())  // A Path object.
+        .addEqualityGroup(new PathFragment("/"), new PathFragment("//////"))
+        .addEqualityGroup(new PathFragment(""), PathFragment.EMPTY_FRAGMENT)
+        .addEqualityGroup(filesystem.getRootDirectory()) // A Path object.
         .testEquals();
   }
 
