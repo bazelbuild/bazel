@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,34 +81,36 @@ public class FileFunction implements SkyFunction {
       }
       realRootedPath = resolvedState.getFirst();
       realFileStateValue = resolvedState.getSecond();
+      if (realFileStateValue.getType() == Type.NONEXISTENT) {
+        return FileValue.value(
+            rootedPath,
+            FileStateValue.NONEXISTENT_FILE_STATE_NODE,
+            realRootedPath,
+            realFileStateValue);
+      }
     }
 
-    FileStateValue fileStateValue = null;
-
-    try {
-      fileStateValue =
-          (FileStateValue)
-              env.getValueOrThrow(
-                  FileStateValue.key(rootedPath), FileOutsidePackageRootsException.class);
-    } catch (FileOutsidePackageRootsException e) {
-      throw new FileFunctionException(
-          new FileOutsidePackageRootsException(rootedPath), Transience.PERSISTENT);
+    FileStateValue fileStateValue;
+    if (rootedPath.equals(realRootedPath)) {
+      fileStateValue = Preconditions.checkNotNull(realFileStateValue, rootedPath);
+    } else {
+      try {
+        fileStateValue =
+            (FileStateValue)
+                env.getValueOrThrow(
+                    FileStateValue.key(rootedPath), FileOutsidePackageRootsException.class);
+      } catch (FileOutsidePackageRootsException e) {
+        throw new FileFunctionException(
+            new FileOutsidePackageRootsException(rootedPath), Transience.PERSISTENT);
+      }
+      if (fileStateValue == null) {
+        return null;
+      }
     }
 
-    if (fileStateValue == null) {
-      return null;
-    }
     if (realFileStateValue == null) {
       realRootedPath = rootedPath;
       realFileStateValue = fileStateValue;
-    } else if (rootedPath.equals(realRootedPath) && !fileStateValue.equals(realFileStateValue)) {
-      String message = String.format(
-          "Some filesystem operations implied %s was a %s but others made us think it was a %s",
-          rootedPath.asPath().getPathString(),
-          fileStateValue.prettyPrint(),
-          realFileStateValue.prettyPrint());
-      throw new FileFunctionException(new InconsistentFilesystemException(message),
-          Transience.TRANSIENT);
     }
 
     ArrayList<RootedPath> symlinkChain = new ArrayList<>();

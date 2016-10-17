@@ -252,7 +252,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path bazDir = bazFile.getParentDirectory();
     Path barDir = bazDir.getParentDirectory();
 
-    long bazFileNodeId = bazFile.stat().getNodeId();
     // Our custom filesystem says "foo/bar/baz" does not exist but it also says that "foo/bar"
     // has a child directory "baz".
     fs.stubStat(bazDir, null);
@@ -265,9 +264,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             new Dirent("baz", Dirent.Type.DIRECTORY))));
     differencer.inject(ImmutableMap.of(DirectoryListingValue.key(barDirRootedPath), barDirListing));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "Some filesystem operations implied /workspace/foo/bar/baz/baz.sh was "
-        + "a regular file with size of 0 and mtime of 0 and nodeId of " + bazFileNodeId + " and "
-        + "mtime of 0 but others made us think it was a nonexistent path";
+    String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
     assertTrue(result.hasError());
