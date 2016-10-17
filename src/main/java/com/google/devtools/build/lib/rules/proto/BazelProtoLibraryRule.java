@@ -69,16 +69,16 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .override(attr("deps", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(srcs) -->
-        The list of <code>.proto</code> files that are processed to create the target.
-        This is usually a non empty list. One usecase where <code>srcs</code> can be
-        empty is an <i>alias-library</i>. This is a proto_library rule having one or
-        more other proto_library in <code>deps</code>. This pattern can be used to
-        e.g. export a public api under a persistent name.
+        The list of <code>.proto</code> and <code>.protodevel</code> files that are
+        processed to create the target. This is usually a non empty list. One usecase
+        where <code>srcs</code> can be empty is an <i>alias-library</i>. This is a
+        proto_library rule having one or more other proto_library in <code>deps</code>.
+        This pattern can be used to e.g. export a public api under a persistent name.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("srcs", LABEL_LIST)
                 .direct_compile_time_input()
-                .allowedFileTypes(FileType.of(".proto")))
+                .allowedFileTypes(FileType.of(".proto"), FileType.of(".protodevel")))
         .advertiseProvider(ProtoSourcesProvider.class)
         .build();
   }
