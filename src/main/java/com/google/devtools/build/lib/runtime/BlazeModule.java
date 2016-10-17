@@ -241,9 +241,21 @@ public abstract class BlazeModule {
 
   /**
    * Called when Blaze shuts down.
+   *
+   * <p>If you are also implementing {@link #shutdownOnCrash()}, consider putting the common
+   * shutdown code in the latter and calling that other hook from here.
    */
   public void blazeShutdown() {
   }
+
+  /**
+   * Called when Blaze shuts down due to a crash.
+   *
+   * <p>Modules may use this to flush pending state, but they must be careful to only do a minimal
+   * number of things. Keep in mind that we are crashing so who knows what state we are in. Modules
+   * rarely need to implement this.
+   */
+  public void blazeShutdownOnCrash() {}
 
   /**
    * Perform module specific check of current command environment.

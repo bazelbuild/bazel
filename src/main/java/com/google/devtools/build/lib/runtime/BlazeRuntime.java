@@ -473,9 +473,17 @@ public final class BlazeRuntime {
     return commandMap;
   }
 
+  /** Invokes {@link BlazeModule#blazeShutdown()} on all registered modules. */
   public void shutdown() {
     for (BlazeModule module : blazeModules) {
       module.blazeShutdown();
+    }
+  }
+
+  /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
+  public void shutdownOnCrash() {
+    for (BlazeModule module : blazeModules) {
+      module.blazeShutdownOnCrash();
     }
   }
 

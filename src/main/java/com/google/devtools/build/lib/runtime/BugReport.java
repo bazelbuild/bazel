@@ -89,7 +89,10 @@ public abstract class BugReport {
           if (runtime != null) {
             runtime.notifyCommandComplete(exitCode);
             // We don't call runtime#shutDown() here because all it does is shut down the modules,
-            // and who knows if they can be trusted.
+            // and who knows if they can be trusted. Instead, we call runtime#shutdownOnCrash()
+            // which attempts to cleanly shutdown those modules that might have something pending
+            // to do as a best-effort operation.
+            runtime.shutdownOnCrash();
           }
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
