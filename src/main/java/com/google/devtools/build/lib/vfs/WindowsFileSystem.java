@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -170,9 +171,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             UNIX_ROOT,
             "Could not determine Unix path root or it is not an absolute Windows path. Set the "
                 + "\"%s\" JVM argument, or export the \"%s\" environment variable for the MSYS bash"
-                + " and have /usr/bin/cygpath installed",
+                + " and have /usr/bin/cygpath installed. Parent is \"%s\", name is \"%s\".",
             WINDOWS_UNIX_ROOT_JVM_ARG,
-            BAZEL_SH_ENV_VAR);
+            BAZEL_SH_ENV_VAR,
+            parent,
+            name);
 
         return (WindowsPath) parent.getRelative(UNIX_ROOT);
       } else {
@@ -408,19 +411,19 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       String bash = System.getenv(bazelShEnvVar);
       Process process = null;
       try {
-        process = Runtime.getRuntime().exec(bash + "-c \"/usr/bin/cygpath -m /\"");
+        process = Runtime.getRuntime().exec("cmd.exe /C " + bash + " -c \"/usr/bin/cygpath -m /\"");
 
         // Wait 3 seconds max, that should be enough to run this command.
         process.waitFor(3, TimeUnit.SECONDS);
 
         if (process.exitValue() == 0) {
-          char[] buf = new char[256];
-          try (InputStreamReader r = new InputStreamReader(process.getInputStream())) {
-            int len = 0;
-            while ((len = r.read(buf)) > 0) {
-              path = path + new String(buf, 0, len);
-            }
-          }
+          path = readAll(process.getInputStream());
+        } else {
+          System.err.print(
+              String.format(
+                  "ERROR: %s (exit code: %d)%n",
+                  readAll(process.getErrorStream()),
+                  process.exitValue()));
         }
       } catch (InterruptedException | IOException e) {
         // Silently ignore failure. Either MSYS is installed at a different location, or not
@@ -436,5 +439,19 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     } else {
       return result;
     }
+  }
+
+  private static String readAll(InputStream s) {
+    String result = "";
+    int len;
+    char[] buf = new char[4096];
+    try (InputStreamReader r = new InputStreamReader(s)) {
+      while ((len = r.read(buf)) > 0) {
+        result += new String(buf, 0, len);
+      }
+    } catch (IOException e) {
+      return null;
+    }
+    return result;
   }
 }
