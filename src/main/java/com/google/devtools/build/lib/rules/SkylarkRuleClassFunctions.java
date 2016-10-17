@@ -217,7 +217,7 @@ public class SkylarkRuleClassFunctions {
       "Creates a declared provider 'constructor'. The return value of this"
           + "function can be used to create \"struct-like\" values. Example:<br>"
           + "<pre class=\"language-python\">data = provider()\n"
-          + "d = data(x = 2, y = 3)"
+          + "d = data(x = 2, y = 3)\n"
           + "return d.x + d.y # returns 5</pre>",
       useLocation = true
   )
