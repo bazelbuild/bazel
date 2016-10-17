@@ -41,6 +41,11 @@ function test_basic_functionality() {
   expect_log "hi there"
 }
 
+function test_execvp_error_message_contains_path() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /does/not/exist --hello world &> $TEST_log || code=$?
+  expect_log "\"execvp(/does/not/exist, 0x[[:alnum:]]*)\": No such file or directory"
+}
+
 function test_default_user_is_nobody() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
   expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"

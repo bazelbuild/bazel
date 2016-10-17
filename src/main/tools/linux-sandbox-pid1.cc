@@ -574,7 +574,7 @@ static void SpawnChild() {
     opt.args.push_back(nullptr);
 
     if (execvp(opt.args[0], opt.args.data()) < 0) {
-      DIE("execvp(%p, %p)", opt.args[0], opt.args.data());
+      DIE("execvp(%s, %p)", opt.args[0], opt.args.data());
     }
   }
 }
