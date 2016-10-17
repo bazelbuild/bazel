@@ -21,6 +21,7 @@
 
 namespace blaze {
 
+using std::string;
 using std::vector;
 
 static const char kWorkspaceMarker[] = "WORKSPACE";

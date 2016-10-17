@@ -31,6 +31,7 @@
 
 namespace blaze {
 
+using std::string;
 using std::vector;
 
 StartupOptions::StartupOptions() : StartupOptions("Bazel") {}

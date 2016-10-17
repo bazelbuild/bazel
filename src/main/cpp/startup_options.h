@@ -23,8 +23,6 @@
 
 namespace blaze {
 
-using std::string;
-
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
 // src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java.
@@ -55,22 +53,24 @@ class StartupOptions {
   // Returns the exit code after processing the argument. "error" will contain
   // a descriptive string for any return value other than
   // blaze_exit_code::SUCCESS.
-  blaze_exit_code::ExitCode ProcessArg(
-      const string &arg, const string &next_arg, const string &rcfile,
-      bool *is_space_separated, string *error);
+  blaze_exit_code::ExitCode ProcessArg(const std::string &arg,
+                                       const std::string &next_arg,
+                                       const std::string &rcfile,
+                                       bool *is_space_separated,
+                                       std::string *error);
 
   // Adds any other options needed to result.
   //
   // TODO(jmmv): Now that we support site-specific options via subclasses of
   // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
-  virtual void AddExtraOptions(std::vector<string> *result) const;
+  virtual void AddExtraOptions(std::vector<std::string> *result) const;
 
   // Checks if Blaze needs to be re-executed.  Does not return, if so.
   //
   // Returns the exit code after the check. "error" will contain a descriptive
   // string for any return value other than blaze_exit_code::SUCCESS.
   virtual blaze_exit_code::ExitCode CheckForReExecuteOptions(
-      int argc, const char *argv[], string *error);
+      int argc, const char *argv[], std::string *error);
 
   // Checks extra fields when processing arg.
   //
@@ -81,57 +81,59 @@ class StartupOptions {
   // TODO(jmmv): Now that we support site-specific options via subclasses of
   // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
   virtual blaze_exit_code::ExitCode ProcessArgExtra(
-    const char *arg, const char *next_arg, const string &rcfile,
-    const char **value, bool *is_processed, string *error);
+      const char *arg, const char *next_arg, const std::string &rcfile,
+      const char **value, bool *is_processed, std::string *error);
 
   // Return the default path to the JDK used to run Blaze itself
   // (must be an absolute directory).
-  virtual string GetDefaultHostJavabase() const;
+  virtual std::string GetDefaultHostJavabase() const;
 
   // Returns the path to the JVM. This should be called after parsing
   // the startup options.
-  virtual string GetJvm();
+  virtual std::string GetJvm();
 
   // Returns the executable used to start the Blaze server, typically the given
   // JVM.
-  virtual string GetExe(const string &jvm, const string &jar_path);
+  virtual std::string GetExe(const std::string &jvm,
+                             const std::string &jar_path);
 
   // Adds JVM prefix flags to be set. These will be added before all other
   // JVM flags.
-  virtual void AddJVMArgumentPrefix(const string &javabase,
-    std::vector<string> *result) const;
+  virtual void AddJVMArgumentPrefix(const std::string &javabase,
+                                    std::vector<std::string> *result) const;
 
   // Adds JVM suffix flags. These will be added after all other JVM flags, and
   // just before the Blaze server startup flags.
-  virtual void AddJVMArgumentSuffix(const string &real_install_dir,
-    const string &jar_path, std::vector<string> *result) const;
+  virtual void AddJVMArgumentSuffix(const std::string &real_install_dir,
+                                    const std::string &jar_path,
+                                    std::vector<std::string> *result) const;
 
   // Adds JVM tuning flags for Blaze.
   //
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
   virtual blaze_exit_code::ExitCode AddJVMArguments(
-    const string &host_javabase, std::vector<string> *result,
-    const std::vector<string> &user_options, string *error) const;
+      const std::string &host_javabase, std::vector<std::string> *result,
+      const std::vector<std::string> &user_options, std::string *error) const;
 
   // The capitalized name of this binary.
-  const string product_name;
+  const std::string product_name;
 
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
-  string output_base;
+  std::string output_base;
 
   // Installation base for a specific release installation.
-  string install_base;
+  std::string install_base;
 
   // The toplevel directory containing Blaze's output.  When Blaze is
   // run by a test, we use TEST_TMPDIR, simplifying the correct
   // hermetic invocation of Blaze from tests.
-  string output_root;
+  std::string output_root;
 
   // Blaze's output_user_root. Used only for computing install_base and
   // output_base.
-  string output_user_root;
+  std::string output_user_root;
 
   // Whether to put the execroot at $OUTPUT_BASE/$WORKSPACE_NAME (if false) or
   // $OUTPUT_BASE/execroot/$WORKSPACE_NAME (if true).
@@ -144,9 +146,9 @@ class StartupOptions {
 
   bool host_jvm_debug;
 
-  string host_jvm_profile;
+  std::string host_jvm_profile;
 
-  std::vector<string> host_jvm_args;
+  std::vector<std::string> host_jvm_args;
 
   bool batch;
 
@@ -182,31 +184,31 @@ class StartupOptions {
   // A string to string map specifying where each option comes from. If the
   // value is empty, it was on the command line, if it is a string, it comes
   // from a blazerc file, if a key is not present, it is the default.
-  std::map<string, string> option_sources;
+  std::map<std::string, std::string> option_sources;
 
   // Sanity check for the startup options
   virtual blaze_exit_code::ExitCode ValidateStartupOptions(
-      const std::vector<string>& args, string* error);
+      const std::vector<std::string> &args, std::string *error);
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
-  string GetHostJavabase();
+  std::string GetHostJavabase();
 
   // Port for gRPC command server. 0 means let the kernel choose, -1 means no
   // gRPC command server.
   int command_port;
 
   // Invocation policy proto. May be NULL.
-  const char* invocation_policy;
+  const char *invocation_policy;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the
   // capitalized version of the name, as in "Bazel".
-  explicit StartupOptions(const string& product_name);
+  explicit StartupOptions(const std::string &product_name);
 
  private:
-  string host_javabase;
+  std::string host_javabase;
 };
 
 }  // namespace blaze

@@ -19,12 +19,10 @@
 
 namespace blaze_util {
 
-using std::string;
-
 // Checks each element of the PATH variable for executable. If none is found, ""
 // is returned.  Otherwise, the full path to executable is returned. Can die if
 // looking up PATH fails.
-string Which(const string &executable);
+std::string Which(const std::string &executable);
 
 }  // namespace blaze_util
 

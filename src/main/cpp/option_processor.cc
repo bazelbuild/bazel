@@ -29,15 +29,16 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
-using std::list;
-using std::map;
-using std::set;
-using std::vector;
-
 // On OSX, there apparently is no header that defines this.
 extern char **environ;
 
 namespace blaze {
+
+using std::list;
+using std::map;
+using std::set;
+using std::string;
+using std::vector;
 
 constexpr char WorkspaceLayout::WorkspacePrefix[];
 

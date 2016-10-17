@@ -18,14 +18,15 @@
 #include <unistd.h>  // access
 #include <vector>
 
-#include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
 
-using std::pair;
-
 namespace blaze_util {
+
+using std::pair;
+using std::string;
 
 string Which(const string &executable) {
   char *path_cstr = getenv("PATH");

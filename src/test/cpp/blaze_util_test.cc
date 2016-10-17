@@ -26,6 +26,8 @@
 
 namespace blaze {
 
+using std::string;
+
 static bool Symlink(const string& old_path, const string& new_path) {
   return symlink(old_path.c_str(), new_path.c_str()) == 0;
 }

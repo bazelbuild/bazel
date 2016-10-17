@@ -19,8 +19,6 @@
 
 namespace blaze {
 
-using std::string;
-
 // Provides methods to compute paths related to the workspace.
 //
 // All methods in this class ought to be static because we reference them as
@@ -34,7 +32,7 @@ class WorkspaceLayout {
   WorkspaceLayout() = delete;
 
   // Returns the directory to use for storing outputs.
-  static string GetOutputRoot();
+  static std::string GetOutputRoot();
 
   // Given the working directory, returns the nearest enclosing directory with a
   // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
@@ -46,30 +44,30 @@ class WorkspaceLayout {
   //
   // The returned path is relative or absolute depending on whether cwd was
   // relative or absolute.
-  static string GetWorkspace(const string &cwd);
+  static std::string GetWorkspace(const std::string& cwd);
 
   // Returns if workspace is a valid build workspace.
-  static bool InWorkspace(const string &workspace);
+  static bool InWorkspace(const std::string& workspace);
 
   // Returns the basename for the rc file.
-  static string RcBasename();
+  static std::string RcBasename();
 
   // Returns the candidate pathnames for the RC files.
-  static void FindCandidateBlazercPaths(const string& workspace,
-                                        const string& cwd,
-                                        const std::vector<string>& args,
-                                        std::vector<string>* result);
+  static void FindCandidateBlazercPaths(const std::string& workspace,
+                                        const std::string& cwd,
+                                        const std::vector<std::string>& args,
+                                        std::vector<std::string>* result);
 
   // Returns the candidate pathnames for the RC file in the workspace,
   // the first readable one of which will be chosen.
   // It is ok if no usable candidate exists.
-  static void WorkspaceRcFileSearchPath(std::vector<string>* candidates);
+  static void WorkspaceRcFileSearchPath(std::vector<std::string>* candidates);
 
   // Turn a %workspace%-relative import into its true name in the filesystem.
   // path_fragment is modified in place.
   // Unlike WorkspaceRcFileSearchPath, it is an error if no import file exists.
-  static bool WorkspaceRelativizeRcFilePath(const string &workspace,
-                                            string *path_fragment);
+  static bool WorkspaceRelativizeRcFilePath(const std::string& workspace,
+                                            std::string* path_fragment);
 
   static constexpr char WorkspacePrefix[] = "%workspace%/";
   static const int WorkspacePrefixLength = sizeof WorkspacePrefix - 1;

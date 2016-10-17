@@ -57,6 +57,8 @@
 
 namespace blaze_util {
 
+using std::string;
+
 static const unsigned int k8Bytes = 64;
 static const unsigned int k8ByteMask = 63;
 

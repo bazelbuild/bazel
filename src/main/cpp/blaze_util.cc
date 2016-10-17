@@ -41,9 +41,11 @@
 
 using blaze_util::die;
 using blaze_util::pdie;
-using std::vector;
 
 namespace blaze {
+
+using std::string;
+using std::vector;
 
 const char kServerPidFile[] = "server.pid.txt";
 const char kServerPidSymlink[] = "server.pid";

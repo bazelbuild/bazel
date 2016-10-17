@@ -84,12 +84,9 @@
 
 #include "src/main/protobuf/command_server.grpc.pb.h"
 
-
 using blaze_util::Md5Digest;
 using blaze_util::die;
 using blaze_util::pdie;
-using std::set;
-using std::vector;
 
 // This should already be defined in sched.h, but it's not.
 #ifndef SCHED_BATCH
@@ -97,6 +94,10 @@ using std::vector;
 #endif
 
 namespace blaze {
+
+using std::set;
+using std::string;
+using std::vector;
 
 static void WriteFileToStreamOrDie(FILE *stream, const char *file_name);
 static string BuildServerRequest();

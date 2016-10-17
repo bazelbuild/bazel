@@ -17,7 +17,7 @@
 namespace blaze_util {
 
 TEST(BlazeUtil, JoinPath) {
-  string path = JoinPath("", "");
+  std::string path = JoinPath("", "");
   ASSERT_EQ("", path);
 
   path = JoinPath("a", "b");

@@ -21,9 +21,10 @@
 
 #include "src/main/cpp/util/exit_code.h"
 
-using std::vector;
-
 namespace blaze_util {
+
+using std::string;
+using std::vector;
 
 static const char kSeparator[] = " \n\t\r";
 

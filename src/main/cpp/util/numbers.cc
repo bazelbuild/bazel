@@ -24,6 +24,8 @@
 
 namespace blaze_util {
 
+using std::string;
+
 static const int32_t kint32min = static_cast<int32_t>(~0x7FFFFFFF);
 static const int32_t kint32max = static_cast<int32_t>(0x7FFFFFFF);
 

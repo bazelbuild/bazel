@@ -18,13 +18,15 @@
 #include <cstdlib>
 #include <vector>
 
-#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/strings.h"
 
 using std::pair;
 
 namespace blaze_util {
+
+using std::string;
 
 pair<string, string> SplitPath(const string &path) {
   size_t pos = path.rfind('/');

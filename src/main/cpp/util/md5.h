@@ -26,8 +26,6 @@
 
 namespace blaze_util {
 
-using std::string;
-
 // The <code>Context</code> class performs the actual MD5
 // computation. It works incrementally and can be fed a single byte at
 // a time if desired.
@@ -55,7 +53,7 @@ class Md5Digest {
 
   // Produces a hexadecimal string representation of this digest in the form:
   // [0-9a-f]{32}
-  string String() const;
+  std::string String() const;
 
  private:
   void Transform(const unsigned char* buffer, unsigned int len);

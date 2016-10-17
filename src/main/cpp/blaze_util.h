@@ -27,12 +27,10 @@
 
 namespace blaze {
 
-using std::string;
-
 extern const char kServerPidFile[];
 extern const char kServerPidSymlink[];
 
-string GetUserName();
+std::string GetUserName();
 
 // Returns the given path in absolute form.  Does not change paths that are
 // already absolute.
@@ -41,27 +39,27 @@ string GetUserName();
 //   MakeAbsolute("foo") --> "/bar/foo"
 //   MakeAbsolute("/foo") ---> "/foo"
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
-string MakeAbsolute(const string &path);
+std::string MakeAbsolute(const std::string &path);
 
 // mkdir -p path. All newly created directories use the given mode.
 // Returns -1 on failure, sets errno.
-int MakeDirectories(const string &path, mode_t mode);
+int MakeDirectories(const std::string &path, mode_t mode);
 
 // Replaces 'content' with contents of file 'filename'.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFile(const string &filename, string *content);
+bool ReadFile(const std::string &filename, std::string *content);
 
 // Replaces 'content' with contents of file descriptor 'fd'.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFileDescriptor(int fd, string *content);
+bool ReadFileDescriptor(int fd, std::string *content);
 
 // Writes 'content' into file 'filename', and makes it executable.
 // Returns false on failure, sets errno.
-bool WriteFile(const string &content, const string &filename);
+bool WriteFile(const std::string &content, const std::string &filename);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
-bool UnlinkPath(const string &file_path);
+bool UnlinkPath(const std::string &file_path);
 
 // Returns true iff the current terminal is running inside an Emacs.
 bool IsEmacsTerminal();
@@ -92,27 +90,27 @@ bool VerboseLogging();
 // "java -version" execution and is supposed to contain a string of the form
 // 'version "version-number"' in the first 255 bytes. If the string is found,
 // version-number is returned, else the empty string is returned.
-string ReadJvmVersion(const string& version_string);
+std::string ReadJvmVersion(const std::string &version_string);
 
 // Get the version string from the given java executable. The java executable
 // is supposed to output a string in the form '.*version ".*".*'. This method
 // will return the part in between the two quote or the empty string on failure
 // to match the good string.
-string GetJvmVersion(const string &java_exe);
+std::string GetJvmVersion(const std::string &java_exe);
 
 // Returns true iff jvm_version is at least the version specified by
 // version_spec.
 // jvm_version is supposed to be a string specifying a java runtime version
 // as specified by the JSR-56 appendix A. version_spec is supposed to be a
 // version is the format [0-9]+(.[1-9]+)*.
-bool CheckJavaVersionIsAtLeast(const string &jvm_version,
-                               const string &version_spec);
+bool CheckJavaVersionIsAtLeast(const std::string &jvm_version,
+                               const std::string &version_spec);
 
 // Converts a project identifier to string.
 // Workaround for mingw where std::to_string is not implemented.
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
 template <typename T>
-string ToString(const T& value) {
+std::string ToString(const T &value) {
   std::ostringstream oss;
   oss << value;
   return oss.str();
