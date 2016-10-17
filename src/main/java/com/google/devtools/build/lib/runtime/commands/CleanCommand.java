@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -34,7 +35,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -96,6 +96,16 @@ public final class CleanCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(
           null, "Invalid clean_style value '" + cleanOptions.cleanStyle + "'"));
       return ExitCode.COMMAND_LINE_ERROR;
+    }
+
+    // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
+    // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
+    if (cleanOptions.expunge_async && OS.getCurrent() != OS.LINUX) {
+      env.getReporter().handle(Event.info(null /*location*/,
+          "--expunge_async cannot be used on non-Linux platforms, falling back to --expunge"));
+      cleanOptions.expunge_async = false;
+      cleanOptions.expunge = true;
+      cleanOptions.cleanStyle = "expunge";
     }
 
     String cleanBanner = cleanOptions.expunge_async ?
