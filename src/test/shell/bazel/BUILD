@@ -24,8 +24,6 @@ filegroup(
     srcs = [
         "bazel_sandboxing_test_utils.sh",
         "remote_helpers.sh",
-        "test-setup.sh",
-        "testenv.sh",
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
@@ -40,6 +38,9 @@ filegroup(
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
+        "//src/test/shell:bin/bazel",
+        "//src/test/shell:integration_test_setup.sh",
+        "//src/test/shell:testenv.sh",
         "//third_party:srcs",
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
@@ -271,12 +272,7 @@ sh_test(
     name = "process_wrapper_test",
     size = "small",
     srcs = ["process-wrapper_test.sh"],
-    data = [
-        "test-setup.sh",
-        "testenv.sh",
-        "//src/main/tools:process-wrapper",
-        "//src/test/shell:bashunit",
-    ],
+    data = [":test-deps"],
 )
 
 sh_test(

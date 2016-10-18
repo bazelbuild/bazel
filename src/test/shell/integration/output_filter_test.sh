@@ -17,13 +17,10 @@
 # output_filter_test.sh: a couple of end to end tests for the warning
 # filter functionality.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-create_and_cd_client
-put_bazel_on_path
-write_default_bazelrc
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_output_filter_cc() {
   # "test warning filter for C compilation"

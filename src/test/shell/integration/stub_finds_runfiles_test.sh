@@ -19,9 +19,10 @@
 
 set -eu
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 test_strategy="standalone"
 genrule_strategy="local"
@@ -30,10 +31,6 @@ if [ $# -ge 1 ]; then
   genrule_strategy=$1
   shift
 fi
-
-create_and_cd_client
-put_bazel_on_path
-write_default_bazelrc
 
 #### TESTS #############################################################
 
@@ -101,36 +98,36 @@ chmod +x pkg/*.sh
 unset TEST_SRCDIR
 
 bazel build //pkg:javabin
-bazel-bin/pkg/javabin
+${PRODUCT_NAME}-bin/pkg/javabin
 bazel run //pkg:javabin
-bazel-bin/pkg/javabin.runfiles/*/pkg/javabin
+${PRODUCT_NAME}-bin/pkg/javabin.runfiles/*/pkg/javabin
 
 bazel build //pkg:javatest
-bazel-bin/pkg/javatest
+${PRODUCT_NAME}-bin/pkg/javatest
 bazel run //pkg:javatest
-bazel-bin/pkg/javatest.runfiles/*/pkg/javatest
+${PRODUCT_NAME}-bin/pkg/javatest.runfiles/*/pkg/javatest
 bazel test --test_strategy="$test_strategy" //pkg:javatest
 
 bazel build //pkg:pybin
-bazel-bin/pkg/pybin
+${PRODUCT_NAME}-bin/pkg/pybin
 bazel run //pkg:pybin
-bazel-bin/pkg/pybin.runfiles/*/pkg/pybin
+${PRODUCT_NAME}-bin/pkg/pybin.runfiles/*/pkg/pybin
 
 bazel build //pkg:pytest
-bazel-bin/pkg/pytest
+${PRODUCT_NAME}-bin/pkg/pytest
 bazel run //pkg:pytest
-bazel-bin/pkg/pytest.runfiles/*/pkg/pytest
+${PRODUCT_NAME}-bin/pkg/pytest.runfiles/*/pkg/pytest
 bazel test --test_strategy="$test_strategy" //pkg:pytest
 
 bazel build //pkg:sh_runs_javabin
-bazel-bin/pkg/sh_runs_javabin
+${PRODUCT_NAME}-bin/pkg/sh_runs_javabin
 bazel run //pkg:sh_runs_javabin
 
 bazel build //pkg:sh_runs_javatest
 bazel test --test_strategy="$test_strategy" //pkg:sh_runs_javatest
 
 bazel build //pkg:sh_runs_pybin
-bazel-bin/pkg/sh_runs_pybin
+${PRODUCT_NAME}-bin/pkg/sh_runs_pybin
 bazel run //pkg:sh_runs_pybin
 
 bazel build //pkg:sh_runs_pytest

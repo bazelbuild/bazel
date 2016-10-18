@@ -14,13 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-create_and_cd_client
-put_bazel_on_path
-write_default_bazelrc
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 log="$(bazel --batch info command_log)"
 
@@ -102,4 +99,4 @@ function test_client_server_mode_with_logging_flag() {
   assert_equals "" "$(diff $TEST_log $log 2>&1)"
 }
 
-run_suite "Integration tests of Blaze command log."
+run_suite "Integration tests of ${PRODUCT_NAME} command log."

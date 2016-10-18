@@ -10,7 +10,6 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
-        "testenv.sh",
         "//src/test/shell/bazel:test-deps",
     ],
 )
@@ -123,6 +122,16 @@ sh_test(
     size = "medium",
     srcs = ["bazel_javabase_test.sh"],
     data = [":test-deps"],
+)
+
+sh_test(
+    name = "client_sigint_test",
+    size = "medium",
+    srcs = ["client_sigint_test.sh"],
+    data = [":test-deps"],
+    # This test doesn't work with the sandbox on, see the source file
+    # for details.
+    tags = ["local"],
 )
 
 sh_test(

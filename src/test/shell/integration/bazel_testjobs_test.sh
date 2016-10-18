@@ -14,14 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-create_and_cd_client
-put_bazel_on_path
-EXTRA_BAZELRC="test --nocache_test_results"
-write_default_bazelrc
+add_to_bazelrc "test --nocache_test_results"
 
 # End of preamble.
 

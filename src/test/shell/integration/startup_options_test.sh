@@ -16,17 +16,14 @@
 #
 # Test of Bazel's startup option handling.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-put_bazel_on_path
-create_and_cd_client
-write_default_bazelrc
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_different_startup_options() {
   pid=$(bazel info server_pid 2> $TEST_log)
-  [[ -n $pid ]] || fail "Couldn't run bazel"
+  [[ -n $pid ]] || fail "Couldn't run ${PRODUCT_NAME}"
   newpid=$(bazel --batch info server_pid 2> $TEST_log)
   expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the startup options are different."
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
@@ -35,4 +32,4 @@ function test_different_startup_options() {
   true
 }
 
-run_suite "bazel startup options test"
+run_suite "${PRODUCT_NAME} startup options test"

@@ -17,11 +17,11 @@
 # Test //external mechanisms
 #
 
-# Load test environment
-src=$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)
-source $src/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
-source $src/remote_helpers.sh \
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 function setup_zoo() {

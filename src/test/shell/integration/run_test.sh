@@ -16,15 +16,12 @@
 #
 # Integration tests for "bazel run"
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
+NO_SIGNAL_OVERRIDE=1
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-create_and_cd_client
-NO_SIGNAL_OVERRIDE=1 put_bazel_on_path
-
-write_default_bazelrc
-add_to_bazelrc "build --embed_changelist=none"
 add_to_bazelrc "test --notest_loasd"
 
 #### HELPER FUNCTIONS ##################################################
@@ -97,10 +94,12 @@ function test_runfiles_present_cc_binary() {
 Hello, kitty.
 EOF
 
-  bazel run --nobuild_runfile_links //cc:kitty > output || fail "Bazel run failed."
+  bazel run --nobuild_runfile_links //cc:kitty > output \
+    || fail "${PRODUCT_NAME} run failed."
   assert_contains "Hello, kitty" output || fail "Output is not OK."
 
-  bazel run --nobuild_runfile_links //cc:kitty > output2 || fail "Second Bazel run failed."
+  bazel run --nobuild_runfile_links //cc:kitty > output2 \
+    || fail "Second ${PRODUCT_NAME} run failed."
   assert_contains "Hello, kitty" output2 || fail "Output is not OK."
 }
 
@@ -111,7 +110,8 @@ function test_runfiles_updated_correctly_with_nobuild_runfile_links {
 Hello, kitty.
 EOF
 
-  bazel run --nobuild_runfile_links //cc:kitty > output || fail "Bazel run failed."
+  bazel run --nobuild_runfile_links //cc:kitty > output \
+    || fail "${PRODUCT_NAME} run failed."
   assert_contains "Hello, kitty" output || fail "Output is not OK."
 
   rm cc/hello_kitty.txt
@@ -119,7 +119,8 @@ EOF
 A pussycat.
 EOF
 
-  bazel run --nobuild_runfile_links //cc:kitty > output || fail "Bazel run failed."
+  bazel run --nobuild_runfile_links //cc:kitty > output \
+    || fail "${PRODUCT_NAME} run failed."
   assert_contains "pussycat" output || fail "Output is not OK."
 }
 
@@ -130,9 +131,9 @@ function test_script_file_generation {
   chmod +x fubar/fubar.sh
 
   bazel run --script_path=$(pwd)/fubar/output.sh //fubar \
-     || fail "Bazel run failed (--script_path)."
+     || fail "${PRODUCT_NAME} run failed (--script_path)."
   grep "fubar \"\$\@\"" ./fubar/output.sh \
-     || fail "Bazel run --script_path output was incorrect."
+     || fail "${PRODUCT_NAME} run --script_path output was incorrect."
 
   $(pwd)/fubar/output.sh a "b c" d > ./fubar/fubar.output \
      || fail "Generated script exited with an error."
@@ -159,15 +160,15 @@ function test_consistent_command_line_encoding {
   chmod +x foo/foo.sh
 
   bazel run //foo -- "$arg" > output \
-    || fail "Bazel run failed."
+    || fail "${PRODUCT_NAME} run failed."
 
   bazel test //foo:foo_test --test_arg="$arg" \
-    || fail "Bazel test failed"
+    || fail "${PRODUCT_NAME} test failed"
 
   bazel --batch run //foo -- "$arg" > output \
-    || fail "Bazel run failed (--batch)."
+    || fail "${PRODUCT_NAME} run failed (--batch)."
   bazel --batch test //foo:foo_test --test_arg="$arg" \
-    || fail "Bazel test failed (--batch)"
+    || fail "${PRODUCT_NAME} test failed (--batch)"
 }
 
 function test_interrupt_kills_child() {
@@ -181,13 +182,13 @@ function test_interrupt_kills_child() {
   # be run in "monitor mode" (with the command set -m) for bazel or the server to receive SIGINT.
   local serverpid=$(bazel info server_pid)
   if [ -z $serverpid ]; then
-    fail "Couldn't get Bazel server PID"
+    fail "Couldn't get ${PRODUCT_NAME} server PID"
   fi
   (bazel run //foo:sleep-minute || true) &
   local sleeppid
   read sleeppid </tmp/sleep-minute-pipe
   if [ -z $sleeppid ]; then
-    fail "Bazel run did not invoke shell script"
+    fail "${PRODUCT_NAME} run did not invoke shell script"
   fi
   kill -SIGINT $serverpid
 
@@ -325,4 +326,4 @@ EOF
   expect_log "Dancing with wolves"
 }
 
-run_suite "'bazel run' integration tests"
+run_suite "'${PRODUCT_NAME} run' integration tests"

@@ -13,16 +13,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-function test_build_objc_tools() {
-  # TODO(cparsons): Test building tools/objc/...
-  bazel build @bazel_tools//tools/objc:make_hashed_objlist.py \
-      || fail "should build tools/objc/make_hashed_objlist.py"
+function print_message_and_exit() {
+  echo $1 >&2; exit 1;
 }
 
-run_suite "bazel_tools test suite"
+CURRENT_SCRIPT=${BASH_SOURCE[0]}
+# Go to the directory where the script is running
+cd "$(dirname ${CURRENT_SCRIPT})" \
+  || print_message_and_exit "Unable to access "$(dirname ${CURRENT_SCRIPT})""
+
+DIR=$(pwd)
+# Load the unit test framework
+source "$DIR/unittest.bash" || print_message_and_exit "unittest.bash not found!"
+# Load the test environment
+source "$DIR/testenv.sh" || print_message_and_exit "testenv.sh not found!"

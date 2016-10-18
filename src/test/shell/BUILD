@@ -1,5 +1,11 @@
 package(default_visibility = ["//visibility:private"])
 
+exports_files([
+    "bin/bazel",
+    "testenv.sh",
+    "integration_test_setup.sh",
+])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
