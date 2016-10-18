@@ -1,7 +1,0 @@
-{
-  "package": {
-    "uri": "https://github.com/bazelbuild/bazel/releases/download/0.3.2/bazel-0.3.2-windows-x86_64.zip",
-    "checksum": "693e063812708775b5a9a8f3af14776e7cb98c8b3f12b416884de99fac3caedf",
-    "checksumType": "sha256"
-  }
-}

@@ -3,3 +3,4 @@
 bazel.nuspec
 tools/*.exe
 tools/LICENSE.txt
+tools/params.json
