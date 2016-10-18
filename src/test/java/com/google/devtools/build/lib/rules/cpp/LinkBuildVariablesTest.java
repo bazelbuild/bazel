@@ -163,10 +163,6 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     ;
   }
 
-  /**
-   * TODO(pcloudy): Add test for testing that necessary build variables are populated when
-   * alwayslink=1.
-   */
   @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration
