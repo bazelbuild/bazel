@@ -72,7 +72,7 @@ Add the following to your `WORKSPACE` file:
 git_repository(
     name = "io_bazel_rules_appengine",
     remote = "https://github.com/bazelbuild/rules_appengine.git",
-    tag = "0.0.2",
+    tag = "0.0.3",
 )
 load("@io_bazel_rules_appengine//appengine:appengine.bzl", "appengine_repositories")
 appengine_repositories()
