@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.DeprecationValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -164,18 +165,6 @@ import java.io.IOException;
 public class BazelRuleClassProvider {
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
 
-  /**
-   * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
-   * on other such sets.
-   */
-  public static interface RuleModule {
-    /** Add stuff to the configured rule class provider builder. */
-    void init(ConfiguredRuleClassProvider.Builder builder);
-
-    /** List of required modules. */
-    ImmutableList<RuleModule> requires();
-  }
-
   /** Used by the build encyclopedia generator. */
   public static ConfiguredRuleClassProvider create() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -282,8 +271,8 @@ public class BazelRuleClassProvider {
     VARIOUS_WORKSPACE_RULES.init(builder);
   }
 
-  public static final RuleModule BAZEL_SETUP =
-      new RuleModule() {
+  public static final RuleSet BAZEL_SETUP =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder
@@ -298,13 +287,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of();
         }
       };
 
-  public static final RuleModule CORE_RULES =
-      new RuleModule() {
+  public static final RuleSet CORE_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
@@ -315,13 +304,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of();
         }
       };
 
-  public static final RuleModule BASIC_RULES =
-      new RuleModule() {
+  public static final RuleSet BASIC_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new EnvironmentRule());
@@ -344,13 +333,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES);
         }
       };
 
-  public static final RuleModule CORE_WORKSPACE_RULES =
-      new RuleModule() {
+  public static final RuleSet CORE_WORKSPACE_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new BindRule());
@@ -359,13 +348,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES);
         }
       };
 
-  public static final RuleModule PROTO_RULES =
-      new RuleModule() {
+  public static final RuleSet PROTO_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addConfigurationOptions(ProtoConfiguration.Options.class);
@@ -374,13 +363,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES);
         }
       };
 
-  public static final RuleModule SH_RULES =
-      new RuleModule() {
+  public static final RuleSet SH_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new BazelShRuleClasses.ShRule());
@@ -390,13 +379,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES);
         }
       };
 
-  public static final RuleModule CPP_RULES =
-      new RuleModule() {
+  public static final RuleSet CPP_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addConfig(
@@ -420,13 +409,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES);
         }
       };
 
-  public static final RuleModule JAVA_RULES =
-      new RuleModule() {
+  public static final RuleSet JAVA_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addConfigurationOptions(JavaOptions.class);
@@ -460,13 +449,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, CPP_RULES);
         }
       };
 
-  public static final RuleModule JAVA_PROTO_RULES =
-      new RuleModule() {
+  public static final RuleSet JAVA_PROTO_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect();
@@ -478,13 +467,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, JAVA_RULES);
         }
       };
 
-  public static final RuleModule ANDROID_RULES =
-      new RuleModule() {
+  public static final RuleSet ANDROID_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
@@ -524,13 +513,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, CPP_RULES, JAVA_RULES);
         }
       };
 
-  public static final RuleModule PYTHON_RULES =
-      new RuleModule() {
+  public static final RuleSet PYTHON_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addConfig(PythonOptions.class, new PythonConfigurationLoader());
@@ -545,13 +534,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, CPP_RULES);
         }
       };
 
-  public static final RuleModule OBJC_RULES =
-      new RuleModule() {
+  public static final RuleSet OBJC_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
@@ -566,7 +555,7 @@ public class BazelRuleClassProvider {
           // j2objc shouldn't be here!
           builder.addConfig(J2ObjcCommandLineOptions.class, new J2ObjcConfiguration.Loader());
 
-          // objc_proto_library should go into a separate RuleModule!
+          // objc_proto_library should go into a separate RuleSet!
           // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
           ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
           builder.addNativeAspectClass(objcProtoAspect);
@@ -620,13 +609,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, CPP_RULES);
         }
       };
 
-  public static final RuleModule J2OBJC_RULES =
-      new RuleModule() {
+  public static final RuleSet J2OBJC_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
@@ -650,13 +639,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, CPP_RULES, JAVA_RULES, OBJC_RULES);
         }
       };
 
-  public static final RuleModule ANDROID_STUDIO_ASPECT =
-      new RuleModule() {
+  public static final RuleSet ANDROID_STUDIO_ASPECT =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
@@ -666,13 +655,13 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES);
         }
       };
 
-  public static final RuleModule VARIOUS_WORKSPACE_RULES =
-      new RuleModule() {
+  public static final RuleSet VARIOUS_WORKSPACE_RULES =
+      new RuleSet() {
         @Override
         public void init(Builder builder) {
           // TODO(ulfjack): Split this up by conceptual units.
@@ -690,7 +679,7 @@ public class BazelRuleClassProvider {
         }
 
         @Override
-        public ImmutableList<RuleModule> requires() {
+        public ImmutableList<RuleSet> requires() {
           return ImmutableList.of(CORE_RULES, CORE_WORKSPACE_RULES);
         }
       };

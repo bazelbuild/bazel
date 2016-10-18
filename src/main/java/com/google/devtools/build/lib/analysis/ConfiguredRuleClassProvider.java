@@ -179,8 +179,18 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Builder for {@link ConfiguredRuleClassProvider}.
+   * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
+   * on other such sets.
    */
+  public static interface RuleSet {
+    /** Add stuff to the configured rule class provider builder. */
+    void init(ConfiguredRuleClassProvider.Builder builder);
+
+    /** List of required modules. */
+    ImmutableList<RuleSet> requires();
+  }
+
+  /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static class Builder implements RuleDefinitionEnvironment {
     private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
     private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();

@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.RuleModule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import java.util.HashSet;
 import java.util.List;
@@ -57,13 +57,13 @@ public class BazelRuleClassProviderTest {
     }
   }
 
-  private void checkModule(RuleModule top) {
+  private void checkModule(RuleSet top) {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
-    Set<RuleModule> result = new HashSet<>();
+    Set<RuleSet> result = new HashSet<>();
     result.add(BazelRuleClassProvider.BAZEL_SETUP);
     collectTransitiveClosure(result, top);
-    for (RuleModule module : result) {
+    for (RuleSet module : result) {
       module.init(builder);
     }
     ConfiguredRuleClassProvider provider = builder.build();
@@ -71,9 +71,9 @@ public class BazelRuleClassProviderTest {
     checkConfigConsistency(provider);
   }
 
-  private void collectTransitiveClosure(Set<RuleModule> result, RuleModule module) {
+  private void collectTransitiveClosure(Set<RuleSet> result, RuleSet module) {
     if (result.add(module)) {
-      for (RuleModule dep : module.requires()) {
+      for (RuleSet dep : module.requires()) {
         collectTransitiveClosure(result, dep);
       }
     }
