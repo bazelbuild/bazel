@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
-import static com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import static com.google.devtools.build.skyframe.ParallelEvaluator.isDoneForBuild;
 import static com.google.devtools.build.skyframe.ParallelEvaluator.maybeGetValueFromError;
-import static com.google.devtools.build.skyframe.QueryableGraph.Reason;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
@@ -35,7 +32,10 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
+import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
