@@ -34,7 +34,7 @@ Compile bazel with msys2 shell and `compile.sh`.
 
 ```powershell
 pushd scripts/packages/chocolatey
-  ./build.ps1 -version 0.3.1 -isRelease
+  ./build.ps1 -version 0.3.2
 popd
 ```
 
@@ -50,7 +50,7 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 
     The `test.ps1` should install the package cleanly (and error if it did not install cleanly), then tell you what to do next.
 
-    In a new (msys2) shell
+    In a new shell
     ```sh
     bazel version
     ```
@@ -60,7 +60,7 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 
     ```sh
     choco uninstall bazel
-    # should remove bazel from the system - c:/tools/bazel should be deleted
+    # should remove bazel from the system
     ```
 
 Chocolatey's moderation process automates checks here.
