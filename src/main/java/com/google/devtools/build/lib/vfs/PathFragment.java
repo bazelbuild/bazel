@@ -512,6 +512,20 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   }
 
   /**
+   * Returns the file extension of this path, excluding the period, or "" if there is no extension.
+   */
+  public String getFileExtension() {
+    String baseName = getBaseName();
+
+    int lastIndex = baseName.lastIndexOf('.');
+    if (lastIndex != -1) {
+      return baseName.substring(lastIndex + 1);
+    }
+
+    return "";
+  }
+
+  /**
    * Returns a relative path fragment to this path, relative to
    * {@code ancestorDirectory}.
    * <p>

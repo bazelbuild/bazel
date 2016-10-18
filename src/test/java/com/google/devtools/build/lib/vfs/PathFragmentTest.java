@@ -280,6 +280,20 @@ public class PathFragmentTest {
     assertThat(new PathFragment("").getBaseName()).isEmpty();
   }
 
+  @Test
+  public void testFileExtension() throws Exception {
+    assertThat(new PathFragment("foo.bar").getFileExtension()).isEqualTo("bar");
+    assertThat(new PathFragment("foo.barr").getFileExtension()).isEqualTo("barr");
+    assertThat(new PathFragment("foo.b").getFileExtension()).isEqualTo("b");
+    assertThat(new PathFragment("foo.").getFileExtension()).isEmpty();
+    assertThat(new PathFragment("foo").getFileExtension()).isEmpty();
+    assertThat(new PathFragment(".").getFileExtension()).isEmpty();
+    assertThat(new PathFragment("").getFileExtension()).isEmpty();
+    assertThat(new PathFragment("foo/bar.baz").getFileExtension()).isEqualTo("baz");
+    assertThat(new PathFragment("foo.bar.baz").getFileExtension()).isEqualTo("baz");
+    assertThat(new PathFragment("foo.bar/baz").getFileExtension()).isEmpty();
+  }
+
   private static void assertPath(String expected, PathFragment actual) {
     assertEquals(expected, actual.getPathString());
   }

@@ -33,15 +33,13 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 @RunWith(JUnit4.class)
 public class ArtifactTest {
@@ -146,6 +144,13 @@ public class ArtifactTest {
     assertTrue(CppFileTypes.CPP_HEADER.matches(generatedHeader.getFilename()));
     assertTrue(CppFileTypes.CPP_SOURCE.matches(generatedCc.getFilename()));
     assertTrue(CppFileTypes.CPP_SOURCE.matches(aCPlusPlusFile.getFilename()));
+  }
+
+  @Test
+  public void testGetExtension() throws Exception {
+    Root root = Root.asSourceRoot(scratch.dir("/foo"));
+    Artifact javaFile = new Artifact(scratch.file("/foo/Bar.java"), root);
+    assertThat(javaFile.getExtension()).isEqualTo("java");
   }
 
   @Test

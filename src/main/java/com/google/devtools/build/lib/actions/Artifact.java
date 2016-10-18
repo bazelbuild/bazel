@@ -300,6 +300,11 @@ public class Artifact
     return getExecPath().getBaseName();
   }
 
+  @SkylarkCallable(name = "extension", structField = true, doc = "The file extension of this file.")
+  public final String getExtension() {
+    return getExecPath().getFileExtension();
+  }
+
   /**
    * Returns the artifact owner. May be null.
    */
