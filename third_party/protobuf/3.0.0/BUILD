@@ -50,7 +50,7 @@ filegroup(
 ################################################################################
 
 py_library(
-    name = "python_srcs",
+    name = "protobuf_python_srcs",
     srcs = glob(
         [
             "python/google/protobuf/*.py",
