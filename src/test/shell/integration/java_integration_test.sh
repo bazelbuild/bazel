@@ -603,15 +603,13 @@ class ProcessorClient { }
 EOF
 
   bazel build //$pkg/java/test/client:client --use_ijars || fail "build failed"
-  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient.jar \
-    | grep -q " test/Generated.class" \
-    || fail "missing class file from annotation processing"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient.jar > $TEST_log
+  expect_log " test/Generated.class" "missing class file from annotation processing"
 
   bazel build //$pkg/java/test/client:libclient-src.jar --use_ijars \
     || fail "build failed"
-  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient-src.jar \
-    | grep -q " test/Generated.java" \
-    || fail "missing source file from annotation processing"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient-src.jar > $TEST_log
+  expect_log " test/Generated.java" "missing source file from annotation processing"
 }
 
 function test_jvm_flags_are_passed_verbatim() {
