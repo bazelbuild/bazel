@@ -830,7 +830,10 @@ public class CcCommonTest extends BuildViewTestCase {
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
           builder.setToolsRepository("@bazel_tools");
-          BazelRuleClassProvider.MINIMAL_RULES.init(builder);
+          BazelRuleClassProvider.BAZEL_SETUP.init(builder);
+          BazelRuleClassProvider.CORE_RULES.init(builder);
+          BazelRuleClassProvider.CORE_WORKSPACE_RULES.init(builder);
+          BazelRuleClassProvider.BASIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
           return builder.build();
         }

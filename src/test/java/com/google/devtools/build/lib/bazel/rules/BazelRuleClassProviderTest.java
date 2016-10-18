@@ -61,6 +61,7 @@ public class BazelRuleClassProviderTest {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     Set<RuleModule> result = new HashSet<>();
+    result.add(BazelRuleClassProvider.BAZEL_SETUP);
     collectTransitiveClosure(result, top);
     for (RuleModule module : result) {
       module.init(builder);
@@ -79,8 +80,18 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void minimalConsistency() {
-    checkModule(BazelRuleClassProvider.MINIMAL_RULES);
+  public void coreConsistency() {
+    checkModule(BazelRuleClassProvider.CORE_RULES);
+  }
+
+  @Test
+  public void coreWorkspaceConsistency() {
+    checkModule(BazelRuleClassProvider.CORE_WORKSPACE_RULES);
+  }
+
+  @Test
+  public void basicConsistency() {
+    checkModule(BazelRuleClassProvider.BASIC_RULES);
   }
 
   @Test

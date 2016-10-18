@@ -239,7 +239,10 @@ public class BazelRuleClassProvider {
   }
 
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
-    MINIMAL_RULES.init(builder);
+    BAZEL_SETUP.init(builder);
+    CORE_RULES.init(builder);
+    CORE_WORKSPACE_RULES.init(builder);
+    BASIC_RULES.init(builder);
     PROTO_RULES.init(builder);
     SH_RULES.init(builder);
     CPP_RULES.init(builder);
@@ -253,7 +256,7 @@ public class BazelRuleClassProvider {
     VARIOUS_WORKSPACE_RULES.init(builder);
   }
 
-  public static final RuleModule MINIMAL_RULES =
+  public static final RuleModule BAZEL_SETUP =
       new RuleModule() {
         @Override
         public void init(Builder builder) {
@@ -264,15 +267,37 @@ public class BazelRuleClassProvider {
               .setPrerequisiteValidator(new BazelPrerequisiteValidator());
 
           builder.setUniversalConfigurationFragment(BazelConfiguration.class);
-          builder.addConfigurationOptions(BuildConfiguration.Options.class);
           builder.addConfigurationFragment(new BazelConfiguration.Loader());
+          builder.addConfigurationOptions(BuildConfiguration.Options.class);
+        }
 
+        @Override
+        public ImmutableList<RuleModule> requires() {
+          return ImmutableList.of();
+        }
+      };
+
+  public static final RuleModule CORE_RULES =
+      new RuleModule() {
+        @Override
+        public void init(Builder builder) {
           builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.RuleBase());
           builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.ErrorRule());
+        }
 
+        @Override
+        public ImmutableList<RuleModule> requires() {
+          return ImmutableList.of();
+        }
+      };
+
+  public static final RuleModule BASIC_RULES =
+      new RuleModule() {
+        @Override
+        public void init(Builder builder) {
           builder.addRuleDefinition(new EnvironmentRule());
 
           builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
@@ -284,10 +309,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelGenRuleRule());
           builder.addRuleDefinition(new GenQueryRule());
 
-          builder.addRuleDefinition(new BindRule());
-          builder.addRuleDefinition(new WorkspaceBaseRule());
-          builder.addRuleDefinition(new LocalRepositoryRule());
-
           try {
             builder.addWorkspaceFilePrefix(
                 ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE"));
@@ -298,7 +319,22 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of();
+          return ImmutableList.of(CORE_RULES);
+        }
+      };
+
+  public static final RuleModule CORE_WORKSPACE_RULES =
+      new RuleModule() {
+        @Override
+        public void init(Builder builder) {
+          builder.addRuleDefinition(new BindRule());
+          builder.addRuleDefinition(new WorkspaceBaseRule());
+          builder.addRuleDefinition(new LocalRepositoryRule());
+        }
+
+        @Override
+        public ImmutableList<RuleModule> requires() {
+          return ImmutableList.of(CORE_RULES);
         }
       };
 
@@ -313,7 +349,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES);
+          return ImmutableList.of(CORE_RULES);
         }
       };
 
@@ -329,7 +365,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES);
+          return ImmutableList.of(CORE_RULES);
         }
       };
 
@@ -359,7 +395,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES);
+          return ImmutableList.of(CORE_RULES);
         }
       };
 
@@ -399,7 +435,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, CPP_RULES);
+          return ImmutableList.of(CORE_RULES, CPP_RULES);
         }
       };
 
@@ -417,7 +453,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, JAVA_RULES);
+          return ImmutableList.of(CORE_RULES, JAVA_RULES);
         }
       };
 
@@ -463,7 +499,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, CPP_RULES, JAVA_RULES);
+          return ImmutableList.of(CORE_RULES, CPP_RULES, JAVA_RULES);
         }
       };
 
@@ -484,7 +520,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, CPP_RULES);
+          return ImmutableList.of(CORE_RULES, CPP_RULES);
         }
       };
 
@@ -559,7 +595,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, CPP_RULES);
+          return ImmutableList.of(CORE_RULES, CPP_RULES);
         }
       };
 
@@ -588,7 +624,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, CPP_RULES, JAVA_RULES, OBJC_RULES);
+          return ImmutableList.of(CORE_RULES, CPP_RULES, JAVA_RULES, OBJC_RULES);
         }
       };
 
@@ -604,7 +640,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES);
+          return ImmutableList.of(CORE_RULES);
         }
       };
 
@@ -628,7 +664,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES);
+          return ImmutableList.of(CORE_RULES, CORE_WORKSPACE_RULES);
         }
       };
 }
