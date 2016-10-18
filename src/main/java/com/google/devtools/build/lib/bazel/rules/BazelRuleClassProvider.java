@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAs
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.objc.BazelJ2ObjcLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
@@ -131,6 +130,7 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcAspect;
 import com.google.devtools.build.lib.rules.objc.J2ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryBaseRule;
+import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleLibraryRule;
@@ -612,11 +612,12 @@ public class BazelRuleClassProvider {
           builder.addNativeAspectClass(bazelJ2ObjcProtoAspect);
           builder.addNativeAspectClass(j2ObjcAspect);
           builder.addRuleDefinition(new J2ObjcLibraryBaseRule());
-          builder.addRuleDefinition(new BazelJ2ObjcLibraryRule(j2ObjcAspect));
+          builder.addRuleDefinition(new J2ObjcLibraryRule(j2ObjcAspect));
 
           try {
             builder.addWorkspaceFilePrefix(
-                ResourceFileLoader.loadResource(BazelJ2ObjcLibraryRule.class, "j2objc.WORKSPACE"));
+                ResourceFileLoader.loadResource(
+                    BazelRuleClassProvider.class, "objc/j2objc.WORKSPACE"));
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }

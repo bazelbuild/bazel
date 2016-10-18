@@ -67,14 +67,14 @@ import java.util.List;
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "J2ObjcAspect";
   private final String toolsRepository;
-  private final BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect;
+  private final AbstractJ2ObjcProtoAspect j2ObjcProtoAspect;
 
   private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
       "-fno-strict-overflow");
 
-  public J2ObjcAspect(String toolsRepository, BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect) {
+  public J2ObjcAspect(String toolsRepository, AbstractJ2ObjcProtoAspect j2ObjcProtoAspect) {
     this.toolsRepository = toolsRepository;
-    this.bazelJ2ObjcProtoAspect = bazelJ2ObjcProtoAspect;
+    this.j2ObjcProtoAspect = j2ObjcProtoAspect;
   }
 
   private static final Iterable<Attribute> DEPENDENT_ATTRIBUTES = ImmutableList.of(
@@ -98,56 +98,67 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     }
   };
 
-  /**
-   * Adds additional attribute aspects and attributes to the given AspectDefinition.Builder.
-   */
-  protected AspectDefinition.Builder addAdditionalAttributes(
-      AspectDefinition.Builder builder) {
-    return builder.attributeAspect("deps", this, bazelJ2ObjcProtoAspect)
-        .attributeAspect("exports", this, bazelJ2ObjcProtoAspect)
-        .attributeAspect("runtime_deps", this, bazelJ2ObjcProtoAspect);
+  /** Adds additional attribute aspects and attributes to the given AspectDefinition.Builder. */
+  protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {
+    return builder;
   }
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return addAdditionalAttributes(new AspectDefinition.Builder("J2ObjCAspect"))
+        .attributeAspect("deps", this, j2ObjcProtoAspect)
+        .attributeAspect("exports", this, j2ObjcProtoAspect)
+        .attributeAspect("runtime_deps", this, j2ObjcProtoAspect)
         .requireProvider(JavaSourceInfoProvider.class)
         .requireProvider(JavaCompilationArgsProvider.class)
         .requiresConfigurationFragments(
-            AppleConfiguration.class,
-            J2ObjcConfiguration.class,
-            ObjcConfiguration.class)
+            AppleConfiguration.class, J2ObjcConfiguration.class, ObjcConfiguration.class)
         .requiresHostConfigurationFragments(Jvm.class)
-        .add(attr("$j2objc", LABEL).cfg(HOST).exec()
-            .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
-        .add(attr("$j2objc_wrapper", LABEL)
-            .allowedFileTypes(FileType.of(".py"))
-            .cfg(HOST)
-            .exec()
-            .singleArtifact()
-            .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/j2objc:j2objc_wrapper")))
-        .add(attr("$jre_emul_jar", LABEL).cfg(HOST)
-            .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
+        .add(
+            attr("$j2objc", LABEL)
+                .cfg(HOST)
+                .exec()
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
+        .add(
+            attr("$j2objc_wrapper", LABEL)
+                .allowedFileTypes(FileType.of(".py"))
+                .cfg(HOST)
+                .exec()
+                .singleArtifact()
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//tools/j2objc:j2objc_wrapper")))
+        .add(
+            attr("$jre_emul_jar", LABEL)
+                .cfg(HOST)
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
         .add(attr(":jre_lib", LABEL).value(JRE_LIB))
-        .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
-            .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/objc:xcrunwrapper")))
-        .add(attr(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, LABEL).cfg(HOST).exec()
-              .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/objc:libtool")))
-        .add(attr(":xcode_config", LABEL)
-            .allowedRuleClasses("xcode_config")
-            .checkConstraints()
-            .direct_compile_time_input()
-            .cfg(HOST)
-            .value(new AppleToolchain.XcodeConfigLabel(toolsRepository)))
-        .add(attr("$zipper", LABEL)
-            .cfg(HOST)
-            .exec()
-            .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/zip:zipper")))
+        .add(
+            attr("$xcrunwrapper", LABEL)
+                .cfg(HOST)
+                .exec()
+                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
+        .add(
+            attr(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, LABEL)
+                .cfg(HOST)
+                .exec()
+                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:libtool")))
+        .add(
+            attr(":xcode_config", LABEL)
+                .allowedRuleClasses("xcode_config")
+                .checkConstraints()
+                .direct_compile_time_input()
+                .cfg(HOST)
+                .value(new AppleToolchain.XcodeConfigLabel(toolsRepository)))
+        .add(
+            attr("$zipper", LABEL)
+                .cfg(HOST)
+                .exec()
+                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/zip:zipper")))
         .build();
   }
 
