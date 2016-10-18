@@ -248,6 +248,7 @@ public class BazelRuleClassProvider {
     ANDROID_RULES.init(builder);
     PYTHON_RULES.init(builder);
     OBJC_RULES.init(builder);
+    J2OBJC_RULES.init(builder);
     ANDROID_STUDIO_ASPECT.init(builder);
     VARIOUS_WORKSPACE_RULES.init(builder);
   }
@@ -336,7 +337,8 @@ public class BazelRuleClassProvider {
       new RuleModule() {
         @Override
         public void init(Builder builder) {
-          builder.addConfigurationOptions(CppOptions.class);
+          builder.addConfig(
+              CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
 
           builder.addBuildInfoFactory(new CppBuildInfo());
 
@@ -353,9 +355,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
           builder.addRuleDefinition(new BazelCcLibraryRule());
           builder.addRuleDefinition(new BazelCcIncLibraryRule());
-
-          builder.addConfigurationFragment(
-              new CppConfigurationLoader(Functions.<String>identity()));
         }
 
         @Override
@@ -428,8 +427,7 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
-          builder.addConfigurationOptions(AndroidConfiguration.Options.class);
-          builder.addConfigurationFragment(new AndroidConfiguration.Loader());
+          builder.addConfig(AndroidConfiguration.Options.class, new AndroidConfiguration.Loader());
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
           DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
@@ -443,8 +441,9 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidAaptBaseRule());
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
-          builder.addRuleDefinition(new AndroidRuleClasses.AndroidBinaryBaseRule(
-              androidNeverlinkAspect, dexArchiveAspect, jackAspect));
+          builder.addRuleDefinition(
+              new AndroidRuleClasses.AndroidBinaryBaseRule(
+                  androidNeverlinkAspect, dexArchiveAspect, jackAspect));
           builder.addRuleDefinition(new AndroidBinaryOnlyRule());
           builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect, jackAspect));
           builder.addRuleDefinition(new BazelAndroidLibraryRule());
@@ -472,10 +471,9 @@ public class BazelRuleClassProvider {
       new RuleModule() {
         @Override
         public void init(Builder builder) {
-          builder.addConfigurationOptions(PythonOptions.class);
-          builder.addConfigurationOptions(BazelPythonConfiguration.Options.class);
-          builder.addConfigurationFragment(new PythonConfigurationLoader());
-          builder.addConfigurationFragment(new BazelPythonConfiguration.Loader());
+          builder.addConfig(PythonOptions.class, new PythonConfigurationLoader());
+          builder.addConfig(
+              BazelPythonConfiguration.Options.class, new BazelPythonConfiguration.Loader());
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
@@ -496,32 +494,39 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
-          builder.addConfigurationOptions(ObjcCommandLineOptions.class);
-          builder.addConfigurationOptions(AppleCommandLineOptions.class);
-          builder.addConfigurationFragment(new ObjcConfigurationLoader());
-          builder.addConfigurationFragment(new AppleConfiguration.Loader());
-
           builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
           builder.registerSkylarkProvider(
               ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME, ObjcProvider.class);
-
           builder.addSkylarkAccessibleTopLevels("apple_common", new AppleSkylarkCommon());
 
+          builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());
+          builder.addConfig(AppleCommandLineOptions.class, new AppleConfiguration.Loader());
+          // j2objc shouldn't be here!
+          builder.addConfig(J2ObjcCommandLineOptions.class, new J2ObjcConfiguration.Loader());
+
           // objc_proto_library should go into a separate RuleModule!
+          // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
           ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
           builder.addNativeAspectClass(objcProtoAspect);
           builder.addRuleDefinition(new ObjcProtoLibraryRule(objcProtoAspect));
 
-          builder.addRuleDefinition(new AppleCcToolchainRule());
-          builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
-          builder.addRuleDefinition(new XcodeConfigRule());
-          builder.addRuleDefinition(new IosTestRule());
-          builder.addRuleDefinition(new IosDeviceRule());
           builder.addRuleDefinition(new AppleBinaryRule());
-          builder.addRuleDefinition(new AppleStaticLibraryRule());
+          builder.addRuleDefinition(new AppleCcToolchainRule());
           builder.addRuleDefinition(new AppleDynamicLibraryRule());
-          builder.addRuleDefinition(new ObjcBinaryRule());
+          builder.addRuleDefinition(new AppleStaticLibraryRule());
+          builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
+          builder.addRuleDefinition(new AppleWatch1ExtensionRule());
+          builder.addRuleDefinition(new AppleWatch2ExtensionRule());
+          builder.addRuleDefinition(new AppleWatchExtensionBinaryRule());
           builder.addRuleDefinition(new ExperimentalObjcLibraryRule());
+          builder.addRuleDefinition(new IosApplicationRule());
+          builder.addRuleDefinition(new IosDeviceRule());
+          builder.addRuleDefinition(new IosExtensionBinaryRule());
+          builder.addRuleDefinition(new IosExtensionRule());
+          builder.addRuleDefinition(new IosFrameworkBinaryRule());
+          builder.addRuleDefinition(new IosFrameworkRule());
+          builder.addRuleDefinition(new IosTestRule());
+          builder.addRuleDefinition(new ObjcBinaryRule());
           builder.addRuleDefinition(new ObjcBundleRule());
           builder.addRuleDefinition(new ObjcBundleLibraryRule());
           builder.addRuleDefinition(new ObjcFrameworkRule());
@@ -533,7 +538,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingRule());
           builder.addRuleDefinition(new ObjcRuleClasses.SimulatorRule());
           builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
-          // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
           builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
           builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
           builder.addRuleDefinition(new ObjcRuleClasses.ResourcesRule());
@@ -549,19 +553,21 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ObjcRuleClasses.WatchExtensionBundleRule());
           builder.addRuleDefinition(new ObjcRuleClasses.WatchApplicationBundleRule());
           builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
-          builder.addRuleDefinition(new AppleWatch1ExtensionRule());
-          builder.addRuleDefinition(new AppleWatch2ExtensionRule());
-          builder.addRuleDefinition(new AppleWatchExtensionBinaryRule());
-          builder.addRuleDefinition(new IosApplicationRule());
-          builder.addRuleDefinition(new IosExtensionBinaryRule());
-          builder.addRuleDefinition(new IosExtensionRule());
-          builder.addRuleDefinition(new IosFrameworkBinaryRule());
-          builder.addRuleDefinition(new IosFrameworkRule());
+          builder.addRuleDefinition(new XcodeConfigRule());
           builder.addRuleDefinition(new XcodeVersionRule());
+        }
 
-          // j2objc also doesn't belong here.
-          builder.addConfigurationOptions(J2ObjcCommandLineOptions.class);
-          builder.addConfigurationFragment(new J2ObjcConfiguration.Loader());
+        @Override
+        public ImmutableList<RuleModule> requires() {
+          return ImmutableList.of(MINIMAL_RULES, CPP_RULES);
+        }
+      };
+
+  public static final RuleModule J2OBJC_RULES =
+      new RuleModule() {
+        @Override
+        public void init(Builder builder) {
+          String toolsRepository = checkNotNull(builder.getToolsRepository());
 
           BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect =
               new BazelJ2ObjcProtoAspect(toolsRepository);
@@ -582,7 +588,7 @@ public class BazelRuleClassProvider {
 
         @Override
         public ImmutableList<RuleModule> requires() {
-          return ImmutableList.of(MINIMAL_RULES, CPP_RULES, JAVA_RULES);
+          return ImmutableList.of(MINIMAL_RULES, CPP_RULES, JAVA_RULES, OBJC_RULES);
         }
       };
 

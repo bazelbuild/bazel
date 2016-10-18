@@ -119,6 +119,11 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
+  public void j2objcConsistency() {
+    checkModule(BazelRuleClassProvider.J2OBJC_RULES);
+  }
+
+  @Test
   public void androidStudioConsistency() {
     checkModule(BazelRuleClassProvider.ANDROID_STUDIO_ASPECT);
   }

@@ -270,6 +270,21 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    /**
+     * Adds an options class and a corresponding factory. There's usually a 1:1:1 correspondence
+     * between option classes, factories, and fragments, such that the factory depends only on the
+     * options class and creates the fragment. This method provides a convenient way of adding both
+     * the options class and the factory in a single call.
+     */
+    public Builder addConfig(
+        Class<? extends FragmentOptions> options, ConfigurationFragmentFactory factory) {
+      // Enforce that the factory requires the options.
+      Preconditions.checkState(factory.requiredOptions().contains(options));
+      this.configurationOptions.add(options);
+      this.configurationFragmentFactories.add(factory);
+      return this;
+    }
+
     public Builder addConfigurationOptions(
         Collection<Class<? extends FragmentOptions>> optionsClasses) {
       this.configurationOptions.addAll(optionsClasses);
