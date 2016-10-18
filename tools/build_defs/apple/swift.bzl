@@ -36,7 +36,7 @@ def _intersperse(separator, iterable):
 def _swift_target(cpu, platform, sdk_version):
   """Returns a target triplet for Swift compiler."""
   platform_string = str(platform.platform_type)
-  if platform_string not in ["ios", "watchos"]:
+  if platform_string not in ["ios", "watchos", "tvos"]:
     fail("Platform '%s' is not supported" % platform_string)
 
   return "%s-apple-%s%s" % (cpu, platform_string, sdk_version)
@@ -153,7 +153,7 @@ def _swift_library_impl(ctx):
   platform = apple_fragment.single_arch_platform
 
   target_os = ctx.fragments.apple.minimum_os_for_platform_type(
-      apple_common.platform_type.ios)
+      platform.platform_type)
   target = _swift_target(cpu, platform, target_os)
   apple_toolchain = apple_common.apple_toolchain()
 
