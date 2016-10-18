@@ -8,3 +8,4 @@ Sorry this isn't automatic; there are no helper functions available within choco
 * https://github.com/chocolatey/choco/issues/310
 * https://github.com/chocolatey/package-validator/issues/148
 "@
+

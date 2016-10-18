@@ -15,8 +15,6 @@ write-host "download uri: $($tvUri)"
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./*.zip
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
-rm -force -ErrorAction SilentlyContinue ./tools/chocolateyinstall.ps1
-rm -force -ErrorAction SilentlyContinue ./tools/chocolateyuninstall.ps1
 rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
 
 if ($isRelease) {
@@ -35,18 +33,6 @@ if ($isRelease) {
 $nuspecTemplate = get-content "bazel.nuspec.template" | out-string
 $nuspecExpanded = $ExecutionContext.InvokeCommand.ExpandString($nuspecTemplate)
 add-content -value $nuspecExpanded -path bazel.nuspec
-
-$installerScriptTemplate = get-content "chocolateyinstall.ps1.template" | out-string
-$installerScriptExpanded = $ExecutionContext.InvokeCommand.ExpandString($installerScriptTemplate)
-$installerScriptExpanded = $installerScriptExpanded -replace "ps_var_","$"
-$installerScriptExpanded = $installerScriptExpanded -replace "escape_char","``"
-add-content -value $installerScriptExpanded -path ./tools/chocolateyinstall.ps1
-
-$uninstallerScriptTemplate = get-content "chocolateyuninstall.ps1.template" | out-string
-$uninstallerScriptExpanded = $ExecutionContext.InvokeCommand.ExpandString($uninstallerScriptTemplate)
-$uninstallerScriptExpanded = $uninstallerScriptExpanded -replace "ps_var_","$"
-$uninstallerScriptExpanded = $uninstallerScriptExpanded -replace "escape_char","``"
-add-content -value $uninstallerScriptExpanded -path ./tools/chocolateyuninstall.ps1
 
 write-host "Copying LICENSE.txt from repo-root to tools directory"
 $licenseHeader = @"

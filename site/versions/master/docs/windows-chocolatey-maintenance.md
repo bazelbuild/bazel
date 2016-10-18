@@ -44,7 +44,8 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 
 0. Build the package (without `isRelease`)
   * run a webserver (`python -m SimpleHTTPServer` in `scripts/packages/chocolatey` is convenient and starts one on `http://localhost:8000`)
-  * adjust `chocolateyinstall.ps1` so that the `$url` and `$url64` parameters point to `http://localhost:8000/bazel_0.3.1_windows_x86_64.zip`
+  * adjust `tools/parameters.json` so that it is correct for the new zip.
+    * `get-filehash <zip> -algorithm sha256` to get the checksum
 0. Test the install
 
     The `test.ps1` should install the package cleanly (and error if it did not install cleanly), then tell you what to do next.
@@ -64,9 +65,14 @@ Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being creat
 
 Chocolatey's moderation process automates checks here.
 
-### Publish
+### Release
 
-```sh
+Modify `tools/parameters.json` for the new release's URI and checksum once the release has been published to github releases.
+
+```powershell
+./build.ps1 -version <version> -isRelease
+./test.ps1 -version <version>
+# if the test.ps1 passes
 choco push bazel.x.y.z.nupkg --source https://chocolatey.org/
 ```
 
