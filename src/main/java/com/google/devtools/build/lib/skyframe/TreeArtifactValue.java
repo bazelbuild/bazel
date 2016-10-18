@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
@@ -37,7 +36,7 @@ import javax.annotation.Nullable;
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
-public class TreeArtifactValue implements SkyValue {
+class TreeArtifactValue implements SkyValue {
   private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
       new Function<Artifact, PathFragment>() {
         @Override
@@ -58,8 +57,7 @@ public class TreeArtifactValue implements SkyValue {
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments
    * and their corresponding FileArtifactValues.
    */
-  @VisibleForTesting
-  public static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
+  static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, Metadata> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
@@ -73,29 +71,29 @@ public class TreeArtifactValue implements SkyValue {
         ImmutableMap.copyOf(childFileValues));
   }
 
-  public FileArtifactValue getSelfData() {
+  FileArtifactValue getSelfData() {
     return FileArtifactValue.createProxy(digest);
   }
 
-  public Metadata getMetadata() {
+  Metadata getMetadata() {
     return new Metadata(digest.clone());
   }
 
-  public Set<PathFragment> getChildPaths() {
+  Set<PathFragment> getChildPaths() {
     return ImmutableSet.copyOf(Iterables.transform(childData.keySet(), PARENT_RELATIVE_PATHS));
   }
 
   @Nullable
-  public byte[] getDigest() {
+  byte[] getDigest() {
     return digest.clone();
   }
 
-  public Iterable<TreeFileArtifact> getChildren() {
+  Iterable<TreeFileArtifact> getChildren() {
     return childData.keySet();
   }
 
-  public FileArtifactValue getChildValue(TreeFileArtifact artifact) {
-    return childData.get(artifact);
+  Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
+    return childData;
   }
 
   @Override
@@ -136,33 +134,33 @@ public class TreeArtifactValue implements SkyValue {
   static final TreeArtifactValue MISSING_TREE_ARTIFACT = new TreeArtifactValue(null,
       ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()) {
     @Override
-    public FileArtifactValue getSelfData() {
+    FileArtifactValue getSelfData() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Iterable<TreeFileArtifact> getChildren() {
+    Iterable<TreeFileArtifact> getChildren() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public FileArtifactValue getChildValue(TreeFileArtifact artifact) {
+    Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Metadata getMetadata() {
+    Metadata getMetadata() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<PathFragment> getChildPaths() {
+    Set<PathFragment> getChildPaths() {
       throw new UnsupportedOperationException();
     }
 
     @Nullable
     @Override
-    public byte[] getDigest() {
+    byte[] getDigest() {
       throw new UnsupportedOperationException();
     }
 

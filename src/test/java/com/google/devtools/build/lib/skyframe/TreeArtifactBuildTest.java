@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -57,20 +58,17 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Timestamp builder tests for TreeArtifacts. */
 @RunWith(JUnit4.class)
@@ -133,6 +131,35 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertTrue(outOneFileTwo.getPath().exists());
     assertTrue(outTwoFileOne.getPath().exists());
     assertTrue(outTwoFileTwo.getPath().exists());
+  }
+
+  @Test
+  public void testInputTreeArtifactPerActionFileCache() throws Exception {
+    TouchingTestAction actionOne = new TouchingTestAction(outOneFileOne, outOneFileTwo);
+    registerAction(actionOne);
+
+    Artifact normalOutput = createDerivedArtifact("normal/out");
+    Action testAction = new TestAction(
+        TestAction.NO_EFFECT, ImmutableList.of(outOne), ImmutableList.of(normalOutput)) {
+      @Override
+      public void execute(ActionExecutionContext actionExecutionContext)
+          throws ActionExecutionException {
+        try {
+          // Check the file cache for input TreeFileArtifacts.
+          ActionInputFileCache fileCache = actionExecutionContext.getActionInputFileCache();
+          assertThat(fileCache.getDigest(outOneFileOne)).isNotNull();
+          assertThat(fileCache.getDigest(outOneFileTwo)).isNotNull();
+
+          // Touch the action output.
+          touchFile(normalOutput);
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+
+    registerAction(testAction);
+    buildArtifact(normalOutput);
   }
 
   /** Unchanged TreeArtifact outputs should not cause reexecution. */
