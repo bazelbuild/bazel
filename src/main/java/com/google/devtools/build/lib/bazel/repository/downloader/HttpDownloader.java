@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.InputStream;
@@ -170,7 +169,7 @@ public class HttpDownloader {
   }
 
   private ScheduledFuture<?> getLoggerHandle(
-      final AtomicInteger totalBytes, EventHandler eventHandler, String urlString) {
+      final AtomicInteger totalBytes, final EventHandler eventHandler, final String urlString) {
     final Runnable logger = new Runnable() {
       @Override
       public void run() {
