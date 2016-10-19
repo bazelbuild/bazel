@@ -1253,7 +1253,7 @@ public class Package {
       addRuleUnchecked(rule);
     }
 
-    private Builder beforeBuild() throws InterruptedException {
+    private Builder beforeBuild(boolean discoverAssumedInputFiles) throws InterruptedException {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
@@ -1270,15 +1270,17 @@ public class Package {
 
       List<Rule> rules = Lists.newArrayList(getTargets(Rule.class));
 
-      // All labels mentioned in a rule that refer to an unknown target in the
-      // current package are assumed to be InputFiles, so let's create them:
-      for (final Rule rule : rules) {
-        AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
-          @Override
-          public void acceptLabelAttribute(Label label, Attribute attribute) {
-            createInputFileMaybe(label, rule.getAttributeLocation(attribute.getName()));
-          }
-        });
+      if (discoverAssumedInputFiles) {
+        // All labels mentioned in a rule that refer to an unknown target in the
+        // current package are assumed to be InputFiles, so let's create them:
+        for (final Rule rule : rules) {
+          AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
+            @Override
+            public void acceptLabelAttribute(Label label, Attribute attribute) {
+              createInputFileMaybe(label, rule.getAttributeLocation(attribute.getName()));
+            }
+          });
+        }
       }
 
       // "test_suite" rules have the idiosyncratic semantics of implicitly
@@ -1310,7 +1312,7 @@ public class Package {
       if (alreadyBuilt) {
         return this;
       }
-      return beforeBuild();
+      return beforeBuild(/*discoverAssumedInputFiles=*/ true);
     }
 
     /**
@@ -1355,10 +1357,18 @@ public class Package {
     }
 
     public Package build() throws InterruptedException {
+      return build(/*discoverAssumedInputFiles=*/ true);
+    }
+
+    /**
+     * Build the package, optionally adding any labels in the package not already associated with
+     * a target as an input file.
+     */
+    public Package build(boolean discoverAssumedInputFiles) throws InterruptedException {
       if (alreadyBuilt) {
         return pkg;
       }
-      beforeBuild();
+      beforeBuild(discoverAssumedInputFiles);
       return finishBuild();
     }
 
