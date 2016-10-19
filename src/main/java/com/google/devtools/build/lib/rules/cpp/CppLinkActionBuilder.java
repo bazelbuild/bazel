@@ -554,7 +554,7 @@ public class CppLinkActionBuilder {
         isLTOIndexing
             ? new CppLinkVariablesExtension(
                 configuration,
-                ImmutableMap.of(),
+                ImmutableMap.<Artifact, Artifact>of(),
                 needWholeArchive,
                 linkerInputs,
                 runtimeLinkerInputs,

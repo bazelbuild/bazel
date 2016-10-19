@@ -609,7 +609,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             expandedArtifacts.put(input, expansionBuilder.build());
           } else if (value instanceof TreeArtifactValue) {
             TreeArtifactValue treeValue = (TreeArtifactValue) value;
-            expandedArtifacts.put(input, ImmutableSet.copyOf(treeValue.getChildren()));
+            expandedArtifacts.put(input, ImmutableSet.<Artifact>copyOf(treeValue.getChildren()));
             inputArtifactData.putAll(treeValue.getChildValues());
 
             // Again, we cache the "digest" of the value for cache checking.
