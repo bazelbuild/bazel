@@ -263,6 +263,10 @@ function setup_bazelrc() {
   cat >$TEST_TMPDIR/bazelrc <<EOF
 startup --output_user_root=${bazel_root}
 startup --host_javabase=${bazel_javabase}
+
+# Print all progress messages because we regularly grep the output in tests.
+common --show_progress_rate_limit=-1
+
 build -j 8
 ${EXTRA_BAZELRC:-}
 EOF

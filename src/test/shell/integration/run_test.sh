@@ -244,6 +244,8 @@ EOF
   err1nocolor=$(mktemp x/XXXXXX)
   err2=$(mktemp x/XXXXXX)
 
+  # TODO(katre): Figure out why progress rate limiting is required for this on darwin.
+  add_to_bazelrc common --show_progress_rate_limit=0.03
   bazel run //x:x --color=yes >$out1color 2>$err1raw_color || fail "expected success"
   bazel run //x:x --color=no >$out1nocolor 2>$err1raw_nocolor || fail "expected success"
 
@@ -263,10 +265,10 @@ EOF
   start=$(($bazel_stderr_line_count_nocolor+1))
   tail -n +$start $err1raw_nocolor >$err1nocolor
 
-  diff $out1color $out2 >&/dev/null || fail "stdout with --color=yes differs"
-  diff $out1nocolor $out2 >&/dev/null || fail "stdout with --color=no differs"
-  diff $err1color $err2 >&/dev/null || fail "stderr with --color=yes differs"
-  diff $err1nocolor $err2 >&/dev/null || fail "stderr with --color=no differs"
+  diff $out1color $out2 >&$TEST_log || fail "stdout with --color=yes differs"
+  diff $out1nocolor $out2 >&$TEST_log || fail "stdout with --color=no differs"
+  diff $err1color $err2 >&$TEST_log || fail "stderr with --color=yes differs"
+  diff $err1nocolor $err2 >&$TEST_log || fail "stderr with --color=no differs"
 
   rm -rf x
 }
