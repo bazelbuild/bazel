@@ -180,29 +180,18 @@ class TreeArtifactValue implements SkyValue {
     }
   };
 
-  /**
-   * Exception used when the contents of a directory do not form a valid SetArtifact.
-   * (We cannot use IOException because ActionMetadataHandler, in some code paths,
-   * interprets IOExceptions as missing files.)
-   */
-  static class TreeArtifactException extends Exception {
-    TreeArtifactException(String message) {
-      super(message);
-    }
-  }
-
-  private static void explodeDirectory(Artifact rootArtifact,
+  private static void explodeDirectory(Artifact treeArtifact,
       PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
-      throws IOException, TreeArtifactException {
-    for (Path subpath : rootArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
+      throws IOException {
+    for (Path subpath : treeArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
       PathFragment canonicalSubpathFragment =
           pathToExplode.getChild(subpath.getBaseName()).normalize();
       if (subpath.isDirectory()) {
-        explodeDirectory(rootArtifact,
+        explodeDirectory(treeArtifact,
             pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
       } else if (subpath.isSymbolicLink()) {
-        throw new TreeArtifactException(
-            "A SetArtifact may not contain a symlink, found " + subpath);
+        throw new IOException(
+            "A TreeArtifact may not contain a symlink, found " + subpath);
       } else if (subpath.isFile()) {
         valuesBuilder.add(canonicalSubpathFragment);
       } else {
@@ -215,13 +204,12 @@ class TreeArtifactValue implements SkyValue {
   /**
    * Recursively get all child files in a directory
    * (excluding child directories themselves, but including all files in them).
-   * @throws IOException if one was thrown reading directory contents from disk.
-   * @throws TreeArtifactException if the on-disk directory is not a valid TreeArtifact.
+   * @throws IOException if there is any problem reading or validating outputs under the given
+   *     tree artifact.
    */
-  static Set<PathFragment> explodeDirectory(Artifact rootArtifact)
-      throws IOException, TreeArtifactException {
+  static Set<PathFragment> explodeDirectory(Artifact treeArtifact) throws IOException {
     ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
-    explodeDirectory(rootArtifact, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
+    explodeDirectory(treeArtifact, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
     return explodedDirectory.build();
   }
 }

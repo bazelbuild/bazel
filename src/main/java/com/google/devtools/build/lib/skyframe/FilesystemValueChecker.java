@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrappe
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.AutoProfiler.ElapsedTimeReceiver;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue.TreeArtifactException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -376,7 +375,7 @@ public class FilesystemValueChecker {
       Set<PathFragment> currentDirectoryValue = TreeArtifactValue.explodeDirectory(artifact);
       Set<PathFragment> valuePaths = value.getChildPaths();
       return !currentDirectoryValue.equals(valuePaths);
-    } catch (IOException | TreeArtifactException e) {
+    } catch (IOException e) {
       return true;
     }
   }
