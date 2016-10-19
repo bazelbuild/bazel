@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpFileRule;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -22,11 +23,17 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Downloads a jar file from a URL.
  */
 public class HttpFileFunction extends HttpArchiveFunction {
+
+  public HttpFileFunction(AtomicReference<HttpDownloader> httpDownloader) {
+    super(httpDownloader);
+  }
+
   @Override
   protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)
       throws RepositoryFunctionException {

@@ -40,8 +40,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.annotation.Nullable;
-
 /**
  * Helper class for downloading a file from a URL.
  */
@@ -51,28 +49,13 @@ public class HttpDownloader {
   private static final String UNITS = " KMGTPEY";
   private static final double LOG_OF_KB = Math.log(1024);
 
-  private final String urlString;
-  private final String sha256;
-  private final String type;
-  private final Path outputDirectory;
-  private final EventHandler eventHandler;
   private final ScheduledExecutorService scheduler;
-  private final Map<String, String> clientEnv;
 
-  private HttpDownloader(
-      EventHandler eventHandler, String urlString, String sha256, Path outputDirectory,
-      String type, Map<String, String> clientEnv) {
-    this.urlString = urlString;
-    this.sha256 = sha256;
-    this.outputDirectory = outputDirectory;
-    this.eventHandler = eventHandler;
+  public HttpDownloader() {
     this.scheduler = Executors.newScheduledThreadPool(1);
-    this.type = type;
-    this.clientEnv = clientEnv;
   }
 
-  @Nullable
-  public static Path download(
+  public Path download(
       Rule rule, Path outputDirectory, EventHandler eventHandler, Map<String, String> clientEnv)
       throws RepositoryFunctionException, InterruptedException {
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
@@ -89,42 +72,11 @@ public class HttpDownloader {
     }
 
     try {
-      return new HttpDownloader(eventHandler, url, sha256, outputDirectory, type, clientEnv)
-          .download();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(new IOException("Error downloading from "
-          + url + " to " + outputDirectory + ": " + e.getMessage()),
-          SkyFunctionException.Transience.TRANSIENT);
-    }
-  }
-
-  @SuppressWarnings("unused")
-  @Nullable
-  public static Path download(
-      Rule rule, Path outputDirectory, EventHandler eventHandler, Map<String, String> clientEnv,
-      RepositoryCache repositoryCache)
-      throws RepositoryFunctionException, InterruptedException {
-
-    /* TODO(jingwen): No-op with the cache controller for now.
-     * This will be the place where we detect cache hits with the sha256 value
-     * and copy the values accordingly.
-     * 
-     * For now, delegating operation to the original download method.
-     */
-    return download(rule, outputDirectory, eventHandler, clientEnv);
-  }
-
-  @Nullable
-  public static Path download(
-      String url, String sha256, String type, Path output, EventHandler eventHandler, Map<String,
-      String> clientEnv)
-      throws RepositoryFunctionException, InterruptedException {
-    try {
-      return new HttpDownloader(eventHandler, url, sha256, output, type, clientEnv).download();
+      return download(url, sha256, type, outputDirectory, eventHandler, clientEnv);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
-              "Error downloading from " + url + " to " + output + ": " + e.getMessage()),
+              "Error downloading from " + url + " to " + outputDirectory + ": " + e.getMessage()),
           SkyFunctionException.Transience.TRANSIENT);
     }
   }
@@ -132,7 +84,10 @@ public class HttpDownloader {
   /**
    * Attempt to download a file from the repository's URL. Returns the path to the file downloaded.
    */
-  public Path download() throws IOException, InterruptedException {
+  public Path download(
+      String urlString, String sha256, String type, Path outputDirectory,
+      EventHandler eventHandler, Map<String, String> clientEnv)
+          throws IOException, InterruptedException {
     URL url = new URL(urlString);
     Path destination;
     if (type == null) {
@@ -160,10 +115,10 @@ public class HttpDownloader {
     }
 
     AtomicInteger totalBytes = new AtomicInteger(0);
-    final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes);
+    final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes, eventHandler, urlString);
 
     try (OutputStream out = destination.getOutputStream();
-         HttpConnection connection = HttpConnection.createAndConnect(url, this.clientEnv)) {
+         HttpConnection connection = HttpConnection.createAndConnect(url, clientEnv)) {
       InputStream inputStream = connection.getInputStream();
       int read;
       byte[] buf = new byte[BUFFER_SIZE];
@@ -191,11 +146,11 @@ public class HttpDownloader {
       }, 0, TimeUnit.SECONDS);
     }
 
-    compareHashes(destination);
+    compareHashes(destination, sha256);
     return destination;
   }
 
-  private void compareHashes(Path destination) throws IOException {
+  private void compareHashes(Path destination, String sha256) throws IOException {
     if (sha256.isEmpty()) {
       return;
     }
@@ -214,7 +169,8 @@ public class HttpDownloader {
     }
   }
 
-  private ScheduledFuture<?> getLoggerHandle(final AtomicInteger totalBytes) {
+  private ScheduledFuture<?> getLoggerHandle(
+      final AtomicInteger totalBytes, EventHandler eventHandler, String urlString) {
     final Runnable logger = new Runnable() {
       @Override
       public void run() {
@@ -255,5 +211,9 @@ public class HttpDownloader {
       }
     }
     return hasher.hash().toString();
+  }
+
+  public void setRepositoryCache(@SuppressWarnings("unused") RepositoryCache repositoryCache) {
+    // TODO(jingwen): Implement repository cache bridge
   }
 }

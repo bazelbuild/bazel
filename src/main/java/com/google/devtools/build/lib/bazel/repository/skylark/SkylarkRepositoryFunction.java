@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -36,7 +37,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.util.Map;
-
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -53,6 +54,12 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     SkylarkRepositoryMissingDependencyException() {
       super(Location.BUILTIN, "Internal exception");
     }
+  }
+
+  private final AtomicReference<HttpDownloader> httpDownloader;
+
+  public SkylarkRepositoryFunction(AtomicReference<HttpDownloader> httpDownloader) {
+    this.httpDownloader = httpDownloader;
   }
 
   /**
@@ -89,8 +96,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               .setSkylark()
               .setEventHandler(env.getListener())
               .build();
-      SkylarkRepositoryContext skylarkRepositoryContext =
-          new SkylarkRepositoryContext(rule, outputDirectory, env, getClientEnvironment());
+      SkylarkRepositoryContext skylarkRepositoryContext = new SkylarkRepositoryContext(
+          rule, outputDirectory, env, getClientEnvironment(), httpDownloader);
 
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make

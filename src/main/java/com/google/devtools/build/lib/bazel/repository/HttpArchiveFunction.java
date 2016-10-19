@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.packages.Rule;
@@ -39,17 +38,10 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class HttpArchiveFunction extends RepositoryFunction {
 
-  private final AtomicReference<RepositoryCache> repositoryCache;
+  protected final AtomicReference<HttpDownloader> httpDownloader;
 
-  protected HttpArchiveFunction() {
-    repositoryCache = new AtomicReference<>();
-  }
-
-  /**
-   * @param repositoryCache the reference to the repository cache.
-   */
-  public HttpArchiveFunction(AtomicReference<RepositoryCache> repositoryCache) {
-    this.repositoryCache = repositoryCache;
+  public HttpArchiveFunction(AtomicReference<HttpDownloader> httpDownloader) {
+    this.httpDownloader = httpDownloader;
   }
 
   @Override
@@ -70,18 +62,16 @@ public class HttpArchiveFunction extends RepositoryFunction {
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
           throws RepositoryFunctionException, InterruptedException {
-    // The output directory is always under .external-repository (to stay out of the way of
+    // The output directory is always under output_base/external (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
     // remote repository rules. For example, suppose you had the following WORKSPACE file:
     //
     // http_archive(name = "png", url = "http://example.com/downloads/png.tar.gz", sha256 = "...")
     //
-    // This would download png.tar.gz to .external-repository/png/png.tar.gz.
+    // This would download png.tar.gz to output_base/external/png/png.tar.gz.
     createDirectory(outputDirectory);
-    Path downloadedPath = (repositoryCache == null || repositoryCache.get() == null)
-        ? HttpDownloader.download(rule, outputDirectory, env.getListener(), clientEnvironment)
-        : HttpDownloader.download(rule, outputDirectory, env.getListener(), clientEnvironment,
-            repositoryCache.get());
+    Path downloadedPath = httpDownloader.get().download(rule, outputDirectory,
+        env.getListener(), clientEnvironment);
 
     DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));
     return RepositoryDirectoryValue.create(outputDirectory);

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -81,21 +82,22 @@ public class BazelRepositoryModule extends BlazeModule {
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
-  private final SkylarkRepositoryFunction skylarkRepositoryFunction =
-      new SkylarkRepositoryFunction();
+  private final SkylarkRepositoryFunction skylarkRepositoryFunction;
   private final RepositoryDelegatorFunction delegator;
-  private final AtomicReference<RepositoryCache> repositoryCache = new AtomicReference<>();
+  private final AtomicReference<HttpDownloader> httpDownloader =
+      new AtomicReference<>(new HttpDownloader());
 
   public BazelRepositoryModule() {
+    this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
     this.repositoryHandlers =
         ImmutableMap.<String, RepositoryFunction>builder()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(HttpArchiveRule.NAME, new HttpArchiveFunction(repositoryCache))
+            .put(HttpArchiveRule.NAME, new HttpArchiveFunction(httpDownloader))
             .put(GitRepositoryRule.NAME, new GitRepositoryFunction())
-            .put(HttpJarRule.NAME, new HttpJarFunction())
-            .put(HttpFileRule.NAME, new HttpFileFunction())
-            .put(MavenJarRule.NAME, new MavenJarFunction())
-            .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction())
+            .put(HttpJarRule.NAME, new HttpJarFunction(httpDownloader))
+            .put(HttpFileRule.NAME, new HttpFileFunction(httpDownloader))
+            .put(MavenJarRule.NAME, new MavenJarFunction(httpDownloader))
+            .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction(httpDownloader))
             .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction())
             .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
             .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
@@ -171,7 +173,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
     if (repoOptions != null && repoOptions.experimentalRepositoryCache != null) {
-      repositoryCache.set(new RepositoryCache(repoOptions.experimentalRepositoryCache));
+      httpDownloader.get().setRepositoryCache(
+          new RepositoryCache(repoOptions.experimentalRepositoryCache));
     }
   }
 

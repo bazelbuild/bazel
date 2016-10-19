@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
@@ -38,9 +39,11 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /**
  * Integration test for skylark repository not as heavyweight than shell integration tests.
@@ -66,8 +69,12 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
       // Add both the local repository and the skylark repository functions
+      // The HttpDownloader mock injected with the SkylarkRepositoryFunction
+      AtomicReference<HttpDownloader> httpDownloader =
+          new AtomicReference<>(Mockito.mock(HttpDownloader.class));
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-      SkylarkRepositoryFunction skylarkRepositoryFunction = new SkylarkRepositoryFunction();
+      SkylarkRepositoryFunction skylarkRepositoryFunction =
+          new SkylarkRepositoryFunction(httpDownloader);
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
 

@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -87,12 +89,15 @@ public class SkylarkRepositoryContextTest {
             .externalPackageData()
             .createAndAddRepositoryRule(
                 packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
+    AtomicReference<HttpDownloader> httpDownloader =
+        new AtomicReference<>(Mockito.mock(HttpDownloader.class));
     context =
         new SkylarkRepositoryContext(
             rule,
             outputDirectory,
             Mockito.mock(SkyFunction.Environment.class),
-            ImmutableMap.of("FOO", "BAR"));
+            ImmutableMap.of("FOO", "BAR"),
+            httpDownloader);
   }
 
   protected void setUpContexForRule(String name) throws Exception {
