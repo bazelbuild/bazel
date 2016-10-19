@@ -247,6 +247,15 @@ def _swift_library_impl(ctx):
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in swiftc_defines]
 
+  # This tells the linker to write a reference to .swiftmodule as an AST symbol
+  # in the final binary.
+  # With dSYM enabled, this results in a __DWARF,__swift_ast section added to
+  # the dSYM binary, from where LLDB is able deserialize module information.
+  # Without dSYM, LLDB will follow the AST references, however there is a bug
+  # where it follows only the first one https://bugs.swift.org/browse/SR-2637
+  # This means that dSYM is required for debugging until that is resolved.
+  extra_linker_args = ["-Xlinker -add_ast_path -Xlinker " + output_module.path]
+
   clang_args = _intersperse(
       "-Xcc",
 
@@ -317,7 +326,8 @@ def _swift_library_impl(ctx):
       library=set([output_lib] + dep_libs),
       header=set([output_header]),
       providers=objc_providers,
-      linkopt=_swift_linkopts(ctx),
+      linkopt=_swift_linkopts(ctx) + extra_linker_args,
+      link_inputs=set([output_module]),
       uses_swift=True,)
 
   return struct(

@@ -740,4 +740,42 @@ EOF
   expect_log "Error in target '//ios:bad-dep'"
 }
 
+function test_swift_ast_is_recorded() {
+  rm -rf ios
+  mkdir -p ios
+
+  touch ios/main.swift
+  touch ios/dep.swift
+
+  cat >ios/main.m <<EOF
+#import <UIKit/UIKit.h>
+
+int main(int argc, char *argv[]) {
+  @autoreleasepool {
+    return UIApplicationMain(argc, argv, nil, nil);
+  }
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "dep",
+              srcs = ["dep.swift"])
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              deps = [":dep"])
+objc_binary(name = "bin",
+            srcs = ["main.m"],
+            deps = [":swift_lib"])
+EOF
+
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      --xcode_version=$XCODE_VERSION -s \
+      //ios:bin >$TEST_log 2>&1 || fail "should build"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
+}
+
 run_suite "apple_tests"
