@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect;
 import com.google.devtools.build.lib.ideinfo.BazelAndroidStudioInfoSemantics;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -154,6 +155,7 @@ import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
@@ -177,6 +179,7 @@ public class BazelRuleClassProvider {
     public void validate(RuleContext.Builder context,
         ConfiguredTarget prerequisite, Attribute attribute) {
       validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
+      validateDirectPrerequisiteForTestOnly(context, prerequisite);
       DeprecationValidator.validateDirectPrerequisiteForDeprecation(
           context, context.getRule(), prerequisite, context.forAspect());
     }
@@ -224,6 +227,29 @@ public class BazelRuleClassProvider {
                 + "' is misplaced here "
                 + "(they are only allowed in the visibility attribute)");
       }
+    }
+
+    private void validateDirectPrerequisiteForTestOnly(
+        RuleContext.Builder context, ConfiguredTarget prerequisite) {
+      Rule rule = context.getRule();
+      Target prerequisiteTarget = prerequisite.getTarget();
+      Label prerequisiteLabel = prerequisiteTarget.getLabel();
+      String thisPackage = rule.getLabel().getPackageName();
+
+      if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
+        String message = "non-test target '" + rule.getLabel() + "' depends on testonly target '"
+            + prerequisiteLabel + "' and doesn't have testonly attribute set";
+        if (thisPackage.startsWith("experimental/")) {
+          context.ruleWarning(message);
+        } else {
+          context.ruleError(message);
+        }
+      }
+    }
+
+    private static boolean isTestOnlyRule(Target target) {
+      return (target instanceof Rule)
+          && (NonconfigurableAttributeMapper.of((Rule) target)).get("testonly", Type.BOOLEAN);
     }
   }
 

@@ -294,6 +294,29 @@ EOF
   [ -s $xml_log ] || fail "$xml_log was not present after test"
 }
 
+# Simple test that we actually enforce testonly, see #1923.
+function test_testonly_is_enforced() {
+  mkdir -p testonly
+  cat <<'EOF' >testonly/BUILD
+genrule(
+    name = "testonly",
+    srcs = [],
+    cmd = "echo testonly | tee $@",
+    outs = ["testonly.txt"],
+    testonly = 1,
+)
+genrule(
+    name = "not-testonly",
+    srcs = [":testonly"],
+    cmd = "echo should fail | tee $@",
+    outs = ["not-testonly.txt"],
+)
+EOF
+    bazel build //testonly &>$TEST_log || fail "Building //testonly failed"
+    bazel build //testonly:not-testonly &>$TEST_log && fail "Should have failed" || true
+    expect_log "'//testonly:not-testonly' depends on testonly target '//testonly:testonly'"
+}
+
 function test_always_xml_output() {
   mkdir -p dir
 
