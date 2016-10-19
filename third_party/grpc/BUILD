@@ -49,6 +49,9 @@ cc_binary(
         "-Ithird_party/grpc/include",
         "-Ithird_party/grpc",
     ],
+    linkopts = [
+        "-lm",
+    ],
     visibility = ["//visibility:public"],
     deps = ["//third_party/protobuf:protoc_lib"],
 )

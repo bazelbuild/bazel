@@ -100,6 +100,7 @@ cc_binary(
         ],
         "//src:freebsd": [
             "-lprocstat",
+            "-lm",
         ],
         "//conditions:default": [
             "-lrt",
