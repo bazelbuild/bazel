@@ -261,11 +261,16 @@ unset JAVA_RUNFILES
 
 function setup_bazelrc() {
   cat >$TEST_TMPDIR/bazelrc <<EOF
+# Set the user root properly for this test invocation.
 startup --output_user_root=${bazel_root}
+# Set the correct javabase from the outer bazel invocation.
 startup --host_javabase=${bazel_javabase}
 
 # Print all progress messages because we regularly grep the output in tests.
 common --show_progress_rate_limit=-1
+
+# Disable terminal-specific features.
+common --color=no --curses=no
 
 build -j 8
 ${EXTRA_BAZELRC:-}
