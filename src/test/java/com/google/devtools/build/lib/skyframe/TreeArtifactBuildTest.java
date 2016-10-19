@@ -138,7 +138,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     TouchingTestAction actionOne = new TouchingTestAction(outOneFileOne, outOneFileTwo);
     registerAction(actionOne);
 
-    Artifact normalOutput = createDerivedArtifact("normal/out");
+    final Artifact normalOutput = createDerivedArtifact("normal/out");
     Action testAction = new TestAction(
         TestAction.NO_EFFECT, ImmutableList.of(outOne), ImmutableList.of(normalOutput)) {
       @Override
