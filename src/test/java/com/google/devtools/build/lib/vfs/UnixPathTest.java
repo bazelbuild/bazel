@@ -24,6 +24,12 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -33,10 +39,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link Path}.
@@ -267,7 +269,7 @@ public class UnixPathTest {
 
   @Test
   public void testDerivedSegmentEquality() {
-    Path absoluteSegment = unixFs.getRootDirectory();
+    Path absoluteSegment = new Path(null);
 
     Path derivedNode = absoluteSegment.getChild("derivedSegment");
     Path otherDerivedNode = absoluteSegment.getChild("derivedSegment");

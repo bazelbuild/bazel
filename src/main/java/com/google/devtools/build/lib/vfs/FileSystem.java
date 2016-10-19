@@ -22,7 +22,6 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
-import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,20 +37,6 @@ import java.util.List;
 @ThreadSafe
 public abstract class FileSystem {
 
-  private enum UnixPathFactory implements PathFactory {
-    INSTANCE {
-      @Override
-      public Path createRootPath(FileSystem filesystem) {
-        return new Path(filesystem, PathFragment.ROOT_DIR, null);
-      }
-
-      @Override
-      public Path createChildPath(Path parent, String childName) {
-        return new Path(parent.getFileSystem(), childName, parent);
-      }
-    };
-  }
-
   /**
    * An exception thrown when attempting to resolve an ordinary file as a symlink.
    */
@@ -64,12 +49,19 @@ public abstract class FileSystem {
   protected final Path rootPath;
 
   protected FileSystem() {
-    this.rootPath = getPathFactory().createRootPath(this);
+    this.rootPath = createRootPath();
   }
 
-  /** Returns filesystem-specific path factory. */
-  protected PathFactory getPathFactory() {
-    return UnixPathFactory.INSTANCE;
+  /**
+   * Creates the root of all paths used by this filesystem. This is a hook
+   * allowing subclasses to define their own root path class. All other paths
+   * are created via the root path's {@link Path#createChildPath(String)} method.
+   * <p>
+   * Beware: this is called during the FileSystem constructor which may occur
+   * before subclasses are completely initialized.
+   */
+  protected Path createRootPath() {
+    return new Path(this);
   }
 
   /**

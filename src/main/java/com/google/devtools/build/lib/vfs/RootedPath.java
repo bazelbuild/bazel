@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.util.Preconditions;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -48,21 +49,7 @@ public class RootedPath implements Serializable {
    * Returns a rooted path representing {@code relativePath} relative to {@code root}.
    */
   public static RootedPath toRootedPath(Path root, PathFragment relativePath) {
-    if (relativePath.isAbsolute()) {
-      if (root.isRootDirectory()) {
-        return new RootedPath(
-            root.getRelative(relativePath.windowsVolume()), relativePath.toRelative());
-      } else {
-        Preconditions.checkArgument(
-            relativePath.startsWith(root.asFragment()),
-            "relativePath '%s' is absolute, but it's not under root '%s'",
-            relativePath,
-            root);
-        return new RootedPath(root, relativePath.relativeTo(root.asFragment()));
-      }
-    } else {
-      return new RootedPath(root, relativePath);
-    }
+    return new RootedPath(root, relativePath);
   }
 
   /**
@@ -70,7 +57,7 @@ public class RootedPath implements Serializable {
    */
   public static RootedPath toRootedPath(Path root, Path path) {
     Preconditions.checkState(path.startsWith(root), "path: %s root: %s", path, root);
-    return toRootedPath(root, path.asFragment());
+    return new RootedPath(root, path.relativeTo(root));
   }
 
   /**

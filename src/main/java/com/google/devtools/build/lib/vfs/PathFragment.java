@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -107,14 +106,13 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   // live PathFragments, so do not add further fields on a whim.
 
   // The individual path components.
-  // Does *not* include the Windows drive letter.
   private final String[] segments;
 
   // True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo").
-  // False for a Windows-style volume label ("C:") which is actually a relative path.
   private final boolean isAbsolute;
 
-  // Upper case Windows drive letter, or '\0' if none or unknown.
+  // Upper case windows drive letter, or '\0' if none. While a volumeName string is more
+  // general, we create a lot of these objects, so space is at a premium.
   private final char driveLetter;
 
   // hashCode and path are lazily initialized but semantically immutable.
@@ -125,47 +123,13 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
    */
   public PathFragment(String path) {
-    char drive = '\0';
-    boolean abs = false;
-    if (OS.getCurrent() == OS.WINDOWS) {
-      if (path.length() == 2 && isSeparator(path.charAt(0)) && Character.isLetter(path.charAt(1))) {
-        // Path is "/C" or other drive letter
-        drive = Character.toUpperCase(path.charAt(1));
-        abs = true;
-      } else if (path.length() >= 2
-          && Character.isLetter(path.charAt(0))
-          && path.charAt(1) == ':') {
-        // Path is like "C:", "C:/", "C:foo", or "C:/foo"
-        drive = Character.toUpperCase(path.charAt(0));
-      } else if (path.length() >= 3
-          && isSeparator(path.charAt(0))
-          && Character.isLetter(path.charAt(1))) {
-        if (isSeparator(path.charAt(2))) {
-          // Path is like "/C/" or "/C/foo"
-          drive = Character.toUpperCase(path.charAt(1));
-          abs = true;
-        } else if (path.charAt(2) == ':') {
-          // Path is like "/C:" or "/C:/" or "/C:/foo", neither of which is a valid path on MSYS.
-          // They are also very confusing because they would be valid, absolute PathFragments with
-          // no drive letters and the first segment being "C:".
-          // We should not be constructing such PathFragments on Windows because it would allow
-          // creating a valid Path object that would nevertheless be non-equal to "C:/" (because
-          // the internal representation would be different).
-          throw new IllegalArgumentException("Illegal path string \"" + path + "\"");
-        }
-      }
-    }
-
-    if (drive != '\0') {
+    this.driveLetter = getWindowsDriveLetter(path);
+    if (driveLetter != '\0') {
       path = path.substring(2);
+      // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g. C:x.
     }
-    this.isAbsolute = abs || (path.length() > 0 && isSeparator(path.charAt(0)));
+    this.isAbsolute = path.length() > 0 && isSeparator(path.charAt(0));
     this.segments = segment(path, isAbsolute ? 1 : 0);
-
-    // If the only difference between this object and EMPTY_FRAGMENT is the drive letter, then this
-    // object is equivalent with the empty fragment. To make them compare equal we must use a null
-    // drive letter.
-    this.driveLetter = (this.isAbsolute || this.segments.length > 0) ? drive : '\0';
   }
 
   private static boolean isSeparator(char c) {
@@ -186,17 +150,6 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
    */
   PathFragment(char driveLetter, boolean isAbsolute, String[] segments) {
-    driveLetter = Character.toUpperCase(driveLetter);
-    if (OS.getCurrent() == OS.WINDOWS
-        && segments.length > 0
-        && segments[0].length() == 2
-        && Character.toUpperCase(segments[0].charAt(0)) == driveLetter
-        && segments[0].charAt(1) == ':') {
-      throw new IllegalStateException(
-          String.format(
-              "the drive letter should not be a path segment; drive='%c', segments=[%s]",
-              driveLetter, Joiner.on(", ").join(segments)));
-    }
     this.driveLetter = driveLetter;
     this.isAbsolute = isAbsolute;
     this.segments = segments;
@@ -385,11 +338,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
         ((driveLetter != '\0') ? 2 : 0)
         + ((segments.length == 0) ? 0 : (segments.length + 1) * 20);
     StringBuilder result = new StringBuilder(estimateSize);
-    if (isAbsolute) {
-      // Only print the Windows volume label if the PathFragment is absolute. Do not print relative
-      // Windows paths like "C:foo/bar", it would break all kinds of things, e.g. glob().
-      result.append(windowsVolume());
-    }
+    result.append(windowsVolume());
     boolean initialSegment = true;
     for (String segment : segments) {
       if (!initialSegment || isAbsolute) {
@@ -463,14 +412,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     if (otherFragment == EMPTY_FRAGMENT) {
       return this;
     }
-
-    if (otherFragment.isAbsolute()) {
-      return this.driveLetter == '\0' || otherFragment.driveLetter != '\0'
-          ? otherFragment
-          : new PathFragment(this.driveLetter, true, otherFragment.segments);
-    } else {
-      return new PathFragment(this, otherFragment);
-    }
+    return otherFragment.isAbsolute()
+        ? otherFragment
+        : new PathFragment(this, otherFragment);
   }
 
   /**
@@ -595,9 +539,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * order)
    */
   public boolean startsWith(PathFragment prefix) {
-    if (this.isAbsolute != prefix.isAbsolute
-        || this.segments.length < prefix.segments.length
-        || (isAbsolute && this.driveLetter != prefix.driveLetter)) {
+    if (this.isAbsolute != prefix.isAbsolute ||
+        this.segments.length < prefix.segments.length ||
+        this.driveLetter != prefix.driveLetter) {
       return false;
     }
     for (int i = 0, len = prefix.segments.length; i < len; i++) {
@@ -683,6 +627,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   }
 
   public String windowsVolume() {
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return "";
+    }
     return (driveLetter != '\0') ? driveLetter + ":" : "";
   }
 
@@ -740,8 +687,16 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     return new PathFragment(driveLetter, false, segments);
   }
 
-  private boolean isEmpty() {
-    return !isAbsolute && segments.length == 0;
+  /**
+   * Given a path, returns the Windows drive letter ('X'), or an null character if no volume
+   * name was specified.
+   */
+  static char getWindowsDriveLetter(String path) {
+    if (OS.getCurrent() == OS.WINDOWS
+        && path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))) {
+      return Character.toUpperCase(path.charAt(0));
+    }
+    return '\0';
   }
 
   @Override
@@ -753,7 +708,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     // Yes, this means that if the hash code is really 0 then we will "recompute" it each time. But
     // this isn't a problem in practice since a hash code of 0 is rare.
     //
-    // (2) Since we have no synchronization, multiple threads can race here thinking they are the
+    // (2) Since we have no synchronization, multiple threads can race here thinking there are the
     // first one to compute and cache the hash code.
     //
     // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
@@ -764,12 +719,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     // once.
     int h = hashCode;
     if (h == 0) {
-      h = Boolean.hashCode(isAbsolute);
+      h = isAbsolute ? 1 : 0;
       for (String segment : segments) {
         h = h * 31 + segment.hashCode();
-      }
-      if (!isEmpty()) {
-        h = h * 31 + Character.hashCode(driveLetter);
       }
       hashCode = h;
     }
@@ -785,13 +737,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return false;
     }
     PathFragment otherPath = (PathFragment) other;
-    if (isEmpty() && otherPath.isEmpty()) {
-      return true;
-    } else {
-      return isAbsolute == otherPath.isAbsolute
-          && driveLetter == otherPath.driveLetter
-          && Arrays.equals(otherPath.segments, segments);
-    }
+    return isAbsolute == otherPath.isAbsolute &&
+        Arrays.equals(otherPath.segments, segments);
   }
 
   /**

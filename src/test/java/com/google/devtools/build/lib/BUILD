@@ -169,10 +169,7 @@ java_test(
 java_test(
     name = "windows_test",
     srcs = CROSS_PLATFORM_WINDOWS_TESTS,
-    jvm_flags = [
-        "-Dblaze.os=Windows",
-        "-Dbazel.windows_unix_root=C:/fake/msys",
-    ],
+    jvm_flags = ["-Dblaze.os=Windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
