@@ -14,3 +14,5 @@
 /bazel-testlogs
 /bazel.iml
 /output/
+/.sass-cache/
+/production/
