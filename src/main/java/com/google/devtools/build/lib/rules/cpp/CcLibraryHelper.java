@@ -1128,6 +1128,9 @@ public final class CcLibraryHelper {
     contextBuilder.addDeclaredIncludeSrcs(publicHeaders);
     contextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
     contextBuilder.addDeclaredIncludeSrcs(privateHeaders);
+    contextBuilder.addModularHdrs(publicHeaders);
+    contextBuilder.addModularHdrs(privateHeaders);
+    contextBuilder.addTextualHdrs(publicTextualHeaders);
     contextBuilder.addPregreppedHeaderMap(
         CppHelper.createExtractInclusions(ruleContext, semantics, publicHeaders));
     contextBuilder.addPregreppedHeaderMap(
