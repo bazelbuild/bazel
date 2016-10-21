@@ -59,6 +59,7 @@ cp output/bazel.exe output/ci/bazel-$(get_full_release_name).exe
 # todo(bazel-team): add more tests here.
 echo "Running tests"
 ./output/bazel test -k --test_output=all --test_tag_filters -no_windows\
+  //src/test/shell/bazel:bazel_windows_example_test \
   //src/test/java/...
 retCode=$?
 

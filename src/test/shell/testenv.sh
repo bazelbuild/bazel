@@ -19,9 +19,26 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
+# Windows
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+function is_windows() {
+  # On windows, the shell test is actually running on msys
+  if [[ "${PLATFORM}" =~ msys_nt* ]]; then
+    true
+  else
+    false
+  fi
+}
+
 # Make the command "bazel" available for tests.
 PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
-PATH_TO_BAZEL_WRAPPER="${TEST_SRCDIR}/io_bazel/src/test/shell/bin"
+PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
+# Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
+# added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
+# because ':' is used as both path seperator and in C:/msys64/...
+if is_windows; then
+  PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
+fi
 if [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ];
 then
   echo "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel" >&2
@@ -52,17 +69,6 @@ workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 # Bazel
 bazel_tree="$(rlocation io_bazel/src/test/shell/bazel/doc-srcs.zip)"
 bazel_data="${BAZEL_RUNFILES}"
-
-# Windows
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-function is_windows() {
-  # On windows, the shell test actually running on msys
-  if [[ "${PLATFORM}" =~ msys_nt* ]]; then
-    true
-  else
-    false
-  fi
-}
 
 # Java
 if is_windows; then

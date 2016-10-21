@@ -23,8 +23,7 @@ if ! type rlocation &> /dev/null; then
 fi
 
 # Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 if ! is_windows; then
@@ -34,7 +33,7 @@ fi
 
 function set_up() {
   copy_examples
-  export PATH=$PATH:/c/python_27_amd64/files
+  export PATH=/c/python_27_amd64/files:$PATH
   EXTRA_BAZELRC="build --cpu=x64_windows_msvc"
   setup_bazelrc
 }
