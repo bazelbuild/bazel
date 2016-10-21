@@ -209,7 +209,7 @@ public class CppCompileAction extends AbstractAction
    * execution.
    */
   private Collection<Artifact> additionalInputs = null;
-  
+
   private CcToolchainFeatures.Variables overwrittenVariables = null;
 
   private ImmutableList<Artifact> resolvedInputs = ImmutableList.<Artifact>of();
@@ -494,18 +494,12 @@ public class CppCompileAction extends AbstractAction
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      List<String> usedModulePaths = Lists.newArrayList();
-      for (Artifact usedModule : context.getUsedModules(usePic, initialResultSet)) {
-        initialResultSet.add(usedModule);
-        usedModulePaths.add(usedModule.getExecPathString());
-      }
-      CcToolchainFeatures.Variables.Builder variableBuilder =
-          new CcToolchainFeatures.Variables.Builder();
-      variableBuilder.addSequenceVariable("module_files", usedModulePaths);
-      this.overwrittenVariables = variableBuilder.build();
+      Collection<Artifact> usedModules = context.getUsedModules(usePic, initialResultSet);
+      initialResultSet.addAll(usedModules);
       initialResult = initialResultSet;
+      this.overwrittenVariables = getOverwrittenVariables(usedModules);
     }
-    
+
     this.additionalInputs = initialResult;
     // In some cases, execution backends need extra files for each included file. Add them
     // to the set of inputs the caller may need to be aware of.
@@ -961,6 +955,24 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  /**
+   * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
+   * their exec paths are added to the value "module_files".
+   */
+  private static CcToolchainFeatures.Variables getOverwrittenVariables(
+      Iterable<Artifact> potentialModules) {
+    List<String> usedModulePaths = Lists.newArrayList();
+    for (Artifact input : potentialModules) {
+      if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+        usedModulePaths.add(input.getExecPathString());
+      }
+    }
+    CcToolchainFeatures.Variables.Builder variableBuilder =
+        new CcToolchainFeatures.Variables.Builder();
+    variableBuilder.addSequenceVariable("module_files", usedModulePaths);
+    return variableBuilder.build();
+  }
+
   @Override
   public Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver,
@@ -1002,6 +1014,16 @@ public class CppCompileAction extends AbstractAction
       }
     }
     return inputs;
+  }
+
+  @Override protected void setInputs(Iterable<Artifact> inputs) {
+    super.setInputs(inputs);
+    // We need to update overwrittenVariables as those variables might e.g. contain references to
+    // module files that were determined to be unnecessary by input discovery. If we leave them in,
+    // they might lead to unavailable files if e.g. the action is recreated from cache. In addition
+    // to updating the variables here, we also need to update them when they actually change, e.g.
+    // in discoverInputs().
+    this.overwrittenVariables = getOverwrittenVariables(getInputs());
   }
 
   @Override
@@ -1141,7 +1163,7 @@ public class CppCompileAction extends AbstractAction
     NestedSet<Artifact> discoveredInputs =
         discoverInputsFromDotdFiles(execRoot, scanningContext.getArtifactResolver(), reply);
     reply = null; // Clear in-memory .d files early.
-    
+
     // Post-execute "include scanning", which modifies the action inputs to match what the compile
     // action actually used by incorporating the results of .d file parsing.
     //
