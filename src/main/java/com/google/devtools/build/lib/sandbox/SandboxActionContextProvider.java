@@ -72,6 +72,10 @@ final class SandboxActionContextProvider extends ActionContextProvider {
                   env.getDirectories(),
                   verboseFailures,
                   env.getRuntime().getProductName()));
+        } else {
+          if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing) {
+            env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
+          }
         }
         break;
       default:
