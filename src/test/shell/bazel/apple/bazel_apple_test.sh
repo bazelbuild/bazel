@@ -31,8 +31,8 @@ function set_up() {
   copy_examples
   setup_objc_test_support
 
-  # Find where Xcode 7 (any sub-version will do) is located and get the iOS SDK
-  # version it contains.
+  # Find where Xcode 7 or 8 (any sub-version will do) is located and get the iOS
+  # SDK version it contains.
   # TODO(b/27267941): This is a hack until the bug is fixed.
   rm -rf xcodehelper
   mkdir -p xcodehelper
@@ -46,7 +46,7 @@ genrule(
 EOF
 
   bazel build xcodehelper:xcode_locations
-  XCODE_INFO=$(cat bazel-genfiles/xcodehelper/xcode_locations | grep -m1 7)
+  XCODE_INFO=$(cat bazel-genfiles/xcodehelper/xcode_locations | grep -m1 '7\|8')
   XCODE_DIR=$(echo $XCODE_INFO | cut -d ':' -f3)
   XCODE_VERSION=$(echo $XCODE_INFO | cut -d ':' -f1)
   IOS_SDK_VERSION=$(DEVELOPER_DIR=$XCODE_DIR xcodebuild -sdk -version \
