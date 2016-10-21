@@ -273,7 +273,7 @@ sh_test(
 
 sh_test(
     name = "process_wrapper_test",
-    size = "small",
+    size = "medium",
     srcs = ["process-wrapper_test.sh"],
     data = [":test-deps"],
 )
