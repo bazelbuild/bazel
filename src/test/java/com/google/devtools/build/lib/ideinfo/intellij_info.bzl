@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Implementaion of AndroidStudio-specific information collecting aspect.
+# Implementation of AndroidStudio-specific information collecting aspect.
 
 # A map to convert JavaApiFlavor to ProtoLibraryLegacyJavaIdeInfo.ApiFlavor
 _api_flavor_to_id = {
