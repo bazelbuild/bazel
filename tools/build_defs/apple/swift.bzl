@@ -24,6 +24,7 @@ def _parent_dirs(dirs):
   """Returns a set of parent directories for each directory in dirs."""
   return set([f.rpartition("/")[0] for f in dirs])
 
+
 def _intersperse(separator, iterable):
   """Inserts separator before each item in iterable."""
   result = []
@@ -33,6 +34,7 @@ def _intersperse(separator, iterable):
 
   return result
 
+
 def _swift_target(cpu, platform, sdk_version):
   """Returns a target triplet for Swift compiler."""
   platform_string = str(platform.platform_type)
@@ -40,6 +42,7 @@ def _swift_target(cpu, platform, sdk_version):
     fail("Platform '%s' is not supported" % platform_string)
 
   return "%s-apple-%s%s" % (cpu, platform_string, sdk_version)
+
 
 def _swift_compilation_mode_flags(ctx):
   """Returns additional swiftc flags for the current compilation mode."""
@@ -50,6 +53,7 @@ def _swift_compilation_mode_flags(ctx):
     return ["-Onone", "-DDEBUG", "-enable-testing"]
   elif mode == "opt":
     return ["-O", "-DNDEBUG"]
+
 
 def _clang_compilation_mode_flags(ctx):
   """Returns additional clang flags for the current compilation mode."""
@@ -62,21 +66,22 @@ def _clang_compilation_mode_flags(ctx):
 
   return [x for x in native_clang_flags if x != "-g"]
 
+
 def _swift_bitcode_flags(ctx):
   """Returns bitcode flags based on selected mode."""
-  # TODO(dmishe): Remove this when bitcode_mode is available by default.
-  if hasattr(ctx.fragments.apple, "bitcode_mode"):
-    mode = str(ctx.fragments.apple.bitcode_mode)
-    if mode == "embedded":
-      return ["-embed-bitcode"]
-    elif mode == "embedded_markers":
-      return ["-embed-bitcode-marker"]
+  mode = str(ctx.fragments.apple.bitcode_mode)
+  if mode == "embedded":
+    return ["-embed-bitcode"]
+  elif mode == "embedded_markers":
+    return ["-embed-bitcode-marker"]
 
   return []
+
 
 def _module_name(ctx):
   """Returns a module name for the given rule context."""
   return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
+
 
 def _swift_lib_dir(ctx):
   """Returns the location of swift runtime directory to link against."""
@@ -97,19 +102,18 @@ def _swift_lib_dir(ctx):
   return "{0}/Toolchains/{1}.xctoolchain/usr/lib/swift/{2}".format(
       developer_dir, toolchain_name, platform_str)
 
+
 def _swift_linkopts(ctx):
   """Returns additional linker arguments for the given rule context."""
   return set(["-L" + _swift_lib_dir(ctx)])
 
+
 def _swift_xcrun_args(ctx):
   """Returns additional arguments that should be passed to xcrun."""
-  # TODO(dmishe): Remove this check when xcode_toolchain is available by default
-  args = []
-  if hasattr(ctx.fragments.apple, "xcode_toolchain"):
-    if ctx.fragments.apple.xcode_toolchain:
-      args += ["--toolchain", ctx.fragments.apple.xcode_toolchain]
+  if ctx.fragments.apple.xcode_toolchain:
+    return ["--toolchain", ctx.fragments.apple.xcode_toolchain]
 
-  return args
+  return []
 
 
 def _is_valid_swift_module_name(string):
