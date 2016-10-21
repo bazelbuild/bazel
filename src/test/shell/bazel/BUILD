@@ -120,10 +120,13 @@ sh_test(
     name = "bazel_toolchain_test",
     size = "medium",
     srcs = ["bazel_toolchain_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg",
-    ],
+    data = [":test-deps"] + select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:windows": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
+    }),
     tags = [
         "requires-network",
     ],
