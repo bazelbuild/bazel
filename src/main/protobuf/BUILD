@@ -55,3 +55,11 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
+
+filegroup(
+    name = "dist_jars",
+    srcs = [
+        "command_server_java_proto_srcjar",
+        "remote_protocol_java_proto_srcjar",
+    ] + [s + "_java_proto_srcjar" for s in FILES],
+)

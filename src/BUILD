@@ -333,3 +333,15 @@ filegroup(
     ],
     visibility = ["//:__pkg__"],
 )
+
+genrule(
+    name = "derived_java_srcs",
+    srcs = [
+        "//src/main/protobuf:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
+    ],
+    outs = ["derived_java_srcs.zip"],
+    cmd = "$(location :combine_derived_java_srcs.sh) $@ $(SRCS)",
+    tools = ["combine_derived_java_srcs.sh"],
+    visibility = ["//:__pkg__"],
+)
