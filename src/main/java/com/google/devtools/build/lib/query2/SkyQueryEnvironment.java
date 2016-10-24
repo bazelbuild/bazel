@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalValue;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -121,13 +122,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
   private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
   private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
-  private static final Function<Target, Label> TARGET_LABEL_FUNCTION =
-      new Function<Target, Label>() {
-        @Override
-        public Label apply(Target target) {
-          return target.getLabel();
-        }
-      };
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   private final int loadingPhaseThreads;
@@ -345,14 +339,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return super.evaluateQuery(expr, batchCallback);
   }
 
-  private Map<SkyKey, Collection<Target>> targetifyValues(Map<SkyKey, Iterable<SkyKey>> input)
-      throws InterruptedException {
+  private Map<SkyKey, Collection<Target>> targetifyValues(
+      Map<SkyKey, ? extends Iterable<SkyKey>> input) throws InterruptedException {
     ImmutableMap.Builder<SkyKey, Collection<Target>> result = ImmutableMap.builder();
 
     Map<SkyKey, Target> allTargets =
         makeTargetsFromSkyKeys(Sets.newHashSet(Iterables.concat(input.values())));
 
-    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : input.entrySet()) {
+    for (Map.Entry<SkyKey, ? extends Iterable<SkyKey>> entry : input.entrySet()) {
       Iterable<SkyKey> skyKeys = entry.getValue();
       Set<Target> targets = CompactHashSet.createWithExpectedSize(Iterables.size(skyKeys));
       for (SkyKey key : skyKeys) {
@@ -447,6 +441,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<SkyKey> transitiveTraversalKeys) throws InterruptedException {
     Map<SkyKey, Collection<Target>> rawReverseDeps = getRawReverseDeps(transitiveTraversalKeys);
     return processRawReverseDeps(rawReverseDeps);
+  }
+
+  /** Targetify SkyKeys of reverse deps and filter out targets whose deps are not allowed. */
+  Collection<Target> filterRawReverseDepsOfTransitiveTraversalKeys(
+      Map<SkyKey, ? extends Iterable<SkyKey>> rawReverseDeps) throws InterruptedException {
+    return processRawReverseDeps(targetifyValues(rawReverseDeps));
   }
 
   private Collection<Target> processRawReverseDeps(Map<SkyKey, Collection<Target>> rawReverseDeps)
@@ -549,6 +549,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   ThreadSafeUniquifier<SkyKey> createSkyKeyUniquifier() {
     return new ThreadSafeSkyKeyUniquifier(DEFAULT_THREAD_COUNT);
+  }
+
+  @ThreadSafe
+  ThreadSafeUniquifier<Pair<SkyKey, SkyKey>> createReverseDepSkyKeyUniquifier() {
+    return new ThreadSafeReverseDepSkyKeyUniquifier(DEFAULT_THREAD_COUNT);
   }
 
   @ThreadSafe
@@ -732,18 +737,19 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // so no preloading of target patterns is necessary.
   }
 
-  private static final Function<SkyKey, Label> SKYKEY_TO_LABEL = new Function<SkyKey, Label>() {
-    @Nullable
-    @Override
-    public Label apply(SkyKey skyKey) {
-      SkyFunctionName functionName = skyKey.functionName();
-      if (!functionName.equals(SkyFunctions.TRANSITIVE_TRAVERSAL)) {
-        // Skip non-targets.
-        return null;
-      }
-      return (Label) skyKey.argument();
-    }
-  };
+  static final Function<SkyKey, Label> SKYKEY_TO_LABEL =
+      new Function<SkyKey, Label>() {
+        @Nullable
+        @Override
+        public Label apply(SkyKey skyKey) {
+          SkyFunctionName functionName = skyKey.functionName();
+          if (!functionName.equals(SkyFunctions.TRANSITIVE_TRAVERSAL)) {
+            // Skip non-targets.
+            return null;
+          }
+          return (Label) skyKey.argument();
+        }
+      };
 
   @ThreadSafe
   public Map<SkyKey, Target> makeTargetsFromSkyKeys(Iterable<SkyKey> keys)
@@ -1012,6 +1018,22 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /**
+   * A uniquifer which takes a pair of parent and reverse dep, and uniquify based on the second
+   * element (reverse dep).
+   */
+  private static class ThreadSafeReverseDepSkyKeyUniquifier
+      extends AbstractThreadSafeUniquifier<Pair<SkyKey, SkyKey>, SkyKey> {
+    protected ThreadSafeReverseDepSkyKeyUniquifier(int concurrencyLevel) {
+      super(concurrencyLevel);
+    }
+
+    @Override
+    protected SkyKey extractKey(Pair<SkyKey, SkyKey> element) {
+      return element.second;
+    }
+  }
+
+  /**
    * Wraps a {@link Callback} and guarantees that all calls to the original will have at least
    * {@code batchThreshold} {@link Target}s, except for the final such call.
    *
@@ -1021,12 +1043,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    * #processLastPending} must be called to "flush" any remaining {@link Target}s through to the
    * original.
    *
-   * <p>This callback may be called from multiple threads concurrently. At most one thread will
-   * call the wrapped {@code callback} concurrently.
+   * <p>This callback may be called from multiple threads concurrently. At most one thread will call
+   * the wrapped {@code callback} concurrently.
    */
   @ThreadSafe
-  private static class BatchStreamedCallback
-      extends OutputFormatterCallback<Target> implements ThreadSafeCallback<Target> {
+  private static class BatchStreamedCallback extends OutputFormatterCallback<Target>
+      implements ThreadSafeCallback<Target> {
 
     private final OutputFormatterCallback<Target> callback;
     private final ThreadSafeUniquifier<Target> uniquifier =
