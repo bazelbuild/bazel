@@ -4,7 +4,7 @@ param(
 
 choco uninstall bazel --force -y
 
-choco install "./bazel.$($version).nupkg" --verbose --debug --force -y
+choco install bazel --verbose --debug --force -y -s ".;https://chocolatey.org/api/v2/"
 
 if ($LASTEXITCODE -ne 0)
 {
@@ -16,8 +16,8 @@ write-host @"
 The package should have installed without errors.
 
 Now:
-* open an msys2 shell
+* open a new shell (this should work in msys2, cmd, powershell)
 * Make sure your environment is accurate (see ``./tools/chocolateyinstall.ps1`` output)
-* run ``bazel version`` in that msys2 shell
+* run ``bazel version`` in that shell
 * ... and you should get a version number back
 "@

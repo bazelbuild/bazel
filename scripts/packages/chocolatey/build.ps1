@@ -16,6 +16,8 @@ rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./*.zip
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
 rm -force -ErrorAction SilentlyContinue ./tools/chocolateyinstall.ps1
+rm -force -ErrorAction SilentlyContinue ./tools/chocolateyuninstall.ps1
+rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
 
 if ($isRelease) {
   Invoke-WebRequest "$($tvUri).sha256" -UseBasicParsing -passthru -outfile sha256.txt
