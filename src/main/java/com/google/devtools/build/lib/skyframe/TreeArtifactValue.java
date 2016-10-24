@@ -190,8 +190,33 @@ class TreeArtifactValue implements SkyValue {
         explodeDirectory(treeArtifact,
             pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
       } else if (subpath.isSymbolicLink()) {
-        throw new IOException(
-            "A TreeArtifact may not contain a symlink, found " + subpath);
+        PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
+        if (linkTarget.isAbsolute()) {
+          String errorMessage = String.format(
+              "A TreeArtifact may not contain absolute symlinks, found %s pointing to %s.",
+              subpath,
+              linkTarget);
+          throw new IOException(errorMessage);
+        }
+
+        // We visit each path segment of the link target to catch any path traversal outside of the
+        // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have
+        // a symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this
+        // symlink points to a file under the TreeArtifact, the link target traverses outside of the
+        // TreeArtifact into a/b/outside_dir.
+        PathFragment intermediatePath = canonicalSubpathFragment.getParentDirectory();
+        for (String pathSegment : linkTarget.getSegments()) {
+          intermediatePath = intermediatePath.getRelative(pathSegment).normalize();
+          if (intermediatePath.containsUplevelReferences()) {
+            String errorMessage = String.format(
+                "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+                + "outside of the TreeArtifact, found %s pointing to %s.",
+                subpath,
+                linkTarget);
+            throw new IOException(errorMessage);
+          }
+        }
+        valuesBuilder.add(canonicalSubpathFragment);
       } else if (subpath.isFile()) {
         valuesBuilder.add(canonicalSubpathFragment);
       } else {
