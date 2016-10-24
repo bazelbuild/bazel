@@ -107,7 +107,6 @@ message ActionResult {
 message CasStatus {
   bool succeeded = 1;  // Whether the requested action had server side errors
   // or not.
-  bool cache_hit = 2;  // Cache hit or not on download requests.
   enum ErrorCode {
     UNKNOWN = 0;
     INVALID_ARGUMENT = 1; // The client behaved incorrectly. error_detail should
@@ -118,11 +117,11 @@ message CasStatus {
     NODE_PARSE_ERROR = 4;  // Failed to parse digested data as node.
     // more errors...
   }
-  ErrorCode error = 3;
-  string error_detail = 4;  // Human readable error.
+  ErrorCode error = 2;
+  string error_detail = 3;  // Human readable error.
   // These are a common part of the status for many CAS requests:
-  repeated ContentDigest missing_digest = 5;
-  repeated ContentDigest parse_failed_digest = 6;  // Only relevant to trees.
+  repeated ContentDigest missing_digest = 4;
+  repeated ContentDigest parse_failed_digest = 5;  // Only relevant to trees.
 }
 
 service CasService {
@@ -226,10 +225,14 @@ message ExecutionCacheRequest {
 }
 
 message ExecutionCacheStatus {
-  bool succeeded = 1;  // Whether there were server side errors.
+  // Whether the request had any server side errors. For a lookup (get result)
+  // request, a true value means the result was found in the cache.
+  bool succeeded = 1;
   enum ErrorCode {
     UNKNOWN = 0;
-    // Some server errors...
+    MISSING_RESULT = 1;  // The result was not found in the execution cache.
+    UNSUPPORTED = 2;  // The request is not supported by the server.
+    // More server errors...
   }
   ErrorCode error = 2;
   string error_detail = 3;  // Human readable error.

@@ -628,7 +628,9 @@ public final class GrpcActionCache implements RemoteActionCache {
         ExecutionCacheRequest.newBuilder().setActionDigest(actionKey.getDigest()).build();
     ExecutionCacheReply reply = stub.getCachedResult(request);
     ExecutionCacheStatus status = reply.getStatus();
-    if (!status.getSucceeded()) {
+    if (!status.getSucceeded()
+        && status.getError() != ExecutionCacheStatus.ErrorCode.UNSUPPORTED
+        && status.getError() != ExecutionCacheStatus.ErrorCode.MISSING_RESULT) {
       throw new RuntimeException(status.getErrorDetail());
     }
     return reply.hasResult() ? reply.getResult() : null;
