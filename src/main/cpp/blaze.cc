@@ -100,7 +100,6 @@ using std::string;
 using std::vector;
 
 static void WriteFileToStreamOrDie(FILE *stream, const char *file_name);
-static string BuildServerRequest();
 static int GetServerPid(const string &server_dir);
 static void VerifyJavaVersionAndSetJvm();
 
@@ -809,24 +808,6 @@ static void StartServerAndConnect(BlazeServer *server) {
       socket_file.c_str());
 }
 
-// Poll until the given process denoted by pid goes away. Return false if this
-// does not occur within wait_time_secs.
-static bool WaitForServerDeath(pid_t pid, int wait_time_secs) {
-  for (int ii = 0; ii < wait_time_secs * 10; ++ii) {
-    if (kill(pid, 0) == -1) {
-      if (errno == ESRCH) {
-        return true;
-      }
-      pdie(blaze_exit_code::INTERNAL_ERROR, "could not be killed");
-    }
-    struct timespec ts;
-    ts.tv_sec = 0;
-    ts.tv_nsec = 100 * 1000 * 1000;
-    nanosleep(&ts, NULL);
-  }
-  return false;
-}
-
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie()'s if syncing fails.
 static void SyncFile(const char *file_path) {
@@ -1212,26 +1193,6 @@ static void handler(int signum) {
   }
 
   errno = saved_errno;
-}
-
-// Constructs the command line for a server request.
-static string BuildServerRequest() {
-  vector<string> arg_vector;
-  string command = globals->option_processor->GetCommand();
-  if (command != "") {
-    arg_vector.push_back(command);
-    AddLoggingArgs(&arg_vector);
-  }
-
-  globals->option_processor->GetCommandArguments(&arg_vector);
-
-  string request("blaze");
-  for (vector<string>::iterator it = arg_vector.begin();
-       it != arg_vector.end(); it++) {
-    request.push_back('\0');
-    request.append(*it);
-  }
-  return request;
 }
 
 // Performs all I/O for a single client request to the server, and
