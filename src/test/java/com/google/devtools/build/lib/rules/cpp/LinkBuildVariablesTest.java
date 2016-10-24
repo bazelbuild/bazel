@@ -163,6 +163,46 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     ;
   }
 
+  /**
+   * TODO(pcloudy): Add test for testing that necessary build variables are populated when
+   * alwayslink=1.
+   */
+
+  /**
+   * Tests that librarySearchDirectories, dynamicLibrariesToLink, and interfaceLibrariesToLink are
+   * exposed.
+   */
+  @Test
+  public void testLinkingLibrariesFlags() throws Exception {
+    scratch.file(
+        "app/BUILD",
+        "cc_binary(",
+        "  name = 'foo',",
+        "  srcs = ['foo.cc', 'libbar.so'],",
+        "  deps = ['//baz:qux'],",
+        "  linkstatic = 0,",
+        ")");
+    scratch.file("baz/BUILD", "cc_library(", "  name = 'qux',", "  srcs = ['qux.cc'],", ")");
+    scratch.file("app/foo.cc");
+    scratch.file("app/libbar.so");
+    scratch.file("baz/qux.cc");
+
+    ConfiguredTarget target = getConfiguredTarget("//app:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    List<String> librarySearchDirectories =
+        getVariableValue(variables, CppLinkActionBuilder.LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
+    List<String> dynamicLibrariesToLink =
+        getVariableValue(variables, CppLinkActionBuilder.DYNAMIC_LIBRARIES_TO_LINK_VARIABLE);
+    List<String> interfaceLibrariesToLink =
+        getVariableValue(variables, CppLinkActionBuilder.INTERFACE_LIBRARIES_TO_LINK_VARIABLE);
+
+    assertThat(librarySearchDirectories).hasSize(2);
+    assertThat(librarySearchDirectories.get(0)).matches(".*app.*foo.*");
+    assertThat(dynamicLibrariesToLink).containsExactly("bar");
+    assertThat(Iterables.getOnlyElement(interfaceLibrariesToLink))
+        .matches(".*libbaz.*libqux.ifso");
+  }
+
   @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration

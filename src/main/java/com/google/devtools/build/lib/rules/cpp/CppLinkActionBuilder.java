@@ -73,6 +73,17 @@ public class CppLinkActionBuilder {
    */
   public static final String LIBOPTS_VARIABLE = "libopts";
 
+  /** A build variable containing all folders to be added to library search path. */
+  public static final String LIBRARY_SEARCH_DIRECTORIES_VARIABLE = "library_search_directories";
+
+  /** A build variable containing all libraries to be linked with current artifact. */
+  public static final String DYNAMIC_LIBRARIES_TO_LINK_VARIABLE = "dynamic_libraries_to_link";
+
+  /**
+   * A build variable containing all interface shared objects to be linked with current artifact.
+   */
+  public static final String INTERFACE_LIBRARIES_TO_LINK_VARIABLE = "interface_libraries_to_link";
+
   /**
    * A build variable for flags providing files to link as inputs in the linker invocation that
    * should not go in a -whole_archive block.
@@ -1154,6 +1165,9 @@ public class CppLinkActionBuilder {
     String rpathRoot;
     List<String> rpathEntries;
     Set<String> libopts;
+    Set<String> librarySearchDirectories;
+    Set<String> dynamicLibrariesToLink;
+    Set<String> interfaceLibrariesToLink;
     List<String> linkerInputParams;
     List<String> wholeArchiveLinkerInputParams;
     List<String> noWholeArchiveInputs;
@@ -1182,6 +1196,18 @@ public class CppLinkActionBuilder {
       this.noWholeArchiveInputs = noWholeArchiveInputs;
     }
 
+    public void setLibrarySearchDirectories(Set<String> librarySearchDirectories) {
+      this.librarySearchDirectories = librarySearchDirectories;
+    }
+
+    public void setDynamicLibrariesToLink(Set<String> dynamicLibrariesToLink) {
+      this.dynamicLibrariesToLink = dynamicLibrariesToLink;
+    }
+
+    public void setInterfaceLibrariesToLink(Set<String> interfaceLibrariesToLink) {
+      this.interfaceLibrariesToLink = interfaceLibrariesToLink;
+    }
+
     public String getRpathRoot() {
       return rpathRoot;
     }
@@ -1204,6 +1230,18 @@ public class CppLinkActionBuilder {
 
     public List<String> getNoWholeArchiveInputs() {
       return noWholeArchiveInputs;
+    }
+
+    public Set<String> getLibrarySearchDirectories() {
+      return librarySearchDirectories;
+    }
+
+    public Set<String> getDynamicLibrariesToLink() {
+      return dynamicLibrariesToLink;
+    }
+
+    public Set<String> getInterfaceLibrariesToLink() {
+      return interfaceLibrariesToLink;
     }
   }
 
@@ -1291,6 +1329,12 @@ public class CppLinkActionBuilder {
 
       buildVariables.addSequenceVariable(LIBOPTS_VARIABLE, linkArgCollector.getLibopts());
       buildVariables.addSequenceVariable(
+          LIBRARY_SEARCH_DIRECTORIES_VARIABLE, linkArgCollector.getLibrarySearchDirectories());
+      buildVariables.addSequenceVariable(
+          DYNAMIC_LIBRARIES_TO_LINK_VARIABLE, linkArgCollector.getDynamicLibrariesToLink());
+      buildVariables.addSequenceVariable(
+          INTERFACE_LIBRARIES_TO_LINK_VARIABLE, linkArgCollector.getInterfaceLibrariesToLink());
+      buildVariables.addSequenceVariable(
           LINKER_INPUT_PARAMS_VARIABLE, linkArgCollector.getLinkerInputParams());
       buildVariables.addSequenceVariable(
           WHOLE_ARCHIVE_LINKER_INPUT_PARAMS_VARIABLE,
@@ -1373,6 +1417,9 @@ public class CppLinkActionBuilder {
 
       // Used to collect -L and -Wl,-rpath options, ensuring that each used only once.
       Set<String> libOpts = new LinkedHashSet<>();
+      Set<String> librarySearchDirectories = new LinkedHashSet<>();
+      Set<String> dynamicLibrariesToLink = new LinkedHashSet<>();
+      Set<String> interfaceLibrariesToLink = new LinkedHashSet<>();
 
       // List of command line parameters that need to be placed *outside* of
       // --whole-archive ... --no-whole-archive.
@@ -1487,7 +1534,13 @@ public class CppLinkActionBuilder {
             includeSolibDir = true;
           }
           addDynamicInputLinkOptions(
-              input, standardArchiveInputParams, libOpts, solibDir, rpathRoot);
+              input,
+              libOpts,
+              librarySearchDirectories,
+              dynamicLibrariesToLink,
+              interfaceLibrariesToLink,
+              solibDir,
+              rpathRoot);
         } else {
           addStaticInputLinkOptions(
               input, wholeArchiveInputParams, standardArchiveInputParams, ltoMap);
@@ -1508,7 +1561,14 @@ public class CppLinkActionBuilder {
               input.getArtifact(),
               solibDir);
           includeRuntimeSolibDir = true;
-          addDynamicInputLinkOptions(input, optionsList, libOpts, solibDir, rpathRoot);
+          addDynamicInputLinkOptions(
+              input,
+              libOpts,
+              librarySearchDirectories,
+              dynamicLibrariesToLink,
+              interfaceLibrariesToLink,
+              solibDir,
+              rpathRoot);
         } else {
           addStaticInputLinkOptions(input,
               needWholeArchive ? noWholeArchiveInputs : wholeArchiveInputParams,
@@ -1529,6 +1589,9 @@ public class CppLinkActionBuilder {
       }
 
       linkArgCollector.setLibopts(libOpts);
+      linkArgCollector.setLibrarySearchDirectories(librarySearchDirectories);
+      linkArgCollector.setDynamicLibrariesToLink(dynamicLibrariesToLink);
+      linkArgCollector.setInterfaceLibrariesToLink(interfaceLibrariesToLink);
 
       linkArgCollector.setLinkerInputParams(standardArchiveInputParams);
       linkArgCollector.setWholeArchiveLinkerInputParams(wholeArchiveInputParams);
@@ -1542,8 +1605,10 @@ public class CppLinkActionBuilder {
     /** Adds command-line options for a dynamic library input file into options and libOpts. */
     private void addDynamicInputLinkOptions(
         LinkerInput input,
-        List<String> options,
         Set<String> libOpts,
+        Set<String> librarySearchDirectories,
+        Set<String> dynamicLibrariesToLink,
+        Set<String> interfaceLibrariesToLink,
         PathFragment solibDir,
         String rpathRoot) {
       Preconditions.checkState(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY);
@@ -1560,22 +1625,25 @@ public class CppLinkActionBuilder {
           dotdots += "../";
           commonParent = commonParent.getParentDirectory();
         }
-
         libOpts.add(rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
       }
 
-      libOpts.add("-L" + inputArtifact.getExecPath().getParentDirectory().getPathString());
+      librarySearchDirectories.add(
+          inputArtifact.getExecPath().getParentDirectory().getPathString());
 
       String name = inputArtifact.getFilename();
       if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
         String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
-        options.add("-l" + libName);
+        dynamicLibrariesToLink.add(libName);
       } else {
         // Interface shared objects have a non-standard extension
         // that the linker won't be able to find.  So use the
         // filename directly rather than a -l option.  Since the
         // library has an SONAME attribute, this will work fine.
-        options.add(inputArtifact.getExecPathString());
+        // NOTE: we assume interface shared objects have no
+        // dependencies and can appear anywhere in the Cpp link
+        // command line.
+        interfaceLibrariesToLink.add(inputArtifact.getExecPathString());
       }
     }
 
