@@ -273,13 +273,11 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.addAllBootclasspathEntries(getBootclasspathOrDefault());
     builder.addAllExtClasspathEntries(getExtdirInputs());
-    if (getJavaConfiguration().optimizeHeaderCompilationAnnotationProcessing()) {
-      builder.addProcessorPaths(attributes.getApiGeneratingProcessorPath());
-      builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
-    } else {
-      builder.addProcessorPaths(attributes.getProcessorPath());
-      builder.addProcessorNames(attributes.getProcessorNames());
-    }
+
+    // only run API-generating annotation processors during header compilation
+    builder.addProcessorPaths(attributes.getApiGeneratingProcessorPath());
+    builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
+
     builder.setJavacOpts(getJavacOpts());
     builder.setTempDirectory(tempDir(headerJar));
     builder.setOutputJar(headerJar);

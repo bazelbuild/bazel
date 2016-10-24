@@ -127,7 +127,6 @@ public final class JavaConfiguration extends Fragment {
   private final Label javaLauncherLabel;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
-  private final boolean optimizeHeaderCompilationAnnotationProcessing;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final JavaClasspathMode javaClasspath;
@@ -157,8 +156,6 @@ public final class JavaConfiguration extends Fragment {
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
-    this.optimizeHeaderCompilationAnnotationProcessing =
-        javaOptions.optimizeHeaderCompilationAnnotationProcessing;
     this.generateJavaDeps = generateJavaDeps;
     this.javaClasspath = javaOptions.javaClasspath;
     this.javaWarns = ImmutableList.copyOf(javaOptions.javaWarns);
@@ -218,11 +215,6 @@ public final class JavaConfiguration extends Fragment {
   /** Returns true iff Java header compilation is enabled. */
   public boolean useHeaderCompilation() {
     return useHeaderCompilation;
-  }
-
-  /** Returns true if only api-generating java_plugins should be run during header compilation. */
-  public boolean optimizeHeaderCompilationAnnotationProcessing() {
-    return optimizeHeaderCompilationAnnotationProcessing;
   }
 
   /**
