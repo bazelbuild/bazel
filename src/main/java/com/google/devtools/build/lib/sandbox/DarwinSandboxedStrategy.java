@@ -226,7 +226,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
           executor
               .getEventHandler()
               .handle(
-                  Event.error(
+                  Event.warn(
                       String.format(
                           "Cannot delete sandbox directory after action execution: %s (%s)",
                           sandboxPath.getPathString(), e)));
