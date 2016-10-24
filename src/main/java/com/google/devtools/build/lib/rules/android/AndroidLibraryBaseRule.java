@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidRes
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for the android_library rule.
@@ -100,6 +101,17 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         that depend on this target. <code>uses-permissions</code> attributes are never exported.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports_manifest", BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exported_plugins) -->
+        The list of <code><a href="#${link java_plugin}">java_plugin</a></code>s (e.g. annotation
+        processors) to export to libraries that directly depend on this library.
+        <p>
+          The specified list of <code>java_plugin</code>s will be applied to any library which
+          directly depends on this library, just as if that library had explicitly declared these
+          labels in <code><a href="${link android_library.plugins}">plugins</a></code>.
+        </p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("exported_plugins", LABEL_LIST).cfg(HOST).allowedRuleClasses("java_plugin")
+            .allowedFileTypes(FileTypeSet.NO_FILE))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.
