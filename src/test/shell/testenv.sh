@@ -81,7 +81,6 @@ langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
-EXTRA_BAZELRC="build --ios_sdk_version=8.4"
 
 # Java tooling
 javabuilder_path="$(find ${BAZEL_RUNFILES} -name JavaBuilder_*.jar)"

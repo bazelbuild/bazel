@@ -31,26 +31,13 @@ function set_up() {
   copy_examples
   setup_objc_test_support
 
-  # Find where Xcode 7 or 8 (any sub-version will do) is located and get the iOS
-  # SDK version it contains.
-  # TODO(b/27267941): This is a hack until the bug is fixed.
-  rm -rf xcodehelper
-  mkdir -p xcodehelper
-  cat > xcodehelper/BUILD <<EOF
-genrule(
-    name = "invoke_tool",
-    srcs = ["@bazel_tools//tools/osx:xcode-locator"],
-    outs = ["xcode_locations"],
-    cmd = "\$< -v > \$@",
-)
-EOF
+  # Find the version number for an installed 7-series or 8-series Xcode
+  # (any sub-version will do)
+  bazel query "labels('versions', '@local_config_xcode//:host_xcodes')" \
+      --output xml  | grep 'name="version"' \
+      | sed -E 's/.*(value=\"(([0-9]|.)+))\".*/\2/' > xcode_versions
 
-  bazel build xcodehelper:xcode_locations
-  XCODE_INFO=$(cat bazel-genfiles/xcodehelper/xcode_locations | grep -m1 '7\|8')
-  XCODE_DIR=$(echo $XCODE_INFO | cut -d ':' -f3)
-  XCODE_VERSION=$(echo $XCODE_INFO | cut -d ':' -f1)
-  IOS_SDK_VERSION=$(DEVELOPER_DIR=$XCODE_DIR xcodebuild -sdk -version \
-      | grep iphonesimulator | cut -d ' '  -f6)
+  XCODE_VERSION=$(cat xcode_versions | grep -m1 '7\|8')
 
   # Allow access to //external:xcrunwrapper.
   rm WORKSPACE
@@ -119,16 +106,15 @@ EOF
 function test_swift_library() {
   local swift_lib_pkg=examples/swift
   assert_build_output ./bazel-genfiles/${swift_lib_pkg}/swift_lib/_objs/examples_swift_swift_lib.a \
-      ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION --xcode_version=$XCODE_VERSION
+      ${swift_lib_pkg}:swift_lib --xcode_version=$XCODE_VERSION
   assert_build_output ./bazel-genfiles/${swift_lib_pkg}/swift_lib/_objs/examples_swift_swift_lib.swiftmodule \
-      ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION --xcode_version=$XCODE_VERSION
+      ${swift_lib_pkg}:swift_lib --xcode_version=$XCODE_VERSION
 }
 
 function test_build_app() {
   make_app
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
@@ -168,8 +154,7 @@ objc_binary(name = "bin",
             deps = [":SwiftMain"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:bin >$TEST_log 2>&1 || fail "should build"
 }
 
@@ -224,8 +209,7 @@ objc_library(name = "ObjcLib",
              defines = ["DEFINE_FOO=1"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --objccopt=-DCOPTS_FOO=1 -s \
+  bazel build --verbose_failures --objccopt=-DCOPTS_FOO=1 -s \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   expect_log "-module-cache-path bazel-out/local-fastbuild/genfiles/_objc_module_cache"
@@ -272,8 +256,8 @@ objc_framework(name = "dylib",
                is_dynamic = 1)
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --ios_minimum_os=8.0 --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --ios_minimum_os=8.0 \
+      --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
@@ -315,7 +299,6 @@ EOF
   bazel build --verbose_failures //package:lipo_out  \
     --ios_multi_cpus=i386,x86_64 \
     --xcode_version=$XCODE_VERSION \
-    --ios_sdk_version=$IOS_SDK_VERSION \
     || fail "should build apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
@@ -355,8 +338,7 @@ swift_library(name = "util",
               srcs = ['Utility.swift'])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
@@ -403,8 +385,7 @@ ios_test(name = "app_test",
          xctest_app = "app")
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:app_test >$TEST_log 2>&1 || fail "should build"
 
   otool -lv bazel-bin/ios/app_test_bin \
@@ -438,12 +419,12 @@ swift_library(name = "swift_lib",
               srcs = ["debug.swift"])
 EOF
 
-  ! bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION -c opt \
+  ! bazel build --verbose_failures -c opt \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should not build"
   expect_log "error: use of unresolved identifier 'x'"
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION -c dbg \
+  bazel build --verbose_failures -c dbg \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
@@ -480,8 +461,7 @@ int main() {
 }
 EOF
 
-  bazel build --verbose_failures \
-      --ios_sdk_version=$IOS_SDK_VERSION --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //package:lipo_out --ios_multi_cpus=i386,x86_64 \
       || fail "should build apple_binary and obtain info via lipo"
 
@@ -523,8 +503,7 @@ swift_library(name = "swift_lib",
               deps = [":dep_lib"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
@@ -557,8 +536,7 @@ apple_watch2_extension(
 )
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:WatchExtension >$TEST_log 2>&1 || fail "should build"
 }
 
@@ -609,9 +587,8 @@ swift_library(name = "Bar",
               srcs = ["foo.swift"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-    --xcode_version=$XCODE_VERSION \
-    //ios:{Foo,Bar} >$TEST_log 2>&1 || fail "should build"
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:{Foo,Bar} >$TEST_log 2>&1 || fail "should build"
 }
 
 function test_minimum_os() {
@@ -627,8 +604,8 @@ swift_library(name = "foo",
               srcs = ["foo.swift"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION --ios_minimum_os=9.0\
+  bazel build --verbose_failures -s --announce_rc \
+      --xcode_version=$XCODE_VERSION --ios_minimum_os=9.0 \
       //ios:foo >$TEST_log 2>&1 || fail "should build"
 
   # Get the min OS version encoded as "version" argument of
@@ -662,8 +639,7 @@ swift_library(name = "swift_lib",
               copts = ["-DFLAG"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
@@ -685,21 +661,20 @@ EOF
   ARCHIVE=bazel-genfiles/ios/swift_lib/_objs/ios_swift_lib.a
 
   # No bitcode
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   ! otool -l $ARCHIVE | grep __bitcode -sq \
       || fail "expected a.o to contain bitcode"
 
   # Bitcode marker
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+  bazel build --verbose_failures \
       --xcode_version=$XCODE_VERSION --apple_bitcode=embedded_markers \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   # Bitcode marker has a length of 1.
   assert_equals $(size -m $ARCHIVE | grep __bitcode | cut -d: -f2 | tr -d ' ') "1"
 
   # Full bitcode
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+  bazel build --verbose_failures \
       --xcode_version=$XCODE_VERSION --apple_bitcode=embedded \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   otool -l $ARCHIVE | grep __bitcode -sq \
@@ -720,7 +695,7 @@ swift_library(name = "swift-lib",
               srcs = ["main.swift"])
 EOF
 
-  ! bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+  ! bazel build --verbose_failures \
       --xcode_version=$XCODE_VERSION \
       //ios:swift-lib >$TEST_log 2>&1 || fail "should fail"
   expect_log "Error in target '//ios:swift-lib'"
@@ -734,7 +709,7 @@ swift_library(name = "swift_lib",
               srcs = ["main.swift"], deps=[":bad-dep"])
 EOF
 
-  ! bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+  ! bazel build --verbose_failures \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should fail"
   expect_log "Error in target '//ios:bad-dep'"
@@ -771,8 +746,7 @@ objc_binary(name = "bin",
             deps = [":swift_lib"])
 EOF
 
-  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
-      --xcode_version=$XCODE_VERSION -s \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION -s \
       //ios:bin >$TEST_log 2>&1 || fail "should build"
   expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
   expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
