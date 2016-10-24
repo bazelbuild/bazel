@@ -46,6 +46,11 @@ source ./scripts/ci/build.sh
 
 # TODO(bazel-team): we should replace ./compile.sh by the same script we use
 # for other platform
+release_label="$(get_full_release_name)"
+
+if [ -n "${release_label}" ]; then
+  export EMBED_LABEL="${release_label}"
+fi
 ./compile.sh "$*" || retCode=$?
 if (( $retCode != 0 )); then
   echo "$retCode" > .unstable
