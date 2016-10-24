@@ -104,7 +104,7 @@ other versions requested, for example:
 # org.springframework:spring-support:2.0.2 wanted version 1.0.2
 # org.slf4j:nlog4j:1.2.24 wanted version 1.0.2
 maven_jar(
-    name = "javax/activation/activation",
+    name = "javax_activation_activation",
     artifact = "javax.activation:activation:1.1",
 )
 ```
