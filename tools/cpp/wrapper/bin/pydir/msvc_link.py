@@ -68,6 +68,9 @@ class MsvcLinker(msvc_tools.WindowsRunner):
     # Build argument list.
     parser = msvc_tools.ArgParser(self, argv, LINKPATTERNS)
 
+    # Preprocessing arguments for linking whole archive libraries
+    parser.WholeArchivePreprocess()
+
     # Find the output file name.
     name = ''
     for arg in parser.options:

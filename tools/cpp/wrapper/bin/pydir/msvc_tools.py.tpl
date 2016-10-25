@@ -31,6 +31,7 @@ TMP_PATH = '%{tmp}'
 PATH = "%{path}"
 INCLUDE = "%{include}"
 LIB = "%{lib}"
+LIB_TOOL = "%{lib_tool}"
 
 class Error(Exception):
   """Base class for all script-specific errors."""
@@ -52,7 +53,37 @@ class ArgParser(object):
     self.deps_file = None
     self.output_file = None
     self.params_file = None
+    self.support_whole_archive = %{support_whole_archive}
+    self.need_global_whole_archive = None
     self._ParseArgs(argv)
+
+  def ReplaceLibrary(self, arg):
+    """Do the actual replacement if necessary."""
+    if arg == "/WHOLEARCHIVE":
+      return []
+    if arg.startswith("/OUT:") or os.path.splitext(arg)[1] not in ['.a', '.lo']:
+      return [arg]
+    if self.global_whole_archive or arg.startswith("/WHOLEARCHIVE:"):
+      if arg.startswith("/WHOLEARCHIVE:"):
+        arg = arg[len("/WHOLEARCHIVE:"):]
+      output = subprocess.check_output([LIB_TOOL, "/list", arg]).decode("utf-8")
+      object_files = []
+      for line in output.split("\n"):
+        line = line.strip()
+        if line.endswith(".o"):
+          object_files.append(line)
+      return object_files
+    return [arg]
+
+  def WholeArchivePreprocess(self):
+    """Replace library file with object files if /WHOLEARCHIVE is not supported."""
+    if self.support_whole_archive:
+      return
+    options = []
+    self.global_whole_archive = "/WHOLEARCHIVE" in self.options
+    for arg in self.options:
+      options.extend(self.ReplaceLibrary(arg))
+    self.options = options
 
   def _MatchOneArg(self, args):
     """Finds a pattern which matches the beginning elements of args.
