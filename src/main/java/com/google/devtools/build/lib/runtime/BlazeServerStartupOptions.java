@@ -252,8 +252,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(name = "command_port",
       defaultValue = "0",
       category = "undocumented",
-      help = "Port to start up the gRPC command server on. If 0, let the kernel choose. If -1, "
-          + "use a custom protocol on an AF_UNIX socket.")
+      help = "Port to start up the gRPC command server on. If 0, let the kernel choose.")
   public int commandPort;
 
   @Option(name = "product_name",
