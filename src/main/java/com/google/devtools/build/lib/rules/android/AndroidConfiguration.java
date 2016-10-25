@@ -436,6 +436,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Build Android APKs with SingleJar.")
     public boolean useSingleJarApkBuilder;
 
+    @Option(name = "experimental_android_use_singlejar_for_multidex",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Use SingleJar for multidex dex extraction.")
+    public boolean useSingleJarForMultidex;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -513,6 +519,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
+  private final boolean useSingleJarForMultidex;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -538,6 +545,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
+    this.useSingleJarForMultidex = options.useSingleJarForMultidex;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
   }
 
@@ -625,6 +633,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useSingleJarApkBuilder() {
     return useSingleJarApkBuilder;
+  }
+
+  public boolean useSingleJarForMultidex() {
+    return useSingleJarForMultidex;
   }
 
   @Override

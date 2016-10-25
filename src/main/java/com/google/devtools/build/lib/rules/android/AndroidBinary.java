@@ -64,9 +64,12 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
+import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
@@ -1500,24 +1503,55 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return javaResourceJar;
   }
 
+  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
+  private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
+    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    SpawnAction.Builder builder = new SpawnAction.Builder();
+    if (singleJar.getFilename().endsWith(".jar")) {
+      builder
+          .setJarExecutable(
+              ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+              singleJar,
+              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+          .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext));
+    } else {
+      builder.setExecutable(singleJar);
+    }
+    return builder;
+  }
+
   /**
    * Creates an action that copies a .zip file to a specified path, filtering all non-.dex files
    * out of the output.
    */
   static void createCleanDexZipAction(RuleContext ruleContext, Artifact inputZip,
       Artifact outputZip) {
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$zip", Mode.HOST))
-        .addInput(inputZip)
-        .addOutput(outputZip)
-        .addArgument(inputZip.getExecPathString())
-        .addArgument("--out")
-        .addArgument(outputZip.getExecPathString())
-        .addArgument("--copy")
-        .addArgument("classes*.dex")
-        .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
-        .setMnemonic("TrimDexZip")
-        .build(ruleContext));
+    if (ruleContext.getFragment(AndroidConfiguration.class).useSingleJarForMultidex()) {
+      ruleContext.registerAction(singleJarSpawnActionBuilder(ruleContext)
+          .addArgument("--exclude_build_data")
+          .addArgument("--sources")
+          .addInputArgument(inputZip)
+          .addArgument("--output")
+          .addOutputArgument(outputZip)
+          .addArgument("--include_prefixes")
+          .addArgument("classes")
+          .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
+          .setMnemonic("TrimDexZip")
+          .build(ruleContext));
+    } else {
+      ruleContext.registerAction(new SpawnAction.Builder()
+          .setExecutable(ruleContext.getExecutablePrerequisite("$zip", Mode.HOST))
+          .addInput(inputZip)
+          .addOutput(outputZip)
+          .addArgument(inputZip.getExecPathString())
+          .addArgument("--out")
+          .addArgument(outputZip.getExecPathString())
+          .addArgument("--copy")
+          .addArgument("classes*.dex")
+          .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
+          .setMnemonic("TrimDexZip")
+          .build(ruleContext));
+    }
   }
 
   /**
