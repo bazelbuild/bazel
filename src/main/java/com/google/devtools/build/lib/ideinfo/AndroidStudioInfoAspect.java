@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaToolchainIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.TestInfo;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -63,11 +62,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
-import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -190,17 +187,10 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     AndroidStudioInfoFilesProvider.Builder providerBuilder =
         new AndroidStudioInfoFilesProvider.Builder();
 
-    RuleIdeInfo.Kind ruleKind = getRuleKind(ruleContext.getRule(), base);
+    DependenciesResult dependenciesResult = processDependencies(base, ruleContext, providerBuilder);
 
-    DependenciesResult dependenciesResult = processDependencies(
-        base, ruleContext, providerBuilder);
-
-    AndroidStudioInfoFilesProvider provider = createIdeBuildArtifact(
-        base,
-        ruleContext,
-        ruleKind,
-        dependenciesResult,
-        providerBuilder);
+    AndroidStudioInfoFilesProvider provider =
+        createIdeBuildArtifact(base, ruleContext, dependenciesResult, providerBuilder);
 
     NestedSetBuilder<Artifact> ideCompileArtifacts = NestedSetBuilder.stableOrder();
     // Add artifacts required for compilation
@@ -316,15 +306,12 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     }
 
     return new DependenciesResult(
-        dependencies,
-        runtimeDepsBuilder.build(),
-        resources != null ? resources.getLabel() : null);
+        dependencies, runtimeDepsBuilder.build(), resources != null ? resources.getLabel() : null);
   }
 
   private AndroidStudioInfoFilesProvider createIdeBuildArtifact(
       ConfiguredTarget base,
       RuleContext ruleContext,
-      Kind ruleKind,
       DependenciesResult dependenciesResult,
       AndroidStudioInfoFilesProvider.Builder providerBuilder) {
 
@@ -341,9 +328,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     outputBuilder.setBuildFileArtifactLocation(
         makeArtifactLocation(ruleContext.getRule().getPackage()));
 
-    if (ruleKind != Kind.UNRECOGNIZED) {
-      outputBuilder.setKind(ruleKind);
-    }
     outputBuilder.setKindString(ruleContext.getRule().getRuleClass());
 
     // Java rules
@@ -359,8 +343,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     if (isCppRule(base)) {
       CppCompilationContext cppCompilationContext = base.getProvider(CppCompilationContext.class);
       if (cppCompilationContext != null) {
-        CRuleIdeInfo cRuleIdeInfo = makeCRuleIdeInfo(base, ruleContext, cppCompilationContext,
-            ideResolveArtifacts);
+        CRuleIdeInfo cRuleIdeInfo =
+            makeCRuleIdeInfo(base, ruleContext, cppCompilationContext, ideResolveArtifacts);
         outputBuilder.setCRuleIdeInfo(cRuleIdeInfo);
       }
     }
@@ -923,54 +907,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
       NestedSetBuilder<Artifact> ideResolveArtifacts, Artifact artifact) {
     if (!artifact.isSourceArtifact()) {
       ideResolveArtifacts.add(artifact);
-    }
-  }
-
-  @Deprecated
-  private RuleIdeInfo.Kind getRuleKind(Rule rule, ConfiguredTarget base) {
-    switch (rule.getRuleClassObject().getName()) {
-      case "java_library":
-        return Kind.JAVA_LIBRARY;
-      case "java_import":
-        return Kind.JAVA_IMPORT;
-      case "java_test":
-        return Kind.JAVA_TEST;
-      case "java_binary":
-        return Kind.JAVA_BINARY;
-      case "android_library":
-        return Kind.ANDROID_LIBRARY;
-      case "android_binary":
-        return Kind.ANDROID_BINARY;
-      case "android_test":
-        return Kind.ANDROID_TEST;
-      case "android_robolectric_test":
-        return Kind.ANDROID_ROBOELECTRIC_TEST;
-      case "proto_library":
-        return Kind.PROTO_LIBRARY;
-      case "java_plugin":
-        return Kind.JAVA_PLUGIN;
-      case "android_resources":
-        return Kind.ANDROID_RESOURCES;
-      case "cc_library":
-        return Kind.CC_LIBRARY;
-      case "cc_binary":
-        return Kind.CC_BINARY;
-      case "cc_test":
-        return Kind.CC_TEST;
-      case "cc_inc_library":
-        return Kind.CC_INC_LIBRARY;
-      case "cc_toolchain":
-        return Kind.CC_TOOLCHAIN;
-      case "java_wrap_cc":
-        return Kind.JAVA_WRAP_CC;
-      default:
-        {
-          if (base.getProvider(AndroidSdkProvider.class) != null) {
-            return RuleIdeInfo.Kind.ANDROID_SDK;
-          } else {
-            return RuleIdeInfo.Kind.UNRECOGNIZED;
-          }
-        }
     }
   }
 }

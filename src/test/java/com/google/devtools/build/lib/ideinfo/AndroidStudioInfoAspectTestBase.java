@@ -286,11 +286,4 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected abstract boolean isNativeTest();
-
-  // We only need to test legacy functionality for the native aspect.
-  // To make it easier to tally missing skylark aspect functionality,
-  // we give this switch a different name.
-  protected boolean testLegacyAswbPluginVersionCompatibility() {
-    return isNativeTest();
-  }
 }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CToolchainIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
 import java.nio.file.Paths;
@@ -388,9 +387,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     final RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
     RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
 
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
-    }
     assertThat(impInfo.getKindString()).isEqualTo("java_import");
     assertThat(libInfo.getDependenciesList()).contains("//com/google/example:imp");
 
@@ -443,9 +439,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
     RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
 
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
-    }
     assertThat(impInfo.getKindString()).isEqualTo("java_import");
     assertThat(impInfo.getDependenciesList()).contains("//com/google/example:foobar");
     assertThat(libInfo.getDependenciesList())
@@ -543,9 +536,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         buildRuleIdeInfo("//java/com/google/example:FooBarTest");
     RuleIdeInfo testInfo =
         getRuleInfoAndVerifyLabel("//java/com/google/example:FooBarTest", ruleIdeInfos);
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(testInfo.getKind()).isEqualTo(Kind.JAVA_TEST);
-    }
     assertThat(testInfo.getKindString()).isEqualTo("java_test");
     assertThat(relativePathsForJavaSourcesOf(testInfo))
         .containsExactly("java/com/google/example/FooBarTest.java");
@@ -585,9 +575,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo binaryInfo =
         getRuleInfoAndVerifyLabel("//com/google/example:foobar-exe", ruleIdeInfos);
 
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(binaryInfo.getKind()).isEqualTo(Kind.JAVA_BINARY);
-    }
     assertThat(binaryInfo.getKindString()).isEqualTo("java_binary");
     assertThat(relativePathsForJavaSourcesOf(binaryInfo))
         .containsExactly("com/google/example/FooBarMain.java");
@@ -671,9 +658,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:l");
     RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel("//com/google/example:l", ruleIdeInfos);
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_LIBRARY);
-    }
     assertThat(ruleInfo.getKindString()).isEqualTo("android_library");
     assertThat(relativePathsForJavaSourcesOf(ruleInfo))
         .containsExactly("com/google/example/Main.java");
@@ -728,9 +712,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:b");
     RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel("//com/google/example:b", ruleIdeInfos);
 
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
-    }
     assertThat(ruleInfo.getKindString()).isEqualTo("android_binary");
     assertThat(relativePathsForJavaSourcesOf(ruleInfo))
         .containsExactly("com/google/example/Main.java");
@@ -1125,10 +1106,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:plugin");
     RuleIdeInfo plugin =
         getRuleInfoAndVerifyLabel("//java/com/google/example:plugin", ruleIdeInfos);
-
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(plugin.getKind()).isEqualTo(Kind.JAVA_PLUGIN);
-    }
 
     assertThat(plugin.getKindString()).isEqualTo("java_plugin");
     assertThat(transform(plugin.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
@@ -1597,24 +1574,15 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:simple");
     RuleIdeInfo ruleIdeInfo =
         getRuleInfoAndVerifyLabel("//java/com/google/example:simple", ruleIdeInfos);
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
-    }
     assertThat(ruleIdeInfo.getKindString()).isEqualTo("android_binary");
   }
 
   @Test
   public void testAndroidBinaryIsSerialized() throws Exception {
     RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      builder.setKind(Kind.ANDROID_BINARY);
-    }
     builder.setKindString("android_binary");
     ByteString byteString = builder.build().toByteString();
     RuleIdeInfo result = RuleIdeInfo.parseFrom(byteString);
-    if (testLegacyAswbPluginVersionCompatibility()) {
-      assertThat(result.getKind()).isEqualTo(Kind.ANDROID_BINARY);
-    }
     assertThat(result.getKindString()).isEqualTo("android_binary");
   }
 

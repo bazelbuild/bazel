@@ -107,29 +107,7 @@ message JavaToolchainIdeInfo {
 }
 
 message RuleIdeInfo {
-  enum Kind {
-    ANDROID_BINARY = 0;
-    ANDROID_LIBRARY = 1;
-    ANDROID_TEST = 2;
-    ANDROID_ROBOELECTRIC_TEST = 3;
-    JAVA_LIBRARY = 4;
-    JAVA_TEST = 5;
-    JAVA_IMPORT = 6;
-    JAVA_BINARY = 7;
-    PROTO_LIBRARY = 8;
-    ANDROID_SDK = 9;
-    JAVA_PLUGIN = 10;
-    ANDROID_RESOURCES = 11;
-    CC_LIBRARY = 12;
-    CC_BINARY = 13;
-    CC_TEST = 14;
-    CC_INC_LIBRARY = 15;
-    CC_TOOLCHAIN = 16;
-    JAVA_WRAP_CC = 17;
-  }
-
   string label = 1;
-  Kind kind = 2 [deprecated=true];
   repeated string dependencies = 4;
 
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT
