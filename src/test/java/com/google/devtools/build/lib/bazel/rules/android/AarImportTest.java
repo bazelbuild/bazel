@@ -84,7 +84,7 @@ public class AarImportTest extends BuildViewTestCase {
 
     Artifact resourceTreeArtifact = resourceArtifacts.iterator().next();
     assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
-    assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/foo");
+    assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
   }
 
   @Test
@@ -131,10 +131,7 @@ public class AarImportTest extends BuildViewTestCase {
     assertThat(outputJars).hasSize(1);
 
     Artifact classesJar = outputJars.iterator().next().getClassJar();
-    assertThat(classesJar.getFilename()).isEqualTo("classes.jar");
-
-    SpawnAction unzipAction = (SpawnAction) getGeneratingAction(classesJar);
-    assertThat(unzipAction.getCommandFilename()).endsWith("aar_embedded_jars_extractor");
+    assertThat(classesJar.getFilename()).isEqualTo("classes_and_libs_merged.jar");
   }
 
   @Test
@@ -151,21 +148,21 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExportsPropagatesClassesJar() throws Exception {
+  public void testExportsPropagatesMergedAarJars() throws Exception {
     FileConfiguredTarget appTarget = getFileConfiguredTarget("//java:app.apk");
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(appTarget.getArtifact());
 
     ConfiguredTarget bar = getConfiguredTarget("//a:bar");
     Artifact barClassesJar =
-        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "bar/classes.jar");
-    // Verify that bar/classes.jar was in the artifact closure.
+        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "bar/classes_and_libs_merged.jar");
+    // Verify that bar/classes_and_libs_merged.jar was in the artifact closure.
     assertThat(barClassesJar).isNotNull();
     assertThat(barClassesJar.getArtifactOwner().getLabel()).isEqualTo(bar.getLabel());
 
     ConfiguredTarget foo = getConfiguredTarget("//a:foo");
     Artifact fooClassesJar =
-        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "foo/classes.jar");
-    // Verify that foo/classes.jar was in the artifact closure.
+        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "foo/classes_and_libs_merged.jar");
+    // Verify that foo/classes_and_libs_merged.jar was in the artifact closure.
     assertThat(fooClassesJar).isNotNull();
     assertThat(fooClassesJar.getArtifactOwner().getLabel()).isEqualTo(foo.getLabel());
 
@@ -184,13 +181,13 @@ public class AarImportTest extends BuildViewTestCase {
 
     ConfiguredTarget bar = getConfiguredTarget("//a:bar");
     Artifact barResources =
-        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "_aar/unzipped/bar");
+        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "_aar/unzipped/resources/bar");
     assertThat(barResources).isNotNull();
     assertThat(barResources.getArtifactOwner().getLabel()).isEqualTo(bar.getLabel());
 
     ConfiguredTarget foo = getConfiguredTarget("//a:foo");
     Artifact fooResources =
-        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "_aar/unzipped/foo");
+        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "_aar/unzipped/resources/foo");
     assertThat(fooResources).isNotNull();
     assertThat(fooResources.getArtifactOwner().getLabel()).isEqualTo(foo.getLabel());
   }

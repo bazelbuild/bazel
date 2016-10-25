@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A tool for extracting jar files from an AAR and failing gracefully.
+"""A tool for extracting all jar files from an AAR.
 
-If the jar file is present within the archive, it is extracted into the output
-directory. If not, an empty jar is created in the output directory.
+An AAR may contain JARs at /classes.jar and /libs/*.jar. This tool extracts all
+of the jars and creates a param file for singlejar to merge them into one jar.
 """
 
 import os
+import re
 import sys
 import zipfile
 
@@ -26,27 +27,30 @@ from third_party.py import gflags
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_string("input_archive", None, "Input archive")
-gflags.MarkFlagAsRequired("input_archive")
-gflags.DEFINE_string("filename", None, "Filename of JAR to extract")
-gflags.MarkFlagAsRequired("filename")
-gflags.DEFINE_string("output_dir", None, "Output directory")
+gflags.DEFINE_string("input_aar", None, "Input AAR")
+gflags.MarkFlagAsRequired("input_aar")
+gflags.DEFINE_string(
+    "output_singlejar_param_file", None, "Output parameter file for singlejar")
+gflags.MarkFlagAsRequired("output_singlejar_param_file")
+gflags.DEFINE_string("output_dir", None, "Output directory to extract jars in")
 gflags.MarkFlagAsRequired("output_dir")
 
 
-def ExtractEmbeddedJar(input_archive, filename, output_dir):
-  with zipfile.ZipFile(input_archive, "r") as archive:
-    if filename in archive.namelist():
-      archive.extract(filename, output_dir)
-    else:
-      with zipfile.ZipFile(os.path.join(output_dir, filename), "w") as jar:
-        # All jar files must contain META-INF/MANIFEST.MF.
-        jar.writestr("META-INF/MANIFEST.MF", ("Manifest-Version: 1.0\n"
-                                              "Created-By: Bazel\n"))
+def ExtractEmbeddedJars(aar, singlejar_param_file, output_dir):
+  os.makedirs(output_dir)
+  jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")
+  singlejar_param_file.write("--exclude_build_data\n")
+  for name in aar.namelist():
+    if jar_pattern.match(name):
+      singlejar_param_file.write("--sources\n")
+      singlejar_param_file.write(output_dir + "/" + name + "\n")
+      aar.extract(name, output_dir)
 
 
 def main():
-  ExtractEmbeddedJar(FLAGS.input_archive, FLAGS.filename, FLAGS.output_dir)
+  with zipfile.ZipFile(FLAGS.input_aar, "r") as aar:
+    with open(FLAGS.output_singlejar_param_file, "w") as singlejar_param_file:
+      ExtractEmbeddedJars(aar, singlejar_param_file, FLAGS.output_dir)
 
 if __name__ == "__main__":
   FLAGS(sys.argv)
