@@ -15,7 +15,8 @@
 # limitations under the License.
 
 export RUNFILES=${RUNFILES:-$($(cd $(dirname ${BASH_SOURCE[0]})); pwd)}
-CUT=$RUNFILES/tools/android/zip_manifest_creator
+CUT="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)/zip_manifest_creator"
+cd $TEST_TMPDIR
 
 touch classes.jar
 touch AndroidManifest.xml
