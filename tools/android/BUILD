@@ -235,7 +235,7 @@ sh_binary(
 sh_binary(
     name = "zip_manifest_creator",
     srcs = ["zip_manifest_creator.sh"],
-    data = ["//third_party/ijar:zipper"],
+    data = ["//tools/zip:zipper"],
 )
 
 sh_test(
