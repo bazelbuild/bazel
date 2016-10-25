@@ -1361,6 +1361,11 @@ static void ComputeBaseDirectories(const string &self_path) {
 }
 
 static void CheckEnvironment() {
+  if (getenv("http_proxy") != NULL) {
+    fprintf(stderr, "Warning: ignoring http_proxy in environment.\n");
+    unsetenv("http_proxy");
+  }
+
   if (getenv("LD_ASSUME_KERNEL") != NULL) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
