@@ -153,14 +153,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Returns all labels reachable via the given attribute. If a label is listed multiple times, each
-   * instance appears in the returned list.
+   * Returns all labels reachable via the given attribute, with duplicate instances removed.
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
-  public List<Label> getReachableLabels(String attributeName, boolean includeSelectKeys)
+  public Set<Label> getReachableLabels(String attributeName, boolean includeSelectKeys)
       throws InterruptedException {
-    final ImmutableList.Builder<Label> builder = ImmutableList.builder();
+    final ImmutableSet.Builder<Label> builder = ImmutableSet.<Label>builder();
     visitLabels(getAttributeDefinition(attributeName), includeSelectKeys,
         new AcceptsLabelAttribute() {
           @Override

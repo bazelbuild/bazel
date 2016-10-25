@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.output;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -131,8 +132,26 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        Pair<Iterable<Object>, AttributeValueSource> values =
-            getPossibleAttributeValuesAndSources(rule, attr);
+        Pair<Iterable<Object>, AttributeValueSource> values;
+        if (attr.getType().equals(BuildType.LABEL_LIST)) {
+          // Avoid iterating over all possible values for a configurable label list, since all we
+          // care about are the raw labels. This avoids potential memory overruns. For example,
+          // given select({":c": ["//a:one", "//a:two"], ":d": ["//a:two"]]}), all we really need is
+          // ["//a:one", "//a:two"]. We don't care how exactly what combination of labels gets
+          // selected.
+
+          // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
+          // there's currently no syntax for expressing multiple scalar values). This unfortunately
+          // isn't trivial because Bazel's label visitation logic includes special methods built
+          // directly into Type.
+          values = Pair.<Iterable<Object>, AttributeValueSource>of(
+              ImmutableList.<Object>of(
+                  AggregatingAttributeMapper.of(rule)
+                      .getReachableLabels(attr.getName(), /*includeSelectKeys=*/false)),
+              AttributeValueSource.RULE);
+        } else {
+          values = getPossibleAttributeValuesAndSources(rule, attr);
+        }
         if (values.second == AttributeValueSource.RULE || options.xmlShowDefaultValues) {
           Element attrElem = createValueElement(doc, attr.getType(), values.first);
           attrElem.setAttribute("name", attr.getName());
