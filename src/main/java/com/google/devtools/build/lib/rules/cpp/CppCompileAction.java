@@ -801,7 +801,9 @@ public class CppCompileAction extends AbstractAction
     if (optionalSourceFile != null) {
       allowedIncludes.add(optionalSourceFile);
     }
-    Iterable<PathFragment> ignoreDirs = getValidationIgnoredDirs();
+    Iterable<PathFragment> ignoreDirs = cppConfiguration.isStrictSystemIncludes()
+        ? cppConfiguration.getBuiltInIncludeDirectories()
+        : getValidationIgnoredDirs();
 
     // Copy the sets to hash sets for fast contains checking.
     // Avoid immutable sets here to limit memory churn.

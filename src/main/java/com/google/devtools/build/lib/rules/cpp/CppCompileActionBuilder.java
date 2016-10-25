@@ -48,7 +48,7 @@ import java.util.regex.Pattern;
  * Builder class to construct C++ compile actions.
  */
 public class CppCompileActionBuilder {
-  public static final UUID GUID = UUID.fromString("cee5db0a-d2ad-4c69-9b81-97c936a29075");
+  public static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
   private final ActionOwner owner;
   private final List<String> features = new ArrayList<>();

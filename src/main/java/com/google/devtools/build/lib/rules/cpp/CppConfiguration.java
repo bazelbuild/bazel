@@ -2037,6 +2037,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.shareNativeDeps;
   }
 
+  public boolean isStrictSystemIncludes() {
+    return cppOptions.strictSystemIncludes;
+  }
+
   @Override
   public Map<String, Object> lateBoundOptionDefaults() {
     // --cpu and --compiler initially default to null because their *actual* defaults aren't known

@@ -546,6 +546,16 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean shareNativeDeps;
 
+  @Option(
+    name = "strict_system_includes",
+    defaultValue = "false",
+    category = "strategy",
+    help =
+        "If true, headers found through system include paths (-isystem) are also required to be "
+        + "declared."
+  )
+  public boolean strictSystemIncludes;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     CppOptions host = (CppOptions) getDefault();
