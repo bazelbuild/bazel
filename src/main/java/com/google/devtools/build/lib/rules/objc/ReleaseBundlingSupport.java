@@ -720,7 +720,6 @@ public final class ReleaseBundlingSupport {
         Substitution.of("%ipa_file%", ipaInput.getRunfilesPathString()),
         Substitution.of("%sim_device%", escapedSimDevice),
         Substitution.of("%sdk_version%", escapedSdkVersion),
-        Substitution.of("%iossim%", attributes.iossim().getRunfilesPathString()),
         Substitution.of("%std_redirect_dylib_path%",
             attributes.stdRedirectDylib().getRunfilesPathString()));
 
@@ -738,7 +737,6 @@ public final class ReleaseBundlingSupport {
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
         .addArtifact(releaseBundling.getIpaArtifact())
         .addArtifact(runnerScript)
-        .addArtifact(attributes.iossim())
         .addArtifact(attributes.stdRedirectDylib())
         .build();
     return RunfilesSupport.withExecutable(ruleContext, runfiles, runnerScript);
@@ -1243,10 +1241,6 @@ public final class ReleaseBundlingSupport {
      */
     FilesToRunProvider plmerge() {
       return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
-    }
-
-    Artifact iossim() {
-      return checkNotNull(ruleContext.getPrerequisiteArtifact("$iossim", Mode.HOST));
     }
 
     Artifact stdRedirectDylib() {

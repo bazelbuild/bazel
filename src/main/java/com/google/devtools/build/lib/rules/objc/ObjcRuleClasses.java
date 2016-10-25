@@ -1312,15 +1312,12 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that use the iOS simulator.
    */
   public static class SimulatorRule implements RuleDefinition {
-    static final String IOSSIM_ATTR = "$iossim";
     static final String STD_REDIRECT_DYLIB_ATTR = "$std_redirect_dylib";
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           // Needed to run the binary in the simulator.
-          .add(attr(IOSSIM_ATTR, LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//third_party/iossim:iossim")))
           .add(attr(STD_REDIRECT_DYLIB_ATTR, LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/objc:StdRedirect.dylib")))
           .build();

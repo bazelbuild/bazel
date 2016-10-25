@@ -95,7 +95,6 @@ process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
 linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
 
 # iOS and Objective-C tooling
-iossim_path="${BAZEL_RUNFILES}/third_party/iossim/iossim"
 actoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/actoolwrapper/actoolwrapper.sh"
 ibtoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/ibtoolwrapper/ibtoolwrapper.sh"
 swiftstdlibtoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/swiftstdlibtoolwrapper/swiftstdlibtoolwrapper.sh"
@@ -364,18 +363,6 @@ filegroup(
         "hamcrest.jar",
     ],
 )
-EOF
-}
-
-function setup_iossim() {
-  mkdir -p third_party/iossim
-  ln -sv ${iossim_path} third_party/iossim/iossim
-
-  cat <<EOF >>third_party/iossim/BUILD
-licenses(["unencumbered"])
-package(default_visibility = ["//visibility:public"])
-
-exports_files(["iossim"])
 EOF
 }
 
