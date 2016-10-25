@@ -19,10 +19,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -61,6 +63,7 @@ public class PackageLookupFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
     if (PackageFunction.isDefaultsPackage(packageKey)) {
       return PackageLookupValue.success(pkgLocator.getPathEntries().get(0), BuildFileName.BUILD);
@@ -149,10 +152,50 @@ public class PackageLookupFunction implements SkyFunction {
       RootedPath buildFileRootedPath = RootedPath.toRootedPath(packagePathEntry,
           buildFileFragment);
 
-      if (crossRepositoryLabelViolationStrategy != CrossRepositoryLabelViolationStrategy.IGNORE) {
-        // TODO(jcater): Check for cross repository package label violations.
+      if (crossRepositoryLabelViolationStrategy == CrossRepositoryLabelViolationStrategy.ERROR) {
+        // Is this path part of a local repository?
+        RootedPath currentPath =
+            RootedPath.toRootedPath(packagePathEntry, buildFileFragment.getParentDirectory());
+        SkyKey repositoryLookupKey = LocalRepositoryLookupValue.key(currentPath);
+
+        // TODO(jcater): Consider parallelizing these lookups.
+        LocalRepositoryLookupValue localRepository;
+        try {
+          localRepository =
+              (LocalRepositoryLookupValue)
+                  env.getValueOrThrow(
+                      repositoryLookupKey, ErrorDeterminingRepositoryException.class);
+          if (localRepository == null) {
+            return null;
+          }
+        } catch (ErrorDeterminingRepositoryException e) {
+          // If the directory selected isn't part of a repository, that's an error.
+          // TODO(katre): Improve the error message given here.
+          throw new PackageLookupFunctionException(
+              new BuildFileNotFoundException(
+                  packageIdentifier,
+                  "Unable to determine the local repository for directory "
+                      + currentPath.asPath().getPathString()),
+              Transience.PERSISTENT);
+        }
+
+        if (localRepository.exists()
+            && !localRepository.getRepository().equals(packageIdentifier.getRepository())) {
+          // There is a repository mismatch, this is an error.
+          // TODO(jcater): Work out the correct package name for this error message.
+          return PackageLookupValue.invalidPackageName(
+              "Package crosses into repository " + localRepository.getRepository().getName());
+        }
+
+        // There's no local repository, keep going.
+      } else {
+        // Future-proof against adding future values to CrossRepositoryLabelViolationStrategy.
+        Preconditions.checkState(
+            crossRepositoryLabelViolationStrategy == CrossRepositoryLabelViolationStrategy.IGNORE,
+            crossRepositoryLabelViolationStrategy);
       }
 
+      // Check for the existence of the build file.
       FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
       if (fileValue == null) {
         return null;

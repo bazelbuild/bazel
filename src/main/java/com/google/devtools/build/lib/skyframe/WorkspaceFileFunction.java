@@ -110,7 +110,11 @@ public class WorkspaceFileFunction implements SkyFunction {
         return null;
       }
       parser.execute(ast, importResult.importMap);
-    } catch (PackageFunctionException | NameConflictException e) {
+    } catch (PackageFunctionException e) {
+      // TODO(jcater): Unwrap the PackageFunctionException and handle the underlying error.
+      // PFE shouldn't be exposed to callers.
+      throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
+    } catch (NameConflictException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
 
@@ -129,12 +133,12 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
-    public WorkspaceFileFunctionException(Exception e, Transience transience) {
+    public WorkspaceFileFunctionException(PackageFunctionException e, Transience transience) {
       super(e, transience);
     }
 
-    public WorkspaceFileFunctionException(Exception e) {
-      super(e, Transience.PERSISTENT);
+    public WorkspaceFileFunctionException(NameConflictException e, Transience transience) {
+      super(e, transience);
     }
   }
 }

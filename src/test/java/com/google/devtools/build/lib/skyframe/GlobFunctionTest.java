@@ -144,6 +144,11 @@ public abstract class GlobFunctionTest {
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
+    skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
+    skyFunctions.put(
+        SkyFunctions.DIRECTORY_LISTING_STATE,
+        new DirectoryListingStateFunction(externalFilesHelper));
+    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     return skyFunctions;
   }
 
@@ -692,7 +697,7 @@ public abstract class GlobFunctionTest {
     assertGlobMatches("symlinks/*.txt", "symlinks/existing.txt");
   }
 
-  private class CustomInMemoryFs extends InMemoryFileSystem {
+  private static final class CustomInMemoryFs extends InMemoryFileSystem {
 
     private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
 
