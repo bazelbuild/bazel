@@ -15,20 +15,203 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /** Jury-rigged file system for Windows. */
 @ThreadSafe
 public class WindowsFileSystem extends JavaIoFileSystem {
 
+  @VisibleForTesting
+  enum WindowsPathFactory implements PathFactory {
+    INSTANCE {
+      @Override
+      public Path createRootPath(FileSystem filesystem) {
+        return new WindowsPath(filesystem, PathFragment.ROOT_DIR, null);
+      }
+
+      @Override
+      public Path createChildPath(Path parent, String childName) {
+        Preconditions.checkState(parent instanceof WindowsPath);
+        return new WindowsPath(parent.getFileSystem(), childName, (WindowsPath) parent);
+      }
+
+      @Override
+      public TranslatedPath translatePath(Path parent, String child) {
+        if (parent != null && parent.isRootDirectory()) {
+          // This is a top-level directory. It's either a drive name ("C:" or "c") or some other
+          // Unix path (e.g. "/usr").
+          //
+          // We need to translate it to an absolute Windows path. The correct way would be looking
+          // up /etc/mtab to see if any mount point matches the prefix of the path, and change the
+          // prefix to the mounted path. Looking up /etc/mtab each time we create a path however
+          // would be too expensive so we use a heuristic instead.
+          //
+          // If the name looks like a volume name ("C:" or "c") then we treat it as such, otherwise
+          // we make it relative to UNIX_ROOT, thus "/usr" becomes "C:/tools/msys64/usr".
+          //
+          // This heuristic ignores other mount points as well as procfs.
+
+          // TODO(bazel-team): get rid of this heuristic and translate paths using /etc/mtab.
+          // Figure out how to handle non-top-level mount points (e.g. "/usr/bin" is mounted to
+          // "/bin"), which is problematic because Paths are created segment by segment, so
+          // individual Path objects don't know they are parts of a mount point path.
+          // Another challenge is figuring out how and when to read /etc/mtab. A simple approach is
+          // to do it in determineUnixRoot, but then we won't pick up mount changes during the
+          // lifetime of the Bazel server process. A correct approach would be to establish a
+          // Skyframe FileValue-dependency on it, but it's unclear how this class could request or
+          // retrieve Skyframe-computed data.
+
+          if (WindowsPath.isWindowsVolumeName(child)) {
+            child = WindowsPath.getDriveLetter((WindowsPath) parent, child) + ":";
+          } else {
+            Preconditions.checkNotNull(
+                UNIX_ROOT,
+                "Could not determine Unix path root or it is not an absolute Windows path. Set the "
+                    + "\"%s\" JVM argument, or export the \"%s\" environment variable for the MSYS "
+                    + "bash and have /usr/bin/cygpath installed. Parent is \"%s\", name is \"%s\".",
+                WINDOWS_UNIX_ROOT_JVM_ARG,
+                BAZEL_SH_ENV_VAR,
+                parent,
+                child);
+            parent = parent.getRelative(UNIX_ROOT);
+          }
+        }
+        return new TranslatedPath(parent, child);
+      }
+    };
+  }
+
+  private static final class WindowsPath extends Path {
+
+    // The drive letter is '\0' if and only if this Path is the filesystem root "/".
+    private char driveLetter;
+
+    private WindowsPath(FileSystem fileSystem) {
+      super(fileSystem);
+      this.driveLetter = '\0';
+    }
+
+    private WindowsPath(FileSystem fileSystem, String name, WindowsPath parent) {
+      super(fileSystem, name, parent);
+      this.driveLetter = getDriveLetter(parent, name);
+    }
+
+    @Override
+    protected void buildPathString(StringBuilder result) {
+      if (isRootDirectory()) {
+        result.append(PathFragment.ROOT_DIR);
+      } else {
+        if (isTopLevelDirectory()) {
+          result.append(driveLetter).append(':').append(PathFragment.SEPARATOR_CHAR);
+        } else {
+          getParentDirectory().buildPathString(result);
+          if (!getParentDirectory().isTopLevelDirectory()) {
+            result.append(PathFragment.SEPARATOR_CHAR);
+          }
+          result.append(getBaseName());
+        }
+      }
+    }
+
+    @Override
+    public void reinitializeAfterDeserialization() {
+      Preconditions.checkState(
+          getParentDirectory().isRootDirectory() || getParentDirectory() instanceof WindowsPath);
+      this.driveLetter =
+          (getParentDirectory() != null) ? ((WindowsPath) getParentDirectory()).driveLetter : '\0';
+    }
+
+    @Override
+    public boolean isMaybeRelativeTo(Path ancestorCandidate) {
+      Preconditions.checkState(ancestorCandidate instanceof WindowsPath);
+      return ancestorCandidate.isRootDirectory()
+          || driveLetter == ((WindowsPath) ancestorCandidate).driveLetter;
+    }
+
+    @Override
+    public boolean isTopLevelDirectory() {
+      return isRootDirectory() || getParentDirectory().isRootDirectory();
+    }
+
+    @Override
+    public PathFragment asFragment() {
+      String[] segments = getSegments();
+      if (segments.length > 0) {
+        // Strip off the first segment that contains the volume name.
+        segments = Arrays.copyOfRange(segments, 1, segments.length);
+      }
+
+      return new PathFragment(driveLetter, true, segments);
+    }
+
+    @Override
+    protected Path getRootForRelativePathComputation(PathFragment relative) {
+      Path result = this;
+      if (relative.isAbsolute()) {
+        result = getFileSystem().getRootDirectory();
+        if (!relative.windowsVolume().isEmpty()) {
+          result = result.getRelative(relative.windowsVolume());
+        }
+      }
+      return result;
+    }
+
+    private static boolean isWindowsVolumeName(String name) {
+      return (name.length() == 1 || (name.length() == 2 && name.charAt(1) == ':'))
+          && Character.isLetter(name.charAt(0));
+    }
+
+    private static char getDriveLetter(WindowsPath parent, String name) {
+      if (parent == null) {
+        return '\0';
+      } else {
+        if (parent.isRootDirectory()) {
+          Preconditions.checkState(
+              isWindowsVolumeName(name),
+              "top-level directory on Windows must be a drive (name = '%s')",
+              name);
+          return Character.toUpperCase(name.charAt(0));
+        } else {
+          return parent.driveLetter;
+        }
+      }
+    }
+  }
+
+  private static final String WINDOWS_UNIX_ROOT_JVM_ARG = "bazel.windows_unix_root";
+  private static final String BAZEL_SH_ENV_VAR = "BAZEL_SH";
+
+  // Absolute Windows path specifying the root of absolute Unix paths.
+  // This is typically the MSYS installation root, e.g. C:\\tools\\msys64
+  private static final PathFragment UNIX_ROOT =
+      determineUnixRoot(WINDOWS_UNIX_ROOT_JVM_ARG, BAZEL_SH_ENV_VAR);
+
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
+
+  @Override
+  protected PathFactory getPathFactory() {
+    return WindowsPathFactory.INSTANCE;
+  }
+
+  @Override
+  public String getFileSystemType(Path path) {
+    // TODO(laszlocsomor): implement this properly, i.e. actually query this information from
+    // somewhere (java.nio.Filesystem? System.getProperty? implement JNI method and use WinAPI?).
+    return "ntfs";
+  }
 
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
@@ -212,5 +395,58 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     }
     return false;
+  }
+
+  private static PathFragment determineUnixRoot(String jvmArgName, String bazelShEnvVar) {
+    // Get the path from a JVM argument, if specified.
+    String path = System.getProperty(jvmArgName);
+
+    if (path == null || path.isEmpty()) {
+      path = "";
+
+      // Fall back to executing cygpath.
+      String bash = System.getenv(bazelShEnvVar);
+      Process process = null;
+      try {
+        process = Runtime.getRuntime().exec("cmd.exe /C " + bash + " -c \"/usr/bin/cygpath -m /\"");
+
+        // Wait 3 seconds max, that should be enough to run this command.
+        process.waitFor(3, TimeUnit.SECONDS);
+
+        if (process.exitValue() == 0) {
+          path = readAll(process.getInputStream());
+        } else {
+          System.err.print(
+              String.format(
+                  "ERROR: %s (exit code: %d)%n",
+                  readAll(process.getErrorStream()), process.exitValue()));
+        }
+      } catch (InterruptedException | IOException e) {
+        // Silently ignore failure. Either MSYS is installed at a different location, or not
+        // installed at all, or some error occurred. We can't do anything anymore but throw an
+        // exception if someone tries to create a Path from an absolute Unix path.
+        return null;
+      }
+    }
+
+    path = path.trim();
+    PathFragment result = new PathFragment(path);
+    if (path.isEmpty() || result.getDriveLetter() == '\0' || !result.isAbsolute()) {
+      return null;
+    } else {
+      return result;
+    }
+  }
+
+  private static String readAll(InputStream s) throws IOException {
+    String result = "";
+    int len;
+    char[] buf = new char[4096];
+    try (InputStreamReader r = new InputStreamReader(s)) {
+      while ((len = r.read(buf)) > 0) {
+        result += new String(buf, 0, len);
+      }
+    }
+    return result;
   }
 }

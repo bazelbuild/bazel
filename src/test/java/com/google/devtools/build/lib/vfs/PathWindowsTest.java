@@ -17,9 +17,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
+import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.vfs.Path.PathFactory;
+import com.google.devtools.build.lib.vfs.WindowsFileSystem.WindowsPathFactory;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,8 +40,16 @@ public class PathWindowsTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    filesystem = new InMemoryFileSystem(BlazeClock.instance());
-    root = filesystem.getRootDirectory();
+    filesystem =
+        new InMemoryFileSystem(BlazeClock.instance()) {
+          @Override
+          protected PathFactory getPathFactory() {
+            return WindowsPathFactory.INSTANCE;
+          }
+        };
+    root = filesystem.getRootDirectory().getRelative("C:/");
+    root.createDirectory();
+
     Path first = root.getChild("first");
     first.createDirectory();
   }
@@ -98,10 +111,38 @@ public class PathWindowsTest {
   }
 
   @Test
+  public void testAbsoluteUnixPathIsRelativeToWindowsUnixRoot() {
+    Path actual = root.getRelative("/foo/bar");
+    Path expected = root.getRelative("C:/fake/msys/foo/bar");
+    assertThat(actual.getPathString()).isEqualTo(expected.getPathString());
+    assertThat(actual).isEqualTo(expected);
+  }
+
+  @Test
+  public void testAbsoluteUnixPathReferringToDriveIsRecognized() {
+    Path actual = root.getRelative("/c/foo");
+    Path expected = root.getRelative("C:/foo");
+    assertThat(actual.getPathString()).isEqualTo(expected.getPathString());
+    assertThat(actual).isEqualTo(expected);
+
+    // "unexpected" is not a valid MSYS path, we should not be able to create it.
+    try {
+      root.getRelative("/c:");
+      Assert.fail("expected failure");
+    } catch (IllegalArgumentException e) {
+      assertThat(e.getMessage()).contains("Illegal path string \"/c:\"");
+    }
+  }
+
+  @Test
   public void testStartsWithWorksOnWindows() {
     assertStartsWithReturnsOnWindows(true, "C:/first/x", "C:/first/x/y");
     assertStartsWithReturnsOnWindows(true, "c:/first/x", "C:/FIRST/X/Y");
     assertStartsWithReturnsOnWindows(true, "C:/FIRST/X", "c:/first/x/y");
+    assertStartsWithReturnsOnWindows(true, "/", "C:/");
+    assertStartsWithReturnsOnWindows(false, "C:/", "/");
+    assertStartsWithReturnsOnWindows(false, "C:/", "D:/");
+    assertStartsWithReturnsOnWindows(false, "C:/", "D:/foo");
   }
 
   @Test
@@ -118,5 +159,39 @@ public class PathWindowsTest {
     Path parent = windowsFileSystem.getPath(ancestor);
     Path child = windowsFileSystem.getPath(descendant);
     assertEquals(expected, child.startsWith(parent));
+  }
+
+  @Test
+  public void testChildRegistrationWithTranslatedPaths() {
+    // Ensure the Path to "/usr" (actually "C:/fake/msys/usr") is created, path parents/children
+    // properly registered.
+    Path usrPath = root.getRelative("/usr");
+
+    // Assert that "usr" is not registered as a child of "/".
+    final List<String> children = new ArrayList<>(2);
+    root.applyToChildren(
+        new Predicate<Path>() {
+          @Override
+          public boolean apply(Path input) {
+            children.add(input.getPathString());
+            return true;
+          }
+        });
+    assertThat(children).containsExactly("C:/fake", "C:/first");
+
+    // Assert that "usr" is registered as a child of "C:/fake/msys/".
+    children.clear();
+    root.getRelative("C:/fake/msys")
+        .applyToChildren(
+            new Predicate<Path>() {
+              @Override
+              public boolean apply(Path input) {
+                children.add(input.getPathString());
+                return true;
+              }
+            });
+    assertThat(children).containsExactly("C:/fake/msys/usr");
+
+    assertThat(usrPath).isEqualTo(root.getRelative("C:/fake/msys/usr"));
   }
 }
