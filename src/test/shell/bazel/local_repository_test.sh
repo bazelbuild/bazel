@@ -1087,6 +1087,7 @@ EOF
 # Regression test for https://github.com/bazelbuild/bazel/issues/792
 function test_build_all() {
   local r=$TEST_TMPDIR/r
+  rm -rf $r
   mkdir -p $r
   touch $r/WORKSPACE
   cat > $r/BUILD <<'EOF'
@@ -1120,6 +1121,7 @@ EOF
 # Regression test for #1697.
 function test_overwrite_build_file() {
   local r=$TEST_TMPDIR/r
+  rm -rf $r
   mkdir -p $r
   touch $r/WORKSPACE
   cat > $r/BUILD <<'EOF'
@@ -1145,6 +1147,96 @@ genrule(
 EOF
   bazel build @r//... &> $TEST_log || fail "Build failed"
   assert_contains "orig" $r/BUILD
+}
+
+function test_new_local_repository_path_not_existing() {
+  local r=$TEST_TMPDIR/r
+  rm -rf $r
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+    build_file_content = """
+genrule(
+    name = "rewrite",
+    cmd = "echo bar > \$@",
+    outs = ["rewrite.out"],
+)
+""",
+)
+EOF
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "does not exist"
+}
+
+function test_new_local_repository_path_not_directory() {
+  local r=$TEST_TMPDIR/r
+  rm -rf $r
+  touch $r
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+    build_file_content = """
+genrule(
+    name = "rewrite",
+    cmd = "echo bar > \$@",
+    outs = ["rewrite.out"],
+)
+""",
+)
+EOF
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "is not a directory"
+}
+
+function test_new_local_repository_path_symlink_to_dir() {
+  local r=$TEST_TMPDIR/r
+  local s=$TEST_TMPDIR/s
+  rm -rf $r
+  rm -rf $s
+  mkdir -p $s
+  ln -s $s $r
+
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+    build_file_content = """
+genrule(
+    name = "rewrite",
+    cmd = "echo bar > \$@",
+    outs = ["rewrite.out"],
+)
+""",
+)
+EOF
+  bazel build @r//:rewrite &> $TEST_log || fail "Build failed"
+}
+
+function test_new_local_repository_path_symlink_to_file() {
+  local r=$TEST_TMPDIR/r
+  local s=$TEST_TMPDIR/s
+  rm -rf $r
+  rm -rf $s
+  touch $s
+  ln -s $s $r
+
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+    build_file_content = """
+genrule(
+    name = "rewrite",
+    cmd = "echo bar > \$@",
+    outs = ["rewrite.out"],
+)
+""",
+)
+EOF
+  bazel build @r//:rewrite &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "is not a directory"
 }
 
 run_suite "local repository tests"
