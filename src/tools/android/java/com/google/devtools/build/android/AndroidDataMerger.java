@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.ide.common.res2.MergingException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
@@ -21,15 +22,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.ParsedAndroidData.Builder;
 import com.google.devtools.build.android.ParsedAndroidData.ParsedAndroidDataBuildingPathWalker;
-
-import com.android.ide.common.res2.MergingException;
-
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributeView;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -92,7 +87,7 @@ public class AndroidDataMerger {
 
   /** Interface for comparing paths. */
   interface SourceChecker {
-    boolean checkEquality(Path one, Path two) throws IOException;
+    boolean checkEquality(DataSource one, DataSource two) throws IOException;
   }
 
   /** Compares two paths by the contents of the files. */
@@ -103,13 +98,13 @@ public class AndroidDataMerger {
     }
 
     @Override
-    public boolean checkEquality(Path one, Path two) throws IOException {
+    public boolean checkEquality(DataSource one, DataSource two) throws IOException {
       // TODO(corysmith): Is there a filesystem hash we can use?
-      if (getFileSize(one) != getFileSize(two)) {
+      if (one.getFileSize() != two.getFileSize()) {
         return false;
       }
-      try (final InputStream oneStream = new BufferedInputStream(Files.newInputStream(one));
-          final InputStream twoStream = new BufferedInputStream(Files.newInputStream(two))) {
+      try (final InputStream oneStream = one.newBufferedInputStream();
+          final InputStream twoStream = two.newBufferedInputStream()) {
         int bytesRead = 0;
         while (true) {
           int oneByte = oneStream.read();
@@ -123,11 +118,7 @@ public class AndroidDataMerger {
               logger.severe(
                   String.format(
                       "Filesystem size of %s (%s) or %s (%s) is inconsistant with bytes read %s.",
-                      one,
-                      getFileSize(one),
-                      two,
-                      getFileSize(two),
-                      bytesRead));
+                      one, one.getFileSize(), two, two.getFileSize(), bytesRead));
               return false;
             }
           }
@@ -138,9 +129,6 @@ public class AndroidDataMerger {
       }
     }
 
-    private long getFileSize(Path path) throws IOException {
-      return Files.getFileAttributeView(path, BasicFileAttributeView.class).readAttributes().size();
-    }
   }
 
   static class NoopSourceChecker implements SourceChecker {
@@ -149,7 +137,7 @@ public class AndroidDataMerger {
     }
 
     @Override
-    public boolean checkEquality(Path one, Path two) {
+    public boolean checkEquality(DataSource one, DataSource two) {
       return false;
     }
   }

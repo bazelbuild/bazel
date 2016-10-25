@@ -29,16 +29,19 @@ import java.util.Objects;
  */
 public class DataValueFile implements DataResource, DataAsset {
 
-  private final Path source;
+  private final DataSource source;
 
-  private DataValueFile(Path source) {
+  private DataValueFile(DataSource source) {
     this.source = source;
   }
 
   public static DataValueFile of(Path source) {
-    return new DataValueFile(source);
+    return of(DataSource.of(source));
   }
 
+  public static DataValueFile of(DataSource source) {
+    return new DataValueFile(source);
+  }
   /**
    * Creates a {@link DataValueFile} from a {@link SerializeFormat.DataValue}.
    */
@@ -66,20 +69,20 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public Path source() {
+  public DataSource source() {
     return source;
   }
 
   @Override
   public void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException {
-    mergedDataWriter.copyAsset(source, key.toPathString());
+    mergedDataWriter.copyAsset(source.getPath(), key.toPathString());
   }
 
   @Override
   public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException, MergingException {
-    mergedDataWriter.copyResource(source, key.toPathString(source));
+    mergedDataWriter.copyResource(source.getPath(), key.toPathString(source.getPath()));
   }
 
   @Override

@@ -173,7 +173,7 @@ public class AndroidDataSerializer {
     // TODO(corysmith): Make this a lazy read of the values.
     for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
       SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
-      Path source = sourceTable.sourceFromId(protoValue.getSourceId());
+      DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
       if (protoValue.hasXmlValue()) {
         // TODO(corysmith): Figure out why the generics are wrong.
         // If I use Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>>, I can put
@@ -189,7 +189,7 @@ public class AndroidDataSerializer {
         @SuppressWarnings("unchecked")
         KeyValueConsumer<DataKey, DataValue> value =
             (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.consume(entry.getKey(), DataValueFile.from(source));
+        value.consume(entry.getKey(), DataValueFile.of(source));
       }
     }
   }

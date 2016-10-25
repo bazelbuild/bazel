@@ -20,10 +20,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileSystem;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NavigableMap;
+
 
 /**
  * Tracks mappings from resource source paths (/foo/bar/res/values/colors.xml) to an ID for a more
@@ -31,12 +31,12 @@ import java.util.NavigableMap;
  */
 class DataSourceTable {
 
-  private final Map<Path, Integer> sourceTable = new HashMap<>();
-  private Path[] idToSource;
+  private final Map<DataSource, Integer> sourceTable = new HashMap<>();
+  private DataSource[] idToSource;
 
   /**
    * Creates a DataSourceTable and serialize to the given outstream. Assigns each resource source
-   * path a number to enable {@link #getSourceId(Path)} queries.
+   * path a number to enable {@link #getSourceId(DataSource)} queries.
    *
    * @param map the final map of resources
    * @param outStream stream to serialize the source table
@@ -53,7 +53,7 @@ class DataSourceTable {
   }
 
   /** Convert the absolute source path to the source table index */
-  public int getSourceId(Path source) {
+  public int getSourceId(DataSource source) {
     return sourceTable.get(source);
   }
 
@@ -61,11 +61,14 @@ class DataSourceTable {
       throws IOException {
     int sourceNumber = 0;
     for (Map.Entry<DataKey, DataValue> entry : map.entrySet()) {
-      Path source = entry.getValue().source();
+      DataSource source = entry.getValue().source();
       if (!sourceTable.containsKey(source)) {
         sourceTable.put(source, sourceNumber);
         ++sourceNumber;
-        ProtoSource.newBuilder().setFilename(source.toString()).build().writeDelimitedTo(outStream);
+        ProtoSource.newBuilder()
+            .setFilename(source.getPath().toString())
+            .build()
+            .writeDelimitedTo(outStream);
       }
     }
   }
@@ -84,7 +87,7 @@ class DataSourceTable {
   }
 
   /** Convert the source ID to full Path */
-  public Path sourceFromId(int sourceId) {
+  public DataSource sourceFromId(int sourceId) {
     return idToSource[sourceId];
   }
 
@@ -92,11 +95,10 @@ class DataSourceTable {
       throws IOException {
     int numberOfSources = header.getSourceCount();
     // Read back the sources.
-    idToSource = new Path[numberOfSources];
+    idToSource = new DataSource[numberOfSources];
     for (int i = 0; i < numberOfSources; i++) {
       ProtoSource protoSource = SerializeFormat.ProtoSource.parseDelimitedFrom(in);
-      Path source = currentFileSystem.getPath(protoSource.getFilename());
-      idToSource[i] = source;
+      idToSource[i] = DataSource.from(protoSource, currentFileSystem);
     }
   }
 }

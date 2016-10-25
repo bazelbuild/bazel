@@ -22,13 +22,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -72,7 +72,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
 
   @Override
   public void write(
-      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+      FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter) {
     for (Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
       Integer value = entry.getValue().orNull();
       mergedDataWriter
