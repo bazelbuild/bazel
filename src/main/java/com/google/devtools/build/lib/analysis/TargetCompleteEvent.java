@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -28,13 +28,12 @@ import com.google.devtools.build.skyframe.SkyValue;
 public final class TargetCompleteEvent implements SkyValue {
 
   private final ConfiguredTarget target;
-  private final NestedSet<Label> rootCauses;
+  private final NestedSet<Cause> rootCauses;
 
-  private TargetCompleteEvent(ConfiguredTarget target, NestedSet<Label> rootCauses) {
+  private TargetCompleteEvent(ConfiguredTarget target, NestedSet<Cause> rootCauses) {
     this.target = target;
-    this.rootCauses = (rootCauses == null)
-        ? NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER)
-        : rootCauses;
+    this.rootCauses =
+        (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
   }
 
   /**
@@ -47,7 +46,7 @@ public final class TargetCompleteEvent implements SkyValue {
   /**
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
-  public static TargetCompleteEvent createFailed(ConfiguredTarget ct, NestedSet<Label> rootCauses) {
+  public static TargetCompleteEvent createFailed(ConfiguredTarget ct, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
     return new TargetCompleteEvent(ct, rootCauses);
   }
@@ -66,10 +65,8 @@ public final class TargetCompleteEvent implements SkyValue {
     return !rootCauses.isEmpty();
   }
 
-  /**
-   * Get the root causes of the target. May be empty.
-   */
-  public Iterable<Label> getRootCauses() {
+  /** Get the root causes of the target. May be empty. */
+  public Iterable<Cause> getRootCauses() {
     return rootCauses;
   }
 }

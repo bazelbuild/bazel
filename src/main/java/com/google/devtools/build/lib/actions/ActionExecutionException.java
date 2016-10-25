@@ -13,14 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.causes.ActionFailed;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.ExitCode;
-
 import javax.annotation.Nullable;
 
 /**
@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 public class ActionExecutionException extends Exception {
 
   private final Action action;
-  private final NestedSet<Label> rootCauses;
+  private final NestedSet<Cause> rootCauses;
   private final boolean catastrophe;
   @Nullable private final ExitCode exitCode;
 
@@ -79,8 +79,8 @@ public class ActionExecutionException extends Exception {
     this.exitCode = exitCode;
   }
 
-  public ActionExecutionException(String message, Action action,
-      NestedSet<Label> rootCauses, boolean catastrophe) {
+  public ActionExecutionException(
+      String message, Action action, NestedSet<Cause> rootCauses, boolean catastrophe) {
     super(message);
     this.action = action;
     this.rootCauses = rootCauses;
@@ -88,8 +88,12 @@ public class ActionExecutionException extends Exception {
     this.exitCode = null;
   }
 
-  public ActionExecutionException(String message, Throwable cause, Action action,
-      NestedSet<Label> rootCauses, boolean catastrophe) {
+  public ActionExecutionException(
+      String message,
+      Throwable cause,
+      Action action,
+      NestedSet<Cause> rootCauses,
+      boolean catastrophe) {
     super(message, cause);
     this.action = action;
     this.rootCauses = rootCauses;
@@ -97,8 +101,13 @@ public class ActionExecutionException extends Exception {
     this.exitCode = null;
   }
 
-  public ActionExecutionException(String message, Throwable cause, Action action,
-      NestedSet<Label> rootCauses, boolean catastrophe, ExitCode exitCode) {
+  public ActionExecutionException(
+      String message,
+      Throwable cause,
+      Action action,
+      NestedSet<Cause> rootCauses,
+      boolean catastrophe,
+      ExitCode exitCode) {
     super(message, cause);
     this.action = action;
     this.rootCauses = rootCauses;
@@ -106,10 +115,12 @@ public class ActionExecutionException extends Exception {
     this.exitCode = exitCode;
   }
 
-  static NestedSet<Label> rootCausesFromAction(Action action) {
+  static NestedSet<Cause> rootCausesFromAction(Action action) {
     return action == null || action.getOwner() == null || action.getOwner().getLabel() == null
-        ? NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER)
-        : NestedSetBuilder.create(Order.STABLE_ORDER, action.getOwner().getLabel());
+        ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
+        : NestedSetBuilder.<Cause>create(
+            Order.STABLE_ORDER,
+            new ActionFailed(action.getPrimaryOutput().getPath(), action.getOwner().getLabel()));
   }
 
   /**
@@ -120,10 +131,10 @@ public class ActionExecutionException extends Exception {
   }
 
   /**
-   * Return the root causes that should be reported. Usually the owner of the action, but it can
-   * be the label of a missing artifact.
+   * Return the root causes that should be reported. Usually the owner of the action, but it can be
+   * the label of a missing artifact.
    */
-  public NestedSet<Label> getRootCauses() {
+  public NestedSet<Cause> getRootCauses() {
     return rootCauses;
   }
 

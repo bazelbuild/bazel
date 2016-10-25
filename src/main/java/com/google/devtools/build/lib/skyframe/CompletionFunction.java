@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -71,10 +73,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
      */
     ArtifactsToBuild getAllArtifactsToBuild(TValue value, TopLevelArtifactContext context);
 
-    /**
-     * Creates an event reporting an absent input artifact.
-     */
-    Event getRootCauseError(TValue value, Label rootCause);
+    /** Creates an event reporting an absent input artifact. */
+    Event getRootCauseError(TValue value, Cause rootCause);
 
     /**
      * Creates an error message reporting {@code missingCount} missing input files.
@@ -86,10 +86,8 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
      */
     TResult createResult(TValue value);
 
-    /**
-     * Creates a failed completion value.
-     */
-    SkyValue createFailed(TValue value, NestedSet<Label> rootCauses);
+    /** Creates a failed completion value. */
+    SkyValue createFailed(TValue value, NestedSet<Cause> rootCauses);
 
     /**
      * Extracts a tag given the {@link SkyKey}.
@@ -122,7 +120,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public Event getRootCauseError(ConfiguredTargetValue ctValue, Label rootCause) {
+    public Event getRootCauseError(ConfiguredTargetValue ctValue, Cause rootCause) {
       return Event.error(
           ctValue.getConfiguredTarget().getTarget().getLocation(),
           String.format(
@@ -146,7 +144,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public SkyValue createFailed(ConfiguredTargetValue value, NestedSet<Label> rootCauses) {
+    public SkyValue createFailed(ConfiguredTargetValue value, NestedSet<Cause> rootCauses) {
       return TargetCompleteEvent.createFailed(value.getConfiguredTarget(), rootCauses);
     }
 
@@ -179,7 +177,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public Event getRootCauseError(AspectValue value, Label rootCause) {
+    public Event getRootCauseError(AspectValue value, Cause rootCause) {
       return Event.error(
           value.getLocation(),
           String.format(
@@ -206,7 +204,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
 
     @Override
-    public SkyValue createFailed(AspectValue value, NestedSet<Label> rootCauses) {
+    public SkyValue createFailed(AspectValue value, NestedSet<Cause> rootCauses) {
       return AspectCompleteEvent.createFailed(value, rootCauses);
     }
 
@@ -253,7 +251,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     int missingCount = 0;
     ActionExecutionException firstActionExecutionException = null;
     MissingInputFileException missingInputException = null;
-    NestedSetBuilder<Label> rootCausesBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
         depsEntry : inputDeps.entrySet()) {
       Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
@@ -263,8 +261,9 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         missingCount++;
         final Label inputOwner = input.getOwner();
         if (inputOwner != null) {
-          rootCausesBuilder.add(inputOwner);
-          env.getListener().handle(completor.getRootCauseError(value, inputOwner));
+          Cause cause = new LabelCause(inputOwner);
+          rootCausesBuilder.add(cause);
+          env.getListener().handle(completor.getRootCauseError(value, cause));
         }
       } catch (ActionExecutionException e) {
         rootCausesBuilder.addTransitive(e.getRootCauses());
@@ -278,7 +277,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       missingInputException = completor.getMissingFilesException(value, missingCount);
     }
 
-    NestedSet<Label> rootCauses = rootCausesBuilder.build();
+    NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
       eventBusRef.get().post(completor.createFailed(value, rootCauses));
       if (firstActionExecutionException != null) {

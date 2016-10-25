@@ -31,7 +31,8 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -581,7 +582,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // evaluator "error bubbling", we may get one last chance at reporting errors even though
     // some deps are still missing.
     boolean populateInputData = !env.valuesMissing();
-    NestedSetBuilder<Label> rootCauses = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     Map<Artifact, FileArtifactValue> inputArtifactData =
         new HashMap<>(populateInputData ? inputDeps.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
@@ -622,7 +623,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       } catch (MissingInputFileException e) {
         missingCount++;
         if (input.getOwner() != null) {
-          rootCauses.add(input.getOwner());
+          rootCauses.add(new LabelCause(input.getOwner()));
         }
       } catch (ActionExecutionException e) {
         actionFailures++;
@@ -646,9 +647,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     if (missingCount > 0) {
-      for (Label missingInput : rootCauses.build()) {
-        env.getListener().handle(Event.error(action.getOwner().getLocation(), String.format(
-            "%s: missing input file '%s'", action.getOwner().getLabel(), missingInput)));
+      for (Cause missingInput : rootCauses.build()) {
+        env.getListener()
+            .handle(
+                Event.error(
+                    action.getOwner().getLocation(),
+                    String.format(
+                        "%s: missing input file '%s'",
+                        action.getOwner().getLabel(), missingInput.getLabel())));
       }
       throw new ActionExecutionException(missingCount + " input file(s) do not exist", action,
           rootCauses.build(), /*catastrophe=*/false);
