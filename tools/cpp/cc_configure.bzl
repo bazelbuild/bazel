@@ -428,6 +428,12 @@ def _find_env_vars(repository_ctx, vs_path):
   return env_map
 
 
+def _is_support_whole_archive(repository_ctx, vs_dir):
+  """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
+  result = _execute(repository_ctx, [vs_dir + "/VC/BIN/amd64/link"])
+  return result.find("/WHOLEARCHIVE") != -1
+
+
 def _tpl(repository_ctx, tpl, substitutions={}, out=None):
   if not out:
     out = tpl
@@ -476,12 +482,19 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
+    lib_tool = vs_path + "/VC/bin/amd64/lib.exe"
+    if _is_support_whole_archive(repository_ctx, vs_path):
+      support_whole_archive = "True"
+    else:
+      support_whole_archive = "False"
     tmp_dir = _get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp")
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
         "%{tmp}": tmp_dir.replace("\\", "\\\\"),
         "%{path}": env["PATH"],
         "%{include}": include_paths,
         "%{lib}": lib_paths,
+        "%{lib_tool}": lib_tool,
+        "%{support_whole_archive}": support_whole_archive
     })
 
     cxx_include_directories = []

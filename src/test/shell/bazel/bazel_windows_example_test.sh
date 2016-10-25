@@ -60,6 +60,48 @@ function test_cpp() {
   assert_test_fails "//examples/cpp:hello-fail_test"
 }
 
+function test_cpp_alwayslink() {
+  mkdir -p cpp/main
+  cat >cpp/main/BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    alwayslink = 1,
+)
+cc_library(
+    name = "main",
+    srcs = ["main.cc"],
+)
+cc_binary(
+    name = "bin",
+    deps = [":main", ":lib"],
+)
+EOF
+
+  cat >cpp/main/lib.cc <<EOF
+extern int global_variable;
+int init() {
+    ++global_variable;
+    return global_variable;
+}
+int x = init();
+int y = init();
+EOF
+
+  cat >cpp/main/main.cc <<EOF
+#include<stdio.h>
+int global_variable = 0;
+int main(void) {
+    printf("global : %d\n", global_variable);
+    return 0;
+}
+EOF
+  assert_build //cpp/main:bin
+  ./bazel-bin/cpp/main/bin >& $TEST_log \
+    || fail "//cpp/main:bin execution failed"
+  expect_log "global : 2"
+}
+
 function test_java() {
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
 
