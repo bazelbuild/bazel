@@ -105,7 +105,9 @@ so Bazel does have hooks in the code base to plug in a remote build
 cache or a remote execution system.
 
 The open source Bazel code runs build operations locally. We believe
-that this is fast enough for most of our users.
+that this is fast enough for most of our users, but work is underway
+to provide [distributed caching](https://github.com/bazelbuild/bazel/issues/904).
+
 
 How does the Google development process work?
 ----------------------------------------------
@@ -186,8 +188,9 @@ Due to its UNIX heritage, porting Bazel to Windows is significant work. For
 example, Bazel uses symlinks extensively, which has varying levels of support
 across Windows versions.
 
-We are currently actively working on improving Windows support, but it's still
-ways from being usable.
+We are currently actively working on improving Windows support. See
+our [blog post](https://bazel.io/blog/2016/09/07/bazel-windows.html)
+for more information.
 
 What should I not use Bazel for?
 --------------------------------
@@ -295,21 +298,18 @@ Yes, you can find the latest release binaries
 [here](https://github.com/bazelbuild/bazel/releases/latest). Our release
 policy is documented [here](http://bazel.io/support.html).
 
-I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
---------------------------------------------------------------
+I use Eclipse/IntelliJ/XCode. How does Bazel interoperate with IDEs?
+--------------------------------------------------------------------
 
-We currently have no IDE integration API as such but the iOS rules generate
-Xcode projects based on Bazel BUILD targets (see below).
+For IntelliJ, check out the [IntelliJ with Bazel plugin](https://ij.bazel.io).
 
-How does Bazel interact with Xcode?
------------------------------------
+For XCode, check out [Tulsi](http://tulsi.bazel.io/).
 
-Bazel generates Xcode projects that you can use to work with any inputs and
-dependencies for the target, to build apps from Xcode directly and to deploy to
-an iOS simulator and devices. Simply open the project file whose path is printed
-by Bazel after building any iOS target. There is no support to invoke Bazel from
-Xcode (for example to re-generate generated sources such as Objective-C files
-based on protos), nor to open Xcode from Bazel directly.
+For Eclipse, check out [E4B plugin](https://github.com/bazelbuild/e4b).
+
+For other IDEs, check out the [blog
+post](https://bazel.io/blog/2016/06/10/ide-support.html) on how these
+plugins work.
 
 I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?
 -----------------------------------------------------------------------------
@@ -350,13 +350,8 @@ Simplistic support for PEX-style binaries is at
 What about Go?
 --------------
 
-If your codebase is 100% Go, the `go` tool has excellent support for
-building and testing, and Bazel will not bring you much benefit.
+Bazel supports Go through an [external rule set](https://github.com/bazelbuild/rules_go)
 
-The server code written in Go at Google is built with Bazel. However, the rules
-that accomplish this are rather complex due to their interactions with our C++
-libraries, and are incompatible with the conventions of the `go` tool.  We are
-working on improving this situation.
 
 Can I use Bazel for my [INSERT LANGUAGE HERE] project?
 ------------------------------------------------------
