@@ -442,6 +442,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 resourceClasses,
                 derivedJarFunction);
 
+    NestedSet<Artifact> nativeLibsZips =
+        AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).build();
+
     Artifact finalDexes;
     Artifact finalProguardMap;
 
@@ -484,6 +487,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setClassesDex(finalDexes)
         .setResourceApk(resourceApk.getArtifact())
         .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setNativeLibsZips(nativeLibsZips)
         .setNativeLibs(nativeLibs)
         .setUnsignedApk(unsignedApk)
         .setSignedApk(zipAlignedApk)
@@ -549,6 +553,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setClassesDex(stubDex)
         .setResourceApk(incrementalResourceApk.getArtifact())
         .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setNativeLibsZips(nativeLibsZips)
         .setJavaResourceFile(stubData)
         .setSignedApk(incrementalApk);
 
@@ -661,6 +666,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ApkActionsBuilder.create("split main apk", signingMethod)
         .setClassesDex(splitStubDex)
         .setResourceApk(splitMainApkResources)
+        .setNativeLibsZips(nativeLibsZips)
         .setSignedApk(splitMainApk)
         .registerActions(ruleContext, androidSemantics);
     splitApkSetBuilder.add(splitMainApk);

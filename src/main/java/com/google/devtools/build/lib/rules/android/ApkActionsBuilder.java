@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -36,6 +37,7 @@ public class ApkActionsBuilder {
   private Artifact resourceApk;
   private Artifact javaResourceZip;
   private Artifact javaResourceFile;
+  private NestedSet<Artifact> nativeLibsZips;
   private NativeLibs nativeLibs = NativeLibs.EMPTY;
   private Artifact unsignedApk;
   private Artifact signedApk;
@@ -96,6 +98,11 @@ public class ApkActionsBuilder {
    */
   public ApkActionsBuilder setJavaResourceFile(Artifact javaResourceFile) {
     this.javaResourceFile = javaResourceFile;
+    return this;
+  }
+
+  public ApkActionsBuilder setNativeLibsZips(NestedSet<Artifact> nativeLibsZips) {
+    this.nativeLibsZips = nativeLibsZips;
     return this;
   }
 
@@ -199,6 +206,14 @@ public class ApkActionsBuilder {
           .addArgument("-rf")
           .addArgument(nativeLibs.getName().getExecPath().getParentDirectory().getPathString())
           .addInput(nativeLibs.getName());
+    }
+
+    if (nativeLibsZips != null) {
+      for (Artifact nativeLibsZip : nativeLibsZips) {
+        actionBuilder
+            .addArgument("-z")
+            .addInputArgument(nativeLibsZip);
+      }
     }
 
     if (javaResourceFile != null) {
@@ -322,6 +337,15 @@ public class ApkActionsBuilder {
           .addArgument("--sources")
           .addInputArgument(resourceApk);
     }
+
+    if (nativeLibsZips != null) {
+      for (Artifact nativeLibsZip : nativeLibsZips) {
+        singleJarActionBuilder
+            .addArgument("--sources")
+            .addInputArgument(nativeLibsZip);
+      }
+    }
+
     ruleContext.registerAction(singleJarActionBuilder.build(ruleContext));
   }
 

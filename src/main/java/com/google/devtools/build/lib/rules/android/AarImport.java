@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  *
  * AAR files are zip archives that contain an Android Manifest, JARs, resources, assets, native
  * libraries, Proguard configuration and lint jars. Currently the aar_import rule supports AARs with
- * an AndroidManifest.xml, classes.jar and res/. Assets, native libraries and additional embedded
- * jars are not yet supported.
+ * an AndroidManifest.xml, classes.jar, res/ and jni/. Assets and additional embedded jars are not
+ * yet supported.
  *
  * @see <a href="http://tools.android.com/tech-docs/new-build-system/aar-format">AAR Format</a>
  */
@@ -90,6 +90,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().add(resources).add(classesJar);
 
+    Artifact nativeLibs = createAarArtifact(ruleContext, "native_libs.zip");
+    ruleContext.registerAction(createAarNativeLibsFilterActions(ruleContext, aar, nativeLibs));
+
     JavaRuleOutputJarsProvider.Builder jarProviderBuilder = new JavaRuleOutputJarsProvider.Builder()
         .addOutputJar(classesJar, null, null);
     for (TransitiveInfoCollection export : ruleContext.getPrerequisites("exports", Mode.TARGET)) {
@@ -104,6 +107,11 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(
             AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
+        .addProvider(
+            NativeLibsZipsProvider.class,
+            new NativeLibsZipsProvider(
+                AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).add(nativeLibs).build()))
+
         .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build())
         .build();
   }
@@ -165,6 +173,22 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addInputArgument(aar)
         .addOutputArgument(manifest)
         .build(ruleContext);
+  }
+
+  private static Action[] createAarNativeLibsFilterActions(RuleContext ruleContext, Artifact aar,
+      Artifact outputZip) {
+    SpawnAction.Builder actionBuilder = new SpawnAction.Builder()
+        .setExecutable(
+            ruleContext.getExecutablePrerequisite("$aar_native_libs_zip_creator", Mode.HOST))
+        .setMnemonic("AarNativeLibsFilter")
+        .setProgressMessage("Filtering AAR native libs by architecture")
+        .addArgument("--input_aar")
+        .addInputArgument(aar)
+        .addArgument("--cpu")
+        .addArgument(ruleContext.getConfiguration().getCpu())
+        .addArgument("--output_zip")
+        .addOutputArgument(outputZip);
+    return actionBuilder.build(ruleContext);
   }
 
   private static Artifact createAarArtifact(RuleContext ruleContext, String name) {

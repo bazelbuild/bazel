@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
+import com.google.devtools.build.lib.rules.android.NativeLibsZipsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.Set;
@@ -53,6 +56,10 @@ public class AarImportTest extends BuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    deps = ['//a:bar'],",
         ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    deps = ['//a:bar'],",
+        ")",
         "java_import(",
         "    name = 'baz',",
         "    jars = ['baz.jar'],",
@@ -79,6 +86,41 @@ public class AarImportTest extends BuildViewTestCase {
     assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
     assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/foo");
   }
+
+  @Test
+  public void testNativeLibsProvided() throws Exception {
+    ConfiguredTarget androidLibraryTarget = getConfiguredTarget("//java:lib");
+
+    NestedSet<Artifact> nativeLibs =
+        androidLibraryTarget.getProvider(NativeLibsZipsProvider.class).getAarNativeLibs();
+    assertThat(nativeLibs).containsExactly(
+        actionsTestUtil().getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
+        actionsTestUtil().getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"));
+  }
+
+  @Test
+  public void testNativeLibsZipMakesItIntoApk() throws Exception {
+    scratch.file("java/com/google/android/hello/BUILD",
+        "aar_import(",
+        "    name = 'my_aar',",
+        "    aar = 'my_aar.aar',",
+        ")",
+        "android_binary(",
+        "    name = 'my_app',",
+        "    srcs = ['HelloApp.java'],",
+        "    deps = [':my_aar'],",
+        "    manifest = 'AndroidManifest.xml',",
+        ")");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:my_app");
+    SpawnAction apkBuilderAction = (SpawnAction) actionsTestUtil()
+        .getActionForArtifactEndingWith(getFilesToBuild(binary), "my_app_unsigned.apk");
+    assertThat(
+            Iterables.find(
+                apkBuilderAction.getArguments(),
+                Predicates.containsPattern("_aar/my_aar/native_libs.zip$")))
+        .isNotEmpty();
+  }
+
 
   @Test
   public void testClassesJarProvided() throws Exception {

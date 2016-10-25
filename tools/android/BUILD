@@ -192,6 +192,16 @@ py_binary(
 )
 
 py_binary(
+    name = "aar_native_libs_zip_creator",
+    srcs = [
+        "aar_native_libs_zip_creator.py",
+    ],
+    deps = [
+        "//third_party/py/gflags",
+    ],
+)
+
+py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
     deps = [
@@ -204,6 +214,16 @@ py_test(
     srcs = ["stubify_manifest_test.py"],
     deps = [
         ":stubify_manifest",
+    ],
+)
+
+py_test(
+    name = "aar_native_libs_zip_creator_test",
+    srcs = [
+        "aar_native_libs_zip_creator_test.py",
+    ],
+    deps = [
+        ":aar_native_libs_zip_creator",
     ],
 )
 

@@ -375,6 +375,17 @@ public class AndroidCommon {
     throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
   }
 
+  public static NestedSetBuilder<Artifact> collectTransitiveNativeLibsZips(
+      RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> transitiveAarNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    Iterable<NativeLibsZipsProvider> providers = getTransitivePrerequisites(
+        ruleContext, Mode.TARGET, NativeLibsZipsProvider.class);
+    for (NativeLibsZipsProvider nativeLibsZipsProvider : providers) {
+      transitiveAarNativeLibs.addTransitive(nativeLibsZipsProvider.getAarNativeLibs());
+    }
+    return transitiveAarNativeLibs;
+  }
+
   Artifact compileDexWithJack(
       MultidexMode mode, Optional<Artifact> mainDexList, Collection<Artifact> proguardSpecs) {
     return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);

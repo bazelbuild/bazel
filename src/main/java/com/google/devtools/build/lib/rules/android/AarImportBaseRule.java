@@ -48,6 +48,11 @@ public class AarImportBaseRule implements RuleDefinition {
             .exec()
             .value(Label.parseAbsoluteUnchecked(
                 environment.getToolsRepository() + "//tools/android:aar_embedded_jars_extractor")))
+        .add(attr("$aar_native_libs_zip_creator", LABEL)
+            .cfg(HOST)
+            .exec()
+            .value(Label.parseAbsoluteUnchecked(
+                environment.getToolsRepository() + "//tools/android:aar_native_libs_zip_creator")))
         .add(attr("$zip_manifest_creator", LABEL)
             .cfg(HOST)
             .exec()
