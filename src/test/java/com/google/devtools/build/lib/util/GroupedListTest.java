@@ -93,6 +93,33 @@ public class GroupedListTest {
   }
 
   @Test
+  public void listWithOneUniqueElementStoredBare() {
+    GroupedList<String> groupedListWithDuplicateInGroup = new GroupedList<>();
+    groupedListWithDuplicateInGroup.append(GroupedListHelper.create("a"));
+    GroupedListHelper<String> helper = new GroupedListHelper<>();
+    helper.startGroup();
+    helper.add("b");
+    helper.add("b");
+    helper.endGroup();
+    groupedListWithDuplicateInGroup.append(helper);
+    GroupedList<String> groupedListWithNoDuplicates = new GroupedList<>();
+    groupedListWithNoDuplicates.append(GroupedListHelper.create("a"));
+    groupedListWithNoDuplicates.append(GroupedListHelper.create("b"));
+    assertThat(groupedListWithNoDuplicates).isEqualTo(groupedListWithDuplicateInGroup);
+  }
+
+  @Test
+  public void listWithNoNewElementsStoredEmpty() {
+    GroupedList<String> groupedListWithEmptyGroup = new GroupedList<>();
+    GroupedListHelper<String> helper = GroupedListHelper.create("a");
+    helper.add("a");
+    groupedListWithEmptyGroup.append(helper);
+    GroupedList<String> groupedListWithNoDuplicates = new GroupedList<>();
+    groupedListWithNoDuplicates.append(GroupedListHelper.create("a"));
+    assertThat(groupedListWithNoDuplicates).isEqualTo(groupedListWithEmptyGroup);
+  }
+
+  @Test
   public void group() {
     GroupedList<String> groupedList = new GroupedList<>();
     assertTrue(groupedList.isEmpty());
