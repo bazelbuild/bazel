@@ -187,11 +187,10 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   ASSERT_EQ(0750, filestat.st_mode & 0777);
 
   // srcdir shouldn't be writable.
-  // TODO(ulfjack): Fix this!
-//  string srcdir = blaze_util::JoinPath(test_src_dir, "x/y/z");
-//  ok = MakeDirectories(srcdir, 0755);
-//  ASSERT_EQ(-1, ok);
-//  ASSERT_EQ(EACCES, errno);
+  string srcdir = blaze_util::JoinPath(test_src_dir, "x/y/z");
+  ok = MakeDirectories(srcdir, 0755);
+  ASSERT_EQ(-1, ok);
+  ASSERT_EQ(EACCES, errno);
 
   // Can't make a dir out of a file.
   string non_dir = blaze_util::JoinPath(dir, "w");
@@ -218,10 +217,9 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   ASSERT_TRUE(Symlink("/", symlink));
 
   // These perms will force a chmod()
-  // TODO(ulfjack): Fix this!
-//  ok = MakeDirectories(symlink, 0000);
-//  ASSERT_EQ(-1, ok);
-//  ASSERT_EQ(EPERM, errno);
+  ok = MakeDirectories(symlink, 0000);
+  ASSERT_EQ(-1, ok);
+  ASSERT_EQ(EPERM, errno);
 
   // Edge cases.
   ASSERT_EQ(-1, MakeDirectories("", 0755));
@@ -235,9 +233,8 @@ TEST_F(BlazeUtilTest, HammerMakeDirectories) {
   ASSERT_STRNE(tmp_dir, NULL);
 
   string path = blaze_util::JoinPath(tmp_dir, "x/y/z");
-  // TODO(ulfjack): Fix this!
-//  ASSERT_LE(0, fork());
-//  ASSERT_EQ(0, MakeDirectories(path, 0755));
+  ASSERT_LE(0, fork());
+  ASSERT_EQ(0, MakeDirectories(path, 0755));
 }
 
 }  // namespace blaze
