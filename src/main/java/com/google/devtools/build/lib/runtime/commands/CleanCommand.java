@@ -38,16 +38,17 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.logging.Logger;
 
-/**
- * Implements 'blaze clean'.
- */
-@Command(name = "clean",
-         builds = true,  // Does not, but people expect build options to be there
-         options = { CleanCommand.Options.class },
-         help = "resource:clean.txt",
-         shortDescription = "Removes output files and optionally stops the server.",
-         // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
-         inherits = { BuildCommand.class })
+/** Implements 'blaze clean'. */
+@Command(
+  name = "clean",
+  builds = true, // Does not, but people expect build options to be there
+  writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
+  options = {CleanCommand.Options.class},
+  help = "resource:clean.txt",
+  shortDescription = "Removes output files and optionally stops the server.",
+  // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
+  inherits = {BuildCommand.class}
+)
 public final class CleanCommand implements BlazeCommand {
   /**
    * An interface for special options for the clean command.
