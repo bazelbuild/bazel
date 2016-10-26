@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.causes;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 
 /** Class describing a {@link Cause} that can uniquely be described by a {@link Label}. */
@@ -31,5 +32,18 @@ public class LabelCause implements Cause {
   @Override
   public Label getLabel() {
     return label;
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEventId getIdProto() {
+    BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()
+        .setLabel(label.toString())
+        .build();
+    return BuildEventStreamProtos.BuildEventId.newBuilder()
+        .setTargetCompleted(
+            BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()
+                .setLabel(label.toString())
+                .build())
+        .build();
   }
 }

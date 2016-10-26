@@ -61,12 +61,20 @@ message BuildEventId {
     string label = 1;
   }
 
+  // Identifier of an event reporting that an action was completed (not all
+  // actions are reported, only the onces that can be considered important;
+  // this includes all failed actions).
+  message ActionCompletedId {
+    string primary_output = 1;
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
     BuildStartedId started = 3;
     PatternExpandedId pattern = 4;
     TargetCompletedId target_completed = 5;
+    ActionCompletedId action_completed = 6;
   }
 }
 
@@ -137,6 +145,47 @@ message BuildStarted {
 message PatternExpanded {
 }
 
+message File {
+  // identifier indicating the nature of the file (e.g., "stdout", "stderr")
+  string name = 1;
+
+  oneof file {
+    // A location where the contents of the file can be found.
+    string uri = 2;
+    // The conents of the file, if they are guaranteed to be short.
+    bytes contents = 3;
+  }
+}
+
+// Payload of the event indicating the completion of an action. The main purpose
+// of posting those events is to provide details on the root cause for a target
+// failing; however, consumers of the build-event protocol should not assume
+// that only failed actions are posted.
+message ActionExecuted {
+  bool success = 1;
+
+  // The exit code of the action, if it is available.
+  int32 exit_code = 2;
+
+  // Location where to find the standard output of the action
+  // (e.g., a file path).
+  File stdout = 3;
+
+  // Location where to find the standard error of the action
+  // (e.g., a file path).
+  File stderr = 4;
+
+  // Optionally, the label of the owner of the action, for reference.
+  string label = 5;
+}
+
+// Payload of the event indicating the completion of a target. The target is
+// specified in the id. If the target failed the root causes are provided as
+// children events.
+message TargetComplete {
+  bool success = 1;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -150,5 +199,7 @@ message BuildEvent {
     Aborted aborted = 4;
     BuildStarted started = 5;
     PatternExpanded expanded = 6;
+    ActionExecuted action = 7;
+    TargetComplete completed = 8;
   };
 }

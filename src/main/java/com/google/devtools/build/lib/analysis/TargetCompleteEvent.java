@@ -14,18 +14,22 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Collection;
 
-/**
- * This event is fired as soon as a target is either built or fails.
- */
-public final class TargetCompleteEvent implements SkyValue {
+/** This event is fired as soon as a target is either built or fails. */
+public final class TargetCompleteEvent implements SkyValue, BuildEvent {
 
   private final ConfiguredTarget target;
   private final NestedSet<Cause> rootCauses;
@@ -68,5 +72,26 @@ public final class TargetCompleteEvent implements SkyValue {
   /** Get the root causes of the target. May be empty. */
   public Iterable<Cause> getRootCauses() {
     return rootCauses;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.targetCompleted(getTarget().getLabel());
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    ImmutableList.Builder childrenBuilder = ImmutableList.builder();
+    for (Cause cause : getRootCauses()) {
+      childrenBuilder.add(BuildEventId.fromCause(cause));
+    }
+    return childrenBuilder.build();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+    BuildEventStreamProtos.TargetComplete complete =
+        BuildEventStreamProtos.TargetComplete.newBuilder().setSuccess(!failed()).build();
+    return GenericBuildEvent.protoChaining(this).setCompleted(complete).build();
   }
 }

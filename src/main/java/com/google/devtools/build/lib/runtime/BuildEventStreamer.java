@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -146,6 +147,13 @@ public class BuildEventStreamer implements EventHandler {
 
   @Subscribe
   public void buildEvent(BuildEvent event) {
+    if (event instanceof ActionExecutedEvent) {
+      // We ignore events about action executions if the execution succeeded.
+      if (((ActionExecutedEvent) event).getException() == null) {
+        return;
+      }
+    }
+
     post(event);
   }
 }

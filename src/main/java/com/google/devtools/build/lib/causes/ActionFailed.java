@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.causes;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -37,5 +38,15 @@ public class ActionFailed implements Cause {
   @Override
   public Label getLabel() {
     return label;
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEventId getIdProto() {
+    return BuildEventStreamProtos.BuildEventId.newBuilder()
+        .setActionCompleted(
+            BuildEventStreamProtos.BuildEventId.ActionCompletedId.newBuilder()
+                .setPrimaryOutput(path.toString())
+                .build())
+        .build();
   }
 }

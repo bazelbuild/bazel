@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.causes;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 
 /**
@@ -22,4 +23,7 @@ public interface Cause {
 
   /** Return the label associated with the failure. */
   Label getLabel();
+
+  /** Return the event id for the cause in the format of the build event protocol. */
+  BuildEventStreamProtos.BuildEventId getIdProto();
 }
