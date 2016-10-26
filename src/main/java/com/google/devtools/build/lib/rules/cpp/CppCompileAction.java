@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -164,10 +163,8 @@ public class CppCompileAction extends AbstractAction
    */
   public static final String CLIF_MATCH = "clif-match";
 
-  // TODO(ulfjack): this is only used to get the local shell environment and to check if coverage is
-  // enabled. Move those two things to local fields and drop this. Accessing anything other than
-  // these fields can impact correctness!
-  private final BuildConfiguration configuration;
+  private final ImmutableMap<String, String> localShellEnvironment;
+  private final boolean isCodeCoverageEnabled;
   protected final Artifact outputFile;
   private final Label sourceLabel;
   private final Artifact optionalSourceFile;
@@ -271,7 +268,8 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       Artifact optionalSourceFile,
-      BuildConfiguration configuration,
+      ImmutableMap<String, String> localShellEnvironment,
+      boolean isCodeCoverageEnabled,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
@@ -299,7 +297,8 @@ public class CppCompileAction extends AbstractAction
             lipoScannables),
         CollectionUtils.asListWithoutNulls(
             outputFile, (dotdFile == null ? null : dotdFile.artifact()), gcnoFile, dwoFile));
-    this.configuration = configuration;
+    this.localShellEnvironment = localShellEnvironment;
+    this.isCodeCoverageEnabled = isCodeCoverageEnabled;
     this.sourceLabel = sourceLabel;
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.optionalSourceFile = optionalSourceFile;
@@ -677,8 +676,8 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getEnvironment() {
-    Map<String, String> environment = new LinkedHashMap<>(configuration.getLocalShellEnvironment());
-    if (configuration.isCodeCoverageEnabled()) {
+    Map<String, String> environment = new LinkedHashMap<>(localShellEnvironment);
+    if (isCodeCoverageEnabled) {
       environment.put("PWD", "/proc/self/cwd");
     }
 
