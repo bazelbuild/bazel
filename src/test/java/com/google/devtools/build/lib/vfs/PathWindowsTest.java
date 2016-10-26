@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.WindowsFileSystem.WindowsPathFactory;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -122,16 +121,10 @@ public class PathWindowsTest {
   public void testAbsoluteUnixPathReferringToDriveIsRecognized() {
     Path actual = root.getRelative("/c/foo");
     Path expected = root.getRelative("C:/foo");
+    Path weird = root.getRelative("/c:");
     assertThat(actual.getPathString()).isEqualTo(expected.getPathString());
     assertThat(actual).isEqualTo(expected);
-
-    // "unexpected" is not a valid MSYS path, we should not be able to create it.
-    try {
-      root.getRelative("/c:");
-      Assert.fail("expected failure");
-    } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Illegal path string \"/c:\"");
-    }
+    assertThat(weird).isNotEqualTo(expected);
   }
 
   @Test

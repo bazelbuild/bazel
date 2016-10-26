@@ -53,23 +53,39 @@ public class PathFragmentWindowsTest {
   }
 
   @Test
-  public void testAbsolutePathsWithDrive() {
+  public void testAbsoluteAndAbsoluteLookingPaths() {
     PathFragment p1 = new PathFragment("/c");
     assertThat(p1.isAbsolute()).isTrue();
-    assertThat(p1.getDriveLetter()).isEqualTo('C');
+    assertThat(p1.getDriveLetter()).isEqualTo('\0');
+    assertThat(p1.getSegments()).containsExactly("c");
 
     PathFragment p2 = new PathFragment("/c/");
     assertThat(p2.isAbsolute()).isTrue();
-    assertThat(p2.getDriveLetter()).isEqualTo('C');
+    assertThat(p2.getDriveLetter()).isEqualTo('\0');
+    assertThat(p2.getSegments()).containsExactly("c");
+
+    PathFragment p3 = new PathFragment("C:/");
+    assertThat(p3.isAbsolute()).isTrue();
+    assertThat(p3.getDriveLetter()).isEqualTo('C');
+    assertThat(p3.getSegments()).isEmpty();
+
+    PathFragment p4 = new PathFragment("C:");
+    assertThat(p4.isAbsolute()).isFalse();
+    assertThat(p4.getDriveLetter()).isEqualTo('C');
+    assertThat(p4.getSegments()).isEmpty();
+
+    PathFragment p5 = new PathFragment("/c:");
+    assertThat(p5.isAbsolute()).isTrue();
+    assertThat(p5.getDriveLetter()).isEqualTo('\0');
+    assertThat(p5.getSegments()).containsExactly("c:");
 
     assertThat(p1).isEqualTo(p2);
-
-    try {
-      new PathFragment("/c:");
-      Assert.fail("expected failure");
-    } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Illegal path string \"/c:\"");
-    }
+    assertThat(p1).isNotEqualTo(p3);
+    assertThat(p1).isNotEqualTo(p4);
+    assertThat(p1).isNotEqualTo(p5);
+    assertThat(p3).isNotEqualTo(p4);
+    assertThat(p3).isNotEqualTo(p5);
+    assertThat(p4).isNotEqualTo(p5);
   }
 
   @Test
@@ -139,22 +155,22 @@ public class PathFragmentWindowsTest {
   @Test
   public void testGetRelativeMixed() throws Exception {
     assertGetRelative("a", "b", makePath('\0', false, "a", "b"));
-    assertGetRelative("a", "/b", makePath('B', true));
+    assertGetRelative("a", "/b", makePath('\0', true, "b"));
     assertGetRelative("a", "E:b", makePath('\0', false, "a", "b"));
     assertGetRelative("a", "E:/b", makePath('E', true, "b"));
 
-    assertGetRelative("/a", "b", makePath('A', true, "b"));
-    assertGetRelative("/a", "/b", makePath('B', true));
-    assertGetRelative("/a", "E:b", makePath('A', true, "b"));
+    assertGetRelative("/a", "b", makePath('\0', true, "a", "b"));
+    assertGetRelative("/a", "/b", makePath('\0', true, "b"));
+    assertGetRelative("/a", "E:b", makePath('\0', true, "a", "b"));
     assertGetRelative("/a", "E:/b", makePath('E', true, "b"));
 
     assertGetRelative("D:a", "b", makePath('D', false, "a", "b"));
-    assertGetRelative("D:a", "/b", makePath('B', true));
+    assertGetRelative("D:a", "/b", makePath('D', true, "b"));
     assertGetRelative("D:a", "E:b", makePath('D', false, "a", "b"));
     assertGetRelative("D:a", "E:/b", makePath('E', true, "b"));
 
     assertGetRelative("D:/a", "b", makePath('D', true, "a", "b"));
-    assertGetRelative("D:/a", "/b", makePath('B', true));
+    assertGetRelative("D:/a", "/b", makePath('D', true, "b"));
     assertGetRelative("D:/a", "E:b", makePath('D', true, "a", "b"));
     assertGetRelative("D:/a", "E:/b", makePath('E', true, "b"));
   }
@@ -222,8 +238,9 @@ public class PathFragmentWindowsTest {
         new PathFragment('\0', false, new String[0]),
         new PathFragment('C', false, new String[0]),
         new PathFragment('D', false, new String[0]));
-    assertAllEqual(new PathFragment("C:/"), new PathFragment("/c"), new PathFragment("/c/"));
-    assertAllEqual(new PathFragment("C:/foo"), new PathFragment("/c/foo"));
+    assertAllEqual(new PathFragment("/c"), new PathFragment("/c/"));
+    assertThat(new PathFragment("C:/")).isNotEqualTo(new PathFragment("/c"));
+    assertThat(new PathFragment("C:/foo")).isNotEqualTo(new PathFragment("/c/foo"));
 
     assertThat(new PathFragment("C:/")).isNotEqualTo(new PathFragment("C:"));
     assertThat(new PathFragment("C:/").getPathString())

@@ -125,47 +125,20 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
    */
   public PathFragment(String path) {
-    char drive = '\0';
-    boolean abs = false;
-    if (OS.getCurrent() == OS.WINDOWS) {
-      if (path.length() == 2 && isSeparator(path.charAt(0)) && Character.isLetter(path.charAt(1))) {
-        // Path is "/C" or other drive letter
-        drive = Character.toUpperCase(path.charAt(1));
-        abs = true;
-      } else if (path.length() >= 2
-          && Character.isLetter(path.charAt(0))
-          && path.charAt(1) == ':') {
-        // Path is like "C:", "C:/", "C:foo", or "C:/foo"
-        drive = Character.toUpperCase(path.charAt(0));
-      } else if (path.length() >= 3
-          && isSeparator(path.charAt(0))
-          && Character.isLetter(path.charAt(1))) {
-        if (isSeparator(path.charAt(2))) {
-          // Path is like "/C/" or "/C/foo"
-          drive = Character.toUpperCase(path.charAt(1));
-          abs = true;
-        } else if (path.charAt(2) == ':') {
-          // Path is like "/C:" or "/C:/" or "/C:/foo", neither of which is a valid path on MSYS.
-          // They are also very confusing because they would be valid, absolute PathFragments with
-          // no drive letters and the first segment being "C:".
-          // We should not be constructing such PathFragments on Windows because it would allow
-          // creating a valid Path object that would nevertheless be non-equal to "C:/" (because
-          // the internal representation would be different).
-          throw new IllegalArgumentException("Illegal path string \"" + path + "\"");
-        }
-      }
-    }
+    this.driveLetter =
+        (OS.getCurrent() == OS.WINDOWS
+                && path.length() >= 2
+                && path.charAt(1) == ':'
+                && Character.isLetter(path.charAt(0)))
+            ? Character.toUpperCase(path.charAt(0))
+            : '\0';
 
-    if (drive != '\0') {
+    if (driveLetter != '\0') {
       path = path.substring(2);
+      // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g. C:x.
     }
-    this.isAbsolute = abs || (path.length() > 0 && isSeparator(path.charAt(0)));
+    this.isAbsolute = path.length() > 0 && isSeparator(path.charAt(0));
     this.segments = segment(path, isAbsolute ? 1 : 0);
-
-    // If the only difference between this object and EMPTY_FRAGMENT is the drive letter, then this
-    // object is equivalent with the empty fragment. To make them compare equal we must use a null
-    // drive letter.
-    this.driveLetter = (this.isAbsolute || this.segments.length > 0) ? drive : '\0';
   }
 
   private static boolean isSeparator(char c) {
