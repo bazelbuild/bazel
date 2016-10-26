@@ -213,24 +213,19 @@ public final class Environment implements Freezable {
     /** The set of known global variables of the caller. */
     @Nullable Set<String> knownGlobalVariables;
 
-    /** Whether the caller is in Skylark mode. */
-    boolean isSkylark;
-
     Continuation(
         Continuation continuation,
         BaseFunction function,
         FuncallExpression caller,
         Frame lexicalFrame,
         Frame globalFrame,
-        Set<String> knownGlobalVariables,
-        boolean isSkylark) {
+        Set<String> knownGlobalVariables) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
       this.lexicalFrame = lexicalFrame;
       this.globalFrame = globalFrame;
       this.knownGlobalVariables = knownGlobalVariables;
-      this.isSkylark = isSkylark;
     }
   }
 
@@ -371,12 +366,11 @@ public final class Environment implements Freezable {
    */
   void enterScope(BaseFunction function, FuncallExpression caller, Frame globals) {
     continuation =
-        new Continuation(continuation, function, caller, lexicalFrame, globalFrame,
-            knownGlobalVariables, isSkylark);
+        new Continuation(
+            continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables);
     lexicalFrame = new Frame(mutability(), null);
     globalFrame = globals;
     knownGlobalVariables = new HashSet<>();
-    isSkylark = true;
   }
 
   /**
@@ -387,7 +381,6 @@ public final class Environment implements Freezable {
     lexicalFrame = continuation.lexicalFrame;
     globalFrame = continuation.globalFrame;
     knownGlobalVariables = continuation.knownGlobalVariables;
-    isSkylark = continuation.isSkylark;
     continuation = continuation.continuation;
   }
 
