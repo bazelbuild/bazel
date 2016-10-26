@@ -1765,7 +1765,7 @@ public final class PackageFactory {
           continue;
         }
         String target = ((Identifier) lvalue).getName();
-        if (pkgEnv.lookup(target, null) != null) {
+        if (pkgEnv.hasVariable(target)) {
           eventHandler.handle(Event.error(stmt.getLocation(), "Reassignment of builtin build "
               + "function '" + target + "' not permitted"));
           return false;

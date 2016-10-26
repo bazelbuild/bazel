@@ -47,10 +47,10 @@ public class EnvironmentTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testLookupWithDefault() throws Exception {
-    assertEquals(21, getEnvironment().lookup("VERSION", 21));
+  public void testHasVariable() throws Exception {
+    assertThat(getEnvironment().hasVariable("VERSION")).isFalse();
     update("VERSION", 42);
-    assertEquals(42, getEnvironment().lookup("VERSION", 21));
+    assertThat(getEnvironment().hasVariable("VERSION")).isTrue();
   }
 
   @Test

@@ -698,7 +698,7 @@ public final class Environment implements Freezable {
     return this;
   }
 
-  private boolean hasVariable(String varname) {
+  public boolean hasVariable(String varname) {
     return lookup(varname) != null;
   }
 
@@ -754,19 +754,6 @@ public final class Environment implements Freezable {
       return globalValue;
     }
     return dynamicValue;
-  }
-
-  /**
-   * Like {@link #lookup(String)}, but instead of throwing an exception in the case
-   * where <code>varname</code> is not defined, <code>defaultValue</code> is returned instead.
-   */
-  public Object lookup(String varname, Object defaultValue) {
-    Preconditions.checkState(!isSkylark);
-    Object value = lookup(varname);
-    if (value != null) {
-      return value;
-    }
-    return defaultValue;
   }
 
   /**
