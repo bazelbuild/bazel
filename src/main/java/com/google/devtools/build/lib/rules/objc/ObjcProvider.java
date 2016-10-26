@@ -471,6 +471,20 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     }
     return builder.build();
   }
+  
+  /**
+   * All artifacts, bundleable files, etc, that should be propagated to transitive dependers, of
+   * the type specified by {@code key}.
+   */
+  @SuppressWarnings("unchecked")
+  public <E> NestedSet<E> getPropagable(Key<E> key) {
+    Preconditions.checkNotNull(key);
+    NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
+    if (items.containsKey(key)) {
+      builder.addTransitive((NestedSet<E>) items.get(key));
+    }
+    return builder.build();
+  }
 
   /**
    * Indicates whether {@code flag} is set on this provider.
@@ -559,7 +573,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       }
       return this;
     }
-   
+
     /**
      * Add all keys and values from the given provider, but propagate any normally-propagated items
      * only to direct dependers of this ObjcProvider.
