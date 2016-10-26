@@ -388,6 +388,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "bazel_repository_cache_test",
+    size = "medium",
+    srcs = ["bazel_repository_cache_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
