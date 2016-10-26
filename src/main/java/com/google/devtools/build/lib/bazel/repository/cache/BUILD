@@ -10,5 +10,9 @@ filegroup(
 java_library(
     name = "cache",
     srcs = ["RepositoryCache.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib:vfs"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

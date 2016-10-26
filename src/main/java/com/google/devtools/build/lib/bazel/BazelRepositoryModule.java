@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunct
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
@@ -64,6 +63,8 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
@@ -86,6 +87,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final RepositoryDelegatorFunction delegator;
   private final AtomicReference<HttpDownloader> httpDownloader =
       new AtomicReference<>(new HttpDownloader());
+  private FileSystem filesystem;
 
   public BazelRepositoryModule() {
     this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
@@ -149,6 +151,8 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addSkyFunction(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
     builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, delegator);
     builder.addSkyFunction(MavenServerFunction.NAME, new MavenServerFunction());
+
+    filesystem = directories.getFileSystem();
   }
 
   @Override
@@ -173,8 +177,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
     if (repoOptions != null && repoOptions.experimentalRepositoryCache != null) {
-      httpDownloader.get().setRepositoryCache(
-          new RepositoryCache(repoOptions.experimentalRepositoryCache));
+      Path repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
+      httpDownloader.get().setRepositoryCachePath(repositoryCachePath);
     }
   }
 

@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.packages.Rule;
@@ -243,12 +243,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
       Path downloadPath = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
       // Verify checksum.
       if (!Strings.isNullOrEmpty(sha1)) {
-        Hasher hasher = Hashing.sha1().newHasher();
-        String downloadSha1 = HttpDownloader.getHash(hasher, downloadPath);
-        if (!sha1.equals(downloadSha1)) {
-          throw new IOException("Downloaded file at " + downloadPath + " has SHA-1 of "
-              + downloadSha1 + ", does not match expected SHA-1 (" + sha1 + ")");
-        }
+        RepositoryCache.assertFileChecksum(sha1, downloadPath, KeyType.SHA1);
       }
       return downloadPath;
     }
