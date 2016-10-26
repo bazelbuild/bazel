@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR;
@@ -62,7 +61,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            transform(
+            Iterables.<JavaSourceJarsAspectProvider, JavaSourceJarsProvider>transform(
                 getDeps(ruleContext, JavaSourceJarsAspectProvider.class),
                 JavaSourceJarsAspectProvider.GET_PROVIDER));
 
