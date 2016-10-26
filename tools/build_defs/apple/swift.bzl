@@ -299,6 +299,9 @@ def _swift_library_impl(ctx):
       swiftc_output_map_file.path,
   ] + _swift_compilation_mode_flags(ctx) + _swift_bitcode_flags(ctx)
 
+  if ctx.configuration.coverage_enabled:
+    args.extend(["-profile-generate", "-profile-coverage-mapping"])
+
   args.extend(srcs_args)
   args.extend(include_args)
   args.extend(framework_args)
