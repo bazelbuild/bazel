@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR;
 
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -48,7 +49,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         JavaCompilationArgsProvider.merge(
-            transform(
+            Iterables.<JavaCompilationArgsAspectProvider, JavaCompilationArgsProvider>transform(
                 getDeps(ruleContext, JavaCompilationArgsAspectProvider.class),
                 JavaCompilationArgsAspectProvider.GET_PROVIDER));
 

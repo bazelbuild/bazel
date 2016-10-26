@@ -451,10 +451,12 @@ static vector<string> GetArgumentArray() {
                                         globals->extracted_binaries[0],
                                         &result);
 
-  // JVM arguments are complete. Now pass in Blaze startup flags.
+  // JVM arguments are complete. Now pass in Blaze startup options.
+  // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
+  // so that BlazeRuntime#splitStartupOptions has an easy job.
   if (!globals->options->batch) {
-    result.push_back("--max_idle_secs");
-    result.push_back(ToString(globals->options->max_idle_secs));
+    result.push_back("--max_idle_secs=" +
+                     ToString(globals->options->max_idle_secs));
   } else {
     // --batch must come first in the arguments to Java main() because
     // the code expects it to be at args[0] if it's been set.
@@ -1058,13 +1060,14 @@ static bool ServerNeedsToBeKilled(const vector<string>& args1,
       continue;
     }
 
-    if (args1[i] != args2[i]) {
-      return true;
+    string max_idle_secs = "--max_idle_secs=";
+    if (args1[i].substr(0, max_idle_secs.size()) == max_idle_secs &&
+        args2[i].substr(0, max_idle_secs.size()) == max_idle_secs) {
+      continue;
     }
 
-    if (args1[i] == "--max_idle_secs") {
-      // Skip the argument of --max_idle_secs.
-      i++;
+    if (args1[i] != args2[i]) {
+      return true;
     }
   }
 

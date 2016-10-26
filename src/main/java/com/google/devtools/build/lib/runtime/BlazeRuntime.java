@@ -632,8 +632,13 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Splits given arguments into two lists - arguments matching options defined in this class
-   * and everything else, while preserving order in each list.
+   * Splits given options into two lists - arguments matching options defined in this class and
+   * everything else, while preserving order in each list.
+   *
+   * <p>Note that this method relies on the startup options always being in the
+   * <code>--flag=ARG</code> form (instead of <code>--flag ARG</code>). This is enforced by
+   * <code>GetArgumentArray()</code> in <code>blaze.cc</code> by reconstructing the startup
+   * options from their parsed versions instead of using <code>argv</code> verbatim.
    */
   static CommandLineOptions splitStartupOptions(
       Iterable<BlazeModule> modules, String... args) {
