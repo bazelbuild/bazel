@@ -461,6 +461,7 @@ function bazel_release() {
         fi
         mv $file $destfile
         checksum $destfile > $destfile.sha256
+        rm -f "$destfile.sig"
         gpg --no-tty --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
       fi
     done
