@@ -210,15 +210,15 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   NestedSet<Pair<Artifact, Artifact>> getPregreppedHeaders() {
     return pregreppedHdrs;
   }
-  
+
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
     return usePic ? picModuleInfo.transitiveModules : moduleInfo.transitiveModules;
   }
-  
+
   public Set<Artifact> getTopLevelModules(boolean usePic) {
     return usePic ? picModuleInfo.getTopLevelModules() : moduleInfo.getTopLevelModules();
   }
-  
+
   public Collection<Artifact> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
     return usePic
         ? picModuleInfo.getUsedModules(usedHeaders)
@@ -725,7 +725,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           provideTransitiveModuleMaps,
           useHeaderModules);
     }
-    
+
     /**
      * Creates a middleman for the compilation prerequisites.
      *
@@ -754,8 +754,10 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       // Such middleman will be ignored by the dependency checker yet will still
       // represent an edge in the action dependency graph - forcing proper execution
       // order and error propagation.
+      String name =
+          cppModuleMap != null ? cppModuleMap.getName() : ruleContext.getLabel().toString();
       return middlemanFactory.createErrorPropagatingMiddleman(
-          owner, ruleContext.getLabel().toString(), purpose,
+          owner, name, purpose,
           ImmutableList.copyOf(compilationPrerequisites),
           ruleContext.getConfiguration().getMiddlemanDirectory(
               ruleContext.getRule().getRepository()));
@@ -879,7 +881,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       private NestedSetBuilder<Artifact> impliedModules = NestedSetBuilder.stableOrder();
       private NestedSetBuilder<TransitiveModuleHeaders> transitiveModuleHeaders =
           NestedSetBuilder.stableOrder();
-      
+
       public Builder setHeaderModule(Artifact headerModule) {
         this.headerModule = headerModule;
         return this;
@@ -945,7 +947,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       }
     }
   }
-  
+
   /**
    * Collects data for a specific module in a special format that makes pruning easy.
    */

@@ -251,6 +251,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
+  private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final Set<CppSource> compilationUnitSources = new LinkedHashSet<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
@@ -261,6 +262,7 @@ public final class CcLibraryHelper {
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> implementationDeps = new ArrayList<>();
   private final List<TransitiveInfoCollection> interfaceDeps = new ArrayList<>();
+  private final List<CppCompilationContext> depContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
@@ -609,6 +611,11 @@ public final class CcLibraryHelper {
       this.implementationDeps.add(dep);
       this.interfaceDeps.add(dep);
     }
+    return this;
+  }
+
+  public CcLibraryHelper addDepContext(CppCompilationContext dep) {
+    this.depContexts.add(Preconditions.checkNotNull(dep));
     return this;
   }
 
@@ -1119,6 +1126,9 @@ public final class CcLibraryHelper {
     contextBuilder.mergeDependentContexts(
         AnalysisUtils.getProviders(
             forInterface ? interfaceDeps : implementationDeps, CppCompilationContext.class));
+    for (CppCompilationContext depContext : depContexts) {
+      contextBuilder.mergeDependentContext(depContext);
+    }
     CppHelper.mergeToolchainDependentContext(ruleContext, contextBuilder);
 
     // But defines come after those inherited from deps.
@@ -1211,6 +1221,9 @@ public final class CcLibraryHelper {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     if (toolchain != null) {
       result.add(toolchain.getCppCompilationContext().getCppModuleMap());
+    }
+    for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
+      result.add(additionalCppModuleMap);
     }
 
     return Iterables.filter(result, Predicates.<CppModuleMap>notNull());
@@ -1321,5 +1334,9 @@ public final class CcLibraryHelper {
     return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
         ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : compilationOutputs.getTemps();
+  }
+
+  public void registerAdditionalModuleMap(CppModuleMap cppModuleMap) {
+    this.additionalCppModuleMaps.add(Preconditions.checkNotNull(cppModuleMap));
   }
 }
