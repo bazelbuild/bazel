@@ -518,10 +518,10 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(loop).hasSize(3);
 
     assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(FlowStatement.Kind.BREAK);
-    assertLocation(34, 40, loop.get(0).getLocation());
+    assertLocation(34, 39, loop.get(0).getLocation());
 
     assertThat(((FlowStatement) loop.get(1)).getKind()).isEqualTo(FlowStatement.Kind.CONTINUE);
-    assertLocation(44, 53, loop.get(1).getLocation());
+    assertLocation(44, 52, loop.get(1).getLocation());
 
     assertThat(((FlowStatement) loop.get(2)).getKind()).isEqualTo(FlowStatement.Kind.BREAK);
     assertLocation(57, 62, loop.get(2).getLocation());

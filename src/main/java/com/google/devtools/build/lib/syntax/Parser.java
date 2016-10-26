@@ -135,6 +135,7 @@ public class Parser {
 
   private Token token; // current lookahead token
   private Token pushedToken = null; // used to implement LL(2)
+  private int loopCount; // break/continue keywords can be used only inside a loop
 
   private static final boolean DEBUGGING = false;
 
@@ -1171,8 +1172,7 @@ public class Parser {
     int start = token.left;
     if (token.kind == TokenKind.RETURN) {
       return parseReturnStatement();
-    } else if ((parsingMode == SKYLARK)
-        && (token.kind == TokenKind.BREAK || token.kind == TokenKind.CONTINUE)) {
+    } else if (token.kind == TokenKind.BREAK || token.kind == TokenKind.CONTINUE) {
       return parseFlowStatement(token.kind);
     }
     Expression expression = parseExpression();
@@ -1232,9 +1232,14 @@ public class Parser {
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> block = parseSuite();
-    Statement stmt = new ForStatement(loopVar, collection, block);
-    list.add(setLocation(stmt, start, token.right));
+    enterLoop();
+    try {
+      List<Statement> block = parseSuite();
+      Statement stmt = new ForStatement(loopVar, collection, block);
+      list.add(setLocation(stmt, start, token.right));
+    } finally {
+      exitLoop();
+    }
   }
 
   // def foo(bar1, bar2):
@@ -1401,10 +1406,16 @@ public class Parser {
   // flow_stmt ::= break_stmt | continue_stmt
   private FlowStatement parseFlowStatement(TokenKind kind) {
     int start = token.left;
+    int end = token.right;
     expect(kind);
+    if (loopCount == 0) {
+      reportError(
+          lexer.createLocation(start, end),
+          kind.getPrettyName() + " statement must be inside a for loop");
+    }
     FlowStatement.Kind flowKind =
         kind == TokenKind.BREAK ? FlowStatement.Kind.BREAK : FlowStatement.Kind.CONTINUE;
-    return setLocation(new FlowStatement(flowKind), start, token.right);
+    return setLocation(new FlowStatement(flowKind), start, end);
   }
 
   // return_stmt ::= RETURN [expr]
@@ -1429,7 +1440,7 @@ public class Parser {
     int start = token.left;
     Token blockToken = token;
     syncTo(EnumSet.of(TokenKind.COLON, TokenKind.EOF)); // skip over expression or name
-    if (blockToken.kind == TokenKind.ELSE && parsingMode == SKYLARK) {
+    if (blockToken.kind == TokenKind.ELSE) {
       reportError(
           lexer.createLocation(blockToken.left, blockToken.right),
           "syntax error at 'else': not allowed here.");
@@ -1449,5 +1460,14 @@ public class Parser {
   // create a comment node
   private void makeComment(Token token) {
     comments.add(setLocation(new Comment((String) token.value), token.left, token.right));
+  }
+
+  private void enterLoop() {
+    loopCount++;
+  }
+
+  private void exitLoop() {
+    Preconditions.checkState(loopCount > 0);
+    loopCount--;
   }
 }

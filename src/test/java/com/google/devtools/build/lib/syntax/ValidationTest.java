@@ -39,11 +39,6 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testTopLevelForStatement() throws Exception {
-    checkError("'For' is not allowed as a top level statement", "for i in [1,2,3]: a = i\n");
-  }
-
-  @Test
   public void testReturnOutsideFunction() throws Exception {
     checkError("Return statements must be inside a function", "return 2\n");
   }
