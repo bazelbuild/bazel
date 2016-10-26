@@ -33,7 +33,13 @@ static bool Symlink(const string& old_path, const string& new_path) {
 }
 
 static bool CreateEmptyFile(const string& path) {
-  int fd = open(path.c_str(), O_CREAT | O_WRONLY);
+  // From the man page of open (man 2 open):
+  // int open(const char *pathname, int flags, mode_t mode);
+  //
+  // mode specifies the permissions to use in case a new file is created.
+  // This argument must be supplied when O_CREAT is specified in flags;
+  // if O_CREAT is not specified, then mode is ignored.
+  int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0700);
   if (fd == -1) {
     return false;
   }
