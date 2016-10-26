@@ -438,7 +438,8 @@ public final class FuncallExpression extends Expression {
         if (!param.isAssignableFrom(value.getClass())) {
           return ArgumentListConversionResult.fromError(
               String.format(
-                  "Cannot convert parameter at position %d to type %s", i, param.toString()));
+                  "Cannot convert parameter at position %d from type %s to type %s",
+                  i, EvalUtils.getDataTypeName(value), param.toString()));
         }
         builder.add(value);
         i++;
