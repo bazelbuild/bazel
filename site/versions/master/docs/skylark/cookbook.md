@@ -486,17 +486,21 @@ execute(
 )
 ```
 
-## <a name="runfiles"></a>Define simple runfiles
+## <a name="runfiles"></a>Runfiles and location substitution
 
 `execute.bzl`:
 
 ```python
 def _impl(ctx):
   executable = ctx.outputs.executable
+  command = ctx.attr.command
+  # Expand the label in the command string to a runfiles-relative path.
+  # The second arg is the list of labels that may be expanded.
+  command = ctx.expand_location(command, ctx.attr.data)
   # Create the output executable file with command as its content.
   ctx.file_action(
       output=executable,
-      content=ctx.attr.command,
+      content=command,
       executable=True)
 
   return struct(
@@ -534,10 +538,10 @@ load("//pkg:execute.bzl", "execute")
 
 execute(
     name = "e",
-    # The path to data.txt has to include the package directories as well. I.e.
-    # if the BUILD file is under foo/BUILD and the data file is foo/data.txt
-    # then it needs to be referred as foo/data.txt in the command.
-    command = "cat data.txt",
+    // The location will be expanded to "pkg/data.txt", and it will reference
+    // the data.txt file in runfiles when this target is invoked as
+    // "bazel run //pkg:e".
+    command = "cat $(location :data.txt)",
     data = [':data.txt']
 )
 ```
