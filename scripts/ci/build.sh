@@ -459,10 +459,13 @@ function bazel_release() {
         else
           local destfile=${tmpdir}/$filename-${platform}
         fi
-        mv $file $destfile
-        checksum $destfile > $destfile.sha256
-        rm -f "$destfile.sig"
-        gpg --no-tty --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
+        # bazel.tar.gz is duplicated under different platforms
+        # if the file is already there, skip signing and checksum it again.
+        if [ ! -f "$destfile" ]; then
+          mv $file $destfile
+          checksum $destfile > $destfile.sha256
+          gpg --no-tty --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
+        fi
       fi
     done
   done
