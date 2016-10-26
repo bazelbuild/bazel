@@ -46,7 +46,7 @@ def create_android_sdk_rules(
           "sources",
           "system-images",
           "tools",
-      ]),
+      ], exclude_directories = 0),
   )
 
   native.java_import(
