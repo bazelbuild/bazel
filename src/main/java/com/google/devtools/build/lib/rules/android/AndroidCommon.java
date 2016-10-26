@@ -125,7 +125,7 @@ public class AndroidCommon {
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JackCompilationHelper jackCompilationHelper;
-  private ImmutableList<Artifact> jarsProducedForRuntime;
+  private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
   private Artifact iJar;
   private Artifact srcJar;
@@ -398,7 +398,7 @@ public class AndroidCommon {
       JavaCompilationArtifacts.Builder artifactsBuilder,
       JavaTargetAttributes.Builder attributes,
       NestedSetBuilder<Artifact> filesBuilder,
-      ImmutableList.Builder<Artifact> jarsProducedForRuntime,
+      NestedSetBuilder<Artifact> jarsProducedForRuntime,
       boolean useRClassGenerator) throws InterruptedException {
     compileResourceJar(javaSemantics, resourceApk, resourcesJar, useRClassGenerator);
     // Add the compiled resource jar to the classpath of the main compilation.
@@ -462,7 +462,7 @@ public class AndroidCommon {
 
   private void createJarJarActions(
       JavaTargetAttributes.Builder attributes,
-      ImmutableList.Builder<Artifact> jarsProducedForRuntime,
+      NestedSetBuilder<Artifact> jarsProducedForRuntime,
       Iterable<ResourceContainer> resourceContainers,
       String originalPackage,
       Artifact binaryResourcesJar) {
@@ -550,7 +550,7 @@ public class AndroidCommon {
             .setBootClassPath(bootclasspath);
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
-    ImmutableList.Builder<Artifact> jarsProducedForRuntime = ImmutableList.builder();
+    NestedSetBuilder<Artifact> jarsProducedForRuntime = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
     Artifact resourcesJar = resourceApk.getResourceJavaSrcJar();
@@ -905,7 +905,7 @@ public class AndroidCommon {
    * {@link #getRuntimeJars()} returns the complete runtime classpath needed by this rule, including
    * dependencies.
    */
-  public ImmutableList<Artifact> getJarsProducedForRuntime() {
+  public NestedSet<Artifact> getJarsProducedForRuntime() {
     return jarsProducedForRuntime;
   }
 
