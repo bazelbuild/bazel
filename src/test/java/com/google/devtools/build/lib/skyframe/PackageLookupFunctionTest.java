@@ -124,7 +124,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
+        ImmutableMap.of(
+            LocalRepositoryRule.NAME, (RepositoryFunction) new LocalRepositoryFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(repositoryHandlers, null, new AtomicBoolean(true)));

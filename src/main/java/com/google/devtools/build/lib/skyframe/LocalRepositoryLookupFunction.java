@@ -135,7 +135,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
    * if Skyframe needs to re-run, {@link Optional#of(LocalRepositoryLookupValue)} otherwise.
    */
   private Optional<LocalRepositoryLookupValue> maybeCheckWorkspaceForRepository(
-      Environment env, RootedPath directory)
+      Environment env, final RootedPath directory)
       throws InterruptedException, LocalRepositoryLookupFunctionException {
     // Look up the main WORKSPACE file by the external package, to find all repositories.
     PackageLookupValue externalPackageLookupValue;
