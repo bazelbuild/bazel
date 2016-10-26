@@ -411,13 +411,15 @@ class ParallelSkyQueryUtils {
       // getting and outputting results, each of which obeys the separate batch limits.
       // TODO(bazel-team): Attempt to group work on targets within the same package.
       ImmutableList.Builder<ForkJoinTask<?>> tasksBuilder = ImmutableList.builder();
-      for (Iterable<T> keysToVisitBatch :
-          Iterables.partition(visit.keysToVisit, VISIT_BATCH_SIZE)) {
-        tasksBuilder.add(new VisitTask(keysToVisitBatch));
-      }
+      // Fork the tasks for getting and outputting results first - this way we maximize for
+      // throughput to the underlying callback.
       for (Iterable<SkyKey> keysToUseForResultBatch : Iterables.partition(
           visit.keysToUseForResult, SkyQueryEnvironment.BATCH_CALLBACK_SIZE)) {
         tasksBuilder.add(new GetAndProcessResultsTask(keysToUseForResultBatch));
+      }
+      for (Iterable<T> keysToVisitBatch :
+          Iterables.partition(visit.keysToVisit, VISIT_BATCH_SIZE)) {
+        tasksBuilder.add(new VisitTask(keysToVisitBatch));
       }
       return tasksBuilder.build();
     }
