@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.common.BazelActionListenerRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelExtraActionRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
-import com.google.devtools.build.lib.bazel.rules.common.BazelTestSuiteRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcIncLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
@@ -155,6 +154,7 @@ import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
+import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
@@ -320,7 +320,7 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new AliasRule());
           builder.addRuleDefinition(new BazelFilegroupRule());
-          builder.addRuleDefinition(new BazelTestSuiteRule());
+          builder.addRuleDefinition(new TestSuiteRule());
           builder.addRuleDefinition(new BazelGenRuleRule());
           builder.addRuleDefinition(new GenQueryRule());
 
