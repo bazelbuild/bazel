@@ -111,6 +111,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/BUILD",
         androidBuildContents.toArray(new String[androidBuildContents.size()]));
+    config.create(
+        "/bazel_tools_workspace/tools/android/android_sdk_repository_template.bzl",
+        "def create_android_sdk_rules("
+            + "name, build_tools_version, build_tools_directory, api_level):",
+        "    pass");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");

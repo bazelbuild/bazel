@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -35,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Properties;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of the {@code android_sdk_repository} rule.
@@ -89,6 +93,26 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
         .replaceAll("%build_tools_version%", buildToolsVersion)
         .replaceAll("%build_tools_directory%", buildToolsDirectory)
         .replaceAll("%api_level%", apiLevel.toString());
+
+    // All local maven repositories that are shipped in the Android SDK.
+    // TODO(ajmichael): Create SkyKeys so that if the SDK changes, this function will get rerun.
+    Iterable<Path> localMavenRepositories = ImmutableList.of(
+        outputDirectory.getRelative("extras/android/m2repository"),
+        outputDirectory.getRelative("extras/google/m2repository"));
+    try {
+      SdkMavenRepository sdkExtrasRepository =
+          SdkMavenRepository.create(Iterables.filter(localMavenRepositories, new Predicate<Path>() {
+            @Override
+            public boolean apply(@Nullable Path path) {
+              return path.isDirectory();
+            }
+          }));
+      sdkExtrasRepository.writeBuildFiles(outputDirectory);
+      buildFile = buildFile.replaceAll(
+          "%exported_files%", sdkExtrasRepository.getExportsFiles(outputDirectory));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
 
     writeBuildFile(outputDirectory, buildFile);
     return RepositoryDirectoryValue.create(outputDirectory);
