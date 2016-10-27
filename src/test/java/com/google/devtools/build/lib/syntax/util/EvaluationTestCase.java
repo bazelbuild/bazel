@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -66,12 +67,14 @@ public class EvaluationTestCase {
    * No PythonPreprocessing, mostly empty mutable Environment.
    */
   public Environment newBuildEnvironment() {
-    return Environment.builder(mutability)
-        .setGlobals(Environment.DEFAULT_GLOBALS)
-        .setEventHandler(getEventHandler())
-        .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
-        .setPhase(Phase.LOADING)
-        .build();
+    Environment env =
+        Environment.builder(mutability)
+            .setGlobals(Environment.DEFAULT_GLOBALS)
+            .setEventHandler(getEventHandler())
+            .setPhase(Phase.LOADING)
+            .build();
+    SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+    return env;
   }
 
   /**

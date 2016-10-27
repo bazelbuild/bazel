@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-
 import org.junit.Before;
 
 /**
@@ -53,18 +53,20 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
-        return Environment.builder(mutability)
-            .setSkylark()
-            .setEventHandler(getEventHandler())
-            .setGlobals(SkylarkModules.getGlobals(SkylarkModules.MODULES))
-            .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
-            .setPhase(Phase.LOADING)
-            .build()
-            .setupDynamic(
-                PackageFactory.PKG_CONTEXT,
-                // This dummy pkgContext works because no Skylark unit test attempts to actually
-                // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
-                new PackageContext(null, null, getEventHandler(), null));
+        Environment env =
+            Environment.builder(mutability)
+                .setSkylark()
+                .setEventHandler(getEventHandler())
+                .setGlobals(SkylarkModules.getGlobals(SkylarkModules.MODULES))
+                .setPhase(Phase.LOADING)
+                .build()
+                .setupDynamic(
+                    PackageFactory.PKG_CONTEXT,
+                    // This dummy pkgContext works because no Skylark unit test attempts to actually
+                    // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
+                    new PackageContext(null, null, getEventHandler(), null));
+        SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+        return env;
       }
     };
   }

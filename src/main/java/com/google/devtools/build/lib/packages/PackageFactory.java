@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -1633,9 +1634,9 @@ public final class PackageFactory {
               .setGlobals(Environment.DEFAULT_GLOBALS)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
-              .setToolsRepository(ruleClassProvider.getToolsRepository())
               .setPhase(Phase.LOADING)
               .build();
+      SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       pkgBuilder.setFilename(buildFilePath)
           .setMakeEnv(pkgMakeEnv)
@@ -1709,9 +1710,9 @@ public final class PackageFactory {
           Environment.builder(mutability)
               .setGlobals(Environment.DEFAULT_GLOBALS)
               .setEventHandler(NullEventHandler.INSTANCE)
-              .setToolsRepository(ruleClassProvider.getToolsRepository())
               .setPhase(Phase.LOADING)
               .build();
+      SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
           packageId, ruleClassProvider.getRunfilesPrefix()));

@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.lang.reflect.Constructor;
@@ -709,15 +710,17 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
-    return Environment.builder(mutability)
-        .setSkylark()
-        .setGlobals(globals)
-        .setEventHandler(eventHandler)
-        .setFileContentHashCode(astFileContentHashCode)
-        .setImportedExtensions(importMap)
-        .setToolsRepository(toolsRepository)
-        .setPhase(Phase.LOADING)
-        .build();
+    Environment env =
+        Environment.builder(mutability)
+            .setSkylark()
+            .setGlobals(globals)
+            .setEventHandler(eventHandler)
+            .setFileContentHashCode(astFileContentHashCode)
+            .setImportedExtensions(importMap)
+            .setPhase(Phase.LOADING)
+            .build();
+    SkylarkUtils.setToolsRepository(env, toolsRepository);
+    return env;
   }
 
   @Override

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -353,12 +351,6 @@ public final class Environment implements Freezable {
   @Nullable private final Label callerLabel;
 
   /**
-   * The path to the tools repository.
-   * TODO(laurentlb): Remove from Environment
-   */
-  private final String toolsRepository;
-
-  /**
    * Enters a scope by saving state to a new Continuation
    * @param function the function whose scope to enter
    * @param caller the source AST node for the caller
@@ -476,8 +468,8 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Constructs an Environment.
-   * This is the main, most basic constructor.
+   * Constructs an Environment. This is the main, most basic constructor.
+   *
    * @param globalFrame a frame for the global Environment
    * @param dynamicFrame a frame for the dynamic Environment
    * @param eventHandler an EventHandler for warnings, errors, etc
@@ -495,8 +487,7 @@ public final class Environment implements Freezable {
       boolean isSkylark,
       @Nullable String fileContentHashCode,
       Phase phase,
-      @Nullable Label callerLabel,
-      String toolsRepository) {
+      @Nullable Label callerLabel) {
     this.globalFrame = Preconditions.checkNotNull(globalFrame);
     this.dynamicFrame = Preconditions.checkNotNull(dynamicFrame);
     Preconditions.checkArgument(globalFrame.mutability().isMutable());
@@ -506,7 +497,6 @@ public final class Environment implements Freezable {
     this.isSkylark = isSkylark;
     this.phase = phase;
     this.callerLabel = callerLabel;
-    this.toolsRepository = toolsRepository;
     this.transitiveHashCode =
         computeTransitiveContentHashCode(fileContentHashCode, importedExtensions);
   }
@@ -523,7 +513,6 @@ public final class Environment implements Freezable {
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
     private Label label;
-    private String toolsRepository;
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
@@ -570,12 +559,6 @@ public final class Environment implements Freezable {
       return this;
     }
 
-    /** Sets the path to the tools repository */
-    public Builder setToolsRepository(String toolsRepository) {
-      this.toolsRepository = toolsRepository;
-      return this;
-    }
-
     /** Builds the Environment. */
     public Environment build() {
       Preconditions.checkArgument(mutability.isMutable());
@@ -587,9 +570,6 @@ public final class Environment implements Freezable {
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      if (phase == Phase.LOADING) {
-        Preconditions.checkState(this.toolsRepository != null);
-      }
       return new Environment(
           globalFrame,
           dynamicFrame,
@@ -598,8 +578,7 @@ public final class Environment implements Freezable {
           isSkylark,
           fileContentHashCode,
           phase,
-          label,
-          toolsRepository);
+          label);
     }
 
     public Builder setCallerLabel(Label label) {
@@ -928,10 +907,5 @@ public final class Environment implements Freezable {
       ast = BuildFileAST.parseBuildString(eventHandler, input);
     }
     return ast.eval(this);
-  }
-
-  public String getToolsRepository() {
-    checkState(toolsRepository != null);
-    return toolsRepository;
   }
 }
