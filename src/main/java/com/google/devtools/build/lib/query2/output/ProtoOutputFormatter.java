@@ -21,12 +21,13 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -48,13 +49,17 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Type;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An output formatter that outputs a protocol buffer representation
@@ -68,6 +73,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
    * A special attribute name for the rule implementation hash code.
    */
   public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
+
+  @SuppressWarnings("unchecked")
+  private static final ImmutableSet<Type<?>> SCALAR_TYPES =
+      ImmutableSet.<Type<?>>of(
+          Type.INTEGER, Type.STRING, BuildType.LABEL, BuildType.NODEP_LABEL, BuildType.OUTPUT,
+          Type.BOOLEAN, BuildType.TRISTATE, BuildType.LICENSE);
 
   private boolean relativeLocations = false;
   protected boolean includeDefaultValues = true;
@@ -148,15 +159,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
       Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
       for (Attribute attr : rule.getAttributes()) {
-        if (!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr)
+        if ((!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr))
             || !includeAttribute(rule, attr)) {
           continue;
         }
-        Iterable<Object> possibleAttributeValues =
-            AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
         Object flattenedAttributeValue =
-            AggregatingAttributeMapper.flattenAttributeValues(
-                attr.getType(), possibleAttributeValues);
+            flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
         Build.Attribute serializedAttribute =
             AttributeFormatter.getAttributeProto(
                 attr,
@@ -176,8 +184,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         rulePb.addAttribute(
             Build.Attribute.newBuilder()
                 .setName(RULE_IMPLEMENTATION_HASH_ATTR_NAME)
-                .setType(ProtoUtils.getDiscriminatorFromType(
-                    com.google.devtools.build.lib.syntax.Type.STRING))
+                .setType(ProtoUtils.getDiscriminatorFromType(Type.STRING))
                 .setStringValue(env.getTransitiveContentHashCode()));
       }
 
@@ -326,7 +333,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static Object getAspectAttributeValue(Attribute attribute, Collection<Label> labels) {
-    com.google.devtools.build.lib.syntax.Type<?> attributeType = attribute.getType();
+    Type<?> attributeType = attribute.getType();
     if (attributeType.equals(BuildType.LABEL)) {
       Preconditions.checkState(labels.size() == 1, "attribute=%s, labels=%s", attribute, labels);
       return Iterables.getOnlyElement(labels);
@@ -365,5 +372,75 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean includeLocation() {
     return true;
+  }
+
+  /**
+   * Coerces the list {@param possibleValues} of values of type {@param attrType} to a single
+   * value of that type, in the following way:
+   *
+   * <p>If the list contains a single value, return that value.
+   *
+   * <p>If the list contains zero or multiple values and the type is a scalar type, return {@code
+   * null}.
+   *
+   * <p>If the list contains zero or multiple values and the type is a collection or map type,
+   * merge the collections/maps in the list and return the merged collection/map.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  private static Object flattenAttributeValues(Type<?> attrType, Iterable<Object> possibleValues) {
+
+    // If there is only one possible value, return it.
+    if (Iterables.size(possibleValues) == 1) {
+      return Iterables.getOnlyElement(possibleValues);
+    }
+
+    // Otherwise, there are multiple possible values. To conform to the message shape expected by
+    // query output's clients, we must transform the list of possible values. This transformation
+    // will be lossy, but this is the best we can do.
+
+    // If the attribute's type is not a collection type, return null. Query output's clients do
+    // not support list values for scalar attributes.
+    if (SCALAR_TYPES.contains(attrType)) {
+      return null;
+    }
+
+    // If the attribute's type is a collection type, merge the list of collections into a single
+    // collection. This is a sensible solution for query output's clients, which are happy to get
+    // the union of possible values.
+    // TODO(bazel-team): replace below with "is ListType" check (or some variant)
+    if (attrType == Type.STRING_LIST
+        || attrType == BuildType.LABEL_LIST
+        || attrType == BuildType.NODEP_LABEL_LIST
+        || attrType == BuildType.OUTPUT_LIST
+        || attrType == BuildType.DISTRIBUTIONS
+        || attrType == Type.INTEGER_LIST
+        || attrType == BuildType.FILESET_ENTRY_LIST) {
+      ImmutableList.Builder<Object> builder = ImmutableList.<Object>builder();
+      for (Object possibleValue : possibleValues) {
+        Collection<Object> collection = (Collection<Object>) possibleValue;
+        for (Object o : collection) {
+          builder.add(o);
+        }
+      }
+      return builder.build();
+    }
+
+    // Same for maps as for collections.
+    if (attrType == Type.STRING_DICT
+        || attrType == Type.STRING_DICT_UNARY
+        || attrType == Type.STRING_LIST_DICT
+        || attrType == BuildType.LABEL_DICT_UNARY) {
+      Map<Object, Object> mergedDict = new HashMap<>();
+      for (Object possibleValue : possibleValues) {
+        Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;
+        for (Entry<Object, Object> entry : stringDict.entrySet()) {
+          mergedDict.put(entry.getKey(), entry.getValue());
+        }
+      }
+      return mergedDict;
+    }
+
+    throw new AssertionError("Unknown type: " + attrType);
   }
 }

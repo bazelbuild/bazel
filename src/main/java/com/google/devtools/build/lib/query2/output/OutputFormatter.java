@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -35,7 +37,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.EnumConverter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,6 +47,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +63,7 @@ public abstract class OutputFormatter implements Serializable {
   /**
    * Discriminator for different kinds of OutputFormatter.
    */
-  public enum Type {
+  public enum OutputType {
     LABEL,
     LABEL_KIND,
     BUILD,
@@ -93,10 +95,10 @@ public abstract class OutputFormatter implements Serializable {
       };
 
   /**
-   * Converter from strings to OutputFormatter.Type.
+   * Converter from strings to OutputFormatter.OutputType.
    */
-  public static class Converter extends EnumConverter<Type> {
-    public Converter() { super(Type.class, "output formatter"); }
+  public static class Converter extends EnumConverter<OutputType> {
+    public Converter() { super(OutputType.class, "output formatter"); }
   }
 
   public static ImmutableList<OutputFormatter> getDefaultFormatters() {
@@ -404,22 +406,27 @@ public abstract class OutputFormatter implements Serializable {
       return new TextOutputFormatterCallback<Target>(out) {
         private final Set<Label> printed = CompactHashSet.create();
 
-        private void outputRule(Rule rule, PrintStream printStream) {
+        private void outputRule(Rule rule, PrintStream printStream) throws InterruptedException {
           final String lineTerm = options.getLineTerminator();
           printStream.printf("# %s%s", rule.getLocation(), lineTerm);
           printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
           printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
 
+          RawAttributeMapper attributeMap = RawAttributeMapper.of(rule);
           for (Attribute attr : rule.getAttributes()) {
-            Pair<Iterable<Object>, AttributeValueSource> values =
-                getPossibleAttributeValuesAndSources(rule, attr);
-            if (Iterables.size(values.first) != 1) {
+            if (attributeMap.isConfigurable(attr.getName(), attr.getType())) {
               continue; // TODO(bazel-team): handle configurable attributes.
             }
-            if (values.second != AttributeValueSource.RULE) {
+            PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
+            if (values.source != AttributeValueSource.RULE) {
               continue; // Don't print default values.
             }
-            Object value = Iterables.getOnlyElement(values.first);
+            if (Iterables.size(values) != 1) {
+              // Computed defaults that depend on configurable attributes can also have multiple
+              // values.
+              continue;
+            }
+            Object value = Iterables.getOnlyElement(values);
             printStream.printf("  %s = ", attr.getPublicName());
             if (value instanceof Label) {
               value = ((Label) value).getDefaultCanonicalForm();
@@ -443,7 +450,7 @@ public abstract class OutputFormatter implements Serializable {
         }
 
         @Override
-        public void processOutput(Iterable<Target> partialResult) {
+        public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
 
           for (Target target : partialResult) {
             Rule rule = target.getAssociatedRule();
@@ -649,18 +656,51 @@ public abstract class OutputFormatter implements Serializable {
   }
 
   /**
+   * Helper class for {@link #getPossibleAttributeValues}.
+   */
+  static class PossibleAttributeValues implements Iterable<Object> {
+    final Iterable<Object> values;
+    final AttributeValueSource source;
+
+    PossibleAttributeValues(Iterable<Object> values, AttributeValueSource source) {
+      this.values = values;
+      this.source = source;
+    }
+
+    @Override
+    public Iterator<Object> iterator() {
+      return values.iterator();
+    }
+  }
+
+  /**
    * Returns the possible values of the specified attribute in the specified rule. For simple
    * attributes, this is a single value. For configurable and computed attributes, this may be a
    * list of values. See {@link AggregatingAttributeMapper#getPossibleAttributeValues} for how the
-   * value(s) is/are made.
+   * values are determined.
    *
-   * @return a pair, where the first value is the set of possible values and the
-   *     second is an enum that tells where the values come from (declared on the
-   *     rule, declared as a package level default or a
-   *     global default)
+   * <p>This applies an important optimization for label lists: instead of returning all possible
+   * values, it only returns possible <i>labels</i>. For example, given:
+   *
+   * <pre>
+   * select({
+   *     ":c": ["//a:one", "//a:two"],
+   *     ":d": ["//a:two"]
+   *     })</pre>
+   *
+   * it returns:
+   *
+   * <pre>["//a:one", "//a:two"]</pre>
+   *
+   * which loses track of which label appears in which branch.
+   *
+   * <p>This avoids the memory overruns that can happen be iterating over every possible value
+   * for an <code>attr = select(...) + select(...) + select(...) + ...</code> expression. Query
+   * operations generally don't care about specific attribute values - they just care which labels
+   * are possible.
    */
-  protected static Pair<Iterable<Object>, AttributeValueSource>
-      getPossibleAttributeValuesAndSources(Rule rule, Attribute attr) {
+  protected static PossibleAttributeValues getPossibleAttributeValues(Rule rule, Attribute attr)
+    throws InterruptedException {
     AttributeValueSource source;
 
     if (attr.getName().equals("visibility")) {
@@ -676,9 +716,21 @@ public abstract class OutputFormatter implements Serializable {
           ? AttributeValueSource.RULE : AttributeValueSource.DEFAULT;
     }
 
-    Iterable<Object> possibleAttributeValues =
-        AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
-    return Pair.of(possibleAttributeValues, source);
+    AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
+    if (attr.getType().equals(BuildType.LABEL_LIST)
+        && attributeMap.isConfigurable(attr.getName(), attr.getType())) {
+      // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
+      // there's currently no syntax for expressing multiple scalar values). This unfortunately
+      // isn't trivial because Bazel's label visitation logic includes special methods built
+      // directly into Type.
+      return new PossibleAttributeValues(
+          ImmutableList.<Object>of(
+              attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/false)),
+          source);
+    } else {
+      return new PossibleAttributeValues(attributeMap.getPossibleAttributeValues(rule, attr),
+          source);
+    }
   }
 
   private static void flushAndCheckError(PrintStream printStream) throws IOException {
