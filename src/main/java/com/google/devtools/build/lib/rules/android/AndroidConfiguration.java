@@ -57,15 +57,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Converter for {@link IncrementalDexing}.
-   */
-  public static final class IncrementalDexingConverter extends EnumConverter<IncrementalDexing> {
-    public IncrementalDexingConverter() {
-      super(IncrementalDexing.class, "incremental dexing option");
-    }
-  }
-
-  /**
    * Converter for {@link ApkSigningMethod}.
    */
   public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
@@ -181,21 +172,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     /** Wheter to sign the APK with the apksigner tool with APK Signature Schema V2. */
     public boolean signV2() {
       return signV2;
-    }
-  }
-
-  /** When to use incremental dexing (using {@link DexArchiveProvider}). */
-  private enum IncrementalDexing {
-    OFF(),
-    WITH_DEX_SHARDS(AndroidBinaryType.MULTIDEX_SHARDED),
-    WITH_MULTIDEX(AndroidBinaryType.MULTIDEX_UNSHARDED, AndroidBinaryType.MULTIDEX_SHARDED),
-    WITH_MONODEX_OR_DEX_SHARDS(AndroidBinaryType.MONODEX, AndroidBinaryType.MULTIDEX_SHARDED),
-    AS_PERMITTED(AndroidBinaryType.values());
-
-    private ImmutableSet<AndroidBinaryType> binaryTypes;
-
-    private IncrementalDexing(AndroidBinaryType... binaryTypes) {
-      this.binaryTypes = ImmutableSet.copyOf(binaryTypes);
     }
   }
 
@@ -317,15 +293,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         category = "undocumented",
         help = "Whether to desugar Java 8 bytecode before dexing.")
     public boolean desugarJava8;
-
-    @Option(name = "experimental_incremental_dexing",
-        defaultValue = "off",
-        category = "undocumented",
-        converter = IncrementalDexingConverter.class,
-        deprecationWarning = "Use --incremental_dexing instead to turn on incremental dexing.",
-        help = "Does most of the work for dexing separately for each Jar file.  Incompatible with "
-            + "Jack and Jill.")
-    public IncrementalDexing dexingStrategy;
 
     @Option(name = "incremental_dexing",
         defaultValue = "false",
@@ -463,7 +430,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
-      host.dexingStrategy = dexingStrategy;
       return host;
     }
 
@@ -531,7 +497,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     if (options.incrementalDexing) {
       this.incrementalDexingBinaries = ImmutableSet.copyOf(options.incrementalDexingBinaries);
     } else {
-      this.incrementalDexingBinaries = options.dexingStrategy.binaryTypes;
+      this.incrementalDexingBinaries = ImmutableSet.of();
     }
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
