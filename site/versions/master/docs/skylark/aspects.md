@@ -123,7 +123,7 @@ def _metal_proto_aspect_impl(target, ctx):
         inputs = proto_sources
         outputs = outputs)
     transitive_outputs = set(outputs)
-    for dep in ctx.attr.deps:
+    for dep in ctx.rule.attr.deps:
         transitive_outputs = transitive_outputs | dep.metal_proto.transitive_outputs
     return struct(
         metal_proto = struct(direct_outputs = outputs,
