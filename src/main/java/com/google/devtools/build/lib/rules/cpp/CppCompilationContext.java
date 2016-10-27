@@ -358,11 +358,14 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     return builder.build();
   }
 
-  /**
-   * @return the C++ module map of the owner.
-   */
+  /** @return the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
+  }
+
+  /** @return whether header modules should be used in this context. */
+  public boolean getUseHeaderModules() {
+    return useHeaderModules;
   }
 
   /**

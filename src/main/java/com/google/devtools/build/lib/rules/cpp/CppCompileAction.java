@@ -290,9 +290,7 @@ public class CppCompileAction extends AbstractAction
             ruleContext,
             mandatoryInputs,
             context.getTransitiveCompilationPrerequisites(),
-            featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
-                ? context.getTransitiveModules(usePic)
-                : null,
+            context.getUseHeaderModules() ? context.getTransitiveModules(usePic) : null,
             optionalSourceFile,
             lipoScannables),
         CollectionUtils.asListWithoutNulls(

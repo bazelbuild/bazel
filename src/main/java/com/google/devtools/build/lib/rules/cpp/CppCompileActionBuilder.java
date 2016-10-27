@@ -268,10 +268,11 @@ public class CppCompileActionBuilder {
     // before discovering inputs and thus would not declare their inputs properly.
     boolean shouldPruneModules =
         shouldScanIncludes
+            && context.getUseHeaderModules()
             && !fake
             && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE)
             && featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES);
-    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES) && !shouldPruneModules) {
+    if (context.getUseHeaderModules() && !shouldPruneModules) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
