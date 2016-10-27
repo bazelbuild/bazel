@@ -223,6 +223,10 @@ public final class ActionsTestUtil {
       super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
     }
 
+    public NullAction(List<Artifact> inputs, Artifact... outputs) {
+      super(NULL_ACTION_OWNER, inputs, ImmutableList.copyOf(outputs));
+    }
+
     @Override
     public void execute(ActionExecutionContext actionExecutionContext) {
     }
