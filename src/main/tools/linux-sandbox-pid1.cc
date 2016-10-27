@@ -321,6 +321,15 @@ static bool ShouldBeWritable(char *mnt_dir) {
   return false;
 }
 
+static bool IsUnderTmpDir(const char *mnt_dir) {
+  for (const char *tmpfs_dir : opt.tmpfs_dirs) {
+    if (strstr(mnt_dir, tmpfs_dir) == mnt_dir) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Makes the whole filesystem read-only, except for the paths for which
 // ShouldBeWritable returns true.
 static void MakeFilesystemMostlyReadOnly() {
@@ -333,6 +342,12 @@ static void MakeFilesystemMostlyReadOnly() {
   while ((ent = getmntent(mounts)) != NULL) {
     // Skip mounts that do not belong to our sandbox.
     if (strstr(ent->mnt_dir, opt.sandbox_root_dir) != ent->mnt_dir) {
+      continue;
+    }
+    // Skip mounts that are under tmpfs directories because we've already
+    // replaced such directories with new tmpfs instances.
+    // mount() would fail with ENOENT if we tried to remount such mount points.
+    if (IsUnderTmpDir(ent->mnt_dir + strlen(opt.sandbox_root_dir))) {
       continue;
     }
 
