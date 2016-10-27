@@ -268,15 +268,23 @@ public class ApkActionsBuilder {
             .addInputArgument(classesDex);
       } else {
         compressedApkActionBuilder
+            .addInput(classesDex)
             .addArgument("--resources")
-            .addInputArgument(classesDex);
+            .addArgument(
+                singleJarResourcesArgument(
+                    classesDex.getExecPathString(),
+                    classesDex.getFilename()));
       }
     }
 
     if (javaResourceFile != null) {
       compressedApkActionBuilder
+          .addInput(javaResourceFile)
           .addArgument("--resources")
-          .addInputArgument(javaResourceFile);
+          .addArgument(
+              singleJarResourcesArgument(
+                  javaResourceFile.getExecPathString(),
+                  javaResourceFile.getFilename()));
     }
 
     for (String architecture : nativeLibs.getMap().keySet()) {
@@ -284,11 +292,9 @@ public class ApkActionsBuilder {
         compressedApkActionBuilder
             .addArgument("--resources")
             .addArgument(
-                nativeLib.getExecPathString()
-                    + ":lib/"
-                    + architecture
-                    + "/"
-                    + nativeLib.getFilename())
+                singleJarResourcesArgument(
+                    nativeLib.getExecPathString(),
+                    "lib/" + architecture + "/" + nativeLib.getFilename()))
             .addInput(nativeLib);
       }
     }
@@ -328,7 +334,9 @@ public class ApkActionsBuilder {
       singleJarActionBuilder
           .addArgument("--resources")
           .addArgument(
-              nativeLibs.getName().getExecPathString() + ":" + nativeLibs.getName().getFilename())
+              singleJarResourcesArgument(
+                  nativeLibs.getName().getExecPathString(),
+                  nativeLibs.getName().getFilename()))
           .addInput(nativeLibs.getName());
     }
 
@@ -347,6 +355,19 @@ public class ApkActionsBuilder {
     }
 
     ruleContext.registerAction(singleJarActionBuilder.build(ruleContext));
+  }
+
+  /**
+   * The --resources flag to singlejar can have either of the following forms:
+   * <ul>
+   * <li>The path to the input file. In this case the file is placed at the same path in the APK.
+   * <li>{@code from}:{@code to} where {@code from} is that path to the input file and {@code to} is
+   * the location in the APK to put it.
+   * </ul>
+   * This method creates the syntax for the second form.
+   */
+  private static String singleJarResourcesArgument(String from, String to) {
+    return from + ":" + to;
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
