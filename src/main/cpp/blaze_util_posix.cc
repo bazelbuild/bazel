@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "src/main/cpp/blaze_util.h"
@@ -145,6 +146,8 @@ void ExecuteDaemon(const string& exe,
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
   } else if (child > 0) {  // we're the parent
     close(fds[1]);  // parent keeps only the reading side
+    int unused_status;
+    waitpid(child, &unused_status, 0);  // child double-forks
     *server_startup = new PipeBlazeServerStartup(fds[0]);
     return;
   } else {
