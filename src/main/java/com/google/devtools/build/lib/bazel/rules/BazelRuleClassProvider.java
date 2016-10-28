@@ -148,6 +148,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.rules.objc.ObjcXcodeprojRule;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.repository.BindRule;
@@ -361,6 +362,7 @@ public class BazelRuleClassProvider {
           builder.addConfigurationOptions(ProtoConfiguration.Options.class);
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
+          builder.addRuleDefinition(new ProtoLangToolchainRule());
         }
 
         @Override
