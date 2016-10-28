@@ -5,6 +5,7 @@ param(
   [string] $checksum = ""
 )
 
+write-host "mode: $mode"
 if ($mode -eq "release") {
   $tvVersion = $version
   $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
@@ -18,13 +19,13 @@ if ($mode -eq "release") {
   $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
   $tvUri = "http://localhost:8000/$($tvFilename)"
 } else {
-  write-error "mode parameter '$mode' unsupported. Please use local, rc, or release."
+  throw "mode parameter '$mode' unsupported. Please use local, rc, or release."
 }
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
 rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
 rm -force -ErrorAction SilentlyContinue ./tools/params.json
-if ($checksum -ne "") {
+if ($checksum -eq "") {
   rm -force -ErrorAction SilentlyContinue ./*.zip
 }
 
@@ -37,8 +38,10 @@ if ($mode -eq "release") {
     Invoke-WebRequest "$($tvUri)" -UseBasicParsing -passthru -outfile $tvFilename
   }
   if ($checksum -eq "") {
-    $tvChecksum = (get-filehash $tvFilename -algorithm sha256).Hash
+    write-host "calculating checksum"
+    # $tvChecksum = (get-filehash $tvFilename -algorithm sha256).Hash
   } else {
+    write-host "using passed checksum"
     $tvChecksum = $checksum
   }
 } elseif ($mode -eq "local") {
@@ -63,9 +66,11 @@ add-content -value $licenseHeader -path "./tools/LICENSE.txt"
 add-content -value (get-content "../../../LICENSE.txt") -path "./tools/LICENSE.txt"
 
 $params = @{
-  uri = $tvUri;
-  checksum = $tvChecksum;
-  checksumType = "sha256"
+  package = @{
+    uri = $tvUri;
+    checksum = $tvChecksum;
+    checksumType = "sha256";
+  }
 }
 add-content -value (ConvertTo-Json $params) -path "./tools/params.json"
 
