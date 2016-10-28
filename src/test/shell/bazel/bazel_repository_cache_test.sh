@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 # Test repository cache mechanisms
-# TODO(jingwen): Test Skylark's download and download_and_extract
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,13 +25,16 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 function set_up() {
   bazel clean --expunge >& $TEST_log
-  mkdir -p zoo
-
-  http_archive_helper
   repo_cache_dir=$TEST_TMPDIR/repository_cache
+}
 
-  # Delete the repository cache if it exists
+function tear_down() {
+  shutdown_server
   rm -rf "$repo_cache_dir"
+}
+
+function setup_repository() {
+  http_archive_helper
 
   # Test with the extension
   serve_file $repo2_zip
@@ -44,6 +46,29 @@ http_archive(
     type = 'zip',
 )
 EOF
+}
+
+function setup_skylark_repository() {
+  # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+
+  zip_file="${server_dir}/zip_file.zip"
+
+  touch "${server_dir}"/WORKSPACE
+  echo "some content" > "${server_dir}"/file
+  zip -0 -ry $zip_file "${server_dir}"/WORKSPACE "${server_dir}"/file >& $TEST_log
+
+  zip_sha256="$(sha256sum "${zip_file}" | head -c 64)"
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  cat > WORKSPACE <<EOF
+load('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
 }
 
 # Test downloading a file from a repository.
@@ -70,9 +95,9 @@ function http_archive_helper() {
   if [[ $write_workspace -eq 0 ]]; then
     # Create a zipped-up repository HTTP response.
     repo2=$TEST_TMPDIR/repo2
-    rm -rf $repo2
-    mkdir -p $repo2/fox
-    cd $repo2
+    rm -rf "$repo2"
+    mkdir -p "$repo2/fox"
+    cd "$repo2"
     touch WORKSPACE
     cat > fox/BUILD <<EOF
 filegroup(
@@ -92,14 +117,17 @@ EOF
     # Add some padding to the .zip to test that Bazel's download logic can
     # handle breaking a response into chunks.
     dd if=/dev/zero of=fox/padding bs=1024 count=10240 >& $TEST_log
-    repo2_zip=$TEST_TMPDIR/fox.zip
-    zip -0 -ry $repo2_zip WORKSPACE fox >& $TEST_log
-    repo2_name=$(basename $repo2_zip)
-    sha256=$(sha256sum $repo2_zip | cut -f 1 -d ' ')
+    repo2_zip="$TEST_TMPDIR/fox.zip"
+    zip -0 -ry "$repo2_zip" WORKSPACE fox >& $TEST_log
+    repo2_name=$(basename "$repo2_zip")
+    sha256=$(sha256sum "$repo2_zip" | cut -f 1 -d ' ')
   fi
-  serve_file $repo2_zip
+  serve_file "$repo2_zip"
 
   cd ${WORKSPACE_DIR}
+
+  mkdir -p zoo
+
   if [[ $write_workspace = 0 ]]; then
     cat > WORKSPACE <<EOF
 http_archive(
@@ -126,7 +154,7 @@ fi
 
   bazel run //zoo:breeding-program >& $TEST_log --show_progress_rate_limit=0 \
     || echo "Expected build/run to succeed"
-  kill_nc
+  shutdown_server
   expect_log "$what_does_the_fox_say"
 
   base_external_path=bazel-out/../external/endangered/fox
@@ -146,63 +174,234 @@ function assert_files_same() {
 }
 
 function test_build() {
-  bazel run --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  setup_repository
+
+  bazel run --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
-  kill_nc
   expect_log $what_does_the_fox_say
 }
 
 function test_fetch() {
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  setup_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
-  kill_nc
   expect_log "All external dependencies fetched successfully"
 }
 
 function test_directory_structure() {
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  setup_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
-  kill_nc
   if [ ! -d $repo_cache_dir/content_addressable/sha256/ ]; then
     fail "repository cache directories were not created"
   fi
 }
 
 function test_cache_entry_exists() {
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  setup_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
-  kill_nc
   if [ ! -f $repo_cache_dir/content_addressable/sha256/$sha256/file ]; then
     fail "the file was not cached successfully"
   fi
 }
 
+function test_fetch_value_with_existing_cache_and_no_network() {
+  setup_repository
+
+  # Manual cache injection
+  cache_entry="$repo_cache_dir/content_addressable/sha256/$sha256"
+  mkdir -p "$cache_entry"
+  cp "$repo2_zip" "$cache_entry/file" # Artifacts are named uniformly as "file" in the cache
+
+  # Fetch without a server
+  shutdown_server
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+      || echo "Expected fetch to succeed"
+
+  expect_log "All external dependencies fetched successfully"
+}
+
+
 function test_load_cached_value() {
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  setup_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   # Kill the server
-  kill_nc
+  shutdown_server
   bazel clean --expunge
 
   # Fetch again
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   expect_log "All external dependencies fetched successfully"
 }
 
 function test_failed_fetch_without_cache() {
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  setup_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   # Kill the server and reset state
-  kill_nc
+  shutdown_server
   bazel clean --expunge
+
+  # Clean the repository cache
   rm -rf "$repo_cache_dir"
 
   # Attempt to fetch again
-  bazel fetch --experimental_repository_cache=$repo_cache_dir //zoo:breeding-program >& $TEST_log \
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+    && echo "Expected fetch to fail"
+
+  expect_log "Error downloading"
+}
+
+function test_skylark_download_file_exists_in_cache() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download(
+    "http://localhost:${fileserver_port}/zip_file.zip", "zip_file.zip", "${zip_sha256}")
+  repository_ctx.file("BUILD")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  if [ ! -f $repo_cache_dir/content_addressable/sha256/$zip_sha256/file ]; then
+    fail "the file was not cached successfully"
+  fi
+}
+
+function test_skylark_download_and_extract_file_exists_in_cache() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/zip_file.zip", "zip_file.zip", "${zip_sha256}")
+  repository_ctx.file("BUILD")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  if [ ! -f $repo_cache_dir/content_addressable/sha256/$zip_sha256/file ]; then
+    fail "the file was not cached successfully"
+  fi
+}
+
+function test_load_cached_value_skylark_download() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download(
+    "http://localhost:${fileserver_port}/zip_file.zip", "zip_file.zip", "${zip_sha256}")
+  repository_ctx.file("BUILD")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Kill the server
+  shutdown_server
+  bazel clean --expunge
+
+  # Fetch again
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  expect_log "All external dependencies fetched successfully"
+}
+
+function test_load_skylark_download_fail_without_cache() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download(
+    "http://localhost:${fileserver_port}/zip_file.zip", "zip_file.zip", "${zip_sha256}")
+  repository_ctx.file("BUILD")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Kill the server
+  shutdown_server
+  bazel clean --expunge
+
+  # Clean the repository cache
+  rm -rf "$repo_cache_dir"
+
+  # Fetch again
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    && echo "Expected fetch to fail"
+
+  expect_log "Error downloading"
+}
+
+function test_load_cached_value_skylark_download_and_extract() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/zip_file.zip", "zip_file.zip", "${zip_sha256}")
+  repository_ctx.file("BUILD")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Kill the server
+  shutdown_server
+  bazel clean --expunge
+
+  # Fetch again
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  expect_log "All external dependencies fetched successfully"
+}
+
+function test_load_skylark_download_and_extract_fail_without_cache() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/zip_file.zip", "zip_file.zip", "${zip_sha256}")
+  repository_ctx.file("BUILD")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Kill the server
+  shutdown_server
+  bazel clean --expunge
+
+  # Clean the repository cache
+  rm -rf "$repo_cache_dir"
+
+  # Fetch again
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
     && echo "Expected fetch to fail"
 
   expect_log "Error downloading"
