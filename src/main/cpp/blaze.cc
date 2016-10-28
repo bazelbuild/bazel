@@ -373,6 +373,12 @@ static string EscapeForOptionSource(const string& input) {
   return result;
 }
 
+// Returns the installed embedded binaries directory, under the shared
+// install_base location.
+string GetEmbeddedBinariesRoot(const string &install_base) {
+  return blaze_util::JoinPath(install_base, "_embedded_binaries");
+}
+
 // Returns the JVM command argument array.
 static vector<string> GetArgumentArray() {
   vector<string> result;
@@ -419,8 +425,9 @@ static vector<string> GetArgumentArray() {
 
   // We put all directories on the java.library.path that contain .so files.
   string java_library_path = "-Djava.library.path=";
-  string real_install_dir = blaze_util::JoinPath(globals->options->install_base,
-                                                 "_embedded_binaries");
+  string real_install_dir =
+      GetEmbeddedBinariesRoot(globals->options->install_base);
+
   bool first = true;
   for (const auto& it : globals->extracted_binaries) {
     if (IsSharedLibrary(it)) {
@@ -591,9 +598,7 @@ static void VerifyJavaVersionAndSetJvm() {
   string exe = globals->options->GetJvm();
 
   string version_spec_file = blaze_util::JoinPath(
-      blaze_util::JoinPath(globals->options->install_base,
-                           "_embedded_binaries"),
-      "java.version");
+      GetEmbeddedBinariesRoot(globals->options->install_base), "java.version");
   string version_spec = "";
   if (ReadFile(version_spec_file, &version_spec)) {
     blaze_util::StripWhitespace(&version_spec);
