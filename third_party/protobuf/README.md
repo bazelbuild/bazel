@@ -85,4 +85,4 @@ Finally, update the rules:
 
 * * *
 ### Updating anything else in the directory
-Follow usual procedure as described on https://www.bazel.io/contributing.html
+Follow usual procedure as described on https://www.bazel.build/contributing.html

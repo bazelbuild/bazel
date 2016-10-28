@@ -154,7 +154,7 @@ function bazel_build() {
       cp -f bazel-genfiles/scripts/packages/bazel.dsc $1/bazel.dsc
       cp -f bazel-genfiles/scripts/packages/bazel.tar.gz $1/bazel.tar.gz
     fi
-    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.io.tar
+    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
   fi
 
@@ -224,7 +224,7 @@ Classpath exception. Those installers should always be redistributed along with
 the source code.
 
 _Security_: All our binaries are signed with our
-[public key](https://bazel.io/bazel-release.pub.gpg).
+[public key](https://bazel.build/bazel-release.pub.gpg).
 "
 
   if [ ! -x "${release_tool}" ]; then
@@ -254,7 +254,7 @@ function create_index_md() {
   echo
   # Security notice
   echo "_Security_: All our binaries are signed with our"
-  echo "[public key](https://bazel.io/bazel-release.pub.gpg)."
+  echo "[public key](https://bazel.build/bazel-release.pub.gpg)."
   echo
   for f in $1/*.sha256; do  # just list the sha256 ones
     local filename=$(basename $f .sha256);

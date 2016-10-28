@@ -54,7 +54,7 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 
 ```
 $ echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-$ curl https://bazel.io/bazel-release.pub.gpg | sudo apt-key add -
+$ curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 ```
 
 If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you want to install the testing version of Bazel, replace `stable` with `testing`.
@@ -231,7 +231,7 @@ This will create a bazel binary in `bazel-bin/src/bazel`. This binary is
 self-contained, so it can be copied to a directory on the PATH (e.g.,
 `/usr/local/bin`) or used in-place.
 
-Check our [continuous integration](http://ci.bazel.io) for the current status of
+Check our [continuous integration](http://ci.bazel.build) for the current status of
 the build.
 
 

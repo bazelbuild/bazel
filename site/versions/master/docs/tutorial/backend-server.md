@@ -51,7 +51,7 @@ The key files and directories are:
 ## Update the WORKSPACE file
 
 As with the Android app, you must add references to
-[external dependencies](http://bazel.io/docs/external.html) to your `WORKSPACE`
+[external dependencies](http://bazel.build/docs/external.html) to your `WORKSPACE`
 file. For the backend server, these are references to the App Engine SDK,
 the Java Servlet SDK and other libraries needed to build the App Engine
 applications.

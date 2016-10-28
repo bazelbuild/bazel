@@ -20,7 +20,7 @@ import javax.inject.Inject;
 
 /**
  * Utility class that encapsulates dependencies from sharding implementations
- * on the test environment.  See http://bazel.io/docs/test-sharding.html for a
+ * on the test environment.  See http://bazel.build/docs/test-sharding.html for a
  * list of all environment variables related to test sharding.
  */
 public class ShardingEnvironment {

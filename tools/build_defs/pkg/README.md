@@ -58,7 +58,7 @@ pkg_deb(
         "unzip",
     ],
     description_file = "debian/description",
-    homepage = "http://bazel.io",
+    homepage = "http://bazel.build",
     maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
     package = "bazel",
     version = "0.1.1",

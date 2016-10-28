@@ -31,7 +31,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
 
   public static final String SANDBOX_NOT_SUPPORTED_MESSAGE =
       "Sandboxed execution is not supported on your system and thus hermeticity of actions cannot "
-          + "be guaranteed. See http://bazel.io/docs/bazel-user-manual.html#sandboxing for more "
+          + "be guaranteed. See http://bazel.build/docs/bazel-user-manual.html#sandboxing for more "
           + "information. You can turn off this warning via --ignore_unsupported_sandboxing";
 
   @SuppressWarnings("unchecked")

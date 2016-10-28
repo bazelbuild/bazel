@@ -6,13 +6,13 @@
 
     <script>
       var current_url = window.location.href;
-      var bad_url = new RegExp("^https?://bazelbuild.github.io/bazel/");
+      var bad_url = new RegExp("^https?://(bazelbuild.github.io/bazel|bazel.io)/");
       if (bad_url.test(current_url)) {
-        window.location.replace(current_url.replace(bad_url, "https://www.bazel.io/"));
+        window.location.replace(current_url.replace(bad_url, "https://bazel.build/"));
       }
-      var http_url = new RegExp("^http://(www\.)?bazel.io/");
+      var http_url = new RegExp("^http://(www\.)?bazel.build/");
       if (http_url.test(current_url)) {
-        window.location.replace(current_url.replace(http_url, "https://www.bazel.io/"));
+        window.location.replace(current_url.replace(http_url, "https://bazel.build/"));
       }
     </script>
 

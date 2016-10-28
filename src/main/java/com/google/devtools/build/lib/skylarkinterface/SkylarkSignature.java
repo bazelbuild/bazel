@@ -53,7 +53,7 @@ public @interface SkylarkSignature {
 
   /**
    * General documentation block of the method. See the skylark documentation at
-   * http://www.bazel.io/docs/skylark/.
+   * http://www.bazel.build/docs/skylark/.
    */
   String doc() default "";
 

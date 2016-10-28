@@ -63,7 +63,7 @@ release candidate, we release it.
 ### Release versioning
 
 Version 0.1 is our first release marking the start of our beta phase. Until version 1.0.0, we
-increase the MINOR version every time we reach a [new milestone](http://bazel.io/roadmap.html).
+increase the MINOR version every time we reach a [new milestone](http://bazel.build/roadmap.html).
 
 Version 1.0.0 marks the end of our beta phase; afterwards, we will label each release with a
 version number of the form MAJOR.MINOR.PATCH according to the

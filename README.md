@@ -1,4 +1,4 @@
-# [Bazel](http://bazel.io) ([Beta](http://bazel.io/roadmap.html#beta))
+# [Bazel](http://bazel.build) ([Beta](http://bazel.build/roadmap.html#beta))
 
 *{Fast, Correct} - Choose two*
 
@@ -21,21 +21,21 @@ support many different programming languages within Google, and can be
 used to build both client and server software targeting multiple
 architectures from the same underlying codebase.
 
-Find more background about Bazel in our [FAQ](http://bazel.io/faq.html).
+Find more background about Bazel in our [FAQ](http://bazel.build/faq.html).
 
 ## Getting Started
 
-  * How to [install Bazel](http://bazel.io/docs/install.html)
-  * How to [get started using Bazel](http://bazel.io/docs/getting-started.html)
-  * The Bazel command line is documented in the  [user manual](http://bazel.io/docs/bazel-user-manual.html)
-  * The rule reference documentation is in the [build encyclopedia](http://bazel.io/docs/be/overview.html)
-  * How to [use the query command](http://bazel.io/docs/query.html)
-  * How to [extend Bazel](http://bazel.io/docs/skylark/index.html)
-  * The test environment is described on the page [writing tests](http://bazel.io/docs/test-encyclopedia.html)
+  * How to [install Bazel](http://bazel.build/docs/install.html)
+  * How to [get started using Bazel](http://bazel.build/docs/getting-started.html)
+  * The Bazel command line is documented in the  [user manual](http://bazel.build/docs/bazel-user-manual.html)
+  * The rule reference documentation is in the [build encyclopedia](http://bazel.build/docs/be/overview.html)
+  * How to [use the query command](http://bazel.build/docs/query.html)
+  * How to [extend Bazel](http://bazel.build/docs/skylark/index.html)
+  * The test environment is described on the page [writing tests](http://bazel.build/docs/test-encyclopedia.html)
 
 ## About the Bazel project:
 
-  * How to [contribute to Bazel](http://bazel.io/contributing.html)
-  * Our [governance plan](http://bazel.io/governance.html)
-  * Future plans are in the [roadmap](http://bazel.io/roadmap.html)
-  * For each feature, which level of [support](http://bazel.io/support.html) to expect.
+  * How to [contribute to Bazel](http://bazel.build/contributing.html)
+  * Our [governance plan](http://bazel.build/governance.html)
+  * Future plans are in the [roadmap](http://bazel.build/roadmap.html)
+  * For each feature, which level of [support](http://bazel.build/support.html) to expect.

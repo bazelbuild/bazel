@@ -165,7 +165,7 @@ pkg_deb(
         "bash-completion",
     ],
     description_file = "debian/description",
-    homepage = "http://bazel.io",
+    homepage = "http://bazel.build",
     maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
     package = "bazel",
     version_file = ":version.txt",
