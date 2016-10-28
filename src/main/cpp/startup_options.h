@@ -116,6 +116,15 @@ class StartupOptions {
       const std::string &host_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
+  // Checks whether the argument is a valid nullary option.
+  // E.g. --master_bazelrc, --nomaster_bazelrc.
+  bool IsNullary(const std::string &arg) const;
+
+  // Checks whether the argument is a valid unary option.
+  // E.g. --blazerc=foo, --blazerc foo.
+  bool IsUnary(const std::string &arg,
+               const std::string &next_arg) const;
+
   // The capitalized name of this binary.
   const std::string product_name;
 
@@ -206,6 +215,12 @@ class StartupOptions {
   // class can override the product name.  The product_name must be the
   // capitalized version of the name, as in "Bazel".
   explicit StartupOptions(const std::string &product_name);
+
+  // Holds the valid nullary startup options.
+  std::vector<std::string> nullary_options;
+
+  // Holds the valid unary startup options.
+  std::vector<std::string> unary_options;
 
  private:
   std::string host_javabase;

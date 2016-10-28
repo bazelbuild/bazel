@@ -74,4 +74,29 @@ TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
   ASSERT_EQ("/tmp", startup_options.output_root);
 }
 
+TEST_F(StartupOptionsTest, IsNullaryTest) {
+  blaze::StartupOptions startup_options;
+  ASSERT_TRUE(startup_options.IsNullary("--master_bazelrc"));
+  ASSERT_TRUE(startup_options.IsNullary("--nomaster_bazelrc"));
+  ASSERT_FALSE(startup_options.IsNullary(""));
+  ASSERT_FALSE(startup_options.IsNullary("--"));
+  ASSERT_FALSE(startup_options.IsNullary("--master_bazelrcascasc"));
+  string error_msg = std::string("In argument '--master_bazelrc=foo': option ")
+      + std::string("'--master_bazelrc' does not take a value");
+  ASSERT_DEATH(startup_options.IsNullary("--master_bazelrc=foo"),
+               error_msg.c_str());
+}
+
+TEST_F(StartupOptionsTest, IsUnaryTest) {
+  blaze::StartupOptions startup_options;
+  ASSERT_FALSE(startup_options.IsUnary("", ""));
+  ASSERT_FALSE(startup_options.IsUnary("--", ""));
+
+  ASSERT_TRUE(startup_options.IsUnary("--blazerc=foo", "--blah"));
+  ASSERT_TRUE(startup_options.IsUnary("--blazerc", "foo"));
+  ASSERT_TRUE(startup_options.IsUnary("--blazerc=", "--foo"));
+  ASSERT_TRUE(startup_options.IsUnary("--blazerc", ""));
+  ASSERT_FALSE(startup_options.IsUnary("--blazercfooblah", "foo"));
+}
+
 }  // namespace blaze

@@ -65,9 +65,40 @@ StartupOptions::StartupOptions(const string &product_name)
       output_root, "_" + product_name_lower + "_" + GetUserName());
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
+  nullary_options = {"deep_execroot", "block_for_lock",
+      "host_jvm_debug", "master_blazerc", "master_bazelrc", "batch",
+      "batch_cpu_scheduling", "allow_configurable_attributes",
+      "fatal_event_bus_exceptions", "experimental_oom_more_eagerly",
+      "write_command_log", "watchfs"};
+  unary_options = {"output_base", "install_base",
+      "output_user_root", "host_jvm_profile", "host_javabase",
+      "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
+      "max_idle_secs", "experimental_oom_more_eagerly_threshold",
+      "command_port", "invocation_policy"};
 }
 
 StartupOptions::~StartupOptions() {}
+
+bool StartupOptions::IsNullary(const string &arg) const {
+  for (string option : nullary_options) {
+    if (GetNullaryOption(arg.c_str(), ("--" + option).c_str()) ||
+        GetNullaryOption(arg.c_str(), ("--no" + option).c_str())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StartupOptions::IsUnary(const string &arg,
+                             const string &next_arg) const {
+  for (string option : unary_options) {
+    if (GetUnaryOption(arg.c_str(), next_arg.c_str(),
+                       ("--" + option).c_str()) != NULL) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {}
 
