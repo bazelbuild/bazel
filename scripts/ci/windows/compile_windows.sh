@@ -60,6 +60,7 @@ fi
 # Copy the resulting artifact.
 mkdir -p output/ci
 cp output/bazel.exe output/ci/bazel-$(get_full_release_name).exe
+zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe
 
 # todo(bazel-team): add more tests here.
 echo "Running tests"
