@@ -50,15 +50,18 @@ EOF
 }
 
 function create() {
-  ${RELEASE_SCRIPT} create $@ \
-      || fail "Failed to cut release $1 at commit $2"
-  local branch=$(git_get_branch)
-  assert_equals "release-$1" "$branch"
-  git show -s --pretty=format:%B >$TEST_log
+  local old_branch=$(git_get_branch)
+  ${RELEASE_SCRIPT} create $@ &> $TEST_log \
+    || fail "Failed to cut release $1 at commit $2"
+  local new_branch=$(git_get_branch)
+  assert_equals "$old_branch" "$new_branch"
+  assert_contains "Created $1.* on branch release-$1." $TEST_log
+  git show -s --pretty=format:%B "release-$1" >$TEST_log
 }
 
 function push() {
-  local branch=$(git_get_branch)
+  local branch="release-$1"
+  git checkout "$branch"
   ${RELEASE_SCRIPT} push || fail "Failed to push release branch $branch"
   git --git-dir=${GITHUB_ROOT} branch >$TEST_log
   expect_log "$branch"
@@ -105,7 +108,8 @@ function release() {
 
 function abandon() {
   local tag="$1"
-  local branch=$(git_get_branch)
+  local branch="release-$tag"
+  git checkout "$branch"
   local changelog="$(git show master:CHANGELOG.md)"
   local master_sha1=$(git rev-parse master)
   echo y | ${RELEASE_SCRIPT} abandon || fail "Failed to abandon release ${branch}"
@@ -144,7 +148,7 @@ function test_release_workflow() {
   expect_log "Release v0"
   expect_log "Initial release"
   # Push the release branch
-  push
+  push v0
   # Do the initial release
   release v0
 
@@ -202,7 +206,7 @@ Cherry picks:
 
 '
   assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
-  push
+  push v1
 
   # Test creating a second candidate
   echo "#!$(which true)" >${EDITOR}
@@ -225,7 +229,7 @@ Cherry picks:
   assert_equals 2 "$(get_release_candidate)"
 
   # Push the release
-  push
+  push v1
   release v1
 
   # Third release to test abandon
@@ -251,7 +255,7 @@ EOF
   expect_log "Baseline: 2464526"
   expect_not_log "HOOK-SHOULD-BE-IGNORED"
   # Push
-  push
+  push v2
   # Abandon it
   abandon v2
 }
