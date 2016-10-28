@@ -49,7 +49,12 @@ function set_release_name() {
   git notes --ref=release remove 2>/dev/null || true
   git notes --ref=release-candidate remove 2>/dev/null || true
   git notes --ref=release append -m "$1"
-  [ -z "${2-}" ] || git notes --ref=release-candidate append -m "$2"
+  local relname="$1"
+  if [[ ! -z "${2-}" ]]; then
+    git notes --ref=release-candidate append -m "$2"
+    relname="${relname}RC${2}"
+  fi
+  echo "$relname"
 }
 
 # Trim empty lines at the beginning and the end of the buffer.
@@ -187,10 +192,11 @@ function create_release() {
   release_note_editor ${tmpfile} "${origin_branch}" "${branch_name}"
   local relnotes="$(cat ${tmpfile})"
 
-  echo "Creating the release commit"
   create_release_commit "${release_title}" "${release_name}" \
       "${relnotes}" "${tmpfile}" "${baseline}" $@
-  set_release_name "${release_name}" "${rc}"
+  release_name=$(set_release_name "${release_name}" "${rc}")
+  git checkout ${origin_branch} &> /dev/null
+  echo "Created ${release_name} on branch ${branch_name}."
 
   rm -f ${tmpfile} ${tmpfile2}
   trap - EXIT
