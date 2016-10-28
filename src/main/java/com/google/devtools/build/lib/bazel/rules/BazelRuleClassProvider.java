@@ -276,6 +276,7 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           builder
+              .setProductName("bazel")
               .setConfigurationCollectionFactory(new BazelConfigurationCollection())
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(Label.DEFAULT_REPOSITORY_DIRECTORY)

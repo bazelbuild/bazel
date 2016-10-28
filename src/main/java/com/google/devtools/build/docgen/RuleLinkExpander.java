@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -51,16 +52,19 @@ public class RuleLinkExpander {
       .put("workspace", FUNCTIONS_PAGE)
       .build();
 
+  private final String productName;
   private final Map<String, String> ruleIndex = new HashMap<>();
   private final boolean singlePage;
 
-  RuleLinkExpander(Map<String, String> ruleIndex, boolean singlePage) {
+  RuleLinkExpander(String productName, Map<String, String> ruleIndex, boolean singlePage) {
+    this.productName = productName;
     this.ruleIndex.putAll(ruleIndex);
     this.ruleIndex.putAll(FUNCTIONS);
     this.singlePage = singlePage;
   }
 
-  RuleLinkExpander(boolean singlePage) {
+  RuleLinkExpander(String productName, boolean singlePage) {
+    this.productName = productName;
     this.ruleIndex.putAll(FUNCTIONS);
     this.singlePage = singlePage;
   }
@@ -178,6 +182,13 @@ public class RuleLinkExpander {
         String link = singlePage
             ? "#" + heading
             : name + ".html#" + heading;
+        matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
+        continue;
+      }
+
+      // Links to the user manual are handled specially. Meh.
+      if ("user-manual".equals(name)) {
+        String link = productName.toLowerCase(Locale.US) + "-" + name + ".html#" + heading;
         matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
         continue;
       }

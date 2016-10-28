@@ -47,7 +47,7 @@ public final class BazelExtraActionRule implements RuleDefinition {
         <p>
           The build system ensures these prerequisites are built before running the
           <code>extra_action</code> command; they are built using the
-          <a href='../bazel-user-manual.html#configurations'><code>host</code>configuration</a>,
+          <a href='${link user-manual#configurations}'><code>host</code>configuration</a>,
           since they must run as a tool during the build itself. The path of an individual
           <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -137,7 +137,7 @@ public final class BazelExtraActionRule implements RuleDefinition {
 
 <p>
   See <a href="${link action_listener}"><code>action_listener</code></a> for details
-  on how to enable <code>extra_action</code>s in Bazel.
+  on how to enable <code>extra_action</code>s.
 </p>
 
 <p>
@@ -145,6 +145,13 @@ public final class BazelExtraActionRule implements RuleDefinition {
   access to a file containing a protocol buffer as $(EXTRA_ACTION_FILE)
   with detailed information on the original action it is shadowing.
   It also has access to all the input files the original action has access to.
+  See <tt>extra_actions.proto</tt>
+  for details on the data stored inside the protocol buffer. Each proto file
+  contains an ExtraActionInfo message.
+</p>
+
+<p>
+  Just like all other actions, extra actions are sandboxed, and should be designed to handle that.
 </p>
 
 <!-- #END_BLAZE_RULE -->*/

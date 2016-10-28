@@ -160,7 +160,8 @@ public class BuildDocCollector {
    */
   public Map<String, RuleDocumentation> collect(List<String> inputDirs, String blackList)
       throws BuildEncyclopediaDocException, IOException {
-    RuleLinkExpander expander = new RuleLinkExpander(/* singlePage */ false);
+    RuleLinkExpander expander = new RuleLinkExpander(
+        ruleClassProvider.getProductName(), /* singlePage */ false);
     return collect(inputDirs, blackList, expander);
   }
 

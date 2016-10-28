@@ -40,7 +40,7 @@ public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProce
   public void generateDocumentation(List<String> inputDirs, String outputDir, String blackList)
       throws BuildEncyclopediaDocException, IOException {
     BuildDocCollector collector = new BuildDocCollector(ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(true);
+    RuleLinkExpander expander = new RuleLinkExpander(ruleClassProvider.getProductName(), true);
     Map<String, RuleDocumentation> ruleDocEntries = collector.collect(
         inputDirs, blackList, expander);
     warnAboutUndocumentedRules(
