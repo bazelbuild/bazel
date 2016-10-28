@@ -5,7 +5,7 @@ title: Bazel Builder Blasts Beyond Beta Barrier
 
 _Reposted from [Google's Open Source blog](http://google-opensource.blogspot.com/2015/09/building-build-system-bazel-reaches-beta.html)._
 
-We're excited to announce the Beta release of [Bazel](http://bazel.io), an [open
+We're excited to announce the Beta release of [Bazel](http://bazel.build), an [open
 source](https://github.com/bazelbuild/bazel) build system designed to support a
 wide variety of different programming languages and platforms.
 
@@ -24,20 +24,20 @@ Our beta release provides:
 * Binary releases for
   [Linux and OS X](https://github.com/bazelbuild/bazel/releases).
 * Support for building and testing C++, Java, Python, Rust,
-  [and more](http://bazel.io/docs/be/overview.html).
+  [and more](http://bazel.build/docs/be/overview.html).
 * Support for building Docker images, Android apps, and iOS apps.
 * Support for using libraries from
-  [Maven, GitHub, and more](http://bazel.io/docs/external.html).
-* [A robust API](http://bazel.io/docs/skylark/index.html) for adding your own
+  [Maven, GitHub, and more](http://bazel.build/docs/external.html).
+* [A robust API](http://bazel.build/docs/skylark/index.html) for adding your own
   build rules.
 
-Check out the [tutorial app](http://bazel.io/docs/tutorial/index.html) to see a
+Check out the [tutorial app](http://bazel.build/docs/tutorial/index.html) to see a
 working example using several languages.
 
 We still have a long way to go.  Looking ahead towards our 1.0.0 release, we
 plan to provide Windows support, distributed caching, and Go support among other
-features. See our [roadmap](http://bazel.io/roadmap.html) for more details
-and follow our [blog](http://bazel.io/blog) or
+features. See our [roadmap](http://bazel.build/roadmap.html) for more details
+and follow our [blog](http://bazel.build/blog) or
 [Twitter](https://twitter.com/bazelbuild) account for regular updates.  Feel
 free to contact us with questions or feedback on the
 [mailing list](https://groups.google.com/forum/#!forum/bazel-discuss) or IRC

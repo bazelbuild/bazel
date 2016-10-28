@@ -4,7 +4,7 @@ title: IntelliJ and Android Studio support
 ---
 
 We've recently open-sourced Bazel plugins for
-[IntelliJ and Android Studio](https://ij.bazel.io).
+[IntelliJ and Android Studio](https://ij.bazel.build).
 
 ## Key Features ##
 
@@ -25,6 +25,6 @@ To try them out, you can install them directly from within the IDE
 JetBrains [plugin repository](https://plugins.jetbrains.com/search/index?search=bazel),
 or build directly from [source](https://github.com/bazelbuild/intellij).
 
-Detailed docs are available [here](https://ij.bazel.io).
+Detailed docs are available [here](https://ij.bazel.build).
 
 The plugins are currently Linux-only, with plans for Mac support in the future.

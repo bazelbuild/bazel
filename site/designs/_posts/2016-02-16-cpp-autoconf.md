@@ -131,7 +131,7 @@ To ease the writing of crosstool, we should also provide a
 `template(path, label, variables)` method which will write the file
 pointed by path using the file pointed by label (should be a
 FileValue) in which variables have been replaced in the same way that
-[template_action](http://bazel.io/docs/skylark/lib/ctx.html#template_action)
+[template_action](http://bazel.build/docs/skylark/lib/ctx.html#template_action)
 works.
 
 ## Rollout plan

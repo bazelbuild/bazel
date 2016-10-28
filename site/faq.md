@@ -189,7 +189,7 @@ example, Bazel uses symlinks extensively, which has varying levels of support
 across Windows versions.
 
 We are currently actively working on improving Windows support. See
-our [blog post](https://bazel.io/blog/2016/09/07/bazel-windows.html)
+our [blog post](https://bazel.build/blog/2016/09/07/bazel-windows.html)
 for more information.
 
 What should I not use Bazel for?
@@ -267,7 +267,7 @@ Can I build Docker images with Bazel?
 -------------------------------------
 
 Yes, you can use our
-[Docker rules](http://bazel.io/docs/be/docker.html)
+[Docker rules](http://bazel.build/docs/be/docker.html)
 to build reproducible Docker images.
 
 Will Bazel make my builds reproducible automatically?
@@ -296,19 +296,19 @@ Do you have binary releases?
 
 Yes, you can find the latest release binaries
 [here](https://github.com/bazelbuild/bazel/releases/latest). Our release
-policy is documented [here](http://bazel.io/support.html).
+policy is documented [here](http://bazel.build/support.html).
 
 I use Eclipse/IntelliJ/XCode. How does Bazel interoperate with IDEs?
 --------------------------------------------------------------------
 
-For IntelliJ, check out the [IntelliJ with Bazel plugin](https://ij.bazel.io).
+For IntelliJ, check out the [IntelliJ with Bazel plugin](https://ij.bazel.build).
 
-For XCode, check out [Tulsi](http://tulsi.bazel.io/).
+For XCode, check out [Tulsi](http://tulsi.bazel.build/).
 
 For Eclipse, check out [E4B plugin](https://github.com/bazelbuild/e4b).
 
 For other IDEs, check out the [blog
-post](https://bazel.io/blog/2016/06/10/ide-support.html) on how these
+post](https://bazel.build/blog/2016/06/10/ide-support.html) on how these
 plugins work.
 
 I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?

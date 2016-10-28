@@ -4,7 +4,7 @@ title: Tell us about your Bazel project!
 ---
 
 We're setting up a list of projects using Bazel. If you'd like us
-to list your project on [bazel.io](http://bazel.io),
+to list your project on [bazel.build](http://bazel.build),
 [send us](https://groups.google.com/d/msg/bazel-discuss/5XaCYQOdN8o/DHE9H4ygHiYJ)
 the following information:
 

@@ -62,15 +62,15 @@ be refined if appropriate.
       <td rowspan="9"><b>2015&#8209;03&#8209;24</b></td>
       <td>Linux &amp; OS X Support</td>
     </tr>
-    <tr><td>C++ (<a href="http://bazel.io/docs/be/c-cpp.html#cc_binary">build</a> and <a href="http://bazel.io/docs/be/c-cpp.html#cc_test">test</a>)</td></tr>
-    <tr><td>Java (<a href="http://bazel.io/docs/be/java.html#java_binary">build</a> and <a href="http://bazel.io/docs/be/java.html#java_test">test</a>)</td></tr>
-    <tr><td>Objective-C for iOS (<a href="http://bazel.io/docs/be/objective-c.html#objc_binary">build</a>)</td></tr>
-    <tr><td>Python (<a href="http://bazel.io/docs/be/python.html#py_binary">build</a>)</td></tr>
-    <tr><td>iOS applications (<a href="http://bazel.io/docs/be/objective-c.html#ios_application">build</a>)</td></tr>
-    <tr><td>Skylark extension mechanism (<a href="http://bazel.io/docs/skylark/index.html">build</a>)</td></tr>
+    <tr><td>C++ (<a href="http://bazel.build/docs/be/c-cpp.html#cc_binary">build</a> and <a href="http://bazel.build/docs/be/c-cpp.html#cc_test">test</a>)</td></tr>
+    <tr><td>Java (<a href="http://bazel.build/docs/be/java.html#java_binary">build</a> and <a href="http://bazel.build/docs/be/java.html#java_test">test</a>)</td></tr>
+    <tr><td>Objective-C for iOS (<a href="http://bazel.build/docs/be/objective-c.html#objc_binary">build</a>)</td></tr>
+    <tr><td>Python (<a href="http://bazel.build/docs/be/python.html#py_binary">build</a>)</td></tr>
+    <tr><td>iOS applications (<a href="http://bazel.build/docs/be/objective-c.html#ios_application">build</a>)</td></tr>
+    <tr><td>Skylark extension mechanism (<a href="http://bazel.build/docs/skylark/index.html">build</a>)</td></tr>
     <tr><td>Basic test suite on GitHub</td></tr>
-    <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/be/workspace.html#maven_jar">Maven repositories</a>
-        and <a href="http://bazel.io/docs/be/workspace.html#http_archive">web servers</a></td></tr>
+    <tr><td>Support for fetching dependencies from <a href="http://bazel.build/docs/be/workspace.html#maven_jar">Maven repositories</a>
+        and <a href="http://bazel.build/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
       <td rowspan="30"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9">
@@ -80,15 +80,15 @@ be refined if appropriate.
       <td rowspan="9"><b>2015&#8209;09&#8209;01</b></td>
       <td>P0. Binary distribution for Linux & OS X</td<
     </tr>
-    <tr><td>P0. Public <a href="http://ci.bazel.io">continuous integration system</a></td></tr>
-    <tr><td>P0. Support for <a href="http://bazel.io/docs/external.html">fetching transitive dependencies from Maven Central</a></td></tr>
-    <tr><td>P0. Android application (<a href="http://bazel.io/docs/be/android.html#android_binary">build</a>
-        and <a href="http://bazel.io/docs/bazel-user-manual.html#mobile-install">install</a>)</td></tr>
-    <tr><td>P1. Support for <a href="http://bazel.io/docs/external.html">prefetching and caching remote dependencies</a></td></tr>
-    <tr><td>P1. Docker (<a href="http://bazel.io/docs/be/docker.html">build and load</a>)</td></tr>
-    <tr><td>P2. <a href="http://bazel.io/docs/bazel-user-manual.html#sandboxing">Sandboxing of actions for Linux</a></td></tr>
-    <tr><td>P2. AppEngine (<a href="http://bazel.io/docs/be/appengine.html">build and load</a>)</td></tr>
-    <tr><td>P2. <a href="http://bazel.io/blog/2015/07/29/dashboard-dogfood.html">Test result dashboard</a></tr></td>
+    <tr><td>P0. Public <a href="http://ci.bazel.build">continuous integration system</a></td></tr>
+    <tr><td>P0. Support for <a href="http://bazel.build/docs/external.html">fetching transitive dependencies from Maven Central</a></td></tr>
+    <tr><td>P0. Android application (<a href="http://bazel.build/docs/be/android.html#android_binary">build</a>
+        and <a href="http://bazel.build/docs/bazel-user-manual.html#mobile-install">install</a>)</td></tr>
+    <tr><td>P1. Support for <a href="http://bazel.build/docs/external.html">prefetching and caching remote dependencies</a></td></tr>
+    <tr><td>P1. Docker (<a href="http://bazel.build/docs/be/docker.html">build and load</a>)</td></tr>
+    <tr><td>P2. <a href="http://bazel.build/docs/bazel-user-manual.html#sandboxing">Sandboxing of actions for Linux</a></td></tr>
+    <tr><td>P2. AppEngine (<a href="http://bazel.build/docs/be/appengine.html">build and load</a>)</td></tr>
+    <tr><td>P2. <a href="http://bazel.build/blog/2015/07/29/dashboard-dogfood.html">Test result dashboard</a></tr></td>
     <tr>
       <td rowspan="5">
         <a href="https://github.com/bazelbuild/bazel/releases/tag/0.2.0"><b>0.2</b>
@@ -97,7 +97,7 @@ be refined if appropriate.
       <td rowspan="5"><b>2016&#8209;02&#8209;18</b></td>
       <td>P0. <a href="https://github.com/bazelbuild/bazel/tree/master/src/test/java/com/google/devtools">Significantly increase test coverage</a></td>
     </tr>
-    <tr><td>P0. Support for fetching <a href="http://bazel.io/docs/external.html">remote</a> <a href="http://bazel.io/docs/be/functions.html#load">Skylark rules</a></td></tr>
+    <tr><td>P0. Support for fetching <a href="http://bazel.build/docs/external.html">remote</a> <a href="http://bazel.build/docs/be/functions.html#load">Skylark rules</a></td></tr>
     <tr><td>P2. <a href="https://github.com/bazelbuild/rules_go">Go language support (build and tests)</a></td></tr>
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/releases/latest">Debian packages for Bazel</a></td></tr>
     <tr><td>P2. <a href="http://braumeister.org/formula/bazel">OS X homebrew recipe for distributing Bazel</a></td></tr>
@@ -107,10 +107,10 @@ be refined if appropriate.
         <br/><span class="label label-default">Released</span></a>
       </td>
       <td rowspan="5"><b>2016&#8209;06&#8209;10</b></td>
-      <td>P0. <a href="http://bazel.io/docs/windows.html">Bazel can bootstrap itself on Windows without requiring admin privileges</a></td></tr>
+      <td>P0. <a href="http://bazel.build/docs/windows.html">Bazel can bootstrap itself on Windows without requiring admin privileges</a></td></tr>
     </tr>
-    <tr><td>P1. <a href="http://bazel.io/blog/2016/06/10/ide-support.html">Interface for IDE support</a></td></tr>
-    <tr><td>P1. IDE support for <a href="http://tulsi.bazel.io">Xcode (stable)</a> and <a href="https://github.com/bazelbuild/e4b">Eclipse (experimental)</a></td></tr>
+    <tr><td>P1. <a href="http://bazel.build/blog/2016/06/10/ide-support.html">Interface for IDE support</a></td></tr>
+    <tr><td>P1. IDE support for <a href="http://tulsi.bazel.build">Xcode (stable)</a> and <a href="https://github.com/bazelbuild/e4b">Eclipse (experimental)</a></td></tr>
     <tr><td>P1. <a href="https://docs.google.com/document/d/1jKbNXOVp2T1zJD_iRnVr8k5D0xZKgO8blMVDlXOksJg">Custom remote repositories using Skylark</a></td></tr>
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/commit/79adf59e2973754c8c0415fcab45cd58c7c34697">Prototype for distributed caching of build artifact</a></td></tr>
     <tr>

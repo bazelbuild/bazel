@@ -56,7 +56,7 @@ for Java. We don't have IDE support for other languages in Bazel right now.
 ### Creating an IntelliJ project
 
 To work with IntelliJ, follow the instructions at
-[ij.bazel.io](https://ij.bazel.io).
+[ij.bazel.build](https://ij.bazel.build).
 
 ### Creating an Eclipse project
 
@@ -121,7 +121,7 @@ But if you want to debug the Java code, you must attach to the server using the 
   [remote Java application launch
   configuration](http://help.eclipse.org/luna/index.jsp?topic=%2Forg.eclipse.jdt.doc.user%2Ftasks%2Ftask-remotejava_launch_config.htm).
 * Our IntelliJ plugin has built-in
-  [debugging support](https://ij.bazel.io/docs/run-configurations.html)
+  [debugging support](https://ij.bazel.build/docs/run-configurations.html)
 
 ## Bazel's code description
 
