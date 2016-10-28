@@ -224,7 +224,7 @@ Classpath exception. Those installers should always be redistributed along with
 the source code.
 
 _Security_: All our binaries are signed with our
-[public key](https://bazel.build/bazel-release.pub.gpg).
+[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 "
 
   if [ ! -x "${release_tool}" ]; then
@@ -254,7 +254,7 @@ function create_index_md() {
   echo
   # Security notice
   echo "_Security_: All our binaries are signed with our"
-  echo "[public key](https://bazel.build/bazel-release.pub.gpg)."
+  echo "[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0."
   echo
   for f in $1/*.sha256; do  # just list the sha256 ones
     local filename=$(basename $f .sha256);
