@@ -44,10 +44,8 @@ The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
 
 #### Test
 
-0. Build the package (without `isRelease`)
+0. Build the package (with `-mode local`)
   * run a webserver (`python -m SimpleHTTPServer` in `scripts/packages/chocolatey` is convenient and starts one on `http://localhost:8000`)
-  * adjust `tools/parameters.json` so that it is correct for the new zip.
-    * `get-filehash <zip> -algorithm sha256` to get the checksum
 0. Test the install
 
     The `test.ps1` should install the package cleanly (and error if it did not install cleanly), then tell you what to do next.
