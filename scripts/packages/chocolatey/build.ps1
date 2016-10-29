@@ -39,7 +39,7 @@ if ($mode -eq "release") {
   }
   if ($checksum -eq "") {
     write-host "calculating checksum"
-    # $tvChecksum = (get-filehash $tvFilename -algorithm sha256).Hash
+    $tvChecksum = (get-filehash $tvFilename -algorithm sha256).Hash
   } else {
     write-host "using passed checksum"
     $tvChecksum = $checksum
