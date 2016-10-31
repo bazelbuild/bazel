@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -29,17 +29,8 @@ import com.google.devtools.common.options.OptionsBase;
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
   private CommandEnvironment env;
-  private BuildRequest buildRequest;
   private RemoteActionCache actionCache;
   private RemoteWorkExecutor workExecutor;
-
-  public RemoteModule() {}
-
-  @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.<ActionContextProvider>of(
-        new RemoteActionContextProvider(env, buildRequest, actionCache, workExecutor));
-  }
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
@@ -50,13 +41,17 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void afterCommand() {
     this.env = null;
-    this.buildRequest = null;
+  }
+
+  @Override
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    builder.addActionContextProvider(
+        new RemoteActionContextProvider(env, request, actionCache, workExecutor));
   }
 
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    buildRequest = event.getRequest();
-    RemoteOptions options = buildRequest.getOptions(RemoteOptions.class);
+    RemoteOptions options = event.getRequest().getOptions(RemoteOptions.class);
 
     try {
       // Reinitialize the remote cache and worker from options every time, because the options

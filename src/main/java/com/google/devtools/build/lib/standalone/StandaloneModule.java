@@ -13,50 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * StandaloneModule provides pluggable functionality for blaze.
  */
 public class StandaloneModule extends BlazeModule {
-  private CommandEnvironment env;
-  private BuildRequest buildRequest;
-
   @Override
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    Preconditions.checkNotNull(env);
-    return ImmutableList.<ActionContextConsumer>of(new StandaloneActionContextConsumer());
-  }
-
-  @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.<ActionContextProvider>of(
-        new StandaloneActionContextProvider(env, buildRequest));
-  }
-
-  @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
-    this.env = env;
-    env.getEventBus().register(this);
-  }
-
-  @Override
-  public void afterCommand() {
-    this.env = null;
-    this.buildRequest = null;
-  }
-
-  @Subscribe
-  public void buildStarting(BuildStartingEvent event) {
-    buildRequest = event.getRequest();
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    builder.addActionContextProvider(new StandaloneActionContextProvider(env, request));
+    builder.addActionContextConsumer(new StandaloneActionContextConsumer());
   }
 }

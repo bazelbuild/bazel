@@ -43,11 +43,11 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -187,39 +187,38 @@ public class ExecutionTool {
     // determine whether the host actually supports certain strategies (e.g. sandboxing).
     createToolsSymlinks();
 
-    this.actionContextProviders =
-        getActionContextProvidersFromModules(
-            runtime,
-            new FilesetActionContextImpl.Provider(
-                env.getReporter(), env.getWorkspaceName()),
-            new SimpleActionContextProvider(
-                new SymlinkTreeStrategy(
-                    env.getOutputService(), env.getBlazeWorkspace().getBinTools())));
+    ExecutorBuilder builder = new ExecutorBuilder();
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      module.executorInit(env, request, builder);
+    }
+    builder.addActionContextProvider(
+        new FilesetActionContextImpl.Provider(env.getReporter(), env.getWorkspaceName()));
+    builder.addActionContext(new SymlinkTreeStrategy(
+                env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
+    // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
+    // these dependencies should be added to the ActionContextConsumer of the module that actually
+    // depends on them.
+    builder.addActionContextConsumer(
+        new ActionContextConsumer() {
+          @Override
+          public ImmutableMap<String, String> getSpawnActionContexts() {
+            return ImmutableMap.of();
+          }
+
+          @Override
+          public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
+            return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
+                .put(FilesetActionContext.class, "")
+                .put(WorkspaceStatusAction.Context.class, "")
+                .put(SymlinkTreeActionContext.class, "")
+                .build();
+          }
+        });
+
+    this.actionContextProviders = builder.getActionContextProviders();
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
-    ImmutableList<ActionContextConsumer> actionContextConsumers =
-        getActionContextConsumersFromModules(
-            runtime,
-            // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own,
-            // instead these dependencies should be added to the ActionContextConsumer of the module
-            // that actually depends on them.
-            new ActionContextConsumer() {
-              @Override
-              public ImmutableMap<String, String> getSpawnActionContexts() {
-                return ImmutableMap.of();
-              }
-
-              @Override
-              public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
-                return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
-                    .put(FilesetActionContext.class, "")
-                    .put(WorkspaceStatusAction.Context.class, "")
-                    .put(SymlinkTreeActionContext.class, "")
-                    .build();
-              }
-            });
-
-    for (ActionContextConsumer consumer : actionContextConsumers) {
+    for (ActionContextConsumer consumer : builder.getActionContextConsumers()) {
       // There are many different SpawnActions, and we want to control the action context they use
       // independently from each other, for example, to run genrules locally and Java compile action
       // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
@@ -257,26 +256,6 @@ public class ExecutionTool {
           strategyConverter.getValidValues(TestActionContext.class));
     }
     strategies.add(context);
-  }
-
-  private static ImmutableList<ActionContextConsumer> getActionContextConsumersFromModules(
-      BlazeRuntime runtime, ActionContextConsumer... extraConsumers) {
-    ImmutableList.Builder<ActionContextConsumer> builder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      builder.addAll(module.getActionContextConsumers());
-    }
-    builder.add(extraConsumers);
-    return builder.build();
-  }
-
-  private static ImmutableList<ActionContextProvider> getActionContextProvidersFromModules(
-      BlazeRuntime runtime, ActionContextProvider... extraProviders) {
-    ImmutableList.Builder<ActionContextProvider> builder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      builder.addAll(module.getActionContextProviders());
-    }
-    builder.add(extraProviders);
-    return builder.build();
   }
 
   private static ExecutorInitException makeExceptionForInvalidStrategyValue(String value,
@@ -602,7 +581,6 @@ public class ExecutionTool {
    * file, iff the --explain flag is specified during a build.
    */
   private static class ExplanationHandler implements EventHandler {
-
     private final PrintWriter log;
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {

@@ -15,8 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -35,7 +34,6 @@ import java.io.IOException;
  */
 public class WorkerModule extends BlazeModule {
   private CommandEnvironment env;
-  private BuildRequest buildRequest;
 
   private WorkerFactory workerFactory;
   private WorkerPool workerPool;
@@ -57,8 +55,7 @@ public class WorkerModule extends BlazeModule {
 
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    buildRequest = event.getRequest();
-    options = buildRequest.getOptions(WorkerOptions.class);
+    options = event.getRequest().getOptions(WorkerOptions.class);
 
     if (workerFactory == null) {
       Path workerDir =
@@ -133,25 +130,17 @@ public class WorkerModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    Preconditions.checkNotNull(env);
-    Preconditions.checkNotNull(buildRequest);
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkNotNull(workerPool);
-
-    return ImmutableList.<ActionContextProvider>of(
-        new WorkerActionContextProvider(env, buildRequest, workerPool));
-  }
-
-  @Override
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.<ActionContextConsumer>of(new WorkerActionContextConsumer());
+    builder.addActionContextProvider(
+        new WorkerActionContextProvider(env, request, workerPool));
+    builder.addActionContextConsumer(new WorkerActionContextConsumer());
   }
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    if (buildRequest != null
-        && buildRequest.getOptions(WorkerOptions.class) != null
-        && buildRequest.getOptions(WorkerOptions.class).workerQuitAfterBuild) {
+    if (options != null
+        && options.workerQuitAfterBuild) {
       shutdownPool("Build completed, shutting down worker pool...");
     }
   }
@@ -182,7 +171,6 @@ public class WorkerModule extends BlazeModule {
   @Override
   public void afterCommand() {
     this.env = null;
-    this.buildRequest = null;
     this.options = null;
 
     if (this.workerFactory != null) {
