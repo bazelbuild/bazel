@@ -594,6 +594,7 @@ java_library(
     srcs = glob(["bazel/*.java"]),
     resources = [
         "bazel/rules/java/java_stub_template.txt",
+        "bazel/rules/java/java_stub_template_windows.txt",
         "bazel/rules/python/stub_template.txt",
     ],
     deps = [

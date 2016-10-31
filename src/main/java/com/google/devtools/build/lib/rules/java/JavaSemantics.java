@@ -254,9 +254,21 @@ public interface JavaSemantics {
 
   /**
    * Creates the action that writes the Java executable stub script.
+   *
+   * <p>Returns the launcher script artifact. This may or may not be the same as {@code executable},
+   * depending on the implementation of this method. If they are different, the returned value
+   * should be used as the stub script instead of the input {@code executable}.
+   *
+   * <p>For example on Windows we use a double dispatch approach: the launcher is a batch file (and
+   * is created and returned by this method) which shells out to a shell script (the {@code
+   * executable} argument).
    */
-  void createStubAction(RuleContext ruleContext, final JavaCommon javaCommon,
-      List<String> jvmFlags, Artifact executable, String javaStartClass,
+  Artifact createStubAction(
+      RuleContext ruleContext,
+      final JavaCommon javaCommon,
+      List<String> jvmFlags,
+      Artifact executable,
+      String javaStartClass,
       String javaExecutable);
 
   /**

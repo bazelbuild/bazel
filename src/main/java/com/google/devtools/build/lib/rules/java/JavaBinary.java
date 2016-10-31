@@ -228,8 +228,19 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     if (createExecutable) {
       // Create a shell stub for a Java application
-      semantics.createStubAction(ruleContext, common, jvmFlags, executable, mainClass,
-          JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
+      Artifact newExecutable =
+          semantics.createStubAction(
+              ruleContext,
+              common,
+              jvmFlags,
+              executable,
+              mainClass,
+              JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
+      if (!newExecutable.equals(executable)) {
+        filesBuilder.add(newExecutable);
+        runfilesBuilder.addArtifact(newExecutable);
+        executable = newExecutable;
+      }
     }
 
     JavaSourceJarsProvider javaSourceJarsProvider = javaSourceJarsProviderBuilder.build();
