@@ -965,6 +965,40 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Common attributes for apple rules that can depend on one or more dynamic libraries.
+   */
+  public static class DylibDependingRule implements RuleDefinition {
+
+    /**
+     * Attribute name for dylib dependencies.
+     */
+    static final String DYLIBS_ATTR_NAME = "dylibs";
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          // TODO(b/32411441): Restrict the dylibs attribute to take only dylib dependencies.
+          // This will require refactoring ObjcProvider into alternate providers.
+          // TODO(cparsons): Subtract transitive dependencies from "deps" during linking, as needed.
+          // Also document this attribute when this is resolved.
+          .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
+              .direct_compile_time_input()
+              .mandatoryNativeProviders(
+                  ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
+              .allowedFileTypes())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$apple_dylib_depending_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
    * Common attributes for {@code objc_*} rules that create a bundle. Specifically, for rules
    * which use the {@link Bundling} helper class.
    */

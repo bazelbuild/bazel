@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-
 import java.util.Map;
 import java.util.Set;
 
@@ -52,6 +52,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             ObjcProvider.class);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
+    Iterable<ObjcProvider> dylibProviders =
+        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
@@ -59,7 +61,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     MultiArchBinarySupport multiArchBinarySupport = new MultiArchBinarySupport(ruleContext);
     Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration =
         multiArchBinarySupport.objcCommonByDepConfiguration(childConfigurations,
-            configToDepsCollectionMap, configurationToNonPropagatedObjcMap);
+            configToDepsCollectionMap, configurationToNonPropagatedObjcMap, dylibProviders);
     multiArchBinarySupport.registerActions(platform, new ExtraLinkArgs(),
         objcCommonByDepConfiguration, configToDepsCollectionMap, outputArtifact);
 
