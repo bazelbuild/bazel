@@ -53,7 +53,8 @@ Building Bazel on Windows
 To bootstrap Bazel on Windows, you will need:
 
 *    Java JDK 8 or later
-*    [Visual Studio](https://www.visualstudio.com/) (Community Edition is okay)
+*    [Visual C++](https://www.visualstudio.com/) with Windows SDK installed
+     (Community Edition is fine)
 *    [msys2](https://msys2.github.io/) (need to be installed at
      ``C:\tools\msys64\``).
 *    Several msys2 packages. Use the ``pacman`` command to install them:
