@@ -763,8 +763,6 @@ static void StartServerAndConnect(BlazeServer *server) {
          "server directory '%s' could not be created", server_dir.c_str());
   }
 
-  string socket_file = blaze_util::JoinPath(server_dir, "server.socket");
-
   // If we couldn't connect to the server check if there is still a PID file
   // and if so, kill the server that wrote it. This can happen e.g. if the
   // server is in a GC pause and therefore cannot respond to ping requests and
@@ -811,8 +809,7 @@ static void StartServerAndConnect(BlazeServer *server) {
     }
   }
   die(blaze_exit_code::INTERNAL_ERROR,
-      "\nError: couldn't connect to server at '%s' after 60 seconds.",
-      socket_file.c_str());
+      "\nError: couldn't connect to server after 60 seconds.");
 }
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.

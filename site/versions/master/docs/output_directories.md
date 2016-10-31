@@ -89,7 +89,6 @@ The directories are laid out as follows:
                                               into.
       server/                             <== The Bazel server puts all server-related files (such as socket
                                               file, logs, etc) here.
-        server.socket                     <== Socket file for the server.
         server.log                        <== Server logs.
       &lt;workspace-name&gt;/             <== Working tree for the Bazel build & root of symlink forest: execRoot
         _bin/                             <== Helper tools are linked from or copied to here.
