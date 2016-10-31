@@ -73,7 +73,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private final Set<JCTree.JCCompilationUnit> toplevels;
   /** Marks seen ASTs */
   private final Set<JCTree> trees;
-
   /** Computed missing dependencies */
   private final Set<JarOwner> missingTargets;
 
@@ -107,7 +106,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void init(Context context, Log log, JavaCompiler compiler) {
     super.init(context, log, compiler);
     errWriter = log.getWriter(WriterKind.ERROR);
-    this.fileManager = context.get(JavaFileManager.class);
+    fileManager = context.get(JavaFileManager.class);
     implicitDependencyExtractor = new ImplicitDependencyExtractor(
         dependencyModule.getUsedClasspath(), dependencyModule.getImplicitDependenciesMap(),
         fileManager);
@@ -151,6 +150,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
     if (toplevels.add(env.toplevel)) {
       checkingTreeScanner.scan(env.toplevel.getImports());
+      dependencyModule.addPackage(env.toplevel.packge.toString());
     }
     log.useSource(prev);
   }

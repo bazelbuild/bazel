@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Wrapper class for managing dependencies on top of
@@ -81,6 +82,7 @@ public final class DependencyModule {
   Set<String> requiredClasspath;
   private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
+  private final Set<String> packages;
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
@@ -106,6 +108,7 @@ public final class DependencyModule {
     this.usedClasspath = new HashSet<>();
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
+    this.packages = new TreeSet<>();
   }
 
   /**
@@ -118,9 +121,8 @@ public final class DependencyModule {
   /**
    * Writes dependency information to the deps file in proto format, if specified.
    *
-   * This is a replacement for {@link #emitUsedClasspath} above, which only outputs the used
-   * classpath. We collect more precise dependency information to allow Blaze to analyze both
-   * strict and unused dependencies based on the new deps.proto.
+   * <p>We collect precise dependency information to allow Blaze to analyze both strict and unused
+   * dependencies, as well as packages contained by the output jar.
    */
   public void emitDependencyInformation(String classpath, boolean successful) throws IOException {
     if (outputDepsProtoFile == null) {
@@ -142,6 +144,7 @@ public final class DependencyModule {
       deps.setRuleLabel(targetLabel);
     }
     deps.setSuccess(successful);
+    deps.addAllContainedPackage(packages);
     // Filter using the original classpath, to preserve ordering.
     for (String entry : classpath.split(":")) {
       if (explicitDependenciesMap.containsKey(entry)) {
@@ -195,6 +198,11 @@ public final class DependencyModule {
    */
   public Map<String, Deps.Dependency> getImplicitDependenciesMap() {
     return implicitDependenciesMap;
+  }
+
+  /** Adds a package to the set of packages built by this target. */
+  public boolean addPackage(String packge) {
+    return packages.add(packge);
   }
 
   /**
