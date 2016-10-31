@@ -403,6 +403,19 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           perActionFileCache = new PerActionFileCache(state.inputArtifactData);
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
+        } else {
+          // The action generally tries to discover its inputs during execution. If there are any
+          // additional inputs necessary to execute the action, make sure they are available now.
+          Iterable<Artifact> requiredInputs = action.getInputsWhenSkippingInputDiscovery();
+          if (requiredInputs != null) {
+            addDiscoveredInputs(state.inputArtifactData, requiredInputs, env);
+            if (env.valuesMissing()) {
+              return null;
+            }
+            perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+            metadataHandler =
+                new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
+          }
         }
       }
       actionExecutionContext =

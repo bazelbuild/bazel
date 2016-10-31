@@ -1763,6 +1763,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.inmemoryDotdFiles;
   }
 
+  public boolean getSkipUnusedModules() {
+    return cppOptions.skipUnusedModules;
+  }
+
   public LibcTop getLibcTop() {
     return cppOptions.libcTop;
   }

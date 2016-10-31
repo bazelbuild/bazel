@@ -527,6 +527,16 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
+    name = "experimental_skip_unused_modules",
+    defaultValue = "false",
+    category = "experimental",
+    help =
+        "If enabled, not all transitive modules automatically become an action's inputs. Instead,"
+            + " input discovery adds just the required ones."
+  )
+  public boolean skipUnusedModules;
+
+  @Option(
     name = "experimental_omitfp",
     defaultValue = "false",
     category = "semantics",
