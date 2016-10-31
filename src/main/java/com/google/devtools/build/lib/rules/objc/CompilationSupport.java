@@ -694,6 +694,7 @@ public final class CompilationSupport {
     ruleContext.registerAction(
         ObjcCompileAction.Builder.createObjcCompileActionBuilderWithAppleEnv(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
+            .setHeaders(objcProvider.get(HEADER))
             .setDotdPruningPlan(objcConfiguration.getDotdPruningPlan())
             .setSourceFile(sourceFile)
             .addMandatoryInputs(swiftHeader.asSet())
