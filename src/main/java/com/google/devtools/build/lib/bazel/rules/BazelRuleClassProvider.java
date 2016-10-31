@@ -36,8 +36,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidRuleClasses.BazelAndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
-import com.google.devtools.build.lib.bazel.rules.common.BazelActionListenerRule;
-import com.google.devtools.build.lib.bazel.rules.common.BazelExtraActionRule;
 import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcIncLibraryRule;
@@ -104,6 +102,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
+import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
@@ -440,8 +440,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelJavaPluginRule());
           builder.addRuleDefinition(new JavaToolchainRule());
 
-          builder.addRuleDefinition(new BazelExtraActionRule());
-          builder.addRuleDefinition(new BazelActionListenerRule());
+          builder.addRuleDefinition(new ExtraActionRule());
+          builder.addRuleDefinition(new ActionListenerRule());
 
           try {
             builder.addWorkspaceFilePrefix(
