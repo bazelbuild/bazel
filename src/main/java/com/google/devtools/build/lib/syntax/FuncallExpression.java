@@ -361,7 +361,9 @@ public final class FuncallExpression extends Expression {
     ArgumentListConversionResult argumentListConversionResult = null;
     if (methods != null) {
       for (MethodDescriptor method : methods) {
-        if (!method.getAnnotation().structField()) {
+        if (method.getAnnotation().structField()) {
+          return new Pair<>(method, null);
+        } else {
           argumentListConversionResult = convertArgumentList(args, kwargs, method);
           if (argumentListConversionResult.getArguments() != null) {
             if (matchingMethod == null) {
@@ -410,8 +412,7 @@ public final class FuncallExpression extends Expression {
 
   /**
    * Constructs the parameters list to actually pass to the method, filling with default values if
-   * any. If the type does not match, returns null and fills in methodTypeMatchError with the
-   * appropriate message.
+   * any. If there is a type or argument mismatch, returns a result containing an error message.
    */
   private ArgumentListConversionResult convertArgumentList(
       List<Object> args, Map<String, Object> kwargs, MethodDescriptor method) {
@@ -666,7 +667,7 @@ public final class FuncallExpression extends Expression {
    * @param positionals The first object is expected to be the object the method is called on.
    * @param call the original expression that caused this call, needed for rules especially
    */
-  public static Object invokeObjectMethod(
+  public Object invokeObjectMethod(
       String method,
       ImmutableList<Object> positionals,
       ImmutableMap<String, Object> keyWordArgs,
@@ -711,6 +712,23 @@ public final class FuncallExpression extends Expression {
       }
       Pair<MethodDescriptor, List<Object>> javaMethod =
           call.findJavaMethod(objClass, method, positionalArgs, keyWordArgs);
+      if (javaMethod.first.getAnnotation().structField()) {
+        // Not a method but a callable attribute
+        try {
+          return callFunction(javaMethod.first.getMethod().invoke(obj), env);
+        } catch (IllegalAccessException e) {
+          throw new EvalException(getLocation(), "Method invocation failed: " + e);
+        } catch (InvocationTargetException e) {
+          if (e.getCause() instanceof FuncallException) {
+            throw new EvalException(getLocation(), e.getCause().getMessage());
+          } else if (e.getCause() != null) {
+            throw new EvalExceptionWithJavaCause(getLocation(), e.getCause());
+          } else {
+            // This is unlikely to happen
+            throw new EvalException(getLocation(), "Method invocation failed: " + e);
+          }
+        }
+      }
       return callMethod(javaMethod.first, method, obj, javaMethod.second.toArray(), location, env);
     }
   }
@@ -772,13 +790,21 @@ public final class FuncallExpression extends Expression {
    */
   private Object invokeGlobalFunction(Environment env) throws EvalException, InterruptedException {
     Object funcValue = func.eval(env);
+    return callFunction(funcValue, env);
+  }
+
+  /**
+   * Calls a function object
+   */
+  private Object callFunction(Object funcValue, Environment env)
+      throws EvalException, InterruptedException {
     ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new HashMap<>();
     BaseFunction function = checkCallable(funcValue, getLocation());
     evalArguments(posargs, kwargs, env);
-    return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
+    return function.call(posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
   }
 
   /**
