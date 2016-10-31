@@ -43,8 +43,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Base class for concurrency sanity tests on {@link EvaluableGraph} implementations. */
-public abstract class GraphConcurrencyTest {
+/** Base class for sanity tests on {@link EvaluableGraph} implementations. */
+public abstract class GraphTest {
 
   private static final SkyFunctionName SKY_FUNCTION_NAME = SkyFunctionName.FOR_TESTING;
   protected ProcessableGraph graph;
@@ -154,8 +154,9 @@ public abstract class GraphConcurrencyTest {
   @Test
   public void testAddRemoveRdeps() throws Exception {
     SkyKey key = key("foo");
-    final NodeEntry entry = Iterables.getOnlyElement(
-        graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key)).values());
+    final NodeEntry entry =
+        Iterables.getOnlyElement(
+            graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key)).values());
     // These numbers are arbitrary.
     int numThreads = 50;
     int numKeys = numThreads;
@@ -457,6 +458,19 @@ public abstract class GraphConcurrencyTest {
         assertEquals(key("dep"), key);
       }
     }
+  }
+
+  @Test
+  public void testGetCurrentlyAvailableNodes() throws Exception {
+    SkyKey foo = key("foo");
+    SkyKey bar = key("bar");
+    SkyKey foobar = key("foobar");
+    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(foo, bar));
+
+    Iterable<SkyKey> currentlyAvailable =
+        graph.getCurrentlyAvailableNodes(ImmutableList.of(foo, bar, foobar), Reason.OTHER);
+
+    assertThat(currentlyAvailable).containsExactly(foo, bar);
   }
 
   private static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {

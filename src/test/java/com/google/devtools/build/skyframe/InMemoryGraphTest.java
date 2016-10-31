@@ -14,13 +14,12 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Concurrency tests for {@link InMemoryGraphImpl}. */
+/** Tests for {@link InMemoryGraphImpl}. */
 @RunWith(JUnit4.class)
-public class InMemoryGraphConcurrencyTest extends GraphConcurrencyTest {
+public class InMemoryGraphTest extends GraphTest {
   private ProcessableGraph graph;
 
   @Override
