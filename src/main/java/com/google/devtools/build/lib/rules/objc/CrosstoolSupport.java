@@ -47,6 +47,7 @@ import java.util.Collection;
 public class CrosstoolSupport {
 
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
+  private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
@@ -170,12 +171,18 @@ public class CrosstoolSupport {
                     .getBitcodeMode()
                     .getFeatureNames())
             // We create a module map by default to allow for swift interop.
-            .add(OBJC_MODULE_FEATURE_NAME)
             .add(CppRuleClasses.MODULE_MAPS)
             .add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS);
-
+    
+    if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
+      activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
+    }
+    if (!CompilationAttributes.Builder.fromRuleContext(ruleContext).build().enableModules()) {
+      activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
+    } 
+    
     if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       activatedCrosstoolSelectables.add("pch");
     }
