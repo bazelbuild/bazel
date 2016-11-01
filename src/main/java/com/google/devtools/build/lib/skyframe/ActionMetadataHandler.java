@@ -108,6 +108,11 @@ public class ActionMetadataHandler implements MetadataHandler {
   private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
 
   private final ImmutableSet<Artifact> outputs;
+
+  /**
+   * The timestamp granularity monitor for this build.
+   * Use {@link #getTimestampGranularityMonitor(Artifact)} to fetch this member.
+   */
   private final TimestampGranularityMonitor tsgm;
 
   @VisibleForTesting
@@ -126,6 +131,19 @@ public class ActionMetadataHandler implements MetadataHandler {
     } catch (IOException e) {
       return null;
     }
+  }
+
+  /**
+   * Gets the {@link TimestampGranularityMonitor} to use for a given artifact.
+   *
+   * <p>If the artifact is of type "constant metadata", this returns null so that changes to such
+   * artifacts do not tickle the timestamp granularity monitor, delaying the build for no reason.
+   *
+   * @param artifact the artifact for which to fetch the timestamp granularity monitor
+   * @return the timestamp granularity monitor to use, which may be null
+   */
+  private TimestampGranularityMonitor getTimestampGranularityMonitor(Artifact artifact) {
+    return artifact.isConstantMetadata() ? null : tsgm;
   }
 
   private static Metadata metadataFromValue(FileArtifactValue value) throws FileNotFoundException {
@@ -422,7 +440,8 @@ public class ActionMetadataHandler implements MetadataHandler {
         // from the filesystem, this FileValue will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.
         fileValue = fileValueFromArtifact(artifact,
-            FileStatusWithDigestAdapter.adapt(statNoFollow), tsgm);
+            FileStatusWithDigestAdapter.adapt(statNoFollow),
+            getTimestampGranularityMonitor(artifact));
         // Ensure the digest supplied matches the actual digest if it exists.
         byte[] fileDigest = fileValue.getDigest();
         if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
@@ -533,7 +552,8 @@ public class ActionMetadataHandler implements MetadataHandler {
   /** Constructs a new FileValue, saves it, and checks inconsistent data. */
   FileValue constructFileValue(Artifact artifact, @Nullable FileStatusWithDigest statNoFollow)
       throws IOException {
-    FileValue value = fileValueFromArtifact(artifact, statNoFollow, tsgm);
+    FileValue value = fileValueFromArtifact(artifact, statNoFollow,
+        getTimestampGranularityMonitor(artifact));
     FileValue oldFsValue = outputArtifactData.putIfAbsent(artifact, value);
     checkInconsistentData(artifact, oldFsValue, null);
     return value;
