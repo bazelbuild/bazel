@@ -18,13 +18,8 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 
 /**
@@ -41,14 +36,7 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
 
   @Override
   protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {
-    return builder
-        .add(attr("$protoc", LABEL)
-            .cfg(HOST)
-            .exec()
-            .singleArtifact()
-            .value(Label.parseAbsoluteUnchecked(
-                toolsRepository + "//tools/objc:standalone_protoc")))
-        .add(attr("$j2objc_plugin", LABEL)
+    return builder.add(attr("$j2objc_plugin", LABEL)
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
@@ -61,40 +49,7 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
   }
 
   @Override
-  protected void createActions(
-      ConfiguredTarget base,
-      RuleContext ruleContext,
-      Iterable<Artifact> protoSources,
-      NestedSet<Artifact> transitiveProtoSources,
-      Iterable<Artifact> headerMappingFiles,
-      Iterable<Artifact> classMappingFiles,
-      J2ObjcSource j2ObjcSource) {
-    String genDir = ruleContext.getConfiguration().getGenfilesDirectory(
-        ruleContext.getRule().getRepository()).getExecPathString();
-    Artifact compiler = ruleContext.getPrerequisiteArtifact("$protoc", Mode.HOST);
-    Artifact j2objcPlugin = ruleContext.getPrerequisiteArtifact("$j2objc_plugin", Mode.HOST);
-
-    String langPluginParameter = Joiner.on(',').join(J2OBJC_PLUGIN_PARAMS) + ":" + genDir;
-    String command = String.format(
-        "%s --plugin=protoc-gen-j2objc=%s --j2objc_out=%s --proto_path=%s --proto_path=. "
-            + "--absolute_paths %s",
-        compiler.getExecPathString(),
-        j2objcPlugin.getExecPathString(),
-        langPluginParameter,
-        genDir,
-        Joiner.on(" ").join(Artifact.toExecPaths(protoSources)));
-
-    ruleContext.registerAction(
-        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(command)
-            .setMnemonic("GeneratingJ2ObjcProtos")
-            .addInput(compiler)
-            .addInput(j2objcPlugin)
-            .addInputs(protoSources)
-            .addTransitiveInputs(transitiveProtoSources)
-            .addOutputs(j2ObjcSource.getObjcSrcs())
-            .addOutputs(j2ObjcSource.getObjcHdrs())
-            .addOutputs(headerMappingFiles)
-            .addOutputs(classMappingFiles)
-            .build(ruleContext));
+  protected boolean allowServices(RuleContext ruleContext) {
+    return true;
   }
 }
