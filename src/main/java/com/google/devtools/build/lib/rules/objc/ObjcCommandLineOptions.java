@@ -35,7 +35,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     defaultValue = "9.3",
     category = "run",
     converter = DottedVersionConverter.class,
-    deprecationWarning = "Use target_device instead to drive the simulator to use.",
     help =
         "The version of iOS to run on the simulator when running or testing. This is ignored "
             + "for ios_test rules if a target device is specified in the rule."
