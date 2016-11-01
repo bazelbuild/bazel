@@ -345,7 +345,7 @@ public class ProtoCompileActionBuilder {
    */
   public static void registerActions(
       RuleContext ruleContext,
-      Map<String, ToolchainInvocation> toolchainInvocations,
+      ImmutableMap<String, ToolchainInvocation> toolchainInvocations,
       SupportData supportData,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -409,7 +409,7 @@ public class ProtoCompileActionBuilder {
    */
   @VisibleForTesting
   static CustomCommandLine createCommandLineFromToolchains(
-      Map<String, ToolchainInvocation> toolchainInvocations,
+      ImmutableMap<String, ToolchainInvocation> toolchainInvocations,
       SupportData supportData,
       boolean allowServices,
       ImmutableList<String> protocOpts) {
