@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
@@ -22,7 +23,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -76,7 +76,7 @@ public final class DottedVersion implements Comparable<DottedVersion> {
   private static final String ILLEGAL_VERSION =
       "Dotted version components must all be of the form \\d+([a-z]+\\d*)? but got %s";
   private static final String NO_ALPHA_SEQUENCE = null;
-  private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0);
+  private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
   /**
    * Generates a new dotted version from the given version string.
@@ -89,6 +89,8 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       components.add(toComponent(component, version));
     }
 
+    int numOriginalComponents = components.size();
+
     // Remove trailing (but not the first) zero components for easier comparison and hashcoding.
     for (int i = components.size() - 1; i > 0; i--) {
       if (components.get(i).equals(ZERO_COMPONENT)) {
@@ -96,7 +98,7 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       }
     }
 
-    return new DottedVersion(ImmutableList.copyOf(components), version);
+    return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
   }
 
   private static Component toComponent(String component, String version) {
@@ -118,7 +120,7 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       secondNumber = parseNumber(parsedComponent, 3, version);
     }
 
-    return new Component(firstNumber, alphaSequence, secondNumber);
+    return new Component(firstNumber, alphaSequence, secondNumber, component);
   }
 
   private static int parseNumber(Matcher parsedComponent, int group, String version) {
@@ -133,10 +135,13 @@ public final class DottedVersion implements Comparable<DottedVersion> {
 
   private final ImmutableList<Component> components;
   private final String stringRepresentation;
+  private final int numOriginalComponents;
 
-  private DottedVersion(ImmutableList<Component> components, String version) {
+  private DottedVersion(ImmutableList<Component> components, String version,
+      int numOriginalComponents) {
     this.components = components;
     this.stringRepresentation = version;
+    this.numOriginalComponents = numOriginalComponents;
   }
 
   @Override
@@ -154,6 +159,31 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       }
     }
     return 0;
+  }
+
+  /**
+   * Returns the string representation of this dotted version, padded to a minimum number of
+   * components if the string representation does not already contain that many components.
+   * 
+   * <p>For example, a dotted version of "7.3" will return "7.3" with either one or two components
+   * requested, "7.3.0" if three are requested, and "7.3.0.0" if four are requested.
+   * 
+   * <p>Trailing zero components at the end of a string representation will not be removed. For
+   * example, a dotted version of "1.0.0" will return "1.0.0" if only one or two components
+   * are requested.
+   *
+   * @param numMinComponents the minimum number of dot-separated numbers that should be present
+   *     in the returned string representation
+   */
+  public String toStringWithMinimumComponents(int numMinComponents) {
+    ImmutableList.Builder<Component> stringComponents = ImmutableList.builder();
+    stringComponents.addAll(components);
+    int numComponents = Math.max(this.numOriginalComponents, numMinComponents);
+    int zeroesToPad = numComponents - components.size();
+    for (int i = 0; i < zeroesToPad; i++) {
+      stringComponents.add(ZERO_COMPONENT);
+    }
+    return Joiner.on('.').join(stringComponents.build());
   }
 
   @Override
@@ -189,11 +219,14 @@ public final class DottedVersion implements Comparable<DottedVersion> {
     private final int firstNumber;
     private final String alphaSequence;
     private final int secondNumber;
+    private final String stringRepresentation;
 
-    public Component(int firstNumber, String alphaSequence, int secondNumber) {
+    public Component(int firstNumber, String alphaSequence, int secondNumber,
+        String stringRepresentation) {
       this.firstNumber = firstNumber;
       this.alphaSequence = alphaSequence;
       this.secondNumber = secondNumber;
+      this.stringRepresentation = stringRepresentation;
     }
 
     @Override
@@ -220,6 +253,11 @@ public final class DottedVersion implements Comparable<DottedVersion> {
     @Override
     public int hashCode() {
       return Objects.hash(firstNumber, alphaSequence, secondNumber);
+    }
+
+    @Override
+    public String toString() {
+      return stringRepresentation;
     }
   }
 }
