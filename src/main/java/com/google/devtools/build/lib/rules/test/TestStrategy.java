@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SearchPath;
@@ -64,6 +65,27 @@ public abstract class TestStrategy implements TestActionContext {
    */
   protected static boolean isCoverageMode(TestRunnerAction action) {
     return action.getCoverageData() != null;
+  }
+
+  /**
+   * Ensures that all directories used to run test are in the correct state and
+   * their content will not result in stale files.
+   */
+  protected void prepareFileSystem(TestRunnerAction testAction, Path tmpDir,
+      Path coverageDir, Path workingDirectory) throws IOException {
+    if (isCoverageMode(testAction)) {
+      recreateDirectory(coverageDir);
+    }
+    recreateDirectory(tmpDir);
+    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+  }
+
+  /**
+   * Removes directory if it exists and recreates it.
+   */
+  protected void recreateDirectory(Path directory) throws IOException {
+    FileSystemUtils.deleteTree(directory);
+    FileSystemUtils.createDirectoryAndParents(directory);
   }
 
   /**
