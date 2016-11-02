@@ -430,6 +430,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+      host.manifestMerger = manifestMerger;
       return host;
     }
 
