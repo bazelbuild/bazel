@@ -65,4 +65,15 @@ function test_suite() {
   expect_not_log 'aborted'
 }
 
+function test_test_summary() {
+  # Requesting a test, we expect
+  # - precisely one test summary (for the single test we run)
+  # - that is properly chained (no additional progress events)
+  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  expect_log_once '^test_summary '
+  expect_log_once '^progress '
+  expect_not_log 'aborted'
+}
+
 run_suite "Integration tests for the build event stream"

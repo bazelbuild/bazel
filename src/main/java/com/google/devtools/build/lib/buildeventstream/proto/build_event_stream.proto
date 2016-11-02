@@ -68,6 +68,11 @@ message BuildEventId {
     string primary_output = 1;
   }
 
+  // Identifier of an event reporting the summary of a test.
+  message TestSummaryId {
+    string label = 1;
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -75,6 +80,7 @@ message BuildEventId {
     PatternExpandedId pattern = 4;
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
+    TestSummaryId test_summary = 7;
   }
 }
 
@@ -186,6 +192,20 @@ message TargetComplete {
   bool success = 1;
 }
 
+// Payload of the event summarizing a test.
+// TODO(aehlig): extend event with additional information as soon as we known
+// which additional information we need for test summaries.
+message TestSummary {
+  // Total number of runs
+  int32 total_run_count = 1;
+
+  // Path to logs of passed runs.
+  repeated File passed = 3;
+
+  // Path to logs of failed runs;
+  repeated File failed = 4;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -201,5 +221,6 @@ message BuildEvent {
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
     TargetComplete completed = 8;
+    TestSummary test_summary = 9;
   };
 }
