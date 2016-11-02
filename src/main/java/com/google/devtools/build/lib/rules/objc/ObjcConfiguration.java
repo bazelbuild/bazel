@@ -77,6 +77,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean deviceDebugEntitlements;
   private final boolean experimentalObjcLibrary;
   private final boolean experimentalUseCrosstoolForBinary;
+  private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
@@ -111,6 +112,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
     this.experimentalUseCrosstoolForBinary = objcOptions.experimentalUseCrosstoolForBinary;
+    this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
@@ -327,7 +329,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
   }
-  
+
   /**
    * Returns true if all objc_library targets should be configured as if they were
    * experimental_objc_library targets.
@@ -335,12 +337,19 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
   }
-  
+
   /** Returns true if objc_binary targets should use the crosstool for compiling and archiving. */
   public boolean useCrosstoolForBinary() {
     return experimentalUseCrosstoolForBinary;
   }
-  
+
+  /** Returns true if apple_binary targets should generate and link Objc protos. */
+  @SkylarkCallable(name = "enable_apple_binary_native_protos", structField = true,
+      doc = "Returns whether apple_binary should generate and link protos natively.")
+  public boolean enableAppleBinaryNativeProtos() {
+    return enableAppleBinaryNativeProtos;
+  }
+
   /** Returns the DotdPruningPlan for compiles in this build. */
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;

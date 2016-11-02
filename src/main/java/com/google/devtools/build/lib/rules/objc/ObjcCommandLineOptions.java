@@ -237,6 +237,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean useDotdPruning;
 
+  @Option(
+    name = "enable_apple_binary_native_protos",
+    defaultValue = "true",
+    category = "flags",
+    help =
+        "If set, apple_binary will generate and link objc protos into the output binary."
+  )
+  public boolean enableAppleBinaryNativeProtos;
+
   @SuppressWarnings("unchecked")
   @Override
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
