@@ -299,11 +299,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgExtra(
   return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode StartupOptions::CheckForReExecuteOptions(
-      int argc, const char *argv[], string *error) {
-  return blaze_exit_code::SUCCESS;
-}
-
 string StartupOptions::GetDefaultHostJavabase() const {
   return blaze::GetDefaultHostJavabase();
 }

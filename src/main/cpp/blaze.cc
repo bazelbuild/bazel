@@ -1490,12 +1490,6 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
   CheckBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
-  string error;
-  blaze_exit_code::ExitCode reexec_options_exit_code =
-      globals->options->CheckForReExecuteOptions(argc, argv, &error);
-  if (reexec_options_exit_code != blaze_exit_code::SUCCESS) {
-    die(reexec_options_exit_code, "%s", error.c_str());
-  }
   CheckEnvironment();
   CreateSecureOutputRoot();
 

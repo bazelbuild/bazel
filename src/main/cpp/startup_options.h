@@ -65,13 +65,6 @@ class StartupOptions {
   // StartupOptions, the "ExtraOptions" concept makes no sense; remove it.
   virtual void AddExtraOptions(std::vector<std::string> *result) const;
 
-  // Checks if Blaze needs to be re-executed.  Does not return, if so.
-  //
-  // Returns the exit code after the check. "error" will contain a descriptive
-  // string for any return value other than blaze_exit_code::SUCCESS.
-  virtual blaze_exit_code::ExitCode CheckForReExecuteOptions(
-      int argc, const char *argv[], std::string *error);
-
   // Checks extra fields when processing arg.
   //
   // Returns the exit code after processing the argument. "error" will contain
