@@ -127,10 +127,9 @@ static void VerifyJavaVersionAndSetJvm();
 // that the output base lock is kept until it finishes.
 //
 // If in server mode, the client starts up a server if needed then sends the
-// command to the client and streams back stdout and stderr. If an AF_UNIX
-// socket is used, the output base lock is held until the command finishes. If
-// gRPC is used, the lock is released after the command is sent to the server
-// (the server implements its own locking mechanism)
+// command to the client and streams back stdout and stderr. The output base
+// lock is released after the command is sent to the server (the server
+// implements its own locking mechanism).
 
 // Synchronization between the client and the server is a little precarious
 // because the client needs to know the PID of the server and it is not
@@ -177,15 +176,7 @@ static void VerifyJavaVersionAndSetJvm();
 //   could come about after deleting the PID file but before stopping accepting
 //   connections. It would also not be resilient against a dead server that
 //   left a PID file around.
-//
-// - The communication method is changed between AF_UNIX and gRPC: the client
-//   will find that the server is not responsive and will kill it based on its
-//   PID.
 class BlazeServer {
- protected:
-  BlazeLock blaze_lock_;
-  bool connected_;
-
  public:
   virtual ~BlazeServer() {}
 
@@ -219,6 +210,10 @@ class BlazeServer {
   // running, the result is unspecified. When called, this object must be in
   // connected state.
   virtual void Cancel() = 0;
+
+ protected:
+  BlazeLock blaze_lock_;
+  bool connected_;
 };
 
 ////////////////////////////////////////////////////////////////////////
