@@ -25,14 +25,14 @@ import static com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgs
 import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
@@ -64,23 +65,16 @@ import javax.annotation.Nullable;
 /** An Aspect which JavaLiteProtoLibrary injects to build Java Lite protos. */
 public class JavaLiteProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
-  public static final String LITE_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
-  public static final String LITE_PROTO_RUNTIME_LABEL = "//external:protobuf/javalite_runtime";
+  public static final String PROTO_TOOLCHAIN_ATTR = ":aspect_proto_toolchain_for_javalite";
 
-  private static final Attribute.LateBoundLabel<BuildConfiguration> JAVA_LITE_PLUGIN =
-      new Attribute.LateBoundLabel<BuildConfiguration>((Label) null, ProtoConfiguration.class) {
+  public static final Attribute.LateBoundLabel<BuildConfiguration> PROTO_TOOLCHAIN_LABEL =
+      new Attribute.LateBoundLabel<BuildConfiguration>(
+          "//tools/proto/toolchains:javalite", ProtoConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(ProtoConfiguration.class).protoCompilerJavaLitePlugin();
-        }
-
-        @Override
-        public boolean useHostConfiguration() {
-          return true;
+          return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJavaLite();
         }
       };
-  private static final String PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR =
-      ":proto_compiler_java_lite_plugin";
 
   private final JavaSemantics javaSemantics;
 
@@ -115,19 +109,16 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProvider(ProtoSourcesProvider.class)
             .add(
-                attr(LITE_PROTO_RUNTIME_ATTR, LABEL)
-                    .legacyAllowAnyFileType()
-                    .value(parseAbsoluteUnchecked(LITE_PROTO_RUNTIME_LABEL)))
+                attr(PROTO_TOOLCHAIN_ATTR, LABEL)
+                    .mandatoryNativeProviders(
+                        ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
+                            ProtoLangToolchainProvider.class))
+                    .value(PROTO_TOOLCHAIN_LABEL))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
                     .allowedRuleClasses("java_toolchain")
-                    .value(JavaSemantics.JAVA_TOOLCHAIN))
-            .add(
-                attr(PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR, LABEL)
-                    .cfg(HOST)
-                    .exec()
-                    .value(JAVA_LITE_PLUGIN));
+                    .value(JavaSemantics.JAVA_TOOLCHAIN));
 
     Attribute.Builder<Label> jacocoAttr = attr("$jacoco_instrumentation", LABEL).cfg(HOST);
 
@@ -207,24 +198,16 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
-      ProtoCompileActionBuilder actionBuilder =
-          new ProtoCompileActionBuilder(
-                  ruleContext, supportData, "Java", "java", ImmutableList.of(sourceJar))
-              .allowServices(true)
-              .setLangParameter(
-                  String.format(
-                      ruleContext
-                          .getFragment(ProtoConfiguration.class, HOST)
-                          .protoCompilerJavaLiteFlags(),
-                      sourceJar.getExecPathString()));
-
-      FilesToRunProvider plugin =
-          ruleContext.getExecutablePrerequisite(PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR, Mode.HOST);
-      if (plugin != null) {
-        actionBuilder.setAdditionalTools(ImmutableList.of(plugin));
-      }
-
-      ruleContext.registerAction(actionBuilder.build());
+      ProtoCompileActionBuilder.registerActions(
+          ruleContext,
+          ImmutableMap.of(
+              "javalite",
+              new ProtoCompileActionBuilder.ToolchainInvocation(
+                  getProtoToolchainProvider(), sourceJar.getExecPathString())),
+          supportData,
+          ImmutableList.of(sourceJar),
+          "JavaLite",
+          true /* allowServices */);
     }
 
     private JavaCompilationArgsProvider createJavaCompileAction(
@@ -235,13 +218,19 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               .addSourceJars(sourceJar)
               .setJavacOpts(getAndroidCompatibleJavacOpts());
       helper.addDep(dependencyCompilationArgs);
-      helper
-          .addDep(
-              ruleContext.getPrerequisite(
-                  LITE_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class))
-          .setCompilationStrictDepsMode(StrictDepsMode.OFF);
+      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+      if (runtime != null) {
+        helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
+      }
+      helper.setCompilationStrictDepsMode(StrictDepsMode.OFF);
       JavaCompilationArgs artifacts = helper.build(javaSemantics);
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
+    }
+
+    private ProtoLangToolchainProvider getProtoToolchainProvider() {
+      return checkNotNull(
+          ruleContext.getPrerequisite(
+              PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class));
     }
 
     private Artifact getSourceJarArtifact() {

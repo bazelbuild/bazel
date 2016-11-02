@@ -415,19 +415,6 @@ public class ProtoCompileActionBuilder {
       ImmutableList<String> protocOpts) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
-    cmdLine.add(protocOpts);
-
-    // Add include maps
-    cmdLine.add(new ProtoCommandLineArgv(supportData.getTransitiveImports()));
-
-    for (Artifact src : supportData.getDirectProtoSources()) {
-      cmdLine.addPath(src.getRootRelativePath());
-    }
-
-    if (!allowServices) {
-      cmdLine.add("--disallow_services");
-    }
-
     for (Map.Entry<String, ToolchainInvocation> entry : toolchainInvocations.entrySet()) {
       String pluginSuffix = entry.getKey();
       ToolchainInvocation invocation = entry.getValue();
@@ -450,6 +437,20 @@ public class ProtoCompileActionBuilder {
                 toolchain.pluginExecutable().getExecutable().getExecPathString()));
       }
     }
+
+    cmdLine.add(protocOpts);
+
+    // Add include maps
+    cmdLine.add(new ProtoCommandLineArgv(supportData.getTransitiveImports()));
+
+    for (Artifact src : supportData.getDirectProtoSources()) {
+      cmdLine.addPath(src.getRootRelativePath());
+    }
+
+    if (!allowServices) {
+      cmdLine.add("--disallow_services");
+    }
+
     return cmdLine.build();
   }
 

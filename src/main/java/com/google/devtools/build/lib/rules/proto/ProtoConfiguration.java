@@ -104,6 +104,15 @@ public class ProtoConfiguration extends Fragment {
     )
     public Label protoCompilerJavaLitePlugin;
 
+    @Option(
+      name = "proto_toolchain_for_javalite",
+      defaultValue = "//tools/proto/toolchains:javalite",
+      category = "flags",
+      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos"
+    )
+    public Label protoToolchainForJavaLite;
+
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
@@ -115,6 +124,7 @@ public class ProtoConfiguration extends Fragment {
       host.protoCompilerJavaBlacklistedProtos = protoCompilerJavaBlacklistedProtos;
       host.protoCompilerJavaLiteFlags = protoCompilerJavaLiteFlags;
       host.protoCompilerJavaLitePlugin = protoCompilerJavaLitePlugin;
+      host.protoToolchainForJavaLite = protoToolchainForJavaLite;
       return host;
     }
   }
@@ -147,6 +157,7 @@ public class ProtoConfiguration extends Fragment {
   private final List<Label> protoCompilerJavaBlacklistedProtos;
   private final String protoCompilerJavaLiteFlags;
   private final Label protoCompilerJavaLitePlugin;
+  private final Label protoToolchainForJavaLite;
 
   public ProtoConfiguration(Options options) {
     this.experimentalProtoExtraActions = options.experimentalProtoExtraActions;
@@ -156,6 +167,7 @@ public class ProtoConfiguration extends Fragment {
     this.protoCompilerJavaLiteFlags = options.protoCompilerJavaLiteFlags;
     this.protoCompilerJavaLitePlugin = options.protoCompilerJavaLitePlugin;
     this.protoCompilerJavaBlacklistedProtos = options.protoCompilerJavaBlacklistedProtos;
+    this.protoToolchainForJavaLite = options.protoToolchainForJavaLite;
   }
 
   public ImmutableList<String> protocOpts() {
@@ -189,5 +201,9 @@ public class ProtoConfiguration extends Fragment {
 
   public List<Label> protoCompilerJavaBlacklistedProtos() {
     return protoCompilerJavaBlacklistedProtos;
+  }
+
+  public Label protoToolchainForJavaLite() {
+    return protoToolchainForJavaLite;
   }
 }
