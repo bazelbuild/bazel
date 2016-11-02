@@ -288,7 +288,9 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("6 * 7", 42)
         .testStatement("3 * 'ab'", "ababab")
         .testStatement("0 * 'ab'", "")
-        .testStatement("'1' + '0' * 5", "100000");
+        .testStatement("'1' + '0' * 5", "100000")
+        .testStatement("'ab' * -4", "")
+        .testStatement("-1 * ''", "");
   }
 
   @Test
