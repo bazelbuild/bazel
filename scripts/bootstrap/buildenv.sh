@@ -32,7 +32,7 @@ fi
 
 # Set standard variables
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-WORKSPACE_DIR="$(dirname $(dirname ${DIR}))"
+WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
 JAVA_VERSION=${JAVA_VERSION:-1.8}
 BAZELRC=${BAZELRC:-"/dev/null"}
