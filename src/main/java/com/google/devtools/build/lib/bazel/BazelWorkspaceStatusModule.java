@@ -160,6 +160,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
+    public void prepare(Path execRoot) throws IOException {
+      // The default implementation of this method deletes all output files; override it to keep
+      // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)
+      // if the contents haven't changed.
+      deleteOutput(volatileStatus);
+    }
+
+    @Override
     public void execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
@@ -181,7 +189,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         stableMap.put(BuildInfo.BUILD_USER, username);
         volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(System.currentTimeMillis()));
 
-        FileSystemUtils.writeContent(stableStatus.getPath(), printStatusMap(stableMap));
+        // Only update the stableStatus contents if they are different than what we have on disk.
+        // This is to preserve the old file's mtime so that we do not generate an unnecessary dirty
+        // file on each incremental build.
+        FileSystemUtils.maybeUpdateContent(stableStatus.getPath(), printStatusMap(stableMap));
+
+        // Contrary to the stableStatus, write the contents of volatileStatus unconditionally
+        // because we know it will be different. This output file is marked as "constant metadata"
+        // so its dirtiness will be ignored anyway.
         FileSystemUtils.writeContent(volatileStatus.getPath(), printStatusMap(volatileMap));
       } catch (IOException e) {
         throw new ActionExecutionException(
