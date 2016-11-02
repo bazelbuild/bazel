@@ -256,8 +256,12 @@ public interface JavaSemantics {
    * Creates the action that writes the Java executable stub script.
    *
    * <p>Returns the launcher script artifact. This may or may not be the same as {@code executable},
-   * depending on the implementation of this method. If they are different, the returned value
-   * should be used as the stub script instead of the input {@code executable}.
+   * depending on the implementation of this method. If they are the same, then this Artifact should
+   * be used when creating both the {@code RunfilesProvider} and the {@code RunfilesSupport}. If
+   * they are different, the new value should be used when creating the {@code RunfilesProvider} (so
+   * it will be the stub script executed by "bazel run" for example), and the old value should be
+   * used when creasting the {@code RunfilesSupport} (so the runfiles directory will be named after
+   * it).
    *
    * <p>For example on Windows we use a double dispatch approach: the launcher is a batch file (and
    * is created and returned by this method) which shells out to a shell script (the {@code

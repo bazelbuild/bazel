@@ -147,14 +147,21 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
-    Artifact executable = null;
+    Artifact executableForRunfiles = null;
     if (createExecutable) {
-      executable = ruleContext.createOutputArtifact(); // the artifact for the rule itself
-      filesBuilder.add(classJar).add(executable);
+      // This artifact is named as the rule itself, e.g. //foo:bar_bin -> bazel-bin/foo/bar_bin
+      executableForRunfiles = ruleContext.createOutputArtifact();
+      filesBuilder.add(classJar).add(executableForRunfiles);
 
       if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-        mainClass = semantics.addCoverageSupport(helper, attributesBuilder,
-            executable, instrumentationMetadata, javaArtifactsBuilder, mainClass);
+        mainClass =
+            semantics.addCoverageSupport(
+                helper,
+                attributesBuilder,
+                executableForRunfiles,
+                instrumentationMetadata,
+                javaArtifactsBuilder,
+                mainClass);
       }
     } else {
       filesBuilder.add(classJar);
@@ -226,20 +233,20 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    Artifact executableToRun = executableForRunfiles;
     if (createExecutable) {
       // Create a shell stub for a Java application
-      Artifact newExecutable =
+      executableToRun =
           semantics.createStubAction(
               ruleContext,
               common,
               jvmFlags,
-              executable,
+              executableForRunfiles,
               mainClass,
               JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
-      if (!newExecutable.equals(executable)) {
-        filesBuilder.add(newExecutable);
-        runfilesBuilder.addArtifact(newExecutable);
-        executable = newExecutable;
+      if (!executableToRun.equals(executableForRunfiles)) {
+        filesBuilder.add(executableToRun);
+        runfilesBuilder.addArtifact(executableToRun);
       }
     }
 
@@ -297,8 +304,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // otherwise, set classpath to deploy jar.
         extraArgs.add("--wrapper_script_flag=--singlejar");
       }
+      // The executable we pass here will be used when creating the runfiles directory. E.g. for the
+      // stub script called bazel-bin/foo/bar_bin, the runfiles directory will be created under
+      // bazel-bin/foo/bar_bin.runfiles . On platforms where there's an extra stub script (Windows)
+      // which dispatches to this one, we still create the runfiles directory for the shell script,
+      // but use the dispatcher script (a batch file) as the RunfilesProvider's executable.
       runfilesSupport =
-          RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable, extraArgs);
+          RunfilesSupport.withExecutable(
+              ruleContext, defaultRunfiles, executableForRunfiles, extraArgs);
     }
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
@@ -364,7 +377,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .add(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProviderBuilder.build())
         .add(RunfilesProvider.class, runfilesProvider)
-        .setRunfilesSupport(runfilesSupport, executable)
+        // The executable to run (below) may be different from the executable for runfiles (the one
+        // we create the runfiles support object with). On Linux they are the same (it's the same
+        // shell script), on Windows they are different (the executable to run is a batch file, the
+        // executable for runfiles is the shell script).
+        .setRunfilesSupport(runfilesSupport, executableToRun)
         .add(
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
