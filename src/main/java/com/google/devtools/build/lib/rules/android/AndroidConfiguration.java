@@ -364,7 +364,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean useAndroidResourceShrinking;
 
     @Option(name = "android_manifest_merger",
-        defaultValue = "android",
+        defaultValue = "legacy",
         category = "semantics",
         converter = AndroidManifestMergerConverter.class,
         help = "Selects the manifest merger to use for android_binary rules. Flag to help the"
