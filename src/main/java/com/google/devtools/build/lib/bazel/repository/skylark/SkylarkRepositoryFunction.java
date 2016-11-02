@@ -37,7 +37,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+
 import javax.annotation.Nullable;
 
 /**
@@ -56,9 +56,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     }
   }
 
-  private final AtomicReference<HttpDownloader> httpDownloader;
+  private final HttpDownloader httpDownloader;
 
-  public SkylarkRepositoryFunction(AtomicReference<HttpDownloader> httpDownloader) {
+  public SkylarkRepositoryFunction(HttpDownloader httpDownloader) {
     this.httpDownloader = httpDownloader;
   }
 

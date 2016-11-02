@@ -31,17 +31,16 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Downloads a file over HTTP.
  */
 public class HttpArchiveFunction extends RepositoryFunction {
 
-  protected final AtomicReference<HttpDownloader> httpDownloader;
+  protected final HttpDownloader downloader;
 
-  public HttpArchiveFunction(AtomicReference<HttpDownloader> httpDownloader) {
-    this.httpDownloader = httpDownloader;
+  public HttpArchiveFunction(HttpDownloader httpDownloader) {
+    this.downloader = httpDownloader;
   }
 
   @Override
@@ -70,7 +69,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
     //
     // This would download png.tar.gz to output_base/external/png/png.tar.gz.
     createDirectory(outputDirectory);
-    Path downloadedPath = httpDownloader.get().download(rule, outputDirectory,
+    Path downloadedPath = downloader.download(rule, outputDirectory,
         env.getListener(), clientEnvironment);
 
     DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));

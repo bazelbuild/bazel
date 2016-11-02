@@ -24,12 +24,14 @@ import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
+import com.google.devtools.build.lib.bazel.repository.MavenDownloader;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
@@ -72,7 +74,6 @@ import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -85,8 +86,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final SkylarkRepositoryFunction skylarkRepositoryFunction;
   private final RepositoryDelegatorFunction delegator;
-  private final AtomicReference<HttpDownloader> httpDownloader =
-      new AtomicReference<>(new HttpDownloader());
+  private final RepositoryCache repositoryCache = new RepositoryCache();
+  private final HttpDownloader httpDownloader = new HttpDownloader(repositoryCache);
+  private final MavenDownloader mavenDownloader = new MavenDownloader(repositoryCache);
   private FileSystem filesystem;
 
   public BazelRepositoryModule() {
@@ -98,7 +100,7 @@ public class BazelRepositoryModule extends BlazeModule {
             .put(GitRepositoryRule.NAME, new GitRepositoryFunction())
             .put(HttpJarRule.NAME, new HttpJarFunction(httpDownloader))
             .put(HttpFileRule.NAME, new HttpFileFunction(httpDownloader))
-            .put(MavenJarRule.NAME, new MavenJarFunction(httpDownloader))
+            .put(MavenJarRule.NAME, new MavenJarFunction(mavenDownloader))
             .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction(httpDownloader))
             .put(NewGitRepositoryRule.NAME, new NewGitRepositoryFunction())
             .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
@@ -176,9 +178,13 @@ public class BazelRepositoryModule extends BlazeModule {
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
 
     RepositoryOptions repoOptions = optionsProvider.getOptions(RepositoryOptions.class);
-    if (repoOptions != null && repoOptions.experimentalRepositoryCache != null) {
-      Path repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
-      httpDownloader.get().setRepositoryCachePath(repositoryCachePath);
+    if (repoOptions != null) {
+      if (repoOptions.experimentalRepositoryCache != null) {
+        Path repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
+        repositoryCache.setRepositoryCachePath(repositoryCachePath);
+      } else {
+        repositoryCache.setRepositoryCachePath(null);
+      }
     }
   }
 

@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Downloads a jar file from a URL.
  */
 public class HttpFileFunction extends HttpArchiveFunction {
 
-  public HttpFileFunction(AtomicReference<HttpDownloader> httpDownloader) {
+  public HttpFileFunction(HttpDownloader httpDownloader) {
     super(httpDownloader);
   }
 

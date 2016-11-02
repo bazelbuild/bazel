@@ -72,16 +72,20 @@ public class RepositoryCache {
   // Rename cached files to this value to simplify lookup.
   public static final String DEFAULT_CACHE_FILENAME = "file";
 
-  private final Path repositoryCachePath;
-  private final Path contentAddressablePath;
+  @Nullable private Path repositoryCachePath;
+  @Nullable private Path contentAddressablePath;
+
+  public void setRepositoryCachePath(@Nullable Path repositoryCachePath) {
+    this.repositoryCachePath = repositoryCachePath;
+    this.contentAddressablePath = (repositoryCachePath != null)
+        ? repositoryCachePath.getRelative(CAS_DIR) : null;
+  }
 
   /**
-   * @param repositoryCachePath The base location of the repository cache.
-   * @throws IOException
+   * @return true iff the cache path is set.
    */
-  public RepositoryCache(Path repositoryCachePath) throws IOException {
-    this.repositoryCachePath = repositoryCachePath;
-    this.contentAddressablePath = repositoryCachePath.getRelative(CAS_DIR);
+  public boolean isEnabled() {
+    return repositoryCachePath != null;
   }
 
   /**
@@ -92,6 +96,7 @@ public class RepositoryCache {
    * @return true if the cache entry exist, false otherwise.
    */
   public boolean exists(String cacheKey, KeyType keyType) {
+    Preconditions.checkState(isEnabled());
     return keyType.getCachePath(contentAddressablePath).getChild(cacheKey).exists();
   }
 
@@ -110,8 +115,11 @@ public class RepositoryCache {
    * @throws IOException
    */
   @Nullable
-  public Path get(String cacheKey, Path targetPath, KeyType keyType) throws IOException {
-    ensureValidKey(cacheKey, keyType);
+  public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
+    throws IOException {
+    Preconditions.checkState(isEnabled());
+
+    assertKeyIsValid(cacheKey, keyType);
     if (!exists(cacheKey, keyType)) {
       return null;
     }
@@ -140,8 +148,11 @@ public class RepositoryCache {
    * @param keyType The type of key used. See: KeyType
    * @throws IOException
    */
-  public void put(String cacheKey, Path sourcePath, KeyType keyType) throws IOException {
-    ensureValidKey(cacheKey, keyType);
+  public synchronized void put(String cacheKey, Path sourcePath, KeyType keyType)
+    throws IOException {
+    Preconditions.checkState(isEnabled());
+
+    assertKeyIsValid(cacheKey, keyType);
     ensureCacheDirectoryExists(keyType);
 
     Path cacheEntry = keyType.getCachePath(contentAddressablePath).getRelative(cacheKey);
@@ -208,7 +219,7 @@ public class RepositoryCache {
     return hasher.hash().toString();
   }
 
-  private void ensureValidKey(String key, KeyType keyType) throws IOException {
+  private void assertKeyIsValid(String key, KeyType keyType) throws IOException {
     if (!keyType.isValid(key)) {
       throw new IOException("Invalid key \"" + key + "\" of type " + keyType + ". ");
     }

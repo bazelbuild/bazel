@@ -50,7 +50,8 @@ public class RepositoryCacheTest {
   public void setUp() throws Exception {
     scratch = new Scratch("/");
     repositoryCachePath = scratch.dir("/repository_cache");
-    repositoryCache = new RepositoryCache(repositoryCachePath);
+    repositoryCache = new RepositoryCache();
+    repositoryCache.setRepositoryCachePath(repositoryCachePath);
     contentAddressableCachePath = repositoryCache.getContentAddressableCachePath();
 
     downloadedFile = scratch.file("file.tmp", Charset.defaultCharset(), "contents");

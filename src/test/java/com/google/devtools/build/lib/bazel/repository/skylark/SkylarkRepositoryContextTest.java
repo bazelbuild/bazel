@@ -41,7 +41,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,15 +88,14 @@ public class SkylarkRepositoryContextTest {
             .externalPackageData()
             .createAndAddRepositoryRule(
                 packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
-    AtomicReference<HttpDownloader> httpDownloader =
-        new AtomicReference<>(Mockito.mock(HttpDownloader.class));
+    HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
     context =
         new SkylarkRepositoryContext(
             rule,
             outputDirectory,
             Mockito.mock(SkyFunction.Environment.class),
             ImmutableMap.of("FOO", "BAR"),
-            httpDownloader);
+            downloader);
   }
 
   protected void setUpContexForRule(String name) throws Exception {

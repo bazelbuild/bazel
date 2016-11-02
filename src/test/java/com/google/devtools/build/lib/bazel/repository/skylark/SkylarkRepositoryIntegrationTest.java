@@ -39,7 +39,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,12 +68,11 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
       // Add both the local repository and the skylark repository functions
-      // The HttpDownloader mock injected with the SkylarkRepositoryFunction
-      AtomicReference<HttpDownloader> httpDownloader =
-          new AtomicReference<>(Mockito.mock(HttpDownloader.class));
+      // The RepositoryCache mock injected with the SkylarkRepositoryFunction
+      HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       SkylarkRepositoryFunction skylarkRepositoryFunction =
-          new SkylarkRepositoryFunction(httpDownloader);
+          new SkylarkRepositoryFunction(downloader);
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
 

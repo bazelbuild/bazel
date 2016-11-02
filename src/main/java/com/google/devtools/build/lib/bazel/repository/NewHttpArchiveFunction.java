@@ -29,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -38,7 +37,7 @@ import javax.annotation.Nullable;
  */
 public class NewHttpArchiveFunction extends HttpArchiveFunction {
 
-  public NewHttpArchiveFunction(AtomicReference<HttpDownloader> httpDownloader) {
+  public NewHttpArchiveFunction(HttpDownloader httpDownloader) {
     super(httpDownloader);
   }
 
@@ -61,7 +60,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     }
 
     // Download.
-    Path downloadedPath = httpDownloader.get().download(
+    Path downloadedPath = downloader.download(
         rule, outputDirectory, env.getListener(), clientEnvironment);
 
     // Decompress.

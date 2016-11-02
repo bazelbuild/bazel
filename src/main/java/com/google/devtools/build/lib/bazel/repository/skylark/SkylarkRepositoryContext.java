@@ -55,7 +55,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -74,7 +73,7 @@ public class SkylarkRepositoryContext {
   private final SkylarkClassObject attrObject;
   private final SkylarkOS osObject;
   private final Environment env;
-  private final AtomicReference<HttpDownloader> httpDownloader;
+  private final HttpDownloader httpDownloader;
 
   /**
    * Convert attribute name from native naming convention to Skylark naming convention.
@@ -95,7 +94,7 @@ public class SkylarkRepositoryContext {
    */
   SkylarkRepositoryContext(
       Rule rule, Path outputDirectory, Environment environment,
-      Map<String, String> env, AtomicReference<HttpDownloader> httpDownloader)
+      Map<String, String> env, HttpDownloader httpDownloader)
       throws EvalException {
     this.rule = rule;
     this.outputDirectory = outputDirectory;
@@ -489,7 +488,8 @@ public class SkylarkRepositoryContext {
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
-      httpDownloader.get().download(url, sha256, null, outputPath.getPath(), env.getListener(),
+
+      httpDownloader.download(url, sha256, null, outputPath.getPath(), env.getListener(),
           osObject.getEnvironmentVariables());
       if (executable) {
         outputPath.getPath().setExecutable(true);
@@ -566,9 +566,10 @@ public class SkylarkRepositoryContext {
     SkylarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory(outputPath);
     createDirectory(outputPath.getPath());
+
     Path downloadedPath;
     try {
-      downloadedPath = httpDownloader.get().download(url, sha256, type, outputPath.getPath(),
+      downloadedPath = httpDownloader.download(url, sha256, type, outputPath.getPath(),
           env.getListener(), osObject.getEnvironmentVariables());
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);

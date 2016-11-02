@@ -51,16 +51,14 @@ public class HttpDownloader {
   private static final double LOG_OF_KB = Math.log(1024);
 
   private final ScheduledExecutorService scheduler;
-  private Path repositoryCachePath;
   private Location ruleUrlAttributeLocation;
 
-  public HttpDownloader() {
+  protected final RepositoryCache repositoryCache;
+
+  public HttpDownloader(RepositoryCache repositoryCache) {
     this.scheduler = Executors.newScheduledThreadPool(1);
     this.ruleUrlAttributeLocation = null;
-  }
-
-  public void setRepositoryCachePath(Path repositoryCachePath) {
-    this.repositoryCachePath = repositoryCachePath;
+    this.repositoryCache = repositoryCache;
   }
 
   public Path download(
@@ -103,9 +101,11 @@ public class HttpDownloader {
       EventHandler eventHandler, Map<String, String> clientEnv)
           throws IOException, InterruptedException, RepositoryFunctionException {
     Path destination = getDownloadDestination(urlString, type, outputDirectory);
-    RepositoryCache repositoryCache = null;
 
-    if (!sha256.isEmpty()) {
+    // Used to decide whether to cache the download at the end of this method.
+    boolean isCaching = false;
+
+    if (RepositoryCache.KeyType.SHA256.isValid(sha256)) {
       try {
         String currentSha256 = RepositoryCache.getChecksum(KeyType.SHA256, destination);
         if (currentSha256.equals(sha256)) {
@@ -116,8 +116,9 @@ public class HttpDownloader {
         // Ignore error trying to hash. We'll attempt to retrieve from cache or just download again.
       }
 
-      if (RepositoryCache.KeyType.SHA256.isValid(sha256) && repositoryCachePath != null) {
-        repositoryCache = new RepositoryCache(repositoryCachePath);
+      if (repositoryCache.isEnabled()) {
+        isCaching = true;
+
         Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
         if (cachedDestination != null) {
           // Cache hit!
@@ -163,7 +164,7 @@ public class HttpDownloader {
       RepositoryCache.assertFileChecksum(sha256, destination, KeyType.SHA256);
     }
 
-    if (repositoryCache != null) {
+    if (isCaching) {
       repositoryCache.put(sha256, destination, KeyType.SHA256);
     }
 
