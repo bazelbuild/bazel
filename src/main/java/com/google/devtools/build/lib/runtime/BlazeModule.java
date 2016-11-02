@@ -254,13 +254,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the extensions this module contributes to the global namespace of the BUILD language.
-   */
-  public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
-    return new PackageFactory.EmptyEnvironmentExtension();
-  }
-
-  /**
    * Returns a helper that the {@link PackageFactory} will use during package loading. If the module
    * does not provide any helper, it should return null. Note that only one helper per Bazel/Blaze
    * runtime is allowed.

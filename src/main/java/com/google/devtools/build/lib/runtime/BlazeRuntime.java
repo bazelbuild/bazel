@@ -1090,11 +1090,6 @@ public final class BlazeRuntime {
 
       ConfiguredRuleClassProvider ruleClassProvider = ruleClassBuilder.build();
 
-      List<PackageFactory.EnvironmentExtension> extensions = new ArrayList<>();
-      for (BlazeModule module : blazeModules) {
-        extensions.add(module.getPackageEnvironmentExtension());
-      }
-
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
         Package.Builder.Helper candidateHelper =
@@ -1114,7 +1109,7 @@ public final class BlazeRuntime {
               ruleClassProvider,
               ruleClassBuilder.getPlatformRegexps(),
               serverBuilder.getAttributeContainerFactory(),
-              extensions,
+              serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper);
 
