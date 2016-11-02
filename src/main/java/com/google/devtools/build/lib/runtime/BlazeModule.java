@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -252,14 +251,6 @@ public abstract class BlazeModule {
    * Perform module specific check of current command environment.
    */
   public void checkEnvironment(CommandEnvironment env) {
-  }
-
-  /**
-   * Optionally specializes the cache that ensures source files are looked at just once during
-   * a build. Only one module may do so.
-   */
-  public ActionInputFileCache createActionInputCache(String cwd, FileSystem fs) {
-    return null;
   }
 
   /**

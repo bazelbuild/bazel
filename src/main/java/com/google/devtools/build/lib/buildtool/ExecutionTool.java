@@ -88,7 +88,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -170,7 +169,7 @@ public class ExecutionTool {
   private final BlazeRuntime runtime;
   private final BuildRequest request;
   private BlazeExecutor executor;
-  private ActionInputFileCache fileCache;
+  private final ActionInputFileCache fileCache;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
 
   private Map<String, SpawnActionContext> spawnStrategyMap =
@@ -215,6 +214,16 @@ public class ExecutionTool {
           }
         });
 
+    ActionInputFileCache cache = builder.getActionInputFileCache();
+    if (cache == null) {
+      // Unfortunately, the exec root cache is not shared with caches in the remote execution
+      // client.
+      cache =
+          new SingleBuildFileCache(
+              env.getExecRoot().getPathString(), env.getDirectories().getFileSystem());
+    }
+    this.fileCache = cache;
+        
     this.actionContextProviders = builder.getActionContextProviders();
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
@@ -350,8 +359,7 @@ public class ExecutionTool {
     ActionCache actionCache = getActionCache();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder = createBuilder(
-        request, actionCache, skyframeExecutor, modifiedOutputFiles,
-        analysisResult.getWorkspaceName());
+        request, actionCache, skyframeExecutor, modifiedOutputFiles);
 
     //
     // Execution proper.  All statements below are logically nested in
@@ -638,8 +646,7 @@ public class ExecutionTool {
   private Builder createBuilder(BuildRequest request,
       ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles,
-      String workspaceName) {
+      ModifiedFileSet modifiedOutputFiles) {
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
@@ -652,9 +659,6 @@ public class ExecutionTool {
     Preconditions.checkState(options.jobs >= -1);
     int actualJobs = options.jobs == 0 ? 1 : options.jobs;  // Treat 0 jobs as a single task.
 
-    // Unfortunately, the exec root cache is not shared with caches in the remote execution
-    // client.
-    fileCache = createBuildSingleFileCache(env.getDirectories().getExecRoot(workspaceName));
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
     return new SkyframeBuilder(skyframeExecutor,
@@ -705,25 +709,6 @@ public class ExecutionTool {
     }
     env.getEventBus().post(new CachesSavedEvent(
         actionCacheSaveTimeInMs, actionCacheSizeInBytes));
-  }
-
-  private ActionInputFileCache createBuildSingleFileCache(Path execRoot) {
-    String cwd = execRoot.getPathString();
-    FileSystem fs = env.getDirectories().getFileSystem();
-
-    ActionInputFileCache cache = null;
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      ActionInputFileCache pluggable = module.createActionInputCache(cwd, fs);
-      if (pluggable != null) {
-        Preconditions.checkState(cache == null);
-        cache = pluggable;
-      }
-    }
-
-    if (cache == null) {
-      cache = new SingleBuildFileCache(cwd, fs);
-    }
-    return cache;
   }
 
   private Reporter getReporter() {
