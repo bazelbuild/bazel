@@ -114,12 +114,16 @@ be refined if appropriate.
     <tr><td>P1. <a href="https://docs.google.com/document/d/1jKbNXOVp2T1zJD_iRnVr8k5D0xZKgO8blMVDlXOksJg">Custom remote repositories using Skylark</a></td></tr>
     <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/commit/79adf59e2973754c8c0415fcab45cd58c7c34697">Prototype for distributed caching of build artifact</a></td></tr>
     <tr>
-      <td rowspan="2"><b>0.4</b></td>
-      <td rowspan="2"><b>2016&#8209;10</b></td>
-      <td>P0.<a
-      href="https://github.com/bazelbuild/bazel/commit/490f250b27183a886cf70a5fe9e99d9428141b34"> Persistent Java compiler is enabled</a></td>
+      <td rowspan="2">
+        <a href="https://github.com/bazelbuild/bazel/releases/tag/0.4.0"><b>0.4</b>
+        <br/><span class="label label-default">Released</span></a>
+      </td>
+      <td rowspan="2"><b>2016&#8209;11&#8209;02</b></td>
+      <td>P0. <a href="https://github.com/bazelbuild/bazel/commit/490f250b27183a886cf70a5fe9e99d9428141b34">Persistent Java compiler is enabled</a></td>
     </tr>
-    <tr><td>P2. Sandboxing of action for OS X</td></tr>
+    <tr>
+      <td>P2. <a href="https://github.com/bazelbuild/bazel/commit/7b825b8ea442246aabfa6a5a8962abd70855d0da">Sandboxing of action for OS X</a></td>
+    </tr>
     <tr>
       <td rowspan="4"><b>0.5</b></td>
       <td rowspan="4"><b>2016&#8209;11</b></td>
