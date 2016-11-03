@@ -281,19 +281,19 @@ def RenameGenJarObjcFileRootInFileContent(tmp_objc_file_root,
     execute(cmd, stderr=subprocess.STDOUT)
 
 
-def CopyObjcFileToFinalOutputRoot(objc_files,
+def MoveObjcFileToFinalOutputRoot(objc_files,
                                   tmp_objc_file_root,
                                   final_objc_file_root,
                                   suffix,
                                   os_module=os,
                                   shutil_module=shutil):
-  """Copies ObjC files from temporary location to the final output location.
+  """Moves ObjC files from temporary location to the final output location.
 
   Args:
-    objc_files: The list of objc files to copy
+    objc_files: The list of objc files to move.
     tmp_objc_file_root: The temporary output root containing ObjC sources.
     final_objc_file_root: The final output root.
-    suffix: The suffix of the files to copy.
+    suffix: The suffix of the files to move.
     os_module: The os python module.
     shutil_module: The shutil python module.
   Returns:
@@ -312,7 +312,7 @@ def CopyObjcFileToFinalOutputRoot(objc_files,
         if e.errno != errno.EEXIST or not os_module.path.isdir(dest_path_dir):
           raise
 
-    shutil_module.copyfile(
+    shutil_module.move(
         os_module.path.join(tmp_objc_file_root, file_with_suffix),
         dest_path)
 
@@ -341,24 +341,24 @@ def PostJ2ObjcFileProcessing(normal_objc_files, genjar_objc_files,
                                         j2objc_source_paths,
                                         gen_src_jar,
                                         genjar_objc_files)
-  CopyObjcFileToFinalOutputRoot(normal_objc_files,
+  MoveObjcFileToFinalOutputRoot(normal_objc_files,
                                 tmp_objc_file_root,
                                 final_objc_file_root,
                                 '.m')
-  CopyObjcFileToFinalOutputRoot(normal_objc_files,
+  MoveObjcFileToFinalOutputRoot(normal_objc_files,
                                 tmp_objc_file_root,
                                 final_objc_file_root,
                                 '.h')
 
   if output_gen_source_dir:
-    CopyObjcFileToFinalOutputRoot(
+    MoveObjcFileToFinalOutputRoot(
         genjar_objc_files,
         tmp_objc_file_root,
         output_gen_source_dir,
         '.m')
 
   if output_gen_header_dir:
-    CopyObjcFileToFinalOutputRoot(
+    MoveObjcFileToFinalOutputRoot(
         genjar_objc_files,
         tmp_objc_file_root,
         output_gen_header_dir,
@@ -415,7 +415,7 @@ def main():
   # TODO(rduan): Remove, no longer needed.
   parser.add_argument(
       '--translated_source_files',
-      required=True,
+      required=False,
       help=('A comma-separated list of file paths where J2ObjC will write the '
             'translated files to.'))
   parser.add_argument(
@@ -490,7 +490,7 @@ def main():
                              args.output_archive_source_mapping_file,
                              args.compiled_archive_file_path)
 
-  # Post J2ObjC-run processing, involving file editing, zipping and copying
+  # Post J2ObjC-run processing, involving file editing, zipping and moving
   # files to their final output locations.
   PostJ2ObjcFileProcessing(
       normal_objc_files,
