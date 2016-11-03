@@ -72,8 +72,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
       fail("Expected failure to fetch artifact because of nonexistent server and not due to "
           + "the existence of a valid SHA");
     } catch (IOException expected) {
-      assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency: "
-          + "Could not transfer artifact x:y:z:1.1 from/to foo (http://example.com)");
+      assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency:");
     }
   }
 
@@ -91,8 +90,7 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
       fail("Expected failure to fetch artifact because of nonexistent server and not due to "
           + "lack of SHA.");
     } catch (IOException expected) {
-      assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency: "
-          + "Could not transfer artifact x:y:z:1.1 from/to foo (http://example.com)");
+      assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency:");
     }
   }
 }
