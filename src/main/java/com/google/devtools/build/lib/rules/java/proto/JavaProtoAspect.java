@@ -252,7 +252,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       }
 
       ProtoSourceFileBlacklist protoBlackList =
-          new ProtoSourceFileBlacklist(ruleContext, PROTO_SOURCE_FILE_BLACKLIST_ATTR);
+          new ProtoSourceFileBlacklist(
+              ruleContext,
+              ruleContext
+                  .getPrerequisiteArtifacts(PROTO_SOURCE_FILE_BLACKLIST_ATTR, Mode.HOST)
+                  .list());
       return protoBlackList.checkSrcs(supportData.getDirectProtoSources(), "java_proto_library");
     }
 

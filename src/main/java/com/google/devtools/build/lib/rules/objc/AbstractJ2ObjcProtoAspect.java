@@ -132,7 +132,11 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
 
     // Avoid pulling in any generated files from blacklisted protos.
     ProtoSourceFileBlacklist protoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, PROTO_SOURCE_FILE_BLACKLIST_ATTR);
+        new ProtoSourceFileBlacklist(
+            ruleContext,
+            ruleContext
+                .getPrerequisiteArtifacts(PROTO_SOURCE_FILE_BLACKLIST_ATTR, Mode.HOST)
+                .list());
     ImmutableList<Artifact> filteredProtoSources = ImmutableList.copyOf(
         protoBlacklist.filter(protoSources));
 
