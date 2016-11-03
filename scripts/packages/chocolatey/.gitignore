@@ -1,7 +1,6 @@
 *.nupkg
 *.zip
 bazel.nuspec
-chocolateyinstall.ps1
-chocolateyuninstall.ps1
 tools/*.exe
 tools/LICENSE.txt
+tools/params.json

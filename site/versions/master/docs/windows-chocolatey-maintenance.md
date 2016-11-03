@@ -34,39 +34,39 @@ Compile bazel with msys2 shell and `compile.sh`.
 
 ```powershell
 pushd scripts/packages/chocolatey
-  ./build.ps1 -version 0.3.1 -isRelease
+  ./build.ps1 -version 0.3.2 -mode local
 popd
 ```
 
 Should result in `scripts/packages/chocolatey/bazel.<version>.nupkg` being created.
 
+The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
+
 #### Test
 
-0. Build the package (without `isRelease`)
+0. Build the package (with `-mode local`)
   * run a webserver (`python -m SimpleHTTPServer` in `scripts/packages/chocolatey` is convenient and starts one on `http://localhost:8000`)
-  * adjust `chocolateyinstall.ps1` so that the `$url` and `$url64` parameters point to `http://localhost:8000/bazel_0.3.1_windows_x86_64.zip`
 0. Test the install
 
     The `test.ps1` should install the package cleanly (and error if it did not install cleanly), then tell you what to do next.
-
-    In a new (msys2) shell
-    ```sh
-    bazel version
-    ```
-    should result in that version, with executable from PATH.
 
 0. Test the uninstall
 
     ```sh
     choco uninstall bazel
-    # should remove bazel from the system - c:/tools/bazel should be deleted
+    # should remove bazel from the system
     ```
 
-Chocolatey's moderation process automates checks here.
+Chocolatey's moderation process automates checks here as well.
 
-### Publish
+### Release
 
-```sh
+Modify `tools/parameters.json` for the new release's URI and checksum once the release has been published to github releases.
+
+```powershell
+./build.ps1 -version <version> -isRelease
+./test.ps1 -version <version>
+# if the test.ps1 passes
 choco push bazel.x.y.z.nupkg --source https://chocolatey.org/
 ```
 

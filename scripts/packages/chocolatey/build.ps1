@@ -1,29 +1,50 @@
 param(
   [string] $version = "0.3.2",
-  [switch] $isRelease
+  [int] $rc = 0,
+  [string] $mode = "local",
+  [string] $checksum = ""
 )
 
-$tvVersion = $version
-$tvFilename = "bazel-$($version)-windows-x86_64.zip"
-if ($isRelease) {
-  $tvUri = "https://github.com/bazelbuild/bazel/releases/download/$($version)/$($tvFilename)"
-} else {
+write-host "mode: $mode"
+if ($mode -eq "release") {
+  $tvVersion = $version
+  $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
+  $tvUri = "https://github.com/bazelbuild/bazel/releases/download/$($tvVersion)/$($tvFilename)"
+} elseif ($mode -eq "rc") {
+  $tvVersion = "$($version)-rc$($rc)"
+  $tvFilename = "bazel-$($version)rc$($rc)-windows-x86_64.zip"
+  $tvUri = "https://storage.googleapis.com/bazel/$($version)/rc$($rc)/$($tvFilename)"
+} elseif ($mode -eq "local") {
+  $tvVersion = $version
+  $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
   $tvUri = "http://localhost:8000/$($tvFilename)"
+} else {
+  throw "mode parameter '$mode' unsupported. Please use local, rc, or release."
 }
-write-host "download uri: $($tvUri)"
-
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
-rm -force -ErrorAction SilentlyContinue ./*.zip
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
-rm -force -ErrorAction SilentlyContinue ./tools/chocolateyinstall.ps1
-rm -force -ErrorAction SilentlyContinue ./tools/chocolateyuninstall.ps1
 rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
+rm -force -ErrorAction SilentlyContinue ./tools/params.json
+if ($checksum -eq "") {
+  rm -force -ErrorAction SilentlyContinue ./*.zip
+}
 
-if ($isRelease) {
+if ($mode -eq "release") {
   Invoke-WebRequest "$($tvUri).sha256" -UseBasicParsing -passthru -outfile sha256.txt
   $tvChecksum = (gc sha256.txt).split(' ')[0]
   rm sha256.txt
-} else {
+} elseif ($mode -eq "rc") {
+  if (-not(test-path $tvFilename)) {
+    Invoke-WebRequest "$($tvUri)" -UseBasicParsing -passthru -outfile $tvFilename
+  }
+  if ($checksum -eq "") {
+    write-host "calculating checksum"
+    $tvChecksum = (get-filehash $tvFilename -algorithm sha256).Hash
+  } else {
+    write-host "using passed checksum"
+    $tvChecksum = $checksum
+  }
+} elseif ($mode -eq "local") {
   Add-Type -A System.IO.Compression.FileSystem
   $outputDir = "$pwd/../../../output"
   $zipFile = "$pwd/$($tvFilename)"
@@ -36,18 +57,6 @@ $nuspecTemplate = get-content "bazel.nuspec.template" | out-string
 $nuspecExpanded = $ExecutionContext.InvokeCommand.ExpandString($nuspecTemplate)
 add-content -value $nuspecExpanded -path bazel.nuspec
 
-$installerScriptTemplate = get-content "chocolateyinstall.ps1.template" | out-string
-$installerScriptExpanded = $ExecutionContext.InvokeCommand.ExpandString($installerScriptTemplate)
-$installerScriptExpanded = $installerScriptExpanded -replace "ps_var_","$"
-$installerScriptExpanded = $installerScriptExpanded -replace "escape_char","``"
-add-content -value $installerScriptExpanded -path ./tools/chocolateyinstall.ps1
-
-$uninstallerScriptTemplate = get-content "chocolateyuninstall.ps1.template" | out-string
-$uninstallerScriptExpanded = $ExecutionContext.InvokeCommand.ExpandString($uninstallerScriptTemplate)
-$uninstallerScriptExpanded = $uninstallerScriptExpanded -replace "ps_var_","$"
-$uninstallerScriptExpanded = $uninstallerScriptExpanded -replace "escape_char","``"
-add-content -value $uninstallerScriptExpanded -path ./tools/chocolateyuninstall.ps1
-
 write-host "Copying LICENSE.txt from repo-root to tools directory"
 $licenseHeader = @"
 From: https://github.com/bazelbuild/bazel/blob/master/LICENSE.txt
@@ -55,5 +64,14 @@ From: https://github.com/bazelbuild/bazel/blob/master/LICENSE.txt
 "@
 add-content -value $licenseHeader -path "./tools/LICENSE.txt"
 add-content -value (get-content "../../../LICENSE.txt") -path "./tools/LICENSE.txt"
+
+$params = @{
+  package = @{
+    uri = $tvUri;
+    checksum = $tvChecksum;
+    checksumType = "sha256";
+  }
+}
+add-content -value (ConvertTo-Json $params) -path "./tools/params.json"
 
 choco pack ./bazel.nuspec
