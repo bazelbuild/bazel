@@ -377,6 +377,8 @@ public class Artifact
   /**
    * Returns true iff this is a TreeArtifact representing a directory tree containing Artifacts.
    */
+  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
+  @SkylarkCallable(name = "is_directory", structField = true, documented = false)
   public boolean isTreeArtifact() {
     return false;
   }
