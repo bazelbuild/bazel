@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgs
 import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -200,10 +199,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     private void createProtoCompileAction(Artifact sourceJar) {
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
-          ImmutableMap.of(
-              "javalite",
+          ImmutableList.of(
               new ProtoCompileActionBuilder.ToolchainInvocation(
-                  getProtoToolchainProvider(), sourceJar.getExecPathString())),
+                  "javalite", getProtoToolchainProvider(), sourceJar.getExecPathString())),
           supportData,
           ImmutableList.of(sourceJar),
           "JavaLite",

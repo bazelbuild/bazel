@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createCommandLineFromToolchains;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ProtoCompileActionBuilderTest {
 
-  Root root = Root.asSourceRoot(new InMemoryFileSystem().getPath("/"));
+  private final Root root = Root.asSourceRoot(new InMemoryFileSystem().getPath("/"));
 
   @Test
   public void commandLine_basic() throws Exception {
@@ -74,22 +74,23 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
-            ImmutableMap.of(
-                "dontcare_because_no_plugin",
-                    new ToolchainInvocation(toolchainNoPlugin, "foo.srcjar"),
-                "pluginName", new ToolchainInvocation(toolchainWithPlugin, "bar.srcjar")),
+            ImmutableList.of(
+                new ToolchainInvocation(
+                    "dontcare_because_no_plugin", toolchainNoPlugin, "foo.srcjar"),
+                new ToolchainInvocation("pluginName", toolchainWithPlugin, "bar.srcjar")),
             supportData,
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
+            "--java_out=param1,param2:foo.srcjar",
+            "--PLUGIN_pluginName_out=param3,param4:bar.srcjar",
+            "--plugin=protoc-gen-PLUGIN_pluginName=protoc-gen-javalite.exe",
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
-            "source_file.proto",
-            "--java_out=param1,param2:foo.srcjar",
-            "--plugin=protoc-gen-PLUGIN_pluginName=protoc-gen-javalite.exe",
-            "--PLUGIN_pluginName_out=param3,param4:bar.srcjar");
+            "source_file.proto")
+        .inOrder();
   }
 
   @Test
@@ -104,7 +105,7 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
-            ImmutableMap.<String, ToolchainInvocation>of(),
+            ImmutableList.<ToolchainInvocation>of(),
             supportData,
             false /* allowServices */,
             ImmutableList.of("--foo", "--bar") /* protocOpts */);
@@ -143,7 +144,7 @@ public class ProtoCompileActionBuilderTest {
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
-            ImmutableMap.of("pluginName", new ToolchainInvocation(toolchain, outReplacement)),
+            ImmutableList.of(new ToolchainInvocation("pluginName", toolchain, outReplacement)),
             supportData,
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
@@ -151,6 +152,51 @@ public class ProtoCompileActionBuilderTest {
     assertThat(hasBeenCalled[0]).isFalse();
     cmdLine.arguments();
     assertThat(hasBeenCalled[0]).isTrue();
+  }
+
+  /**
+   * Tests that if the same invocation-name is specified by more than one invocation,
+   * ProtoCompileActionBuilder throws an exception.
+   */
+  @Test
+  public void exceptionIfSameName() throws Exception {
+    SupportData supportData =
+        SupportData.create(
+            Predicates.<TransitiveInfoCollection>alwaysFalse(),
+            ImmutableList.<Artifact>of(),
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
+            null /* usedDirectDeps */,
+            true /* hasProtoSources */);
+
+    ProtoLangToolchainProvider toolchain1 =
+        ProtoLangToolchainProvider.create(
+            "dontcare",
+            null /* pluginExecutable */,
+            mock(TransitiveInfoCollection.class) /* runtime */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+
+    ProtoLangToolchainProvider toolchain2 =
+        ProtoLangToolchainProvider.create(
+            "dontcare",
+            null /* pluginExecutable */,
+            mock(TransitiveInfoCollection.class) /* runtime */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+
+    try {
+      createCommandLineFromToolchains(
+          ImmutableList.of(
+              new ToolchainInvocation("pluginName", toolchain1, "outReplacement"),
+              new ToolchainInvocation("pluginName", toolchain2, "outReplacement")),
+          supportData,
+          true /* allowServices */,
+          ImmutableList.<String>of() /* protocOpts */);
+      fail("Expected an exception");
+    } catch (IllegalStateException e) {
+      assertThat(e.getMessage())
+          .isEqualTo(
+              "Invocation name pluginName appears more than once. "
+                  + "This could lead to incorrect proto-compiler behavior");
+    }
   }
 
   private Artifact artifact(String path) {
