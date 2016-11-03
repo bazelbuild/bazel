@@ -1782,6 +1782,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns whether or not to scan includes.
+   */
+  public boolean shouldScanIncludes() {
+    return cppOptions.shouldScanIncludes;
+  }
+
+  /**
    * Return the name of the directory (relative to the bin directory) that
    * holds mangled links to shared libraries. This name is always set to
    * the '{@code _solib_<cpu_archictecture_name>}.

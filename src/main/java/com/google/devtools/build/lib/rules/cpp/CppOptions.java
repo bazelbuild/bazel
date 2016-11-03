@@ -583,6 +583,17 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean strictSystemIncludes;
 
+  @Option(
+    name = "should_scan_includes",
+    defaultValue = "false",
+    category = "semantics",
+    help =
+        "Perform include scanning of C++ .d files to add action dependencies, "
+            + "prevents compilation-dependency by target and adds edges to the "
+            + "action graph."
+  )
+  public boolean shouldScanIncludes;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     CppOptions host = (CppOptions) getDefault();

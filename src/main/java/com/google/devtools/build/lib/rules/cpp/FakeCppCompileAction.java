@@ -95,6 +95,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         useHeaderModules,
         sourceLabel,
         mandatoryInputs,
+        null,
         outputFile,
         dotdFile,
         null,
