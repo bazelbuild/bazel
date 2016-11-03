@@ -17,6 +17,5 @@ filegroup(
     name = "srcs",
     srcs = [
         "BUILD",
-        "genrule.txt",
     ],
 )
