@@ -71,6 +71,40 @@ EOF
   touch BUILD
 }
 
+function setup_maven_repository() {
+  mkdir -p zoo
+  cat > zoo/BUILD <<EOF
+java_binary(
+    name = "ball-pit",
+    srcs = ["BallPit.java"],
+    main_class = "BallPit",
+    deps = ["//external:mongoose"],
+)
+EOF
+
+  cat > zoo/BallPit.java <<EOF
+import carnivore.Mongoose;
+
+public class BallPit {
+    public static void main(String args[]) {
+        Mongoose.frolic();
+    }
+}
+EOF
+
+  serve_artifact com.example.carnivore carnivore 1.23
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://localhost:$fileserver_port/',
+    sha1 = '$sha1',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+}
+
 # Test downloading a file from a repository.
 # This creates a simple repository containing:
 #
@@ -326,7 +360,7 @@ EOF
   expect_log "All external dependencies fetched successfully"
 }
 
-function test_load_skylark_download_fail_without_cache() {
+function test_skylark_download_fail_without_cache() {
   setup_skylark_repository
 
   cat >test.bzl <<EOF
@@ -379,7 +413,7 @@ EOF
   expect_log "All external dependencies fetched successfully"
 }
 
-function test_load_skylark_download_and_extract_fail_without_cache() {
+function test_skylark_download_and_extract_fail_without_cache() {
   setup_skylark_repository
 
   cat >test.bzl <<EOF
@@ -405,6 +439,54 @@ EOF
     && echo "Expected fetch to fail"
 
   expect_log "Error downloading"
+}
+
+function test_maven_jar_exists_in_cache() {
+  setup_maven_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1/file ]; then
+    fail "the file was not cached successfully"
+  fi
+}
+
+function test_load_cached_value_maven_jar() {
+  setup_maven_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Kill the server
+  shutdown_server
+  bazel clean --expunge
+
+  # Fetch again
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  expect_log "All external dependencies fetched successfully"
+}
+
+function test_maven_jar_fail_without_cache() {
+  setup_maven_repository
+
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
+    || echo "Expected fetch to succeed"
+
+  # Kill the server
+  shutdown_server
+  bazel clean --expunge
+
+  # Clean the repository cache
+  rm -rf "$repo_cache_dir"
+
+  # Fetch again
+  bazel fetch --experimental_repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
+    && echo "Expected fetch to fail"
+
+  expect_log "Failed to fetch Maven dependency"
 }
 
 run_suite "repository cache tests"

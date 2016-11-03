@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Map;
+import java.util.StringJoiner;
 import javax.annotation.Nullable;
 import org.apache.maven.settings.Server;
 import org.eclipse.aether.RepositorySystem;
@@ -77,14 +78,32 @@ public class MavenDownloader extends HttpDownloader {
       MavenServerValue serverValue) throws IOException, EvalException {
     this.name = name;
     this.outputDirectory = outputDirectory;
+
+    String url = serverValue.getUrl();
+    Server server = serverValue.getServer();
+
+    Artifact artifact;
     String artifactId = mapper.get("artifact", Type.STRING);
     String sha1 = mapper.isAttributeValueExplicitlySpecified("sha1")
         ? mapper.get("sha1", Type.STRING) : null;
         if (sha1 != null && !KeyType.SHA1.isValid(sha1)) {
           throw new IOException("Invalid SHA-1 for maven_jar " + name + ": '" + sha1 + "'");
         }
-    String url = serverValue.getUrl();
-    Server server = serverValue.getServer();
+    try {
+      artifact = new DefaultArtifact(artifactId);
+    } catch (IllegalArgumentException e) {
+      throw new IOException(e.getMessage());
+    }
+ 
+    boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
+
+    if (isCaching) {
+      Path downloadPath = getDownloadDestination(artifact);
+      Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
+      if (cachedDestination != null) {
+        return cachedDestination;
+      }
+    }
 
     MavenConnector connector = new MavenConnector(outputDirectory.getPathString());
     RepositorySystem system = connector.newRepositorySystem();
@@ -95,12 +114,7 @@ public class MavenDownloader extends HttpDownloader {
         .setAuthentication(new MavenAuthentication(server))
         .build();
     ArtifactRequest artifactRequest = new ArtifactRequest();
-    Artifact artifact;
-    try {
-      artifact = new DefaultArtifact(artifactId);
-    } catch (IllegalArgumentException e) {
-      throw new IOException(e.getMessage());
-    }
+
     artifactRequest.setArtifact(artifact);
     artifactRequest.setRepositories(ImmutableList.of(repository));
 
@@ -116,7 +130,23 @@ public class MavenDownloader extends HttpDownloader {
     if (!Strings.isNullOrEmpty(sha1)) {
       RepositoryCache.assertFileChecksum(sha1, downloadPath, KeyType.SHA1);
     }
+
+    if (isCaching) {
+      repositoryCache.put(sha1, downloadPath, KeyType.SHA1);
+    }
     return downloadPath;
+  }
+
+  private Path getDownloadDestination(Artifact artifact) {
+    String groupIdPath = artifact.getGroupId().replace('.', '/');
+    String artifactId = artifact.getArtifactId();
+    String version = artifact.getVersion();
+    String filename = artifactId + '-' + version + '.' + artifact.getExtension();
+
+    StringJoiner joiner = new StringJoiner("/");
+    joiner.add(groupIdPath).add(artifactId).add(version).add(filename);
+
+    return outputDirectory.getRelative(joiner.toString());
   }
 
   private static class MavenAuthentication implements Authentication {

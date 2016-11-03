@@ -135,6 +135,7 @@ public class RepositoryCache {
           + "Please delete the directory " + cacheEntry + " and try again.");
     }
 
+    FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
     FileSystemUtils.copyFile(cacheValue, targetPath);
 
     return targetPath;
