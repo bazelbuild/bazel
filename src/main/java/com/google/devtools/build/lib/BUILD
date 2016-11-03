@@ -778,6 +778,7 @@ java_library(
         "rules/java/proto/JavaProtoLibrary.java",
         "rules/java/proto/JavaProtoLibraryTransitiveFilesToBuildProvider.java",
         "rules/java/proto/JavaSourceJarsAspectProvider.java",
+        "rules/java/proto/ProtoJavacOpts.java",
         "rules/java/proto/StrictDepsUtils.java",
     ],
     deps = [
