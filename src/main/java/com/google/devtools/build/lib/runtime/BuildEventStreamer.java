@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -155,5 +157,10 @@ public class BuildEventStreamer implements EventHandler {
     }
 
     post(event);
+  }
+
+  @VisibleForTesting
+  ImmutableSet<BuildEventTransport> getTransports() {
+    return ImmutableSet.copyOf(transports);
   }
 }
