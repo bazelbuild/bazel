@@ -24,7 +24,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -269,7 +268,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected boolean fileIsSymbolicLink(File file) {
     try {
-      if (file.isDirectory() && isJunction(file.toPath())) {
+      if (isJunction(file)) {
         return true;
       }
     } catch (IOException e) {
@@ -285,12 +284,10 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected FileStatus stat(Path path, boolean followSymlinks) throws IOException {
     File file = getIoFile(path);
-    final BasicFileAttributes attributes;
+    final DosFileAttributes attributes;
     try {
-      attributes =
-          Files.readAttributes(
-              file.toPath(), BasicFileAttributes.class, symlinkOpts(followSymlinks));
-    } catch (java.nio.file.FileSystemException e) {
+      attributes = getAttribs(file, followSymlinks);
+    } catch (IOException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
 
@@ -347,7 +344,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   protected boolean isDirectory(Path path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
-        if (isJunction(getIoFile(path).toPath())) {
+        if (isJunction(getIoFile(path))) {
           return false;
         }
       } catch (IOException e) {
@@ -379,10 +376,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   // TODO(laszlocsomor): fix https://github.com/bazelbuild/bazel/issues/1735 and use the JNI method
   // in WindowsFileOperations.
   @VisibleForTesting
-  static boolean isJunction(java.nio.file.Path p) throws IOException {
-    if (Files.exists(p, symlinkOpts(/* followSymlinks */ false))) {
-      DosFileAttributes attributes =
-          Files.readAttributes(p, DosFileAttributes.class, symlinkOpts(/* followSymlinks */ false));
+  static boolean isJunction(File file) throws IOException {
+    if (Files.exists(file.toPath(), symlinkOpts(/* followSymlinks */ false))) {
+      DosFileAttributes attributes = getAttribs(file, /* followSymlinks */ false);
 
       if (attributes.isRegularFile()) {
         return false;
@@ -395,6 +391,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     }
     return false;
+  }
+
+  private static DosFileAttributes getAttribs(File file, boolean followSymlinks)
+      throws IOException {
+    return Files.readAttributes(
+        file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 
   private static PathFragment determineUnixRoot(String jvmArgName, String bazelShEnvVar) {
