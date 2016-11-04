@@ -149,7 +149,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
         .build();
 
-    new CompilationSupport(ruleContext)
+    new LegacyCompilationSupport(ruleContext)
         .registerLinkActions(
             common.getObjcProvider(),
             j2ObjcMappingFileProvider,
@@ -200,7 +200,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(filesToBuildSet);
 
     InstrumentedFilesProvider instrumentedFilesProvider =
-        new CompilationSupport(ruleContext).getInstrumentedFilesProvider(common);
+        new LegacyCompilationSupport(ruleContext).getInstrumentedFilesProvider(common);
 
     TestSupport testSupport =
         new TestSupport(ruleContext)

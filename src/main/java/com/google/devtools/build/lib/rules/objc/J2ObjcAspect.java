@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -218,10 +219,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           j2ObjcSource.getHeaderSearchPaths(),
           DEPENDENT_ATTRIBUTES);
 
-      new CompilationSupport(ruleContext)
-          .registerCompileAndArchiveActions(common, EXTRA_COMPILE_ARGS)
-          .registerFullyLinkAction(common.getObjcProvider(),
-              ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+      try {
+        new LegacyCompilationSupport(ruleContext)
+            .registerCompileAndArchiveActions(common, EXTRA_COMPILE_ARGS)
+            .registerFullyLinkAction(common.getObjcProvider(),
+                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+      } catch (RuleErrorException e) {
+        ruleContext.ruleError(e.getMessage());
+      }
     } else {
       common = common(
           ruleContext,

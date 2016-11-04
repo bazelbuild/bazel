@@ -66,7 +66,8 @@ public class MultiArchBinarySupport {
       ExtraLinkArgs extraLinkArgs,
       Map<BuildConfiguration, ObjcCommon> configurationToObjcCommon,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
-      Artifact outputLipoBinary) throws RuleErrorException {
+      Artifact outputLipoBinary)
+      throws RuleErrorException, InterruptedException {
 
     NestedSetBuilder<Artifact> binariesToLipo =
         NestedSetBuilder.<Artifact>stableOrder();
@@ -93,7 +94,7 @@ public class MultiArchBinarySupport {
 
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-      new CompilationSupport(ruleContext, childConfig)
+      new LegacyCompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
           .registerLinkActions(
               common.getObjcProvider(),
@@ -134,7 +135,7 @@ public class MultiArchBinarySupport {
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
       Iterable<ObjcProvider> configToDylibsObjcMap)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     ImmutableMap.Builder<BuildConfiguration, ObjcCommon> configurationToObjcCommonBuilder =
         ImmutableMap.builder();
     for (BuildConfiguration childConfig : childConfigurations) {

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -116,38 +115,33 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
         .build();
 
-    CompilationSupport compilationSupport =
-        new CompilationSupport(ruleContext)
-            .addXcodeSettings(xcodeProviderBuilder, common)
-            .registerLinkActions(
-                objcProvider,
-                j2ObjcMappingFileProvider,
-                j2ObjcEntryClassProvider,
-                getExtraLinkArgs(ruleContext),
-                ImmutableList.<Artifact>of(),
-                DsymOutputType.APP)
-            .validateAttributes();
+    CompilationSupport compilationSupport;
+    LegacyCompilationSupport legacyCompilationSupport = new LegacyCompilationSupport(ruleContext);
 
-    TransitiveInfoProviderMap compilationProviders;
-    if (usesCrosstool == UsesCrosstool.EXPERIMENTAL
-        && ruleContext.getFragment(ObjcConfiguration.class).useCrosstoolForBinary()) {
-      CrosstoolSupport crosstoolSupport = new CrosstoolSupport(ruleContext, objcProvider);
-      CompilationArtifacts compilationArtifacts =
-          CompilationSupport.compilationArtifacts(ruleContext);
-      if (compilationArtifacts.getArchive().isPresent()) {
-        compilationProviders = crosstoolSupport.registerCompileAndArchiveActions(common);
-      } else {
-        compilationProviders = crosstoolSupport.registerCompileActions(common);
-      }
-      crosstoolSupport.registerFullyLinkAction(common);
+    if (usesCrosstool != UsesCrosstool.EXPERIMENTAL
+        || !ruleContext.getFragment(ObjcConfiguration.class).useCrosstoolForBinary()) {
+      compilationSupport = legacyCompilationSupport;
     } else {
-      compilationProviders = null;
-      compilationSupport
-          .registerCompileAndArchiveActions(common)
-          .registerFullyLinkAction(
-              common.getObjcProvider(),
-              ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+      compilationSupport = new CrosstoolCompilationSupport(ruleContext);
     }
+     
+    compilationSupport
+        .addXcodeSettings(xcodeProviderBuilder, common)
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .validateAttributes();
+    
+    // TODO(b/29582284): Factor into the above if/else once CrosstoolCompilationSupport supports
+    // executable linking.
+    legacyCompilationSupport.registerLinkActions(
+        objcProvider,
+        j2ObjcMappingFileProvider,
+        j2ObjcEntryClassProvider,
+        getExtraLinkArgs(ruleContext),
+        ImmutableList.<Artifact>of(),
+        DsymOutputType.APP);
 
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
@@ -216,9 +210,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     if (maybeRunfilesSupport.isPresent()) {
       RunfilesSupport runfilesSupport = maybeRunfilesSupport.get();
       targetBuilder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
-    }
-    if (compilationProviders != null) {
-      targetBuilder.addProviders(compilationProviders);
     }
     configureTarget(targetBuilder, ruleContext);
     return targetBuilder.build();

@@ -148,15 +148,18 @@ final class ProtobufSupport {
             .addAdditionalHdrs(
                 getGeneratedProtoOutputs(inputsToOutputsMap.values(), ".pbobjc.h"));
 
-    new CompilationSupport(
+    new LegacyCompilationSupport(
             ruleContext,
             intermediateArtifacts,
             new CompilationAttributes.Builder().build())
         .registerGenerateModuleMapAction(Optional.of(moduleMapCompilationArtifacts.build()));
   }
 
-  /** Registers the actions that will compile the generated code. */
-  public ProtobufSupport registerCompilationActions() {
+  /**
+   * Registers the actions that will compile the generated code.
+   */
+  public ProtobufSupport registerCompilationActions()
+      throws RuleErrorException, InterruptedException {
     int actionId = 0;
     Iterable<PathFragment> userHeaderSearchPaths =
         ImmutableList.of(getWorkspaceRelativeOutputDir());
@@ -170,7 +173,7 @@ final class ProtobufSupport {
 
       ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
 
-      new CompilationSupport(
+      new LegacyCompilationSupport(
               ruleContext, intermediateArtifacts, new CompilationAttributes.Builder().build())
           .registerCompileAndArchiveActions(common, userHeaderSearchPaths);
 

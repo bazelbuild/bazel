@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -121,7 +120,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
 
-      new CompilationSupport(ruleContext, childConfig)
+      new LegacyCompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
           .registerFullyLinkActionWithAvoids(
               common.getObjcProvider(),

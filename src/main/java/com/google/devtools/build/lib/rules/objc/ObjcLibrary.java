@@ -16,57 +16,21 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 /**
  * Implementation for {@code objc_library}.
  */
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
-
-  /**
-   * A {@link CcLinkParamsStore} to be propagated to dependent cc_{library, binary} targets.
-   */
-  private static class ObjcLibraryCcLinkParamsStore extends CcLinkParamsStore {
-
-    private final ObjcCommon common;
-
-    public ObjcLibraryCcLinkParamsStore(ObjcCommon common) {
-      this.common = common;
-    }
-
-    @Override
-    protected void collect(
-        CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-      ObjcProvider objcProvider = common.getObjcProvider();
-
-      ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
-      for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
-        libraries.add(LinkerInputs.opaqueLibraryToLink(
-            library, ArtifactCategory.STATIC_LIBRARY,
-            FileSystemUtils.removeExtension(library.getRootRelativePathString())));
-      }
-
-      libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
-
-      builder.addLibraries(libraries.build());
-    }
-  }
 
   /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
@@ -105,7 +69,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addAll(common.getCompiledArchive().asSet());
 
     CompilationSupport compilationSupport =
-        new CompilationSupport(ruleContext)
+        new LegacyCompilationSupport(ruleContext)
             .registerCompileAndArchiveActions(common)
             .registerFullyLinkAction(common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))

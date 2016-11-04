@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -46,23 +45,15 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     validateAttributes(ruleContext);
 
-    CompilationArtifacts compilationArtifacts =
-        CompilationSupport.compilationArtifacts(ruleContext);
-    CompilationSupport compilationSupport = new CompilationSupport(ruleContext);
-
     ObjcCommon common = common(ruleContext);
 
-    CrosstoolSupport crosstoolSupport = new CrosstoolSupport(ruleContext, common.getObjcProvider());
+    CompilationSupport compilationSupport =
+        new CrosstoolCompilationSupport(ruleContext)
+            .registerCompileAndArchiveActions(common)
+            .registerFullyLinkAction(
+                common.getObjcProvider(),
+                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
 
-    TransitiveInfoProviderMap compilationProviders;
-    if (compilationArtifacts.getArchive().isPresent()) {
-      compilationProviders = crosstoolSupport.registerCompileAndArchiveActions(common);
-    } else {
-      compilationProviders = crosstoolSupport.registerCompileActions(common);
-    }
-    
-    crosstoolSupport.registerFullyLinkAction(common);
-    
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().addAll(common.getCompiledArchive().asSet());
 
@@ -84,7 +75,9 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addProvider(compilationProviders.getProvider(CcLinkParamsProvider.class))
+        .addProvider(
+            CcLinkParamsProvider.class,
+            new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();

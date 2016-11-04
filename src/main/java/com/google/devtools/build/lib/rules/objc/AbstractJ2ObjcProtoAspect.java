@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
@@ -178,11 +179,15 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
           j2ObjcSource.getObjcHdrs(),
           j2ObjcSource.getHeaderSearchPaths(),
           DEPENDENT_ATTRIBUTES);
-
-      new CompilationSupport(ruleContext)
-          .registerCompileAndArchiveActions(common)
-          .registerFullyLinkAction(common.getObjcProvider(),
-              ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+      
+      try {
+        new LegacyCompilationSupport(ruleContext)
+            .registerCompileAndArchiveActions(common)
+            .registerFullyLinkAction(common.getObjcProvider(),
+                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+      } catch (RuleErrorException e) {
+        ruleContext.ruleError(e.getMessage());
+      }
     }
 
     NestedSet<Artifact> j2ObjcTransitiveHeaderMappingFiles = j2ObjcTransitiveHeaderMappingFiles(
