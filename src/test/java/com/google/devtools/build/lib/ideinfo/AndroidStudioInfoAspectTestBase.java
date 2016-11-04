@@ -39,9 +39,6 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.protobuf.TextFormat;
-
-import org.junit.Before;
-
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -52,8 +49,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 /**
  * Provides utils for AndroidStudioInfoAspectTest.
@@ -118,6 +115,10 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
 
   protected static Iterable<String> relativePathsForCSourcesOf(RuleIdeInfo ruleIdeInfo) {
     return relativePathsForSources(ruleIdeInfo.getCRuleIdeInfo().getSourceList());
+  }
+
+  protected static Iterable<String> relativePathsForPySourcesOf(RuleIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getPyRuleIdeInfo().getSourcesList());
   }
 
   private static Iterable<String> relativePathsForSources(List<ArtifactLocation> sourcesList) {

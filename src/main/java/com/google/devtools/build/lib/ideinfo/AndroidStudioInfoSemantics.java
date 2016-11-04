@@ -46,4 +46,6 @@ public interface AndroidStudioInfoSemantics {
       NestedSetBuilder<Artifact> ideResolveArtifacts);
 
   boolean checkForAdditionalCppRules(String ruleClass);
+
+  boolean checkForAdditionalPythonRules(String ruleClass);
 }

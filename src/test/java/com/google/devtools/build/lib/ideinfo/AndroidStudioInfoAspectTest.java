@@ -1624,6 +1624,129 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
+  public void testSimplePyBinary() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "py_binary(",
+        "    name = 'simple',",
+        "    srcs = ['simple/simple.py'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    assertThat(ruleIdeInfos).hasSize(2);
+    RuleIdeInfo ruleIdeInfo =
+        getRuleInfoAndVerifyLabel("//com/google/example:simple", ruleIdeInfos);
+    ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("py_binary");
+    assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(1);
+
+    assertThat(relativePathsForPySourcesOf(ruleIdeInfo))
+        .containsExactly("com/google/example/simple/simple.py");
+
+    assertThat(ruleIdeInfo.hasPyRuleIdeInfo()).isTrue();
+    assertThat(ruleIdeInfo.hasJavaRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasCRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasAndroidRuleIdeInfo()).isFalse();
+
+    assertThat(getIdeResolveFiles()).containsExactly("com/google/example/simple/simple.py");
+  }
+
+  @Test
+  public void testSimplePyLibrary() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "py_library(",
+        "    name = 'simple',",
+        "    srcs = ['simple/simple.py'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    assertThat(ruleIdeInfos).hasSize(1);
+    RuleIdeInfo ruleIdeInfo =
+        getRuleInfoAndVerifyLabel("//com/google/example:simple", ruleIdeInfos);
+    ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("py_library");
+    assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
+
+    assertThat(relativePathsForPySourcesOf(ruleIdeInfo))
+        .containsExactly("com/google/example/simple/simple.py");
+
+    assertThat(ruleIdeInfo.hasPyRuleIdeInfo()).isTrue();
+    assertThat(ruleIdeInfo.hasJavaRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasCRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasAndroidRuleIdeInfo()).isFalse();
+
+    assertThat(getIdeResolveFiles()).containsExactly("com/google/example/simple/simple.py");
+  }
+
+  @Test
+  public void testSimplePyTest() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "py_test(",
+        "    name = 'simple',",
+        "    srcs = ['simple/simple.py'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    assertThat(ruleIdeInfos).hasSize(2);
+    RuleIdeInfo ruleIdeInfo =
+        getRuleInfoAndVerifyLabel("//com/google/example:simple", ruleIdeInfos);
+    ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("py_test");
+    assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(1);
+
+    assertThat(relativePathsForPySourcesOf(ruleIdeInfo))
+        .containsExactly("com/google/example/simple/simple.py");
+
+    assertThat(ruleIdeInfo.hasPyRuleIdeInfo()).isTrue();
+    assertThat(ruleIdeInfo.hasJavaRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasCRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasAndroidRuleIdeInfo()).isFalse();
+
+    assertThat(getIdeResolveFiles()).containsExactly("com/google/example/simple/simple.py");
+  }
+
+  @Test
+  public void testPyTestWithDeps() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "py_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.py'],",
+        ")",
+        "py_test(",
+        "    name = 'test',",
+        "    srcs = ['test.py'],",
+        "    deps = [':lib'],",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:test");
+    assertThat(ruleIdeInfos).hasSize(3);
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel("//com/google/example:test", ruleIdeInfos);
+    ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+    assertThat(Paths.get(location.getRelativePath()).toString())
+        .isEqualTo(Paths.get("com/google/example/BUILD").toString());
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("py_test");
+
+    assertThat(ruleIdeInfo.getDependenciesList()).contains("//com/google/example:lib");
+    assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(2);
+
+    assertThat(relativePathsForPySourcesOf(ruleIdeInfo))
+        .containsExactly("com/google/example/test.py");
+
+    assertThat(ruleIdeInfo.hasPyRuleIdeInfo()).isTrue();
+    assertThat(ruleIdeInfo.hasJavaRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasCRuleIdeInfo()).isFalse();
+    assertThat(ruleIdeInfo.hasAndroidRuleIdeInfo()).isFalse();
+
+    assertThat(getIdeResolveFiles())
+        .containsExactly("com/google/example/test.py", "com/google/example/lib.py");
+  }
+
+  @Test
   public void testAlias() throws Exception {
     scratch.file(
         "com/google/example/BUILD",

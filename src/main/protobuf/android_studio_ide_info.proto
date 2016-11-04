@@ -70,6 +70,10 @@ message AndroidRuleIdeInfo {
   string idl_import_root = 13;
 }
 
+message PyRuleIdeInfo {
+  repeated ArtifactLocation sources = 1;
+}
+
 message CToolchainIdeInfo {
   string target_name = 1;
   repeated string base_compiler_option = 2;
@@ -128,4 +132,6 @@ message RuleIdeInfo {
 
   ProtoLibraryLegacyJavaIdeInfo proto_library_legacy_java_ide_info = 16;
   JavaToolchainIdeInfo java_toolchain_ide_info = 17;
+
+  PyRuleIdeInfo py_rule_ide_info = 18;
 }

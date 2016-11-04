@@ -56,4 +56,10 @@ public class BazelAndroidStudioInfoSemantics implements AndroidStudioInfoSemanti
   public boolean checkForAdditionalCppRules(String ruleClass) {
     return false;
   }
+
+
+  @Override
+  public boolean checkForAdditionalPythonRules(String ruleClass) {
+    return false;
+  }
 }

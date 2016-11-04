@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaToolchainIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.PyRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.TestInfo;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -368,6 +369,11 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
           makeAndroidRuleIdeInfo(androidIdeInfoProvider, dependenciesResult, ideResolveArtifacts));
     }
 
+    // Python rules
+    if (isPythonRule(base)) {
+      outputBuilder.setPyRuleIdeInfo(makePyRuleIdeInfo(base, ruleContext, ideResolveArtifacts));
+    }
+
     // Test rules
     if (TargetUtils.isTestRule(base.getTarget())) {
       TestInfo.Builder builder = TestInfo.newBuilder();
@@ -420,6 +426,19 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         // Fall through
     }
     return androidStudioInfoSemantics.checkForAdditionalCppRules(ruleClass);
+  }
+
+  private boolean isPythonRule(ConfiguredTarget base) {
+    String ruleClass = base.getTarget().getAssociatedRule().getRuleClass();
+    switch (ruleClass) {
+      case "py_library":
+      case "py_binary":
+      case "py_test":
+        return true;
+      default:
+        // Fall through
+    }
+    return androidStudioInfoSemantics.checkForAdditionalPythonRules(ruleClass);
   }
 
   private static Action[] makePackageManifestAction(
@@ -774,6 +793,27 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     List<PathFragment> builtInIncludeDirectories = cppConfiguration.getBuiltInIncludeDirectories();
     for (PathFragment builtInIncludeDirectory : builtInIncludeDirectories) {
       builder.addBuiltInIncludeDirectory(builtInIncludeDirectory.getSafePathString());
+    }
+    return builder.build();
+  }
+
+  private static PyRuleIdeInfo makePyRuleIdeInfo(
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
+    PyRuleIdeInfo.Builder builder = PyRuleIdeInfo.newBuilder();
+
+    Collection<Artifact> sourceFiles = getSources(ruleContext);
+    for (Artifact sourceFile : sourceFiles) {
+      builder.addSources(makeArtifactLocation(sourceFile));
+    }
+
+    // Ensure we add all generated sources to the ide-resolve output group.
+    // See {@link PyCommon#collectTransitivePythonSources}.
+    OutputGroupProvider outputGroupProvider = base.getProvider(OutputGroupProvider.class);
+    if (outputGroupProvider != null) {
+      ideResolveArtifacts.addTransitive(
+          outputGroupProvider.getOutputGroup(OutputGroupProvider.FILES_TO_COMPILE));
     }
     return builder.build();
   }

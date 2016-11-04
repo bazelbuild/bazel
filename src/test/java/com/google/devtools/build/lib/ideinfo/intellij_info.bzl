@@ -195,6 +195,23 @@ def tool_label(label_str):
 
 ##### Builders for individual parts of the aspect output
 
+def build_py_rule_ide_info(target, ctx):
+  """Build PyRuleIdeInfo.
+
+  Returns a tuple of (PyRuleIdeInfo proto, a set of ide-resolve-files).
+  (or (None, empty set) if the rule is not a python rule).
+  """
+  if not hasattr(target, "py"):
+    return (None, set())
+
+  sources = sources_from_rule(ctx)
+  transitive_sources = target.py.transitive_sources
+
+  py_rule_ide_info = struct_omit_none(
+      sources = sources,
+  )
+  return (py_rule_ide_info, transitive_sources)
+
 def build_c_rule_ide_info(target, ctx):
   """Build CRuleIdeInfo.
 
@@ -507,6 +524,10 @@ def _aspect_impl_helper(target, ctx, for_test):
     if for_test:
       intellij_infos.update(dep.intellij_infos)
 
+  # Collect python-specific information
+  (py_rule_ide_info, py_ide_resolve_files) = build_py_rule_ide_info(target, ctx)
+  ide_resolve_files = ide_resolve_files | py_ide_resolve_files
+
   # Collect C-specific information
   (c_rule_ide_info, c_ide_resolve_files) = build_c_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | c_ide_resolve_files
@@ -549,6 +570,7 @@ def _aspect_impl_helper(target, ctx, for_test):
       test_info = test_info,
       proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
+      py_rule_ide_info = py_rule_ide_info,
   )
 
   # Output the ide information file.
