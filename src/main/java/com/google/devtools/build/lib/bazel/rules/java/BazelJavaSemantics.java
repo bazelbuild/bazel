@@ -95,16 +95,27 @@ public class BazelJavaSemantics implements JavaSemantics {
   public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon) {}
 
+  private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
+
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (!ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
       return null;
     }
-    if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
-        && !useLegacyJavaTest(ruleContext)) {
-      return "com.google.testing.junit.runner.BazelTestRunner";
-    }
     String mainClass = ruleContext.attributes().get("main_class", Type.STRING);
+
+    // Legacy behavior for java_test rules: main_class defaulted to JUnit4 runner.
+    // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
+    if (mainClass.isEmpty()
+        && useLegacyJavaTest(ruleContext)
+        && "java_test".equals(ruleContext.getRule().getRuleClass())) {
+      mainClass = JUNIT4_RUNNER;
+    }
+
     if (mainClass.isEmpty()) {
+      if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
+          && !useLegacyJavaTest(ruleContext)) {
+        return "com.google.testing.junit.runner.BazelTestRunner";
+      }
       mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
     }
     return mainClass;

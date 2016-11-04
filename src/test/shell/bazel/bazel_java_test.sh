@@ -108,4 +108,55 @@ EOF
   expect_not_log "error: \[ArrayEquals\] Reference equality used to compare arrays"
 }
 
+function test_java_test_main_class() {
+  mkdir -p java/testrunners || fail "mkdir failed"
+  cat > java/testrunners/TestRunner.java <<EOF
+package testrunners;
+
+import com.google.testing.junit.runner.BazelTestRunner;
+
+public class TestRunner {
+  public static void main(String[] argv) {
+    System.out.println("Custom test runner was run");
+    BazelTestRunner.main(argv);
+  }
+}
+EOF
+
+  cat > java/testrunners/Tests.java <<EOF
+package testrunners;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.junit.Test;
+
+@RunWith(JUnit4.class)
+public class Tests {
+
+  @Test
+  public void testTest() {
+    System.out.println("testTest was run");
+  }
+}
+EOF
+
+  cat > java/testrunners/BUILD <<EOF
+java_library(name = "test_runner",
+             srcs = ['TestRunner.java'],
+             deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
+)
+
+java_test(name = "Tests",
+          srcs = ['Tests.java'],
+          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
+          main_class = "testrunners.TestRunner",
+          runtime_deps = [':test_runner']
+)
+EOF
+  bazel test --test_output=streamed //java/testrunners:Tests &> "$TEST_log"
+  expect_log "Custom test runner was run"
+  expect_log "testTest was run"
+}
+
+
 run_suite "Java integration tests"
