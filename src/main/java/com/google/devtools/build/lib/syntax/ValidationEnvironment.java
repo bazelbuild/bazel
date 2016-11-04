@@ -90,7 +90,10 @@ public final class ValidationEnvironment {
 
   private void checkReadonly(String varname, Location location) throws EvalException {
     if (readOnlyVariables.contains(varname)) {
-      throw new EvalException(location, String.format("Variable %s is read only", varname));
+      throw new EvalException(
+          location,
+          String.format("Variable %s is read only", varname),
+          "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html");
     }
   }
 

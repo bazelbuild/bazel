@@ -463,7 +463,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionModifiesGlobalEnv() throws Exception {
-    new SkylarkTest().update("x", 42).testIfExactError("ERROR 1:1: Variable x is read only",
+    new SkylarkTest().update("x", 42).testIfErrorContains("ERROR 1:1: Variable x is read only",
         "[x + 1 for x in [1,2,3]]");
     new BuildTest().update("x", 42).setUp("y =[x + 1 for x in [1,2,3]]")
         .testExactOrder("y", 2, 3, 4).testLookup("x", 3); // (x is global)

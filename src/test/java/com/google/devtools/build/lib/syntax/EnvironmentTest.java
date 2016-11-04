@@ -301,7 +301,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       env.eval("special_var = 41");
       throw new AssertionError("failed to fail");
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("ERROR 1:1: Variable special_var is read only");
+      assertThat(e.getMessage()).contains("ERROR 1:1: Variable special_var is read only");
     }
 
     try {
