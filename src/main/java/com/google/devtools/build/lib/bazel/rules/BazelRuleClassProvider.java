@@ -146,6 +146,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.rules.objc.ObjcXcodeprojRule;
+import com.google.devtools.build.lib.rules.objc.XcTestAppProvider;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -551,6 +552,8 @@ public class BazelRuleClassProvider {
           builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
           builder.registerSkylarkProvider(
               ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME, ObjcProvider.class);
+          builder.registerSkylarkProvider(
+              XcTestAppProvider.XCTEST_APP_SKYLARK_PROVIDER_NAME, XcTestAppProvider.class);
           builder.addSkylarkAccessibleTopLevels("apple_common", new AppleSkylarkCommon());
 
           builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());
