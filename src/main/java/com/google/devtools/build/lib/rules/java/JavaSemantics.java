@@ -97,6 +97,8 @@ public interface JavaSemantics {
   public static final String JAVA7_JAVACOPTS_KEY = "java7";
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
+  /** The java_toolchain.compatible_javacopts key for proto compilations. */
+  public static final String PROTO_JAVACOPTS_KEY = "proto";
 
   LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
