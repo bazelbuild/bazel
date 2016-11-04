@@ -83,9 +83,17 @@ public class TextFormatFileTransportTest {
 
     transport.close();
     String contents =
-        Joiner.on(System.lineSeparator()).join(Files.readLines(output, StandardCharsets.UTF_8));
-    assertThat(contents).contains(TextFormat.printToString(started));
-    assertThat(contents).contains(TextFormat.printToString(progress));
-    assertThat(contents).contains(TextFormat.printToString(completed));
+        trimLines(
+            Joiner.on(System.lineSeparator())
+                .join(Files.readLines(output, StandardCharsets.UTF_8)));
+
+    assertThat(contents).contains(trimLines(TextFormat.printToString(started)));
+    assertThat(contents).contains(trimLines(TextFormat.printToString(progress)));
+    assertThat(contents).contains(trimLines(TextFormat.printToString(completed)));
+  }
+
+  private static String trimLines(String text) {
+    // Replace CRLF with LF and trim leading and trailing spaces.
+    return text.replaceAll("\\r", "").replaceAll(" *\\n *", "\n");
   }
 }
