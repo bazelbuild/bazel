@@ -238,7 +238,7 @@ public abstract class DependencyResolver {
                 || attribute.isLateBound()) {
               return;
             }
-            depResolver.resolveDep(attribute, label);
+            depResolver.resolveDep(new AttributeAndOwner(attribute), label);
           }
         });
   }
@@ -253,7 +253,8 @@ public abstract class DependencyResolver {
     Label ruleLabel = rule.getLabel();
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
     ImmutableSet<String> mappedAttributes = ImmutableSet.copyOf(attributeMap.getAttributeNames());
-    for (Attribute attribute : depResolver.attributes) {
+    for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
+      Attribute attribute = attributeAndOwner.attribute;
       if (!attribute.isImplicit() || !attribute.getCondition().apply(attributeMap)) {
         continue;
       }
@@ -265,7 +266,7 @@ public abstract class DependencyResolver {
 
         if (label != null) {
           label = ruleLabel.resolveRepositoryRelative(label);
-          depResolver.resolveDep(attribute, label);
+          depResolver.resolveDep(attributeAndOwner, label);
         }
       } else if (attribute.getType() == BuildType.LABEL_LIST) {
         List<Label> labelList;
@@ -278,7 +279,7 @@ public abstract class DependencyResolver {
           labelList = BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
         }
         for (Label label : labelList) {
-          depResolver.resolveDep(attribute, ruleLabel.resolveRepositoryRelative(label));
+          depResolver.resolveDep(attributeAndOwner, ruleLabel.resolveRepositoryRelative(label));
         }
       }
     }
@@ -315,7 +316,8 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig)
       throws EvalException, InvalidConfigurationException, InterruptedException {
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
-    for (Attribute attribute : depResolver.attributes) {
+    for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
+      Attribute attribute = attributeAndOwner.attribute;
       if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
         continue;
       }
@@ -353,7 +355,7 @@ public abstract class DependencyResolver {
             // is because the split already had to be applied to determine the attribute's value.
             // This makes the split logic in the normal pipeline redundant and potentially
             // incorrect.
-            depResolver.resolveDep(attribute, dep, splitConfig);
+            depResolver.resolveDep(attributeAndOwner, dep, splitConfig);
           }
         }
       } else {
@@ -361,7 +363,7 @@ public abstract class DependencyResolver {
         for (Label dep : resolveLateBoundAttribute(depResolver.rule, attribute,
             lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig, attributeMap)) {
           // Process this dep like a normal attribute.
-          depResolver.resolveDep(attribute, dep);
+          depResolver.resolveDep(attributeAndOwner, dep);
         }
       }
     }
@@ -459,7 +461,7 @@ public abstract class DependencyResolver {
     }
     Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
     for (Label label : labels) {
-      depResolver.resolveDep(attribute, label);
+      depResolver.resolveDep(new AttributeAndOwner(attribute), label);
     }
   }
 
@@ -482,7 +484,7 @@ public abstract class DependencyResolver {
     Map<Attribute, Collection<Label>> m = depLabels.asMap();
     for (Map.Entry<Attribute, Collection<Label>> entry : depLabels.asMap().entrySet()) {
       for (Label depLabel : entry.getValue()) {
-        depResolver.resolveDep(entry.getKey(), depLabel);
+        depResolver.resolveDep(new AttributeAndOwner(entry.getKey()), depLabel);
       }
     }
     return outgoingEdges.values();
@@ -512,12 +514,16 @@ public abstract class DependencyResolver {
   }
 
   private static ImmutableSet<AspectDescriptor> requiredAspects(
-      @Nullable Aspect aspect, Attribute attribute, final Target target, Rule originalRule) {
+      @Nullable Aspect aspect,
+      AttributeAndOwner attributeAndOwner,
+      final Target target,
+      Rule originalRule) {
     if (!(target instanceof Rule)) {
       return ImmutableSet.of();
     }
 
-    Iterable<Aspect> aspectCandidates = extractAspectCandidates(aspect, attribute, originalRule);
+    Iterable<Aspect> aspectCandidates =
+        extractAspectCandidates(aspect, attributeAndOwner, originalRule);
     RuleClass ruleClass = ((Rule) target).getRuleClassObject();
     ImmutableSet.Builder<AspectDescriptor> result = ImmutableSet.builder();
     for (Aspect aspectCandidate : aspectCandidates) {
@@ -535,14 +541,15 @@ public abstract class DependencyResolver {
   }
 
   private static Iterable<Aspect> extractAspectCandidates(
-      @Nullable Aspect aspect, Attribute attribute, Rule originalRule) {
+      @Nullable Aspect aspect, AttributeAndOwner attributeAndOwner, Rule originalRule) {
     // The order of this set will be deterministic. This is necessary because this order eventually
     // influences the order in which aspects are merged into the main configured target, which in
     // turn influences which aspect takes precedence if two emit the same provider (maybe this
     // should be an error)
+    Attribute attribute = attributeAndOwner.attribute;
     Set<Aspect> aspectCandidates = new LinkedHashSet<>();
     aspectCandidates.addAll(attribute.getAspects(originalRule));
-    if (aspect != null) {
+    if (aspect != null && !aspect.getAspectClass().equals(attributeAndOwner.ownerAspect)) {
       for (AspectClass aspectClass :
           aspect.getDefinition().getAttributeAspects(attribute)) {
         if (aspectClass.equals(aspect.getAspectClass())) {
@@ -562,6 +569,25 @@ public abstract class DependencyResolver {
   }
 
   /**
+   * Pair of (attribute, owner aspect if attribute is from an aspect).
+   *
+   * <p>For "plain" rule attributes, this wrapper class will have value (attribute, null).
+   */
+  final class AttributeAndOwner {
+    final Attribute attribute;
+    final @Nullable AspectClass ownerAspect;
+
+    AttributeAndOwner(Attribute attribute) {
+      this(attribute, null);
+    }
+
+    AttributeAndOwner(Attribute attribute, @Nullable AspectClass ownerAspect) {
+      this.attribute = attribute;
+      this.ownerAspect = ownerAspect;
+    }
+  }
+
+  /**
    * Supplies the logic for translating <Attribute, Label> pairs for a rule into the
    * <Attribute, Dependency> pairs DependencyResolver ultimately returns.
    *
@@ -576,7 +602,7 @@ public abstract class DependencyResolver {
     private final ConfiguredAttributeMapper attributeMap;
     private final NestedSetBuilder<Label> rootCauses;
     private final OrderedSetMultimap<Attribute, Dependency> outgoingEdges;
-    private final List<Attribute> attributes;
+    private final List<AttributeAndOwner> attributes;
 
     /**
      * Constructs a new dependency resolver for the specified rule context.
@@ -600,36 +626,38 @@ public abstract class DependencyResolver {
       this.attributes = getAttributes(rule, aspect);
     }
 
-    /**
-     * Returns the attributes that should be visited for this rule/aspect combination.
-     */
-    private List<Attribute> getAttributes(Rule rule, @Nullable Aspect aspect) {
+    /** Returns the attributes that should be visited for this rule/aspect combination. */
+    private List<AttributeAndOwner> getAttributes(Rule rule, @Nullable Aspect aspect) {
+      ImmutableList.Builder<AttributeAndOwner> result = ImmutableList.builder();
       List<Attribute> ruleDefs = rule.getRuleClassObject().getAttributes();
-      if (aspect == null) {
-        return ruleDefs;
-      } else {
-        return ImmutableList.<Attribute>builder()
-            .addAll(ruleDefs)
-            .addAll(aspect.getDefinition().getAttributes().values())
-            .build();
+      for (Attribute attribute : ruleDefs) {
+        result.add(new AttributeAndOwner(attribute));
       }
+      if (aspect != null) {
+        for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
+          result.add(new AttributeAndOwner(attribute, aspect.getAspectClass()));
+        }
+      }
+      return result.build();
     }
 
     /**
      * Resolves the given dep for the given attribute, including determining which configurations to
      * apply to it.
      */
-    void resolveDep(Attribute attribute, Label depLabel) throws InterruptedException {
+    void resolveDep(AttributeAndOwner attributeAndOwner, Label depLabel)
+        throws InterruptedException {
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
       }
       BuildConfiguration.TransitionApplier resolver = ruleConfig.getTransitionApplier();
-      ruleConfig.evaluateTransition(rule, attribute, toTarget, resolver);
+      ruleConfig.evaluateTransition(rule, attributeAndOwner.attribute, toTarget, resolver);
       // An <Attribute, Label> pair can resolve to multiple deps because of split transitions.
       for (Dependency dependency :
-          resolver.getDependencies(depLabel, requiredAspects(aspect, attribute, toTarget, rule))) {
-        outgoingEdges.put(attribute, dependency);
+          resolver.getDependencies(
+              depLabel, requiredAspects(aspect, attributeAndOwner, toTarget, rule))) {
+        outgoingEdges.put(attributeAndOwner.attribute, dependency);
       }
     }
 
@@ -640,9 +668,9 @@ public abstract class DependencyResolver {
      * BuildConfiguration#evaluateTransition}). That means attributes passed through here won't obey
      * standard rules on which configurations apply to their deps. This should only be done for
      * special circumstances that really justify the difference. When in doubt, use {@link
-     * #resolveDep(Attribute, Label)}.
+     * #resolveDep(AttributeAndOwner, Label)}.
      */
-    void resolveDep(Attribute attribute, Label depLabel, BuildConfiguration config)
+    void resolveDep(AttributeAndOwner attributeAndOwner, Label depLabel, BuildConfiguration config)
         throws InterruptedException {
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
@@ -655,7 +683,8 @@ public abstract class DependencyResolver {
         applyNullTransition = true;
       }
 
-      ImmutableSet<AspectDescriptor> aspects = requiredAspects(aspect, attribute, toTarget, rule);
+      ImmutableSet<AspectDescriptor> aspects =
+          requiredAspects(aspect, attributeAndOwner, toTarget, rule);
       Dependency dep;
       if (config.useDynamicConfigurations() && !applyNullTransition) {
         // Pass a transition rather than directly feeding the configuration so deps get trimmed.
@@ -665,7 +694,7 @@ public abstract class DependencyResolver {
         dep = Iterables.getOnlyElement(transitionApplier.getDependencies(depLabel, aspects));
       }
 
-      outgoingEdges.put(attribute, dep);
+      outgoingEdges.put(attributeAndOwner.attribute, dep);
     }
   }
 

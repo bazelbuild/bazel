@@ -501,4 +501,48 @@ public class AspectTest extends AnalysisTestCase {
             "rule //a:x");
   }
 
+  /**
+   * Ensures an aspect with attr = '*' doesn't try to propagate to its own implicit attributes.
+   * Doing so leads to a dependency cycle.
+   */
+  @Test
+  public void aspectWithAllAttributesDoesNotPropagateToOwnImplicitAttributes() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.AllAttributesWithToolAspectRule());
+    pkg(
+        "a",
+        "simple(name='tool')",
+        "simple(name='a')",
+        "all_attributes_with_tool_aspect(name='x', foo=[':a'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:x");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("aspect //a:a", "rule //a:x");
+  }
+
+  /**
+   * Makes sure the aspect *will* propagate to its implicit attributes if there is a "regular"
+   * dependency path to it (i.e. not through its own implicit attributes).
+   */
+  @Test
+  public void aspectWithAllAttributesPropagatesToItsToolIfThereIsPath() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.AllAttributesWithToolAspectRule());
+    pkg(
+        "a",
+        "simple(name='tool')",
+        "simple(name='a', foo=[':b'], foo1=':c', txt='some text')",
+        "simple(name='b', foo=[], txt='some text')",
+        "simple(name='c', foo=[':tool'], txt='more text')",
+        "all_attributes_with_tool_aspect(name='x', foo=[':a'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:x");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly(
+            "aspect //a:a", "aspect //a:b", "aspect //a:c", "aspect //a:tool", "rule //a:x");
+  }
 }

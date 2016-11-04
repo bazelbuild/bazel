@@ -1174,6 +1174,57 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         })).contains("file.xa");
   }
 
+  @Test
+  public void aspectsPropagatingToAllAttributes() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   s = set([target.label])",
+        "   if hasattr(ctx.rule.attr, 'runtime_deps'):",
+        "     for i in ctx.rule.attr.runtime_deps:",
+        "       s += i.target_labels",
+        "   return struct(target_labels = s)",
+        "",
+        "MyAspect = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { '_tool' : attr.label(default = Label('//test:tool')) },",
+        "    attr_aspects=['*'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "java_library(",
+        "    name = 'tool',",
+        ")",
+        "java_library(",
+        "     name = 'bar',",
+        "     runtime_deps = [':tool'],",
+        ")",
+        "java_library(",
+        "     name = 'foo',",
+        "     runtime_deps = [':bar'],",
+        ")");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:foo");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    SkylarkProviders skylarkProviders =
+        aspectValue.getConfiguredAspect().getProvider(SkylarkProviders.class);
+    assertThat(skylarkProviders).isNotNull();
+    Object names = skylarkProviders.getValue("target_labels");
+    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(
+            transform(
+                (SkylarkNestedSet) names,
+                new Function<Object, String>() {
+                  @Nullable
+                  @Override
+                  public String apply(Object o) {
+                    assertThat(o).isInstanceOf(Label.class);
+                    return ((Label) o).getName();
+                  }
+                }))
+        .containsExactly("foo", "bar", "tool");
+  }
+
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
     @Override
