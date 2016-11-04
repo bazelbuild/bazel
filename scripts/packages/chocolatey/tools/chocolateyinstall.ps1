@@ -50,7 +50,7 @@ if ($packageParameters)
 }
 Install-ChocolateyPath -PathToInstall "$msys2Path\usr\bin" -PathType "Machine"
 
-$addToMsysPath = ($packageDir -replace 'c:\\','/c/') -replace '\\','/'
+$addToMsysPath = ($packageDir -replace '^([a-zA-Z]):\\(.*)','/$1/$2') -replace '\\','/'
 write-host @"
 bazel installed to $packageDir
 
