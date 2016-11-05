@@ -2,13 +2,14 @@ $ErrorActionPreference = 'Stop'; # stop on all errors
 $packageName = 'bazel'
 
 $toolsDir = Split-Path -parent $MyInvocation.MyCommand.Definition
-$p = ((gc "$toolsDir\params.json") -join "`n") | convertfrom-json
+$json = gc "$toolsDir\params.json"
+$p = (($json) -join "`n") | convertfrom-json
 
 $packageDir = Split-Path -parent $toolsDir
 $binRoot = (Get-ToolsLocation) -replace "\\", "/"
 
 write-host "Read params from json"
-write-host $p
+write-host (convertto-json $p)
 
 Install-ChocolateyZipPackage -PackageName "$packageName" `
   -Url "$($p.package.uri)" `
