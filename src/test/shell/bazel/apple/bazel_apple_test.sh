@@ -222,7 +222,7 @@ function test_swift_import_objc_framework() {
   # Copy the prebuilt framework into app's directory.
   cp -RL "${BAZEL_RUNFILES}/tools/build_defs/apple/test/testdata/BlazeFramework.framework" ios
 
-  cat >ios/main.swift <<EOF
+  cat >ios/app.swift <<EOF
 import UIKit
 
 import BlazeFramework
@@ -248,7 +248,7 @@ objc_binary(name = "bin",
             deps = [":swift_lib"])
 
 swift_library(name = "swift_lib",
-              srcs = ["main.swift"],
+              srcs = ["app.swift"],
               deps = [":dylib"])
 
 objc_framework(name = "dylib",
@@ -750,6 +750,58 @@ EOF
       //ios:bin >$TEST_log 2>&1 || fail "should build"
   expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
   expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
+}
+
+function test_swiftc_script_mode() {
+  rm -rf ios
+  mkdir -p ios
+  touch ios/foo.swift
+
+  cat >ios/top.swift <<EOF
+print() // Top level expression outside of main.swift, should fail.
+EOF
+
+  cat >ios/main.swift <<EOF
+import UIKit
+
+class AppDelegate: UIResponder, UIApplicationDelegate {}
+
+#if swift(>=3)
+UIApplicationMain(
+  CommandLine.argc,
+  UnsafeMutableRawPointer(CommandLine.unsafeArgv)
+    .bindMemory(
+      to: UnsafeMutablePointer<Int8>.self,
+      capacity: Int(CommandLine.argc)),
+  nil,
+  NSStringFromClass(AppDelegate.self)
+)
+#else
+UIApplicationMain(
+  Process.argc, UnsafeMutablePointer<UnsafeMutablePointer<CChar>>(Process.unsafeArgv),
+  nil, NSStringFromClass(AppDelegate)
+)
+#endif
+EOF
+
+cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "main_should_compile_as_script",
+              srcs = ["main.swift", "foo.swift"])
+swift_library(name = "top_should_not_compile_as_script",
+              srcs = ["top.swift"])
+swift_library(name = "single_source_should_compile_as_library",
+              srcs = ["foo.swift"])
+EOF
+
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:single_source_should_compile_as_library \
+      //ios:main_should_compile_as_script >$TEST_log 2>&1 || fail "should build"
+
+  ! bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:top_should_not_compile_as_script >$TEST_log 2>&1 || fail "should not build"
+  expect_log "ios/top.swift:1:1: error: expressions are not allowed at the top level"
 }
 
 run_suite "apple_tests"

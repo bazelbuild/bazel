@@ -116,6 +116,21 @@ def _swift_xcrun_args(ctx):
   return []
 
 
+def _swift_parsing_flags(ctx):
+  """Returns additional parsing flags for swiftc."""
+  srcs = ctx.files.srcs
+
+  # swiftc has two different parsing modes: script and library.
+  # The difference is that in script mode top-level expressions are allowed.
+  # This mode is triggered when the file compiled is called main.swift.
+  # Additionally, script mode is used when there's just one file in the
+  # compilation. we would like to avoid that and therefore force library mode
+  # when there's only one source and it's not called main.
+  if len(srcs) == 1 and srcs[0].basename != "main.swift":
+    return ["-parse-as-library"]
+  return []
+
+
 def _is_valid_swift_module_name(string):
   """Returns True if the string is a valid Swift module name."""
   if not string:
@@ -288,7 +303,6 @@ def _swift_library_impl(ctx):
       module_name,
       "-emit-objc-header-path",
       output_header.path,
-      "-parse-as-library",
       "-target",
       target,
       "-sdk",
@@ -297,11 +311,14 @@ def _swift_library_impl(ctx):
       module_cache_path(ctx),
       "-output-file-map",
       swiftc_output_map_file.path,
-  ] + _swift_compilation_mode_flags(ctx) + _swift_bitcode_flags(ctx)
+  ]
 
   if ctx.configuration.coverage_enabled:
     args.extend(["-profile-generate", "-profile-coverage-mapping"])
 
+  args.extend(_swift_compilation_mode_flags(ctx))
+  args.extend(_swift_bitcode_flags(ctx))
+  args.extend(_swift_parsing_flags(ctx))
   args.extend(srcs_args)
   args.extend(include_args)
   args.extend(framework_args)
