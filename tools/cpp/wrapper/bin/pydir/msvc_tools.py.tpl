@@ -295,18 +295,13 @@ class WindowsRunner(object):
       Error: if path is too long
     """
     abspath = os.path.abspath(path)
-    long_path = abspath.replace('\\', '\\\\')
     # We must allow for the drive letter as well, which is three characters, and
     # the length of any compiler option ahead of the path,
 
-    if len(long_path) + MAX_DRIVE_LENGTH + MAX_OPTION_LENGTH < MAX_PATH:
-      return long_path
-    else:
-      # TODO(pcloudy):
-      # This still doesn't solve all the problems, because the compiler
-      # doesn't seem to support long path.
-      return "\\\\?\\" + long_path
-    return None
+    if len(abspath) + MAX_DRIVE_LENGTH + MAX_OPTION_LENGTH > MAX_PATH:
+      print('Warning: path "' + abspath + '" is > than 260 characters (' +
+            str(len(abspath)) + '); programs may crash with long arguments')
+    return abspath
 
   def SetupEnvironment(self):
     """Setup proper path for running.
