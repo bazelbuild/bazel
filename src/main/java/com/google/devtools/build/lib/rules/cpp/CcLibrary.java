@@ -59,7 +59,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   private static final FileTypeSet NO_OBJECT_GENERATING_FILETYPES = FileTypeSet.of(
       CppFileTypes.CPP_HEADER, CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE,
       CppFileTypes.ALWAYS_LINK_LIBRARY, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
-      CppFileTypes.SHARED_LIBRARY);
+      CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
 
   private static Runfiles collectRunfiles(RuleContext context,
       CcLinkingOutputs ccLinkingOutputs,
